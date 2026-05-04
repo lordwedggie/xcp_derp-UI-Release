@@ -1,0 +1,131 @@
+/**
+ * Path: ./js/fatha/bastas/bastaSignalReceiver.js
+ * ROLE: A dedicated Basta for managing and receiving wireless signals.
+ */
+import { spawnBasta } from "../basta.js";
+import { UI_TYPES } from "../core/masterLayoutTypes.js";
+import { runWirelessHeartbeat } from "../core/masterSignalEngine.js";
+
+export const getSignalReceiverId = () => `basta_signal_receiver_global_unique_id`;
+
+export function showBastaSignalReceiver(host, targetRegion = null, params = {}) {
+    const id = getSignalReceiverId();
+
+    // THE REGISTRY KICK: Force all transmitters to broadcast presence so the list isn't empty on first run
+    if (window.app?.graph?._nodes) {
+        window.app.graph._nodes.forEach(n => {
+            if (n.properties?.isWirelessTransmitter) runWirelessHeartbeat(n);
+        });
+    }
+
+    const config = {
+        host: host,
+        titleLabel: "Signal Receiver",
+        autoSize: true,
+        // THE PINNING OVERRIDE FIX: Detach the dynamic panel from the anchor logic if a custom position was saved
+        targetRegion: (host && host.properties && host.properties[`bastaOffset_${id}`]) ? null : targetRegion,
+        properties: {
+            clickToClose: false,
+            bastaMovalbe: true,
+            bastaSingleton: true,
+            autoWidth: true,
+            snapHeight: false
+        },
+        initialSize: [250, 100],
+
+        layoutMap: (basta, vars) => {
+            const { mW, mH, sW, sH, oY, pW, pH } = vars;
+
+            const globalSignals = window.xcpDerpSignals || {};
+            const filterTypes = params.types?.length > 0 ? params.types : ["ANY"];
+
+            const signalRows = filterTypes.reduce((acc, type, idx) => {
+                const targetType = type.toUpperCase();
+                const items = Object.values(globalSignals)
+                    .filter(sig => {
+                        const callerId = String(basta.hostNode?.id);
+                        const sigIdStr = String(sig.nodeId);
+                        const sigBaseId = sigIdStr.split(":")[0];
+                        const isOwnSignal = sigBaseId === callerId;
+                        const isDownstream = Array.isArray(sig.upstreamIds) && sig.upstreamIds.some(id => String(id) === callerId);
+                        const isPort = sigIdStr.includes(":");
+
+                        const typeMatches = targetType === "ANY" || (sig.type || "unknown").toUpperCase() === targetType;
+                        return typeMatches && !isOwnSignal && !isDownstream && isPort;
+                    })
+                    .sort((a, b) => parseInt(a.nodeId || 0) - parseInt(b.nodeId || 0))
+                    .map(sig => `[${sig.nodeId}] ${sig.nodeName} [${(sig.type || "unknown").toUpperCase()}]`);
+
+                const prevKey = idx === 0 ? "headerSpacer" : `dropdownSignalSelect_${idx - 1}`;
+                const rowAnchor = { target: prevKey, axis: "y", offset: idx === 0 ? 0 : sH };
+
+                acc[`signalLabel_${idx}`] = {
+                    anchor: rowAnchor,
+                    type: UI_TYPES.TEXT,
+                    themeKey: "t_textSystem",
+                    text: `Select ${targetType} Signal:`,
+                    labelAlign: ["left", "middle"],
+                    width: "full", margin: [0, 0, 0, 0]
+                };
+
+                acc[`dropdownSignalSelect_${idx}`] = {
+                    anchor: { target: `signalLabel_${idx}`, axis: "y", offset: sH }, labelAlign: ["left", "middle"],
+                    type: UI_TYPES.DROPDOWN_DERP, canvasShield: true,
+                    themeKey: "dialog, t_textNormal",
+                    width: "full", height: "auto", padding: [pW, pH],
+                    items: items,
+                    value: basta.hostNode?.properties?.multiSignalLabels?.[idx] || (items.length > 0 ? "Select signal..." : `No ${targetType} signals found`),
+                    state: (basta.hostNode?.mode === 4 || basta.hostNode?.mode === 2 || (!items?.length && !basta.hostNode?.properties?.multiSignalIds?.[idx])) ? "DIS" : "OFF",
+                    onChange: (val) => {
+                        if (!items || items.length === 0) return; // THE SAFETY GUARD: Prevent committing fallback text to properties
+                        if (basta.hostNode) {
+                            if (!basta.hostNode.properties.multiSignalLabels) basta.hostNode.properties.multiSignalLabels = {};
+                            if (!basta.hostNode.properties.multiSignalIds) basta.hostNode.properties.multiSignalIds = {};
+
+                            basta.hostNode.properties.multiSignalLabels[idx] = val;
+                            const match = val.match(/\[([\d:]+)\]/);
+                            if (match) basta.hostNode.properties.multiSignalIds[idx] = match[1];
+
+                            if (basta.hostNode.setDerpSelectedSignal) {
+                                basta.hostNode.setDerpSelectedSignal(val, idx);
+                            }
+
+                            if (basta.hostNode.refreshNodeLayoutMap) basta.hostNode.refreshNodeLayoutMap();
+                            if (basta.hostNode.requestDerpSync) basta.hostNode.requestDerpSync();
+                            basta.hostNode._derpAwakeFrames = 5;
+                            basta.requestDerpSync();
+                        }
+                    }
+                };
+                return acc;
+            }, {});
+
+            return {
+                contentRegion: {
+                    anchor: { target: "headerRegion", axis: "y", offset: oY },
+                    dir: "col",
+                    width: "full",
+                    height: "auto",
+                    margin: [mW, 0],
+                    headerSpacer: { height: mH },
+                    ...signalRows
+                },
+
+                footerRegion: {
+                    anchor: { target: "contentRegion", axis: "y", offset: oY },
+                    btnCloseFooter: {
+                        type: UI_TYPES.BUTTON,
+                        themeKey: "buttonNode, t_textSystem",
+                        objectAlign: ["right", "middle"], labelAlign: ["center", "middle"],
+                        text: "Close",
+                        width: "auto",
+                        height: "auto",
+                        onPress: () => basta.close()
+                    }
+                }
+            };
+        }
+    };
+
+    return spawnBasta(id, config);
+}

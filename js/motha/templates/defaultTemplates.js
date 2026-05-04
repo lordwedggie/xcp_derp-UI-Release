@@ -1,188 +1,649 @@
 /**
  * PROJECT: xcpDerpNodes Theme Management System
- * PURPOSE: External storage for default theme templates.
+ * PURPOSE: Factory Templates with Font/FontSize and normalized 0.7 Base Alpha.
  */
 
-/**
- * PROJECT: xcpDerpNodes Theme Management System
- * PURPOSE: External storage for default theme templates.
- * Formatted for vertical alignment and clear index referencing.
- */
 export function defaultTemplates() {
     return {
-        "Template_Standard": {
-            // Key           [  R,   G,   B,   A,  ...Props ]
-            "bg": {         // mostly used to draw backgrounds like the fake background that covers the comfyUI default (which I couldn't figure out how to hide)
-                "_ON":       [  45,  45,  45, 1.0 ],
-                "_OFF":      [  30,  30,  30, 1.0 ],
-                "_DIS": [  20,  20,  20, 1.0 ],
-                "corners":   [   4,   4,   4,   4 ],
-                "_Shadow":   [   0,   0,   0, 0.5,   0,   2,   8, 0.8, 0.5 ], // [R,G,B,A, OX,OY,Blur,OFF,DIS]
-                "_Stroke":   [   0,   0,   0, 0.5,   1,   0, 0.8, 0.5 ]  // [R,G,B,A, Wid,Pla,OFF,DIS]
+        "Template_Standard_v02": {
+            "canvas": {
+                "_ON": [
+                    56,
+                    56,
+                    56,
+                    1
+                ],
+                "_OFF": [
+                    61,
+                    61,
+                    61,
+                    1
+                ],
+                "_DIS": [
+                    15,
+                    15,
+                    15,
+                    1
+                ],
+                "corners": [
+                    4,
+                    4,
+                    4,
+                    4
+                ],
+                "_Shadow": [
+                    0,
+                    0,
+                    0,
+                    0.5,
+                    0,
+                    2,
+                    8
+                ],
+                "_Stroke": [
+                    250,
+                    250,
+                    250,
+                    0.39,
+                    1,
+                    2
+                ],
+                "_Glow": [
+                    255,
+                    255,
+                    255,
+                    1,
+                    0,
+                    0,
+                    20
+                ]
             },
-            "dialog": {     // mostly used to draw backgrounds for text display areas
-                "_ON":       [  45,  45,  45, 1.0 ],
-                "_OFF":      [  30,  30,  30, 1.0 ],
-                "_DIS": [  20,  20,  20, 1.0 ],
-                "corners":   [   4,   4,   4,   4 ],
-                "_Shadow":   [   0,   0,   0, 0.5,   0,   2,   8, 0.8, 0.5 ],
-                "_Stroke":   [   0,   0,   0, 0.5,   1,   0, 0.8, 0.5 ]
-            },
-            "panel": {      // just...panels
-                "_ON":       [  60,  60,  60, 1.0 ],
-                "_OFF":      [  55,  55,  55, 1.0 ],
-                "_DIS": [  40,  40,  40, 1.0 ],
-                "corners":   [   4,   4,   4,   4 ]
-            },
-            "btn": {     // just...buttons
-                "_ON":       [  60,  60,  60, 1.0 ],
-                "_OFF":      [  55,  55,  55, 1.0 ],
-                "_DIS": [  40,  40,  40, 1.0 ],
-                "corners":   [   4,   4,   4,   4 ]
-            },
-            "t_textBig": {     // Primary text, mostly used for titles
-                "_ON":       [ 255, 255, 255, 1.0, 0.7, 0.3 ], // [R,G,B,A, OFF_Mult, DIS_Mult]
-                "_OFF":      [ 180, 180, 180, 1.0 ],
-                "_DIS": [  80,  80,  80, 1.0 ]
-            },
-            "t_textNormal": {    // Normal text
-                "_ON":       [ 255, 255, 255, 1.0, 0.7, 0.3 ],
-                "_OFF":      [ 180, 180, 180, 1.0 ],
-                "_DIS": [  80,  80,  80, 1.0 ]
-            },
-            "t_textSmall": {    // small text, instructions, big content areas and such
-                "_ON": [255, 255, 255, 1.0, 0.7, 0.3],
-                "_OFF": [180, 180, 180, 1.0],
-                "_DIS": [80, 80, 80, 1.0]
-            }
-        },
-       // Gemini's creations
-        "Obsidian_Vapor": {
-            "bg": {
-                "_ON":       [  10,  10,  14, 0.95 ], // Deep void purple-grey
-                "_OFF":      [   8,   8,  10, 0.98 ],
-                "_DIS": [   5,   5,   5, 1.0 ],
-                "corners":   [  12,   0,  12,   0 ], // Aggressive diagonal "cut" look
-                "_Shadow":   [  138,  43, 226, 0.4,   0,   0,  15, 0.6, 0.2 ], // Deep violet outer glow
-                "_Stroke":   [  255,   0, 255, 0.8,   1,   0, 0.8, 0.5 ]  // Electric magenta razor edge
-            },
-            "dialog": {
-                "_ON":       [   0,   0,   0, 0.4 ], // Sunken "glass" effect
-                "_OFF":      [   0,   0,   0, 0.6 ],
-                "_DIS": [   0,   0,   0, 0.8 ],
-                "corners":   [   2,   2,   2,   2 ],
-                "_Stroke":   [   0, 255, 255, 0.5,   1,   1, 0.8, 0.5 ] // Cyan internal "circuit" line
-            },
-            "panel": {
-                "_ON":       [  30,  30,  40, 0.6 ], // Frosted midnight panel
-                "_OFF":      [  25,  25,  35, 0.7 ],
-                "_DIS": [  15,  15,  20, 0.8 ],
-                "corners":   [   0,   8,   0,   8 ], // Inverse corners to the bg
-                "_Shadow":   [   0, 255, 255, 0.2,   0,   0,   5, 0.8, 0.5 ] // Subtle cyan hum
-            },
-            "btn": {
-                "_ON":       [ 255,   0, 255, 0.9 ], // Hot Pink "Active" state
-                "_OFF":      [  40,  40,  50, 1.0 ],
-                "_DIS": [  20,  20,  25, 1.0 ],
-                "corners":   [   4,   4,   4,   4 ],
-                "_Shadow":   [ 255,   0, 255, 0.5,   0,   0,   8, 0.8, 0.5 ]
-            },
-            "t_textBig": {
-                "_ON":       [   0, 255, 255, 1.0, 0.8, 0.3 ], // Neon Cyan Title
-                "_OFF":      [   0, 200, 200, 1.0 ],
-                "_DIS": [   0,  80,  80, 1.0 ]
-            },
-            "t_textNormal": {
-                "_ON":       [ 255, 255, 255, 1.0, 0.9, 0.5 ], // Pure white focus
-                "_OFF":      [ 180, 180, 200, 1.0 ],
-                "_DIS": [  80,  80, 100, 1.0 ]
-            },
-            "t_textSmall": {
-                "_ON":       [ 255,   0, 255, 1.0, 0.8, 0.4 ], // Magenta accents
-                "_OFF":      [ 150,   0, 150, 1.0 ],
-                "_DIS": [  60,   0,  60, 1.0 ]
-            }
-        },
-        // another gemini thing
-        "Deep_Evergreen": {
-            "bg": {
-                "_ON":       [  34,  44,  34, 1.0 ], // Deep Moss Green
-                "_OFF":      [  28,  34,  28, 1.0 ],
-                "_DIS": [  20,  25,  20, 1.0 ],
-                "corners":   [  10,  10,  10,  10 ], // Organic, rounded feel
-                "_Shadow":   [  10,  20,  10, 0.4,   0,   4,  10, 0.8, 0.5 ], // Earthy dark shadow
-                "_Stroke":   [  85, 107,  47, 0.5,   1,   0, 0.8, 0.5 ]  // Olive Drab subtle border
+            "background": {
+                "_ON": [
+                    15,
+                    15,
+                    15,
+                    1
+                ],
+                "_OFF": [
+                    15,
+                    15,
+                    15,
+                    0.8
+                ],
+                "_DIS": [
+                    15,
+                    15,
+                    15,
+                    0.1
+                ],
+                "corners": [
+                    4,
+                    4,
+                    4,
+                    4
+                ],
+                "_Shadow": [
+                    0,
+                    0,
+                    0,
+                    0.5,
+                    0,
+                    2,
+                    8
+                ],
+                "_Stroke": [
+                    0,
+                    0,
+                    0,
+                    0.5,
+                    1,
+                    0
+                ]
             },
             "dialog": {
-                "_ON":       [  20,  26,  20, 0.8 ], // Recessed forest floor
-                "_OFF":      [  15,  20,  15, 0.9 ],
-                "_DIS": [  10,  12,  10, 1.0 ],
-                "corners":   [   4,   4,   4,   4 ],
-                "_Stroke":   [  60,  80,  60, 0.3,   1,   1, 0.8, 0.5 ] // Soft lichen-green inset
+                "_ON": [
+                    0,
+                    0,
+                    0,
+                    1
+                ],
+                "_OFF": [
+                    0,
+                    0,
+                    0,
+                    0.31
+                ],
+                "_DIS": [
+                    0,
+                    0,
+                    0,
+                    0.1
+                ],
+                "corners": [
+                    2,
+                    2,
+                    2,
+                    2
+                ]
             },
             "panel": {
-                "_ON":       [  60,  50,  40, 0.9 ], // Warm Cedar/Bark wood tone
-                "_OFF":      [  50,  42,  34, 0.9 ],
-                "_DIS": [  35,  30,  25, 1.0 ],
-                "corners":   [   6,   6,   6,   6 ],
-                "_Shadow":   [   0,   0,   0, 0.2,   0,   2,   4, 0.8, 0.5 ]
+                "_ON": [
+                    31,
+                    31,
+                    31,
+                    1
+                ],
+                "_OFF": [
+                    41,
+                    41,
+                    41,
+                    0.8
+                ],
+                "_DIS": [
+                    40,
+                    40,
+                    40,
+                    0.1
+                ],
+                "corners": [
+                    2,
+                    2,
+                    2,
+                    2
+                ]
             },
-            "btn": {
-                "_ON":       [ 144, 238, 144, 0.9 ], // Bright "Spring Bud" green for interaction
-                "_OFF":      [  85, 107,  47, 1.0 ], // Muted olive button
-                "_DIS": [  40,  50,  40, 1.0 ],
-                "corners":   [  20,  20,  20,  20 ], // Very rounded, "pebble" like buttons
-                "_Shadow":   [  70,  90,  70, 0.4,   0,   1,   4, 0.8, 0.5 ]
+            "button": {
+                "_ON": [
+                    55,
+                    55,
+                    55,
+                    1
+                ],
+                "_OFF": [
+                    35,
+                    35,
+                    35,
+                    0.8
+                ],
+                "_DIS": [
+                    35,
+                    35,
+                    35,
+                    0.3
+                ],
+                "corners": [
+                    2,
+                    2,
+                    2,
+                    2
+                ]
+            },
+            "systemBackground": {
+                "_ON": [
+                    63,
+                    36,
+                    36,
+                    0.6
+                ],
+                "_OFF": [
+                    26,
+                    26,
+                    26,
+                    0.8
+                ],
+                "_DIS": [
+                    63,
+                    36,
+                    36,
+                    0.6
+                ],
+                "corners": [
+                    4,
+                    4,
+                    4,
+                    4
+                ],
+                "_Shadow": [
+                    0,
+                    0,
+                    0,
+                    0.5,
+                    0,
+                    4,
+                    16
+                ],
+                "_Stroke": [
+                    0,
+                    0,
+                    0,
+                    1,
+                    1,
+                    2
+                ],
+                "_Shadow_OFF": [
+                    0,
+                    0,
+                    0,
+                    0.29,
+                    0,
+                    4,
+                    16
+                ],
+                "_Shadow_DIS": [
+                    0,
+                    0,
+                    0,
+                    0.5,
+                    0,
+                    4,
+                    16
+                ],
+                "_Stroke_OFF": [
+                    0,
+                    0,
+                    0,
+                    1,
+                    1,
+                    2
+                ],
+                "_Stroke_DIS": [
+                    0,
+                    0,
+                    0,
+                    1,
+                    1,
+                    2
+                ]
+            },
+            "systemButton": {
+                "_ON": [
+                    69,
+                    69,
+                    69,
+                    1
+                ],
+                "_OFF": [
+                    35,
+                    35,
+                    35,
+                    0.8
+                ],
+                "_DIS": [
+                    35,
+                    35,
+                    35,
+                    0.3
+                ],
+                "corners": [
+                    2,
+                    2,
+                    2,
+                    2
+                ],
+                "_Shadow": [
+                    0,
+                    0,
+                    0,
+                    0.1,
+                    0,
+                    8,
+                    16
+                ],
+                "_Stroke": [
+                    199,
+                    199,
+                    199,
+                    0.4,
+                    0.5,
+                    0
+                ]
             },
             "t_textBig": {
-                "_ON":       [ 245, 255, 235, 1.0, 0.8, 0.4 ], // Soft "Morning Light" cream
-                "_OFF":      [ 180, 190, 170, 1.0 ],
-                "_DIS": [  90, 100,  90, 1.0 ]
+                "font": "DengXian",
+                "fontSize": 14,
+                "_ON": [
+                    255,
+                    255,
+                    255,
+                    1
+                ],
+                "_OFF": [
+                    180,
+                    180,
+                    180,
+                    0.8
+                ],
+                "_DIS": [
+                    80,
+                    80,
+                    80,
+                    0.1
+                ]
             },
             "t_textNormal": {
-                "_ON":       [ 220, 230, 210, 1.0, 0.8, 0.4 ],
-                "_OFF":      [ 150, 160, 140, 1.0 ],
-                "_DIS": [  70,  80,  70, 1.0 ]
+                "font": "DengXian",
+                "fontSize": 14,
+                "_ON": [
+                    255,
+                    255,
+                    255,
+                    1
+                ],
+                "_OFF": [
+                    180,
+                    180,
+                    180,
+                    0.8
+                ],
+                "_DIS": [
+                    180,
+                    180,
+                    180,
+                    0.4
+                ]
             },
             "t_textSmall": {
-                "_ON":       [ 255, 215,   0, 0.8, 0.7, 0.3 ], // "Sunlight" Gold accents
-                "_OFF":      [ 180, 150,   0, 0.8 ],
-                "_DIS": [  80,  70,   0, 1.0 ]
-            }
+                "font": "Arial",
+                "fontSize": 10,
+                "_ON": [
+                    255,
+                    255,
+                    255,
+                    1
+                ],
+                "_OFF": [
+                    180,
+                    180,
+                    180,
+                    0.45
+                ],
+                "_DIS": [
+                    80,
+                    80,
+                    80,
+                    0.7
+                ],
+                "_Shadow": [
+                    0,
+                    0,
+                    0,
+                    1,
+                    0,
+                    0,
+                    2
+                ]
+            },
+            "t_textSystem": {
+                "font": "DengXian",
+                "fontSize": 10,
+                "_ON": [
+                    255,
+                    255,
+                    255,
+                    1
+                ],
+                "_OFF": [
+                    180,
+                    180,
+                    180,
+                    0.8
+                ],
+                "_DIS": [
+                    255,
+                    255,
+                    255,
+                    0.2
+                ]
+            },
+            "_category": "Templates"
+        },
+
+        "Cyber_Toxic": {
+            "canvas": {
+                // Opaque canvas colors as requested
+                "_ON": [0, 255, 100, 1], "_OFF": [0, 80, 30, 1], "_DIS": [0, 20, 10, 0.9],
+                "corners": [4, 4, 4, 4],
+                "_Shadow": [0, 0, 0, 0.8, 0, 4, 12],
+                "_Stroke": [0, 255, 100, 0.4, 1, 2],
+                "_Glow": [0, 255, 100, 1, 0, 0, 25]
+            },
+            "background": {
+                "_ON": [5, 5, 5, 1], "_OFF": [5, 5, 5, 0.85], "_DIS": [2, 2, 2, 0.2],
+                "corners": [4, 4, 4, 4],
+                "_Shadow": [0, 0, 0, 0.5, 0, 2, 8],
+                "_Stroke": [0, 255, 100, 0.2, 1, 0]
+            },
+            "dialog": {
+                "_ON": [10, 30, 15, 1], "_OFF": [5, 15, 10, 0.4], "_DIS": [2, 5, 3, 0.1],
+                "corners": [2, 2, 2, 2]
+            },
+            "panel": {
+                "_ON": [15, 25, 20, 1], "_OFF": [10, 20, 15, 0.8], "_DIS": [5, 10, 8, 0.1],
+                "corners": [2, 2, 2, 2]
+            },
+            "button": {
+                "_ON": [0, 255, 100, 1], "_OFF": [0, 80, 30, 0.8], "_DIS": [0, 40, 15, 0.3],
+                "corners": [2, 2, 2, 2]
+            },
+            "systemBackground": {
+                "_ON": [0, 40, 15, 0.7], "_OFF": [0, 20, 10, 0.8], "_DIS": [0, 10, 5, 0.6],
+                "corners": [4, 4, 4, 4],
+                "_Shadow": [0, 0, 0, 0.6, 0, 4, 16], "_Shadow_OFF": [0, 0, 0, 0.3, 0, 4, 16], "_Shadow_DIS": [0, 0, 0, 0.1, 0, 4, 16],
+                "_Stroke": [0, 255, 100, 0.8, 1, 2], "_Stroke_OFF": [0, 100, 40, 0.5, 1, 2], "_Stroke_DIS": [0, 50, 20, 0.2, 1, 2]
+            },
+            "systemButton": {
+                "_ON": [0, 255, 100, 1], "_OFF": [0, 60, 25, 0.8], "_DIS": [0, 30, 10, 0.3],
+                "corners": [2, 2, 2, 2],
+                "_Shadow": [0, 0, 0, 0.1, 0, 4, 8],
+                "_Stroke": [200, 255, 200, 0.4, 0.5, 0]
+            },
+            "t_textBig":    { "font": "DengXian", "fontSize": 14, "_ON": [255, 255, 255, 1], "_OFF": [0, 255, 100, 0.8], "_DIS": [0, 100, 40, 0.2] },
+            "t_textNormal": { "font": "DengXian", "fontSize": 14, "_ON": [0, 255, 100, 1], "_OFF": [180, 255, 220, 0.8], "_DIS": [80, 120, 100, 0.4] },
+            "t_textSmall":  { "font": "Arial", "fontSize": 10, "_ON": [255, 255, 255, 1], "_OFF": [0, 255, 100, 0.45], "_DIS": [0, 100, 40, 0.7], "_Shadow": [0, 0, 0, 1, 0, 0, 2] },
+            "t_textSystem": { "font": "DengXian", "fontSize": 10, "_ON": [0, 255, 100, 1], "_OFF": [100, 200, 150, 0.8], "_DIS": [0, 80, 40, 0.2] },
+            "_category": "Templates"
+        },
+
+        "Amber_Warning": {
+            "canvas": {
+                "_ON": [255, 160, 0, 1], "_OFF": [120, 75, 0, 1], "_DIS": [50, 30, 0, 0.9],
+                "corners": [4, 4, 4, 4],
+                "_Shadow": [0, 0, 0, 0.8, 0, 4, 12],
+                "_Stroke": [255, 160, 0, 0.4, 1, 2],
+                "_Glow": [255, 140, 0, 1, 0, 0, 20]
+            },
+            "background": {
+                "_ON": [20, 15, 5, 1], "_OFF": [15, 10, 0, 0.85], "_DIS": [5, 3, 0, 0.2],
+                "corners": [4, 4, 4, 4],
+                "_Shadow": [0, 0, 0, 0.5, 0, 2, 8],
+                "_Stroke": [255, 160, 0, 0.2, 1, 0]
+            },
+            "dialog": {
+                "_ON": [0, 0, 0, 1], "_OFF": [0, 0, 0, 0.31], "_DIS": [0, 0, 0, 0.1],
+                "corners": [2, 2, 2, 2]
+            },
+            "panel": {
+                "_ON": [45, 35, 25, 1], "_OFF": [35, 25, 15, 0.8], "_DIS": [15, 10, 5, 0.1],
+                "corners": [2, 2, 2, 2]
+            },
+            "button": {
+                "_ON": [255, 160, 0, 1], "_OFF": [60, 40, 0, 0.8], "_DIS": [30, 20, 0, 0.3],
+                "corners": [2, 2, 2, 2]
+            },
+            "systemBackground": {
+                "_ON": [80, 50, 0, 0.6], "_OFF": [30, 20, 0, 0.8], "_DIS": [20, 10, 0, 0.6],
+                "corners": [4, 4, 4, 4],
+                "_Shadow": [0, 0, 0, 0.6, 0, 4, 16], "_Shadow_OFF": [0, 0, 0, 0.3, 0, 4, 16], "_Shadow_DIS": [0, 0, 0, 0.1, 0, 4, 16],
+                "_Stroke": [255, 160, 0, 0.8, 1, 2], "_Stroke_OFF": [150, 90, 0, 0.5, 1, 2], "_Stroke_DIS": [80, 45, 0, 0.2, 1, 2]
+            },
+            "systemButton": {
+                "_ON": [255, 190, 50, 1], "_OFF": [50, 40, 10, 0.8], "_DIS": [25, 20, 5, 0.3],
+                "corners": [2, 2, 2, 2],
+                "_Shadow": [0, 0, 0, 0.1, 0, 8, 16],
+                "_Stroke": [255, 220, 150, 0.4, 0.5, 0]
+            },
+            "t_textBig":    { "font": "DengXian", "fontSize": 14, "_ON": [255, 220, 150, 1], "_OFF": [200, 160, 100, 0.8], "_DIS": [80, 60, 40, 0.1] },
+            "t_textNormal": { "font": "DengXian", "fontSize": 14, "_ON": [255, 160, 0, 1], "_OFF": [180, 120, 50, 0.8], "_DIS": [100, 70, 30, 0.4] },
+            "t_textSmall":  { "font": "Arial", "fontSize": 10, "_ON": [255, 255, 255, 1], "_OFF": [255, 160, 0, 0.5], "_DIS": [120, 80, 0, 0.7], "_Shadow": [0, 0, 0, 1, 0, 0, 2] },
+            "t_textSystem": { "font": "DengXian", "fontSize": 10, "_ON": [255, 160, 0, 1], "_OFF": [150, 100, 40, 0.8], "_DIS": [80, 50, 20, 0.2] },
+            "_category": "Templates"
+        },
+
+        "Arctic_Ice": {
+            "canvas": {
+                "_ON": [100, 220, 255, 1], "_OFF": [60, 130, 180, 1], "_DIS": [20, 50, 70, 0.9],
+                "corners": [4, 4, 4, 4],
+                "_Shadow": [0, 0, 50, 0.4, 0, 4, 12],
+                "_Stroke": [255, 255, 255, 0.6, 1, 2],
+                "_Glow": [180, 240, 255, 1, 0, 0, 30]
+            },
+            "background": {
+                "_ON": [240, 248, 255, 1], "_OFF": [200, 215, 230, 0.85], "_DIS": [150, 160, 170, 0.2],
+                "corners": [4, 4, 4, 4],
+                "_Shadow": [0, 0, 0, 0.2, 0, 2, 8],
+                "_Stroke": [100, 200, 255, 0.4, 1, 0]
+            },
+            "dialog": {
+                "_ON": [255, 255, 255, 1], "_OFF": [255, 255, 255, 0.5], "_DIS": [200, 200, 200, 0.1],
+                "corners": [2, 2, 2, 2]
+            },
+            "panel": {
+                "_ON": [230, 240, 250, 1], "_OFF": [210, 220, 230, 0.8], "_DIS": [180, 190, 200, 0.1],
+                "corners": [2, 2, 2, 2]
+            },
+            "button": {
+                "_ON": [0, 170, 255, 1], "_OFF": [100, 180, 220, 0.8], "_DIS": [150, 160, 170, 0.3],
+                "corners": [2, 2, 2, 2]
+            },
+            "systemBackground": {
+                "_ON": [0, 100, 200, 0.6], "_OFF": [100, 140, 180, 0.8], "_DIS": [150, 160, 170, 0.6],
+                "corners": [4, 4, 4, 4],
+                "_Shadow": [0, 20, 60, 0.3, 0, 4, 16], "_Shadow_OFF": [0, 10, 30, 0.2, 0, 4, 16], "_Shadow_DIS": [0, 0, 10, 0.1, 0, 4, 16],
+                "_Stroke": [255, 255, 255, 0.9, 1, 2], "_Stroke_OFF": [200, 230, 255, 0.5, 1, 2], "_Stroke_DIS": [150, 180, 200, 0.2, 1, 2]
+            },
+            "systemButton": {
+                "_ON": [255, 255, 255, 1], "_OFF": [180, 220, 255, 0.8], "_DIS": [150, 160, 170, 0.3],
+                "corners": [2, 2, 2, 2],
+                "_Shadow": [0, 0, 20, 0.2, 0, 8, 16],
+                "_Stroke": [100, 180, 255, 0.4, 0.5, 0]
+            },
+            "t_textBig":    { "font": "DengXian", "fontSize": 14, "_ON": [0, 100, 180, 1], "_OFF": [60, 100, 140, 0.8], "_DIS": [120, 130, 140, 0.1] },
+            "t_textNormal": { "font": "DengXian", "fontSize": 14, "_ON": [0, 80, 150, 1], "_OFF": [80, 120, 160, 0.8], "_DIS": [140, 150, 160, 0.4] },
+            "t_textSmall":  { "font": "Arial", "fontSize": 10, "_ON": [0, 170, 255, 1], "_OFF": [100, 140, 180, 0.45], "_DIS": [160, 170, 180, 0.7], "_Shadow": [255, 255, 255, 0.5, 0, 0, 2] },
+            "t_textSystem": { "font": "DengXian", "fontSize": 10, "_ON": [0, 100, 200, 1], "_OFF": [100, 130, 160, 0.8], "_DIS": [150, 160, 170, 0.2] },
+            "_category": "Templates"
+        },
+
+        "Royal_Plum": {
+            "canvas": {
+                "_ON": [210, 100, 255, 1], "_OFF": [110, 50, 130, 1], "_DIS": [50, 20, 60, 0.9],
+                "corners": [4, 4, 4, 4],
+                "_Shadow": [0, 0, 0, 0.5, 0, 4, 12],
+                "_Stroke": [210, 100, 255, 0.4, 1, 2],
+                "_Glow": [255, 200, 255, 0.8, 0, 0, 20]
+            },
+            "background": {
+                "_ON": [25, 15, 30, 1], "_OFF": [20, 10, 25, 0.85], "_DIS": [10, 5, 15, 0.2],
+                "corners": [4, 4, 4, 4],
+                "_Shadow": [0, 0, 0, 0.5, 0, 2, 8],
+                "_Stroke": [210, 100, 255, 0.2, 1, 0]
+            },
+            "dialog": {
+                "_ON": [0, 0, 0, 1], "_OFF": [0, 0, 0, 0.31], "_DIS": [0, 0, 0, 0.1],
+                "corners": [2, 2, 2, 2]
+            },
+            "panel": {
+                "_ON": [60, 30, 70, 1], "_OFF": [45, 20, 55, 0.8], "_DIS": [20, 10, 25, 0.1],
+                "corners": [2, 2, 2, 2]
+            },
+            "button": {
+                "_ON": [210, 100, 255, 1], "_OFF": [100, 40, 120, 0.8], "_DIS": [50, 20, 60, 0.3],
+                "corners": [2, 2, 2, 2]
+            },
+            "systemBackground": {
+                "_ON": [100, 50, 110, 0.6], "_OFF": [40, 20, 50, 0.8], "_DIS": [30, 10, 40, 0.6],
+                "corners": [4, 4, 4, 4],
+                "_Shadow": [0, 0, 0, 0.6, 0, 4, 16], "_Shadow_OFF": [0, 0, 0, 0.3, 0, 4, 16], "_Shadow_DIS": [0, 0, 0, 0.1, 0, 4, 16],
+                "_Stroke": [210, 100, 255, 0.8, 1, 2], "_Stroke_OFF": [150, 70, 180, 0.5, 1, 2], "_Stroke_DIS": [80, 30, 100, 0.2, 1, 2]
+            },
+            "systemButton": {
+                "_ON": [230, 150, 255, 1], "_OFF": [80, 50, 90, 0.8], "_DIS": [40, 25, 45, 0.3],
+                "corners": [2, 2, 2, 2],
+                "_Shadow": [0, 0, 0, 0.1, 0, 8, 16],
+                "_Stroke": [240, 200, 255, 0.4, 0.5, 0]
+            },
+            "t_textBig":    { "font": "DengXian", "fontSize": 14, "_ON": [255, 230, 255, 1], "_OFF": [200, 170, 200, 0.8], "_DIS": [100, 80, 100, 0.1] },
+            "t_textNormal": { "font": "DengXian", "fontSize": 14, "_ON": [210, 100, 255, 1], "_OFF": [180, 140, 180, 0.8], "_DIS": [120, 100, 120, 0.4] },
+            "t_textSmall":  { "font": "Arial", "fontSize": 10, "_ON": [255, 255, 255, 1], "_OFF": [210, 100, 255, 0.45], "_DIS": [120, 60, 140, 0.7], "_Shadow": [0, 0, 0, 1, 0, 0, 2] },
+            "t_textSystem": { "font": "DengXian", "fontSize": 10, "_ON": [210, 100, 255, 1], "_OFF": [160, 120, 170, 0.8], "_DIS": [100, 70, 110, 0.2] },
+            "_category": "Templates"
+        },
+
+        "Monolith_Noir": {
+            "canvas": {
+                "_ON": [255, 255, 255, 1], "_OFF": [160, 160, 160, 1], "_DIS": [60, 60, 60, 0.9],
+                "corners": [4, 4, 4, 4],
+                "_Shadow": [0, 0, 0, 0.9, 0, 4, 16],
+                "_Stroke": [255, 255, 255, 0.8, 1, 2],
+                "_Glow": [255, 255, 255, 0.3, 0, 0, 10]
+            },
+            "background": {
+                "_ON": [15, 15, 15, 1], "_OFF": [10, 10, 10, 0.85], "_DIS": [5, 5, 5, 0.2],
+                "corners": [0, 0, 0, 0],
+                "_Shadow": [0, 0, 0, 0.5, 0, 2, 8],
+                "_Stroke": [255, 255, 255, 0.1, 1, 0]
+            },
+            "dialog": {
+                "_ON": [0, 0, 0, 1], "_OFF": [0, 0, 0, 0.6], "_DIS": [0, 0, 0, 0.2],
+                "corners": [0, 0, 0, 0]
+            },
+            "panel": {
+                "_ON": [40, 40, 40, 1], "_OFF": [30, 30, 30, 0.8], "_DIS": [10, 10, 10, 0.1],
+                "corners": [0, 0, 0, 0]
+            },
+            "button": {
+                "_ON": [255, 255, 255, 1], "_OFF": [60, 60, 60, 0.8], "_DIS": [30, 30, 30, 0.3],
+                "corners": [0, 0, 0, 0]
+            },
+            "systemBackground": {
+                "_ON": [20, 20, 20, 0.9], "_OFF": [10, 10, 10, 0.8], "_DIS": [5, 5, 5, 0.6],
+                "corners": [0, 0, 0, 0],
+                "_Shadow": [0, 0, 0, 0.8, 0, 4, 20], "_Shadow_OFF": [0, 0, 0, 0.4, 0, 4, 20], "_Shadow_DIS": [0, 0, 0, 0.2, 0, 4, 20],
+                "_Stroke": [255, 255, 255, 1, 2, 0], "_Stroke_OFF": [150, 150, 150, 0.5, 1, 0], "_Stroke_DIS": [80, 80, 80, 0.2, 1, 0]
+            },
+            "systemButton": {
+                "_ON": [255, 255, 255, 1], "_OFF": [40, 40, 40, 0.8], "_DIS": [20, 20, 20, 0.3],
+                "corners": [0, 0, 0, 0],
+                "_Shadow": [0, 0, 0, 0.1, 0, 8, 16],
+                "_Stroke": [255, 255, 255, 0.3, 0.5, 0]
+            },
+            "t_textBig":    { "font": "DengXian", "fontSize": 14, "_ON": [255, 255, 255, 1], "_OFF": [200, 200, 200, 0.8], "_DIS": [100, 100, 100, 0.1] },
+            "t_textNormal": { "font": "DengXian", "fontSize": 14, "_ON": [255, 255, 255, 1], "_OFF": [180, 180, 180, 0.8], "_DIS": [120, 120, 120, 0.4] },
+            "t_textSmall":  { "font": "Arial", "fontSize": 10, "_ON": [255, 255, 255, 1], "_OFF": [150, 150, 150, 0.45], "_DIS": [100, 100, 100, 0.7], "_Shadow": [0, 0, 0, 1, 0, 0, 2] },
+            "t_textSystem": { "font": "DengXian", "fontSize": 10, "_ON": [255, 255, 255, 1], "_OFF": [180, 180, 180, 0.8], "_DIS": [100, 100, 100, 0.2] },
+            "_category": "Templates"
         }
-    };
+    }
 }
 
-/**
- * System Default Values
- * Stores internal constants used for generating new subsystems and initial states.
- */
 export function ThemeDefaults() {
     return {
         "SubsystemArrays": {
-            // [R, G, B, A, OffsetX, OffsetY, Blur, OFF_Multiplier, DISABLED_Multiplier]
             "_Shadow": [0, 0, 0, 0.5, 0, 2, 8, 0.8, 0.5],
-            // [R, G, B, A, OffsetX, OffsetY, Blur, OFF_Multiplier, DISABLED_Multiplier]
             "_Glow": [0, 0, 0, 0.5, 0, 2, 8, 0.8, 0.5],
-            // [R, G, B, A, Width, Placement, OFF_Multiplier, DISABLED_Multiplier]
             "_Stroke": [0, 0, 0, 0.5, 1, 0, 0.8, 0.5]
         },
         "InitializationMultipliers": {
             "OFF": 0.7,
-            "DISABLED": 0.3
+            "DIS": 0.3
         },
         "NodeDefaults": {
             "nodeCorner": 6,
             "fontSize": 10,
-            "fontMain": "Dengxian",
-            "fontSec": "Dengxian Light",
-            "bgColor": "036, 036, 036, 1.00",
-            "shadowAlpha_OFF": 0.5,
-            "shadowAlpha_DIS": 0.1
-        },
-        "TextLabelMultipliers": {
-            "OFF": 0.7,
-            "DISABLED": 0.3
+            "fontMain": "DengXian",
+            "fontSec": "DengXian Light",
+            "bgColor": "036, 036, 036, 1.00"
         }
     };
 }

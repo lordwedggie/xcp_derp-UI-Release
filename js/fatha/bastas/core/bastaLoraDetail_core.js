@@ -1,0 +1,893 @@
+/**
+ * Path: ./js/fatha/bastas/bastaLoraDetail_core.js
+ * ROLE: Core logic and instantiation handling for LoRA Detail panel.
+ */
+import { app } from "../../../../../scripts/app.js";
+import { spawnBasta } from "../../basta.js";
+import { animateAlpha, colorPulse2 } from "../../../herbina/masterAnimator.js";
+
+const IMAGE_NAV_ALPHA_SPEED = 0.15;
+import { showBastaMessage } from "../bastaMessage.js";
+import { showBastaFileHandler } from "../bastaFileHandler.js";
+import { resolvePaintData, measureTextHeight } from "../../../herbina/utils/widgetsUtils.js";
+import { initLoraImageHandlers, calculatePreviewAspectRatio, refreshLoraImageList } from "../../../controldeck/helpers/loraImages.js";
+
+export const getLoraDetailId = () => `basta_lora_detail_global_unique_id`;
+
+initLoraImageHandlers(getLoraDetailId);
+
+export const getNotesEditorProps = (host, basta, loraData, vars) => {
+    const { mW, mH, pW, pH, sH } = vars;
+    return {
+        useAnim: basta.properties.useAnimations !== false,
+        height: (() => {
+            const val = (loraData.notes || "");
+            const innerW = (basta.size ? basta.size[0] : (basta.targetSize ? basta.targetSize[0] : 220)) - (mW * 2) - (pW * 2);
+
+            // THE HEIGHT CACHE FIX: Prevent redundant text measurement every frame
+            const hKey = `notes_${val.length}_${innerW}`;
+            if (basta._hCache?.[hKey]) return basta._hCache[hKey];
+            if (!basta._hCache) basta._hCache = {};
+
+            const paint = resolvePaintData(basta, "t_textSmall", "OFF");
+            const fs = paint?.fontSize || 10;
+
+            const segments = val.split('\n');
+            let textH = 0;
+            segments.forEach(s => {
+                textH += measureTextHeight(s || " ", innerW, { font: paint?.font, fontSize: fs, fontWeight: paint?.fontWeight });
+            });
+
+            const finalH = Math.max(mH * 2, textH + sH);
+            basta._hCache[hKey] = finalH;
+            return finalH;
+        })(),
+        text: loraData.notes || "",
+        value: loraData.notes || "",
+        onInput: (val, el, config) => {
+            loraData.notes = val;
+            if (config) {
+                config.text = val;
+                config.value = val;
+                basta._layoutDirty = true; // Flag for structural resize on next frame
+            }
+            if (el && !el._derpStyled) {
+                const paint = resolvePaintData(basta, "t_textSmall", "OFF");
+                if (paint) {
+                    el.style.fontFamily = paint.font || "Arial, sans-serif";
+                    el.style.fontSize = (paint.fontSize || 10) + "px";
+                    const c = paint.fill;
+                    el.style.color = Array.isArray(c) ? `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${c[3] ?? 1})` : (c || "white");
+                }
+                el.style.backgroundColor = "transparent";
+                el.style.textAlign = "left";
+                el.style.alignItems = "flex-start";
+                el.style.alignContent = "flex-start";
+                el._derpStyled = true;
+            }
+
+            // THE ALIGNMENT FIX: Use the identical dynamic inner-width calculation as loraTriggersEditor
+            if (el) {
+                const paint = resolvePaintData(basta, "t_textSmall", "OFF");
+                const fs = paint?.fontSize || 10;
+                const innerW = (basta.size ? basta.size[0] : (basta.targetSize ? basta.targetSize[0] : 220)) - (mW * 2) - (pW * 2);
+
+                const segments = val.split('\n');
+                let newH = 0;
+                segments.forEach(s => {
+                    newH += measureTextHeight(s || " ", innerW, { font: paint?.font, fontSize: fs, fontWeight: paint?.fontWeight });
+                });
+
+                if (Math.abs(newH - (el._lastH || 0)) > 2) {
+                    el._lastH = newH;
+                    if (basta.requestDerpSync) basta.requestDerpSync();
+                }
+            }
+        },
+        onBlur: (val, el) => {
+            const finalValue = (val !== undefined) ? val : (el ? el.value : (loraData.notes || ""));
+            loraData.notes = finalValue;
+            // THE SAVE FIX: Use the correct payload for the notes endpoint
+            fetch("/xcp/save_lora_notes", {
+                method: "POST",
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: loraData.rawFileName || loraData.name,
+                    notes: finalValue
+                })
+            });
+            // THE VISIBILITY FIX: Ensure it hides if the user manually cleared the text
+            if (basta && basta.layout?.regions?.editorLoraNotes) {
+                basta.layout.regions.editorLoraNotes.hidden = !finalValue;
+                basta._layoutDirty = true;
+                basta._forceSync = true;
+                basta.setDirtyCanvas(true);
+            }
+        }
+    };
+};
+
+export async function openCivitAI(basta, loraData) {
+    const currentData = basta._loraData || loraData;
+    if (currentData.civitaiUrl) {
+        window.open(currentData.civitaiUrl, "_blank");
+        return;
+    }
+
+    if (!currentData.civitaiModelId && currentData.hashes?.length > 0) {
+        const h = currentData.hashes[0];
+        try {
+            const apiRes = await fetch(`https://civitai.com/api/v1/model-versions/by-hash/${h}`);
+            if (apiRes.ok) {
+                const apiData = await apiRes.json();
+                currentData.civitaiModelId = apiData.modelId;
+                currentData.civitaiVersionId = apiData.id;
+                const vParam = apiData.id ? `?modelVersionId=${apiData.id}` : "";
+                currentData.civitaiUrl = `https://civitai.com/models/${apiData.modelId}${vParam}`;
+                currentData.metadataString = `CivitAI URL: ${currentData.civitaiUrl}`;
+
+                if (basta) {
+                    basta._forceSync = true;
+                    if (typeof basta.setDirtyCanvas === "function") basta.setDirtyCanvas(true, true);
+                }
+
+                window.open(currentData.civitaiUrl, "_blank");
+                return;
+            }
+        } catch (e) {
+            console.error(`[xcpDerp] CivitAI Lookup Error:`, e);
+        }
+    }
+
+    if (currentData.civitaiModelId) {
+        const vParam = currentData.civitaiVersionId ? `?modelVersionId=${currentData.civitaiVersionId}` : "";
+        window.open(`https://civitai.com/models/${currentData.civitaiModelId}${vParam}`, "_blank");
+        return;
+    }
+
+    const cleanName = (currentData.name || "").split(/[\\/]/).pop().replace(/\.[^/.]+$/, "");
+    window.open(`https://civitai.com/search/models?query=${encodeURIComponent(cleanName)}&modelType=LORA&modelStatus=Published`, "_blank");
+}
+
+export async function openCivArchive(basta, loraData) {
+    const currentData = basta._loraData || loraData;
+
+    // THE HASH FIX: CivArchive's search engine treats raw hashes as fuzzy text and returns unrelated junk.
+    // Instead, we use Civitai's API to resolve the hash to a Model ID, then leverage CivArchive's URL parity.
+    if (!currentData.civitaiModelId && currentData.hashes?.length > 0) {
+        const h = currentData.hashes[0];
+        try {
+            const apiRes = await fetch(`https://civitai.com/api/v1/model-versions/by-hash/${h}`);
+            if (apiRes.ok) {
+                const apiData = await apiRes.json();
+                currentData.civitaiModelId = apiData.modelId;
+                currentData.civitaiVersionId = apiData.id;
+                const vParam = apiData.id ? `?modelVersionId=${apiData.id}` : "";
+                currentData.civitaiUrl = `https://civitai.com/models/${apiData.modelId}${vParam}`;
+                currentData.metadataString = `CivitAI URL: ${currentData.civitaiUrl}`;
+
+                if (basta) {
+                    basta._forceSync = true;
+                    if (typeof basta.setDirtyCanvas === "function") basta.setDirtyCanvas(true, true);
+                }
+            }
+        } catch (e) {
+            console.error(`[xcpDerp] CivitAI Hash Lookup Error:`, e);
+        }
+    }
+
+    if (currentData.civitaiModelId) {
+        const vParam = currentData.civitaiVersionId ? `?modelVersionId=${currentData.civitaiVersionId}` : "";
+        window.open(`https://civarchive.com/models/${currentData.civitaiModelId}${vParam}`, "_blank");
+    } else {
+        // Fallback: Exact name search (wrapped in quotes) to avoid fuzzy matching garbage
+        const cleanName = (currentData.name || "").split(/[\\/]/).pop().replace(/\.[^/.]+$/, "");
+        window.open(`https://civarchive.com/search/models?query="${encodeURIComponent(cleanName)}"`, "_blank");
+    }
+}
+
+export const getEditorProps = (host, basta, loraData, initialTr, vars) => {
+    const { mW, mH, pW, pH, sH } = vars;
+    return {
+        useAnim: basta.properties.useAnimations !== false,
+        spellCheck: true,
+        hidden: !basta._activeTagKey,
+        height: (() => {
+            const val = (host.properties.stackData[loraData.slotIndex]?.[4] ?? "");
+            const innerW = (basta.size ? basta.size[0] : (basta.targetSize ? basta.targetSize[0] : 220)) - (mW * 2) - (pW * 2);
+
+            // THE HEIGHT CACHE FIX: Prevent redundant text measurement every frame
+            const hKey = `editor_${val.length}_${innerW}`;
+            if (basta._hCache?.[hKey]) return basta._hCache[hKey];
+            if (!basta._hCache) basta._hCache = {};
+
+            const paint = resolvePaintData(basta, "t_textSmall", "OFF");
+            const fs = paint?.fontSize || 10;
+
+            const segments = val.split('\n');
+            let textH = 0;
+            segments.forEach(s => {
+                textH += measureTextHeight(s || " ", innerW, { font: paint?.font, fontSize: fs, fontWeight: paint?.fontWeight });
+            });
+
+            const finalH = Math.max(mH * 4, textH + fs + sH);
+            basta._hCache[hKey] = finalH;
+            return finalH;
+        })(),
+        text: (host.properties.stackData[loraData.slotIndex]?.[4] ?? ""),
+        value: (host.properties.stackData[loraData.slotIndex]?.[4] ?? ""),
+        onInput: (val, el, config) => {
+            // THE INTEGRITY FIX: Resolve live data from the host to prevent stale closures during LoRA swaps
+            const liveStack = host.properties?.stackData || [];
+            const idx = loraData.slotIndex;
+            const currentLora = liveStack[idx];
+
+            if (!currentLora) return;
+
+            if (config) {
+                config.text = val;
+                config.value = val;
+                basta._layoutDirty = true;
+            }
+
+            // THE CRASH FIX: Use safe navigation and fallback to region width to prevent "undefined reading w"
+            if (el && !el._derpStyled) {
+                const paint = resolvePaintData(basta, "t_textSmall", "OFF");
+                if (paint) {
+                    el.style.fontFamily = paint.font || "Arial, sans-serif";
+                    el.style.fontSize = (paint.fontSize || 10) + "px";
+                    const c = paint.fill;
+                    el.style.color = Array.isArray(c) ? `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${c[3] ?? 1})` : (c || "white");
+                }
+                el.style.backgroundColor = "transparent";
+                el.style.textAlign = "left";
+                el.style.alignItems = "flex-start";
+                el.style.alignContent = "flex-start";
+                el._derpStyled = true;
+            }
+            if (currentLora) {
+                currentLora[4] = val;
+                loraData.tags = val.split(',').map(t => t.trim()).filter(t => t !== "");
+
+                if (host.syncDerpOutputs) host.syncDerpOutputs();
+
+                // THE LIVE CACHE FIX: Resolve triggers from host cache instead of the captured 'tr' closure
+                const liveTr = (host._loraTriggerCache?.[currentLora[0]] || host._loraTriggerCache?.[loraData.rawFileName] || initialTr || {});
+                const entryData = liveTr[basta._activeTagKey];
+                const originalContent = (typeof entryData === 'object' ? entryData.tag : entryData) ?? "";
+
+                if (basta.layout?.regions?.btnSaveTrigger) {
+                    basta.layout.regions.btnSaveTrigger.state = (val.trim() !== originalContent.trim()) ? "OFF" : "DIS";
+                }
+
+                host.setDirtyCanvas(true);
+                if (basta.setDirtyCanvas) basta.setDirtyCanvas(true);
+
+                if (el) {
+                    const paint = resolvePaintData(basta, "t_textSmall", "OFF");
+                    const fs = paint?.fontSize || 10;
+                    const innerW = (basta.size ? basta.size[0] : (basta.targetSize ? basta.targetSize[0] : 220)) - (mW * 2) - (pW * 2);
+
+                    const segments = val.split('\n');
+                    let newH = 0;
+                    segments.forEach(s => {
+                        newH += measureTextHeight(s || " ", innerW, { font: paint?.font, fontSize: fs, fontWeight: paint?.fontWeight });
+                    });
+
+                    if (Math.abs(newH - (el._lastH || 0)) > 2) {
+                        el._lastH = newH;
+                        if (basta.requestDerpSync) basta.requestDerpSync();
+                    }
+                }
+            }
+        },
+        onBlur: (val, el) => {
+            const stack = host.properties.stackData || [];
+            const idx = loraData.slotIndex;
+            if (stack[idx]) {
+                const finalValue = (val !== undefined) ? val : (el ? el.value : (stack[idx][4] || ""));
+
+                stack[idx][4] = finalValue || "";
+                loraData.tags = (finalValue || "").split(',').map(t => t.trim()).filter(t => t !== "");
+                if (host.syncDerpOutputs) host.syncDerpOutputs();
+                if (host.refreshNodeLayoutMap) host.refreshNodeLayoutMap();
+                if (basta.requestDerpSync) basta.requestDerpSync();
+            }
+        }
+    };
+};
+
+export const getLoraNotesEditorPropsWrapped = (host, basta, loraData, currentPath, vars) => {
+    const props = getNotesEditorProps(host, basta, loraData, vars);
+    const baseInput = props.onInput;
+    const baseBlur = props.onBlur;
+
+    props.onInput = (val, el, config) => {
+        loraData.notes = val;
+        if (baseInput) baseInput(val, el, config);
+    };
+
+    props.onBlur = (val, el) => {
+        const finalValue = (val !== undefined) ? val : (el ? el.value : (loraData.notes || ""));
+        loraData.notes = finalValue;
+        const liveStack = host.properties?.stackData || [];
+        const livePath = liveStack[loraData.slotIndex]?.[0] || currentPath;
+        fetch("/xcp/save_lora_notes", {
+            method: "POST", headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: livePath, notes: finalValue })
+        });
+        if (basta.layout?.regions?.editorLoraNotes) {
+            basta.layout.regions.editorLoraNotes.hidden = !finalValue;
+            basta._layoutDirty = true;
+            basta._forceSync = true;
+            basta.setDirtyCanvas(true);
+        }
+    };
+
+    return props;
+};
+
+export const getLoraTriggerEditorProps = (host, basta, loraData, currentPath, vars) => {
+    const tr = (host._loraTriggerCache?.[currentPath.replace(/\\/g, "/")] || host._loraTriggerCache?.[currentPath] || {});
+    const props = getEditorProps(host, basta, loraData, tr, vars);
+    const baseInput = props.onInput;
+    const baseBlur = props.onBlur;
+
+    props.onInput = (val, el, config) => {
+        const liveStack = host.properties?.stackData || [];
+        const liveLora = liveStack[loraData.slotIndex];
+        if (liveLora) {
+            liveLora[4] = val;
+            loraData.tags = val.split(',').map(t => t.trim()).filter(t => t !== "");
+            if (host.syncDerpOutputs) host.syncDerpOutputs();
+
+            const livePath = liveLora[0] || currentPath;
+            const liveCacheKey = livePath.replace(/\\/g, "/");
+            const liveTr = host._loraTriggerCache?.[liveCacheKey] || host._loraTriggerCache?.[livePath] || {};
+            const entryData = liveTr[basta._activeTagKey];
+            const originalContent = (typeof entryData === 'object' ? entryData.tag : entryData) ?? "";
+
+            if (basta.layout?.regions?.btnSaveTrigger) {
+                basta.layout.regions.btnSaveTrigger.state = (val.trim() !== originalContent.trim()) ? "OFF" : "DIS";
+            }
+            host.setDirtyCanvas(true);
+        }
+        if (baseInput) baseInput(val, el, config);
+    };
+
+    props.onBlur = (val, el) => {
+        const liveStack = host.properties?.stackData || [];
+        const liveLora = liveStack[loraData.slotIndex];
+        if (liveLora) {
+            const finalValue = (val !== undefined) ? val : (el ? el.value : (liveLora[4] || ""));
+            liveLora[4] = finalValue || "";
+            loraData.tags = (finalValue || "").split(',').map(t => t.trim()).filter(t => t !== "");
+            if (host.syncDerpOutputs) host.syncDerpOutputs();
+            if (host.refreshNodeLayoutMap) host.refreshNodeLayoutMap();
+            if (basta.requestDerpSync) basta.requestDerpSync();
+        }
+    };
+
+    return props;
+};
+
+export const getLoraTriggerDropdownProps = (host, basta, loraData, triggerItems, currentPath, vars) => {
+    return {
+        // THE PREVIEW FIX: Ensure trigger preview images match the dropdown item height and keep aspect ratio.
+        itemImageHeight: "match",
+        items: triggerItems.length > 0 ? triggerItems.map(t => ({
+            ...t,
+            // THE PROPERTY FIX: The dropdown engine expects 'imageUrl', not 'image'
+            imageUrl: t.image ? `/xcp/get_lora_image?name=${encodeURIComponent(currentPath)}&file=${encodeURIComponent(t.image)}&v=${window._xcpDerpSession || Date.now()}` : null
+        })) : [{ key: "None", display: "None", tag: "", name: "None" }],
+        // THE FACE FIX: Explicitly supply imageUrl to the root widget to render the active selection on the closed dropdown
+        imageUrl: (() => {
+            const active = triggerItems.find(t => t.key === basta._activeTagKey);
+            return (active && active.image) ? `/xcp/get_lora_image?name=${encodeURIComponent(currentPath)}&file=${encodeURIComponent(active.image)}&v=${window._xcpDerpSession || Date.now()}` : null;
+        })(),
+        value: basta._activeTagKey || (triggerItems.length > 0 ? triggerItems[0].key : "No triggers found"),
+        text: (() => {
+            const active = triggerItems.find(t => t.key === basta._activeTagKey);
+            if (active) return active.display;
+            // THE PENDING FIX: Display the new name immediately while fetch/rebuild is in flight
+            return basta._activeTagName || (triggerItems.length > 0 ? triggerItems[0].display : "No triggers found");
+        })(),
+        onChange: (val) => {
+            if (val === "No triggers found") return;
+            const matched = triggerItems.find(t => t.key === val);
+            if (matched) {
+                basta._activeTagKey = matched.key;
+                basta._activeTagName = matched.name;
+                const stack = host.properties.stackData || [];
+                const idx = loraData.slotIndex;
+                if (stack[idx]) {
+                    // THE SYNC FIX: Prefer the resolved tag from the array cache which contains instant updates
+                    let tagContent = matched.tag;
+                    if (tagContent === undefined) {
+                        const liveTr = host._loraTriggerCache?.[currentPath.replace(/\\/g, "/")] || host._loraTriggerCache?.[currentPath] || {};
+                        tagContent = typeof liveTr[matched.key] === 'object' ? (liveTr[matched.key].tag || "") : (liveTr[matched.key] || "");
+                    }
+                    stack[idx][3] = matched.key;
+                    stack[idx][4] = tagContent || "";
+                    loraData.tags = (tagContent || "").split(',').map(t => t.trim()).filter(t => t !== "");
+
+                    // THE DOM SYNC FIX: Force editor to show new content immediately on dropdown change
+                    const editorEl = basta.dynamicElements?.loraTriggersEditor;
+                    if (editorEl) editorEl.value = tagContent || "";
+
+                    // THE TRIGGER IMAGE FIX: Update preview image if a linked image exists
+                    const lName = loraData.rawFileName || loraData.name;
+                    const session = window._xcpDerpSession || Date.now();
+                    if (matched.image) {
+                        loraData.previewUrl = `/xcp/get_lora_image?name=${encodeURIComponent(lName)}&file=${encodeURIComponent(matched.image)}&v=${session}`;
+                    } else {
+                        loraData.previewUrl = `/xcp/get_lora_preview?name=${encodeURIComponent(lName)}&v=${session}`;
+                    }
+                    loraData.aspectRatio = null;
+                    calculatePreviewAspectRatio(basta, loraData, () => {
+                        basta._forceSync = true;
+                        if (typeof basta.setDirtyCanvas === "function") basta.setDirtyCanvas(true);
+                    });
+
+                    if (host.syncDerpOutputs) host.syncDerpOutputs();
+                    if (host.refreshNodeLayoutMap) host.refreshNodeLayoutMap();
+                    if (host.refreshDerpLoraStackSysMap) host.refreshDerpLoraStackSysMap();
+                    host.setDirtyCanvas(true);
+                }
+            }
+            basta.requestDerpSync();
+        }
+    };
+};
+
+/**
+ * cleanTriggerText: Formats trigger words to ensure proper comma spacing and a trailing comma.
+ */
+export const cleanTriggerText = (text) => {
+    if (!text) return "";
+    // THE INTEGRITY FIX: Preserve newlines and clean individual comma-separated segments
+    return text.split('\n').map(segment => {
+        if (!segment.trim()) return "";
+        return segment.split(',').map(t => t.trim()).filter(t => t !== "").join(', ') + ", ";
+    }).join('\n');
+};
+
+// THE SELECTION GUARD: Deselect preview if user clicks anywhere else on the window
+window.addEventListener("pointerdown", (e) => {
+    const basta = window.xcpActiveBastas?.get(getLoraDetailId());
+    if (!basta || !basta._previewSelected) return;
+
+    // DESELECTION LOGIC: If the click is not on the shield, it's outside the panel.
+    // If it's on the shield, the internal handleShieldInteraction wrapper handles deselection.
+    const rect = basta.interactionShield?.getBoundingClientRect();
+    const isOverShield = rect && e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom;
+
+    if (!isOverShield) {
+        basta._previewSelected = false;
+        basta.requestDerpSync();
+    }
+}, true);
+
+export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFactory) {
+    const id = getLoraDetailId();
+
+    // THE DROP-ORPHAN FIX: If a dropdown is open when we switch LoRAs, it must be closed
+    // immediately because its host element is about to be destroyed.
+    if (typeof window._xcpCloseActiveDropdown === "function") window._xcpCloseActiveDropdown();
+
+    const existing = window.xcpActiveBastas?.get(id);
+    if (existing) existing.destroy(); // kill the bastard if it's already born
+
+    const ratingGlyphs = ["", "🆂 ", "🅰 ", "🅱 ", "🅲 ", "🅳 ", "🅴 ", "🅵 "];
+    const rInt = parseInt(loraData.rating, 10) || 0;
+    const loraIcon = (rInt >= 1 && rInt <= 7) ? (ratingGlyphs[rInt] || "") : (host.properties.previewList?.includes(loraData.name) ? "🖻 " : "🖺 ");
+    const loraName = loraIcon + (loraData.name || "LoRA Detail").replace(/\.safetensors$/i, "");
+
+    if (loraData.previewUrl && !loraData.aspectRatio) {
+        const b = window.xcpActiveBastas?.get(id);
+        calculatePreviewAspectRatio(b, loraData, () => {
+            if (b) b._skipAnimOnce = true;
+        });
+    }
+
+    if (!loraData.metadataString) {
+        loraData.metadataString = "Loading...";
+        const fileName = loraData.rawFileName || loraData.name;
+        const sessionTime = window._xcpDerpSession || Date.now();
+        const fetchPath = (fileName || "").replace(/\\/g, "/");
+
+        fetch(`/xcp/get_lora_info?name=${encodeURIComponent(fetchPath)}&t=${sessionTime}`)
+            .then(r => r.ok ? r.json() : {})
+            .then(async data => {
+                let rawMeta = data.metadata || data.info || {};
+                if (typeof rawMeta === "string") { try { rawMeta = JSON.parse(rawMeta); } catch(e) { rawMeta = { Raw: rawMeta }; } }
+                const metaEntries = (typeof rawMeta === "object" && rawMeta !== null) ? Object.entries(rawMeta) : [];
+
+                loraData.baseModel = (data.baseModel && data.baseModel !== "Unknown") ? data.baseModel : (rawMeta.ss_base_model_version || loraData.baseModel || "Unknown");
+
+                const potentialHashes = [
+                    data.full_hash, data.auto_hash, data.hash
+                ].filter(h => h && typeof h === 'string' && h.length === 64)
+                    .map(h => String(h).trim().toLowerCase());
+
+                loraData.hashes = [...new Set(potentialHashes)];
+
+                const metaLink = metaEntries.find(([k, v]) => typeof v === "string" && v.includes("civitai.com"))?.[1];
+                loraData.civitaiUrl = data.civitai_url || data.url || metaLink || null;
+
+                if (loraData.civitaiUrl && loraData.civitaiUrl.includes("civitai.com")) {
+                    const match = loraData.civitaiUrl.match(/https:\/\/civitai\.com\/models\/(\d+)/);
+                    if (match) {
+                        loraData.civitaiUrl = match[0];
+                        if (!loraData.civitaiModelId) loraData.civitaiModelId = match[1];
+                    }
+                }
+
+                loraData.civitaiName = data.civitai_name || rawMeta.civitai_name || rawMeta["modelspec.title"] || data.name || null;
+                loraData.civitaiModelId = loraData.civitaiModelId || rawMeta.civitai_model_id || rawMeta.ss_civitai_model_id || null;
+                loraData.civitaiVersionId = rawMeta.civitai_version_id || rawMeta.ss_civitai_version_id || null;
+
+                // THE STRUCTURAL GUARD: Force the rating to exist even if missing from JSON/Metadata
+                const rawR = data.rating !== undefined ? data.rating : (rawMeta.rating !== undefined ? rawMeta.rating : null);
+                loraData.rating = rawR !== null ? parseInt(rawR, 10) : 0;
+
+                // THE NOTES SYNC: Check rawMeta (the _info.json sidecar object) as well for the notes entry
+                loraData.notes = data.notes || rawMeta.notes || "";
+
+                const b = window.xcpActiveBastas?.get(id);
+                if (b) {
+                    const rInt = loraData.rating;
+                    const ratingBadge = (rInt >= 1 && rInt <= 7) ? (ratingGlyphs[rInt] || "") : (host.properties.previewList?.includes(loraData.name) ? "🖻 " : "🖺 ");
+                    b.titleLabel = ratingBadge + (loraData.name || "LoRA Detail").replace(/\.safetensors$/i, "");
+                    b._forceSync = true;
+                    b.setDirtyCanvas(true);
+                }
+
+                const applyDirectLink = (modelId, versionId, modelName) => {
+                    loraData.civitaiModelId = modelId;
+                    loraData.civitaiVersionId = versionId || null;
+                    const vParam = versionId ? `?modelVersionId=${versionId}` : "";
+                    loraData.civitaiUrl = `https://civitai.com/models/${modelId}${vParam}`;
+                    loraData.civitaiName = modelName || loraData.civitaiName;
+                    loraData.metadataString = `CivitAI URL: ${loraData.civitaiUrl}`;
+                    const b = window.xcpActiveBastas?.get(id);
+                    if (b) {
+                        // THE NOTES SYNC FIX: Ensure editor visibility is updated in the direct link branch
+                        if (b.layout?.regions?.editorLoraNotes) {
+                            b.layout.regions.editorLoraNotes.hidden = !loraData.notes;
+                            b.layout.regions.editorLoraNotes.text = loraData.notes || "";
+                            b.layout.regions.editorLoraNotes.value = loraData.notes || "";
+                        }
+                        b._forceSync = true;
+                        b._skipAnimOnce = true;
+                        b.setDirtyCanvas(true);
+                    }
+                };
+
+                if (loraData.civitaiModelId && !loraData.civitaiUrl) {
+                    const vParam = loraData.civitaiVersionId ? `?modelVersionId=${loraData.civitaiVersionId}` : "";
+                    loraData.civitaiUrl = `https://civitai.com/models/${loraData.civitaiModelId}${vParam}`;
+                }
+
+                const allowedKeys = ["ss_resolution", "ss_clip_skip", "ss_network_dim", "ss_network_alpha", "ss_epoch"];
+                const cleanMeta = metaEntries
+                    .filter(([k]) => (!k.startsWith("ss_") || allowedKeys.includes(k)) && !k.startsWith("modelspec.") && !k.includes("datasets") && !k.includes("bucket"))
+                    .map(([k, v]) => `${k.replace("ss_", "")}: ${typeof v === 'object' ? JSON.stringify(v) : v}`);
+                const fallbackMetaStr = cleanMeta.length > 0 ? cleanMeta.join("\n") : "No human-readable metadata found.";
+
+                const fallbackToMeta = () => {
+                    loraData.metadataString = fallbackMetaStr;
+                    const b = window.xcpActiveBastas?.get(id);
+                    if (b) {
+                        // THE UI REFRESH: Update title label with rating/icon and toggle notes editor visibility
+                        const rInt = loraData.rating;
+                        const ratingBadge = (rInt >= 1 && rInt <= 7) ? (ratingGlyphs[rInt] || "") : (host.properties.previewList?.includes(loraData.name) ? "🖻 " : "🖺 ");
+                        b.titleLabel = ratingBadge + (loraData.name || "LoRA Detail").replace(/\.safetensors$/i, "");
+
+                        if (b.layout?.regions?.editorLoraNotes) {
+                            b.layout.regions.editorLoraNotes.hidden = !loraData.notes;
+                            b.layout.regions.editorLoraNotes.text = loraData.notes || "";
+                            b.layout.regions.editorLoraNotes.value = loraData.notes || "";
+                            b.layout.regions.editorLoraNotes.minHeight = loraData.notes ? measureTextHeight(loraData.notes, (b.layout.regions.editorLoraNotes.w || 200) - 12, 10, "Arial, sans-serif") + 24 : 0;
+                        }
+                    }
+                };
+
+                if (loraData.civitaiModelId || loraData.civitaiUrl) {
+                    const resolvedId = loraData.civitaiModelId || (loraData.civitaiUrl && loraData.civitaiUrl.match(/models\/(\d+)/)?.[1]);
+                    applyDirectLink(resolvedId, loraData.civitaiVersionId, loraData.civitaiName);
+                } else {
+                    fallbackToMeta();
+                }
+            }).catch(() => {
+            loraData.baseModel = "Unknown";
+            loraData.metadataString = "Failed to fetch metadata.";
+            const b = window.xcpActiveBastas?.get(id);
+            if (b) {
+                b._forceSync = true;
+                b._skipAnimOnce = true;
+                b.setDirtyCanvas(true);
+            }
+        });
+    }
+
+    const onScanTags = (purge = false) => {
+        showBastaMessage(host, purge ? "Purging & Syncing Triggers..." : "Scanning for Triggers...", 2000, {fade:true}, null, false, "info", "shuffle");
+        fetch("/xcp/extract_lora_tags", {
+            method: "POST",
+            body: JSON.stringify({ name: loraData.name, remove_txt: purge })
+        })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    showBastaMessage(host, `Success! ${data.count} Triggers processed.`, 3000, {fade:true}, null, false, "success", "success");
+                    if (host.refreshNodeLayoutMap) host.refreshNodeLayoutMap();
+                }
+            });
+    };
+
+    const onManageTags = () => {
+        const category = `lora_triggers?name=${encodeURIComponent(loraData.name)}`;
+        showBastaFileHandler(host, category, targetRegion, {
+            title: `Manage: ${loraData.name.replace(/\.safetensors$/i, "")}`,
+            mode: "rename"
+        });
+    };
+
+    const config = {
+        host: host,
+        titleLabel: loraName,
+        autoSize: true,
+        targetRegion: (host && host.properties && host.properties[`bastaOffset_${id}`]) ? null : targetRegion,
+        properties: {
+            clickToClose: false,
+            bastaMovalbe: true,
+            bastaSingleton: true,
+            autoWidth: false,
+            minWidth: 200,
+            autoHeight: true,
+            snapHeight: false
+        },
+        initialSize: [200, 260],
+        layoutMap: layoutMapFactory(host, targetRegion, loraData, id)
+    };
+    const instance = spawnBasta(id, config);
+
+    instance._loraData = loraData;
+    instance._previewSelected = false;
+    instance._navAlpha = 0;
+    instance._uiHovered = false;
+    instance._lastUiHovered = false;
+    instance._hoveredRegionKey = null;
+    instance._lastHoverKey = null;
+
+    const currentPath = loraData.path || loraData.name || "";
+    const triggerItems = host._loraTriggerArrayCache?.[currentPath] || [];
+    const currentTag = host.properties.stackData[loraData.slotIndex]?.[4] || "";
+    const activeMatch = triggerItems.find(t => t.tag === currentTag || t.name === currentTag);
+    instance._activeTagKey = activeMatch ? activeMatch.key : null;
+    instance._activeTagName = activeMatch ? activeMatch.name : null;
+
+    // THE SYNC BRIDGE FIX: Ensure the Basta panel instantly rebuilds whenever the host node updates its internal state (like receiving async triggers)
+    if (host && !host._derpBastaRefreshHooked) {
+        const orgRefresh = host.refreshNodeLayoutMap;
+        if (orgRefresh) {
+            host.refreshNodeLayoutMap = function() {
+                const res = orgRefresh.apply(this, arguments);
+                const b = window.xcpActiveBastas?.get(getLoraDetailId());
+                if (b && b.hostNode === this) {
+                    b._layoutDirty = true;
+                    b._forceSync = true;
+                    b.setDirtyCanvas(true);
+                }
+                return res;
+            };
+        }
+        host._derpBastaRefreshHooked = true;
+    }
+
+
+    if (instance) {
+        // THE TRIGGER REFRESH FIX: Wrap the host's fetch logic to guarantee a global cache bust whenever triggers change
+        const orgFetch = host.fetchDerpLoraTriggers;
+        if (orgFetch && !host._derpFetchWrapped) {
+            host.fetchDerpLoraTriggers = function() {
+                window._xcpDerpSession = Date.now();
+                return orgFetch.apply(this, arguments);
+            };
+            host._derpFetchWrapped = true;
+        }
+        instance._loraData = loraData;
+        refreshLoraImageList(instance, loraData);
+
+        // THE IMAGE UPLOAD FIX: Create a dedicated upload function that supports both manual selection and pasting
+        instance.uploadLoraPreview = (blob, isCover = false) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(blob);
+            reader.onloadend = async () => {
+                const base64 = reader.result.split(',')[1];
+                const loraData = instance._loraData;
+                if (!loraData) return;
+
+                const lName = loraData.name;
+                const lPath = loraData.loraPath || loraData.rawFileName || loraData.path; // THE MODEL NAME FIX: Pass the full path for backend resolution
+                const pData = await app.graphToPrompt();
+
+                fetch("/xcp/upload_lora_preview", {
+                    method: "POST",
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: lName,
+                        loraPath: lPath,
+                        image: base64,
+                        is_cover: isCover,
+                        prompt: pData.output,
+                        extra_pnginfo: { workflow: pData.workflow },
+                        model_name_prefix: (() => {
+                            const sigs = window.xcpDerpSignals;
+                            if (!sigs) return "Unknown_Model";
+                            const mId = host?.properties?.multiSignalIds?.Model || host?.properties?.modelSignalId;
+                            const sig = sigs[mId] || Object.values(sigs).find(s => s.type?.toUpperCase() === "MODEL" && s.value?.model_name_prefix);
+                            return sig?.value?.model_name_prefix || host?.properties?.selectedModel || "Unknown_Model";
+                        })()
+                    })
+                }).then(r => r.json()).then(data => {
+                    if (data.success) {
+                        refreshLoraImageList(instance, loraData);
+                        if (isCover) {
+                            loraData.previewUrl = `/xcp/get_lora_preview?name=${encodeURIComponent(lName)}&v=${Date.now()}`;
+                            instance._forceSync = true;
+                        }
+                    }
+                });
+            };
+        };
+
+        // THE ASYNC DATA POLLER: Optimized for Array Cache
+        instance._derpKnownTriggers = -1;
+        if (!instance._derpLoraDetailInitialized) {
+            const orgUpdate = instance.update;
+            instance.update = function() {
+                const liveStack = host.properties?.stackData || [];
+                const slotIdx = this._loraData?.slotIndex ?? loraData.slotIndex;
+                const path = liveStack[slotIdx]?.[0] || "";
+                const tCount = (host._loraTriggerArrayCache?.[path] || []).length;
+
+                if (this._derpKnownTriggers !== tCount) {
+                    this._derpKnownTriggers = tCount;
+                    if (tCount > 0) {
+                        this._layoutDirty = true;
+                        this._forceSync = true;
+                        this._derpAwakeFrames = 30;
+                        if (this.setDirtyCanvas) this.setDirtyCanvas(true, true);
+                    }
+                }
+
+                if (this._lastHoverKey !== this._hoveredRegionKey || this._lastUiHovered !== this._uiHovered) {
+                    this._lastHoverKey = this._hoveredRegionKey;
+                    this._lastUiHovered = this._uiHovered;
+                    // THE HOVER SPAM FIX: Region hover states only need a canvas redraw, not a full structural layout sync
+                    this._derpAwakeFrames = 10;
+                    if (this.setDirtyCanvas) this.setDirtyCanvas(true);
+                }
+                const hKey = this._hoveredRegionKey;
+                const hasImages = (loraData.images ? loraData.images.length : (loraData.imageCount || 0)) >= 1;
+
+                // THE HOVER FIX: Explicitly check for true to ensure animation triggers/reverses correctly
+                // when the mouse leaves for the empty canvas.
+                const isHoveringNav = !this._isSaving && (this._uiHovered === true) && (
+                    hKey === "loraPreview" ||
+                    hKey === "imageHandlingRegion" ||
+                    hKey === "externalRow" ||
+                    hKey === "triggerControlRow" || hKey === "btnSaveTrigger" ||
+                    (hKey && (
+                        hKey.startsWith("btnImage") || hKey === "btnSetCover" || hKey === "btnSetTrigger" || hKey === "btnDeleteImage" ||
+                        hKey.startsWith("btnCiv") || hKey === "btnOpenFolder"
+                    ))
+                );
+
+                const targetAlpha = isHoveringNav ? 1.0 : 0.0;
+                if (this._navAlpha === undefined) this._navAlpha = 0;
+
+                const prevAlpha = this._navAlpha;
+                const alphaRes = animateAlpha(this._navAlpha, targetAlpha, IMAGE_NAV_ALPHA_SPEED, this.properties.useAnimations !== false);
+                this._navAlpha = alphaRes.value;
+
+                if ((prevAlpha < 0.01 && this._navAlpha >= 0.01) || (prevAlpha >= 0.01 && this._navAlpha < 0.01)) {
+                    this._layoutDirty = true;
+                    this._forceSync = true;
+                }
+
+                let isPulsing = false;
+
+                // THE PERF FIX: Distribute visual updates directly to caches to avoid deep layout computes
+                if (alphaRes.isAnimating) {
+                    this._derpAwakeFrames = 10;
+                    isPulsing = true;
+                    const updateAlpha = (key) => {
+                        if (this.layout?.regions?.[key]) this.layout.regions[key].alpha = this._navAlpha;
+                        if (this._compDataCache?.[key]) this._compDataCache[key].alpha = this._navAlpha;
+                    };
+                    ["imageHandlingRegion", "btnImagePrevious", "btnSetCover", "btnSetTrigger", "btnDeleteImage", "btnImageNext",
+                        "labelRegion", "labelImageName", "labelCount",
+                        "externalRow", "btnCivit", "btnCivArchive", "btnOpenFolder"].forEach(updateAlpha);
+                    if (this.setDirtyCanvas) this.setDirtyCanvas(true);
+                }
+
+                // THE PERF FIX: Move high-frequency pulse math out of the layout factory
+                if (!this._isSaving && this._savePulseColors && this.layout?.regions?.btnSaveTrigger && this.layout.regions.btnSaveTrigger.state !== "DIS") {
+                    const pulsedColor = colorPulse2(this._savePulseColors.a, this._savePulseColors.b, 0.005);
+                    this.layout.regions.btnSaveTrigger.btnColor = pulsedColor;
+                    if (this._compDataCache?.btnSaveTrigger) this._compDataCache.btnSaveTrigger.btnColor = pulsedColor;
+                    this._derpAwakeFrames = 2;
+                    isPulsing = true;
+                    if (this.setDirtyCanvas) this.setDirtyCanvas(true);
+                }
+
+                if (this._previewSelected && (window.xcpDerpSettings?.useAnimations !== false)) {
+                    this._derpAwakeFrames = 2;
+                    isPulsing = true;
+                    if (this.setDirtyCanvas) this.setDirtyCanvas(true);
+                }
+
+                const orgRes = orgUpdate ? orgUpdate.apply(this, arguments) : false;
+                return isPulsing || alphaRes.isAnimating || orgRes;
+            };
+
+            instance.onClose = () => {
+                // THE CLEANUP FIX: Guarantee slot is cleared and memory is released after any close sequence
+                host._activeDetailSlot = null;
+                host._layoutDirty = true;
+                host._forceSync = true;
+                host._derpAwakeFrames = 5;
+
+                if (instance._loraData) {
+                    instance._loraData.previewUrl = null;
+                    instance._loraData.images = [];
+                }
+                if (typeof host.refreshNodeLayoutMap === "function") host.refreshNodeLayoutMap();
+                if (typeof host.setDirtyCanvas === "function") host.setDirtyCanvas(true, true);
+            };
+
+            const originalHandler = instance.handleShieldInteraction;
+            instance.handleShieldInteraction = function(type, data) {
+                if (type === "hover") this._uiHovered = true;
+
+                // THE INTERACTION GATE: Prevent high-frequency mouse events (move/hover) from flooding the CPU
+                if (type === "move" || type === "hover") {
+                    if (this._syncLock) {
+                        this._pendingHoverData = data;
+                        return false;
+                    }
+                    this._syncLock = true;
+                    setTimeout(() => {
+                        this._syncLock = false;
+                        if (this._pendingHoverData) {
+                            originalHandler.call(this, type, this._pendingHoverData);
+                            this._pendingHoverData = null;
+                        }
+                    }, 32);
+                }
+
+                if (type === "click") {
+                    const overKey = this._pressedRegionKey || "";
+                    const isPreviewHit = (overKey === "loraPreview") || overKey.startsWith("btn");
+
+                    if (!isPreviewHit) {
+                        this._previewSelected = false;
+                        this.requestDerpSync();
+                    }
+                }
+                return originalHandler.apply(this, arguments);
+            };
+            instance._derpLoraDetailInitialized = true;
+        }
+
+        instance.layoutMap = config.layoutMap;
+        instance.titleLabel = config.titleLabel;
+        instance._forceSync = true;
+        instance._skipAnimOnce = true;
+        if (typeof instance.setDirtyCanvas === "function") instance.setDirtyCanvas(true, true);
+    }
+    return instance;
+}

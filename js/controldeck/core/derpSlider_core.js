@@ -1,0 +1,283 @@
+/**
+ * Path: ./js/core/derpSlider_core.js
+ * ROLE: Logic, Lifecycle, and State Management for Derp Slider
+ */
+import { transmitDerpSignal } from "../../fatha/core/masterSignalEngine.js";
+
+export function setupDerpSliderCore(nodeType) {
+    if (!nodeType.prototype.transmitDerpSignal) {
+        nodeType.prototype.transmitDerpSignal = transmitDerpSignal;
+    }
+
+    // --- WIRELESS SIGNAL PROTOCOL ---
+    nodeType.prototype.broadcastWirelessSignal = function(dataArray) {
+        if (!this.transmitDerpSignal || this.id === -1 || !Array.isArray(dataArray) || dataArray.length === 0) return;
+
+        const fingerprint = dataArray.map(s => `${s.name}:${s.value}`).join("|") + (this.titleLabel || "");
+        if (this._lastSignalFingerprint === fingerprint) return;
+        this._lastSignalFingerprint = fingerprint;
+
+        const baseId = String(this.id);
+        const nodeName = this.titleLabel || this.title || "Unknown";
+
+        // 1. Update the global registry for individual sub-signals
+        if (!window.xcpDerpSignals) window.xcpDerpSignals = {};
+
+        dataArray.forEach((item, i) => {
+            const val = parseFloat(item.value) || 0;
+            const decSetting = parseInt(item.decimal ?? item.decimals ?? 2);
+            const isInt = (decSetting === 0);
+
+            // THE PORT-NAME FIX: Always use indexed IDs so derpSignalOut can resolve the specific slider name
+            const signalId = `${baseId}:${i}`;
+            const displayName = `${nodeName} [${item.name || `Slider_${i+1}`}]`;
+
+            const finalValue = isInt ? Math.round(val) : val;
+            const existing = window.xcpDerpSignals[signalId];
+
+            if (!existing || existing.value !== finalValue) {
+                window.xcpDerpSignals[signalId] = {
+                    nodeId: signalId,
+                    nodeName: displayName,
+                    nodeType: this.type,
+                    type: isInt ? "int" : "float",
+                    value: finalValue,
+                    timestamp: Date.now()
+                };
+
+                setTimeout(() => {
+                    fetch("/xcp/update_signal", {
+                        method: "POST",
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ node_id: signalId, value: finalValue })
+                    });
+                }, 50);
+            }
+        });
+
+        // 2. Broadcast the bulk object payload for the node output
+        const signalPayload = dataArray.reduce((acc, item) => {
+            const val = parseFloat(item.value) || 0;
+            const decSetting = parseInt(item.decimal ?? item.decimals ?? 2);
+            const isInt = (decSetting === 0);
+            acc[item.name] = isInt ? Math.round(val) : val;
+            return acc;
+        }, {});
+
+        this.transmitDerpSignal(this, signalPayload);
+
+        // 3. Notify Signal Out nodes to update their dropdown lists
+        if (window.app?.graph) {
+            window.app.graph._nodes.forEach(n => {
+                if (n.type === "xcpDerpSignalOut" && n.updateReceivedSignals) n.updateReceivedSignals();
+            });
+        }
+    };
+
+    nodeType.prototype.syncDerpOutputs = function() {
+        if (this.purgeDerpSignal) this.purgeDerpSignal();
+        this._lastSignalFingerprint = null;
+
+        // THE PURE VIRTUAL ENFORCER: Ensure node is Pure Virtual (zero ports) for server validation
+        if (this.outputs && this.outputs.length > 0) {
+            this.outputs.forEach(o => { if (o.links) o.links = null; });
+            this.outputs = [];
+        } else {
+            this.outputs = [];
+        }
+
+        const count = parseInt(this.properties.sliderCount) || 1;
+        let data = this.properties.sliderContainer || [];
+
+        let dataChanged = false;
+        while (data.length < count) {
+            data.push({
+                name: `Slider_${(data.length + 1).toString().padStart(2, '0')}`,
+                min: 0, max: 1, step: 0.05, default: 0.5, decimal: 2, value: 0.5
+            });
+            dataChanged = true;
+        }
+        if (data.length > count) { data = data.slice(0, count); dataChanged = true; }
+        if (dataChanged) this.properties.sliderContainer = data;
+
+        if (this.broadcastWirelessSignal) this.broadcastWirelessSignal(data);
+        if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
+        if (this.refreshDerpSliderSysMap) this.refreshDerpSliderSysMap();
+        this.requestDerpSync();
+    };
+
+    // THE PROFILE PROTOCOL: Applies settings from the JSON server to the sliderContainer
+    nodeType.prototype.applyDerpProfile = function(profileName) {
+        if (!this._sysProfileData || !this._sysProfileData[profileName] || profileName === "(No Profiles Found)") return;
+
+        const profileObj = this._sysProfileData[profileName];
+        const targetData = profileObj.sliders || (Array.isArray(profileObj) ? profileObj : []);
+
+        // Deep clone to ensure property serialization is clean
+        this.properties.sliderContainer = JSON.parse(JSON.stringify(targetData));
+        this.properties.sliderCount = profileObj.sliderCount || profileObj.count || targetData.length;
+        if (profileObj.nameDisplay) this.properties.nameDisplay = profileObj.nameDisplay;
+
+        if (this.syncDerpOutputs) this.syncDerpOutputs();
+    };
+
+    nodeType.prototype.exportDerpProfile = function() {
+        return {
+            sliders: JSON.parse(JSON.stringify(this.properties.sliderContainer || [])),
+            sliderCount: this.properties.sliderCount || 1,
+            nameDisplay: this.properties.nameDisplay || "Top"
+        };
+    };
+
+    nodeType.prototype.handleSliderDraw = function() {
+        if (this.flags?.collapsed) return;
+
+        const isBypassed = this.mode === 4 || this.mode === 2 || this._derpSpoofedBypass;
+        if (this._lastBypassState !== isBypassed) {
+            this._lastBypassState = isBypassed;
+            if (this.syncDerpOutputs) this.syncDerpOutputs();
+            this.refreshNodeLayoutMap();
+            this.requestDerpSync();
+        }
+
+        const currentW = Math.round(this.size[0]);
+        if (this._lastDerpW !== currentW) {
+            this._lastDerpW = currentW;
+            this.refreshNodeLayoutMap();
+        }
+
+        if (this._lastTitleLabel !== this.titleLabel) {
+            this._lastTitleLabel = this.titleLabel;
+            if (this.broadcastWirelessSignal) this.broadcastWirelessSignal(this.properties.sliderContainer);
+        }
+    };
+
+    nodeType.prototype.handleSliderResize = function(size) {
+        this.properties.nodeSize = [size[0], size[1]];
+        this.refreshNodeLayoutMap();
+    };
+
+    // --- LIFECYCLE ---
+    const onCreated = nodeType.prototype.onNodeCreated;
+    nodeType.prototype.onNodeCreated = function() {
+        if (!this.properties) this.properties = {};
+        this.properties.sliderContainer = [{
+            name: "Slider_01", min: 0, max: 1, step: 0.05, default: 0.5, decimal: 2, value: 0.5,
+        }];
+        this.properties.sliderCount = this.properties.sliderContainer.length;
+
+        if (onCreated) onCreated.apply(this, arguments);
+
+        this.properties.isWirelessTransmitter = true;
+
+        this.titleLabel = "Derp Slider";
+        this.properties.titleLabel = "Derp Slider";
+        this.properties.autoWidth = false;
+        this.properties.autoHeight = true;
+        this.properties.nodeSize = [300, 50];
+        this.size = [300, 50];
+
+        setTimeout(() => {
+            if (typeof this.syncDerpOutputs === "function" && this.id !== -1) {
+                this.syncDerpOutputs();
+            }
+        }, 1);
+    };
+
+    const onConfigure = nodeType.prototype.onConfigure;
+    nodeType.prototype.onConfigure = function(info) {
+        if (onConfigure) onConfigure.apply(this, arguments);
+
+        // THE PURE VIRTUAL ENFORCER: Purge physical slots immediately on load
+        if (this.outputs && this.outputs.length > 0) {
+            this.outputs.forEach(o => { if (o.links) o.links = null; });
+            this.outputs = [];
+        }
+
+        if (info.properties && this.refreshDerpSliderSysMap) this.refreshDerpSliderSysMap();
+        if (typeof this.syncDerpOutputs === "function") this.syncDerpOutputs();
+    };
+
+    nodeType.prototype.onDerpSysPanelOpen = function(panel) {
+        this._derpPanel = panel;
+        if (panel.showProfiles) {
+            panel.showProfiles("derpSlider", "nodeSettings");
+        }
+        if (this.sysLayoutMap) panel.setLayoutMap(this.sysLayoutMap);
+    };
+
+    // --- INTERACTION ---
+    const baseHandleInteraction = nodeType.prototype.handleShieldInteraction;
+    nodeType.prototype.handleShieldInteraction = function(type, data) {
+        if (type === "resize") this._isDerpResizing = true;
+        if (type === "dragEnd") {
+            this._activeSliderIndex = null;
+            this._isDerpResizing = false;
+            // THE FINAL SYNC: Finalize the wireless signal and Python registry state upon mouse release.
+            if (this.syncDerpOutputs) this.syncDerpOutputs();
+        }
+
+        if (type === "hover" || type === "drag" || type === "dragStart" || type === "click" || type === "dblclick") {
+            const { localX, localY } = data || {};
+            let foundIdx = null;
+            const regions = this.layout?.regions;
+
+            if (regions && typeof localX === 'number' && typeof localY === 'number') {
+                for (const key of Object.keys(regions).reverse()) {
+                    if (key.startsWith("dynamicSlider_") && this.layout.hitTest([localX, localY], regions[key])) {
+                        foundIdx = parseInt(key.split("_")[1]);
+                        break;
+                    }
+                }
+            }
+
+            if (type === "dragStart" || type === "click" || type === "dblclick") { this._activeSliderIndex = foundIdx; }
+            const targetIdx = this._activeSliderIndex !== null ? this._activeSliderIndex : foundIdx;
+
+            if (targetIdx !== null && !isNaN(targetIdx) && (type === "drag" || type === "dragStart" || type === "click" || type === "dblclick")) {
+                const reg = regions[`dynamicSlider_${targetIdx}`];
+                if (reg && reg.state !== "DIS") {
+                    try {
+                        const dataArr = this.properties.sliderContainer;
+                        const config = dataArr[targetIdx];
+
+                        const cMin = parseFloat(config.min ?? 0);
+                        const cMax = parseFloat(config.max ?? 1);
+                        const cStep = parseFloat(config.step ?? 0.05);
+                        const cDef = parseFloat(config.default ?? 0.5);
+                        const cDec = parseInt(config.decimal ?? config.decimals ?? 2);
+
+                        let newVal;
+                        if (type === "dblclick") newVal = cDef;
+                        else {
+                            const percent = Math.max(0, Math.min(1, (localX - reg.x) / reg.w));
+                            const rawVal = cMin + (percent * (cMax - cMin));
+                            newVal = Math.round(rawVal / cStep) * cStep;
+                            newVal = Math.max(cMin, Math.min(cMax, newVal));
+                        }
+
+                        const finalValStr = newVal.toFixed(cDec);
+                        config.value = parseFloat(finalValStr);
+
+                        // THE PERSISTENCE FIX: Explicitly update the node property and rebuild the layout map.
+                        // This ensures that the property change is "locked in" and survives the end of the interaction.
+                        this.properties.sliderContainer = dataArr;
+
+                        if (this.broadcastWirelessSignal) {
+                            this.broadcastWirelessSignal(dataArr);
+                        }
+
+                        // Rebuild map to synchronize component values with the updated property
+                        if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
+
+                        this._shouldSync = true;
+                        this.setDirtyCanvas(true);
+                        return true;
+                    } catch(e) {}
+                }
+            }
+        }
+        if (baseHandleInteraction) return baseHandleInteraction.apply(this, arguments);
+        return false;
+    };
+}

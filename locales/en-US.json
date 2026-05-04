@@ -1,0 +1,25 @@
+{
+  "metadata": {
+    "language": "English",
+    "region": "US",
+    "author": "Gemini"
+  },
+  "system": {
+    "auto_width": "AutoWidth",
+    "auto_height": "AutoHeight",
+    "title": "Title",
+    "animation": "Animation",
+    "close_panel": "Close Panel"
+  },
+  "nodes": {
+    "virtual_node": "Virtual Node",
+    "logic_node": "Logic Node",
+    "master_switch": "Master Switch"
+  },
+  "widgets": {
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete"
+  }
+}

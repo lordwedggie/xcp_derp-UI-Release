@@ -1,0 +1,25 @@
+{
+  "metadata": {
+    "language": "Русский",
+    "region": "RU",
+    "author": "Gemini"
+  },
+  "system": {
+    "auto_width": "Авто-ширина",
+    "auto_height": "Авто-высота",
+    "title": "Заголовок",
+    "animation": "Анимация",
+    "close_panel": "Закрыть панель"
+  },
+  "nodes": {
+    "virtual_node": "Виртуальный узел",
+    "logic_node": "Логический узел",
+    "master_switch": "Главный переключатель"
+  },
+  "widgets": {
+    "confirm": "Подтвердить",
+    "cancel": "Отмена",
+    "save": "Сохранить",
+    "delete": "Удалить"
+  }
+}

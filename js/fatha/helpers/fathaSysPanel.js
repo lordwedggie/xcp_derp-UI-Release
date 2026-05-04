@@ -1,0 +1,671 @@
+/**
+ * Path: ./js/fatha/core/fathaSysPanel.js
+ * ROLE: A Virtual Fatha "Child" that manages node-specific system settings.
+ * INTEGRATION: Uses fathaDOMshield for interaction and GrandFathaLayoutEngine for geometry.
+ */
+import { app } from "../../../../scripts/app.js";
+import { masterPainter } from "../../herbina/masterPainter.js";
+import { masterLayoutEngine } from "../core/masterLayoutEngine.js";
+import { createDerpShield, syncDerpShield, removeDerpShield } from "../core/fathaDOMshield.js";
+import { UI_TYPES, COMPONENT_BLUEPRINTS } from "../core/masterLayoutTypes.js";
+import { getPanelBaseMap } from "./fathaLayoutMaps.js";
+import { animatePanelSlide, animateAlpha } from "../../herbina/masterAnimator.js";
+import { resolvePaintData } from "../../herbina/utils/widgetsUtils.js";
+import { loadDerpLocale, handleDerpRequestSync } from "../core/fathaHandler.js";
+import { showBastaFileHandler } from "../bastas/bastaFileHandler.js";
+import { showBastaMessage } from "../bastas/bastaMessage.js";
+import { playKaChing, playKaboom } from "../../herbina/masterSoundEffects.js";
+
+const PANEL_SLIDE_SPEED = 0.5;
+const PANEL_FADE_SPEED = 0.3;
+
+/**
+ * The System Panel State Controller
+ * Acts strictly as a "Virtual Node" proxy to satisfy fathaDOMshield and the Layout Engine.
+ */
+export const sysPanel = {
+    isVisible: false,
+    hostNode: null,
+    dynamicElements: {},
+    layout: null,
+    sysLayoutMap: {},
+    animHeight: 0,
+    animAlpha: 0,
+    offsetGap: 0, // State tracker for theme-driven gap
+
+    // --- OPTIMIZATION TRACKERS (Parity with fatha.js) ---
+    _shouldSync: false,
+    _layoutDirty: false,
+    _prevDerpState: null,
+
+    _pressedRegionKey: null,
+    _hoveredRegionKey: null,
+    _derpAwakeFrames: 0,
+    interactionShield: null,
+
+    // --- VIRTUAL NODE INTERFACE ---
+    get id() { return this.hostNode?.id || "fatha_sys_panel_global"; },
+    get pos() {
+        if (!this.hostNode || !this.hostNode.pos || !this.hostNode.size) return [0, 0];
+        // THE TRUE ZERO FIX: Remove the margin subtraction.
+        // When offsetGap is 0, the panel top will anchor exactly to the node bottom.
+        return [this.hostNode.pos[0], this.hostNode.pos[1] + this.hostNode.size[1] + (this.offsetGap || 0)];
+    },
+    // THE CRASH FIX: Restored the accidentally deleted size getter!
+    get size() {
+        const reg = this.layout?.regions?.panelBackground;
+        return [reg?.w || 100, this.animHeight];
+    },
+    get properties() { return this.hostNode?.properties || { debugMode: "None" }; },
+    get flags() { return { collapsed: false }; },
+    requestDerpSync() { handleDerpRequestSync(this); },
+
+    // Fatha systemic fallback variables
+    getDerpVars(self) {
+        if (this.hostNode && typeof this.hostNode.getDerpVars === 'function') {
+            return this.hostNode.getDerpVars(this.hostNode);
+        }
+        return { mW: 0, mH: 0, sW: 2, sH: 2, oX: 0, oY: 0, pW: 2, pH: 4, SNAP: 10 };
+    },
+
+    /**
+     * INTERACTION BRIDGE: Routed from standard fathaDOMshield
+     */
+    handleShieldInteraction(type, data) {
+        if (!this.isVisible || !this.layout) return false;
+
+        const localMouse = [data.localX || 0, data.localY || 0];
+
+        if (type === "hover") {
+            let hoveredKey = null;
+            const regions = Object.entries(this.layout.regions).reverse();
+            for (const [key, reg] of regions) {
+                if (reg.type && !reg.noHover && this.layout.hitTest(localMouse, reg)) {
+                    hoveredKey = key;
+                    break;
+                }
+            }
+            if (this._hoveredRegionKey !== hoveredKey) {
+                this._hoveredRegionKey = hoveredKey;
+                this.setDirtyCanvas(true);
+            }
+            return !!hoveredKey;
+        }
+
+        if (type === "dragStart") {
+            const regions = Object.entries(this.layout.regions).reverse();
+            for (const [key, reg] of regions) {
+                const isInteractive = reg.onPress || reg.onClick || reg.onDblClick || reg.onChange ||
+                    reg.type === UI_TYPES.DROPDOWN_DERP ||
+                    reg.type === UI_TYPES.DROPDOWN ||
+                    reg.type === UI_TYPES.TOGGLE ||
+                    reg.type === UI_TYPES.TOGGLE_V2;
+
+                if (isInteractive && this.layout.hitTest(localMouse, reg)) {
+                    this._pressedRegionKey = key;
+                    this._derpAwakeFrames = 15;
+                    this.setDirtyCanvas(true);
+                    return true;
+                }
+            }
+            // Absorb background clicks so the canvas doesn't pan
+            if (this.layout.hitTest(localMouse, this.layout.regions.panelBackground)) return true;
+        }
+
+        if (type === "click" || type === "pointerup") {
+            const key = this._pressedRegionKey;
+            this._pressedRegionKey = null;
+
+            if (key && this.layout.regions[key]) {
+                const reg = this.layout.regions[key];
+                if (reg.onPress) reg.onPress(data.originalEvent, data);
+                else if (reg.onClick) reg.onClick(data.originalEvent, data);
+                else if (reg.onChange) {
+                    this._derpAwakeFrames = 15;
+                    reg.onChange(!reg.value, data);
+                }
+
+                if (reg.type === UI_TYPES.DROPDOWN_DERP) {
+                    this._pressedRegionKey = key;
+                }
+                this.setDirtyCanvas(true);
+                return true;
+            }
+
+            // Close if clicking completely outside the panel
+            if (type === "click" && !this.layout.hitTest(localMouse, this.layout.regions.panelBackground)) {
+                closeDerpSysPanel();
+            }
+            return true;
+        }
+
+        if (type === "dragEnd") {
+            this._pressedRegionKey = null;
+            return true;
+        }
+
+        return false;
+    },
+
+    setDirtyCanvas(b1, b2) {
+        if (this.hostNode) this.hostNode.setDirtyCanvas(b1, b2);
+    }
+};
+
+export function isHostActive(nodeId) {
+    return sysPanel.isVisible && sysPanel.hostNode?.id === nodeId;
+}
+
+/**
+ * MAIN RENDER LOOP: Mirrors Fatha's onDrawForeground but for the systemic overlay.
+ */
+export function drawDerpSysPanelGlobal(ctx) {
+    // THE RENDER GATE: Block drawing if we're between visibility=true and the fetch completing
+    if (!sysPanel.isVisible || !sysPanel.hostNode || !window.xcpDerpLocaleData) return;
+
+    const node = sysPanel.hostNode;
+
+    // THE ABSOLUTE STROKE WEIGHT FIX:
+    // 1. Identify current state (Bypass > Selection > Normal)
+    const isBypassed = node.mode === 4 || node.mode === 2 || node._derpSpoofedBypass;
+    const isSelected = !!app.canvas.selected_nodes?.[node.id] || node.selected || node._isVirtualSelected;
+    const suffix = isBypassed ? "_DIS" : (isSelected ? "_ON" : "");
+
+    // 2. Pull the 'canvas' theme data
+    const paint = resolvePaintData(node, "canvas", suffix);
+    let pulledWeight = 0;
+
+    if (paint) {
+        if (typeof paint.lineWidth === 'number') pulledWeight = paint.lineWidth;
+        else if (Array.isArray(paint.stroke)) pulledWeight = paint.stroke[0];
+
+        if (!pulledWeight) {
+            const sysCfg = window.xcpDerpThemeConfig;
+            if (sysCfg && sysCfg.themes) {
+                const themeName = node.properties?.selectedTheme || sysCfg.activeTheme || "Template_Standard_v02";
+                const theme = sysCfg.themes[themeName];
+                const rawCanvas = theme?.[`canvas${suffix}`] || theme?.canvas;
+                if (rawCanvas && Array.isArray(rawCanvas.stroke)) {
+                    pulledWeight = rawCanvas.stroke[0];
+                }
+            }
+        }
+    }
+
+    sysPanel.offsetGap = pulledWeight || 0;
+
+    // --- THE OPTIMIZATION GATING ---
+    const canvasDS = app.canvas.ds;
+    const curX = sysPanel.pos[0], curY = sysPanel.pos[1];
+    const curW = sysPanel.size[0], curH = sysPanel.size[1];
+    const hostW = node.size[0]; // THE FIX: Track the host node's width specifically
+    const curS = canvasDS.scale;
+    const curOX = canvasDS.offset[0], curOY = canvasDS.offset[1];
+
+    const hasMoved = !sysPanel._prevDerpState ||
+        sysPanel._prevDerpState.posX !== curX || sysPanel._prevDerpState.posY !== curY ||
+        sysPanel._prevDerpState.sizeW !== curW || sysPanel._prevDerpState.sizeH !== curH ||
+        sysPanel._prevDerpState.hostW !== hostW || // THE FIX: Force sync if host width changes
+        sysPanel._prevDerpState.scale !== curS ||
+        sysPanel._prevDerpState.offsetX !== curOX || sysPanel._prevDerpState.offsetY !== curOY ||
+        sysPanel._prevDerpState.selected !== isSelected ||
+        sysPanel._prevDerpState.bypassed !== isBypassed ||
+        sysPanel._prevDerpState.offsetGap !== sysPanel.offsetGap ||
+        sysPanel._prevDerpState.hoveredKey !== sysPanel._hoveredRegionKey ||
+        sysPanel._prevDerpState.pressedKey !== sysPanel._pressedRegionKey;
+
+    let isAnimating = false;
+    if (sysPanel._derpAwakeFrames > 0) {
+        sysPanel._derpAwakeFrames--;
+        isAnimating = true;
+        sysPanel.setDirtyCanvas(true, true);
+    }
+
+    // Determine final sync requirement for this frame
+    sysPanel._shouldSync = hasMoved || node._forceSync || sysPanel._layoutDirty || isAnimating;
+    if (sysPanel._layoutDirty) sysPanel._layoutDirty = false;
+
+    // 1. Setup Layout Engine
+    if (!sysPanel.layout) sysPanel.layout = new masterLayoutEngine(sysPanel);
+
+    if (sysPanel._shouldSync) {
+        const { sysProfileRegion, footerMargin, ...baseFramework } = getPanelBaseMap(node, app, sysPanel, closeDerpSysPanel);
+
+        if (sysProfileRegion) {
+            const hasProfile = node._currentProfileName && node._currentProfileName !== "(No Profiles Found)";
+
+            sysProfileRegion.btnSave.state = "OFF";
+
+            sysProfileRegion.btnRename.onPress = () => {
+                if (!hasProfile) return;
+                showBastaFileHandler(node, "none", "sys_btnRename", {
+                    title: `Rename Profile: ${node._currentProfileName}`,
+                    message: "Enter new name for profile:",
+                    confirm: "Rename",
+                    warning: "Profile name already exists!",
+                    originalName: node._currentProfileName,
+                    fileList: node._sysProfileCache || [],
+                    onConfirm: async (newName) => {
+                        if (node._sysProfileData && node._sysProfileData[newName] && newName !== node._currentProfileName && !confirm(`Profile "${newName}" already exists. Overwrite?`)) return;
+                        if (node._sysProfileData && node._sysProfileData[node._currentProfileName]) {
+                            node._sysProfileData[newName] = node._sysProfileData[node._currentProfileName];
+                            if (node._currentProfileName !== newName) delete node._sysProfileData[node._currentProfileName];
+                            node._currentProfileName = newName;
+                            node._sysProfileCache = Object.keys(node._sysProfileData);
+
+                            const fileName = node._sysProfileFile;
+                            const category = node._sysProfileFolder === "nodeSettings" ? "settings" : node._sysProfileFolder;
+                            try {
+                                await fetch(`/xcp/save/${category}`, {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ name: fileName, data: node._sysProfileData })
+                                });
+                            } catch (e) { console.error(e); }
+
+                            playKaChing();
+                            showBastaMessage(node, `Profile Renamed: ${newName}`, 3000, { fade: true, grow: true }, "sys_btnRename");
+                            sysPanel._layoutDirty = true;
+                            sysPanel.requestDerpSync();
+                        }
+                    }
+                });
+            };
+
+            sysProfileRegion.btnCopy.onPress = () => {
+                if (!hasProfile) return;
+                showBastaFileHandler(node, "none", "sys_btnCopy", {
+                    title: `Duplicate Profile: ${node._currentProfileName}`,
+                    message: "Enter name for new profile copy:",
+                    confirm: "Duplicate",
+                    warning: "Profile name already exists!",
+                    mode: "duplicate",
+                    originalName: node._currentProfileName,
+                    fileList: node._sysProfileCache || [],
+                    onConfirm: async (newName) => {
+                        if (node._sysProfileData && node._sysProfileData[newName] && !confirm(`Profile "${newName}" already exists. Overwrite?`)) return;
+                        if (node._sysProfileData && node._sysProfileData[node._currentProfileName]) {
+                            node._sysProfileData[newName] = JSON.parse(JSON.stringify(node._sysProfileData[node._currentProfileName]));
+                            node._currentProfileName = newName;
+                            node._sysProfileCache = Object.keys(node._sysProfileData);
+
+                            const fileName = node._sysProfileFile;
+                            const category = node._sysProfileFolder === "nodeSettings" ? "settings" : node._sysProfileFolder;
+                            try {
+                                await fetch(`/xcp/save/${category}`, {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ name: fileName, data: node._sysProfileData })
+                                });
+                            } catch (e) { console.error(e); }
+
+                            playKaChing();
+                            showBastaMessage(node, `Profile Duplicated: ${newName}`, 3000, { fade: true, grow: true }, "sys_btnCopy");
+                            sysPanel._layoutDirty = true;
+                            sysPanel.requestDerpSync();
+                        }
+                    }
+                });
+            };
+
+            sysProfileRegion.btnSave.onPress = () => {
+                if (!hasProfile) {
+                    showBastaFileHandler(node, "none", "sys_btnSave", {
+                        title: "Create New Profile",
+                        message: "Enter name for new profile:",
+                        confirm: "Create",
+                        warning: "Profile name already exists!",
+                        mode: "newTrigger",
+                        originalName: "Profile_01",
+                        fileList: node._sysProfileCache || [],
+                        onConfirm: async (newName) => {
+                            if (node._sysProfileData && node._sysProfileData[newName] && !confirm(`Profile "${newName}" already exists. Overwrite?`)) return;
+                            const fileName = node._sysProfileFile;
+                            const category = node._sysProfileFolder === "nodeSettings" ? "settings" : node._sysProfileFolder;
+
+                            if (!node._sysProfileData) node._sysProfileData = {};
+                            if (node.exportDerpProfile) {
+                                node._sysProfileData[newName] = node.exportDerpProfile();
+                            } else {
+                                node._sysProfileData[newName] = {};
+                            }
+
+                            try {
+                                const res = await fetch(`/xcp/save/${category}`, {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ name: fileName, data: node._sysProfileData })
+                                });
+                                if (res.ok) {
+                                    node._currentProfileName = newName;
+                                    node._sysProfileCache = Object.keys(node._sysProfileData);
+                                    playKaChing();
+                                    showBastaMessage(node, `Profile Created`, 3000, { fade: true, grow: true }, "sys_btnSave");
+                                    sysPanel._layoutDirty = true;
+                                    sysPanel.requestDerpSync();
+                                }
+                            } catch (e) { console.error(e); }
+                        }
+                    });
+                    return;
+                }
+
+                showBastaFileHandler(node, "none", "sys_btnSave", {
+                    title: `Save Profile: ${node._currentProfileName}`,
+                    message: `Save changes to current profile?`,
+                    confirm: "Save",
+                    mode: "save",
+                    originalName: node._currentProfileName,
+                    fileList: node._sysProfileCache || [],
+                    onConfirm: async (newName) => {
+                        if (node._sysProfileData && node._sysProfileData[newName] && !confirm(`Profile "${newName}" already exists. Overwrite?`)) return;
+                        const fileName = node._sysProfileFile;
+                        const category = node._sysProfileFolder === "nodeSettings" ? "settings" : node._sysProfileFolder;
+                        if (node.exportDerpProfile) {
+                            node._sysProfileData[newName] = node.exportDerpProfile();
+                        }
+                        if (newName !== node._currentProfileName) delete node._sysProfileData[node._currentProfileName];
+                        node._currentProfileName = newName;
+                        node._sysProfileCache = Object.keys(node._sysProfileData);
+                        try {
+                            const res = await fetch(`/xcp/save/${category}`, {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ name: fileName, data: node._sysProfileData })
+                            });
+                            if (res.ok) {
+                                playKaChing();
+                                showBastaMessage(node, `Profiles Saved`, 3000, { fade: true, grow: true }, "sys_btnSave");
+                                sysPanel._layoutDirty = true;
+                                sysPanel.requestDerpSync();
+                            }
+                        } catch (e) { console.error(e); }
+                    }
+                });
+            };
+
+            sysProfileRegion.btnDelete.onPress = () => {
+                if (!hasProfile) return;
+                showBastaFileHandler(node, "none", "sys_btnDelete", {
+                    title: `Delete Profile: ${node._currentProfileName}`,
+                    message: `Permanently delete profile: ${node._currentProfileName}?`,
+                    confirm: "Delete",
+                    mode: "delete",
+                    originalName: node._currentProfileName,
+                    onConfirm: async () => {
+                        if (node._sysProfileData && node._sysProfileData[node._currentProfileName]) {
+                            delete node._sysProfileData[node._currentProfileName];
+                            node._sysProfileCache = Object.keys(node._sysProfileData);
+                            if (node._sysProfileCache.length === 0) {
+                                node._sysProfileCache = ["(No Profiles Found)"];
+                                node._currentProfileName = node._sysProfileCache[0];
+                            } else {
+                                node._currentProfileName = node._sysProfileCache[0];
+                            }
+
+                            const fileName = node._sysProfileFile;
+                            const category = node._sysProfileFolder === "nodeSettings" ? "settings" : node._sysProfileFolder;
+                            try {
+                                await fetch(`/xcp/save/${category}`, {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ name: fileName, data: node._sysProfileData })
+                                });
+                            } catch (e) { console.error(e); }
+
+                            playKaboom();
+                            showBastaMessage(node, `Profile Deleted`, 3000, { fade: true, grow: true }, "sys_btnDelete");
+                            sysPanel._layoutDirty = true;
+                            sysPanel.requestDerpSync();
+                        }
+                    }
+                });
+            };
+        }
+
+        const mergedMap = {
+            ...baseFramework,
+            ...node.sysLayoutMap,
+            sysProfileRegion,
+            footerMargin
+        };
+
+        const textTheme = node._t_textSmallPaintData || node._t_textNormalPaintData || { font: "Arial", fontSize: 10, fill: "red", textColor: "red" };
+        const bounds = { x: 0, y: 0, w: node.size[0], h: 0 };
+
+        sysPanel.layout.compute(bounds, mergedMap, {
+            textTheme,
+            isSystemPanel: true,
+            debugMode: node.properties.debugMode
+        }, node._forceSync || sysPanel._shouldSync);
+
+        // Bridge sysPanel geometries into the host node so Bastas can anchor perfectly
+        if (node.layout && node.layout.regions && sysPanel.layout.regions) {
+            const yOffset = sysPanel.pos[1] - node.pos[1];
+            ["btnRename", "btnCopy", "btnSave", "btnDelete"].forEach(key => {
+                const reg = sysPanel.layout.regions[key];
+                if (reg) {
+                    node.layout.regions[`sys_${key}`] = { ...reg, y: reg.y + yOffset };
+                }
+            });
+        }
+    }
+
+    const regions = sysPanel.layout.regions;
+    const targetH = regions?.panelBackground?.h || 0;
+
+    // 3. Handle Animations
+    const useAnim = node.properties.useAnimations !== false;
+    const slide = animatePanelSlide(sysPanel.animHeight, targetH, PANEL_SLIDE_SPEED, useAnim);
+    const fade = animateAlpha(sysPanel.animAlpha, 1.0, PANEL_FADE_SPEED, useAnim);
+
+    sysPanel.animHeight = slide.value;
+    sysPanel.animAlpha = fade.value;
+
+    if (slide.isAnimating || fade.isAnimating) {
+        sysPanel._shouldSync = true;
+        sysPanel.setDirtyCanvas(true, true);
+    }
+
+    // 4. Draw the Physical Panel Context
+    ctx.save();
+    ctx.translate(sysPanel.pos[0], sysPanel.pos[1]);
+    ctx.globalAlpha = sysPanel.animAlpha;
+
+    const bgPaint = node._systemBackgroundPaintData_OFF || node._systemBackgroundPaintData || { fill: "red" };
+    if (regions?.panelBackground && bgPaint) {
+        const reg = regions.panelBackground;
+        masterPainter(ctx, {
+            posX: reg.x, posY: reg.y, width: reg.w, height: sysPanel.animHeight, // Removed + mH
+            color: bgPaint.fill, paintData: bgPaint
+        });
+    }
+
+    // 5. Component Blueprint Loop (Canvas & HTML Sync)
+    const usedKeys = new Set();
+    const textTheme = node._t_textSmallPaintData || node._t_textNormalPaintData || { font: "Arial", fontSize: 10, fill: "red", textColor: "red" };
+
+    if (regions) {
+        for (const [key, reg] of Object.entries(regions)) {
+            if (!reg.type || key === "panelBackground") continue;
+
+            const blueprint = COMPONENT_BLUEPRINTS[reg.type];
+            if (!blueprint) continue;
+
+            usedKeys.add(key);
+
+            const finalReg = {
+                ...reg,
+                key: key,
+                alpha: sysPanel.animAlpha,
+                isPressed: sysPanel._pressedRegionKey === key,
+                isHovered: sysPanel._hoveredRegionKey === key,
+                textTheme: textTheme,
+                value: reg.value,
+                geometry: { x: reg.x, y: reg.y, w: reg.w, h: reg.h }
+            };
+
+            // Garbage collect mismatched old HTML elements
+            if (!blueprint.isHtml && !blueprint.isHybrid && sysPanel.dynamicElements[key]) {
+                sysPanel.dynamicElements[key].remove();
+                delete sysPanel.dynamicElements[key];
+            }
+
+            if (blueprint.isHtml) {
+                let isNewElement = false;
+                if (!sysPanel.dynamicElements[key]) {
+                    sysPanel.dynamicElements[key] = blueprint.create(finalReg);
+                    document.body.appendChild(sysPanel.dynamicElements[key]);
+                    isNewElement = true;
+                }
+
+                // THE GATING FIX: Heavy HTML syncing is strictly gated by _shouldSync or initial creation
+                if (sysPanel._shouldSync || isNewElement) {
+                    blueprint.sync(sysPanel.dynamicElements[key], sysPanel, app, finalReg);
+                }
+            } else if (blueprint.isHybrid) {
+                // Hybrid elements rely on canvas rendering every frame, their internal HTML manages itself
+                blueprint.sync(ctx, sysPanel, app, finalReg);
+            } else {
+                // Pure Canvas elements MUST draw every frame to prevent vanishing
+                blueprint.sync(ctx, sysPanel, finalReg);
+            }
+        }
+    }
+
+    // 6. HTML Garbage Collection for obsolete UI elements
+    if (sysPanel.dynamicElements) {
+        for (const domKey in sysPanel.dynamicElements) {
+            if (!usedKeys.has(domKey)) {
+                sysPanel.dynamicElements[domKey].remove();
+                delete sysPanel.dynamicElements[domKey];
+            }
+        }
+    }
+
+    ctx.restore();
+
+    // 7. Shield Sync (Updates physical hitboxes to match canvas)
+    if (sysPanel.interactionShield) {
+        syncDerpShield(sysPanel);
+    }
+    // 8. Update Optimization State Cache
+    if (sysPanel._shouldSync) {
+        sysPanel._prevDerpState = {
+            posX: curX, posY: curY,
+            sizeW: curW, sizeH: curH,
+            hostW: node.size[0], // THE FIX: Store host width in the cache
+            scale: curS,
+            offsetX: curOX, offsetY: curOY,
+            selected: isSelected,
+            bypassed: isBypassed,
+            offsetGap: sysPanel.offsetGap,
+            hoveredKey: sysPanel._hoveredRegionKey,
+            pressedKey: sysPanel._pressedRegionKey
+        };
+    }
+}
+
+export async function toggleDerpSysPanel(hostNode) {
+    if (!hostNode) return;
+
+    // THE COMPILED SYNC: Resolve the current language from ComfyUI's native settings
+    if (!window.xcpDerpLocaleData) {
+        const comfyLocale = app.ui.settings.getSettingValue("Comfy.Locale") || "en-US";
+        await loadDerpLocale(comfyLocale);
+    }
+
+    if (sysPanel.isVisible) {
+        const isSame = sysPanel.hostNode?.id === hostNode.id;
+        closeDerpSysPanel();
+        if (isSame) return;
+    }
+
+    sysPanel.hostNode = hostNode;
+    sysPanel.isVisible = true;
+    sysPanel.animHeight = 0;
+    sysPanel.animAlpha = 0;
+
+    // THE OPTIMIZATION FIX: Purge the cache on open to force an immediate fresh sync
+    sysPanel._prevDerpState = null;
+    sysPanel._shouldSync = true;
+    sysPanel._layoutDirty = true;
+
+    createDerpShield(sysPanel);
+    if (sysPanel.interactionShield?._resizeHandle) {
+        sysPanel.interactionShield._resizeHandle.style.display = "none"; // THE FIX: Kill the resize handle for the panel
+    }
+
+    if (hostNode.onDerpSysPanelOpen) {
+        hostNode.onDerpSysPanelOpen({
+            setLayoutMap: (map) => { hostNode.sysLayoutMap = map; },
+            showProfiles: (fileName, subFolder) => {
+                hostNode._sysProfileActive = true;
+                hostNode._sysProfileFile = fileName;
+                hostNode._sysProfileFolder = subFolder;
+
+                if (!hostNode._sysProfileCache) {
+                    // INDIVIDUAL FILE NODES (Requires /xcp/list)
+                    const isIndividual = (fileName === "derpLoraStack" || fileName === "derpPromptBook");
+                    if (isIndividual) {
+                        fetch(`/xcp/list/${fileName}`)
+                            .then(res => res.json())
+                            .then(res => {
+                                hostNode._sysProfileCache = (res.items && res.items.length > 0) ? res.items.sort() : ["(No Profiles Found)"];
+                                hostNode._currentProfileName = hostNode._sysProfileCache[0];
+                                sysPanel._layoutDirty = true;
+                                hostNode.setDirtyCanvas(true, true);
+                            });
+                    } else {
+                        // SINGLE JSON ENTRY NODES (Requires /xcp/load keys)
+                        const category = subFolder === "nodeSettings" ? "settings" : subFolder;
+                        fetch(`/xcp/load/${category}?name=${fileName}`)
+                            .then(res => res.json())
+                            .then(res => {
+                                const data = res.data || {};
+                                hostNode._sysProfileData = data;
+                                hostNode._sysProfileCache = Object.keys(data).sort();
+                                if (hostNode._sysProfileCache.length === 0) hostNode._sysProfileCache = ["(No Profiles Found)"];
+                                if (!hostNode._currentProfileName || !hostNode._sysProfileCache.includes(hostNode._currentProfileName)) {
+                                    hostNode._currentProfileName = hostNode._sysProfileCache[0];
+                                }
+                                sysPanel._layoutDirty = true;
+                                hostNode.setDirtyCanvas(true, true);
+                            });
+                    }
+                }
+            }
+        });
+    }
+
+    sysPanel.setDirtyCanvas(true, true);
+}
+
+export function closeDerpSysPanel() {
+    if (sysPanel.hostNode?.onDerpSysPanelClose) {
+        sysPanel.hostNode.onDerpSysPanelClose();
+    }
+
+    if (sysPanel.hostNode?.layout?.regions) {
+        ["sys_btnRename", "sys_btnCopy", "sys_btnSave", "sys_btnDelete"].forEach(key => {
+            delete sysPanel.hostNode.layout.regions[key];
+        });
+        sysPanel.hostNode.setDirtyCanvas(true, true);
+    }
+
+    if (sysPanel.dynamicElements) {
+        Object.values(sysPanel.dynamicElements).forEach(el => el?.remove());
+        sysPanel.dynamicElements = {};
+    }
+
+    removeDerpShield(sysPanel);
+
+    sysPanel.isVisible = false;
+    sysPanel.hostNode = null;
+    sysPanel.layout = null;
+
+    // THE OPTIMIZATION FIX: Purge cache on close to free memory
+    sysPanel._prevDerpState = null;
+
+    if (app.graph) app.graph.setDirtyCanvas(true, true);
+}

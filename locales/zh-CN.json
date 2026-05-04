@@ -1,0 +1,25 @@
+{
+  "metadata": {
+    "language": "简体中文",
+    "region": "CN",
+    "author": "Gemini"
+  },
+  "system": {
+    "auto_width": "自动宽度",
+    "auto_height": "自动高度",
+    "title": "标题",
+    "animation": "动画",
+    "close_panel": "关闭面板"
+  },
+  "nodes": {
+    "virtual_node": "虚拟节点",
+    "logic_node": "逻辑节点",
+    "master_switch": "主开关"
+  },
+  "widgets": {
+    "confirm": "确认",
+    "cancel": "取消",
+    "save": "保存",
+    "delete": "删除"
+  }
+}
