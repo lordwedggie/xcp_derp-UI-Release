@@ -164,7 +164,7 @@ export function initDerpModelLoaderCore(nodeType) {
 
         this.titleLabel = "Derp Model Loader";
         this.properties.titleLabel = "Derp Model Loader";
-        this.properties.modelDeck = [];
+        this.properties.modelDeck = this.properties.modelDeck || [];
         this.properties.showFolderNames = true;
         this.properties.drawSettingBtn = true;
 
@@ -185,8 +185,25 @@ export function initDerpModelLoaderCore(nodeType) {
     };
 
     proto.handleLoaderConfigure = function() {
+        const savedDeck = JSON.parse(JSON.stringify(this.properties.modelDeck || []));
         this.fetchModelData();
         setTimeout(() => {
+            if (savedDeck && savedDeck.length > 0) {
+                const currentList = this._modelList || [];
+                const restored = [];
+                let activeRestored = false;
+                savedDeck.forEach(saved => {
+                    const match = currentList.find(name => name === saved.name);
+                    if (match) {
+                        restored.push({ name: saved.name, active: saved.active });
+                        if (saved.active) activeRestored = true;
+                    }
+                });
+                if (restored.length > 0) {
+                    if (!activeRestored) restored[0].active = true;
+                    this.properties.modelDeck = restored;
+                }
+            }
             if (this.syncDerpOutputs) this.syncDerpOutputs();
             this.refreshDerpTemplateSysMap();
         }, 50);

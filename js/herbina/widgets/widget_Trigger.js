@@ -8,6 +8,7 @@ const TRIGGER_COLOR_SPEED = 0.2;
 const WEIGHT_FONT_SIZE = 5;
 const WEIGHT_ICON_PAD = 3;
 const TRIGGER_LABEL_GAP = 2;
+const WEIGHT_EPSILON = 1e-6;
 
 export function syncDerpTrigger(ctx, node, app, config) {
     if (!config.geometry) return;
@@ -111,18 +112,21 @@ export function syncDerpTrigger(ctx, node, app, config) {
     const labelText = style === "default" ? t(node.properties?.[`${config.key}_label`] ?? content.text ?? "") : t(content.text || "");
     const themeFontSize = props.fontSize || finalLabelPaint.fontSize || 10;
     const themeFont = finalLabelPaint.font || (window.xcpDerpThemeConfig ? "DengXian Light" : "Arial");
+    const weightFontSize = config.weightFontSize || props.weightFontSize || Math.min(themeFontSize, WEIGHT_FONT_SIZE);
     ctx.font = `${props.fontWeight || "normal"} ${themeFontSize}px ${themeFont}`;
 
     const tH = themeFontSize;
 
-    const weight = config.weight ?? 1.0;
-    const isWeightVisible = !!config.showWeight && weight !== 1.0;
+    const weight = Number(config.weight ?? 1.0);
+    const safeWeight = Number.isFinite(weight) ? weight : 1.0;
+    const isWeightVisible = Math.abs(safeWeight - 1.0) > WEIGHT_EPSILON;
+    const weightText = safeWeight.toFixed(2);
 
     let tW = iconWidthOverride || config.toggleWidth || tH;
     if (isWeightVisible && !config.toggleWidth) {
         ctx.save();
-        ctx.font = `${WEIGHT_FONT_SIZE}px ${themeFont}`;
-        const weightW = ctx.measureText(weight.toFixed(2)).width;
+        ctx.font = `${props.fontWeight || finalLabelPaint.fontWeight || "normal"} ${weightFontSize}px ${themeFont}`;
+        const weightW = ctx.measureText(weightText).width;
         ctx.restore();
         tW = Math.max(tW, weightW + (WEIGHT_ICON_PAD * 2));
     }
@@ -158,8 +162,8 @@ export function syncDerpTrigger(ctx, node, app, config) {
             x: tX + (tW / 2),
             y: tY + (tH / 2),
             width: tW, height: tH,
-            text: weight.toFixed(2),
-            paintData: { ...finalLabelPaint, fontSize: WEIGHT_FONT_SIZE },
+            text: weightText,
+            paintData: { ...finalLabelPaint, fontSize: weightFontSize, fontWeight: props.fontWeight || finalLabelPaint.fontWeight },
             align: "center", baseline: "middle"
         });
     }

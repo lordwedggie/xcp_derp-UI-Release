@@ -47,7 +47,7 @@ app.registerExtension({
         console.log(`[Fatha] Intercepting Python Node: ${nodeData.name}`);
 
         // Initialize the Virtual Fatha framework hijacking
-        fatha(nodeType, nodeData, 300);
+        fatha(nodeType, nodeData, 200);
 
         const origHandle = nodeType.prototype.handleShieldInteraction;
         nodeType.prototype.handleShieldInteraction = function (type, data) {
@@ -71,14 +71,23 @@ app.registerExtension({
         nodeType.prototype.refreshNodeLayoutMap = function() {
             if (!this.layout || !this.getDerpVars) return;
 
+            const minW = this.properties?.minWidth || 200;
+            const rawW = this.size?.[0] || 0;
+            const clampedW = Math.max(minW, rawW);
+            if (rawW !== clampedW) {
+                this.size[0] = clampedW;
+                if (this.properties?.nodeSize) this.properties.nodeSize[0] = clampedW;
+            }
+
             // ZERO-INFERENCE GATING: Early return if structure and size haven't changed
             const groupsForHash = (this.properties.triggerGroups || []).filter(g => !g.hidden);
-            let currentHash = `${(this.size?.[0] || 0).toFixed(2)}_${(this.properties.triggerGroups || []).findIndex((g, gIdx) => !g.hidden && this._selectedRegions?.[`triggerRegion_${gIdx}`])}_${this._dropPreviewIdx}_${this._dragTrig?.tIdx}`;
+            let currentHash = `${clampedW.toFixed(2)}_${(this.properties.triggerGroups || []).findIndex((g, gIdx) => !g.hidden && this._selectedRegions?.[`triggerRegion_${gIdx}`])}_${this._dropPreviewIdx}_${this._dragTrig?.tIdx}`;
             groupsForHash.forEach(g => {
                 currentHash += `|${g.id}_${g.title}_${g.isExclusive}_${g.hidden || false}`;
                 g.triggers.forEach(t => { currentHash += `:${t.id}_${t.active}_${t.weight}_${t.label}_${t.disabled}_${t.hidden || false}`; });
             });
-            currentHash += `|${this.properties.showWeight}_${this.properties.toggleAddAlways}_${this.properties.drawHeader}_${this.properties.settingActive}_${this.properties.lastSavedPreset || ""}_${window._xcpDerpSession}`;
+            // Keep hash focused on geometry-affecting fields only.
+            currentHash += `|${this.properties.showWeight}_${this.properties.toggleAddAlways}_${this.properties.drawHeader}_${this.properties.lastSavedPreset || ""}`;
 
             if (this._layoutMapHash === currentHash && this.layoutMap) {
                 this.requestDerpSync();
@@ -117,6 +126,13 @@ app.registerExtension({
             const textTheme = this._t_textSmallPaintData || this._t_textNormalPaintData || {};
             const trigHeight = (textTheme.fontSize || 10) + (triggerPadH * 2);
 
+            const presetItems = this._presetItems || [];
+            const presetSortKey = presetItems.join("\u0001");
+            if (this._sortedPresetItemsKey !== presetSortKey) {
+                this._sortedPresetItemsKey = presetSortKey;
+                this._sortedPresetItems = [...presetItems].sort((a, b) => String(a).localeCompare(String(b)));
+            }
+
             const layoutMap = {
                 contentRegion: {
                     anchor: { target: "headerRegion", axis: "y", },
@@ -148,7 +164,7 @@ app.registerExtension({
                     text: this.properties.lastSavedPreset || "Load trigger profiles", mouseOver: false,
                     icon: this.properties.lastSavedPreset ? "file" : "folder",
                     width: "full", height: "fill", padding: [pW, pH], margin: [sW, 0, 0, 0],
-                    items: [...(this._presetItems || [])].sort((a, b) => String(a).localeCompare(String(b))),
+                    items: this._sortedPresetItems || [],
                     indicator: true,
                     rootName: "Presets",
                     onChange: (val) => {
@@ -163,7 +179,7 @@ app.registerExtension({
                 if (group.hidden) return;
                 const triggerRows = {};
                 let curR = 0, curW = 0;
-                const nodeW = Math.round(this.size?.[0] || 150);
+                const nodeW = Math.round(clampedW || 150);
                 const marginX = (mW * 4);
                 const maxW = nodeW - marginX;
 
@@ -197,6 +213,8 @@ app.registerExtension({
                         }, { textTheme: this._t_textSmallPaintData || this._t_textNormalPaintData })) : 0;
                     }
 
+                    // Keep per-item measure cache reset to avoid stale width reuse across
+                    // varying trigger payloads (label/weight/theme), which can break wrapping.
                     if (this.layout._measureCache) this.layout._measureCache.clear();
 
                     const spacing = acc[curR].length > 0 ? sW : 0;
@@ -329,17 +347,6 @@ app.registerExtension({
             };
 
             this.layoutMap = layoutMap;
-
-            // THE GC CHURN FIX: Generate a fast structural hash to bypass Fatha's O(N) deep traversal
-            let fastHash = `${this.size?.[0]}_${selectedGroupOriginalIdx}_${this._dropPreviewIdx}_${this._dragTrig?.tIdx}`;
-            groups.forEach(g => {
-                fastHash += `|${g.id}_${g.title}_${g.isExclusive}_${g.hidden || false}`;
-                g.triggers.forEach(t => {
-                    fastHash += `:${t.id}_${t.active}_${t.weight}_${t.label}_${t.disabled}_${t.hidden || false}`;
-                });
-            });
-            fastHash += `|${this.properties.showWeight}_${this.properties.toggleAddAlways}_${this.properties.drawHeader}_${this.properties.settingActive}_${this.properties.lastSavedPreset || ""}`;
-            this._layoutMapHash = fastHash;
 
             if (this.layout) this.layout._lastCacheKey = "";
             this.requestDerpSync();

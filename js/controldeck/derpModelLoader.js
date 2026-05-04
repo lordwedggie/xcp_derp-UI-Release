@@ -286,9 +286,19 @@ app.registerExtension({
             this.handleLoaderCreated();
         };
 
+        const onSerialize = nodeType.prototype.onSerialize;
+        nodeType.prototype.onSerialize = function(info) {
+            if (onSerialize) onSerialize.apply(this, arguments);
+            info.properties = info.properties || {};
+            info.properties.modelDeck = this.properties.modelDeck;
+        };
+
         const onConfigure = nodeType.prototype.onConfigure;
         nodeType.prototype.onConfigure = function(info) {
             if (onConfigure) onConfigure.apply(this, arguments);
+            if (info.properties && info.properties.modelDeck) {
+                this.properties.modelDeck = info.properties.modelDeck;
+            }
             this.handleLoaderConfigure();
         };
 

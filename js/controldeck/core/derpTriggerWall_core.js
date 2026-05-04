@@ -6,6 +6,12 @@
 import { showTriggerWall } from "../../fatha/bastas/bastaTriggerWall.js";
 import { showBastaFileHandler } from "../../fatha/bastas/bastaFileHandler.js";
 
+function refreshAndSync(node, syncOutputs = true, dirtyFull = false) {
+    node.refreshNodeLayoutMap();
+    if (syncOutputs && node.syncDerpOutputs) node.syncDerpOutputs();
+    node.setDirtyCanvas(true, dirtyFull);
+}
+
 export function triggerWall_syncOutputs(node) {
     if (node.id === -1) return;
 
@@ -118,6 +124,7 @@ export function triggerWall_onNodeCreated(node, originalCallback) {
     node.properties.exclusiveMode = false;
     node.properties.autoWidth = false;
     node.properties.autoHeight = true;
+    node.properties.minWidth = 200;
     node.properties.nodeSize = [300, 150];
     node.size = [300, 150];
 
@@ -165,7 +172,7 @@ export function triggerWall_onDrawForeground(node, ctx, originalCallback) {
     }
 
     if (node.layout) {
-        node.layout.contentMinWidth = node.properties.minWidth || 120;
+        node.layout.contentMinWidth = node.properties.minWidth || 200;
     }
 
     const isBypassed = node.mode === 4 || node.mode === 2 || node._derpSpoofedBypass;
@@ -299,7 +306,7 @@ export async function triggerWall_onLoadPreset(node, presetName) {
 }
 
 export function triggerWall_handleShieldInteraction(node, type, data, origHandle) {
-    const handled = origHandle.apply(node, [type, data]);
+    const handled = origHandle ? origHandle.apply(node, [type, data]) : false;
     if (type === "click" && !handled) {
         if (node._selectedRegions && Object.keys(node._selectedRegions).length > 0) {
             node._selectedRegions = {};
@@ -341,6 +348,7 @@ export function triggerWall_itemDragStart(node, e, data, gIdx, tIdx) {
         return;
     }
     const reg = node.layout.regions[key];
+    if (!reg) return;
     node._dragTrig = { key, gIdx, tIdx };
     node._dragOffset = [data.localX - reg.x, data.localY - reg.y];
     node._dragMouse = [data.localX, data.localY];
@@ -352,20 +360,43 @@ export function triggerWall_itemDrag(node, e, data) {
     const mouseX = data.localX;
     const mouseY = data.localY;
     const group = node.properties.triggerGroups[node._dragTrig.gIdx];
+    if (!group || !group.triggers || group.triggers.length === 0) return;
+
+    const regions = node.layout?.regions;
+    if (!regions) return;
+
     const stableRegs = [];
     for (let i = 0; i < group.triggers.length; i++) {
         if (i === node._dragTrig.tIdx) continue;
-        const r = node.layout.regions[`triggerItem_${node._dragTrig.gIdx}_${i}`];
+        const r = regions[`triggerItem_${node._dragTrig.gIdx}_${i}`];
         if (r) stableRegs.push(r);
     }
 
+    if (stableRegs.length === 0) {
+        if (node._dropPreviewIdx !== 0) {
+            node._dropPreviewIdx = 0;
+            node.refreshNodeLayoutMap();
+        }
+        node.setDirtyCanvas(true);
+        return;
+    }
+
+    // Sort once, then group by Y in a single pass.
+    stableRegs.sort((a, b) => (a.y - b.y) || (a.x - b.x));
+
     const rows = [];
-    stableRegs.forEach(reg => {
-        let row = rows.find(r => Math.abs(r.y - reg.y) < 5);
-        if (!row) { rows.push(row = { y: reg.y, h: reg.h, items: [] }); }
-        row.items.push(reg);
-    });
-    rows.sort((a, b) => a.y - b.y);
+    let currentRow = null;
+    const rowThreshold = 5;
+    for (let i = 0; i < stableRegs.length; i++) {
+        const reg = stableRegs[i];
+        if (!currentRow || Math.abs(currentRow.y - reg.y) >= rowThreshold) {
+            currentRow = { y: reg.y, h: reg.h, items: [reg] };
+            rows.push(currentRow);
+        } else {
+            currentRow.items.push(reg);
+            if (reg.h > currentRow.h) currentRow.h = reg.h;
+        }
+    }
 
     let targetIdx = 0, foundRow = -1;
     for (let i = 0; i < rows.length; i++) {
@@ -376,9 +407,11 @@ export function triggerWall_itemDrag(node, e, data) {
     }
 
     if (foundRow !== -1) {
-        rows[foundRow].items.sort((a, b) => a.x - b.x).forEach(reg => {
+        const rowItems = rows[foundRow].items;
+        for (let i = 0; i < rowItems.length; i++) {
+            const reg = rowItems[i];
             if (mouseX > (reg.x + (reg.w / 2))) targetIdx++;
-        });
+        }
     }
 
     if (node._dropPreviewIdx !== targetIdx) {
@@ -402,12 +435,10 @@ export function triggerWall_itemDragEnd(node, e, data) {
         const group = node.properties.triggerGroups[drag.gIdx];
         const [moved] = group.triggers.splice(drag.tIdx, 1);
         group.triggers.splice(finalTarget, 0, moved);
-        node.refreshNodeLayoutMap();
-        if (node.syncDerpOutputs) node.syncDerpOutputs();
+        refreshAndSync(node, true, false);
     } else {
-        node.refreshNodeLayoutMap();
+        refreshAndSync(node, false, false);
     }
-    node.setDirtyCanvas(true);
 }
 
 export function triggerWall_itemPress(node, e, data, gIdx, tIdx, group, isBypassed) {
@@ -417,17 +448,14 @@ export function triggerWall_itemPress(node, e, data, gIdx, tIdx, group, isBypass
     if (data.hitArea === "text") {
         node._activeModalItemKey = key;
         node._hoveredRegionKey = null;
-        node.refreshNodeLayoutMap();
-        node.setDirtyCanvas(true, true);
+        refreshAndSync(node, false, true);
         showTriggerWall(node, key);
     } else if (data.hitArea === "glyph") {
         item.trig.active = !item.trig.active;
         if (group.isExclusive && item.trig.active) {
             group.triggers.forEach((t, i) => { if (i !== item.idx) t.active = false; });
         }
-        node.refreshNodeLayoutMap();
-        if (node.syncDerpOutputs) node.syncDerpOutputs();
-        node.setDirtyCanvas(true, true);
+        refreshAndSync(node, true, true);
     }
 }
 
@@ -436,9 +464,7 @@ export function triggerWall_addTrigger(node, group) {
         group.triggers.forEach(t => t.active = false);
     }
     group.triggers.push({ id: `trig_${Math.random().toString(16).slice(2, 8)}`, active: true, label: "", weight: 1.0 });
-    node.refreshNodeLayoutMap();
-    if (node.syncDerpOutputs) node.syncDerpOutputs();
-    node.setDirtyCanvas(true);
+    refreshAndSync(node, true, false);
 }
 
 export function triggerWall_toggleRegion(node, regionKey) {
@@ -459,10 +485,7 @@ export function triggerWall_renameGroup(node, group, gIdx) {
         message: "Enter new name for trigger group:",
         onConfirm: async (newName) => {
             group.title = newName;
-
-            node.refreshNodeLayoutMap();
-            if (node.syncDerpOutputs) node.syncDerpOutputs();
-            node.setDirtyCanvas(true);
+            refreshAndSync(node, true, false);
         }
     });
 }
@@ -478,17 +501,13 @@ export function triggerWall_changeGroupTemplate(node, group, v) {
         group.title = v;
     }
     node._layoutMapHash = null;
-    node.refreshNodeLayoutMap();
-    if (node.syncDerpOutputs) node.syncDerpOutputs();
-    node.setDirtyCanvas(true, true);
+    refreshAndSync(node, true, true);
 }
 
 export function triggerWall_removeGroup(node, gIdx) {
     const group = node.properties.triggerGroups[gIdx];
     if (group) group.hidden = true;
-    node.refreshNodeLayoutMap();
-    if (node.syncDerpOutputs) node.syncDerpOutputs();
-    node.setDirtyCanvas(true);
+    refreshAndSync(node, true, false);
 }
 
 export function triggerWall_toggleExclusive(node, selectedGroup, anySelected, isBypassed) {
@@ -498,9 +517,7 @@ export function triggerWall_toggleExclusive(node, selectedGroup, anySelected, is
         let first = true;
         selectedGroup.triggers.forEach(t => { if (t.active) { if (first) first = false; else t.active = false; } });
     }
-    node.refreshNodeLayoutMap();
-    if (node.syncDerpOutputs) node.syncDerpOutputs();
-    node.setDirtyCanvas(true);
+    refreshAndSync(node, true, false);
 }
 
 export function triggerWall_toggleShowWeight(node) {
@@ -533,6 +550,11 @@ export function triggerWall_onDerpSysPanelOpen(node, panel) {
 }
 
 export function triggerWall_onResize(node, size) {
-    node.properties.nodeSize = [size[0], size[1]];
-    node.refreshNodeLayoutMap();
+    const minW = node.properties.minWidth || 200;
+    const safeW = Math.max(minW, size[0] || minW);
+    const safeH = Math.max(50, size[1] || 150);
+    node.size = [safeW, safeH];
+    node.properties.nodeSize = [safeW, safeH];
+    // Avoid rebuilding twice during drag-resize; onDrawForeground handles width-delta rebuild.
+    node.requestDerpSync();
 }
