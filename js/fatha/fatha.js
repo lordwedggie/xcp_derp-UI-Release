@@ -287,6 +287,18 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
                 const blueprint = COMPONENT_BLUEPRINTS[reg.type];
                 if (!blueprint) continue;
 
+                // Conservative draw culling: only skip canvas/hybrid widgets that are fully
+                // outside the node's visible panel bounds. Layout and hit-testing remain intact.
+                if (!blueprint.isHtml) {
+                    const regX = reg.x || 0;
+                    const regY = reg.y || 0;
+                    const regW = reg.w || 0;
+                    const regH = reg.h || 0;
+                    if ((regX + regW) < 0 || regX > this.size[0] || (regY + regH) < 0 || regY > this.size[1]) {
+                        continue;
+                    }
+                }
+
                 // THE COMP-DATA CACHE: Reuse geometry and data objects unless a layout shift occurred
                 let compData = this._compDataCache[key];
                 if (needsLayoutCompute || !compData) {

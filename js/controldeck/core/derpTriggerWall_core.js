@@ -125,6 +125,8 @@ export function triggerWall_onNodeCreated(node, originalCallback) {
     node.properties.autoWidth = false;
     node.properties.autoHeight = true;
     node.properties.minWidth = 200;
+    node.properties.optimizeHoverDirty = true;
+    node.properties.optimizeHoverNoSync = true;
     node.properties.nodeSize = [300, 150];
     node.size = [300, 150];
 

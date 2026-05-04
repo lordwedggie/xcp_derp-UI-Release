@@ -10,6 +10,29 @@ import { UI_TYPES, COMPONENT_BLUEPRINTS } from "./masterLayoutTypes.js";
 import { resolvePaintData } from "../../herbina/utils/widgetsUtils.js";
 import { lerpTo } from "../../herbina/masterAnimator.js";
 
+function getOrCreateBgCache(entity, width, height) {
+    if (!entity) return null;
+    if (!entity._derpBgCache) {
+        const canvas = document.createElement("canvas");
+        const bgCtx = canvas.getContext("2d");
+        entity._derpBgCache = { canvas, ctx: bgCtx, key: "" };
+    }
+    const cache = entity._derpBgCache;
+    if (!cache.ctx) return null;
+    if (cache.canvas.width !== width) cache.canvas.width = width;
+    if (cache.canvas.height !== height) cache.canvas.height = height;
+    return cache;
+}
+
+function getPaintFingerprint(paint) {
+    if (!paint) return "none";
+    const corners = Array.isArray(paint.corners) ? paint.corners.join(",") : "";
+    const border = paint.border ? JSON.stringify(paint.border) : "";
+    const shadow = paint.shadow ? JSON.stringify(paint.shadow) : "";
+    const glow = paint.glow ? JSON.stringify(paint.glow) : "";
+    return `${paint.fill || ""}|${corners}|${border}|${shadow}|${glow}`;
+}
+
 /**
  * loadDerpLocale: Centralized loader for the framework.
  * Fetches JSON from /locales/, handles short-code mapping (en -> en-US), and triggers a global reflow.
@@ -345,11 +368,24 @@ export function handleShieldInteraction(entity, type, data = {}) {
         const nextKey = isOverSys ? "systemBtn" : (hit ? hit.key : null);
         if (entity._hoveredRegionKey !== nextKey) {
             entity._hoveredRegionKey = nextKey;
-            entity._derpAwakeFrames = 5;
-            entity._forceSync = true;
-            if (typeof entity.requestDerpSync === "function") entity.requestDerpSync();
-            if (typeof entity.setDirtyCanvas === "function") entity.setDirtyCanvas(true, true);
-            if (window.app && window.app.canvas) window.app.canvas.setDirty(true, true);
+            entity._derpAwakeFrames = entity?.properties?.optimizeHoverDirty !== false ? 1 : 5;
+            const useHoverFastPath = entity?.properties?.optimizeHoverNoSync !== false;
+            if (!useHoverFastPath) {
+                entity._forceSync = true;
+                if (typeof entity.requestDerpSync === "function") entity.requestDerpSync();
+            }
+            if (entity?.properties?.optimizeHoverDirty !== false) {
+                // Optional throttle: enable only for heavy nodes that benefit.
+                const frame = app.canvas?.frame;
+                if (frame === undefined || entity._lastHoverDirtyFrame !== frame) {
+                    entity._lastHoverDirtyFrame = frame;
+                    if (typeof entity.setDirtyCanvas === "function") entity.setDirtyCanvas(true, false);
+                    if (window.app && window.app.canvas) window.app.canvas.setDirty(true, false);
+                }
+            } else {
+                if (typeof entity.setDirtyCanvas === "function") entity.setDirtyCanvas(true, true);
+                if (window.app && window.app.canvas) window.app.canvas.setDirty(true, true);
+            }
         }
     }else if (type === "dragEnd") {
         if (entity._pressedRegionKey) {
@@ -376,11 +412,56 @@ export function handleDrawCTX(entity, ctx, overlayPass = false) {
         const paintOFF = resolvePaintData(entity, "canvas", isBypassed ? "_DIS" : "");
         const paintON = resolvePaintData(entity, "canvas", isBypassed ? "_DIS" : "_ON");
         const paintDIS = resolvePaintData(entity, "canvas", "_DIS");
+        const useStaticBgCache = entity?.properties?.optimizeStaticBgCache !== false;
+
+        const renderBaseBackground = (targetCtx) => {
+            if (header && paintOFF && paintON) {
+                const cOFF = paintOFF.corners || [8, 8, 8, 8];
+                const cON = paintON.corners || [8, 8, 8, 8];
+
+                if (isCollapsed) {
+                    const collapsedPaint = { ...paintOFF, corners: [cON[0], cON[1], cOFF[2], cOFF[3]] };
+                    masterPainter(targetCtx, { posX: 0, posY: 0, width: entity.size[0], height: entity.size[1], color: paintOFF.fill, paintData: collapsedPaint });
+                } else {
+                    const splitY = header.y + header.h + (header.margin?.length === 4 ? header.margin[3] : (header.margin?.[1] || 0));
+                    const headerPaint = { ...paintOFF, corners: [cON[0], cON[1], 0, 0], border: null, shadow: null, glow: null };
+                    masterPainter(targetCtx, { posX: 0, posY: 0, width: entity.size[0], height: splitY, color: paintOFF.fill, paintData: headerPaint });
+
+                    const contentPaint = { ...paintOFF, corners: [0, 0, cOFF[2], cOFF[3]], border: null, shadow: null, glow: null };
+                    masterPainter(targetCtx, { posX: 0, posY: splitY, width: entity.size[0], height: entity.size[1] - splitY, color: paintOFF.fill, paintData: contentPaint });
+
+                    const silhouettePaint = { ...paintOFF, corners: [cON[0], cON[1], cOFF[2], cOFF[3]] };
+                    masterPainter(targetCtx, { posX: 0, posY: 0, width: entity.size[0], height: entity.size[1], color: "transparent", paintData: silhouettePaint });
+                }
+            } else {
+                const paint = isSelected ? paintON : paintOFF;
+                if (paint) {
+                    masterPainter(targetCtx, { posX: 0, posY: 0, width: entity.size[0], height: entity.size[1], color: paint.fill, paintData: paint });
+                }
+            }
+        };
 
         if (isSelected && !isBypassed && ANIM_SELECTION_PULSE) {
             // --- SELECTION PULSE ---
             if (paintOFF) {
-                masterPainter(ctx, { posX: 0, posY: 0, width: entity.size[0], height: entity.size[1], color: paintOFF.fill, paintData: paintOFF });
+                if (useStaticBgCache) {
+                    const bw = Math.max(1, Math.round(entity.size[0]));
+                    const bh = Math.max(1, Math.round(entity.size[1]));
+                    const cache = getOrCreateBgCache(entity, bw, bh);
+                    const cacheKey = `pulse|${bw}|${bh}|${isBypassed}|${entity.mode}|${entity._currentThemeName || ""}|${getPaintFingerprint(paintOFF)}`;
+                    if (cache) {
+                        if (cache.key !== cacheKey) {
+                            cache.key = cacheKey;
+                            cache.ctx.clearRect(0, 0, bw, bh);
+                            masterPainter(cache.ctx, { posX: 0, posY: 0, width: entity.size[0], height: entity.size[1], color: paintOFF.fill, paintData: paintOFF });
+                        }
+                        ctx.drawImage(cache.canvas, 0, 0);
+                    } else {
+                        masterPainter(ctx, { posX: 0, posY: 0, width: entity.size[0], height: entity.size[1], color: paintOFF.fill, paintData: paintOFF });
+                    }
+                } else {
+                    masterPainter(ctx, { posX: 0, posY: 0, width: entity.size[0], height: entity.size[1], color: paintOFF.fill, paintData: paintOFF });
+                }
             }
             if (paintON) {
                 const pulseAlpha = (Math.sin(Date.now() * 0.003) + 1) / 2;
@@ -390,34 +471,36 @@ export function handleDrawCTX(entity, ctx, overlayPass = false) {
                 ctx.restore();
             }
             entity.setDirtyCanvas(true, false);
-        } else if (header && paintOFF && paintON) {
-            const cOFF = paintOFF.corners || [8, 8, 8, 8];
-            const cON = paintON.corners || [8, 8, 8, 8];
-
-            if (isCollapsed) {
-                // 1. Unified Background (Color from _OFF, Effects from _OFF, All 4 Corners)
-                const collapsedPaint = { ...paintOFF, corners: [cON[0], cON[1], cOFF[2], cOFF[3]] };
-                masterPainter(ctx, { posX: 0, posY: 0, width: entity.size[0], height: entity.size[1], color: paintOFF.fill, paintData: collapsedPaint });
-            } else {
-                // --- THE EXACT SPLIT PROTOCOL ---
-                const splitY = header.y + header.h + (header.margin?.length === 4 ? header.margin[3] : (header.margin?.[1] || 0));
-
-                // 1. Header Portion (Top corners and Color from _OFF, but Effects from _OFF to prevent seam artifacts)
-                const headerPaint = { ...paintOFF, corners: [cON[0], cON[1], 0, 0], border: null, shadow: null, glow: null };
-                masterPainter(ctx, { posX: 0, posY: 0, width: entity.size[0], height: splitY, color: paintOFF.fill, paintData: headerPaint });
-
-                // 2. Content/Footer Portion (Bottom corners only, no stroke/shadow to prevent center seam)
-                const contentPaint = { ...paintOFF, corners: [0, 0, cOFF[2], cOFF[3]], border: null, shadow: null, glow: null };
-                masterPainter(ctx, { posX: 0, posY: splitY, width: entity.size[0], height: entity.size[1] - splitY, color: paintOFF.fill, paintData: contentPaint });
-
-                // 3. Global Silhouette (Applies the unified outer stroke and shadow without double-filling the background)
-                const silhouettePaint = { ...paintOFF, corners: [cON[0], cON[1], cOFF[2], cOFF[3]] };
-                masterPainter(ctx, { posX: 0, posY: 0, width: entity.size[0], height: entity.size[1], color: "transparent", paintData: silhouettePaint });
-            }
         } else {
-            const paint = isSelected ? paintON : paintOFF;
-            if (paint) {
-                masterPainter(ctx, { posX: 0, posY: 0, width: entity.size[0], height: entity.size[1], color: paint.fill, paintData: paint });
+            if (useStaticBgCache) {
+                const bw = Math.max(1, Math.round(entity.size[0]));
+                const bh = Math.max(1, Math.round(entity.size[1]));
+                const cache = getOrCreateBgCache(entity, bw, bh);
+                const cacheKey = [
+                    "base",
+                    bw,
+                    bh,
+                    isBypassed,
+                    isCollapsed,
+                    entity.mode,
+                    entity._currentThemeName || "",
+                    isSelected ? "selected" : "normal",
+                    header ? `${header.y}_${header.h}_${header.margin?.join?.("_") || ""}` : "noheader",
+                    getPaintFingerprint(paintOFF),
+                    getPaintFingerprint(paintON)
+                ].join("|");
+                if (cache) {
+                    if (cache.key !== cacheKey) {
+                        cache.key = cacheKey;
+                        cache.ctx.clearRect(0, 0, bw, bh);
+                        renderBaseBackground(cache.ctx);
+                    }
+                    ctx.drawImage(cache.canvas, 0, 0);
+                } else {
+                    renderBaseBackground(ctx);
+                }
+            } else {
+                renderBaseBackground(ctx);
             }
         }
     }
@@ -448,6 +531,10 @@ export function handleThemeUpdate(node, config) {
                 sysPanel[`_${key}PaintData_DIS`] = node[`_${key}PaintData_DIS`];
             }
         });
+    }
+
+    if (node._derpBgCache) {
+        node._derpBgCache.key = "";
     }
 
     // THE UNIVERSAL AUTO-CLOSE: Immediately close all panels linked to this node when it undergoes a theme switch

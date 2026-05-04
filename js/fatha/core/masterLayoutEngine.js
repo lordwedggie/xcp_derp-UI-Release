@@ -27,6 +27,35 @@ export const t = (key) => {
 const MIN_WIDGET_WIDTH = 10; // Systemic minimum floor to prevent negative width rendering
 const SQUISH_WIDTH = 10;     // Arbitrary tiny width used during the rigid floor measurement pass
 
+const LAYOUT_PROFILE_WINDOW_MS = 1000;
+
+function isLayoutProfilingEnabled() {
+    return !!window.DERP_LAYOUT_PROFILING;
+}
+
+function flushLayoutProfile(engine) {
+    if (!engine || !engine._profile || !engine.owner) return;
+    const p = engine._profile;
+    const now = performance.now();
+    if ((now - p.windowStart) < LAYOUT_PROFILE_WINDOW_MS) return;
+
+    const ownerName = engine.owner.titleLabel || engine.owner.title || engine.owner.type || "unknown";
+    const avgComputeMs = p.computeCount > 0 ? (p.computeMs / p.computeCount) : 0;
+    const hitRate = p.measureCalls > 0 ? ((p.measureHits / p.measureCalls) * 100) : 0;
+
+    console.debug(
+        `[FathaProfile] ${ownerName} | compute=${p.computeCount} avg=${avgComputeMs.toFixed(2)}ms ` +
+        `measureCalls=${p.measureCalls} hits=${p.measureHits} misses=${p.measureMisses} hitRate=${hitRate.toFixed(1)}%`
+    );
+
+    p.windowStart = now;
+    p.computeCount = 0;
+    p.computeMs = 0;
+    p.measureCalls = 0;
+    p.measureHits = 0;
+    p.measureMisses = 0;
+}
+
 const RESERVED_KEYWORDS = [
     "margin", "padding", "spacing", "width", "height",
     "minWidth", "minHeight", // THE FIX: Register static constraints
@@ -43,6 +72,46 @@ const RESERVED_KEYWORDS = [
  * STRICT MODE: No fallbacks. Reports all missing values.
  */
 export class masterLayoutEngine {
+    _buildMeasureCacheKey(cfg, context, key) {
+        const c = cfg || {};
+        const margin = Array.isArray(c.margin) ? c.margin.join(",") : "";
+        const padding = Array.isArray(c.padding) ? c.padding.join(",") : "";
+        const spacing = Array.isArray(c.spacing) ? c.spacing.join(",") : "";
+        const itemsLen = Array.isArray(c.items) ? c.items.length : 0;
+        const parentH = Number.isFinite(context?.parentHeight) ? Number(context.parentHeight).toFixed(2) : "";
+
+        return [
+            key,
+            this.originalWidth,
+            parentH,
+            c.type || "",
+            c.themeKey || "",
+            c.width,
+            c.height,
+            c.minWidth,
+            c.minHeight,
+            c.dir || "",
+            c.wrap === true ? 1 : 0,
+            c.cutoff === true ? 1 : 0,
+            c.displayMode || "",
+            c.indicator === true ? 1 : (c.indicator || 0),
+            c.toggleWidth,
+            c.gap,
+            c.showWeight === true ? 1 : 0,
+            c.weight,
+            c.fontWeight || "",
+            c.text || "",
+            c.label || "",
+            c.value || "",
+            c.measureText || "",
+            c.icon || "",
+            itemsLen,
+            margin,
+            padding,
+            spacing
+        ].join("|");
+    }
+
     /**
      * _hashMap: Generates a deep string hash of the layout map to detect structural/value changes
      */
@@ -89,11 +158,27 @@ export class masterLayoutEngine {
         this.contentMinHeight = 0; // THE FIX: Tracks absolute minimum height from measurement pass
         this._lastCacheKey = ""; // Optimization: Tracks the previous state hash
         this._measureCache = new Map(); // Optimization: Tracks intra-pass measurements
+        this._profile = {
+            windowStart: performance.now(),
+            computeCount: 0,
+            computeMs: 0,
+            measureCalls: 0,
+            measureHits: 0,
+            measureMisses: 0
+        };
     }
 
     _getReservedWidth(cfg, context, key = "unknown") {
-        const hash = `${key}_${this.originalWidth}`;
-        if (this._measureCache && this._measureCache.has(hash)) return this._measureCache.get(hash);
+        const hash = this._buildMeasureCacheKey(cfg, context, key);
+        const profiling = isLayoutProfilingEnabled();
+        if (profiling) this._profile.measureCalls++;
+
+        if (this._measureCache && this._measureCache.has(hash)) {
+            if (profiling) this._profile.measureHits++;
+            return this._measureCache.get(hash);
+        }
+
+        if (profiling) this._profile.measureMisses++;
         const result = this._calculateReservedWidth(cfg, context, key);
         if (this._measureCache) this._measureCache.set(hash, result);
         return result;
@@ -239,6 +324,8 @@ export class masterLayoutEngine {
      */
     compute(bounds, profileMap = {}, context = {}, forceOverride = false) {
         if (!bounds) return;
+        const profiling = isLayoutProfilingEnabled();
+        const startTs = profiling ? performance.now() : 0;
 
         // THE FIX: Pull systemic constants from the owner's getter
         const { SNAP } = this.owner?.getDerpVars ? this.owner.getDerpVars(this.owner) : { SNAP: 10 };
@@ -340,6 +427,12 @@ export class masterLayoutEngine {
         this.totalWidth = finalWidth;
 
         this.computedRegions = { ...this.regions };
+
+        if (profiling) {
+            this._profile.computeCount++;
+            this._profile.computeMs += (performance.now() - startTs);
+            flushLayoutProfile(this);
+        }
     }
 
     runLayoutPass(bounds, profileMap, context) {

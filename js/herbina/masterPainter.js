@@ -14,8 +14,24 @@ function resolvePaletteColor(val) {
     return val;
 }
 
+const _compiledThemeCache = new WeakMap();
+
+function getCompiledThemeCache(themeMain, state) {
+    const paletteKey = window.xcpActivePaletteName || "";
+    const cacheKey = `${state}::${paletteKey}`;
+    let perTheme = _compiledThemeCache.get(themeMain);
+    if (!perTheme) {
+        perTheme = new Map();
+        _compiledThemeCache.set(themeMain, perTheme);
+    }
+    return { perTheme, cacheKey };
+}
+
 export function compileThemeData(themeMain, keyName = "Unknown", state = "OFF") {
     if (!themeMain) return null;
+    const { perTheme, cacheKey } = getCompiledThemeCache(themeMain, state);
+    if (perTheme.has(cacheKey)) return perTheme.get(cacheKey);
+
     const ensureArray = (c) => {
         const resolved = resolvePaletteColor(c);
         return Array.isArray(resolved) ? resolved : null;
@@ -67,7 +83,7 @@ export function compileThemeData(themeMain, keyName = "Unknown", state = "OFF") 
         };
     }
 
-    return {
+    const compiled = {
         fill: `rgba(${fillRaw[0]}, ${fillRaw[1]}, ${fillRaw[2]}, ${fillRaw[3] ?? 1})`,
         corners: themeMain.corners ?? 6,
         font: themeMain.font || "DengXian",
@@ -79,6 +95,9 @@ export function compileThemeData(themeMain, keyName = "Unknown", state = "OFF") 
         glowClip: themeMain.glowClip || "c_glowNone",
         shadowClip: themeMain.shadowClip || "c_shadowNone"
     };
+
+    perTheme.set(cacheKey, compiled);
+    return compiled;
 }
 
 // Helper to safely multiply the alpha of an already-compiled rgba() string

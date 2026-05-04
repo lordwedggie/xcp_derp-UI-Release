@@ -35,6 +35,34 @@ import {
     triggerWall_onResize
 } from "./core/derpTriggerWall_core.js";
 
+function bumpTWPerfCounter(node, key) {
+    if (!node) return;
+    if (!window.DERP_TW_PROFILE) return;
+    if (!node._twPerf) {
+        node._twPerf = {
+            windowStart: performance.now(),
+            refreshCount: 0,
+            syncReqCount: 0,
+            dirtyCount: 0
+        };
+    }
+    if (key === "refresh") node._twPerf.refreshCount++;
+    if (key === "sync") node._twPerf.syncReqCount++;
+    if (key === "dirty") node._twPerf.dirtyCount++;
+
+    const now = performance.now();
+    if (now - node._twPerf.windowStart >= 1000) {
+        console.log(
+            `[TWPerf] ${node.titleLabel || node.title || "TriggerWall"} | ` +
+            `refresh=${node._twPerf.refreshCount}/s syncReq=${node._twPerf.syncReqCount}/s dirty=${node._twPerf.dirtyCount}/s`
+        );
+        node._twPerf.windowStart = now;
+        node._twPerf.refreshCount = 0;
+        node._twPerf.syncReqCount = 0;
+        node._twPerf.dirtyCount = 0;
+    }
+}
+
 app.registerExtension({
     name: "xcp.derpTriggerWall_Extension",
     async setup() {
@@ -45,6 +73,9 @@ app.registerExtension({
         if (!nodeData.name.toLowerCase().includes("triggerwall")) return;
 
         console.log(`[Fatha] Intercepting Python Node: ${nodeData.name}`);
+        if (window.DERP_TW_PROFILE) {
+            console.log("[TWPerf] profiler active (set window.DERP_TW_PROFILE = false to disable)");
+        }
 
         // Initialize the Virtual Fatha framework hijacking
         fatha(nodeType, nodeData, 200);
@@ -67,9 +98,22 @@ app.registerExtension({
             this.refreshNodeLayoutMap();
         };
 
+        const originalRequestDerpSync = nodeType.prototype.requestDerpSync;
+        nodeType.prototype.requestDerpSync = function() {
+            bumpTWPerfCounter(this, "sync");
+            if (originalRequestDerpSync) return originalRequestDerpSync.apply(this, arguments);
+        };
+
+        const originalSetDirtyCanvas = nodeType.prototype.setDirtyCanvas;
+        nodeType.prototype.setDirtyCanvas = function() {
+            bumpTWPerfCounter(this, "dirty");
+            if (originalSetDirtyCanvas) return originalSetDirtyCanvas.apply(this, arguments);
+        };
+
         // --- MAIN UI LAYOUT ---
         nodeType.prototype.refreshNodeLayoutMap = function() {
             if (!this.layout || !this.getDerpVars) return;
+            bumpTWPerfCounter(this, "refresh");
 
             const minW = this.properties?.minWidth || 200;
             const rawW = this.size?.[0] || 0;
@@ -87,7 +131,7 @@ app.registerExtension({
                 g.triggers.forEach(t => { currentHash += `:${t.id}_${t.active}_${t.weight}_${t.label}_${t.disabled}_${t.hidden || false}`; });
             });
             // Keep hash focused on geometry-affecting fields only.
-            currentHash += `|${this.properties.showWeight}_${this.properties.toggleAddAlways}_${this.properties.drawHeader}_${this.properties.lastSavedPreset || ""}`;
+            currentHash += `|${this.properties.showWeight}_${this.properties.toggleAddAlways}_${this.properties.drawHeader}_${this.properties.settingActive}_${this.properties.lastSavedPreset || ""}`;
 
             if (this._layoutMapHash === currentHash && this.layoutMap) {
                 this.requestDerpSync();
