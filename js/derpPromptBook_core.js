@@ -36,7 +36,11 @@ export function bindPromptBookHooks(nodeType) {
             if (this._lastSyncedContent === outContent) return;
             this._lastSyncedContent = outContent;
 
-            this.outputs = [{ name: "BookContent", type: "STRING", label: "BookContent" }];
+            // Keep PromptBook wireless-only: Python node has zero RETURN_TYPES,
+            // so creating a physical JS output can break SignalOut validation.
+            if (Array.isArray(this.outputs) && this.outputs.length > 0) {
+                this.outputs = [];
+            }
             const signalId = `${baseId}:0`;
 
             window.xcpDerpSignals[signalId] = {
@@ -178,6 +182,8 @@ export function bindPromptBookHooks(nodeType) {
         if (onConf) onConf.apply(this, arguments);
 
         this.properties.isWirelessTransmitter = true;
+        this.isPureVirtual = true;
+        this.properties.isPureVirtual = true;
         if (!this.outputs) this.outputs = [];
 
         this.updateDerpPromptBookUI();
