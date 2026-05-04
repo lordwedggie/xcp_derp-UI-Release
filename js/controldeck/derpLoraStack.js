@@ -67,6 +67,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                 // THE BYPASS SYNC: Detect if the entire node (mode 2/4, properties, or bypass widget) or just this LoRA entry is bypassed
                                 const nodeBypassed = this.mode === 2 || this.mode === 4 || this.properties.isBypassed || (this.widgets && this.widgets[0] && this.widgets[0].value === "bypass");
                                 const isBypassed = !!lora[5] || nodeBypassed;
+                                const isDragged = !!(this._dragTrig && this._dragThresholdMet && this._dragTrig.index === i);
                                 const isSelected = (activeSlot !== -1 && i === activeSlot);
                                 if (activeSlot === -1 && this._colorAnimCache) {
                                     delete this._colorAnimCache[`_derpRegion_anim_loraRow_${i}`];
@@ -74,6 +75,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
 
                                 // THE REGION STATE LOGIC: Selection (ON) > Bypass (DIS) > Idle (OFF)
                                 loraRow.state = isSelected ? "ON" : (isBypassed ? "DIS" : "OFF");
+                                loraRow.alpha = isDragged ? 0 : 1;
 
                                 const rating = parseInt(this._loraRatings?.[lora[0]] || 0, 10);
                                 const ratingColor = resolveRatingColor(this, lora[0], isSelected, isBypassed);
@@ -81,13 +83,14 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                 const preview = loraRow[`loraPreview_${i}`];
                                 if (preview) {
                                     preview.borderColor = ratingColor;
-                                    preview.alpha = isBypassed ? 0.5 : 1.0;
+                                    preview.alpha = isDragged ? 0 : (isBypassed ? 0.5 : 1.0);
                                     preview.state = (i === activeSlot) ? "ON" : (isBypassed ? "DIS" : "OFF");
                                     preview.grayscale = isBypassed;
                                     preview.imageUrl = (lora[0] && this._loraPreviewList?.includes(lora[0])) ? getPreviewImageUrl(lora[0], true) : null;
                                     const rIcon = preview[`loraRating_${i}`];
                                     if (rIcon) {
                                         rIcon.hidden = (rating === 0);
+                                        rIcon.alpha = isDragged ? 0 : 1;
                                         rIcon.iconIndex = rating;
                                         rIcon.key = `loraRating_${lora[0]}`;
                                         rIcon.state = (i === activeSlot) ? "ON" : (isBypassed ? "DIS" : "OFF");
@@ -173,6 +176,36 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                     const isDetailOpen = !!(window.xcpActiveBastas?.get(detailBastaId)?.hostNode === this);
                     if (!isDetailOpen) this._activeDetailSlot = -1;
 
+                    const estimateDropGapHeight = () => {
+                        if (this._dragTrig && this.layout?.regions) {
+                            const dragRow = this.layout.regions[`loraRow_${this._dragTrig.index}`];
+                            if (dragRow && Number.isFinite(dragRow.h) && dragRow.h > 0) {
+                                return Math.round(dragRow.h);
+                            }
+                        }
+                        if (this.layout?.regions) {
+                            const heights = [];
+                            for (const [k, r] of Object.entries(this.layout.regions)) {
+                                if (k.startsWith("loraRow_") && Number.isFinite(r.h) && r.h > 0) heights.push(r.h);
+                            }
+                            if (heights.length > 0) {
+                                const avg = heights.reduce((sum, h) => sum + h, 0) / heights.length;
+                                return Math.round(avg);
+                            }
+                        }
+                        return 84;
+                    };
+                    const dropGapHeight = estimateDropGapHeight();
+
+                    const isDragPreviewActive = !!(this._dragTrig && this._dragThresholdMet);
+                    const dragIdx = this._dragTrig?.index;
+                    const rawDropIdx = this._dropPreviewIdx;
+                    const stableCount = stack.length - (isDragPreviewActive ? 1 : 0);
+                    const dropIdx = Math.max(0, Math.min(Number.isInteger(rawDropIdx) ? rawDropIdx : 0, Math.max(0, stableCount)));
+                    const hasEffectiveDropTarget = isDragPreviewActive && Number.isInteger(dragIdx) && dropIdx !== dragIdx;
+
+                    let lastVisibleRowKey = null;
+
                     const stackRows = stack.reduce((acc, lora, i) => {
                         let prev = i === 0 ? null : `loraRow_${i-1}`;
                         const loraName = (lora[0] || "").split(/[\\/]/).pop().replace(/\.safetensors$/i, "");
@@ -186,6 +219,44 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                 type: this.UI_TYPES.LINEBREAK, width: "full", height: 1, margin: [-mW, 0, -mW, mH],
                             };
                             prev = `loraSep_${i}`;
+                        }
+
+                        // THE DROP PREVIEW GAP: Render an explicit empty slot where the item would be dropped.
+                        // We attach it before the row currently occupying that visual index.
+                        let visualPos = i;
+                        if (isDragPreviewActive && Number.isInteger(dragIdx)) {
+                            if (i > dragIdx) visualPos -= 1;
+                            if (i === dragIdx) visualPos = -1;
+                        }
+
+                        const shouldPlaceGapBeforeThisRow = hasEffectiveDropTarget && visualPos === dropIdx;
+                        if (shouldPlaceGapBeforeThisRow) {
+                            const gapKey = `loraDropPreview_${i}`;
+                            acc[gapKey] = {
+                                anchor: prev ? { target: prev, axis: "y", offset: oY } : null,
+                                type: this.UI_TYPES.REGION,
+                                themeKey: "region",
+                                state: "OFF",
+                                hoverEffect: false,
+                                alpha: 0.18,
+                                dir: "row",
+                                width: "full",
+                                height: dropGapHeight,
+                                margin: [mW * 2, 0, mW * 2, mH],
+                                regionOffset: [mW, 2, mW, 2],
+                                dropPreviewGhost: {
+                                    type: this.UI_TYPES.TEXT,
+                                    text: "Drop here",
+                                    themeKey: "t_textSmall",
+                                    state: "OFF",
+                                    alpha: 0.55,
+                                    width: "full",
+                                    height: "fill",
+                                    padding: [pW, pH],
+                                    labelAlign: ["center", "middle"]
+                                }
+                            };
+                            prev = gapKey;
                         }
 
                         const isSelected = (i === activeSlot);
@@ -524,8 +595,39 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                 }
                             }
                         };
+
+                        if (!isDragged) lastVisibleRowKey = `loraRow_${i}`;
+
                         return acc;
                     }, {});
+
+                    const hasTailDropPreview = hasEffectiveDropTarget && dropIdx === stableCount;
+                    if (hasTailDropPreview) {
+                        stackRows.loraDropPreview_tail = {
+                            anchor: lastVisibleRowKey ? { target: lastVisibleRowKey, axis: "y", offset: oY } : null,
+                            type: this.UI_TYPES.REGION,
+                            themeKey: "region",
+                            state: "OFF",
+                            hoverEffect: false,
+                            alpha: 0.22,
+                            dir: "row",
+                            width: "full",
+                            height: dropGapHeight,
+                            margin: [mW * 2, 0, mW * 2, mH],
+                            regionOffset: [mW, 2, mW, 2],
+                            dropPreviewGhost: {
+                                type: this.UI_TYPES.TEXT,
+                                text: "Drop here",
+                                themeKey: "t_textSmall",
+                                state: "OFF",
+                                alpha: 0.65,
+                                width: "full",
+                                height: "fill",
+                                padding: [pW, pH],
+                                labelAlign: ["center", "middle"]
+                            }
+                        };
+                    }
 
                     this.layoutMap = {
                         mainContentRegion: {
@@ -535,7 +637,13 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                             margin: this.properties?.drawHeader === true ? [mW, mH, mW, 0] : [0, 0],
                             ...stackRows,
                             footerControls: {
-                                anchor: { target: stack.length > 0 ? `loraRow_${stack.length - 1}` : null, axis: "y", offset: sH },
+                                anchor: {
+                                    target: hasTailDropPreview
+                                        ? "loraDropPreview_tail"
+                                        : (stack.length > 0 ? `loraRow_${stack.length - 1}` : null),
+                                    axis: "y",
+                                    offset: sH
+                                },
                                 dir: "row", width: "full", height: "auto", spacing: [sW, 0],
                                 margin: [0, mH, 0, mH],
                                 loraSelector: {

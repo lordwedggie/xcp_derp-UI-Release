@@ -76,6 +76,17 @@ export function updateStackDrag(node, data, regionPrefix, itemCount) {
         }
     }
 
+    // Prefer tail insertion when hovering the lower half of the last visible row
+    // or any space directly below it. This ensures reliable append behavior.
+    if (stableRegs.length > 0) {
+        const lastReg = stableRegs[stableRegs.length - 1];
+        const tailThresholdY = lastReg.y + (lastReg.h * 0.5);
+        const belowLastRowY = lastReg.y + lastReg.h;
+        if (mouseY >= tailThresholdY || mouseY >= belowLastRowY) {
+            targetIdx = stableRegs.length;
+        }
+    }
+
     if (node._dropPreviewIdx !== targetIdx) {
         node._dropPreviewIdx = targetIdx;
         node.refreshNodeLayoutMap();
@@ -97,6 +108,10 @@ export function endStackDrag(node, arrayKey) {
     const drag = node._dragTrig;
     const thresholdMet = node._dragThresholdMet;
     const finalTarget = node._dropPreviewIdx;
+
+    // Suppress the synthetic click that some canvases emit right after drag end.
+    // This prevents opening detail panels when the intent was only dragging.
+    if (thresholdMet) node._suppressClickAfterDrag = true;
 
     if (thresholdMet && window.DERP_GLOBAL_SETTINGS?.playSound && SOUND_INDEX.dropdown) {
         SOUND_INDEX.dropdown();

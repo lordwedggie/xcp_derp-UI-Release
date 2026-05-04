@@ -525,12 +525,6 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                             this.inputs = null;
                             this.outputs = null;
 
-                            const centerX = baseReg.x + baseReg.w / 2;
-                            const centerY = baseReg.y + baseReg.h / 2;
-                            ctx.translate(centerX, centerY);
-                            ctx.scale(1.02, 1.02);
-                            ctx.translate(-centerX, -centerY);
-
                             const suffix = `_${dragIdx}`;
                             const componentsToDraw = [];
 
@@ -563,40 +557,21 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                                 const { key: k, reg: r, config: fCfg } = item;
                                 const bp = this.UI_TYPES ? COMPONENT_BLUEPRINTS[r.type] : null;
                                 if (bp) {
-                                    const ghostData = { ...fCfg, key: k + "_ghost", geometry: { x: r.x, y: r.y, w: r.w, h: r.h }, alpha: 1.0, hidden: false, state: "ON", mouseOver: false };
+                                    const sourceState = fCfg?.state ?? r?.state ?? "OFF";
+                                    const ghostData = {
+                                        ...fCfg,
+                                        key: k + "_ghost",
+                                        geometry: { x: r.x, y: r.y, w: r.w, h: r.h },
+                                        alpha: 1.0,
+                                        hidden: false,
+                                        state: sourceState,
+                                        mouseOver: false
+                                    };
 
-                                    if (k === rowKey) {
-                                        ctx.shadowColor = "rgba(0,0,0,0.6)";
-                                        ctx.shadowBlur = 12;
-                                        ctx.shadowOffsetX = 0;
-                                        ctx.shadowOffsetY = 8;
-                                    }
-
-                                    if (bp.isHtml) {
-                                        ctx.save();
-                                        ctx.fillStyle = "rgba(30,30,30,0.9)";
-                                        if (ctx.roundRect) {
-                                            ctx.beginPath(); ctx.roundRect(r.x, r.y, r.w, r.h, 4); ctx.fill();
-                                        } else {
-                                            ctx.fillRect(r.x, r.y, r.w, r.h);
-                                        }
-                                        ctx.fillStyle = "#fff";
-                                        ctx.font = "10px Arial";
-                                        ctx.textAlign = "center";
-                                        ctx.textBaseline = "middle";
-                                        let textStr = r.text || r.value || r.label || "";
-                                        if (typeof textStr === "string") {
-                                            ctx.fillText(textStr, r.x + r.w/2, r.y + r.h/2);
-                                        }
-                                        ctx.restore();
-                                    } else if (bp.isHybrid || r.type?.toLowerCase().includes("image")) {
+                                    if (bp.isHybrid || bp.isHtml || r.type?.toLowerCase().includes("image")) {
                                         bp.sync(ctx, this, app, ghostData);
                                     } else {
                                         bp.sync(ctx, this, ghostData);
-                                    }
-
-                                    if (k === rowKey) {
-                                        ctx.shadowColor = "transparent";
                                     }
                                 }
                             }
@@ -605,7 +580,15 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                                 const { key: k, reg: r, config: fCfg } = item;
                                 const bp = this.UI_TYPES ? COMPONENT_BLUEPRINTS[r.type] : null;
                                 if (bp && r.strokeZIndex) {
-                                    const ghostData = { ...fCfg, key: k + "_ghost", geometry: { x: r.x, y: r.y, w: r.w, h: r.h }, alpha: 1.0, hidden: false, state: "ON" };
+                                    const sourceState = fCfg?.state ?? r?.state ?? "OFF";
+                                    const ghostData = {
+                                        ...fCfg,
+                                        key: k + "_ghost",
+                                        geometry: { x: r.x, y: r.y, w: r.w, h: r.h },
+                                        alpha: 1.0,
+                                        hidden: false,
+                                        state: sourceState
+                                    };
                                     if (bp.isHybrid) bp.sync(ctx, this, app, ghostData, true);
                                 }
                             }
@@ -682,6 +665,11 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
 
                 const baseHandleInteraction = nodeType.prototype.handleShieldInteraction;
                 nodeType.prototype.handleShieldInteraction = function(type, data) {
+                    if (type === "click" && this._suppressClickAfterDrag) {
+                        this._suppressClickAfterDrag = false;
+                        return true;
+                    }
+
                     // THE SPAWN HOVER FIX: Shield mouseenter fails if panel spawns directly under the cursor.
                     if (type === "hover") this._uiHovered = true;
 
