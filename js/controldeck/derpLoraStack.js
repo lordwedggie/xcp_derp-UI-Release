@@ -104,7 +104,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                     const topRow = loraMid[`topRow_${i}`];
                                     if (topRow) {
                                         const useAnim = this.properties.useAnimations !== false && window.xcpDerpSettings?.useAnimations !== false;
-                                        if (topRow[`btnEnable_${i}`]) topRow[`btnEnable_${i}`].state = isSelected ? "DIS" : (!isBypassed ? "ON" : "OFF");
+                                        if (topRow[`btnEnable_${i}`]) topRow[`btnEnable_${i}`].state = !isBypassed ? "ON" : "OFF";
                                         if (topRow[`lblLoraNameTop_${i}`]) {
                                             topRow[`lblLoraNameTop_${i}`].state = (i === activeSlot) ? "ON" : (isBypassed ? "DIS" : "OFF");
                                         }
@@ -117,7 +117,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                     }
                                     const modelRow = loraMid[`modelRow_${i}`];
                                     if (modelRow) {
-                                        if (modelRow[`btnEnableLeft_${i}`]) modelRow[`btnEnableLeft_${i}`].state = isSelected ? "DIS" : (!isBypassed ? "ON" : "OFF");
+                                        if (modelRow[`btnEnableLeft_${i}`]) modelRow[`btnEnableLeft_${i}`].state = !isBypassed ? "ON" : "OFF";
                                         if (modelRow[`sldModel_${i}`]) {
                                             modelRow[`sldModel_${i}`].value = lora[1];
                                             modelRow[`sldModel_${i}`].state = isBypassed ? "DIS" : "OFF";
@@ -383,7 +383,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                         hidden: nameDisplay !== "Top", mouseOver: false,
                                         type: this.UI_TYPES.ICONBUTTON, icon: "power", themeKey: "button, t_textNormal",
                                         width: "match", height: "fill", spacing: [sW, 0], alpha: rowAlpha,
-                                        state: isSelected ? "DIS" : (!isBypassed ? "ON" : "OFF"),
+                                        state: !isBypassed ? "ON" : "OFF",
                                         playSound: lora[5] ? "powerUp" : "powerDown",
                                         onPress: () => {
                                             lora[5] = !lora[5]; // Toggle the bypass flag
@@ -439,7 +439,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                         hidden: nameDisplay !== "Slider", mouseOver: false,
                                         type: this.UI_TYPES.ICONBUTTON, icon: "power", themeKey: "button, t_textNormal",
                                         width: "match", height: "fill", spacing: [sW, 0], alpha: rowAlpha,
-                                        state: isSelected ? "DIS" : (!isBypassed ? "ON" : "OFF"),
+                                        state: !isBypassed ? "ON" : "OFF",
                                         playSound: lora[5] ? "powerUp" : "powerDown",
                                         onPress: () => {
                                             lora[5] = !lora[5]; // Toggle the bypass flag

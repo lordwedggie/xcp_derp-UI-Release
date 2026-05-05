@@ -72,46 +72,6 @@ const RESERVED_KEYWORDS = [
  * STRICT MODE: No fallbacks. Reports all missing values.
  */
 export class masterLayoutEngine {
-    _buildMeasureCacheKey(cfg, context, key) {
-        const c = cfg || {};
-        const margin = Array.isArray(c.margin) ? c.margin.join(",") : "";
-        const padding = Array.isArray(c.padding) ? c.padding.join(",") : "";
-        const spacing = Array.isArray(c.spacing) ? c.spacing.join(",") : "";
-        const itemsLen = Array.isArray(c.items) ? c.items.length : 0;
-        const parentH = Number.isFinite(context?.parentHeight) ? Number(context.parentHeight).toFixed(2) : "";
-
-        return [
-            key,
-            this.originalWidth,
-            parentH,
-            c.type || "",
-            c.themeKey || "",
-            c.width,
-            c.height,
-            c.minWidth,
-            c.minHeight,
-            c.dir || "",
-            c.wrap === true ? 1 : 0,
-            c.cutoff === true ? 1 : 0,
-            c.displayMode || "",
-            c.indicator === true ? 1 : (c.indicator || 0),
-            c.toggleWidth,
-            c.gap,
-            c.showWeight === true ? 1 : 0,
-            c.weight,
-            c.fontWeight || "",
-            c.text || "",
-            c.label || "",
-            c.value || "",
-            c.measureText || "",
-            c.icon || "",
-            itemsLen,
-            margin,
-            padding,
-            spacing
-        ].join("|");
-    }
-
     /**
      * _hashMap: Generates a deep string hash of the layout map to detect structural/value changes
      */
@@ -169,7 +129,7 @@ export class masterLayoutEngine {
     }
 
     _getReservedWidth(cfg, context, key = "unknown") {
-        const hash = this._buildMeasureCacheKey(cfg, context, key);
+        const hash = `${key}_${this.originalWidth}`;
         const profiling = isLayoutProfilingEnabled();
         if (profiling) this._profile.measureCalls++;
 
@@ -460,8 +420,7 @@ export class masterLayoutEngine {
             // THE SNAP ROUNDING FIX: Remove artificial push-down to ensure the exact layoutMap gap is preserved.
         }
 
-        const allRegions = this._layoutCache_all || Object.values(this.regions).filter(r => r.key !== "panelBackground" && !r.ignoreLayout);
-        this._layoutCache_all = allRegions;
+        const allRegions = Object.values(this.regions).filter(r => r.key !== "panelBackground" && !r.ignoreLayout);
         const propMinW = this.owner?.properties?.minWidth || 0;
         if (allRegions.length > 0) {
             const contentRequired = Math.max(...allRegions.map(r => r.x + r.w + (r.margin?.length === 4 ? r.margin[2] : (r.margin?.[0] || 0)))) - bounds.x;

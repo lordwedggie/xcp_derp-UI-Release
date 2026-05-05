@@ -191,7 +191,9 @@ export function showBastaFileHandler(host, category = "settings", targetRegion =
                         objectAlign: ["left", "middle"],
                     },
                     regionButtons: {
-                        anchor: { target: "labelWarning", axis: "y", offset: oY },
+                        // Anchor to a guaranteed-visible region in non-warning modes.
+                        // This avoids hidden-anchor jitter that can desync button text paint.
+                        anchor: { target: showWarning ? "labelWarning" : "contentRegion", axis: "y", offset: oY },
                         dir: "row", width: "full", height: "auto",
                         btnCancel: {
                             type: UI_TYPES.BUTTON, themeKey: "buttonNode, t_textSystem",

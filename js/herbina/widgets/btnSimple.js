@@ -56,7 +56,9 @@ export function syncBtnSimple(ctx, node, config) {
     const isHovered = (config.mouseOver !== false && node._hoveredRegionKey === config.key);
     // THE PALETTE HASH FIX: Include palette load status so the cache busts when the async fetch completes.
     const palStatus = config.palette ? !!resolvePaletteEntry(node, config.palette.path, config.palette.entry || config.key) : false;
-    const stateHash = `${isPressed}_${isHovered}_${node.mode}_${window._xcpDerpSession}_${config.text || config.label}_${palStatus}`;
+    const geo = config.geometry || { x: 0, y: 0, w: 0, h: 0 };
+    const geoHash = `${geo.x}|${geo.y}|${geo.w}|${geo.h}`;
+    const stateHash = `${isPressed}_${isHovered}_${node.mode}_${window._xcpDerpSession}_${config.text || config.label}_${palStatus}_${geoHash}_${config.alpha ?? 1}`;
 
     const cache = node._btnSimpleCache || (node._btnSimpleCache = {});
     const itemCache = cache[config.key] || (cache[config.key] = {});
@@ -149,7 +151,9 @@ export function syncBtnSimpleHTML(element, node, app, config) {
     const isPressed = node._pressedRegionKey === config.key || element.dataset.isPressed === "true";
     const isHovered = (config.mouseOver !== false && (node._hoveredRegionKey === config.key || element.dataset.isHovered === "true"));
     const palStatus = config.palette ? !!resolvePaletteEntry(node, config.palette.path, config.palette.entry || config.key) : false;
-    const stateHash = `${isPressed}_${isHovered}_${node.mode}_${window._xcpDerpSession}_${config.text || config.label}_${palStatus}`;
+    const geo = config.geometry || { x: 0, y: 0, w: 0, h: 0 };
+    const geoHash = `${geo.x}|${geo.y}|${geo.w}|${geo.h}`;
+    const stateHash = `${isPressed}_${isHovered}_${node.mode}_${window._xcpDerpSession}_${config.text || config.label}_${palStatus}_${geoHash}_${config.alpha ?? 1}`;
 
     const needsFullSync = node._shouldSync || element._lastStateHash !== stateHash || (element._isAnimating && (window.xcpDerpSettings?.useAnimations !== false));
 

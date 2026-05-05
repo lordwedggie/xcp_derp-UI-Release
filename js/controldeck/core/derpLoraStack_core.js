@@ -791,10 +791,23 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                         const regions = this.layout?.regions;
 
                         if (regions && typeof localX === 'number' && typeof localY === 'number') {
-                            for (const key of Object.keys(regions).reverse()) {
-                                if ((key.startsWith("sldModel_") || key.startsWith("sldClip_") || key.startsWith("loraPreview_") || key.startsWith("loraRow_")) && this.layout.hitTest([localX, localY], regions[key])) {
+                            const keys = Object.keys(regions).reverse();
+                            const isHit = (key) => this.layout.hitTest([localX, localY], regions[key]);
+
+                            // Check row controls first so row drag logic does not steal button clicks.
+                            for (const key of keys) {
+                                if ((key.startsWith("btnEnable_") || key.startsWith("btnEnableLeft_")) && isHit(key)) {
                                     foundKey = key;
                                     break;
+                                }
+                            }
+
+                            if (!foundKey) {
+                                for (const key of keys) {
+                                    if ((key.startsWith("sldModel_") || key.startsWith("sldClip_") || key.startsWith("loraPreview_") || key.startsWith("loraRow_")) && isHit(key)) {
+                                        foundKey = key;
+                                        break;
+                                    }
                                 }
                             }
                         }

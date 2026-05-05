@@ -55,7 +55,14 @@ export function updateMainEditRegion(node) {
         mReg.dropdownFonts.value = safeFonts.includes(rawFont) ? `• ${rawFont}` : rawFont;
         mReg.promptFontSize.value = (keyData.fontSize || 10).toString();
     } else {
-        mReg.promptCorners.value = JSON.stringify(keyData.corners || [0,0,0,0]).slice(1, -1);
+        const corners = keyData.corners ?? [0, 0, 0, 0];
+        if (Array.isArray(corners)) {
+            mReg.promptCorners.value = corners.map(v => typeof v === "string" ? v : String(v)).join(", ");
+        } else if (typeof corners === "string") {
+            mReg.promptCorners.value = corners;
+        } else {
+            mReg.promptCorners.value = String(corners);
+        }
     }
 }
 
@@ -121,14 +128,24 @@ export function bindKeyMainEvents(node, updateThemeLayoutFn) {
         }
     };
 
+    const parseCornerValue = (s) => {
+        const token = String(s || "").trim();
+        if (!token) return null;
+        const straight = token.match(/^s\s*([0-9]*\.?[0-9]+)$/i);
+        if (straight) return `s${Number(straight[1])}`;
+        const n = Number(token);
+        if (Number.isFinite(n)) return n;
+        return null;
+    };
+
     const updateCorners = (v, isBlur = false) => {
-        const parts = v.split(',').map(s => s.trim()).filter(s => s !== "").map(Number);
+        const parts = String(v || "").split(',').map(s => parseCornerValue(s)).filter(x => x !== null);
         const key = node._selectedKeyName;
         let finalCorners = null;
 
-        if (parts.length === 4 && parts.every(n => !isNaN(n))) {
+        if (parts.length === 4) {
             finalCorners = parts;
-        } else if (isBlur && parts.length === 1 && !isNaN(parts[0])) {
+        } else if (isBlur && parts.length === 1) {
             finalCorners = [parts[0], parts[0], parts[0], parts[0]];
         }
 

@@ -114,6 +114,69 @@ function scaleAlpha(colorStr, factor) {
     return colorStr;
 }
 
+function parseCornerToken(token) {
+    if (typeof token === "object" && token) {
+        const r = Math.max(0, Number(token.r ?? token.radius ?? 0) || 0);
+        return { r, straight: !!token.straight };
+    }
+    if (typeof token === "string") {
+        const s = token.trim();
+        const straightMatch = s.match(/^s\s*([0-9]*\.?[0-9]+)$/i);
+        if (straightMatch) {
+            return { r: Math.max(0, Number(straightMatch[1]) || 0), straight: true };
+        }
+        return { r: Math.max(0, Number(s) || 0), straight: false };
+    }
+    return { r: Math.max(0, Number(token) || 0), straight: false };
+}
+
+function normalizeCornerSpec(radii, width, height) {
+    const maxR = Math.max(0, Math.min(width, height) / 2);
+    let raw;
+    if (Array.isArray(radii)) {
+        raw = radii;
+    } else if (typeof radii === "string") {
+        const tokens = radii.split(/[\s,]+/).map(s => s.trim()).filter(Boolean);
+        if (tokens.length >= 4) raw = tokens.slice(0, 4);
+        else if (tokens.length === 1) raw = [tokens[0], tokens[0], tokens[0], tokens[0]];
+        else raw = [radii, radii, radii, radii];
+    } else {
+        raw = [radii, radii, radii, radii];
+    }
+    const arr = [raw[0], raw[1], raw[2], raw[3]].map(parseCornerToken);
+    return arr.map(c => ({ ...c, r: Math.min(c.r, maxR) }));
+}
+
+function buildRoundedPath(ctx, x, y, width, height, radii, begin = true) {
+    const [tl, tr, br, bl] = normalizeCornerSpec(radii, width, height);
+    if (begin) ctx.beginPath();
+    ctx.moveTo(x + tl.r, y);
+    ctx.lineTo(x + width - tr.r, y);
+    if (tr.r > 0) {
+        if (tr.straight) ctx.lineTo(x + width, y + tr.r);
+        else ctx.quadraticCurveTo(x + width, y, x + width, y + tr.r);
+    }
+
+    ctx.lineTo(x + width, y + height - br.r);
+    if (br.r > 0) {
+        if (br.straight) ctx.lineTo(x + width - br.r, y + height);
+        else ctx.quadraticCurveTo(x + width, y + height, x + width - br.r, y + height);
+    }
+
+    ctx.lineTo(x + bl.r, y + height);
+    if (bl.r > 0) {
+        if (bl.straight) ctx.lineTo(x, y + height - bl.r);
+        else ctx.quadraticCurveTo(x, y + height, x, y + height - bl.r);
+    }
+
+    ctx.lineTo(x, y + tl.r);
+    if (tl.r > 0) {
+        if (tl.straight) ctx.lineTo(x + tl.r, y);
+        else ctx.quadraticCurveTo(x, y, x + tl.r, y);
+    }
+    ctx.closePath();
+}
+
 /**
  * Herbina Master Painter
  * Fixed: Consolidated Glow Pass with Unclipped 'None' Mode
@@ -141,14 +204,14 @@ export function masterPainter(ctx, options) {
         ctx.save();
         ctx.beginPath();
         ctx.rect(posX - 5000, posY - 5000, width + 10000, height + 10000);
-        ctx.roundRect(posX, posY, width, height, radii);
+        buildRoundedPath(ctx, posX, posY, width, height, radii, false);
         ctx.clip("evenodd");
 
         ctx.shadowColor = scaleAlpha(s.color, CANVAS_ALPHA_FACTOR);
         ctx.shadowBlur = s.blur * CANVAS_BLUR_FACTOR;
         ctx.shadowOffsetX = s.offsetX; ctx.shadowOffsetY = s.offsetY;
         ctx.fillStyle = "black";
-        ctx.beginPath(); ctx.roundRect(posX, posY, width, height, radii); ctx.fill();
+        buildRoundedPath(ctx, posX, posY, width, height, radii, true); ctx.fill();
         ctx.restore();
     }
 
@@ -162,8 +225,7 @@ export function masterPainter(ctx, options) {
         ctx.shadowOffsetY = s.offsetY * CANVAS_OFFSET_FACTOR;
     }
     ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.roundRect(posX, posY, width, height, radii);
+    buildRoundedPath(ctx, posX, posY, width, height, radii, true);
     ctx.fill();
     ctx.restore();
 
@@ -171,7 +233,7 @@ export function masterPainter(ctx, options) {
     if (paintData?.shadow && shadowClip === "c_shadowInside") {
         const s = paintData.shadow;
         ctx.save();
-        ctx.beginPath(); ctx.roundRect(posX, posY, width, height, radii); ctx.clip();
+        buildRoundedPath(ctx, posX, posY, width, height, radii, true); ctx.clip();
 
         ctx.shadowColor = scaleAlpha(s.color, CANVAS_ALPHA_FACTOR);
         ctx.shadowBlur = s.blur * CANVAS_BLUR_FACTOR;
@@ -180,7 +242,7 @@ export function masterPainter(ctx, options) {
 
         ctx.beginPath();
         ctx.rect(posX - 5000, posY - 5000, width + 10000, height + 10000);
-        ctx.roundRect(posX, posY, width, height, radii);
+        buildRoundedPath(ctx, posX, posY, width, height, radii, false);
         ctx.fillStyle = "black";
         ctx.fill("evenodd");
         ctx.restore();
@@ -199,22 +261,22 @@ export function masterPainter(ctx, options) {
             ctx.save();
             ctx.beginPath();
             ctx.rect(posX - 5000, posY - 5000, width + 10000, height + 10000);
-            ctx.roundRect(posX, posY, width, height, radii);
+            buildRoundedPath(ctx, posX, posY, width, height, radii, false);
             ctx.clip("evenodd");
             ctx.shadowColor = gColor; ctx.shadowBlur = blur;
             ctx.shadowOffsetX = offX; ctx.shadowOffsetY = offY;
             ctx.fillStyle = "black";
-            ctx.beginPath(); ctx.roundRect(posX, posY, width, height, radii); ctx.fill();
+            buildRoundedPath(ctx, posX, posY, width, height, radii, true); ctx.fill();
             ctx.restore();
         }
         else if (glowClip === "c_glowInside") {
             ctx.save();
-            ctx.beginPath(); ctx.roundRect(posX, posY, width, height, radii); ctx.clip();
+            buildRoundedPath(ctx, posX, posY, width, height, radii, true); ctx.clip();
             ctx.shadowColor = gColor; ctx.shadowBlur = blur;
             ctx.shadowOffsetX = offX; ctx.shadowOffsetY = offY;
             ctx.beginPath();
             ctx.rect(posX - 5000, posY - 5000, width + 10000, height + 10000);
-            ctx.roundRect(posX, posY, width, height, radii);
+            buildRoundedPath(ctx, posX, posY, width, height, radii, false);
             ctx.fillStyle = "black";
             ctx.fill("evenodd");
             ctx.restore();
@@ -228,22 +290,22 @@ export function masterPainter(ctx, options) {
             ctx.save();
             ctx.beginPath();
             ctx.rect(posX - 5000, posY - 5000, width + 10000, height + 10000);
-            ctx.roundRect(posX, posY, width, height, radii);
+            buildRoundedPath(ctx, posX, posY, width, height, radii, false);
             ctx.clip("evenodd");
             ctx.shadowColor = gColor; ctx.shadowBlur = blur;
             ctx.shadowOffsetX = offX; ctx.shadowOffsetY = offY;
             ctx.fillStyle = "black";
-            ctx.beginPath(); ctx.roundRect(posX, posY, width, height, radii); ctx.fill();
+            buildRoundedPath(ctx, posX, posY, width, height, radii, true); ctx.fill();
             ctx.restore();
 
             // Pass 2: Inside Glow
             ctx.save();
-            ctx.beginPath(); ctx.roundRect(posX, posY, width, height, radii); ctx.clip();
+            buildRoundedPath(ctx, posX, posY, width, height, radii, true); ctx.clip();
             ctx.shadowColor = gColor; ctx.shadowBlur = blur;
             ctx.shadowOffsetX = offX; ctx.shadowOffsetY = offY;
             ctx.beginPath();
             ctx.rect(posX - 5000, posY - 5000, width + 10000, height + 10000);
-            ctx.roundRect(posX, posY, width, height, radii);
+            buildRoundedPath(ctx, posX, posY, width, height, radii, false);
             ctx.fillStyle = "black";
             ctx.fill("evenodd");
             ctx.restore();
@@ -259,10 +321,9 @@ export function masterPainter(ctx, options) {
         const lineWidth = b.width;
         ctx.lineWidth = lineWidth;
 
-        ctx.beginPath();
-        if (align === 1) ctx.roundRect(posX + (lineWidth / 2), posY + (lineWidth / 2), width - lineWidth, height - lineWidth, radii);
-        else if (align === 2) ctx.roundRect(posX - (lineWidth / 2), posY - (lineWidth / 2), width + lineWidth, height + lineWidth, radii);
-        else ctx.roundRect(posX, posY, width, height, radii);
+        if (align === 1) buildRoundedPath(ctx, posX + (lineWidth / 2), posY + (lineWidth / 2), width - lineWidth, height - lineWidth, radii);
+        else if (align === 2) buildRoundedPath(ctx, posX - (lineWidth / 2), posY - (lineWidth / 2), width + lineWidth, height + lineWidth, radii);
+        else buildRoundedPath(ctx, posX, posY, width, height, radii);
 
         ctx.stroke();
         ctx.restore();

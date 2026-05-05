@@ -11,7 +11,7 @@ import { getLoraDetailId, handleBastaLoraDetail, cleanTriggerText,
     openCivitAI, openCivArchive, getLoraTriggerEditorProps,
     getLoraNotesEditorPropsWrapped, getLoraTriggerDropdownProps } from "./core/bastaLoraDetail_core.js";
 import { manageLoraTrigger, getRatingColor, getLoraRatingDropdownProps, getLoraLoaderProps, processTriggerData } from "../../controldeck/helpers/loraComponents.js";
-import { colorPulse2, parseColor, animateAlpha } from "../../herbina/masterAnimator.js";
+import { parseColor,} from "../../herbina/masterAnimator.js";
 import { resolvePaintData, measureTextHeight } from "../../herbina/utils/widgetsUtils.js";
 import { calculatePreviewDisplayHeight, switchLoraImage, setLoraCover, calculatePreviewAspectRatio, deleteLoraDetailImage } from "../../controldeck/helpers/loraImages.js";
 

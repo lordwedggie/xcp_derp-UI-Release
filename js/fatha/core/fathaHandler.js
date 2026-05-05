@@ -236,7 +236,6 @@ function findHitRegion(layout, localMouse) {
             reg.type === UI_TYPES.SLIDER || reg.type === UI_TYPES.EDITOR ||
             reg.type === UI_TYPES.FILEBROWSER || reg.type === UI_TYPES.TOGGLE ||
             reg.type === UI_TYPES.TOGGLE_V2 || reg.type === UI_TYPES.TRIGGER ||
-            reg.type === UI_TYPES.REGION ||
             reg.type === UI_TYPES.IMAGE_HTML;
         if (isInteractive && (reg.hitTest ? reg.hitTest(localMouse) : layout.hitTest(localMouse, reg))) return { key, reg };
     }

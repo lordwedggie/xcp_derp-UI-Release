@@ -6,7 +6,6 @@ import { masterPainter, masterPainterText } from "../masterPainter.js";
 import { applyHTMLTheme } from "../masterPainterHTML.js";
 import { toRGBA } from "../utils/colorMath.js";
 import { resolveWidgetEnv, measureTextWidth } from "../utils/widgetsUtils.js";
-import { animateWidgetColors } from "../masterAnimator.js";
 
 export function createTextLabel(callbacks = {}) {
     return {
@@ -30,7 +29,7 @@ export function syncTextLabel(ctx, node, config) {
     const isPressed = node._pressedRegionKey === config.key;
     const isHovered = (config.mouseOver !== false && node._hoveredRegionKey === config.key);
     const valStr = (config.text || config.label || "").toString();
-    const stateHash = `${isPressed}_${isHovered}_${node.mode}_${window._xcpDerpSession}_${valStr}_${config.alpha}`;
+    const stateHash = `${isPressed}_${isHovered}_${node.mode}_${window._xcpDerpSession}_${valStr}_${config.alpha}_${x}_${y}_${w}_${h}`;
 
     const cache = node._textLabelCache || (node._textLabelCache = {});
     const itemCache = cache[config.key] || (cache[config.key] = {});
@@ -51,12 +50,8 @@ export function syncTextLabel(ctx, node, config) {
     // THE THEME FIX: Removed hardcoded DIS alpha override so the _DIS theme key is strictly respected
     let rawIc = labelPaintData?.textColor || labelPaintData?.fill || "red";
 
-    const useAnim = (config.showAnim !== false) && (window.xcpDerpSettings?.useAnimations !== false);
-    const sysAlpha = alpha;
-    const animKey = `_textLabel_anim_${config.key}`;
-
-    const { fillColor, iconColor, isAnimating } = animateWidgetColors(node, animKey, rawBg, rawIc, sysAlpha, useAnim);
-    if (isAnimating && node) node._derpAwakeFrames = 5;
+    const fillColor = rawBg;
+    const iconColor = rawIc;
 
     if (alpha <= 0) return;
     ctx.save();
@@ -165,7 +160,7 @@ export function syncTextLabelHTML(element, node, app, config) {
     const isPressed = node._pressedRegionKey === config.key || element.dataset?.isPressed === "true";
     const isHovered = (config.mouseOver !== false && (node._hoveredRegionKey === config.key || element.dataset?.isHovered === "true"));
     const valStr = (config.text || config.label || "").toString();
-    const stateHash = `${isPressed}_${isHovered}_${node.mode}_${window._xcpDerpSession}_${valStr}_${config.alpha}`;
+    const stateHash = `${isPressed}_${isHovered}_${node.mode}_${window._xcpDerpSession}_${valStr}_${config.alpha}_${config.geometry.x}_${config.geometry.y}_${config.geometry.w}_${config.geometry.h}`;
 
     const needsFullSync = node._shouldSync || element._lastStateHash !== stateHash || (element._isAnimating && (window.xcpDerpSettings?.useAnimations !== false));
 
@@ -182,15 +177,9 @@ export function syncTextLabelHTML(element, node, app, config) {
     // THE THEME FIX: Removed hardcoded DIS alpha override so the _DIS theme key is strictly respected
     let rawIc = labelPaintData?.textColor || labelPaintData?.fill || "red";
 
-    const useAnim = (config.showAnim !== false) && (window.xcpDerpSettings?.useAnimations !== false);
-    const sysAlpha = alpha;
-    const animKey = `_textLabel_html_anim_${config.key}`;
-
-    const { fillColor, iconColor, isAnimating } = animateWidgetColors(node, animKey, rawBg, rawIc, sysAlpha, useAnim);
-    element._isAnimating = isAnimating;
-
-    // THE AWAKE GATE: Ensure framework identifies active color transitions
-    if (isAnimating && node) node._derpAwakeFrames = 5;
+    const fillColor = rawBg;
+    const iconColor = rawIc;
+    element._isAnimating = false;
 
     if (!coords) return;
     const scale = coords.scale;
