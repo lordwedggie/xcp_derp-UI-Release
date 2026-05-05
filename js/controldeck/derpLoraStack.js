@@ -48,7 +48,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                     const trigHash = stack.map(l => (this._loraTriggerArrayCache?.[l[0]] || []).length).join('|');
 
                     const dragIdxHash = (this._dragTrig) ? `drag_${this._dragTrig.index}_${this._dragThresholdMet}_${this._dropPreviewIdx}` : "no-drag";
-                    const structureHash = `${stack.length}_${stack.map(l => `${l[0]}_${l[5]}`).join('|')}_${trigHash}_${this.properties.nameDisplay}_${this.properties.showCLIP}_${this.properties.attentionMode}_${this.properties.settingActive}_${window._xcpDerpSession}_${activeSlot}_${mW}_${mH}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}_${dragIdxHash}`;
+                    const structureHash = `${stack.length}_${stack.map(l => `${l[0]}_${l[5]}`).join('|')}_${trigHash}_${this.properties.nameDisplay}_${this.properties.showCLIP}_${this.properties.attentionMode}_${window._xcpDerpSession}_${activeSlot}_${mW}_${mH}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}_${dragIdxHash}`;
 
                     // ZERO-INFERENCE VALUE GATE: Block redundant property hydration on idle nodes
                     const valueHash = stack.map(l => `${l[1]}_${l[2]}_${l[3]}_${l[4]}_${l[5]}_${l[6]}`).join('|') + `_${this.mode}_${this._hoveredRegionKey}`;
@@ -391,22 +391,27 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                             this.refreshNodeLayoutMap();
                                         }
                                     },
+                                    [`btnRemoveTop_${i}`]: {
+                                        hidden: nameDisplay !== "Top", mouseOver: false,
+                                        type: this.UI_TYPES.ICONBUTTON, icon: "close", themeKey: "button, t_textSystem",
+                                        width: "match", height: "fill", spacing: [sW, 0], alpha: rowAlpha,
+                                        playSound: "delete",
+                                        state: "OFF",
+                                        onPress: () => {
+                                            const bId = "basta_lora_detail_global_unique_id";
+                                            if (window.xcpActiveBastas?.has(bId)) window.xcpActiveBastas.get(bId).close();
+
+                                            const currentStack = [...this.properties.stackData];
+                                            currentStack.splice(i, 1);
+                                            this.properties.stackData = currentStack;
+                                            if (this.syncDerpOutputs) this.syncDerpOutputs();
+                                            this.refreshNodeLayoutMap();
+                                        }
+                                    }
                                 },
                                 [`modelRow_${i}`]: {
                                     alpha: rowAlpha,
                                     dir: "row", width: "full", height: "auto", spacing: [sW, sH],
-                                    [`btnEnableLeft_${i}`]: {
-                                        hidden: nameDisplay !== "Slider", mouseOver: false,
-                                        type: this.UI_TYPES.ICONBUTTON, icon: "power", themeKey: "button, t_textNormal",
-                                        width: "match", height: "fill", spacing: [sW, 0], alpha: rowAlpha,
-                                        state: isSelected ? "DIS" : (!isBypassed ? "ON" : "OFF"),
-                                        playSound: lora[5] ? "powerUp" : "powerDown",
-                                        onPress: () => {
-                                            lora[5] = !lora[5]; // Toggle the bypass flag
-                                            if (this.syncDerpOutputs) this.syncDerpOutputs();
-                                            this.refreshNodeLayoutMap();
-                                        }
-                                    },
                                     [`sldModel_${i}`]: {
                                         type: this.UI_TYPES.SLIDER, mouseOver: false,
                                         text: nameDisplay === "Slider" ? loraName : "Strength",
@@ -428,6 +433,35 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                         onBlur: (v) => {
                                             const val = parseFloat(v);
                                             if (!isNaN(val)) { lora[1] = val; if (this.syncDerpOutputs) this.syncDerpOutputs(); this.refreshNodeLayoutMap(); }
+                                        }
+                                    },
+                                    [`btnEnableLeft_${i}`]: {
+                                        hidden: nameDisplay !== "Slider", mouseOver: false,
+                                        type: this.UI_TYPES.ICONBUTTON, icon: "power", themeKey: "button, t_textNormal",
+                                        width: "match", height: "fill", spacing: [sW, 0], alpha: rowAlpha,
+                                        state: isSelected ? "DIS" : (!isBypassed ? "ON" : "OFF"),
+                                        playSound: lora[5] ? "powerUp" : "powerDown",
+                                        onPress: () => {
+                                            lora[5] = !lora[5]; // Toggle the bypass flag
+                                            if (this.syncDerpOutputs) this.syncDerpOutputs();
+                                            this.refreshNodeLayoutMap();
+                                        }
+                                    },
+                                    [`btnRemoveSlider_${i}`]: {
+                                        hidden: nameDisplay !== "Slider", mouseOver: false,
+                                        type: this.UI_TYPES.ICONBUTTON, icon: "close", themeKey: "button, t_textSystem",
+                                        width: "match", height: "fill", spacing: [sW, 0], alpha: rowAlpha,
+                                        playSound: "delete",
+                                        state: "OFF",
+                                        onPress: () => {
+                                            const bId = "basta_lora_detail_global_unique_id";
+                                            if (window.xcpActiveBastas?.has(bId)) window.xcpActiveBastas.get(bId).close();
+
+                                            const currentStack = [...this.properties.stackData];
+                                            currentStack.splice(i, 1);
+                                            this.properties.stackData = currentStack;
+                                            if (this.syncDerpOutputs) this.syncDerpOutputs();
+                                            this.refreshNodeLayoutMap();
                                         }
                                     }
                                 },
@@ -518,79 +552,6 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                             if (this.syncDerpOutputs) this.syncDerpOutputs();
                                             this.refreshNodeLayoutMap();
                                         }
-                                    }
-                                }
-                            },
-                            [`btnCol_${i}`]: {
-                                alpha: rowAlpha,
-                                hidden: !this.properties.settingActive,
-                                dir: "col", width: "auto", height: "fill", margin: [pW, 0, 0, 0], spacing: [0, sH],
-                                objX: "right",
-                                [`btnUp_${i}`]: {
-                                    type: this.UI_TYPES.ICONBUTTON, icon: "uparrow", themeKey: "button, t_textSystem",
-                                    width: "auto", height: "auto", spacing: [0, sW], alpha: rowAlpha,
-
-                                    state: (i === 0) ? "DIS" : "OFF",
-                                    onPress: (e) => {
-                                        if (i === 0) return;
-                                        if (e && e.shiftKey) {
-                                            showBastaMessage(this, "Stack Shuffled", 800, {fade:true}, null, false, "info", "shuffle");
-                                        } else {
-                                            showBastaMessage(this, "Moved Up", 800, {fade:true}, null, false, "info", "powerUp");
-                                        }
-                                        const bId = "basta_lora_detail_global_unique_id";
-                                        if (window.xcpActiveBastas?.has(bId)) window.xcpActiveBastas.get(bId).close();
-
-                                        const currentStack = [...this.properties.stackData];
-                                        const item = currentStack.splice(i, 1)[0];
-
-                                        // THE SHIFT OVERRIDE: Shift-click moves the LoRA to the absolute top of the stack
-                                        if (e && e.shiftKey) currentStack.unshift(item);
-                                        else currentStack.splice(i - 1, 0, item);
-
-                                        this.properties.stackData = currentStack;
-                                        if (this.syncDerpOutputs) this.syncDerpOutputs();
-                                        this.refreshNodeLayoutMap();
-                                    }
-                                },
-                                [`btnRemove_${i}`]: {
-                                    type: this.UI_TYPES.ICONBUTTON, icon: "close", themeKey: "button, t_textSystem",
-                                    width: "auto", height: "fill", spacing: [0, sW], alpha: rowAlpha,
-                                    playSound: "delete",
-                                    state: "OFF",
-                                    onPress: () => {
-                                        const bId = "basta_lora_detail_global_unique_id";
-                                        if (window.xcpActiveBastas?.has(bId)) window.xcpActiveBastas.get(bId).close();
-
-                                        const currentStack = [...this.properties.stackData];
-                                        currentStack.splice(i, 1);
-                                        this.properties.stackData = currentStack;
-                                        if (this.syncDerpOutputs) this.syncDerpOutputs();
-                                        this.refreshNodeLayoutMap();
-                                    }
-                                },
-                                [`btnDown_${i}`]: {
-                                    type: this.UI_TYPES.ICONBUTTON, icon: "downarrow", themeKey: "button, t_textSystem",
-                                    width: "auto", height: "auto", alpha: rowAlpha,
-                                    state: (i === stack.length - 1) ? "DIS" : "OFF",
-                                    onPress: (e) => {
-                                        if (i === stack.length - 1) return;
-                                        if (e && e.shiftKey) {
-                                            showBastaMessage(this, "Stack Shuffled", 800, {fade:true}, null, false, "info", "shuffle");
-                                        } else {
-                                            showBastaMessage(this, "Moved Down", 800, {fade:true}, null, false, "info", "powerDown");
-                                        }
-                                        const bId = "basta_lora_detail_global_unique_id";
-                                        if (window.xcpActiveBastas?.has(bId)) window.xcpActiveBastas.get(bId).close();
-
-                                        const currentStack = [...this.properties.stackData];
-                                        const item = currentStack.splice(i, 1)[0];
-                                        if (e && e.shiftKey) currentStack.push(item);
-                                        else currentStack.splice(i + 1, 0, item);
-
-                                        this.properties.stackData = currentStack;
-                                        if (this.syncDerpOutputs) this.syncDerpOutputs();
-                                        this.refreshNodeLayoutMap();
                                     }
                                 }
                             }

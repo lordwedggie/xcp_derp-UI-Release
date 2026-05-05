@@ -31,10 +31,11 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                 nodeType.prototype.drawNode = function(ctx, canvas) {
                     // THE HEIST: Temporarily blind LiteGraph by nullifying inputs/outputs during render to kill ghosted "circle things"
                     const isDraggingStack = !!(this._dragTrig && this._dragThresholdMet);
+                    const isGhostDrawing = !!this._isGhostDrawing;
                     const oldIn = this.inputs, oldOut = this.outputs;
-                    if (isDraggingStack) { this.inputs = null; this.outputs = null; }
+                    if (isDraggingStack || isGhostDrawing) { this.inputs = null; this.outputs = null; }
                     originalDrawNode.apply(this, arguments);
-                    if (isDraggingStack) { this.inputs = oldIn; this.outputs = oldOut; }
+                    if (isDraggingStack || isGhostDrawing) { this.inputs = oldIn; this.outputs = oldOut; }
                 };
 
                 nodeType.prototype.onDerpSettingsPress = function() {
@@ -518,83 +519,167 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
 
                             ctx.save();
                             ctx.translate(dx, dy);
+                            this._isGhostDrawing = true;
 
-                            // THE GHOST SLOT SUPPRESSION: Force slots to null during ghosting to block "circle things"
+                            // Suppress LiteGraph slot circles for the entire ghost pass.
                             const oldInputs = this.inputs;
                             const oldOutputs = this.outputs;
                             this.inputs = null;
                             this.outputs = null;
 
-                            const suffix = `_${dragIdx}`;
-                            const componentsToDraw = [];
+                            try {
 
-                            for (const [k, r] of Object.entries(this.layout.regions)) {
-                                if (r.type === "linebreak") continue;
-                                if (k === rowKey || k.endsWith(suffix)) {
-                                    // THE ORIGINAL CONFIG RETRIEVAL: Drill into layoutMap to find source config (imageUrl, etc.) for ghost rendering
-                                    const rowCfg = this.layoutMap?.mainContentRegion?.[rowKey];
-                                    let fullCfg = (k === rowKey) ? rowCfg : null;
-                                    if (!fullCfg && rowCfg) {
-                                        const search = (obj) => {
-                                            if (obj[k]) return obj[k];
-                                            for (const val of Object.values(obj)) {
-                                                if (val && typeof val === 'object' && !Array.isArray(val)) {
-                                                    const found = search(val);
-                                                    if (found) return found;
+                                // Draw an opaque canvas-backed plate under the dragged row.
+                                // REGION themes are often transparent, so we borrow REGION corners
+                                // but force the canvas OFF paint to stabilize ghost readability.
+                                const rowCfg = this.layoutMap?.mainContentRegion?.[rowKey] || {};
+                                const regionBp = this.UI_TYPES ? COMPONENT_BLUEPRINTS[this.UI_TYPES.REGION] : null;
+                                if (regionBp) {
+                                    const ghostPlate = {
+                                        ...rowCfg,
+                                        key: `${rowKey}_ghostPlate`,
+                                        geometry: { x: baseReg.x, y: baseReg.y, w: baseReg.w, h: baseReg.h },
+                                        themeKey: "canvas",
+                                        state: "OFF",
+                                        alpha: 1.0,
+                                        hidden: false,
+                                        mouseOver: false,
+                                        hoverEffect: false,
+                                        corners: rowCfg?.corners || baseReg?.corners
+                                    };
+                                    regionBp.sync(ctx, this, ghostPlate);
+                                }
+
+                                const suffix = `_${dragIdx}`;
+                                const componentsToDraw = [];
+                                const belongsToDraggedRow = (key, reg) => {
+                                    if (key === rowKey) return true;
+                                    let parent = reg?.parentKey;
+                                    while (parent && this.layout?.regions?.[parent]) {
+                                        if (parent === rowKey) return true;
+                                        parent = this.layout.regions[parent].parentKey;
+                                    }
+                                    return false;
+                                };
+                                const ghostAllowedTypes = new Set([
+                                    this.UI_TYPES.TEXT,
+                                    this.UI_TYPES.ICONBUTTON,
+                                    this.UI_TYPES.SLIDER,
+                                    this.UI_TYPES.EDITOR,
+                                    this.UI_TYPES.TOGGLE_V2,
+                                    this.UI_TYPES.IMAGE_HTML,
+                                    this.UI_TYPES.FILEBROWSER,
+                                ]);
+
+                                for (const [k, r] of Object.entries(this.layout.regions)) {
+                                    if (r.type === "linebreak") continue;
+                                    if (k === rowKey || k.endsWith(suffix)) {
+                                        if (!belongsToDraggedRow(k, r)) continue;
+                                        // Render only stable visual widgets in ghost pass.
+                                        // This avoids slot/circle artifacts from non-row helper regions.
+                                        const isTriggerDropdown = r.type === this.UI_TYPES.DROPDOWN_DERP || k.startsWith("dropTrigger_");
+                                        if (!ghostAllowedTypes.has(r.type) && !isTriggerDropdown) {
+                                            continue;
+                                        }
+                                        // THE ORIGINAL CONFIG RETRIEVAL: Drill into layoutMap to find source config (imageUrl, etc.) for ghost rendering
+                                        let fullCfg = (k === rowKey) ? rowCfg : null;
+                                        if (!fullCfg && rowCfg) {
+                                            const search = (obj) => {
+                                                if (obj[k]) return obj[k];
+                                                for (const val of Object.values(obj)) {
+                                                    if (val && typeof val === 'object' && !Array.isArray(val)) {
+                                                        const found = search(val);
+                                                        if (found) return found;
+                                                    }
                                                 }
+                                                return null;
+                                            };
+                                            fullCfg = search(rowCfg);
+                                        }
+                                        if (fullCfg) componentsToDraw.push({ key: k, reg: r, config: fullCfg });
+                                    }
+                                }
+
+                                componentsToDraw.sort((a, b) => (a.reg.zIndex || 0) - (b.reg.zIndex || 0));
+
+                                for (const item of componentsToDraw) {
+                                    const { key: k, reg: r, config: fCfg } = item;
+                                    const bp = this.UI_TYPES ? COMPONENT_BLUEPRINTS[r.type] : null;
+                                    if (bp) {
+                                        const sourceState = fCfg?.state ?? r?.state ?? "OFF";
+                                        const isTriggerDropdown = r.type === this.UI_TYPES.DROPDOWN_DERP || k.startsWith("dropTrigger_");
+
+                                        // Draw trigger dropdown as a stable canvas button-like surrogate
+                                        // during ghost pass to avoid hybrid DOM flicker.
+                                        if (isTriggerDropdown) {
+                                            const ghostDropBp = COMPONENT_BLUEPRINTS[this.UI_TYPES.DROPDOWN_DERP];
+                                            if (ghostDropBp) {
+                                                const ghostDropData = {
+                                                    ...fCfg,
+                                                    key: `${k}_ghost_drop`,
+                                                    geometry: { x: r.x, y: r.y, w: r.w, h: r.h },
+                                                    width: "full",
+                                                    height: "auto",
+                                                    themeKey: "dialog, t_textSmall",
+                                                    indicator: true,
+                                                    canvasShield: true,
+                                                    mouseOver: false,
+                                                    padding: fCfg?.padding || [4, 2],
+                                                    spacing: fCfg?.spacing || [2, 0],
+                                                    text: (fCfg?.text && String(fCfg.text).trim() !== "")
+                                                        ? fCfg.text
+                                                        : (fCfg?.value || "None"),
+                                                    displayMode: "cutoff",
+                                                    alpha: 1.0,
+                                                    hidden: false,
+                                                    state: sourceState,
+                                                    onPress: null,
+                                                    onChange: null
+                                                };
+                                                ghostDropBp.sync(ctx, this, app, ghostDropData);
                                             }
-                                            return null;
+                                            continue;
+                                        }
+
+                                        const ghostData = {
+                                            ...fCfg,
+                                            key: k,
+                                            geometry: { x: r.x, y: r.y, w: r.w, h: r.h },
+                                            alpha: 1.0,
+                                            hidden: false,
+                                            state: sourceState,
+                                            mouseOver: !!(r?.mouseOver ?? fCfg?.mouseOver)
                                         };
-                                        fullCfg = search(rowCfg);
-                                    }
-                                    if (fullCfg) componentsToDraw.push({ key: k, reg: r, config: fullCfg });
-                                }
-                            }
 
-                            componentsToDraw.sort((a, b) => (a.reg.zIndex || 0) - (b.reg.zIndex || 0));
-
-                            for (const item of componentsToDraw) {
-                                const { key: k, reg: r, config: fCfg } = item;
-                                const bp = this.UI_TYPES ? COMPONENT_BLUEPRINTS[r.type] : null;
-                                if (bp) {
-                                    const sourceState = fCfg?.state ?? r?.state ?? "OFF";
-                                    const ghostData = {
-                                        ...fCfg,
-                                        key: k + "_ghost",
-                                        geometry: { x: r.x, y: r.y, w: r.w, h: r.h },
-                                        alpha: 1.0,
-                                        hidden: false,
-                                        state: sourceState,
-                                        mouseOver: false
-                                    };
-
-                                    if (bp.isHybrid || bp.isHtml || r.type?.toLowerCase().includes("image")) {
-                                        bp.sync(ctx, this, app, ghostData);
-                                    } else {
-                                        bp.sync(ctx, this, ghostData);
+                                        if (bp.isHybrid || bp.isHtml || r.type?.toLowerCase().includes("image")) {
+                                            bp.sync(ctx, this, app, ghostData);
+                                        } else {
+                                            bp.sync(ctx, this, ghostData);
+                                        }
                                     }
                                 }
-                            }
 
-                            for (const item of componentsToDraw) {
-                                const { key: k, reg: r, config: fCfg } = item;
-                                const bp = this.UI_TYPES ? COMPONENT_BLUEPRINTS[r.type] : null;
-                                if (bp && r.strokeZIndex) {
-                                    const sourceState = fCfg?.state ?? r?.state ?? "OFF";
-                                    const ghostData = {
-                                        ...fCfg,
-                                        key: k + "_ghost",
-                                        geometry: { x: r.x, y: r.y, w: r.w, h: r.h },
-                                        alpha: 1.0,
-                                        hidden: false,
-                                        state: sourceState
-                                    };
-                                    if (bp.isHybrid) bp.sync(ctx, this, app, ghostData, true);
+                                for (const item of componentsToDraw) {
+                                    const { key: k, reg: r, config: fCfg } = item;
+                                    const bp = this.UI_TYPES ? COMPONENT_BLUEPRINTS[r.type] : null;
+                                    if (bp && r.strokeZIndex) {
+                                        const sourceState = fCfg?.state ?? r?.state ?? "OFF";
+                                        const ghostData = {
+                                            ...fCfg,
+                                            key: k,
+                                            geometry: { x: r.x, y: r.y, w: r.w, h: r.h },
+                                            alpha: 1.0,
+                                            hidden: false,
+                                            state: sourceState
+                                        };
+                                        if (bp.isHybrid) bp.sync(ctx, this, app, ghostData, true);
+                                    }
                                 }
+                            } finally {
+                                this.inputs = oldInputs;
+                                this.outputs = oldOutputs;
+                                this._isGhostDrawing = false;
                             }
-
-                            this.inputs = oldInputs;
-                            this.outputs = oldOutputs;
                             ctx.restore();
                         }
                     }
@@ -727,11 +812,16 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                             if (type === "dragStart" && foundKey && foundKey.startsWith("loraRow_")) {
                                 const idx = parseInt(foundKey.split("_")[1]);
                                 startStackDrag(this, data, idx, foundKey);
+                                // Always consume row drag-start (including DIS/bypassed rows)
+                                // so LiteGraph does not fall back to dragging the whole node.
+                                return true;
                             }
                         }
 
                         if (type === "drag" && this._dragTrig) {
                             updateStackDrag(this, data, "loraRow_", this.properties.stackData.length);
+                            // Consume drag while stack DnD is active to prevent node movement.
+                            return true;
                         }
 
                         const targetKey = this._activeSliderKey !== null ? this._activeSliderKey : foundKey;

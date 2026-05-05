@@ -549,9 +549,13 @@ export function syncDerpEditor(context, node, app, config) {
 
         // THE FIX: Strict Hybrid Gating. Canvas ONLY draws when the widget is asleep.
         if (!isAwake) {
+            if (sysAlpha <= 0) return;
             // THE SINGLE-KEY FIX: If only one key is present (text theme), skip the background container.
             const themeKeys = String(safeConfig.themeKey || "").split(",").filter(k => k.trim().length > 0);
             const shouldDrawBg = themeKeys.length > 1 || !!safeConfig.btnColor;
+
+            ctx.save();
+            ctx.globalAlpha = Math.max(0, Math.min(1, sysAlpha));
 
             if (shouldDrawBg && bodyPaint && !skipBg) {
                 masterPainter(ctx, {
@@ -633,6 +637,8 @@ export function syncDerpEditor(context, node, app, config) {
                 });
                 ctx.restore();
             }
+
+            ctx.restore();
         }
     }
 
@@ -757,7 +763,7 @@ export function syncDerpEditor(context, node, app, config) {
         el.style.backgroundColor = "transparent";
     }
 
-    const baseAlpha = (safeConfig.alpha !== undefined) ? safeConfig.alpha : 1.0;
+    const baseAlpha = sysAlpha;
 
     if (safeConfig.isSysPanel) {
         if (el.style.display !== "flex") el.style.display = "flex";
