@@ -15,12 +15,19 @@ function getOrCreateBgCache(entity, width, height) {
     if (!entity._derpBgCache) {
         const canvas = document.createElement("canvas");
         const bgCtx = canvas.getContext("2d");
-        entity._derpBgCache = { canvas, ctx: bgCtx, key: "" };
+        entity._derpBgCache = { canvas, ctx: bgCtx, key: "", pad: 2 };
     }
     const cache = entity._derpBgCache;
     if (!cache.ctx) return null;
-    if (cache.canvas.width !== width) cache.canvas.width = width;
-    if (cache.canvas.height !== height) cache.canvas.height = height;
+    const pad = cache.pad || 0;
+    const ratio = Math.max(1, window.devicePixelRatio || 1);
+    const targetW = width + pad * 2;
+    const targetH = height + pad * 2;
+    const pixelW = Math.max(1, Math.round(targetW * ratio));
+    const pixelH = Math.max(1, Math.round(targetH * ratio));
+    if (cache.canvas.width !== pixelW) cache.canvas.width = pixelW;
+    if (cache.canvas.height !== pixelH) cache.canvas.height = pixelH;
+    cache.ratio = ratio;
     return cache;
 }
 
@@ -31,6 +38,14 @@ function getPaintFingerprint(paint) {
     const shadow = paint.shadow ? JSON.stringify(paint.shadow) : "";
     const glow = paint.glow ? JSON.stringify(paint.glow) : "";
     return `${paint.fill || ""}|${corners}|${border}|${shadow}|${glow}`;
+}
+
+function hasRoundedOrFx(paint) {
+    if (!paint) return false;
+    const corners = Array.isArray(paint.corners)
+        ? paint.corners.some(v => Number(v) > 0)
+        : Number(paint.corners || 0) > 0;
+    return corners || !!paint.shadow || !!paint.glow;
 }
 
 /**
@@ -360,6 +375,8 @@ export function handleShieldInteraction(entity, type, data = {}) {
         const sysBtn = entity.layout?.regions?.systemBtn;
         const isOverSys = sysBtn && entity.layout.hitTest(localMouse, sysBtn, Math.max(8, 8 / scale));
         const hit = findHitRegion(entity.layout, localMouse);
+        const hitType = hit?.reg?.type;
+        const isPickerRegion = hitType === UI_TYPES.DROPDOWN_DERP || hitType === UI_TYPES.DROPDOWN || hitType === UI_TYPES.FILEBROWSER;
 
         if (entity.interactionShield) {
             entity.interactionShield.style.cursor = (hit || isOverSys) ? "pointer" : "default";
@@ -368,13 +385,13 @@ export function handleShieldInteraction(entity, type, data = {}) {
         const nextKey = isOverSys ? "systemBtn" : (hit ? hit.key : null);
         if (entity._hoveredRegionKey !== nextKey) {
             entity._hoveredRegionKey = nextKey;
-            entity._derpAwakeFrames = entity?.properties?.optimizeHoverDirty !== false ? 1 : 5;
-            const useHoverFastPath = entity?.properties?.optimizeHoverNoSync !== false;
+            entity._derpAwakeFrames = (entity?.properties?.optimizeHoverDirty !== false && !isPickerRegion) ? 1 : 5;
+            const useHoverFastPath = (entity?.properties?.optimizeHoverNoSync !== false) && !isPickerRegion;
             if (!useHoverFastPath) {
                 entity._forceSync = true;
                 if (typeof entity.requestDerpSync === "function") entity.requestDerpSync();
             }
-            if (entity?.properties?.optimizeHoverDirty !== false) {
+            if (entity?.properties?.optimizeHoverDirty !== false && !isPickerRegion) {
                 // Optional throttle: enable only for heavy nodes that benefit.
                 const frame = app.canvas?.frame;
                 if (frame === undefined || entity._lastHoverDirtyFrame !== frame) {
@@ -412,7 +429,10 @@ export function handleDrawCTX(entity, ctx, overlayPass = false) {
         const paintOFF = resolvePaintData(entity, "canvas", isBypassed ? "_DIS" : "");
         const paintON = resolvePaintData(entity, "canvas", isBypassed ? "_DIS" : "_ON");
         const paintDIS = resolvePaintData(entity, "canvas", "_DIS");
-        const useStaticBgCache = entity?.properties?.optimizeStaticBgCache !== false;
+        const nodeWantsCache = entity?.properties?.optimizeStaticBgCache !== false;
+        // Quality guard: rounded corners / shadow / glow are prone to cache resample artifacts.
+        // In those cases prefer direct paint to preserve smooth corners.
+        const useStaticBgCache = nodeWantsCache && !hasRoundedOrFx(paintOFF) && !hasRoundedOrFx(paintON);
 
         const renderBaseBackground = (targetCtx) => {
             if (header && paintOFF && paintON) {
@@ -450,12 +470,16 @@ export function handleDrawCTX(entity, ctx, overlayPass = false) {
                     const cache = getOrCreateBgCache(entity, bw, bh);
                     const cacheKey = `pulse|${bw}|${bh}|${isBypassed}|${entity.mode}|${entity._currentThemeName || ""}|${getPaintFingerprint(paintOFF)}`;
                     if (cache) {
+                        const pad = cache.pad || 0;
+                        const ratio = cache.ratio || 1;
                         if (cache.key !== cacheKey) {
                             cache.key = cacheKey;
-                            cache.ctx.clearRect(0, 0, bw, bh);
-                            masterPainter(cache.ctx, { posX: 0, posY: 0, width: entity.size[0], height: entity.size[1], color: paintOFF.fill, paintData: paintOFF });
+                            cache.ctx.setTransform(1, 0, 0, 1, 0, 0);
+                            cache.ctx.clearRect(0, 0, cache.canvas.width, cache.canvas.height);
+                            cache.ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+                            masterPainter(cache.ctx, { posX: pad, posY: pad, width: bw, height: bh, color: paintOFF.fill, paintData: paintOFF });
                         }
-                        ctx.drawImage(cache.canvas, 0, 0);
+                        ctx.drawImage(cache.canvas, 0, 0, cache.canvas.width, cache.canvas.height, -pad, -pad, bw + pad * 2, bh + pad * 2);
                     } else {
                         masterPainter(ctx, { posX: 0, posY: 0, width: entity.size[0], height: entity.size[1], color: paintOFF.fill, paintData: paintOFF });
                     }
@@ -490,12 +514,19 @@ export function handleDrawCTX(entity, ctx, overlayPass = false) {
                     getPaintFingerprint(paintON)
                 ].join("|");
                 if (cache) {
+                    const pad = cache.pad || 0;
+                    const ratio = cache.ratio || 1;
                     if (cache.key !== cacheKey) {
                         cache.key = cacheKey;
-                        cache.ctx.clearRect(0, 0, bw, bh);
+                        cache.ctx.setTransform(1, 0, 0, 1, 0, 0);
+                        cache.ctx.clearRect(0, 0, cache.canvas.width, cache.canvas.height);
+                        cache.ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+                        cache.ctx.save();
+                        cache.ctx.translate(pad, pad);
                         renderBaseBackground(cache.ctx);
+                        cache.ctx.restore();
                     }
-                    ctx.drawImage(cache.canvas, 0, 0);
+                    ctx.drawImage(cache.canvas, 0, 0, cache.canvas.width, cache.canvas.height, -pad, -pad, bw + pad * 2, bh + pad * 2);
                 } else {
                     renderBaseBackground(ctx);
                 }
