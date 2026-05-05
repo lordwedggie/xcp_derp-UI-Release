@@ -2,13 +2,23 @@
 let sharedAudioCtx = null;
 let sharedNoiseBuffer = null;
 
+function ensureAudioReady() {
+    const ctx = getAudioContext();
+    if (ctx.state === "running") {
+        return Promise.resolve(ctx);
+    }
+    return ctx.resume().then(() => ctx);
+}
+
 // THE FIRST-SOUND FIX: Eagerly unlock the AudioContext on the very first interaction with the document.
 // This catches the true browser-trusted event long before LiteGraph's synthetic canvas events trigger a sound.
 const earlyUnlock = () => {
     if (!sharedAudioCtx) sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
     // THE GESTURE LOCK FIX: Ensure resume happens inside the trusted stack
-    if (sharedAudioCtx.state === 'suspended') sharedAudioCtx.resume();
+    if (sharedAudioCtx.state === 'suspended') {
+        sharedAudioCtx.resume().catch(() => {});
+    }
 
     const osc = sharedAudioCtx.createOscillator();
     const gain = sharedAudioCtx.createGain();
@@ -323,7 +333,25 @@ const _SOUND_LIBRARY = {
 export const SOUND_INDEX = new Proxy(_SOUND_LIBRARY, {
     get: (target, prop) => {
         if (typeof prop === 'string') {
-            return target[prop.toLowerCase()];
+            const fn = target[prop.toLowerCase()];
+            if (!fn) return undefined;
+            return (...args) => {
+                const ctx = getAudioContext();
+
+                // If already running, play immediately.
+                if (ctx.state === "running") {
+                    fn(...args);
+                    return;
+                }
+
+                // On first interaction after refresh, resume is async.
+                // Replay once after resume to guarantee first audible sound.
+                ensureAudioReady()
+                    .then(() => {
+                        requestAnimationFrame(() => fn(...args));
+                    })
+                    .catch(() => {});
+            };
         }
         return target[prop];
     }

@@ -267,7 +267,10 @@ export function handleShieldInteraction(entity, type, data = {}) {
         // THE SNAP-FLOOR FIX: Enforce the snapped floor during the drag to prevent the visual "dip"
         // and ensure the physical width matches what the Enforcer will expect on mouse release.
         const propMinW = entity.properties?.minWidth || 0; // THE PROPERTY FLOOR FIX: Respect explicit minWidth property
-        const minW = Math.ceil(Math.max(propMinW, entity.layout?.contentMinWidth || 60) / SNAP) * SNAP;
+        const padL = entity._padL || 0;
+        const padR = entity._padR || 0;
+        const contentMinW = entity.layout?.contentMinWidth || 60;
+        const minW = Math.ceil(Math.max(propMinW, contentMinW + padL + padR) / SNAP) * SNAP;
 
         const isMinState = entity.properties?.contentCollapsed || entity.properties?.drawHeader === false;
 
@@ -276,14 +279,44 @@ export function handleShieldInteraction(entity, type, data = {}) {
             Object.values(entity.layoutMap).forEach(reg => { if (reg.minHeight) explicitMinH += reg.minHeight; });
         }
 
-        const rawH = Math.max(explicitMinH, entity.layout?.contentMinHeight || entity.layout?.totalHeight || 40);
-        const minH = isMinState ? rawH : Math.ceil(rawH / SNAP) * SNAP;
+        const minRawH = Math.max(explicitMinH, entity.layout?.contentMinHeight || entity.layout?.totalHeight || 40);
+        const minH = isMinState ? minRawH : Math.ceil(minRawH / SNAP) * SNAP;
 
-        const newW = !autoWidth ? Math.max(minW, Math.round((entity._startSize[0] + data.dx / scale) / SNAP) * SNAP) : entity.size[0];
-        const newH = !autoHeight ? Math.max(minH, Math.round((entity._startSize[1] + data.dy / scale) / SNAP) * SNAP) : entity.size[1];
+        const resizeAnchor = data.resizeAnchor || "bottom-right";
+        const deltaX = data.dx / scale;
+        const deltaY = data.dy / scale;
+
+        // Explicit anchor matrix: avoid mixed-branch drift between top/bottom and left/right corners.
+        const anchorMode = {
+            "top-left": { wSign: -1, hSign: -1, moveX: true, moveY: true },
+            "top-right": { wSign: 1, hSign: -1, moveX: false, moveY: true },
+            "bottom-left": { wSign: -1, hSign: 1, moveX: true, moveY: false },
+            "bottom-right": { wSign: 1, hSign: 1, moveX: false, moveY: false },
+            // Backward compatibility for any legacy callers.
+            "left": { wSign: -1, hSign: 1, moveX: true, moveY: false },
+            "right": { wSign: 1, hSign: 1, moveX: false, moveY: false },
+            "top": { wSign: 1, hSign: -1, moveX: false, moveY: true }
+        }[resizeAnchor] || { wSign: 1, hSign: 1, moveX: false, moveY: false };
+
+        const allowWidthResize = !autoWidth;
+        const allowHeightResize = !autoHeight;
+
+        const rawW = entity._startSize[0] + (deltaX * anchorMode.wSign);
+        const newW = allowWidthResize ? Math.max(minW, Math.round(rawW / SNAP) * SNAP) : entity.size[0];
+
+        const rawH = entity._startSize[1] + (deltaY * anchorMode.hSign);
+        const newH = allowHeightResize ? Math.max(minH, Math.round(rawH / SNAP) * SNAP) : entity.size[1];
 
         // ZERO-INFERENCE GATING: Only execute DOM/Canvas writes if physical size changed
         if (entity.size[0] === newW && entity.size[1] === newH) return;
+
+        if (allowWidthResize && anchorMode.moveX) {
+            entity.pos[0] = entity._startPos[0] + (entity._startSize[0] - newW);
+        }
+
+        if (allowHeightResize && anchorMode.moveY) {
+            entity.pos[1] = entity._startPos[1] + (entity._startSize[1] - newH);
+        }
 
         entity.size[0] = newW;
         entity.size[1] = newH;

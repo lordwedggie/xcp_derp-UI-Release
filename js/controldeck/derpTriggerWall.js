@@ -181,7 +181,7 @@ app.registerExtension({
                 contentRegion: {
                     anchor: { target: "headerRegion", axis: "y", },
                     width: "full", height: "auto", dir: "col", padding: [0, 0], minWidth: 0,
-                    margin: this.properties?.drawHeader === true ? [mW, mH, mW, 0] : [0, 0],
+                    margin: [mW, mH, mW, 0],
                 }
             };
 

@@ -52,8 +52,51 @@ export function createDerpShield(node) {
     `;
     shield.appendChild(resizeHandle);
 
+    const resizeHandleLeft = document.createElement("div");
+    resizeHandleLeft.style.cssText = `
+        position: absolute;
+        left: 0;
+        bottom: 0;
+        width: 15px;
+        height: 15px;
+        cursor: nesw-resize;
+        z-index: 10;
+        background: transparent;
+    `;
+    shield.appendChild(resizeHandleLeft);
+
+    const resizeHandleTopLeft = document.createElement("div");
+    resizeHandleTopLeft.style.cssText = `
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 15px;
+        height: 15px;
+        cursor: nwse-resize;
+        z-index: 10;
+        background: transparent;
+    `;
+    shield.appendChild(resizeHandleTopLeft);
+
+    const resizeHandleTopRight = document.createElement("div");
+    resizeHandleTopRight.style.cssText = `
+        position: absolute;
+        right: 0;
+        top: 0;
+        width: 15px;
+        height: 15px;
+        cursor: nesw-resize;
+        z-index: 10;
+        background: transparent;
+    `;
+    shield.appendChild(resizeHandleTopRight);
+
     // THE FIX: Store a reference so we can dynamically adjust its offsets during zoom
     shield._resizeHandle = resizeHandle;
+    shield._resizeHandleLeft = resizeHandleLeft;
+    shield._resizeHandleTopLeft = resizeHandleTopLeft;
+    shield._resizeHandleTopRight = resizeHandleTopRight;
+
 
     // --- STATE ---
     let startMouseX = 0, startMouseY = 0;
@@ -121,7 +164,11 @@ export function createDerpShield(node) {
 
         // MODE 1: RESIZING (Delegate to Node)
         if (isResizing) {
-            node.handleShieldInteraction("resize", { dx, dy });
+            node.handleShieldInteraction("resize", {
+                dx,
+                dy,
+                resizeAnchor: node._resizeAnchor || "bottom-right"
+            });
             return;
         }
 
@@ -216,10 +263,11 @@ export function createDerpShield(node) {
     };
 
     // --- LISTENERS ---
-    resizeHandle.onpointerdown = (e) => {
+    const startResize = (e, anchor = "bottom-right") => {
         e.stopPropagation(); e.preventDefault(); cleanup();
         app.canvas.canvas.focus(); // THE FOCUS FIX: Ensure keyboard events reach the canvas
         isResizing = true;
+        node._resizeAnchor = anchor;
         node._isDerpResizing = true; // THE FIX: Pause Fatha's auto-enforcer during drag
         startMouseX = e.clientX;
         startMouseY = e.clientY; // THE FIX: Capture Y for vertical resizing
@@ -243,15 +291,24 @@ export function createDerpShield(node) {
 
         // THE DYNAMIC CURSOR FIX: Determine the global drag cursor based on auto-resize states
         const vars = node.getDerpVars ? node.getDerpVars(node) : { autoWidth: false, autoHeight: false };
-        let dragCursor = "nwse-resize";
-        if (!vars.autoWidth && !vars.autoHeight) dragCursor = "nwse-resize";
-        else if (!vars.autoWidth) dragCursor = "ew-resize";
-        else if (!vars.autoHeight) dragCursor = "ns-resize";
+        const canW = !vars.autoWidth;
+        const canH = !vars.autoHeight;
+        const isLeftOrRightCorner = anchor === "top-left" || anchor === "top-right" || anchor === "bottom-left" || anchor === "bottom-right";
+        let dragCursor = "default";
+        if (canW && canH && isLeftOrRightCorner) {
+            dragCursor = (anchor === "top-left" || anchor === "bottom-right") ? "nwse-resize" : "nesw-resize";
+        } else if (canW) dragCursor = "ew-resize";
+        else if (canH) dragCursor = "ns-resize";
 
         setVisualActive(true, dragCursor);
         window.addEventListener("pointermove", onWindowPointerMove);
         window.addEventListener("pointerup", onWindowPointerUp);
     };
+
+    resizeHandle.onpointerdown = (e) => startResize(e, "bottom-right");
+    resizeHandleLeft.onpointerdown = (e) => startResize(e, "bottom-left");
+    resizeHandleTopLeft.onpointerdown = (e) => startResize(e, "top-left");
+    resizeHandleTopRight.onpointerdown = (e) => startResize(e, "top-right");
 
     shield.onpointerdown = (e) => {
         if (e.button !== 0) return;
@@ -429,18 +486,42 @@ export function syncDerpShield(node) {
     // Update the handle's cursor and interaction state based on the node's auto-resize properties.
     if (node.interactionShield._resizeHandle) {
         const vars = node.getDerpVars ? node.getDerpVars(node) : { autoWidth: true, autoHeight: true };
-        let cursor = "default";
-        if (!vars.autoWidth && !vars.autoHeight) cursor = "nwse-resize";
-        else if (!vars.autoWidth) cursor = "ew-resize";
-        else if (!vars.autoHeight) cursor = "ns-resize";
+        const canW = !vars.autoWidth;
+        const canH = !vars.autoHeight;
 
         const handleStyle = node.interactionShield._resizeHandle.style;
-        handleStyle.cursor = cursor;
+        handleStyle.cursor = (canW && canH) ? "nwse-resize" : (canW ? "ew-resize" : "ns-resize");
         // THE INTERACTION GUARD: Disable handle interaction entirely if both axes are auto-managed
         node.resizable = !(vars.autoWidth && vars.autoHeight); // THE NATIVE FIX: Kill LiteGraph's own resize logic
         handleStyle.display = node.resizable ? "block" : "none"; // THE VISUAL FIX: Completely remove the handle
         handleStyle.pointerEvents = node.resizable ? "auto" : "none";
         handleStyle.right = `-${padR * scale}px`;
+
+        if (node.interactionShield._resizeHandleLeft) {
+            const leftStyle = node.interactionShield._resizeHandleLeft.style;
+            leftStyle.cursor = (canW && canH) ? "nesw-resize" : (canW ? "ew-resize" : "ns-resize");
+            leftStyle.display = node.resizable ? "block" : "none";
+            leftStyle.pointerEvents = node.resizable ? "auto" : "none";
+            leftStyle.left = `-${padL * scale}px`;
+        }
+
+        const showTopCorners = node.resizable;
+
+        if (node.interactionShield._resizeHandleTopLeft) {
+            const topLeftStyle = node.interactionShield._resizeHandleTopLeft.style;
+            topLeftStyle.display = showTopCorners ? "block" : "none";
+            topLeftStyle.pointerEvents = showTopCorners ? "auto" : "none";
+            topLeftStyle.left = `-${padL * scale}px`;
+            topLeftStyle.cursor = (canW && canH) ? "nwse-resize" : (canW ? "ew-resize" : "ns-resize");
+        }
+
+        if (node.interactionShield._resizeHandleTopRight) {
+            const topRightStyle = node.interactionShield._resizeHandleTopRight.style;
+            topRightStyle.display = showTopCorners ? "block" : "none";
+            topRightStyle.pointerEvents = showTopCorners ? "auto" : "none";
+            topRightStyle.right = `-${padR * scale}px`;
+            topRightStyle.cursor = (canW && canH) ? "nesw-resize" : (canW ? "ew-resize" : "ns-resize");
+        }
     }
 }
 

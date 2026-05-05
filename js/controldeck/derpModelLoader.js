@@ -173,7 +173,7 @@ app.registerExtension({
                 sysContentRegion: {
                     anchor: { target: "headerRegion", axis: "y", offset: oY },
                     width: "full", height: "auto", dir: "col",
-                    margin: this.properties?.drawHeader === true ? [mW, mH, mW, mH] : [0, 0],
+                    margin: [mW, mH, mW, mH],
                     regionModelDeck: {
                         width: "full", height: "auto", dir: "col", spacing: [0, sH],
                         hidden: deck.length === 0,

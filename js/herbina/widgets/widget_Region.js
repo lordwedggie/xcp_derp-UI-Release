@@ -53,10 +53,20 @@ export function syncDerpRegion(ctx, node, config) {
     const p = Array.isArray(config.regionOffset) ? config.regionOffset : [0, 0, 0, 0];
     const [pL, pT, pR, pB] = p;
 
-    const rX = config.geometry.x - (pL || 0);
+    let rX = config.geometry.x - (pL || 0);
     const rY = config.geometry.y - (pT || 0);
-    const rW = config.geometry.w + (pL || 0) + (pR || 0);
+    let rW = config.geometry.w + (pL || 0) + (pR || 0);
     const rH = config.geometry.h + (pT || 0) + (pB || 0);
+
+    // Keep REGION paint inside node horizontal bounds.
+    // This prevents left/right drift artifacts when resize anchors move the node
+    // and regionOffset is larger than the current layout budget.
+    const nodeW = Array.isArray(node?.size) ? (node.size[0] || 0) : 0;
+    if (nodeW > 0) {
+        const right = rX + rW;
+        if (rX < 0) rX = 0;
+        if (right > nodeW) rW = Math.max(0, nodeW - rX);
+    }
 
     const sysAlpha = config.alpha !== undefined ? config.alpha : 1;
     if (sysAlpha <= 0) return;

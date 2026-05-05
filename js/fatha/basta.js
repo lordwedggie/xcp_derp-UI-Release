@@ -276,7 +276,6 @@ class BastaInstance {
 
         if (this.properties.drawHeader === false) {
             if (baseMap.headerRegion) baseMap.headerRegion.hidden = true;
-            if (baseMap.footerRegion) baseMap.footerRegion.hidden = true;
         }
 
         this.layout.compute(bounds, baseMap, { textTheme: engineTextTheme, isVirtual: true, useAnim: false, spawnAnim: false }, needsLayoutCompute);
