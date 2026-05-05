@@ -11,7 +11,7 @@ import { getLoraDetailId, handleBastaLoraDetail, cleanTriggerText,
     openCivitAI, openCivArchive, getLoraTriggerEditorProps,
     getLoraNotesEditorPropsWrapped, getLoraTriggerDropdownProps } from "./core/bastaLoraDetail_core.js";
 import { manageLoraTrigger, getRatingColor, getLoraRatingDropdownProps, getLoraLoaderProps, processTriggerData } from "../../controldeck/helpers/loraComponents.js";
-import { parseColor,} from "../../herbina/masterAnimator.js";
+import { colorPulse2, parseColor, animateAlpha } from "../../herbina/masterAnimator.js";
 import { resolvePaintData, measureTextHeight } from "../../herbina/utils/widgetsUtils.js";
 import { calculatePreviewDisplayHeight, switchLoraImage, setLoraCover, calculatePreviewAspectRatio, deleteLoraDetailImage } from "../../controldeck/helpers/loraImages.js";
 
@@ -31,11 +31,14 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
 
     const hasImages = (loraData.images ? loraData.images.length : (loraData.imageCount || 0)) >= 1;
 
-    // THE STABLE POSITION FIX: Cache measured height to prevent anchor slide during alpha fade
-    if (basta._navAlpha > 0.01 && (basta.layout?.regions?.imageHandlingRegion?.h || 0) > 5) {
-        basta._navH = basta.layout.regions.imageHandlingRegion.h;
+    // THE STABLE POSITION FIX: Cache measured height to prevent anchor slide during alpha fade.
+    // Always hydrate from live region height when available; gating by alpha can leave stale
+    // values until a later interaction (e.g. next/prev image click).
+    const liveNavH = basta.layout?.regions?.imageHandlingRegion?.h || 0;
+    if (liveNavH > 5) {
+        basta._navH = liveNavH;
     }
-    const stableNavH = basta._navH || 26;
+    const stableNavH = liveNavH > 5 ? liveNavH : (basta._navH || 26);
 
     // THE INITIAL HYDRATION: Ensure metadata is fetched as soon as the panel is mapped if not already cached
     if (!loraData._setupFetched) {
@@ -152,7 +155,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
             spacing: [0, sH],
             headerSpacer: { height: mH },
             loraLoaderRow: {
-                dir: "row", width: "full", height: "auto", margin: [0, 0, 0, sH],
+                dir: "row", width: "full", height: "auto", margin: [0, 0, 0, mH],
                 btnAddNote: {
                     type: UI_TYPES.ICONBUTTON, icon: "rename", themeKey: "button, t_textSmall",
                     width: "match", height: "full", padding: [pW, pH], spacing: [sW, 0], margin: [0, 0, 0, 0],
@@ -368,6 +371,8 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 pulseFreq: 0.003,
                 imageUrl: loraData.previewUrl || null,
                 borderColor: ratingBorder,
+                borderWeight: 1.5,
+                borderInsideRatio: 0.4,
                 aspectFit: "contain",
                 width: "full",
                 height: previewH,
@@ -380,15 +385,15 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
             },
             imageHandlingRegion: {
                 themeKey: "background", palette: bgPal,
-                type: UI_TYPES.REGION, regionOffset: [2, mH/2, 2, mH/2], corners: [null, null, 0, 0],
+                type: UI_TYPES.REGION, regionOffset: [0, 0, 0, 0], corners: [null, null, -1, -1],
                 hidden: basta._navAlpha < 0.01 || !hasImages,
                 spawnAnim: false,
                 alpha: basta._navAlpha,
-                anchor: { target: "loraPreview", axis: "y", offset: -(previewH + sH) + 2 },
-                dir: "row", width: "full", height: "auto", margin: [2, 0, 2, sH],
+                anchor: { target: "loraPreview", axis: "y", offset: -previewH },
+                dir: "row", width: "full", height: "auto", margin: [0, -sH, mW, sH],
                 btnImagePrevious: {
                     type: UI_TYPES.ICONBUTTON, icon: "leftarrow", themeKey: "button, t_textSystem", palette: btnPal,
-                    alpha: basta._navAlpha,
+                    alpha: basta._navAlpha, margin: [sW, sH, 0, sH],
                     objectAlign: ["left", "middle"],
                     width: "match", height: "full", spacing: [sH, 0],
                     onPress: () => {
@@ -400,7 +405,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                     type: UI_TYPES.BUTTON, themeKey: "button, t_textSystem", palette: btnPal, objectAlign:["left", "middle"],
                     alpha: basta._navAlpha, spacing: [sH, 0],
                     text: "Set as Cover", labelAlign: ["center", "middle"],
-                    width: "auto", height: "auto", padding: [pW, pH],
+                    width: "auto", height: "full", padding: [pW, pH], margin: [0, sH],
                     // THE COVER GUARD: Hide the button if we are currently viewing the cover (index -1) or no sub-images exist
                     hidden: !hasImages || loraData.currentImageIndex === -1,
                     onPress: () => {
@@ -411,7 +416,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 btnSetTrigger: {
                     // THE TYPE REVERSION: Returning to standard BUTTON for reliability
                     type: UI_TYPES.BUTTON,
-                    themeKey: "button, t_textSystem", palette: btnPal,
+                    themeKey: "button, t_textSystem", palette: btnPal,margin: [0, sH],
                     text: "Link", labelAlign: ["center", "middle"],
                     alpha: basta._navAlpha,
                     width: "fit", height: "fit",
@@ -440,7 +445,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                     alpha: basta._navAlpha,
                     state: (loraData.currentImageIndex === -1 || (loraData.images || []).length === 0) ? "DIS" : "OFF",
                     width: "fit", height: "fit",
-                    padding: [pW, pH], spacing: [sH, 0],
+                    padding: [pW, pH], spacing: [sH, 0], margin: [0, sH],
                     onPress: () => {
                         const idx = loraData.currentImageIndex ?? -1;
                         if (basta._navAlpha < 0.5 || idx === -1) return;
@@ -479,7 +484,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                     type: UI_TYPES.ICONBUTTON, icon: "rightarrow", themeKey: "button, t_textSystem", palette: btnPal,
                     alpha: basta._navAlpha,
                     objectAlign: ["right", "middle"],
-                    width: "match", height: "full",
+                    width: "match", height: "full", margin: [0, sH, sW, sH],
                     onPress: () => {
                         if (basta._navAlpha < 0.5) return;
                         switchLoraImage(basta, "next");
@@ -488,23 +493,23 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
             },
             labelRegion: {
                 themeKey: "background", palette: bgPal,
-                type: UI_TYPES.REGION, regionOffset: [2, 0, 2, mH], corners: [0, 0, 0, 0],
+                type: UI_TYPES.REGION, regionOffset: [0, sH, 0, sH], corners: [0, 0, 0, 0],
                 hidden: basta._navAlpha < 0.01 || !hasImages,
                 spawnAnim: false, alpha: basta._navAlpha,
-                anchor: { target: "imageHandlingRegion", axis: "y", offset: 0 },
-                dir: "row", width: "full", height: "auto", margin: [2, 0, 2, sH],
+                anchor: { target: "imageHandlingRegion", axis: "y",},
+                dir: "row", width: "full", height: "auto", margin: [0, 0, 0, sH],
                 labelImageName: {
                     type: UI_TYPES.TEXT, themeKey: "t_textSystem",
                     alpha: basta._navAlpha,
+                    displayMode: "cutoff",
                     text: (() => {
                         const idx = loraData.currentImageIndex ?? -1;
                         const list = loraData.images || [];
                         let fname = (idx === -1) ? (loraData.coverFilename || "Cover") : (list[idx] || "Unknown");
                         return decodeURIComponent(fname).replace("__PRIMARY_PREVIEW__", "");
                     })(),
-                    labelAlign: ["left", "middle"], width: "auto"
+                    labelAlign: ["left", "middle"], width: "full", margin: [mW, 0],
                 },
-                spring: { width: "full" },
                 labelCount: {
                     type: UI_TYPES.TEXT, themeKey: "t_textSystem",
                     alpha: basta._navAlpha,
@@ -515,17 +520,17 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                         const currentIdx = idx + (loraData.hasCover ? 2 : 1);
                         return `Image ${currentIdx} / ${total}`;
                     })(),
-                    labelAlign: ["right", "middle"], width: "auto"
+                    labelAlign: ["right", "middle"], width: "auto", margin: [mW, 0],
                 }
             },
             externalRow: {
-                type: UI_TYPES.REGION, themeKey: "background", palette: bgPal, regionOffset: [2, mH/2, 2, mH/2],
+                type: UI_TYPES.REGION, themeKey: "background", palette: bgPal, regionOffset: [sW, sH, sW, 0.5],
                 corners: [0, 0, null, null],
-                hidden: basta._navAlpha < 0.01,
+                hidden: !basta._externalReady || (basta._navAlpha < 0.01),
                 spawnAnim: false,
                 alpha: basta._navAlpha,
-                anchor: { target: "loraPreview", axis: "y", offset: -stableNavH - mH },
-                dir: "row", width: "full", height: "auto", spacing: [sW, 0], margin: [2, 0, 2, sH],
+                anchor: { target: "loraPreview", axis: "y", offset: -stableNavH -sH },
+                dir: "row", width: "full", height: "auto", margin: [sW, mH, sW, mH],
                 btnCivit: {
                     type: UI_TYPES.BUTTON, labelAlign: ["center", "middle"], padding: [pW, pH],
                     themeKey: "button, t_textSmall", palette: civitPal,

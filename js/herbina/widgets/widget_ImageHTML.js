@@ -203,9 +203,31 @@ export function syncImageHTML(ctx, node, app, config, overlayPass = false) {
                 ctx.textAlign = "center";
                 ctx.textBaseline = "middle";
 
-                // Apply font size overrides from the layoutMap or fallback to the resolved theme size
-                const fontSize = item.fontSize || pData.fontSize || 10;
-                ctx.font = `${pData.fontWeight || ""} ${fontSize}px ${pData.font || "Arial"}`;
+                // Auto-fit overlay text so it always stays within the preview bounds.
+                const padX = Math.max(2, item.padX ?? 6);
+                const padY = Math.max(2, item.padY ?? 6);
+                const maxTextW = Math.max(1, w - (padX * 2));
+                const maxTextH = Math.max(1, h - (padY * 2));
+
+                const preferredSize = item.fontSize || pData.fontSize || 10;
+                const minSize = Math.max(6, item.minFontSize ?? 6);
+                let fittedSize = Math.max(minSize, preferredSize);
+                const fontWeight = pData.fontWeight || "";
+                const fontFamily = pData.font || "Arial";
+
+                // Shrink text until it fits width/height budget.
+                for (let fs = preferredSize; fs >= minSize; fs -= 1) {
+                    ctx.font = `${fontWeight} ${fs}px ${fontFamily}`;
+                    const metrics = ctx.measureText(String(item.text || ""));
+                    const textW = metrics.width || 0;
+                    const textH = (metrics.actualBoundingBoxAscent || fs * 0.8) + (metrics.actualBoundingBoxDescent || fs * 0.2);
+                    if (textW <= maxTextW && textH <= maxTextH) {
+                        fittedSize = fs;
+                        break;
+                    }
+                }
+
+                ctx.font = `${fontWeight} ${fittedSize}px ${fontFamily}`;
 
                 ctx.fillStyle = activePulseColor || "white";
                 ctx.fillText(item.text, x + (w / 2), y + (h / 2) + (item.offset || 0));
@@ -217,15 +239,24 @@ export function syncImageHTML(ctx, node, app, config, overlayPass = false) {
         let bColor = (config.isSelected && activePulseColor) ? activePulseColor : (config.borderColor || paintData?.border?.color || "black");
         if (Array.isArray(bColor)) bColor = `rgba(${bColor[0]}, ${bColor[1]}, ${bColor[2]}, ${bColor[3] ?? 1})`;
         ctx.strokeStyle = bColor;
-        // THE SELECTION STROKE FIX: Force weight 2 during paste-ready pulses and center the stroke path
-        const weight = (config.isSelected && config.showPasteOverlay) ? SELECTION_STROKE_WEIGHT : (paintData?.border?.width || NORMAL_STROKE_WEIGHT);
+        const weight = (config.isSelected && config.showPasteOverlay)
+            ? SELECTION_STROKE_WEIGHT
+            : ((config.borderWeight ?? paintData?.border?.width) || NORMAL_STROKE_WEIGHT);
         ctx.lineWidth = weight;
+        // Draw border using configurable inside/outside split.
+        // insideRatio=0.5 means centered on edge; 0.3 means 30% inside / 70% outside.
+        const insideRatio = Math.max(0, Math.min(1, Number(config.borderInsideRatio ?? 0.5)));
+        const inset = weight * (insideRatio - 0.5);
+        const strokeX = x + inset;
+        const strokeY = y + inset;
+        const strokeW = Math.max(0, w - (inset * 2));
+        const strokeH = Math.max(0, h - (inset * 2));
         if (ctx.roundRect) {
             ctx.beginPath();
-            ctx.roundRect(x, y, w, h, 4);
+            ctx.roundRect(strokeX, strokeY, strokeW, strokeH, 4);
             ctx.stroke();
         } else {
-            ctx.strokeRect(x, y, w, h);
+            ctx.strokeRect(strokeX, strokeY, strokeW, strokeH);
         }
         ctx.restore();
     }

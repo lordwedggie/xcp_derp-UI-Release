@@ -660,6 +660,7 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
     instance._lastUiHovered = false;
     instance._hoveredRegionKey = null;
     instance._lastHoverKey = null;
+    instance._externalReady = false;
 
     const currentPath = loraData.path || loraData.name || "";
     const triggerItems = host._loraTriggerArrayCache?.[currentPath] || [];
@@ -772,6 +773,19 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
                 }
                 const hKey = this._hoveredRegionKey;
                 const hasImages = (loraData.images ? loraData.images.length : (loraData.imageCount || 0)) >= 1;
+
+                // Startup readiness gate: reveal externalRow only after nav geometry exists,
+                // so position is correct before first hover interaction.
+                if (!this._externalReady) {
+                    const navH = this.layout?.regions?.imageHandlingRegion?.h || 0;
+                    if (navH > 5) {
+                        this._externalReady = true;
+                        this._layoutDirty = true;
+                        this._forceSync = true;
+                        this._derpAwakeFrames = Math.max(this._derpAwakeFrames || 0, 8);
+                        if (this.setDirtyCanvas) this.setDirtyCanvas(true, true);
+                    }
+                }
 
                 // THE HOVER FIX: Explicitly check for true to ensure animation triggers/reverses correctly
                 // when the mouse leaves for the empty canvas.
@@ -887,7 +901,19 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
         instance.titleLabel = config.titleLabel;
         instance._forceSync = true;
         instance._skipAnimOnce = true;
+        // Startup pre-sync: warm nav region layout once so externalRow/image nav geometry
+        // is correct before first user hover/mouse move.
+        instance._navAlpha = Math.max(instance._navAlpha || 0, 0.02);
+        instance._layoutDirty = true;
+        instance._derpAwakeFrames = Math.max(instance._derpAwakeFrames || 0, 12);
         if (typeof instance.setDirtyCanvas === "function") instance.setDirtyCanvas(true, true);
+        if (typeof requestAnimationFrame === "function") {
+            requestAnimationFrame(() => {
+                instance._forceSync = true;
+                instance._layoutDirty = true;
+                if (typeof instance.setDirtyCanvas === "function") instance.setDirtyCanvas(true, true);
+            });
+        }
     }
     return instance;
 }

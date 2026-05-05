@@ -166,7 +166,7 @@ export function syncBtnIconHTML(el, node, app, config) {
     // THE FAST-HASH GATING: Only resolve theme and recalculate animations if the interactive state,
     // bypass mode, or global session has changed.
     const palStatus = config.palette ? !!resolvePaletteEntry(node, config.palette.path, config.palette.entry || config.key) : false;
-    const stateHash = `${activeState}_${isPressed}_${isHovered}_${node.mode}_${window._xcpDerpSession}_${config.iconIndex || 0}_${config.icon}_${config.btnColor || ""}_${palStatus}`;
+    const stateHash = `${activeState}_${isPressed}_${isHovered}_${node.mode}_${window._xcpDerpSession}_${config.iconIndex || 0}_${config.icon}_${config.btnColor || ""}_${palStatus}_${config.alpha ?? 1}`;
     const needsFullSync = node._shouldSync || el._lastStateHash !== stateHash || (el._isAnimating && (node.properties?.useAnimations !== false));
 
     if (!needsFullSync && el._lastProps) {
@@ -314,12 +314,12 @@ export function syncBtnIcon(ctx, node, config) {
     // THE FAST-HASH GATING: Reuse resolved theme properties if the button's visual state is static.
     // THE PALETTE HASH FIX: Include palette load status so the cache busts when the async fetch completes.
     const palStatus = config.palette ? !!resolvePaletteEntry(node, config.palette.path, config.palette.entry || config.key) : false;
-    const stateHash = `${activeState}_${isPressed}_${isHovered}_${node.mode}_${window._xcpDerpSession}_${config.iconIndex || 0}_${config.icon}_${config.btnColor || ""}_${palStatus}`;
+    const stateHash = `${activeState}_${isPressed}_${isHovered}_${node.mode}_${window._xcpDerpSession}_${config.iconIndex || 0}_${config.icon}_${config.btnColor || ""}_${palStatus}_${config.alpha ?? 1}`;
     const cache = node._btnCache || (node._btnCache = {});
     const itemCache = cache[config.key] || (cache[config.key] = {});
 
     if (itemCache.hash === stateHash && itemCache.props && !node._forceSync) {
-        var { props, bodyPaint, labelPaint } = itemCache.props;
+        var { props, bodyPaint, labelPaint, alpha } = itemCache.props;
         var state = activeState;
     } else {
         var { props, stateStr: state, bodyPaint, labelPaint, alpha } = resolveWidgetEnv(node, { ...config, state: activeState });
@@ -373,6 +373,9 @@ export function syncBtnIcon(ctx, node, config) {
     }
 
     const animatedPaint = compileAnimatedPaint(bodyPaint, config, alpha, { fill: fillColor, textColor: iconColor, corners: config.corners });
+    if (config.corners !== undefined) {
+        animatedPaint.corners = config.corners;
+    }
 
     if (alpha < 1) {
         ctx.save();

@@ -581,6 +581,19 @@ export async function toggleDerpSysPanel(hostNode) {
         if (isSame) return;
     }
 
+    // Ensure the singleton sysPanel never reuses paint data from a previously opened host.
+    // resolvePaintData() checks panel-local *_PaintData first, so stale keys can leak theme style.
+    Object.keys(sysPanel).forEach((k) => {
+        if (/^_.*PaintData(?:_(?:ON|OFF|DIS))?$/i.test(k)) {
+            delete sysPanel[k];
+        }
+    });
+    Object.keys(hostNode).forEach((k) => {
+        if (/^_.*PaintData(?:_(?:ON|OFF|DIS))?$/i.test(k)) {
+            sysPanel[k] = hostNode[k];
+        }
+    });
+
     sysPanel.hostNode = hostNode;
     sysPanel.isVisible = true;
     sysPanel.animHeight = 0;

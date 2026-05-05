@@ -285,8 +285,8 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                 btnColor: "rgba(0,0,0,0.2)",
                                 alpha: previewAlpha,
                                 state: (i === activeSlot) ? "ON" : (isBypassed ? "DIS" : "OFF"),
-                                grayscale: isBypassed, margin: [-mW + 2, 0],
-                                width: "match", height: "fill", spacing: [mW + 2, 0],
+                                grayscale: isBypassed, margin: [-mW * 2 + sW, 0, 0, 0],
+                                width: "match", height: "fill", spacing: [ sW , 0],
                                 onPress: () => {
                                     this._activeDetailSlot = i;
                                     const previewUrl = (this._loraPreviewList?.includes(lora[0])) ? getPreviewImageUrl(lora[0], false) : null;
@@ -324,23 +324,23 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                     width: "auto", height: "auto",
                                     fontSize: (t_textNormal_size || 12) + glyphSizeOffset,
                                     state: (i === this._activeDetailSlot) ? "ON" : (isBypassed ? "DIS" : "OFF"),
-                                    margin: [0, 1, 0, 0], padding: [0, 0],
+                                    margin: [0, -1, 0, 0], padding: [0, 0],
                                     objectAlign: ["left", "top"], labelAlign: ["left", "top"]
                                 }
                             },
                             [`loraMiddle_${i}`]: {
                                 alpha: rowAlpha,
-                                dir: "col", width: "full", height: "auto", spacing: [0, sH], margin: [0, 0, -mW + 2, 0],
+                                dir: "col", width: "full", height: "auto", spacing: [0, sH], margin: [0, 0, 0, 0],
                                 minWidth: 10,
                                 [`topRow_${i}`]: {
                                     alpha: rowAlpha,
                                     dir: "row", width: "full", height: "auto", spacing: [sW, sH],
-
+                                    margin: [0, 0, -mW + sW, 0],
                                     [`lblLoraNameTop_${i}`]: {
                                         hidden: nameDisplay !== "Top",
                                         type: this.UI_TYPES.TEXT, themeKey: "t_textNormal",
                                         text: loraName, width: "full", mouseOver: false,
-                                        displayMode: "cutoff", alpha: rowAlpha,
+                                        displayMode: "cutoff", alpha: rowAlpha, spacing: [sW, 0],
                                         state: (i === this._activeDetailSlot) ? "ON" : (isBypassed ? "DIS" : "OFF"),
                                         onPress: () => {
                                             this._activeDetailSlot = i;
@@ -369,7 +369,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                     [`toggleFuseQKV_${i}`]: {
                                         hidden: nameDisplay !== "Top" || this.properties.attentionMode !== "Joint-Attention",
                                         type: this.UI_TYPES.TOGGLE_V2, themeKey: "dialog, button, t_textSystem",
-                                        label: "Fuse QKV", icon: "ring", width: "auto", height: "fill", padding: [pW, pH],
+                                        label: "Fuse QKV", icon: "ring", width: "auto", height: "fill", padding: [pW, pH], spacing: [sW, 0],
                                         isTextOnly: true, mouseOver: false, alpha: rowAlpha,
                                         state: (i === this._activeDetailSlot) ? "ON" : (isBypassed ? "DIS" : "OFF"),
                                         value: !!lora[6],
@@ -394,7 +394,8 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                     [`btnRemoveTop_${i}`]: {
                                         hidden: nameDisplay !== "Top", mouseOver: false,
                                         type: this.UI_TYPES.ICONBUTTON, icon: "close", themeKey: "button, t_textSystem",
-                                        width: "match", height: "fill", spacing: [sW, 0], alpha: rowAlpha,
+                                        width: "match", height: "fill",
+                                        spacing: [sW, 0], alpha: rowAlpha,
                                         playSound: "delete",
                                         state: "OFF",
                                         onPress: () => {
@@ -411,7 +412,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                 },
                                 [`modelRow_${i}`]: {
                                     alpha: rowAlpha,
-                                    dir: "row", width: "full", height: "auto", spacing: [sW, sH],
+                                    dir: "row", width: "full", height: "auto", spacing: [sW, sH], margin: [0, 0, -mW + sW, 0],
                                     [`sldModel_${i}`]: {
                                         type: this.UI_TYPES.SLIDER, mouseOver: false,
                                         text: nameDisplay === "Slider" ? loraName : "Strength",
@@ -429,7 +430,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                         type: this.UI_TYPES.EDITOR, canvasShield: true, themeKey: "dialog, t_textSmall", labelAlign: ["center", "middle"],
                                         text: parseFloat(lora[1] ?? 1.0).toFixed(2), measureText: "-9.99",
                                         state: isBypassed ? "DIS" : "OFF", mouseOver: false, alpha: rowAlpha,
-                                        width: "auto", height: "fill", padding: [pW, 0], spacing: [0, 0],
+                                        width: "auto", height: "fill", padding: [pW, 0], spacing: [sW, 0],
                                         onBlur: (v) => {
                                             const val = parseFloat(v);
                                             if (!isNaN(val)) { lora[1] = val; if (this.syncDerpOutputs) this.syncDerpOutputs(); this.refreshNodeLayoutMap(); }
@@ -467,7 +468,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                 },
                                 [`clipRow_${i}`]: {
                                     hidden: this.properties.attentionMode === "Joint-Attention" || this.properties.showCLIP === false,
-                                    dir: "row", width: "full", height: "auto", spacing: [sW, sH], alpha: rowAlpha,
+                                    dir: "row", width: "full", height: "auto", spacing: [sW, sH], alpha: rowAlpha, margin: [0, 0, -mW + sW, 0],
                                     [`sldClip_${i}`]: {
                                         type: this.UI_TYPES.SLIDER, mouseOver: false,
                                         text: "Clip", padding: [pW, pH], fillPadding: [1, 1],
@@ -492,7 +493,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                     }
                                 },
                                 [`triggerRow_${i}`]: {
-                                    dir: "row", width: "full", height: "auto", spacing: [sW, 0], alpha: rowAlpha,
+                                    dir: "row", width: "full", height: "auto", spacing: [sW, 0], alpha: rowAlpha, margin: [0, 0, -mW + sW, 0],
                                     [`dropTrigger_${i}`]: {
                                         type: this.UI_TYPES.DROPDOWN_DERP, themeKey: "dialog, t_textSmall",
                                         canvasShield: true, width: "full", height: "auto", padding: [pW, pH], alpha: rowAlpha,

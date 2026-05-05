@@ -59,6 +59,13 @@ let activeFilePicker = null;
 let lastOpenTime = 0;
 
 function closeFilePicker() {
+    if (activeFilePicker && activeFilePicker._hoveredRow && activeFilePicker._hoveredRow.isConnected) {
+        activeFilePicker._hoveredRow.style.backgroundColor = "transparent";
+    }
+    if (activeFilePicker) {
+        activeFilePicker._hoveredRow = null;
+        if (activeFilePicker._previewBox) activeFilePicker._previewBox.style.display = "none";
+    }
     if (handleHybridPickerClosePhase(activeFilePicker, lastOpenTime, comfyApp)) {
         // THE SHIELD WAKE FIX: Force canvas redraw so the closing animation actually plays when clicking outside
         if (comfyApp && comfyApp.canvas) comfyApp.canvas.setDirty(true, true);
@@ -141,6 +148,7 @@ function openFilePicker(sourceEl, config, node, callbacks) {
     picker.style.boxSizing = "border-box";
     picker.style.padding = "0px"; // THE MARGIN FIX: Ensure dropdown rows snap to the absolute top of the container
     picker._scrollTop = 0;
+    picker._hoveredRow = null;
 
     const { headerWrapper, separator, scrollBounds, contentWrapper, previewBox, previewImg } = buildPickerDOMContainer(picker, listPaint, scale, sH);
     picker._aspectRatio = 1; // THE ASPECT RATIO FIX: Initialize default ratio
@@ -159,6 +167,24 @@ function openFilePicker(sourceEl, config, node, callbacks) {
      * THE NAVIGATION ENGINE: Recursively redraws the picker content based on the virtual path.
      */
     const renderRows = (dir) => {
+        const clearHoveredRow = () => {
+            if (picker._hoveredRow && picker._hoveredRow.isConnected) {
+                picker._hoveredRow.style.backgroundColor = "transparent";
+            }
+            picker._hoveredRow = null;
+        };
+
+        const setHoveredRow = (row, hoverColor) => {
+            if (picker._hoveredRow && picker._hoveredRow !== row && picker._hoveredRow.isConnected) {
+                picker._hoveredRow.style.backgroundColor = "transparent";
+            }
+            picker._hoveredRow = row;
+            if (row) row.style.backgroundColor = hoverColor;
+        };
+
+        clearHoveredRow();
+        if (picker._previewBox) picker._previewBox.style.display = "none";
+
         if (picker._headerWrapper) while (picker._headerWrapper.firstChild) picker._headerWrapper.removeChild(picker._headerWrapper.firstChild);
         while (contentWrapper.firstChild) contentWrapper.removeChild(contentWrapper.firstChild);
         picker._currentDir = dir;
@@ -234,25 +260,37 @@ function openFilePicker(sourceEl, config, node, callbacks) {
             if (entry.type === "select_current") row.style.fontStyle = "italic";
             if (prefixColor && row._glyphSpan) row._glyphSpan.style.color = prefixColor;
 
+            const hoverColor = rowPaintON?.fill || rowPaintOFF?.fill || "transparent";
+
             row.onmouseenter = () => {
                 // THE INTERACTION FIX: Disable hover highlight for the read-only path display
                 if (entry.type !== "select_current") {
-                    row.style.backgroundColor = rowPaintON?.fill || "rgba(255,255,255,0.1)";
+                    setHoveredRow(row, hoverColor);
                 }
                 // THE PREVIEW TRIGGER: Only show the box if the lora has a validated companion image
-                const hasPreview = config.previewList?.includes(entry.path);
-                if (entry.type === "file" && hasPreview) {
+                const itemObj = (config.items || []).find(i => {
+                    if (!i || typeof i !== "object") return false;
+                    const iv = (i.path ?? i.value ?? i.name);
+                    return (iv || "").replace(/\\/g, "/") === (entry.path || "").replace(/\\/g, "/");
+                });
+                const previewUrl = itemObj?.imageUrl || (config.previewList?.includes(entry.path)
+                    ? `/xcp/get_lora_preview?name=${encodeURIComponent(entry.path)}`
+                    : null);
+                if (entry.type === "file" && previewUrl) {
                     // THE ASPECT RATIO FIX: Capture dimensions when image loads to recalculate box shape
                     picker._previewImg.onload = () => {
                         picker._aspectRatio = (picker._previewImg.naturalWidth / picker._previewImg.naturalHeight) || 1;
                     };
-                    picker._previewImg.src = `/xcp/get_lora_preview?name=${encodeURIComponent(entry.path)}`;
+                    picker._previewImg.src = previewUrl;
                     picker._previewBox.style.display = "block";
                 } else {
                     picker._previewBox.style.display = "none";
                 }
             };
             row.onmouseleave = () => {
+                if (picker._hoveredRow === row) {
+                    picker._hoveredRow = null;
+                }
                 row.style.backgroundColor = "transparent";
                 picker._previewBox.style.display = "none";
             };
@@ -372,6 +410,14 @@ function openFilePicker(sourceEl, config, node, callbacks) {
     }
 
     renderRows(startDir);
+
+    picker.onmouseleave = () => {
+        if (picker._hoveredRow && picker._hoveredRow.isConnected) {
+            picker._hoveredRow.style.backgroundColor = "transparent";
+        }
+        picker._hoveredRow = null;
+        if (picker._previewBox) picker._previewBox.style.display = "none";
+    };
 
     document.body.appendChild(picker);
     activeFilePicker = picker;
@@ -643,16 +689,19 @@ export function syncFileBrowser(context, node, app, config) {
                 }
             }
 
-            // THE REFLOW FIX: Calculate preview position mathematically instead of forcing a synchronous DOM layout read
-            if (activeFilePicker._previewBox && activeFilePicker._previewBox.style.display !== "none") {
-                const targetPreviewW = 200 * scale;
-                const targetPreviewH = targetPreviewW / (activeFilePicker._aspectRatio || 1);
+        }
 
-                activeFilePicker._previewBox.style.left = `${screenX + (w * scale) + (4 * scale)}px`;
-                activeFilePicker._previewBox.style.top = `${screenY}px`;
-                activeFilePicker._previewBox.style.width = `${targetPreviewW}px`;
-                activeFilePicker._previewBox.style.height = `${targetPreviewH}px`;
-            }
+        // Keep preview box in lockstep with canvas zoom/pan every frame (same behavior as dropdown).
+        if (activeFilePicker._previewBox && activeFilePicker._previewBox.style.display !== "none") {
+            const { sH } = getDerpVars(node);
+            const targetW = (w * scale).toFixed(2);
+            const targetH = (targetW / (activeFilePicker._aspectRatio || 1)).toFixed(2);
+
+            activeFilePicker._previewBox.style.width = `${targetW}px`;
+            activeFilePicker._previewBox.style.height = `${targetH}px`;
+            activeFilePicker._previewBox.style.left = `${screenX}px`;
+            activeFilePicker._previewBox.style.top = `${(screenY - (sH * scale) - targetH)}px`;
+            activeFilePicker._previewBox.style.opacity = activeFilePicker._itemAlpha;
         }
 
         // THE ANIMATION CLAMP FIX: Re-enforce the target scroll during the opening animation
