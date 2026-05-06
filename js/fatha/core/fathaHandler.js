@@ -225,11 +225,12 @@ export function handleDerpCollapse(entity, force) {
     if (app.graph && app.graph.change) app.graph.change();
 }
 
-function findHitRegion(layout, localMouse) {
+function findHitRegion(layout, localMouse, options = {}) {
     if (!layout || !layout.regions) return null;
+    const { allowDisabledDrag = false } = options;
     const regionEntries = Object.entries(layout.regions).reverse();
     for (const [key, reg] of regionEntries) {
-        if (reg.state === "DIS" || reg.isSpacing || (!reg.type && !reg.onPress && !reg.onClick && !reg.onDblClick && !reg.hoverEffect)) continue;
+        if (reg.isSpacing || (!reg.type && !reg.onPress && !reg.onClick && !reg.onDblClick && !reg.hoverEffect)) continue;
         const isInteractive = reg.onPress || reg.onClick || reg.onDblClick || reg.hoverEffect || reg.onChange ||
             reg.type === UI_TYPES.DROPDOWN_DERP || reg.type === UI_TYPES.DROPDOWN ||
             reg.type === UI_TYPES.BUTTON || reg.type === UI_TYPES.ICONBUTTON ||
@@ -237,7 +238,18 @@ function findHitRegion(layout, localMouse) {
             reg.type === UI_TYPES.FILEBROWSER || reg.type === UI_TYPES.TOGGLE ||
             reg.type === UI_TYPES.TOGGLE_V2 || reg.type === UI_TYPES.TRIGGER ||
             reg.type === UI_TYPES.IMAGE_HTML;
-        if (isInteractive && (reg.hitTest ? reg.hitTest(localMouse) : layout.hitTest(localMouse, reg))) return { key, reg };
+        if (!isInteractive) continue;
+
+        const isDisabled = reg.state === "DIS";
+        if (isDisabled && !(allowDisabledDrag && reg.allowDragWhenDisabled)) continue;
+        if (!(reg.hitTest ? reg.hitTest(localMouse) : layout.hitTest(localMouse, reg))) continue;
+
+        if (isDisabled && allowDisabledDrag && reg.dragProxyKey) {
+            const proxyReg = layout.regions[reg.dragProxyKey];
+            if (proxyReg) return { key: reg.dragProxyKey, reg: proxyReg, sourceKey: key, sourceReg: reg };
+        }
+
+        return { key, reg };
     }
     return null;
 }
@@ -252,7 +264,7 @@ export function handleShieldInteraction(entity, type, data = {}) {
             entity._pressedRegionKey = "systemBtn";
             return true;
         }
-        const hit = findHitRegion(entity.layout, localMouse);
+        const hit = findHitRegion(entity.layout, localMouse, { allowDisabledDrag: true });
         if (hit && !hit.reg.noDragLock) {
             entity._pressedRegionKey = hit.key;
             if (hit.reg.onDragStart) hit.reg.onDragStart(data.originalEvent, data);
@@ -272,7 +284,7 @@ export function handleShieldInteraction(entity, type, data = {}) {
         const contentMinW = entity.layout?.contentMinWidth || 60;
         const minW = Math.ceil(Math.max(propMinW, contentMinW + padL + padR) / SNAP) * SNAP;
 
-        const isMinState = entity.properties?.contentCollapsed || entity.properties?.drawHeader === false;
+        const isMinState = entity.properties?.contentCollapsed;
 
         let explicitMinH = 0;
         if (entity.layoutMap) {
@@ -573,7 +585,9 @@ export function handleDrawCTX(entity, ctx, overlayPass = false) {
             const isActive = sysPanel.isVisible && sysPanel.hostNode?.id === entity.id;
             COMPONENT_BLUEPRINTS[UI_TYPES.ICONBUTTON].sync(ctx, entity, {
                 ...sysBtn, geometry: { x: sysBtn.x, y: sysBtn.y, w: sysBtn.w, h: sysBtn.h },
-                icon: isActive ? "uparrow" : "downarrow", state: (entity._hoveredRegionKey === "systemBtn" || isActive) ? "ON" : "OFF"
+                icon: isActive ? "uparrow" : "downarrow",
+                state: (entity._hoveredRegionKey === "systemBtn" || isActive) ? "ON" : "OFF",
+                corners: [2, 2, 0, 0]
             });
         }
     }

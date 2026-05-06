@@ -751,6 +751,7 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                 const baseHandleInteraction = nodeType.prototype.handleShieldInteraction;
                 nodeType.prototype.handleShieldInteraction = function(type, data) {
                     const isRowControlKey = (key) => key.startsWith("btnEnable_") || key.startsWith("btnEnableLeft_");
+                    const isSliderKey = (key) => key && (key.startsWith("sldModel_") || key.startsWith("sldClip_"));
                     const isInteractiveRowKey = (key) =>
                         key.startsWith("dropTrigger_") ||
                         key.startsWith("lblLoraNameTop_") ||
@@ -758,8 +759,6 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                         key.startsWith("sldClip_") ||
                         key.startsWith("loraPreview_") ||
                         key.startsWith("loraRow_");
-                    const isDragSurfaceKey = (key) => key.startsWith("loraRow_") || key.startsWith("lblLoraNameTop_");
-
                     if (type === "click" && this._suppressClickAfterDrag) {
                         this._suppressClickAfterDrag = false;
                         return true;
@@ -788,7 +787,35 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
 
                     if (type === "resize") this._isDerpResizing = true;
                     if (type === "click" || type === "dragEnd") {
+                        if (type === "dragEnd" && this._pendingSliderDraft && isSliderKey(this._pendingSliderDraft.targetKey)) {
+                            const { targetKey, idx, sType, value } = this._pendingSliderDraft;
+                            const stackData = this.properties.stackData || [];
+                            if (stackData[idx]) {
+                                if (sType === "sldModel") stackData[idx][1] = value;
+                                else if (sType === "sldClip") stackData[idx][2] = value;
+
+                                const finalValStr = value.toFixed(2);
+                                this.properties.stackData = stackData;
+                                if (this.layout?.regions?.[targetKey]) this.layout.regions[targetKey].value = value;
+                                if (this._compDataCache?.[targetKey]) this._compDataCache[targetKey].value = value;
+
+                                const valKey = targetKey.replace("sld", "val");
+                                if (this.layout?.regions?.[valKey]) {
+                                    this.layout.regions[valKey].value = finalValStr;
+                                    this.layout.regions[valKey].text = finalValStr;
+                                }
+                                if (this._compDataCache?.[valKey]) {
+                                    this._compDataCache[valKey].value = finalValStr;
+                                    this._compDataCache[valKey].text = finalValStr;
+                                }
+
+                                this._derpAwakeFrames = 5;
+                                if (this.syncDerpOutputs) this.syncDerpOutputs();
+                                this.setDirtyCanvas(true);
+                            }
+                        }
                         endStackDrag(this, "stackData"); // Kills the hold-timer to prevent sound/pickup on single clicks
+                        this._pendingSliderDraft = null;
                         this._activeSliderKey = null;
                         this._isDerpResizing = false;
                         if (this.syncDerpOutputs) this.syncDerpOutputs();
@@ -834,30 +861,13 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
 
                         if (type === "dragStart" || type === "click" || type === "dblclick") {
                             this._activeSliderKey = foundKey;
-                            if (type === "dragStart") {
-                                // Only non-control row surfaces should initiate reordering.
-                                // Keep dropdown/sliders/buttons clickable by letting them fall through to base Fatha handling.
-                                let dragRowKey = null;
-                                if (foundKey && foundKey.startsWith("loraRow_")) {
-                                    dragRowKey = foundKey;
-                                } else if (foundKey && foundKey.startsWith("lblLoraNameTop_")) {
-                                    const idx = parseInt(foundKey.split("_")[1]);
-                                    if (!Number.isNaN(idx)) dragRowKey = `loraRow_${idx}`;
-                                } else if (foundKey && !isDragSurfaceKey(foundKey)) {
-                                    dragRowKey = null;
-                                }
-                                if (dragRowKey) {
-                                    const idx = parseInt(dragRowKey.split("_")[1]);
-                                    startStackDrag(this, data, idx, dragRowKey);
-                                    return true;
-                                }
-                            }
                         }
 
                         if (type === "drag" && this._dragTrig) {
                             updateStackDrag(this, data, "loraRow_", this.properties.stackData.length);
-                            // Consume drag while stack DnD is active to prevent node movement.
-                            return true;
+                            // Consume drag only after the hold threshold arms row DnD.
+                            // Before that, slider drags must still be able to update their draft value.
+                            if (this._dragThresholdMet) return true;
                         }
 
                         const targetKey = this._activeSliderKey !== null ? this._activeSliderKey : foundKey;
@@ -888,7 +898,7 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
 
                                     // THE CLICK INTERCEPT FIX: Only consume drag/click events for actual sliders
                                     // so loraPreview can pass through to baseHandleInteraction and fire its onPress.
-                                    if (stackData[idx] && (sType === "sldModel" || sType === "sldClip")) {
+                                    if (stackData[idx] && (sType === "sldModel" || sType === "sldClip") && (type === "click" || type === "dblclick" || type === "drag")) {
                                         const isModel = sType === "sldModel";
                                         const loraName = stackData[idx][0];
                                         const lSetup = loraName ? this._loraSetup?.[loraName]?.sliderStrength : null;
@@ -907,13 +917,7 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                                             newVal = Math.max(cMin, Math.min(cMax, newVal));
                                         }
 
-                                        if (sType === "sldModel") stackData[idx][1] = newVal;
-                                        else if (sType === "sldClip") stackData[idx][2] = newVal;
-
                                         const finalValStr = newVal.toFixed(2);
-
-                                        // THE PERSISTENCE FIX: Update the actual node property so the value survives refreshes.
-                                        this.properties.stackData = stackData;
                                         if (regions[targetKey]) regions[targetKey].value = newVal;
                                         if (this._compDataCache && this._compDataCache[targetKey]) this._compDataCache[targetKey].value = newVal;
 
@@ -927,9 +931,20 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                                             this._compDataCache[valKey].text = finalValStr;
                                         }
 
+                                        if (type === "drag") {
+                                            this._pendingSliderDraft = { targetKey, idx, sType, value: newVal };
+                                            this.setDirtyCanvas(true);
+                                            return true;
+                                        }
+
+                                        if (sType === "sldModel") stackData[idx][1] = newVal;
+                                        else if (sType === "sldClip") stackData[idx][2] = newVal;
+
                                         // THE CHAIN AWAKE FIX: Interaction on this node must dirty the global canvas
                                         // so downstream watchers in onDrawForeground can detect the change.
+                                        this._pendingSliderDraft = null;
                                         this._derpAwakeFrames = 5;
+                                        this.properties.stackData = stackData;
                                         if (this.syncDerpOutputs) this.syncDerpOutputs();
                                         if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
                                         this.setDirtyCanvas(true);

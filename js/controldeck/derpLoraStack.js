@@ -5,6 +5,7 @@
 import { app } from "../../../scripts/app.js";
 import { showBastaLoraDetail } from "../fatha/bastas/bastaLoraDetail.js";
 import { showBastaMessage } from "../fatha/bastas/bastaMessage.js";
+import { startStackDrag, updateStackDrag, endStackDrag } from "../fatha/helpers/fathaDragDrop.js";
 import { resolveRatingColor } from "./helpers/loraComponents.js";
 import { getPreviewImageUrl } from "./helpers/loraImages.js";
 
@@ -201,8 +202,9 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                     const dragIdx = this._dragTrig?.index;
                     const rawDropIdx = this._dropPreviewIdx;
                     const stableCount = stack.length - (isDragPreviewActive ? 1 : 0);
-                    const dropIdx = Math.max(0, Math.min(Number.isInteger(rawDropIdx) ? rawDropIdx : 0, Math.max(0, stableCount)));
-                    const hasEffectiveDropTarget = isDragPreviewActive && Number.isInteger(dragIdx) && dropIdx !== dragIdx;
+                    const hasPreviewIndex = Number.isInteger(rawDropIdx);
+                    const dropIdx = hasPreviewIndex ? Math.max(0, Math.min(rawDropIdx, Math.max(0, stableCount))) : null;
+                    const hasEffectiveDropTarget = isDragPreviewActive && Number.isInteger(dragIdx) && hasPreviewIndex && dropIdx !== dragIdx;
 
                     let lastVisibleRowKey = null;
 
@@ -276,6 +278,9 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                             dir: "row", width: "full", height: "auto",
                             hoverEffect: false,
                             margin: [mW * 2, 0, mW * 2, mH],
+                            onDragStart: (e, data) => startStackDrag(this, data, i, `loraRow_${i}`),
+                            onDrag: (e, data) => { updateStackDrag(this, data, "loraRow_", stack.length); this.refreshNodeLayoutMap(); },
+                            onDragEnd: () => endStackDrag(this, "stackData"),
                             [`loraPreview_${i}`]: {
                                 hidden: false,
                                 isThumbnail: true, // THE CACHE OPTIMIZATION: Use THUMBNAIL_LONG_SIDE_TARGET for stack images
@@ -285,8 +290,13 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                 btnColor: "rgba(0,0,0,0.2)",
                                 alpha: previewAlpha,
                                 state: (i === activeSlot) ? "ON" : (isBypassed ? "DIS" : "OFF"),
+                                allowDragWhenDisabled: isBypassed,
+                                dragProxyKey: `loraRow_${i}`,
                                 grayscale: isBypassed, margin: [-mW * 2 + sW, 0, 0, 0],
                                 width: "match", height: "fill", spacing: [ sW , 0],
+                                onDragStart: (e, data) => startStackDrag(this, data, i, `loraRow_${i}`),
+                                onDrag: (e, data) => { updateStackDrag(this, data, "loraRow_", stack.length); this.refreshNodeLayoutMap(); },
+                                onDragEnd: () => endStackDrag(this, "stackData"),
                                 onPress: () => {
                                     this._activeDetailSlot = i;
                                     const previewUrl = (this._loraPreviewList?.includes(lora[0])) ? getPreviewImageUrl(lora[0], false) : null;
@@ -342,6 +352,11 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                         text: loraName, width: "full", mouseOver: false,
                                         displayMode: "cutoff", alpha: rowAlpha, spacing: [sW, 0],
                                         state: (i === this._activeDetailSlot) ? "ON" : (isBypassed ? "DIS" : "OFF"),
+                                        allowDragWhenDisabled: isBypassed,
+                                        dragProxyKey: `loraRow_${i}`,
+                                        onDragStart: (e, data) => startStackDrag(this, data, i, `loraRow_${i}`),
+                                        onDrag: (e, data) => { updateStackDrag(this, data, "loraRow_", stack.length); this.refreshNodeLayoutMap(); },
+                                        onDragEnd: () => endStackDrag(this, "stackData"),
                                         onPress: () => {
                                             this._activeDetailSlot = i;
                                             const previewUrl = (this._loraPreviewList?.includes(lora[0])) ? getPreviewImageUrl(lora[0], false) : null;
@@ -424,6 +439,11 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                         max: this._loraSetup?.[lora[0]]?.sliderStrength?.[1] ?? this.properties.sliderMax ?? 2.0,
                                         step: this._loraSetup?.[lora[0]]?.sliderStrength?.[2] ?? this.properties.sliderStep ?? 0.05,
                                         state: isBypassed ? "DIS" : "OFF",
+                                        allowDragWhenDisabled: isBypassed,
+                                        dragProxyKey: `loraRow_${i}`,
+                                        onDragStart: (e, data) => startStackDrag(this, data, i, `loraRow_${i}`),
+                                        onDrag: (e, data) => { updateStackDrag(this, data, "loraRow_", stack.length); this.refreshNodeLayoutMap(); },
+                                        onDragEnd: () => endStackDrag(this, "stackData"),
                                         width: "full", height: "auto", themeKey: "panel, button, t_textSmall", labelAlign: ["center", "middle"], spacing: [sW, 0]
                                     },
                                     [`valModel_${i}`]: {
@@ -479,6 +499,11 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                         max: this._loraSetup?.[lora[0]]?.sliderStrength?.[1] ?? this.properties.clipMax ?? 2.0,
                                         step: this._loraSetup?.[lora[0]]?.sliderStrength?.[2] ?? this.properties.clipStep ?? 0.05,
                                         state: isBypassed ? "DIS" : "OFF",
+                                        allowDragWhenDisabled: isBypassed,
+                                        dragProxyKey: `loraRow_${i}`,
+                                        onDragStart: (e, data) => startStackDrag(this, data, i, `loraRow_${i}`),
+                                        onDrag: (e, data) => { updateStackDrag(this, data, "loraRow_", stack.length); this.refreshNodeLayoutMap(); },
+                                        onDragEnd: () => endStackDrag(this, "stackData"),
                                         width: "full", height: "auto", themeKey: "panel, button, t_textSmall", labelAlign: ["center", "middle"], spacing: [sW, 0]
                                     },
                                     [`valClip_${i}`]: {
@@ -499,8 +524,13 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                         canvasShield: true, width: "full", height: "auto", padding: [pW, pH], alpha: rowAlpha,
                                         state: isBypassed ? "DIS" : (isSelected ? "ON" : "OFF"),
                                         labelState: isBypassed ? "DIS" : (isSelected ? "ON" : "OFF"),
+                                        allowDragWhenDisabled: isBypassed,
+                                        dragProxyKey: `loraRow_${i}`,
                                         mouseOver: false,
                                         indicator: "on",
+                                        onDragStart: (e, data) => startStackDrag(this, data, i, `loraRow_${i}`),
+                                        onDrag: (e, data) => { updateStackDrag(this, data, "loraRow_", stack.length); this.refreshNodeLayoutMap(); },
+                                        onDragEnd: () => endStackDrag(this, "stackData"),
                                         items: (() => {
                                             const triggers = this._loraTriggerArrayCache?.[lora[0]] || [];
                                             const session = window._xcpDerpSession || Date.now();
