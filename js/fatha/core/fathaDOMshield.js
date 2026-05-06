@@ -264,6 +264,19 @@ export function createDerpShield(node) {
 
     // --- LISTENERS ---
     const startResize = (e, anchor = "bottom-right") => {
+        const localPos = getLocalCoords(e);
+        const localMouse = [localPos.x, localPos.y];
+        const collapseBtn = node.layout?.regions?.btnCollapse;
+        const bypassBtn = node.layout?.regions?.btnBypass;
+        const isOverProtectedBtn = !!(
+            (collapseBtn && node.layout?.hitTest(localMouse, collapseBtn)) ||
+            (bypassBtn && node.layout?.hitTest(localMouse, bypassBtn))
+        );
+        if (isOverProtectedBtn) {
+            shield.onpointerdown(e);
+            return;
+        }
+
         e.stopPropagation(); e.preventDefault(); cleanup();
         app.canvas.canvas.focus(); // THE FOCUS FIX: Ensure keyboard events reach the canvas
         isResizing = true;
@@ -275,9 +288,6 @@ export function createDerpShield(node) {
         // THE FIX: Sync LiteGraph mouse tracking immediately to prevent scale-induced jumps
         const rect = app.canvas.canvas.getBoundingClientRect();
         app.canvas.last_mouse = [e.clientX - rect.left, e.clientY - rect.top];
-
-        // THE FIX: Define localPos before passing it to the handler
-        const localPos = getLocalCoords(e);
 
         // Notify node to cache start state with proper coordinates to pass the safety guard
         node.handleShieldInteraction("dragStart", {
@@ -441,6 +451,8 @@ export function syncDerpShield(node) {
     if (!node.interactionShield) return;
     const ds = app.canvas.ds;
     const scale = ds.scale;
+    const bottomCornerSize = 15 * scale;
+    const topCornerSize = 10 * scale;
 
     // THE CONSOLIDATION FIX: Use the padding values calculated and owned by the Uncle prototype
     const padL = node._padL || 0;
@@ -490,6 +502,8 @@ export function syncDerpShield(node) {
         const canH = !vars.autoHeight;
 
         const handleStyle = node.interactionShield._resizeHandle.style;
+        handleStyle.width = `${bottomCornerSize}px`;
+        handleStyle.height = `${bottomCornerSize}px`;
         handleStyle.cursor = (canW && canH) ? "nwse-resize" : (canW ? "ew-resize" : "ns-resize");
         // THE INTERACTION GUARD: Disable handle interaction entirely if both axes are auto-managed
         node.resizable = !(vars.autoWidth && vars.autoHeight); // THE NATIVE FIX: Kill LiteGraph's own resize logic
@@ -499,6 +513,8 @@ export function syncDerpShield(node) {
 
         if (node.interactionShield._resizeHandleLeft) {
             const leftStyle = node.interactionShield._resizeHandleLeft.style;
+            leftStyle.width = `${bottomCornerSize}px`;
+            leftStyle.height = `${bottomCornerSize}px`;
             leftStyle.cursor = (canW && canH) ? "nesw-resize" : (canW ? "ew-resize" : "ns-resize");
             leftStyle.display = node.resizable ? "block" : "none";
             leftStyle.pointerEvents = node.resizable ? "auto" : "none";
@@ -506,9 +522,20 @@ export function syncDerpShield(node) {
         }
 
         const showTopCorners = node.resizable;
+        const headerVisible = node.properties?.drawHeader !== false;
+        const collapseBtn = node.layout?.regions?.btnCollapse;
+        const bypassBtn = node.layout?.regions?.btnBypass;
+        const topLeftWidth = (headerVisible && collapseBtn && Number.isFinite(collapseBtn.x))
+            ? Math.max(1, collapseBtn.x * scale)
+            : topCornerSize;
+        const topRightWidth = (headerVisible && bypassBtn && Number.isFinite(bypassBtn.x) && Number.isFinite(bypassBtn.w))
+            ? Math.max(1, (visualW - (bypassBtn.x + bypassBtn.w)) * scale)
+            : topCornerSize;
 
         if (node.interactionShield._resizeHandleTopLeft) {
             const topLeftStyle = node.interactionShield._resizeHandleTopLeft.style;
+            topLeftStyle.width = `${topLeftWidth}px`;
+            topLeftStyle.height = `${topCornerSize}px`;
             topLeftStyle.display = showTopCorners ? "block" : "none";
             topLeftStyle.pointerEvents = showTopCorners ? "auto" : "none";
             topLeftStyle.left = `-${padL * scale}px`;
@@ -517,6 +544,8 @@ export function syncDerpShield(node) {
 
         if (node.interactionShield._resizeHandleTopRight) {
             const topRightStyle = node.interactionShield._resizeHandleTopRight.style;
+            topRightStyle.width = `${topRightWidth}px`;
+            topRightStyle.height = `${topCornerSize}px`;
             topRightStyle.display = showTopCorners ? "block" : "none";
             topRightStyle.pointerEvents = showTopCorners ? "auto" : "none";
             topRightStyle.right = `-${padR * scale}px`;
