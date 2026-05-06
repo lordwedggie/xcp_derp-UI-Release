@@ -599,6 +599,26 @@ export async function toggleDerpSysPanel(hostNode) {
     sysPanel.animHeight = 0;
     sysPanel.animAlpha = 0;
 
+    if (sysPanel._outsidePointerHandler) {
+        window.removeEventListener("pointerdown", sysPanel._outsidePointerHandler, true);
+    }
+    sysPanel._outsidePointerHandler = (e) => {
+        if (!sysPanel.isVisible || !sysPanel.layout?.regions?.panelBackground) return;
+        if (sysPanel.interactionShield?.contains(e.target)) return;
+        if (Object.values(sysPanel.dynamicElements || {}).some((el) => el?.contains?.(e.target))) return;
+
+        const rect = app.canvas.canvas.getBoundingClientRect();
+        const ds = app.canvas.ds;
+        const canvasX = (e.clientX - rect.left) / ds.scale - ds.offset[0];
+        const canvasY = (e.clientY - rect.top) / ds.scale - ds.offset[1];
+        const localMouse = [canvasX - sysPanel.pos[0], canvasY - sysPanel.pos[1]];
+
+        if (!sysPanel.layout.hitTest(localMouse, sysPanel.layout.regions.panelBackground)) {
+            closeDerpSysPanel();
+        }
+    };
+    window.addEventListener("pointerdown", sysPanel._outsidePointerHandler, true);
+
     // THE OPTIMIZATION FIX: Purge the cache on open to force an immediate fresh sync
     sysPanel._prevDerpState = null;
     sysPanel._shouldSync = true;
@@ -669,6 +689,11 @@ export function closeDerpSysPanel() {
     if (sysPanel.dynamicElements) {
         Object.values(sysPanel.dynamicElements).forEach(el => el?.remove());
         sysPanel.dynamicElements = {};
+    }
+
+    if (sysPanel._outsidePointerHandler) {
+        window.removeEventListener("pointerdown", sysPanel._outsidePointerHandler, true);
+        sysPanel._outsidePointerHandler = null;
     }
 
     removeDerpShield(sysPanel);
