@@ -89,8 +89,10 @@ app.registerExtension({
                     regionOffset: [0, 0],
                     [`vaeToggle_${idx}`]: {
                         type: this.UI_TYPES.TOGGLE_V2, isTextOnly: true, mouseOver: true, cutoff: true,
+                        key: `vaeToggle_${idx}`,
                         text: (this.properties.showFolderNames ? m.name : m.name.split(/[\\/]/).pop()).replace(/\.(safetensors|pt|ckpt)$/i, ""),
                         value: m.active,
+                        playSound: "powerup",
                         alpha: item.isPreviewGhost ? 0 : 1.0,
                         width: "full", height: "auto", padding: [pW, pH],
                         themeKey: "button, t_textNormal",
