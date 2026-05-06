@@ -246,7 +246,10 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
         const targetW = (autoWidth || isMinState) ? engineFloorW : Math.max(this.properties.nodeSize?.[0] || 0, engineFloorW);
         const targetH = (autoHeight || isMinState) ? engineFloorH : Math.max(this.properties.nodeSize?.[1] || 0, engineFloorH);
 
-        animateDerpSize(this, targetW, targetH, useAnim);
+        // THE RESIZE INTERVENTION FIX: Skip animateDerpSize during active drag-resize.
+        // The resize handler in fathaDOMshield already correctly clamps size to minW.
+        // Letting animateDerpSize override it causes a per-frame size oscillation (flicker).
+        if (!this._isDerpResizing) animateDerpSize(this, targetW, targetH, useAnim);
 
         const bounds = { x: 0, y: 0, w: this.size[0], h: this.size[1] };
 

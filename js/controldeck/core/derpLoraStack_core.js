@@ -750,6 +750,16 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
 
                 const baseHandleInteraction = nodeType.prototype.handleShieldInteraction;
                 nodeType.prototype.handleShieldInteraction = function(type, data) {
+                    const isRowControlKey = (key) => key.startsWith("btnEnable_") || key.startsWith("btnEnableLeft_");
+                    const isInteractiveRowKey = (key) =>
+                        key.startsWith("dropTrigger_") ||
+                        key.startsWith("lblLoraNameTop_") ||
+                        key.startsWith("sldModel_") ||
+                        key.startsWith("sldClip_") ||
+                        key.startsWith("loraPreview_") ||
+                        key.startsWith("loraRow_");
+                    const isDragSurfaceKey = (key) => key.startsWith("loraRow_") || key.startsWith("lblLoraNameTop_");
+
                     if (type === "click" && this._suppressClickAfterDrag) {
                         this._suppressClickAfterDrag = false;
                         return true;
@@ -789,14 +799,16 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                         const { localX, localY } = data || {};
                         let foundKey = null;
                         const regions = this.layout?.regions;
+                        let keys = [];
+                        let isHit = null;
 
                         if (regions && typeof localX === 'number' && typeof localY === 'number') {
-                            const keys = Object.keys(regions).reverse();
-                            const isHit = (key) => this.layout.hitTest([localX, localY], regions[key]);
+                            keys = Object.keys(regions).reverse();
+                            isHit = (key) => this.layout.hitTest([localX, localY], regions[key]);
 
                             // Check row controls first so row drag logic does not steal button clicks.
                             for (const key of keys) {
-                                if ((key.startsWith("btnEnable_") || key.startsWith("btnEnableLeft_")) && isHit(key)) {
+                                if (isRowControlKey(key) && isHit(key)) {
                                     foundKey = key;
                                     break;
                                 }
@@ -804,7 +816,7 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
 
                             if (!foundKey) {
                                 for (const key of keys) {
-                                    if ((key.startsWith("dropTrigger_") || key.startsWith("lblLoraNameTop_") || key.startsWith("sldModel_") || key.startsWith("sldClip_") || key.startsWith("loraPreview_") || key.startsWith("loraRow_")) && isHit(key)) {
+                                    if (isInteractiveRowKey(key) && isHit(key)) {
                                         foundKey = key;
                                         break;
                                     }
@@ -822,12 +834,23 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
 
                         if (type === "dragStart" || type === "click" || type === "dblclick") {
                             this._activeSliderKey = foundKey;
-                            if (type === "dragStart" && foundKey && foundKey.startsWith("loraRow_")) {
-                                const idx = parseInt(foundKey.split("_")[1]);
-                                startStackDrag(this, data, idx, foundKey);
-                                // Always consume row drag-start (including DIS/bypassed rows)
-                                // so LiteGraph does not fall back to dragging the whole node.
-                                return true;
+                            if (type === "dragStart") {
+                                // Only non-control row surfaces should initiate reordering.
+                                // Keep dropdown/sliders/buttons clickable by letting them fall through to base Fatha handling.
+                                let dragRowKey = null;
+                                if (foundKey && foundKey.startsWith("loraRow_")) {
+                                    dragRowKey = foundKey;
+                                } else if (foundKey && foundKey.startsWith("lblLoraNameTop_")) {
+                                    const idx = parseInt(foundKey.split("_")[1]);
+                                    if (!Number.isNaN(idx)) dragRowKey = `loraRow_${idx}`;
+                                } else if (foundKey && !isDragSurfaceKey(foundKey)) {
+                                    dragRowKey = null;
+                                }
+                                if (dragRowKey) {
+                                    const idx = parseInt(dragRowKey.split("_")[1]);
+                                    startStackDrag(this, data, idx, dragRowKey);
+                                    return true;
+                                }
                             }
                         }
 
@@ -849,16 +872,6 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                                         localY,
                                         targetKey
                                     });
-                                } catch (e) {}
-                                return true;
-                            }
-                        }
-
-                        if (type === "click" && targetKey && targetKey.startsWith("dropTrigger_")) {
-                            const reg = regions?.[targetKey];
-                            if (reg && reg.state !== "DIS" && typeof reg.onPress === "function") {
-                                try {
-                                    reg.onPress(data.originalEvent, data);
                                 } catch (e) {}
                                 return true;
                             }
