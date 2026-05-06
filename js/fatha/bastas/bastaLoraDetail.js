@@ -185,7 +185,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                     }
                 },
                 loraLoader: {
-                    type: UI_TYPES.FILEBROWSER, bypassHashOptimization: true,
+                    type: UI_TYPES.FILEBROWSER,
                     displayMode: "cutoff",
                     indicator: true,
                     minWidth: 50,
@@ -497,7 +497,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 hidden: basta._navAlpha < 0.01 || !hasImages,
                 spawnAnim: false, alpha: basta._navAlpha,
                 anchor: { target: "imageHandlingRegion", axis: "y",},
-                dir: "row", width: "full", height: "auto", margin: [0, 0, 0, 2],
+                dir: "row", width: "full", height: "auto", margin: [0, 0, 0, sH],
                 labelImageName: {
                     type: UI_TYPES.TEXT, themeKey: "t_textSystem",
                     alpha: basta._navAlpha,
@@ -524,13 +524,13 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 }
             },
             externalRow: {
-                type: UI_TYPES.REGION, themeKey: "background", palette: bgPal, regionOffset: [2, 2, 2, 2],
+                type: UI_TYPES.REGION, themeKey: "background", palette: bgPal, regionOffset: [sW, sH, sW, 0.5],
                 corners: [0, 0, null, null],
                 hidden: !basta._externalReady || (basta._navAlpha < 0.01),
                 spawnAnim: false,
                 alpha: basta._navAlpha,
-                anchor: { target: "loraPreview", axis: "y", offset: -stableNavH - 6.5},
-                dir: "row", width: "full", height: "auto", margin: [2, 2, 2, 2],
+                anchor: { target: "loraPreview", axis: "y", offset: -stableNavH -sH },
+                dir: "row", width: "full", height: "auto", margin: [sW, mH, sW, mH],
                 btnCivit: {
                     type: UI_TYPES.BUTTON, labelAlign: ["center", "middle"], padding: [pW, pH],
                     themeKey: "button, t_textSmall", palette: civitPal,
@@ -643,7 +643,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 },
                 btnSaveTrigger: {
                     type: UI_TYPES.ICONBUTTON, icon: "save", themeKey: "button, t_textSmall",
-                    width: "match", height: "full", spacing: [sW, 0], mouseOver: false, bypassHashOptimization: true,
+                    width: "match", height: "full", spacing: [sW, 0], mouseOver: false,
                     state: isSaveEnabled ? "OFF" : "DIS",
                     btnColor: initialPulseColor,
                     onPress: () => {

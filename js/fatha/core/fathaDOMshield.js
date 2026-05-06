@@ -501,9 +501,13 @@ export function syncDerpShield(node) {
         const vars = node.getDerpVars ? node.getDerpVars(node) : { autoWidth: true, autoHeight: true };
         const canW = !vars.autoWidth;
         const canH = !vars.autoHeight;
+        const isBasta = !!node.hostNode;
+        const bastaEdgeWidth = Math.max(1, (vars.mW || 0) * scale);
+        const bottomRightWidth = isBasta ? bastaEdgeWidth : bottomCornerSize;
+        const bottomLeftWidth = isBasta ? bastaEdgeWidth : bottomCornerSize;
 
         const handleStyle = node.interactionShield._resizeHandle.style;
-        handleStyle.width = `${bottomCornerSize}px`;
+        handleStyle.width = `${bottomRightWidth}px`;
         handleStyle.height = `${bottomCornerSize}px`;
         handleStyle.cursor = (canW && canH) ? "nwse-resize" : (canW ? "ew-resize" : "ns-resize");
         // THE INTERACTION GUARD: Disable handle interaction entirely if both axes are auto-managed
@@ -514,7 +518,7 @@ export function syncDerpShield(node) {
 
         if (node.interactionShield._resizeHandleLeft) {
             const leftStyle = node.interactionShield._resizeHandleLeft.style;
-            leftStyle.width = `${bottomCornerSize}px`;
+            leftStyle.width = `${bottomLeftWidth}px`;
             leftStyle.height = `${bottomCornerSize}px`;
             leftStyle.cursor = (canW && canH) ? "nesw-resize" : (canW ? "ew-resize" : "ns-resize");
             leftStyle.display = node.resizable ? "block" : "none";
@@ -526,12 +530,16 @@ export function syncDerpShield(node) {
         const headerVisible = node.properties?.drawHeader !== false;
         const collapseBtn = node.layout?.regions?.btnCollapse;
         const bypassBtn = node.layout?.regions?.btnBypass;
-        const topLeftWidth = (headerVisible && collapseBtn && Number.isFinite(collapseBtn.x))
-            ? Math.max(1, collapseBtn.x * scale)
-            : topCornerSize;
-        const topRightWidth = (headerVisible && bypassBtn && Number.isFinite(bypassBtn.x) && Number.isFinite(bypassBtn.w))
-            ? Math.max(1, (visualW - (bypassBtn.x + bypassBtn.w)) * scale)
-            : topCornerSize;
+        const topLeftWidth = isBasta
+            ? bastaEdgeWidth
+            : (headerVisible && collapseBtn && Number.isFinite(collapseBtn.x))
+                ? Math.max(1, collapseBtn.x * scale)
+                : topCornerSize;
+        const topRightWidth = isBasta
+            ? bastaEdgeWidth
+            : (headerVisible && bypassBtn && Number.isFinite(bypassBtn.x) && Number.isFinite(bypassBtn.w))
+                ? Math.max(1, (visualW - (bypassBtn.x + bypassBtn.w)) * scale)
+                : topCornerSize;
 
         if (node.interactionShield._resizeHandleTopLeft) {
             const topLeftStyle = node.interactionShield._resizeHandleTopLeft.style;
