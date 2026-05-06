@@ -40,6 +40,8 @@ import {
 const ICON_MAP = {
     add: "＋",
     subtract: "－",
+    deck: "⊢",
+    undeck: "⊣",
     delete: "✕️",
     new: "🗋",
     copy: "❐",

@@ -249,6 +249,7 @@ export function createDerpShield(node) {
         longPressed = false;
         isResizing = false;
         node._isDerpResizing = false;
+        node._dockResizeSession = null;
 
         // THE FIX: Pass coordinate data to prevent 'undefined' errors in the handler
         const localPos = getLocalCoords(e);

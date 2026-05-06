@@ -6,7 +6,7 @@
 import { app } from "../../../scripts/app.js";
 import { createDerpShield, syncDerpShield, removeDerpShield } from "./core/fathaDOMshield.js";
 import { masterLayoutEngine } from "./core/masterLayoutEngine.js";
-import { handleShieldInteraction, handleDrawCTX, handleThemeUpdate, handleInitDerpGlobalListener, getDerpVars, handleDerpRequestSync, handleDerpComputeSize, handleDerpCollapse, animateDerpSize } from "./core/fathaHandler.js";
+import { handleShieldInteraction, handleDrawCTX, handleThemeUpdate, handleInitDerpGlobalListener, getDerpVars, handleDerpRequestSync, handleDerpComputeSize, handleDerpCollapse, animateDerpSize, drawDeckPreviewGlobal } from "./core/fathaHandler.js";
 export { getDerpVars };
 import { drawDerpSysPanelGlobal, isHostActive, closeDerpSysPanel, sysPanel } from "./helpers/fathaSysPanel.js";
 import { drawBastaLayer } from "./basta.js";
@@ -246,6 +246,21 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
         const collapseMinimal = this.properties?.collapseMinimal === true;
         const targetW = (autoWidth || (isMinState && collapseMinimal)) ? engineFloorW : Math.max(this.properties.nodeSize?.[0] || 0, engineFloorW);
         const targetH = (autoHeight || isMinState) ? engineFloorH : Math.max(this.properties.nodeSize?.[1] || 0, engineFloorH);
+
+        if (window.xcpDockDebug?.dragNodeId === this.id) {
+            window.xcpDockDebug = {
+                ...window.xcpDockDebug,
+                frameNodeId: this.id,
+                frameSize: Array.isArray(this.size) ? [...this.size] : null,
+                frameNodeSize: Array.isArray(this.properties?.nodeSize) ? [...this.properties.nodeSize] : null,
+                frameAutoHeight: autoHeight,
+                frameAutoWidth: autoWidth,
+                frameContentMinHeight: this.layout?.contentMinHeight || 0,
+                frameTotalHeight: this.layout?.totalHeight || 0,
+                frameEngineFloorH: engineFloorH,
+                frameTargetH: targetH,
+            };
+        }
 
         // THE RESIZE INTERVENTION FIX: Skip animateDerpSize during active drag-resize.
         // The resize handler in fathaDOMshield already correctly clamps size to minW.
@@ -488,6 +503,7 @@ if (!window._xcp_DerpVirtualLoader_Loaded) {
                     }
 
                     if (typeof drawDerpSysPanelGlobal === "function") drawDerpSysPanelGlobal(ctx);
+                    if (typeof drawDeckPreviewGlobal === "function") drawDeckPreviewGlobal(ctx);
                     // THE RENDER FIX: Actually call the Basta layer during the global draw pass
                     if (typeof drawBastaLayer === "function") drawBastaLayer(ctx);
                 };

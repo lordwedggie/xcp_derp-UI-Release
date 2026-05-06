@@ -9,6 +9,31 @@ import { masterPainter, compileThemeData } from "../../herbina/masterPainter.js"
 import { UI_TYPES, COMPONENT_BLUEPRINTS } from "./masterLayoutTypes.js";
 import { resolvePaintData } from "../../herbina/utils/widgetsUtils.js";
 import { lerpTo } from "../../herbina/masterAnimator.js";
+import { masterDockEngine } from "./masterDockEngine.js";
+import { getDeckCornerOverride } from "./masterDockEngine.js";
+import { getDeckParent, getDeckChildren, syncDeckNodeSize } from "./masterDockEngine.js";
+
+function recordDockDebug(label, payload = {}) {
+    const debugPayload = {
+        label,
+        time: Date.now(),
+        ...payload,
+    };
+    window.xcpDockDebug = debugPayload;
+    console.log("[xcpDockDebug]", debugPayload);
+}
+
+function getDeckEngine() {
+    if (!window.xcpMasterDeckEngine) {
+        window.xcpMasterDeckEngine = new masterDockEngine(app.graph || null);
+    }
+    window.xcpMasterDeckEngine.setGraph(app.graph || null);
+    return window.xcpMasterDeckEngine;
+}
+
+export function drawDeckPreviewGlobal(ctx) {
+    getDeckEngine().drawPreview(ctx);
+}
 
 function getOrCreateBgCache(entity, width, height) {
     if (!entity) return null;
@@ -46,6 +71,98 @@ function hasRoundedOrFx(paint) {
         ? paint.corners.some(v => Number(v) > 0)
         : Number(paint.corners || 0) > 0;
     return corners || !!paint.shadow || !!paint.glow;
+}
+
+function applyCornerOverride(corners, override) {
+    if (!override) return corners;
+    const base = Array.isArray(corners) ? [...corners] : [8, 8, 8, 8];
+    for (let i = 0; i < 4; i++) {
+        if (override[i] !== null && override[i] !== undefined) base[i] = override[i];
+    }
+    return base;
+}
+
+function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH) {
+    const graph = app.graph || entity.graph || null;
+    if (!graph) return false;
+
+    const parent = getDeckParent(entity, graph);
+    const child = parent ? entity : getDeckChildren(entity, graph)[0];
+    const leader = parent || entity;
+    const docked = child;
+    const side = child?.properties?.deckDockSide;
+
+    if (!leader || !docked || !side) return false;
+
+    if (!entity._dockResizeSession) {
+        entity._dockResizeSession = {
+            side,
+            leaderId: leader.id,
+            dockedId: docked.id,
+            leaderStartW: leader.properties?.nodeSize?.[0] || leader.size?.[0] || 0,
+            leaderStartH: leader.properties?.nodeSize?.[1] || leader.size?.[1] || 0,
+            dockedStartW: docked.properties?.nodeSize?.[0] || docked.size?.[0] || 0,
+            dockedStartH: docked.properties?.nodeSize?.[1] || docked.size?.[1] || 0,
+        };
+    }
+
+    const session = entity._dockResizeSession;
+    const isLeftHandle = resizeAnchor === "top-left" || resizeAnchor === "bottom-left";
+    const isRightHandle = resizeAnchor === "top-right" || resizeAnchor === "bottom-right";
+    const isTopHandle = resizeAnchor === "top-left" || resizeAnchor === "top-right";
+    const isBottomHandle = resizeAnchor === "bottom-left" || resizeAnchor === "bottom-right";
+
+    if (side === "left" || side === "right") {
+        const leaderSeamUsesLeftHandle = side === "left";
+        const dockedSeamUsesLeftHandle = side === "right";
+        const seamResize =
+            (entity.id === leader.id && (leaderSeamUsesLeftHandle ? isLeftHandle : isRightHandle)) ||
+            (entity.id === docked.id && (dockedSeamUsesLeftHandle ? isLeftHandle : isRightHandle));
+        if (!seamResize) return false;
+
+        const totalWidth = session.leaderStartW + session.dockedStartW;
+
+        const leftNode = side === "left" ? docked : leader;
+        const rightNode = side === "left" ? leader : docked;
+        const draggedWidth = Math.min(totalWidth - minW, Math.max(minW, newW));
+        const counterpartWidth = Math.max(minW, totalWidth - draggedWidth);
+        const adjustedLeftW = leftNode.id === entity.id ? draggedWidth : counterpartWidth;
+        const adjustedRightW = rightNode.id === entity.id ? draggedWidth : counterpartWidth;
+
+        syncDeckNodeSize(leftNode, adjustedLeftW, leftNode.properties?.nodeSize?.[1] || leftNode.size?.[1] || 0);
+        syncDeckNodeSize(rightNode, adjustedRightW, rightNode.properties?.nodeSize?.[1] || rightNode.size?.[1] || 0);
+        rightNode.pos[0] = leftNode.pos[0] + adjustedLeftW;
+        if (typeof leftNode.syncUncleSlots === "function") leftNode.syncUncleSlots();
+        if (typeof rightNode.syncUncleSlots === "function") rightNode.syncUncleSlots();
+        return true;
+    }
+
+    if (side === "top" || side === "bottom") {
+        const leaderSeamUsesTopHandle = side === "top";
+        const dockedSeamUsesTopHandle = side === "bottom";
+        const seamResize =
+            (entity.id === leader.id && (leaderSeamUsesTopHandle ? isTopHandle : isBottomHandle)) ||
+            (entity.id === docked.id && (dockedSeamUsesTopHandle ? isTopHandle : isBottomHandle));
+        if (!seamResize) return false;
+
+        const totalHeight = session.leaderStartH + session.dockedStartH;
+
+        const topNode = side === "top" ? docked : leader;
+        const bottomNode = side === "top" ? leader : docked;
+        const draggedHeight = Math.min(totalHeight - minH, Math.max(minH, newH));
+        const counterpartHeight = Math.max(minH, totalHeight - draggedHeight);
+        const adjustedTopH = topNode.id === entity.id ? draggedHeight : counterpartHeight;
+        const adjustedBottomH = bottomNode.id === entity.id ? draggedHeight : counterpartHeight;
+
+        syncDeckNodeSize(topNode, topNode.properties?.nodeSize?.[0] || topNode.size?.[0] || 0, adjustedTopH);
+        syncDeckNodeSize(bottomNode, bottomNode.properties?.nodeSize?.[0] || bottomNode.size?.[0] || 0, adjustedBottomH);
+        bottomNode.pos[1] = topNode.pos[1] + adjustedTopH;
+        if (typeof topNode.syncUncleSlots === "function") topNode.syncUncleSlots();
+        if (typeof bottomNode.syncUncleSlots === "function") bottomNode.syncUncleSlots();
+        return true;
+    }
+
+    return false;
 }
 
 /**
@@ -256,9 +373,11 @@ function findHitRegion(layout, localMouse, options = {}) {
 export function handleShieldInteraction(entity, type, data = {}) {
     const scale = app.canvas.ds.scale;
     const localMouse = [data.localX || 0, data.localY || 0];
+    const deckEngine = getDeckEngine();
     if (type === "dragStart") {
         entity._startPos = [...(entity.pos || [0,0])];
         entity._startSize = [...(entity.size || [0,0])];
+        entity._deckDragAltActive = !!data.originalEvent?.altKey;
         const sysBtn = entity.layout?.regions?.systemBtn;
         if (sysBtn && entity.layout.hitTest(localMouse, sysBtn, Math.max(8, 8 / scale))) {
             entity._pressedRegionKey = "systemBtn";
@@ -272,6 +391,9 @@ export function handleShieldInteraction(entity, type, data = {}) {
             entity.setDirtyCanvas(true);
             return true;
         }
+        const deckRoot = deckEngine.beginDrag(entity);
+        entity._deckDragRootId = deckRoot?.id || entity.id;
+        entity._deckDragRootStartPos = [...(deckRoot?.pos || entity.pos || [0, 0])];
     } else if (type === "resize" && !entity.isSystemPanel) {
         const { SNAP, autoWidth, autoHeight } = entity.getDerpVars ? entity.getDerpVars(entity) : getDerpVars(entity);
         if (autoWidth && autoHeight) return;
@@ -322,6 +444,16 @@ export function handleShieldInteraction(entity, type, data = {}) {
         // ZERO-INFERENCE GATING: Only execute DOM/Canvas writes if physical size changed
         if (entity.size[0] === newW && entity.size[1] === newH) return;
 
+        if (syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH)) {
+            entity.setDirtyCanvas(true, true);
+            syncDerpShield(entity);
+            const graph = app.graph || entity.graph || null;
+            const parent = graph ? getDeckParent(entity, graph) : null;
+            const counterpart = parent || (graph ? getDeckChildren(entity, graph)[0] : null);
+            if (counterpart) syncDerpShield(counterpart);
+            return;
+        }
+
         if (allowWidthResize && anchorMode.moveX) {
             entity.pos[0] = entity._startPos[0] + (entity._startSize[0] - newW);
         }
@@ -350,10 +482,21 @@ export function handleShieldInteraction(entity, type, data = {}) {
             return false;
         }
         const { SNAP } = entity.getDerpVars(entity);
-        entity.pos[0] = Math.round((entity._startPos[0] + data.dx / scale) / SNAP) * SNAP;
-        entity.pos[1] = Math.round((entity._startPos[1] + data.dy / scale) / SNAP) * SNAP;
+        const dragRoot = deckEngine.getRoot(entity) || entity;
+        const rootStartPos = entity._deckDragRootStartPos || entity._startPos || dragRoot.pos || [0, 0];
+        dragRoot.pos[0] = Math.round((rootStartPos[0] + data.dx / scale) / SNAP) * SNAP;
+        dragRoot.pos[1] = Math.round((rootStartPos[1] + data.dy / scale) / SNAP) * SNAP;
+        deckEngine.syncDraggedDeck(dragRoot, SNAP).forEach((member) => {
+            syncDerpShield(member);
+        });
+        if (data.originalEvent?.altKey) {
+            deckEngine.resolveDeckTarget(entity, { radius: 120, ghostThickness: 10 });
+        } else {
+            deckEngine.previewTarget = null;
+            deckEngine.lastDeckTargetId = null;
+        }
         entity.setDirtyCanvas(true, true);
-        syncDerpShield(entity);
+        syncDerpShield(dragRoot);
     } else if (type === "click" || type === "pointerup") {
         const key = entity._pressedRegionKey;
         entity._pressedRegionKey = null;
@@ -452,11 +595,56 @@ export function handleShieldInteraction(entity, type, data = {}) {
             }
         }
     }else if (type === "dragEnd") {
+        const shouldFinalizeAltDock = !!data.originalEvent?.altKey;
+        let handledRegionDragEnd = false;
         if (entity._pressedRegionKey) {
             const reg = entity.layout?.regions[entity._pressedRegionKey];
-            if (reg && reg.onDragEnd) reg.onDragEnd(data.originalEvent, data);
+            if (reg && reg.onDragEnd) {
+                reg.onDragEnd(data.originalEvent, data);
+                handledRegionDragEnd = true;
+            }
+        }
+        if (shouldFinalizeAltDock) {
+            const { SNAP } = entity.getDerpVars(entity);
+            const targetInfo = deckEngine.resolveDeckTarget(entity, { radius: 120, ghostThickness: 10 });
+            recordDockDebug("dragEnd", {
+                dragNodeId: entity.id,
+                pressedRegionKey: entity._pressedRegionKey || null,
+                handledRegionDragEnd,
+                altKey: true,
+                targetNodeId: targetInfo?.targetNode?.id || null,
+                side: targetInfo?.edge?.side || null,
+            });
+            if (targetInfo?.targetNode) {
+                recordDockDebug("before-finalize", {
+                    dragNodeId: entity.id,
+                    targetNodeId: targetInfo.targetNode.id,
+                    side: targetInfo.edge?.side || null,
+                    dragSizeBefore: Array.isArray(entity.size) ? [...entity.size] : null,
+                    dragNodeSizeBefore: Array.isArray(entity.properties?.nodeSize) ? [...entity.properties.nodeSize] : null,
+                    targetSizeBefore: Array.isArray(targetInfo.targetNode.size) ? [...targetInfo.targetNode.size] : null,
+                    targetNodeSizeBefore: Array.isArray(targetInfo.targetNode.properties?.nodeSize) ? [...targetInfo.targetNode.properties.nodeSize] : null,
+                });
+                deckEngine.finalizeDeckTarget(entity, targetInfo, SNAP);
+                recordDockDebug("after-finalize", {
+                    dragNodeId: entity.id,
+                    targetNodeId: targetInfo.targetNode.id,
+                    side: targetInfo.edge?.side || null,
+                    dragSizeAfter: Array.isArray(entity.size) ? [...entity.size] : null,
+                    dragNodeSizeAfter: Array.isArray(entity.properties?.nodeSize) ? [...entity.properties.nodeSize] : null,
+                    targetSizeAfter: Array.isArray(targetInfo.targetNode.size) ? [...targetInfo.targetNode.size] : null,
+                    targetNodeSizeAfter: Array.isArray(targetInfo.targetNode.properties?.nodeSize) ? [...targetInfo.targetNode.properties.nodeSize] : null,
+                    autoHeightAfter: entity.properties?.autoHeight,
+                    autoWidthAfter: entity.properties?.autoWidth,
+                });
+                if (typeof entity.syncUncleSlots === "function") entity.syncUncleSlots();
+            }
         }
         entity._pressedRegionKey = null;
+        entity._deckDragAltActive = false;
+        entity._deckDragRootId = null;
+        entity._deckDragRootStartPos = null;
+        deckEngine.endDrag();
         entity.setDirtyCanvas(true, true);
 
         if (app.graph && app.graph.change) app.graph.change();
@@ -476,6 +664,7 @@ export function handleDrawCTX(entity, ctx, overlayPass = false) {
         const paintOFF = resolvePaintData(entity, "canvas", isBypassed ? "_DIS" : "");
         const paintON = resolvePaintData(entity, "canvas", isBypassed ? "_DIS" : "_ON");
         const paintDIS = resolvePaintData(entity, "canvas", "_DIS");
+        const cornerOverride = getDeckCornerOverride(entity, app.graph || entity.graph || null);
         const nodeWantsCache = entity?.properties?.optimizeStaticBgCache !== false;
         // Quality guard: rounded corners / shadow / glow are prone to cache resample artifacts.
         // In those cases prefer direct paint to preserve smooth corners.
@@ -483,8 +672,8 @@ export function handleDrawCTX(entity, ctx, overlayPass = false) {
 
         const renderBaseBackground = (targetCtx) => {
             if (header && paintOFF && paintON) {
-                const cOFF = paintOFF.corners || [8, 8, 8, 8];
-                const cON = paintON.corners || [8, 8, 8, 8];
+                const cOFF = applyCornerOverride(paintOFF.corners || [8, 8, 8, 8], cornerOverride);
+                const cON = applyCornerOverride(paintON.corners || [8, 8, 8, 8], cornerOverride);
 
                 if (isCollapsed) {
                     const collapsedPaint = { ...paintOFF, corners: [cON[0], cON[1], cOFF[2], cOFF[3]] };
