@@ -497,7 +497,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 hidden: basta._navAlpha < 0.01 || !hasImages,
                 spawnAnim: false, alpha: basta._navAlpha,
                 anchor: { target: "imageHandlingRegion", axis: "y",},
-                dir: "row", width: "full", height: "auto", margin: [0, 0, 0, sH],
+                dir: "row", width: "full", height: "auto", margin: [0, 0, 0, 2],
                 labelImageName: {
                     type: UI_TYPES.TEXT, themeKey: "t_textSystem",
                     alpha: basta._navAlpha,

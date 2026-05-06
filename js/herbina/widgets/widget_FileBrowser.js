@@ -105,7 +105,7 @@ function openFilePicker(sourceEl, config, node, callbacks) {
     const ds = comfyApp.canvas.ds;
     const scale = ds.scale;
     const items = config.items || [];
-    const { oY, sH, sW } = getDerpVars(node);
+    const { oY, sH, sW, mH } = getDerpVars(node);
     const hasIndicator = config.indicator === true || config.indicator === "on";
 
     const { bodyKey, pickerKey, textKey: labelKey } = resolveHybridThemeKeys(config.themeKey);
@@ -123,6 +123,7 @@ function openFilePicker(sourceEl, config, node, callbacks) {
 
     const picker = document.createElement("div");
     picker._dynamicRowHeight = dynamicRowHeight;
+    picker._bottomMarginUnits = mH || 0;
 
     const [aW, aH] = DROPDOWN_ANIM_SETTINGS.anchorSize;
     initializeHybridPicker(

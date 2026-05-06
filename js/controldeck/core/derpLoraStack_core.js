@@ -804,7 +804,7 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
 
                             if (!foundKey) {
                                 for (const key of keys) {
-                                    if ((key.startsWith("lblLoraNameTop_") || key.startsWith("sldModel_") || key.startsWith("sldClip_") || key.startsWith("loraPreview_") || key.startsWith("loraRow_")) && isHit(key)) {
+                                    if ((key.startsWith("dropTrigger_") || key.startsWith("lblLoraNameTop_") || key.startsWith("sldModel_") || key.startsWith("sldClip_") || key.startsWith("loraPreview_") || key.startsWith("loraRow_")) && isHit(key)) {
                                         foundKey = key;
                                         break;
                                     }
@@ -849,6 +849,16 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                                         localY,
                                         targetKey
                                     });
+                                } catch (e) {}
+                                return true;
+                            }
+                        }
+
+                        if (type === "click" && targetKey && targetKey.startsWith("dropTrigger_")) {
+                            const reg = regions?.[targetKey];
+                            if (reg && reg.state !== "DIS" && typeof reg.onPress === "function") {
+                                try {
+                                    reg.onPress(data.originalEvent, data);
                                 } catch (e) {}
                                 return true;
                             }

@@ -107,7 +107,7 @@ function openPicker(sourceEl, config, node, callbacks) {
     const pX = (config.padding?.[0] || 4);
     const fs = (config.fontSize || 10);
     const iconOffset = (config.indicator === true || config.indicator === "on") ? (fs * PICKER_GLYPH_SCALE * 1.2) + DROPDOWN_GLYPH_OFFSET : 0;
-    const { sH, oY, sW, mW } = getDerpVars(node);
+    const { sH, oY, sW, mW, mH } = getDerpVars(node);
 
     const { bodyKey, pickerKey, textKey: labelKey } = resolveHybridThemeKeys(config.themeKey);
     const listPaint = resolvePaintData(node, bodyKey, "_OFF") || node._panelPaintData_OFF;
@@ -118,6 +118,7 @@ function openPicker(sourceEl, config, node, callbacks) {
 
     const picker = document.createElement("div");
     picker._dynamicRowHeight = dynamicRowHeight;
+    picker._bottomMarginUnits = mH || 0;
 
     const [aW, aH] = DROPDOWN_ANIM_SETTINGS.anchorSize;
     initializeHybridPicker(

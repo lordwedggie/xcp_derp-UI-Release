@@ -333,6 +333,7 @@ export function syncHybridScroll(picker, scale) {
     picker._lastScrollHash = scrollHash;
     const sepHeightLocal = picker._sepHeightBase || 0;
     const visibleLimit = picker._visibleLimit || 15;
+    const bottomMarginUnits = picker._bottomMarginUnits || 0;
 
     const viewportH = (picker._currentSize[1] - (headerCount * dRowH) - sepHeightLocal);
     picker._scrollBounds.style.height = `${(viewportH * scale) + 1}px`;
@@ -344,12 +345,14 @@ export function syncHybridScroll(picker, scale) {
         if (picker._contentWrapper) {
             picker._contentWrapper.style.maxHeight = "none";
             picker._contentWrapper.style.overflow = "visible";
+            picker._contentWrapper.style.paddingBottom = "0px";
         }
     } else {
         picker._scrollBounds.style.overflowY = "auto";
         if (picker._contentWrapper) {
             picker._contentWrapper.style.maxHeight = "none";
             picker._contentWrapper.style.overflow = "visible";
+            picker._contentWrapper.style.paddingBottom = `${bottomMarginUnits * scale}px`;
         }
     }
 }

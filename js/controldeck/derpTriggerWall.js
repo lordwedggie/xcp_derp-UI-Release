@@ -222,6 +222,8 @@ app.registerExtension({
             this.properties.triggerGroups.forEach((group, gIdx) => {
                 if (group.hidden) return;
                 const triggerRows = {};
+                const regionKey = `triggerRegion_${gIdx}`;
+                const isSelected = !!this._selectedRegions?.[regionKey];
                 let curR = 0, curW = 0;
                 const nodeW = Math.round(clampedW || 150);
                 const marginX = (mW * 4);
@@ -275,8 +277,10 @@ app.registerExtension({
 
                 trigGroups.forEach((gItems, rIdx) => {
                     const isLastRow = rIdx === trigGroups.length - 1;
+                    const compactUnselected = (!this.properties.settingActive && !isSelected);
+                    const firstRowAnchorTarget = (rIdx === 0 && compactUnselected) ? regionKey : `lineBreak_${gIdx}`;
                     triggerRows[`triggerRow_${gIdx}_${rIdx}`] = {
-                        anchor: { target: rIdx === 0 ? `lineBreak_${gIdx}` : `triggerRow_${gIdx}_${rIdx - 1}`, axis: "y", offset: sH },
+                        anchor: { target: rIdx === 0 ? firstRowAnchorTarget : `triggerRow_${gIdx}_${rIdx - 1}`, axis: "y", offset: sH },
                         dir: "row", width: "full", height: "auto", spacing: [sW, 0], minWidth: 0,
                         margin: [-mW / 2, 0, -mW / 2, isLastRow ? mH + 2: 0],
                         ...Object.fromEntries(gItems.map(item => {
@@ -312,9 +316,6 @@ app.registerExtension({
                         }))
                     };
                 });
-
-                const regionKey = `triggerRegion_${gIdx}`;
-                const isSelected = !!this._selectedRegions?.[regionKey];
 
                 layoutMap[regionKey] = {
                     type: this.UI_TYPES.REGION, themeKey: "region", regionOffset: [mW, mH, mW, 0],
@@ -443,6 +444,21 @@ app.registerExtension({
 
         nodeType.prototype.onResize = function(size) {
             triggerWall_onResize(this, size);
+        };
+
+        const baseHandleInteraction = nodeType.prototype.handleShieldInteraction;
+        nodeType.prototype.handleShieldInteraction = function(type, data) {
+            if (type === "resize") {
+                const parsedMinW = Number(this.properties?.minWidth);
+                const safeMinW = Number.isFinite(parsedMinW) && parsedMinW > 0 ? parsedMinW : 200;
+                if (!this.properties) this.properties = {};
+                this.properties.minWidth = safeMinW;
+                if (this.layout) {
+                    this.layout.contentMinWidth = Math.max(this.layout.contentMinWidth || 0, safeMinW);
+                }
+            }
+            if (baseHandleInteraction) return baseHandleInteraction.apply(this, arguments);
+            return false;
         };
         // --- LIFECYCLE ---
         const onCreated = nodeType.prototype.onNodeCreated;
