@@ -213,13 +213,14 @@ export function createDerpShield(node) {
         if (e._isProxyEvent) return;
 
         const movedSignificantly = Math.hypot(e.clientX - startMouseX, e.clientY - startMouseY) > 5;
+        const heldStackDrag = !!node._dragThresholdMet;
         cleanup();
         app.canvas.dragging_canvas = false;
         if (app.canvas.node_draged === node) app.canvas.node_draged = null;
         if (app.canvas.moving_node === node) app.canvas.moving_node = null;
 
         // Select node on click natively
-        if (!movedSignificantly && !isResizing) {
+        if (!movedSignificantly && !isResizing && !heldStackDrag) {
             const localPos = getLocalCoords(e);
             const rect = shield.getBoundingClientRect();
 

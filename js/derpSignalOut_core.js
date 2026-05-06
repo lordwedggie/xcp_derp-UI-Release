@@ -120,6 +120,15 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                 // --- 1. PROTOTYPE INJECTION ---
                 uncle(nodeType, nodeData, 160);
 
+                const baseHandleInteraction = nodeType.prototype.handleShieldInteraction;
+                nodeType.prototype.handleShieldInteraction = function(type, data) {
+                    if (type === "click" && this._suppressClickAfterDrag) {
+                        this._suppressClickAfterDrag = false;
+                        return true;
+                    }
+                    return baseHandleInteraction.call(this, type, data);
+                };
+
                 nodeType.prototype.collectDerpOutputLinks = function(slotIndices = []) {
                     const cachedLinks = [];
                     const outputs = this._xcpTrueOutputs || this.outputs;

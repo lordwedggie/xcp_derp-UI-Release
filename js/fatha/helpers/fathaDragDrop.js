@@ -5,6 +5,9 @@
  */
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
 
+const STACK_DRAG_HOLD_BOX_PX = 5;
+const STACK_DRAG_HOLD_BOX_HALF = STACK_DRAG_HOLD_BOX_PX / 2;
+
 /**
  * Initializes the drag state for an item in a stack.
  * @param {Object} node - The host Fatha node.
@@ -45,11 +48,12 @@ export function updateStackDrag(node, data, regionPrefix, itemCount) {
     if (!node._dragTrig) return;
 
     if (!node._dragThresholdMet) {
-        const dist = Math.hypot(data.localX - node._dragMouse[0], data.localY - node._dragMouse[1]);
-        if (dist < 20) return; // Increased threshold to prevent twitchy clicks from triggering drag
-        node._dragThresholdMet = true;
-        if (node._dragHoldTimer) clearTimeout(node._dragHoldTimer);
-        if (window.DERP_GLOBAL_SETTINGS?.playSound && SOUND_INDEX.pickup) SOUND_INDEX.pickup();
+        const driftX = Math.abs(data.localX - node._dragMouse[0]);
+        const driftY = Math.abs(data.localY - node._dragMouse[1]);
+        if (driftX > STACK_DRAG_HOLD_BOX_HALF || driftY > STACK_DRAG_HOLD_BOX_HALF) {
+            endStackDrag(node, "");
+        }
+        return;
     }
 
     node._dragMouse = [data.localX, data.localY];
