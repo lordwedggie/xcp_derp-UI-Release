@@ -243,7 +243,8 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
         const rawH = this.layout?.contentMinHeight || this.layout?.totalHeight || 40;
         const engineFloorH = isMinState ? rawH : Math.ceil(rawH / SNAP) * SNAP;
 
-        const targetW = (autoWidth || isMinState) ? engineFloorW : Math.max(this.properties.nodeSize?.[0] || 0, engineFloorW);
+        const collapseMinimal = this.properties?.collapseMinimal === true;
+        const targetW = (autoWidth || (isMinState && collapseMinimal)) ? engineFloorW : Math.max(this.properties.nodeSize?.[0] || 0, engineFloorW);
         const targetH = (autoHeight || isMinState) ? engineFloorH : Math.max(this.properties.nodeSize?.[1] || 0, engineFloorH);
 
         // THE RESIZE INTERVENTION FIX: Skip animateDerpSize during active drag-resize.
@@ -415,7 +416,7 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
         if (!this.layout) this.layout = new masterLayoutEngine(this);
         createDerpShield(this);
         const useAnimations = window.DERP_GLOBAL_SETTINGS?.useAnimation ?? true;
-        this.properties = { titleLabel: "Virtual Node", ...(this.properties || {}), minWidth: minWidth, nodeSize: [minWidth, 50], drawHeader: true, drawSignalBtn: false, drawSettingBtn: false, settingActive: false, contentCollapsed: false, stickyDrag: true, useAnimations };
+        this.properties = { titleLabel: "Virtual Node", ...(this.properties || {}), minWidth: minWidth, nodeSize: [minWidth, 50], drawHeader: true, drawSignalBtn: false, drawSettingBtn: false, settingActive: false, contentCollapsed: false, collapseMinimal: false, stickyDrag: true, useAnimations };
         this.size = [...this.properties.nodeSize];
 
         // THE SIGNAL NAME COMPATIBILITY: Ensure virtual outputs have a valid name for masterSignalEngine
