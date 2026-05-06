@@ -217,32 +217,66 @@ export function ensureDeckProps(node) {
     return node.properties;
 }
 
+function getOppositeDeckSide(side) {
+    if (side === "left") return "right";
+    if (side === "right") return "left";
+    if (side === "top") return "bottom";
+    if (side === "bottom") return "top";
+    return null;
+}
+
+export function getOccupiedDeckEdges(node, graph) {
+    if (!node) return new Set();
+    const occupied = new Set();
+    const parent = getDeckParent(node, graph);
+    const parentSide = getOppositeDeckSide(node.properties?.deckDockSide || null);
+    if (parent && parentSide) occupied.add(parentSide);
+    getDeckChildren(node, graph).forEach((child) => {
+        if (child.properties?.deckDockSide) occupied.add(child.properties.deckDockSide);
+    });
+    return occupied;
+}
+
+function getNodeOnDeckEdge(node, graph, side) {
+    if (!node || !graph || !side) return null;
+    const parent = getDeckParent(node, graph);
+    if (parent && getOppositeDeckSide(node.properties?.deckDockSide || null) === side) return parent;
+    return getDeckChildren(node, graph).find((child) => child.properties?.deckDockSide === side) || null;
+}
+
 export function getDeckCornerOverride(node, graph) {
     if (!node || !graph) return null;
 
-    const parent = getDeckParent(node, graph);
-    if (parent) {
-        const side = node.properties?.deckDockSide;
-        if (side === "left") return [null, 0, 0, null];
-        if (side === "right") return [0, null, null, 0];
-        if (side === "top") return [null, null, 0, 0];
-        if (side === "bottom") return [0, 0, null, null];
-        return null;
+    const occupied = getOccupiedDeckEdges(node, graph);
+    if (occupied.size === 0) return null;
+
+    const override = [null, null, null, null];
+    if (occupied.has("left")) {
+        override[0] = 0;
+        override[3] = 0;
     }
-
-    const children = getDeckChildren(node, graph);
-    if (children.length !== 1) return null;
-
-    const childSide = children[0].properties?.deckDockSide;
-    if (childSide === "left") return [0, null, null, 0];
-    if (childSide === "right") return [null, 0, 0, null];
-    if (childSide === "top") return [0, 0, null, null];
-    if (childSide === "bottom") return [null, null, 0, 0];
-    return null;
+    if (occupied.has("right")) {
+        override[1] = 0;
+        override[2] = 0;
+    }
+    if (occupied.has("top")) {
+        override[0] = 0;
+        override[1] = 0;
+    }
+    if (occupied.has("bottom")) {
+        override[2] = 0;
+        override[3] = 0;
+    }
+    return override;
 }
 
 export function getDeckNodes(graph) {
     return (graph?._nodes || []).filter(isDeckableDerpNode);
+}
+
+export function isNodeDocked(node, graph) {
+    if (!node) return false;
+    return !!getDeckParent(node, graph) || getDeckChildren(node, graph).length > 0;
 }
 
 export function getDeckParent(node, graph) {
@@ -289,19 +323,59 @@ export function getDeckMembers(rootNode, graph) {
     return members;
 }
 
+export function isLinearDeckGroup(node, graph, axis = null) {
+    const members = getDeckMembers(node, graph);
+    if (members.length <= 1) return false;
+
+    const allowedSides = axis === "horizontal"
+        ? new Set(["left", "right"])
+        : axis === "vertical"
+            ? new Set(["top", "bottom"])
+            : null;
+    if (!allowedSides) return false;
+
+    const degreeMap = new Map();
+    let endpointCount = 0;
+
+    for (const member of members) {
+        const occupied = getOccupiedDeckEdges(member, graph);
+        let degree = 0;
+
+        for (const side of occupied) {
+            if (!allowedSides.has(side)) return false;
+            const neighbor = getNodeOnDeckEdge(member, graph, side);
+            if (!neighbor) return false;
+            degree += 1;
+        }
+
+        if (degree === 0 || degree > 2) return false;
+        degreeMap.set(member.id, degree);
+        if (degree === 1) endpointCount += 1;
+    }
+
+    return endpointCount === 2;
+}
+
 export function isNodeInDeckBranch(branchRoot, candidateNode, graph) {
     if (!branchRoot || !candidateNode) return false;
     return getDeckMembers(branchRoot, graph).some((node) => node.id === candidateNode.id);
 }
 
-export function canDeckNodeToLeader(node, leader, graph) {
+export function canDeckNodeToLeader(node, leader, graph, side = null) {
     if (!node || !leader) return false;
     if (node.id === leader.id) return false;
     if (!isDeckableDerpNode(node) || !isDeckableDerpNode(leader)) return false;
     if (!isClosedDeckTarget(leader)) return false;
     if (isNodeInDeckBranch(node, leader, graph)) return false;
     if (getDeckParent(node, graph) || getDeckChildren(node, graph).length > 0) return false;
-    if (getDeckParent(leader, graph) || getDeckChildren(leader, graph).length > 0) return false;
+    if (!side) return true;
+
+    const leaderOccupied = getOccupiedDeckEdges(leader, graph);
+    if (leaderOccupied.has(side)) return false;
+
+    const nodeOccupied = getOccupiedDeckEdges(node, graph);
+    const oppositeSide = getOppositeDeckSide(side);
+    if (oppositeSide && nodeOccupied.has(oppositeSide)) return false;
     return true;
 }
 
@@ -353,6 +427,24 @@ export function undeckNode(node, graph = null) {
     return hadParent;
 }
 
+export function undockNodeEdges(node, graph = null) {
+    const activeGraph = graph || node?.graph || null;
+    if (!node || !activeGraph) return false;
+
+    const parent = getDeckParent(node, activeGraph);
+    let changed = false;
+
+    if (parent) {
+        changed = undeckNode(node, activeGraph) || changed;
+    }
+
+    const children = [...getDeckChildren(node, activeGraph)];
+    children.forEach((child) => {
+        changed = undeckNode(child, activeGraph) || changed;
+    });
+    return changed;
+}
+
 export function syncDeckNodeSize(node, width, height) {
     if (!node) return false;
     const nextW = Number(width) || 0;
@@ -377,6 +469,23 @@ export function syncDeckNodeSize(node, width, height) {
     if (typeof node.refreshNodeLayoutMap === "function") node.refreshNodeLayoutMap();
     if (typeof node.requestDerpSync === "function") node.requestDerpSync();
     else if (typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, true);
+    return true;
+}
+
+function isWithinDeckSearchRadius(dragRect, targetRect, radius) {
+    const dragLeft = dragRect.x;
+    const dragRight = dragRect.x + dragRect.w;
+    const dragTop = dragRect.y;
+    const dragBottom = dragRect.y + dragRect.h;
+    const targetLeft = targetRect.x;
+    const targetRight = targetRect.x + targetRect.w;
+    const targetTop = targetRect.y;
+    const targetBottom = targetRect.y + targetRect.h;
+
+    if (targetLeft > dragRight + radius) return false;
+    if (targetRight < dragLeft - radius) return false;
+    if (targetTop > dragBottom + radius) return false;
+    if (targetBottom < dragTop - radius) return false;
     return true;
 }
 
@@ -504,10 +613,11 @@ export function findDeckTarget(dragNode, graph, options = {}) {
     if (!dragNode || !graph) return null;
 
     const radius = isFiniteNumber(options.radius) ? options.radius : DEFAULT_DECK_RADIUS;
+    const dragRect = getNodeRect(dragNode);
     const candidates = getDeckNodes(graph).filter((node) => {
         if (node.id === dragNode.id) return false;
         if (!isClosedDeckTarget(node)) return false;
-        if (!canDeckNodeToLeader(dragNode, node, graph)) return false;
+        if (!isWithinDeckSearchRadius(dragRect, getNodeRect(node), radius)) return false;
         return true;
     });
 
@@ -520,6 +630,8 @@ export function findDeckTarget(dragNode, graph, options = {}) {
     candidates.forEach((node) => {
         const edge = getClosestDeckEdge(dragNode, node, options);
         const dist = edge?.distance ?? Infinity;
+        if (!edge?.side) return;
+        if (!canDeckNodeToLeader(dragNode, node, graph, edge.side)) return;
         if (dist <= radius && dist < bestDistance) {
             bestNode = node;
             bestDistance = dist;
@@ -561,6 +673,19 @@ export function applyDeckEdgeSnap(node, targetInfo, snap = DEFAULT_DECK_SNAP) {
     }
 
     return true;
+}
+
+export function reflowDockedChildren(node, graph, snap = DEFAULT_DECK_SNAP) {
+    if (!node || !graph) return [];
+    const moved = [];
+    getDeckChildren(node, graph).forEach((child) => {
+        const side = child.properties?.deckDockSide || null;
+        if (!side) return;
+        applyDeckEdgeSnap(child, { targetNode: node, edge: { side } }, snap);
+        moved.push(child);
+        moved.push(...reflowDockedChildren(child, graph, snap));
+    });
+    return moved;
 }
 
 export function drawDeckGhost(ctx, ghost, options = {}) {
@@ -635,6 +760,10 @@ export class masterDockEngine {
 
     applySnap(node, targetInfo, snap = DEFAULT_DECK_SNAP) {
         return applyDeckEdgeSnap(node, targetInfo, snap);
+    }
+
+    reflowChildren(node, snap = DEFAULT_DECK_SNAP) {
+        return reflowDockedChildren(node, this.graph, snap);
     }
 
     drawPreview(ctx, options = {}) {

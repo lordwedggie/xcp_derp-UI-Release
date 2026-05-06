@@ -9,7 +9,7 @@ import { showBastaFileHandler, getHandlerId } from "../bastas/bastaFileHandler.j
 import { showBastaMessage } from "../bastas/bastaMessage.js";
 import { playKaChing, playKaboom } from "../../herbina/masterSoundEffects.js";
 import { resolvePaintData, measureTextWidth } from "../../herbina/utils/widgetsUtils.js";
-import { undeckNode } from "../core/masterDockEngine.js";
+import { isNodeDocked, undockNodeEdges } from "../core/masterDockEngine.js";
 
 const DEBUG_OPTIONS = ["None", "Layout", "Hitbox", "Widgets Hitbox"];
 const TITLE_LABEL_DEFAULT = "Derp Nodes";
@@ -97,13 +97,13 @@ export const getVirtualNodeLayoutMap = (node) => {
                 },
                 btnDeck: {
                     type: UI_TYPES.ICONBUTTON,
-                    hidden: !p.deckParentId,
+                    hidden: !isNodeDocked(node, node.graph || null),
                     themeKey: "buttonNode, t_textSystem",
                     objectAlign: ["left", "middle"],
                     icon: "undeck",
                     width: "match", height: "fill", spacing: [sW, 0],
                     onPress: () => {
-                        if (undeckNode(node, node.graph || null)) {
+                        if (undockNodeEdges(node, node.graph || null)) {
                             node.requestDerpSync();
                         }
                     }

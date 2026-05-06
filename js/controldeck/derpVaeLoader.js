@@ -136,6 +136,7 @@ app.registerExtension({
                                     }
                                     sendSignal();
                                     this.refreshNodeLayoutMap();
+                                    this.requestDerpSync();
                                 }
                             });
                         }
@@ -231,6 +232,7 @@ app.registerExtension({
                                 sendSignal();
                                 if (this.syncDerpOutputs) this.syncDerpOutputs();
                                 this.refreshNodeLayoutMap();
+                                this.requestDerpSync();
                             }
                         },
                         btnRefreshVaes: {
