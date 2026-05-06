@@ -5,6 +5,7 @@
 
 import { showTriggerWall } from "../../fatha/bastas/bastaTriggerWall.js";
 import { showBastaFileHandler } from "../../fatha/bastas/bastaFileHandler.js";
+import { endStackDrag } from "../../fatha/helpers/fathaDragDrop.js";
 
 function refreshAndSync(node, syncOutputs = true, dirtyFull = false) {
     node.refreshNodeLayoutMap();
@@ -351,6 +352,103 @@ export function triggerWall_addGroup(node) {
     node.refreshNodeLayoutMap();
     if (node.syncDerpOutputs) node.syncDerpOutputs();
     node.setDirtyCanvas(true);
+}
+
+export function triggerWall_groupDrag(node, data, visibleGroupIndices = []) {
+    if (!node._dragTrig || node._dragTrig.index === undefined) return;
+
+    if (!node._dragThresholdMet) {
+        const driftX = Math.abs(data.localX - node._dragMouse[0]);
+        const driftY = Math.abs(data.localY - node._dragMouse[1]);
+        if (driftX > 2.5 || driftY > 2.5) {
+            endStackDrag(node, "");
+        }
+        return;
+    }
+
+    node._dragMouse = [data.localX, data.localY];
+    const mouseY = data.localY;
+    const draggedVisibleIdx = node._dragTrig.index;
+    const stableRegs = [];
+
+    visibleGroupIndices.forEach((gIdx, visibleIdx) => {
+        if (visibleIdx === draggedVisibleIdx) return;
+        const reg = node.layout?.regions?.[`triggerRegion_${gIdx}`];
+        if (reg) stableRegs.push(reg);
+    });
+
+    stableRegs.sort((a, b) => a.y - b.y);
+
+    let targetIdx = 0;
+    for (let i = 0; i < stableRegs.length; i++) {
+        const reg = stableRegs[i];
+        const thresholdY = reg.y + (reg.h / 2);
+        if (mouseY > thresholdY) targetIdx = i + 1;
+        else break;
+    }
+
+    if (stableRegs.length > 0) {
+        const lastReg = stableRegs[stableRegs.length - 1];
+        const tailThresholdY = lastReg.y + (lastReg.h * 0.5);
+        const belowLastRowY = lastReg.y + lastReg.h;
+        if (mouseY >= tailThresholdY || mouseY >= belowLastRowY) {
+            targetIdx = stableRegs.length;
+        }
+    }
+
+    if (node._dropPreviewIdx !== targetIdx) {
+        node._dropPreviewIdx = targetIdx;
+        node.refreshNodeLayoutMap();
+    }
+    node.setDirtyCanvas(true);
+}
+
+export function triggerWall_reorderGroups(node, fromVisibleIdx, toVisibleIdx) {
+    const allGroups = Array.isArray(node.properties.triggerGroups) ? node.properties.triggerGroups : [];
+    const visibleActualIndices = allGroups.reduce((acc, group, actualIdx) => {
+        if (!group?.hidden) acc.push(actualIdx);
+        return acc;
+    }, []);
+
+    if (
+        fromVisibleIdx === toVisibleIdx ||
+        fromVisibleIdx < 0 ||
+        toVisibleIdx < 0 ||
+        fromVisibleIdx >= visibleActualIndices.length ||
+        toVisibleIdx >= visibleActualIndices.length
+    ) return;
+
+    const selectedActualIdx = visibleActualIndices.find((actualIdx) => node._selectedRegions?.[`triggerRegion_${actualIdx}`]);
+    const selectedGroupId = selectedActualIdx !== undefined ? allGroups[selectedActualIdx]?.id : null;
+
+    const visibleGroups = visibleActualIndices.map((actualIdx) => allGroups[actualIdx]);
+    const [moved] = visibleGroups.splice(fromVisibleIdx, 1);
+    visibleGroups.splice(toVisibleIdx, 0, moved);
+
+    let visibleCursor = 0;
+    node.properties.triggerGroups = allGroups.map((group) => {
+        if (group?.hidden) return group;
+        return visibleGroups[visibleCursor++];
+    });
+
+    if (selectedGroupId) {
+        node._selectedRegions = {};
+        const newSelectedIdx = node.properties.triggerGroups.findIndex((group) => !group?.hidden && group?.id === selectedGroupId);
+        if (newSelectedIdx !== -1) node._selectedRegions[`triggerRegion_${newSelectedIdx}`] = true;
+    }
+
+    node._layoutMapHash = null;
+    refreshAndSync(node, true, true);
+}
+
+export function triggerWall_groupDragEnd(node) {
+    const fromVisibleIdx = node._dragTrig?.index;
+    const toVisibleIdx = node._dropPreviewIdx;
+    endStackDrag(node, "");
+
+    if (fromVisibleIdx !== undefined && toVisibleIdx !== undefined && fromVisibleIdx !== toVisibleIdx) {
+        triggerWall_reorderGroups(node, fromVisibleIdx, toVisibleIdx);
+    }
 }
 
 export function triggerWall_itemDragStart(node, e, data, gIdx, tIdx) {

@@ -4,6 +4,7 @@
  */
 import { app } from "../../../scripts/app.js";
 import { fatha, initDerpGlobalListener } from "../fatha/fatha.js";
+import { startStackDrag } from "../fatha/helpers/fathaDragDrop.js";
 import {
     triggerWall_syncOutputs,
     triggerWall_onNodeCreated,
@@ -33,7 +34,9 @@ import {
     triggerWall_toggleAddAlways,
     triggerWall_isGroupDuplicate,
     triggerWall_onDerpSysPanelOpen,
-    triggerWall_onResize
+    triggerWall_onResize,
+    triggerWall_groupDrag,
+    triggerWall_groupDragEnd
 } from "./core/derpTriggerWall_core.js";
 
 function bumpTWPerfCounter(node, key) {
@@ -132,7 +135,7 @@ app.registerExtension({
 
             // ZERO-INFERENCE GATING: Early return if structure and size haven't changed
             const groupsForHash = (this.properties.triggerGroups || []).filter(g => !g.hidden);
-            let currentHash = `${clampedW.toFixed(2)}_${(this.properties.triggerGroups || []).findIndex((g, gIdx) => !g.hidden && this._selectedRegions?.[`triggerRegion_${gIdx}`])}_${this._dropPreviewIdx}_${this._dragTrig?.tIdx}`;
+            let currentHash = `${clampedW.toFixed(2)}_${(this.properties.triggerGroups || []).findIndex((g, gIdx) => !g.hidden && this._selectedRegions?.[`triggerRegion_${gIdx}`])}_${this._dropPreviewIdx}_${this._dragTrig?.tIdx}_${this._dragTrig?.index}_${this._dragThresholdMet}_${this._dragMouse?.join(",")}`;
             groupsForHash.forEach(g => {
                 currentHash += `|${g.id}_${g.title}_${g.isExclusive}_${g.hidden || false}`;
                 g.triggers.forEach(t => { currentHash += `:${t.id}_${t.active}_${t.weight}_${t.label}_${t.disabled}_${t.hidden || false}`; });
@@ -171,11 +174,131 @@ app.registerExtension({
                 this.properties.triggers = [];
             }
 
-            const groups = (this.properties.triggerGroups || []).filter(g => !g.hidden);
+            const visibleGroupEntriesBase = (this.properties.triggerGroups || [])
+                .map((group, gIdx) => ({ group, gIdx }))
+                .filter(({ group }) => !group.hidden);
+            const groups = visibleGroupEntriesBase.map(({ group }) => group);
             const activeTitles = groups.map(g => g.title);
             const selectedGroupOriginalIdx = (this.properties.triggerGroups || []).findIndex((g, gIdx) => !g.hidden && this._selectedRegions?.[`triggerRegion_${gIdx}`]);
             const selectedGroup = selectedGroupOriginalIdx !== -1 ? this.properties.triggerGroups[selectedGroupOriginalIdx] : null;
             const anySelected = selectedGroup !== null;
+            const visibleGroupIndices = visibleGroupEntriesBase.map(({ gIdx }) => gIdx);
+            const visibleGroupEntries = [...visibleGroupEntriesBase];
+            let floatingGroupEntry = null;
+
+            if (this._dragTrig && this._dragThresholdMet && this._dragTrig.index !== undefined) {
+                const d = this._dragTrig;
+                const pIdx = (this._dropPreviewIdx !== undefined) ? this._dropPreviewIdx : d.index;
+                [floatingGroupEntry] = visibleGroupEntries.splice(d.index, 1);
+                if (floatingGroupEntry) {
+                    visibleGroupEntries.splice(pIdx, 0, { ...floatingGroupEntry, isPreviewGhost: true });
+                }
+            }
+
+            const buildGroupRows = (group, gIdx, isSelected, options = {}) => {
+                const {
+                    groupWidgetAlpha = 1,
+                    rowAnchorPrefix = "triggerRow",
+                    firstRowAnchorTarget = `lineBreak_${gIdx}`,
+                    itemPressEnabled = true,
+                    itemDragEnabled = true,
+                    addPressEnabled = true
+                } = options;
+
+                let curR = 0;
+                let curW = 0;
+                const nodeW = Math.round(clampedW || 150);
+                const marginX = (mW * 4);
+                const maxW = nodeW - marginX;
+                const triggerRows = {};
+
+                let items = [
+                    ...(group.triggers || []).map((trig, idx) => ({ type: "trig", trig, idx })).filter(i => !i.trig.hidden),
+                    { type: "add" }
+                ];
+                if (itemDragEnabled && this._dragTrig && this._dragTrig.gIdx === gIdx) {
+                    const d = this._dragTrig;
+                    const pIdx = (this._dropPreviewIdx !== undefined) ? this._dropPreviewIdx : d.tIdx;
+                    const [moved] = items.splice(d.tIdx, 1);
+                    moved.isTriggerPreviewGhost = true;
+                    items.splice(pIdx, 0, moved);
+                }
+
+                const trigGroups = items.reduce((acc, item) => {
+                    let tw = 0;
+                    if (item.type === "trig") {
+                        tw = Math.ceil(this.layout.measure({
+                            type: this.UI_TYPES.COMPOSITE_TRIGGER, themeKey: "panel, button, t_textsmall",
+                            text: item.trig.label || "Trigger Test", width: "auto", height: "auto",
+                            padding: [triggerPadW, triggerPadH, triggerPadW, triggerPadH], margin: [0, 0], spacing: [sW, 0],
+                            showWeight: this.properties.showWeight, weight: item.trig.weight ?? 1.0
+                        }, { textTheme: this._t_textSmallPaintData || this._t_textNormalPaintData }));
+                    } else {
+                        const showAdd = isSelected || this.properties.toggleAddAlways;
+                        tw = showAdd ? Math.ceil(this.layout.measure({
+                            type: this.UI_TYPES.ICONBUTTON, themeKey: "button, t_textsmall",
+                            icon: "add", width: "auto", height: "match", minHeight: 22, baseHeight: 22, padding: [triggerPadW, triggerPadH, triggerPadW, triggerPadH], margin: [0, 0]
+                        }, { textTheme: this._t_textSmallPaintData || this._t_textNormalPaintData })) : 0;
+                    }
+
+                    if (this.layout._measureCache) this.layout._measureCache.clear();
+
+                    const spacing = acc[curR].length > 0 ? sW : 0;
+                    if (curW + tw + spacing > maxW && acc[curR].length > 0) {
+                        curR++;
+                        curW = 0;
+                    }
+
+                    if (!acc[curR]) acc[curR] = [];
+                    acc[curR].push(item);
+                    curW += (acc[curR].length > 1 ? sW : 0) + tw;
+                    return acc;
+                }, [[]]);
+
+                trigGroups.forEach((gItems, rIdx) => {
+                    const isLastRow = rIdx === trigGroups.length - 1;
+                    triggerRows[`${rowAnchorPrefix}_${gIdx}_${rIdx}`] = {
+                        anchor: { target: rIdx === 0 ? firstRowAnchorTarget : `${rowAnchorPrefix}_${gIdx}_${rIdx - 1}`, axis: "y", offset: sH },
+                        dir: "row", width: "full", height: "auto", spacing: [sW, 0], minWidth: 0,
+                        margin: [-mW / 2, 0, -mW / 2, isLastRow ? mH + 2 : 0],
+                        ...Object.fromEntries(gItems.map(item => {
+                            if (item.type === "trig") {
+                                const isModalActive = this._activeModalItemKey === `triggerItem_${gIdx}_${item.idx}`;
+                                const triggerActive = (item.trig.active || isModalActive) && !isBypassed && item.trig.disabled !== true;
+                                const triggerItemKey = rowAnchorPrefix === "triggerRow" ? `triggerItem_${gIdx}_${item.idx}` : `${rowAnchorPrefix}Item_${gIdx}_${item.idx}`;
+                                return [triggerItemKey, {
+                                    type: this.UI_TYPES.COMPOSITE_TRIGGER, themeKey: "panel, button, t_textsmall",
+                                    text: item.trig.label || "Trigger Test", mouseOver: false,
+                                    width: "auto", height: "auto", padding: [triggerPadW, triggerPadH, triggerPadW, triggerPadH], margin: [0, 0], spacing: [sW, 0],
+                                    showWeight: this.properties.showWeight, weight: item.trig.weight ?? 1.0,
+                                    alpha: groupWidgetAlpha,
+                                    value: item.trig.active || isModalActive,
+                                    state: isModalActive ? "ON" : ((isBypassed || item.trig.disabled === true) ? "DIS" : "OFF"),
+                                    disabled: item.trig.disabled === true,
+                                    bodyPaint: item.isTriggerPreviewGhost ? this._buttonPaintData_DIS : (isModalActive ? this._panelPaintData_ON : (triggerActive ? this._panelPaintData : this._panelPaintData_DIS)),
+                                    slotPaint: isModalActive ? this._buttonPaintData_ON : (triggerActive ? this._buttonPaintData : this._buttonPaintData_DIS),
+                                    labelPaint: isModalActive ? this._t_textSmallPaintData_ON : (triggerActive ? this._t_textSmallPaintData : this._t_textSmallPaintData_DIS),
+                                    onDragStart: itemDragEnabled ? ((e, data) => triggerWall_itemDragStart(this, e, data, gIdx, item.idx)) : undefined,
+                                    onDrag: itemDragEnabled ? ((e, data) => triggerWall_itemDrag(this, e, data)) : undefined,
+                                    onDragEnd: itemDragEnabled ? ((e, data) => triggerWall_itemDragEnd(this, e, data)) : undefined,
+                                    onPress: itemPressEnabled ? ((e, data) => triggerWall_itemPress(this, e, data, gIdx, item.idx, group, isBypassed)) : undefined
+                                }];
+                            }
+
+                            const addItemKey = rowAnchorPrefix === "triggerRow" ? `btnAdd_${gIdx}` : `${rowAnchorPrefix}Add_${gIdx}`;
+                            return [addItemKey, {
+                                type: this.UI_TYPES.ICONBUTTON, themeKey: "button, t_textsmall",
+                                icon: "add", width: "match", height: trigHeight, padding: [triggerPadW, triggerPadH, triggerPadW, triggerPadH], margin: [0, 0],
+                                alpha: groupWidgetAlpha,
+                                hidden: !(this.properties.toggleAddAlways || isSelected),
+                                onPress: addPressEnabled ? (() => triggerWall_addTrigger(this, group)) : undefined
+                            }];
+                        }))
+                    };
+                });
+
+                return triggerRows;
+            };
 
             const textTheme = this._t_textSmallPaintData || this._t_textNormalPaintData || {};
             const trigHeight = (textTheme.fontSize || 10) + (triggerPadH * 2);
@@ -227,123 +350,52 @@ app.registerExtension({
 
             let lastRegionKey = "groupControlRow1";
 
-            this.properties.triggerGroups.forEach((group, gIdx) => {
-                if (group.hidden) return;
-                const triggerRows = {};
+            visibleGroupEntries.forEach((entry) => {
+                const { group, gIdx, isPreviewGhost } = entry;
+                const isGroupPreviewGhost = !!isPreviewGhost;
                 const regionKey = `triggerRegion_${gIdx}`;
                 const isSelected = !!this._selectedRegions?.[regionKey];
-                let curR = 0, curW = 0;
-                const nodeW = Math.round(clampedW || 150);
-                const marginX = (mW * 4);
-                const maxW = nodeW - marginX;
-
-                let items = [
-                    ...(group.triggers || []).map((trig, idx) => ({ type: "trig", trig, idx })).filter(i => !i.trig.hidden),
-                    { type: "add" }
-                ];
-                if (this._dragTrig && this._dragTrig.gIdx === gIdx) {
-                    const d = this._dragTrig;
-                    const pIdx = (this._dropPreviewIdx !== undefined) ? this._dropPreviewIdx : d.tIdx;
-                    const [moved] = items.splice(d.tIdx, 1);
-                    moved.isPreviewGhost = true; // Tag for visual styling in the next step
-                    items.splice(pIdx, 0, moved);
-                }
-
-                const trigGroups = items.reduce((acc, item) => {
-                    let tw = 0;
-                    if (item.type === "trig") {
-                        tw = Math.ceil(this.layout.measure({
-                            type: this.UI_TYPES.COMPOSITE_TRIGGER, themeKey: "panel, button, t_textsmall",
-                            text: item.trig.label || "Trigger Test", width: "auto", height: "auto",
-                            padding: [triggerPadW, triggerPadH, triggerPadW, triggerPadH], margin: [0, 0], spacing: [sW, 0],
-                            showWeight: this.properties.showWeight, weight: item.trig.weight ?? 1.0
-                        }, { textTheme: this._t_textSmallPaintData || this._t_textNormalPaintData }));
-                    } else {
-                        const isSelected = !!this._selectedRegions?.[`triggerRegion_${gIdx}`];
-                        const showAdd = isSelected || this.properties.toggleAddAlways;
-                        tw = showAdd ? Math.ceil(this.layout.measure({
-                            type: this.UI_TYPES.ICONBUTTON, themeKey: "button, t_textsmall",
-                            icon: "add", width: "auto", height: "match", minHeight: 22, baseHeight: 22, padding: [triggerPadW, triggerPadH, triggerPadW, triggerPadH], margin: [0, 0]
-                        }, { textTheme: this._t_textSmallPaintData || this._t_textNormalPaintData })) : 0;
-                    }
-
-                    // Keep per-item measure cache reset to avoid stale width reuse across
-                    // varying trigger payloads (label/weight/theme), which can break wrapping.
-                    if (this.layout._measureCache) this.layout._measureCache.clear();
-
-                    const spacing = acc[curR].length > 0 ? sW : 0;
-                    if (curW + tw + spacing > maxW && acc[curR].length > 0) {
-                        curR++;
-                        curW = 0;
-                    }
-
-                    if (!acc[curR]) acc[curR] = [];
-                    acc[curR].push(item);
-                    curW += (acc[curR].length > 1 ? sW : 0) + tw;
-                    return acc;
-                }, [[]]);
-
-                trigGroups.forEach((gItems, rIdx) => {
-                    const isLastRow = rIdx === trigGroups.length - 1;
-                    const compactUnselected = (!this.properties.settingActive && !isSelected);
-                    const firstRowAnchorTarget = (rIdx === 0 && compactUnselected) ? regionKey : `lineBreak_${gIdx}`;
-                    triggerRows[`triggerRow_${gIdx}_${rIdx}`] = {
-                        anchor: { target: rIdx === 0 ? firstRowAnchorTarget : `triggerRow_${gIdx}_${rIdx - 1}`, axis: "y", offset: sH },
-                        dir: "row", width: "full", height: "auto", spacing: [sW, 0], minWidth: 0,
-                        margin: [-mW / 2, 0, -mW / 2, isLastRow ? mH + 2: 0],
-                        ...Object.fromEntries(gItems.map(item => {
-                            if (item.type === "trig") {
-                                const isModalActive = this._activeModalItemKey === `triggerItem_${gIdx}_${item.idx}`;
-                                const triggerActive = (item.trig.active || isModalActive) && !isBypassed && item.trig.disabled !== true;
-
-                                return [`triggerItem_${gIdx}_${item.idx}`, {
-                                    type: this.UI_TYPES.COMPOSITE_TRIGGER, themeKey: "panel, button, t_textsmall",
-                                    text: item.trig.label || "Trigger Test", mouseOver: false,
-                                    width: "auto", height: "auto", padding: [triggerPadW, triggerPadH, triggerPadW, triggerPadH], margin: [0, 0], spacing: [sW, 0],
-                                    showWeight: this.properties.showWeight, weight: item.trig.weight ?? 1.0,
-                                    value: item.trig.active || isModalActive,
-                                    state: isModalActive ? "ON" : ((isBypassed || item.trig.disabled === true) ? "DIS" : "OFF"),
-                                    disabled: item.trig.disabled === true,
-
-                                    bodyPaint: item.isPreviewGhost ? this._buttonPaintData_DIS : (isModalActive ? this._panelPaintData_ON : (triggerActive ? this._panelPaintData : this._panelPaintData_DIS)),
-                                    slotPaint: isModalActive ? this._buttonPaintData_ON : (triggerActive ? this._buttonPaintData : this._buttonPaintData_DIS),
-                                    labelPaint: isModalActive ? this._t_textSmallPaintData_ON : (triggerActive ? this._t_textSmallPaintData : this._t_textSmallPaintData_DIS),
-                                    onDragStart: (e, data) => triggerWall_itemDragStart(this, e, data, gIdx, item.idx),
-                                    onDrag: (e, data) => triggerWall_itemDrag(this, e, data),
-                                    onDragEnd: (e, data) => triggerWall_itemDragEnd(this, e, data),
-                                    onPress: (e, data) => triggerWall_itemPress(this, e, data, gIdx, item.idx, group, isBypassed)
-                                }];
-                            } else {
-                                return [`btnAdd_${gIdx}`, {
-                                    type: this.UI_TYPES.ICONBUTTON, themeKey: "button, t_textsmall",
-                                    icon: "add", width: "match", height: trigHeight, padding: [triggerPadW, triggerPadH, triggerPadW, triggerPadH], margin: [0, 0],
-                                    hidden: !(this.properties.toggleAddAlways || this._selectedRegions?.[`triggerRegion_${gIdx}`]),
-                                    onPress: () => triggerWall_addTrigger(this, group)
-                                }];
-                            }
-                        }))
-                    };
+                const triggerRows = buildGroupRows(group, gIdx, isSelected, {
+                    groupWidgetAlpha: isGroupPreviewGhost ? 0 : 1,
+                    rowAnchorPrefix: "triggerRow",
+                    firstRowAnchorTarget: (!this.properties.settingActive && !isSelected) ? regionKey : `lineBreak_${gIdx}`,
+                    itemPressEnabled: true,
+                    itemDragEnabled: true,
+                    addPressEnabled: true
                 });
 
                 layoutMap[regionKey] = {
                     type: this.UI_TYPES.REGION, themeKey: "region", regionOffset: [mW, mH, mW, 0],
+                    alpha: isGroupPreviewGhost ? 0 : 1,
                     state: isSelected ? "ON" : (isBypassed ? "DIS" : "OFF"),
                     anchor: { target: lastRegionKey, axis: "y", offset: mH },
                     hoverEffect: false,
-                    onPress: () => triggerWall_toggleRegion(this, regionKey),
+                    onDragStart: (e, data) => startStackDrag(this, data, visibleGroupIndices.indexOf(gIdx), regionKey),
+                    onDrag: (e, data) => {
+                        triggerWall_groupDrag(this, data, visibleGroupIndices);
+                        this.refreshNodeLayoutMap();
+                    },
+                    onDragEnd: () => triggerWall_groupDragEnd(this),
+                    onPress: () => {
+                        triggerWall_groupDragEnd(this);
+                        triggerWall_toggleRegion(this, regionKey);
+                    },
                     margin: [mW * 2, mH, mW * 2, mH],
                     width: "full", height: "auto", dir: "col", minWidth: 0,
                     [`headerRegion_${gIdx}`]: {
+                        alpha: isGroupPreviewGhost ? 0 : 1,
                         hidden: !this.properties.settingActive && !isSelected,
                         dir: "row", width: "full", height: "auto", margin: [0, -mH, -mW, 0],
                         spacing: [sW, 0],
                         [`btnRename_${gIdx}`]: {
                             type: this.UI_TYPES.ICONBUTTON, icon: "rename", themeKey: "button, t_textsystem",
+                            alpha: isGroupPreviewGhost ? 0 : 1,
                             width: "match", height: "fill", margin: [-sW, mH], spacing: [sW * 2, 0],
                             onPress: () => triggerWall_renameGroup(this, group, gIdx)
                         },
                         [`dropdownTriggerGroup_${gIdx}`]: {
                             type: this.UI_TYPES.DROPDOWN, themeKey: "button, t_textsmall", skipBackground: false,
+                            alpha: isGroupPreviewGhost ? 0 : 1,
                             indicator: true, canvasShield: true, mouseOver: false,
                             width: "full", height: "auto", spacing: [sW, 0],
                             padding: [pW, pH],
@@ -357,12 +409,14 @@ app.registerExtension({
 
                         [`btnRemoveGroup_${gIdx}`]: {
                             type: this.UI_TYPES.ICONBUTTON, themeKey: "button, t_textsystem",
+                            alpha: isGroupPreviewGhost ? 0 : 1,
                             icon: "close", width: "match", height: "fill", margin: [0, sH, sW, sH],
                             hidden: this.properties.triggerGroups.length <= 1,
                             onPress: () => triggerWall_removeGroup(this, gIdx)
                         }
                     },
                     [`lineBreak_${gIdx}`]: {
+                        alpha: isGroupPreviewGhost ? 0 : 1,
                         hidden: !this.properties.settingActive && !isSelected,
                         type: this.UI_TYPES.LINEBREAK, margin: [-mW, 0, -mW, sH]
                     },
@@ -370,6 +424,70 @@ app.registerExtension({
                 };
                 lastRegionKey = regionKey;
             });
+
+            if (floatingGroupEntry && this._dragThresholdMet && this._dragMouse && this._dragOffset) {
+                const floatingGroup = floatingGroupEntry.group || {};
+                const floatingGIdx = floatingGroupEntry.gIdx;
+                const floatingRegionKey = `floatingTriggerRegion_${floatingGIdx}`;
+                const floatingIsSelected = !!this._selectedRegions?.[`triggerRegion_${floatingGIdx}`];
+                const floatingRows = buildGroupRows(floatingGroup, floatingGIdx, floatingIsSelected, {
+                    groupWidgetAlpha: 1,
+                    rowAnchorPrefix: "floatingTriggerRow",
+                    firstRowAnchorTarget: (!this.properties.settingActive && !floatingIsSelected) ? floatingRegionKey : `floatingLineBreak_${floatingGIdx}`,
+                    itemPressEnabled: false,
+                    itemDragEnabled: false,
+                    addPressEnabled: false
+                });
+
+                layoutMap[floatingRegionKey] = {
+                    type: this.UI_TYPES.REGION,
+                    themeKey: "region",
+                    regionOffset: [mW, mH, mW, 0],
+                    state: floatingIsSelected ? "ON" : (isBypassed ? "DIS" : "OFF"),
+                    ignoreLayout: true,
+                    x: this._dragMouse[0] - this._dragOffset[0],
+                    y: this._dragMouse[1] - this._dragOffset[1],
+                    zIndex: 100,
+                    pulseStates: true,
+                    pulseFromState: "_DIS",
+                    pulseToState: "_ON",
+                    pulseSpeed: 0.005,
+                    width: this.layout?.regions?.[`triggerRegion_${floatingGIdx}`]?.w || "full",
+                    height: "auto",
+                    dir: "col",
+                    minWidth: 0,
+                    [`floatingHeaderRegion_${floatingGIdx}`]: {
+                        hidden: !this.properties.settingActive && !floatingIsSelected,
+                        dir: "row", width: "full", height: "auto", margin: [0, -mH, -mW, 0],
+                        spacing: [sW, 0],
+                        [`floatingBtnRename_${floatingGIdx}`]: {
+                            type: this.UI_TYPES.ICONBUTTON, icon: "rename", themeKey: "button, t_textsystem",
+                            width: "match", height: "fill", margin: [-sW, mH], spacing: [sW * 2, 0]
+                        },
+                        [`floatingDropdownTriggerGroup_${floatingGIdx}`]: {
+                            type: this.UI_TYPES.DROPDOWN, themeKey: "button, t_textsmall", skipBackground: false,
+                            indicator: true, canvasShield: true, mouseOver: false,
+                            width: "full", height: "auto", spacing: [sW, 0],
+                            padding: [pW, pH],
+                            value: floatingGroup.title || "Trigger Group",
+                            items: [...(this._cachedPresetData?.triggerGroups || this.properties.triggerGroups || [])]
+                                .filter(g => !activeTitles.includes(g.title) || g.title === floatingGroup.title)
+                                .sort((a, b) => (a.title || "").localeCompare(b.title || ""))
+                                .map(g => g.title || "Trigger Group")
+                        },
+                        [`floatingBtnRemoveGroup_${floatingGIdx}`]: {
+                            type: this.UI_TYPES.ICONBUTTON, themeKey: "button, t_textsystem",
+                            icon: "close", width: "match", height: "fill", margin: [0, sH, sW, sH],
+                            hidden: this.properties.triggerGroups.length <= 1
+                        }
+                    },
+                    [`floatingLineBreak_${floatingGIdx}`]: {
+                        hidden: !this.properties.settingActive && !floatingIsSelected,
+                        type: this.UI_TYPES.LINEBREAK, margin: [-mW, 0, -mW, sH]
+                    },
+                    ...floatingRows
+                };
+            }
 
             const cachedTriggerGroupItems = [...(this._cachedPresetData?.triggerGroups || [])]
                 .sort((a, b) => (a.title || "").localeCompare(b.title || ""))
@@ -479,6 +597,10 @@ app.registerExtension({
 
         const baseHandleInteraction = nodeType.prototype.handleShieldInteraction;
         nodeType.prototype.handleShieldInteraction = function(type, data) {
+            if (type === "click" && this._suppressClickAfterDrag) {
+                this._suppressClickAfterDrag = false;
+                return true;
+            }
             if (type === "resize") {
                 const parsedMinW = Number(this.properties?.minWidth);
                 const safeMinW = Number.isFinite(parsedMinW) && parsedMinW > 0 ? parsedMinW : 200;

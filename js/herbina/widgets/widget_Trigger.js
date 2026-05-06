@@ -13,10 +13,19 @@ const WEIGHT_EPSILON = 1e-6;
 export function syncDerpTrigger(ctx, node, app, config) {
     if (!config.geometry) return;
     let { x, y, w, h } = config.geometry;
+    const sysAlpha = config.alpha !== undefined ? config.alpha : 1;
+    if (sysAlpha <= 0) return;
 
     const isDragging = node._dragTrig && node._dragTrig.key === config.key;
-    if (isDragging && node._dragMouse) {
+    let saved = false;
+    if (isDragging || sysAlpha < 1) {
         ctx.save();
+        saved = true;
+    }
+    if (sysAlpha < 1) {
+        ctx.globalAlpha *= sysAlpha;
+    }
+    if (isDragging && node._dragMouse) {
         x = node._dragMouse[0] - (node._dragOffset?.[0] || (w / 2));
         y = node._dragMouse[1] - (node._dragOffset?.[1] || (h / 2));
         ctx.globalAlpha *= 0.6;
@@ -190,7 +199,7 @@ export function syncDerpTrigger(ctx, node, app, config) {
         ctx.restore();
     }
 
-    if (isDragging) ctx.restore();
+    if (saved) ctx.restore();
 }
 
 export const syncDerpCompositeTrigger = syncDerpTrigger;
