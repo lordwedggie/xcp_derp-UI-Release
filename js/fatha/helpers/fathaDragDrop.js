@@ -27,6 +27,8 @@ export function startStackDrag(node, data, index, regionKey) {
         if (node._dragTrig) {
             node._dragThresholdMet = true;
             if (window.DERP_GLOBAL_SETTINGS?.playSound && SOUND_INDEX.pickup) SOUND_INDEX.pickup();
+            if (node.refreshNodeLayoutMap) node.refreshNodeLayoutMap();
+            if (node.requestDerpSync) node.requestDerpSync();
             if (node.setDirtyCanvas) node.setDirtyCanvas(true);
         }
     }, 500);

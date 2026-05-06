@@ -34,7 +34,7 @@ app.registerExtension({
 
             const deck = this.properties.vaeDeck || [];
             const deckHash = deck.map(m => `${m.name}:${m.active}:${m.source || ""}`).join("|");
-            const structureHash = `${deckHash}_${(this._vaeList || []).length}_${window._xcpDerpSession}_${this.properties.showFolderNames}_${this.properties.settingActive}_${this.properties.extractFromModel}_${mW}_${mH}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}_${this._dropPreviewIdx}_${this._dragTrig?.index}_${this._dragMouse?.join(",")}`;
+            const structureHash = `${deckHash}_${(this._vaeList || []).length}_${window._xcpDerpSession}_${this.properties.showFolderNames}_${this.properties.settingActive}_${this.properties.extractFromModel}_${mW}_${mH}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}_${this._dropPreviewIdx}_${this._dragTrig?.index}_${this._dragThresholdMet}_${this._dragMouse?.join(",")}`;
 
             if (this._layoutMapHash === structureHash && this.layoutMap) {
                 this.requestDerpSync();
@@ -50,7 +50,7 @@ app.registerExtension({
             const deckItems = deck.map((m, idx) => ({ m, idx }));
             let floatingItem = null;
 
-            if (this._dragTrig && this._dragTrig.index !== undefined) {
+            if (this._dragTrig && this._dragThresholdMet && this._dragTrig.index !== undefined) {
                 const d = this._dragTrig;
                 const pIdx = (this._dropPreviewIdx !== undefined) ? this._dropPreviewIdx : d.index;
 
@@ -65,11 +65,12 @@ app.registerExtension({
             deckItems.forEach((item) => {
                 const { m, idx } = item;
                 const rowKey = `vaeRow_${idx}`;
+                const isPickedUp = !!(this._dragTrig && this._dragThresholdMet && this._dragTrig.index === idx && !item.isPreviewGhost);
                 deckRegions[rowKey] = {
                     type: this.UI_TYPES.REGION,
                     dir: "row", width: "full", height: item.isPreviewGhost ? 30 : "auto",
                     spacing: [0, sH],
-                    state: item.isPreviewGhost ? "DIS" : (m.active ? "ON" : "OFF"),
+                    state: item.isPreviewGhost ? "DIS" : ((isPickedUp || m.active) ? "ON" : "OFF"),
                     alpha: item.isPreviewGhost ? 0 : 1.0,
                     onDragStart: (e, data) => startStackDrag(this, data, idx, rowKey),
                     onDrag: (e, data) => { updateStackDrag(this, data, "vaeRow_", deck.length); this.refreshNodeLayoutMap(); },
@@ -139,7 +140,7 @@ app.registerExtension({
             });
 
             // 3. THE FLOATING LAYER
-            if (floatingItem && this._dragMouse && this._dragOffset) {
+            if (floatingItem && this._dragThresholdMet && this._dragMouse && this._dragOffset) {
                 const { m, idx } = floatingItem;
                 const dragX = this._dragMouse[0] - this._dragOffset[0];
                 const dragY = this._dragMouse[1] - this._dragOffset[1];
@@ -148,7 +149,12 @@ app.registerExtension({
                     type: this.UI_TYPES.REGION, themeKey: "region",
                     dir: "row", width: this.size[0] - (mW * 4), height: "auto",
                     ignoreLayout: true, x: dragX, y: dragY, zIndex: 100,
-                    state: "ON", regionOffset: [0, 0],
+                    state: "ON",
+                    pulseStates: true,
+                    pulseFromState: "_DIS",
+                    pulseToState: "_ON",
+                    pulseSpeed: 0.005,
+                    regionOffset: [0, 0],
                     [`floatingToggle`]: {
                         type: this.UI_TYPES.TOGGLE_V2, isTextOnly: true, cutoff: true,
                         text: (this.properties.showFolderNames ? m.name : m.name.split(/[\\/]/).pop()).replace(/\.(safetensors|pt|ckpt)$/i, ""),

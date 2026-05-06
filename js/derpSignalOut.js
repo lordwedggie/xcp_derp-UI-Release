@@ -105,7 +105,7 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
 
                     const activeHash = activeOuts.map((sig, idx) => `${idx}:${sig?.nodeId || ""}:${sig?.type || ""}:${sig?.nodeName || ""}:${!!sig?.isOrphaned}`).join("|");
                     const signalHash = (this.receivedSignals || []).map((sig) => `${sig?.nodeId || ""}:${sig?.type || ""}:${sig?.nodeName || ""}`).join("|");
-                    const structureHash = `${activeHash}_${signalHash}_${this.properties.settingActive}_${this.properties.showSignalIds}_${this.properties.showSlotNames}_${this.properties.showSlotTypes}_${this.properties.showVirtualLinks}_${this.properties.signalSortMode}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}_${mW}_${mH}_${this._dropPreviewIdx}_${this._dragTrig?.index}_${this._dragMouse?.join(",")}_${this.mode}`;
+                    const structureHash = `${activeHash}_${signalHash}_${this.properties.settingActive}_${this.properties.showSignalIds}_${this.properties.showSlotNames}_${this.properties.showSlotTypes}_${this.properties.showVirtualLinks}_${this.properties.signalSortMode}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}_${mW}_${mH}_${this._dropPreviewIdx}_${this._dragTrig?.index}_${this._dragThresholdMet}_${this._dragMouse?.join(",")}_${this.mode}`;
 
                     if (this._layoutMapHash === structureHash && this.layoutMap) {
                         this.requestDerpSync();
@@ -116,7 +116,7 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                     const outputItems = activeOuts.map((sig, idx) => ({ sig, idx }));
                     let floatingItem = null;
 
-                    if (this._dragTrig && this._dragTrig.index !== undefined) {
+                    if (this._dragTrig && this._dragThresholdMet && this._dragTrig.index !== undefined) {
                         const drag = this._dragTrig;
                         const previewIdx = (this._dropPreviewIdx !== undefined) ? this._dropPreviewIdx : drag.index;
                         [floatingItem] = outputItems.splice(drag.index, 1);
@@ -153,12 +153,13 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                 const hasGraphLinks = Object.values(app.graph?.links || {}).some((link) => String(link?.origin_id ?? link?.source_id) === callerId && Number(link?.origin_slot ?? link?.source_slot) === idx);
                                 const isConnected = hasSlotLinks || hasGraphLinks;
                                 const isBypassed = this.mode === 4 || this.mode === 2 || this._derpSpoofedBypass;
+                                const isPickedUp = !!(this._dragTrig && this._dragThresholdMet && this._dragTrig.index === idx && !item.isPreviewGhost);
 
                                 acc[rowKey] = {
                                     anchor: { target: prev, axis: "y", offset: displayIdx === 0 ? 0 : sH },
                                     dir: "row", width: "full", height: item.isPreviewGhost ? 30 : "auto",
                                     outSlotIdx: idx, // GENERIC SLOT TAG: Allows uncleSlotHelper to find this region
-                                    state: item.isPreviewGhost ? "DIS" : "OFF",
+                                    state: item.isPreviewGhost ? "DIS" : (isPickedUp ? "ON" : "OFF"),
                                     alpha: item.isPreviewGhost ? 0 : 1.0,
                                     onDragStart: (e, data) => startStackDrag(this, data, idx, rowKey),
                                     onDrag: (e, data) => { updateStackDrag(this, data, "outputsRegion_display_", activeOuts.length); this.refreshNodeLayoutMap(); },
@@ -202,7 +203,7 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                             }),
                                         value: formatSignalLabel(sig),
                                         width: "full", padding: [pW, pH], spacing: [sW, 0],
-                                        state: (isBypassed || !isConnected) ? "DIS" : "OFF",
+                                        state: isPickedUp ? "ON" : ((isBypassed || !isConnected) ? "DIS" : "OFF"),
                                         alpha: item.isPreviewGhost ? 0 : 1.0,
                                         onDragStart: (e, data) => startStackDrag(this, data, idx, rowKey),
                                         onDrag: (e, data) => { updateStackDrag(this, data, "outputsRegion_display_", activeOuts.length); this.refreshNodeLayoutMap(); },
@@ -282,7 +283,7 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                         },
                     };
 
-                    if (floatingItem && this._dragMouse && this._dragOffset) {
+                    if (floatingItem && this._dragThresholdMet && this._dragMouse && this._dragOffset) {
                         const { sig } = floatingItem;
                         const dragX = this._dragMouse[0] - this._dragOffset[0];
                         const dragY = this._dragMouse[1] - this._dragOffset[1];
@@ -298,6 +299,10 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                             y: dragY,
                             zIndex: 100,
                             state: "ON",
+                            pulseStates: true,
+                            pulseFromState: "_DIS",
+                            pulseToState: "_ON",
+                            pulseSpeed: 0.005,
                             regionOffset: [0, 0],
                             floatingLabel: {
                                 type: UI_TYPES.DROPDOWN_DERP,

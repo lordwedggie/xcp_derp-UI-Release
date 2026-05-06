@@ -1,6 +1,6 @@
 import { masterPainter, compileThemeData } from "../masterPainter.js";
 import { resolvePaintData, resolvePaletteEntry, compileAnimatedPaint } from "../utils/widgetsUtils.js";
-import { animateWidgetColors } from "../masterAnimator.js";
+import { animateWidgetColors, colorPulse2, parseColor } from "../masterAnimator.js";
 
 export function createDerpRegion(config = {}) {
     return {
@@ -85,6 +85,21 @@ export function syncDerpRegion(ctx, node, config) {
 
     if (paintData) {
         const animatedPaint = compileAnimatedPaint(paintData, config, sysAlpha, { fill: fillColor, textColor: "transparent" });
+
+        if (config.pulseStates === true && useAnim) {
+            const fromState = config.pulseFromState || "_ON";
+            const toState = config.pulseToState || "_DIS";
+            const fromPaint = resolvePaintData(node, config.themeKey || "region", fromState, config.btnColor) || paintData;
+            const toPaint = resolvePaintData(node, config.themeKey || "region", toState, config.btnColor) || paintData;
+            const fromBorder = parseColor(fromPaint?.border?.color || "transparent");
+            const toBorder = parseColor(toPaint?.border?.color || "transparent");
+            const pulsedBorder = colorPulse2(fromBorder, toBorder, config.pulseSpeed || 0.005);
+            animatedPaint.border = {
+                ...(animatedPaint.border || paintData.border || {}),
+                color: pulsedBorder
+            };
+            node._derpAwakeFrames = Math.max(node._derpAwakeFrames || 0, 5);
+        }
 
         if (config.corners) {
             const tC = paintData.corners;
