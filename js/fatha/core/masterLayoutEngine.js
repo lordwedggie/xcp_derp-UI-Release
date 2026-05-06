@@ -451,7 +451,7 @@ export class masterLayoutEngine {
             this.processRecursive({ footerRegion }, this.regions.panelBackground, context);
         }
 
-        const allRegions = this._layoutCache_all || Object.values(this.regions).filter(r => r.key !== "panelBackground" && !r.ignoreLayout);
+        const allRegions = Object.values(this.regions).filter(r => r.key !== "panelBackground" && !r.ignoreLayout);
         this._layoutCache_all = allRegions;
         const propMinW = this.owner?.properties?.minWidth || 0;
         if (allRegions.length > 0) {
