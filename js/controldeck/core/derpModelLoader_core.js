@@ -9,6 +9,34 @@ import { transmitDerpSignal } from "../../fatha/core/masterSignalEngine.js";
 export function initDerpModelLoaderCore(nodeType) {
     const proto = nodeType.prototype;
 
+    function normalizeModelDeck(deck) {
+        if (!Array.isArray(deck) || deck.length === 0) return [];
+
+        let activeFound = false;
+        return deck.map((entry, idx) => {
+            const next = { ...entry, active: !!entry.active };
+            if (next.active) {
+                if (!activeFound) {
+                    activeFound = true;
+                } else {
+                    next.active = false;
+                }
+            }
+            return next;
+        }).map((entry, idx, arr) => {
+            if (!activeFound && idx === 0) return { ...entry, active: true };
+            return entry;
+        });
+    }
+
+    function resolveModelPathMatch(list, savedName) {
+        if (!savedName || !Array.isArray(list)) return null;
+        if (list.includes(savedName)) return savedName;
+
+        const fileName = String(savedName).split(/[\\/]/).pop();
+        return list.find(path => path.endsWith(fileName) || path.split(/[\\/]/).pop() === fileName) || null;
+    }
+
     proto.onThemeUpdate = function(config) {
         this.handleThemeUpdate(config);
         this._layoutMapHash = null; // THE STRUCTURAL RESET: Force full map rebuild on theme change
@@ -23,8 +51,9 @@ export function initDerpModelLoaderCore(nodeType) {
         this.refreshDerpTemplateSysMap();
     };
 
-    proto.fetchModelData = function(showNotification = false) {
+    proto.fetchModelData = function(showNotification = false, options = {}) {
         if (this.id === -1) return;
+        const suppressSignal = options?.suppressSignal === true;
         const session = window._xcpDerpSession || Date.now();
         fetch(`/xcp/list/models?v=${session}`)
             .then(r => r.json())
@@ -49,14 +78,14 @@ export function initDerpModelLoaderCore(nodeType) {
                         return null;
                     }).filter(Boolean);
 
-                    if ((missing.length > 0 || healed.length > 0) && this.properties.modelDeck.length > 0 && !this.properties.modelDeck.find(m => m.active)) {
-                        this.properties.modelDeck[0].active = true;
+                    if (this.properties.modelDeck.length > 0) {
+                        this.properties.modelDeck = normalizeModelDeck(this.properties.modelDeck);
                     }
                 }
 
                 if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
 
-                if (this.broadcastWirelessSignal) this.broadcastWirelessSignal();
+                if (!suppressSignal && this.broadcastWirelessSignal) this.broadcastWirelessSignal();
 
                 if (showNotification || missing.length > 0 || healed.length > 0) {
                     if (typeof playMicrowaveDing === "function") playMicrowaveDing();
@@ -160,7 +189,7 @@ export function initDerpModelLoaderCore(nodeType) {
 
     proto.handleLoaderCreated = function() {
         this.properties.isWirelessTransmitter = true;
-        if (this.syncDerpOutputs) this.syncDerpOutputs();
+        if (!this._restoreModelDeckPending && this.syncDerpOutputs) this.syncDerpOutputs();
 
         this.titleLabel = "Derp Model Loader";
         this.properties.titleLabel = "Derp Model Loader";
@@ -177,34 +206,35 @@ export function initDerpModelLoaderCore(nodeType) {
         this.refreshDerpTemplateSysMap();
 
         setTimeout(() => {
+            if (this._restoreModelDeckPending) return;
             this.fetchModelData();
-            if (typeof this.syncDerpOutputs === "function" && this.id !== -1) {
+            if (!this._restoreModelDeckPending && typeof this.syncDerpOutputs === "function" && this.id !== -1) {
                 this.syncDerpOutputs();
             }
         }, 32);
     };
 
     proto.handleLoaderConfigure = function() {
+        this._restoreModelDeckPending = true;
         const savedDeck = JSON.parse(JSON.stringify(this.properties.modelDeck || []));
-        this.fetchModelData();
+        this.fetchModelData(false, { suppressSignal: true });
         setTimeout(() => {
             if (savedDeck && savedDeck.length > 0) {
                 const currentList = this._modelList || [];
-                const restored = [];
-                let activeRestored = false;
-                savedDeck.forEach(saved => {
-                    const match = currentList.find(name => name === saved.name);
+                const restored = savedDeck.map(saved => {
+                    const match = resolveModelPathMatch(currentList, saved.name);
                     if (match) {
-                        restored.push({ name: saved.name, active: saved.active });
-                        if (saved.active) activeRestored = true;
+                        return { name: match, active: !!saved.active };
                     }
-                });
+                    return null;
+                }).filter(Boolean);
                 if (restored.length > 0) {
-                    if (!activeRestored) restored[0].active = true;
-                    this.properties.modelDeck = restored;
+                    this.properties.modelDeck = normalizeModelDeck(restored);
                 }
             }
+            this._restoreModelDeckPending = false;
             if (this.syncDerpOutputs) this.syncDerpOutputs();
+            if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
             this.refreshDerpTemplateSysMap();
         }, 50);
     };

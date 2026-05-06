@@ -8,6 +8,31 @@ import { playMicrowaveDing } from "../../herbina/masterSoundEffects.js";
 export function initDerpVaeLoaderCore(nodeType) {
     const proto = nodeType.prototype;
 
+    function normalizeVaeDeck(deck) {
+        if (!Array.isArray(deck) || deck.length === 0) return [];
+
+        let activeFound = false;
+        return deck.map((entry) => {
+            const next = { ...entry, active: !!entry.active };
+            if (next.active) {
+                if (!activeFound) activeFound = true;
+                else next.active = false;
+            }
+            return next;
+        }).map((entry, idx) => {
+            if (!activeFound && idx === 0) return { ...entry, active: true };
+            return entry;
+        });
+    }
+
+    function resolveVaePathMatch(list, savedName) {
+        if (!savedName || !Array.isArray(list)) return null;
+        if (list.includes(savedName)) return savedName;
+
+        const fileName = String(savedName).split(/[\\/]/).pop();
+        return list.find(path => path.endsWith(fileName) || path.split(/[\\/]/).pop() === fileName) || null;
+    }
+
     proto.onThemeUpdate = function(config) {
         this.handleThemeUpdate(config);
         this._layoutMapHash = null; // THE STRUCTURAL RESET: Synchronized cache nuke
@@ -22,8 +47,9 @@ export function initDerpVaeLoaderCore(nodeType) {
         this.refreshDerpTemplateSysMap();
     };
 
-    proto.fetchVaeData = function(showNotification = false) {
+    proto.fetchVaeData = function(showNotification = false, options = {}) {
         if (this.id === -1) return;
+        const suppressSignal = options?.suppressSignal === true;
         const session = window._xcpDerpSession || Date.now();
         const category = this.properties.extractFromModel ? "models" : "vaes";
         fetch(`/xcp/list/${category}?v=${session}`)
@@ -52,14 +78,14 @@ export function initDerpVaeLoaderCore(nodeType) {
                         return null;
                     }).filter(Boolean);
 
-                    if ((missing.length > 0 || healed.length > 0) && this.properties.vaeDeck.length > 0 && !this.properties.vaeDeck.find(m => m.active)) {
-                        this.properties.vaeDeck[0].active = true;
+                    if (this.properties.vaeDeck.length > 0) {
+                        this.properties.vaeDeck = normalizeVaeDeck(this.properties.vaeDeck);
                     }
                 }
 
                 if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
 
-                if (this.broadcastWirelessSignal) this.broadcastWirelessSignal();
+                if (!suppressSignal && this.broadcastWirelessSignal) this.broadcastWirelessSignal();
 
                 if (showNotification || missing.length > 0 || healed.length > 0) {
                     if (typeof playMicrowaveDing === "function") playMicrowaveDing();
@@ -177,7 +203,7 @@ export function initDerpVaeLoaderCore(nodeType) {
 
     proto.handleVaeCreated = function() {
         this.properties.isWirelessTransmitter = true;
-        if (this.syncDerpOutputs) this.syncDerpOutputs();
+        if (!this._restoreVaeDeckPending && this.syncDerpOutputs) this.syncDerpOutputs();
 
         this.titleLabel = "Derp Vae Loader";
         this.properties.titleLabel = "Derp Vae Loader";
@@ -195,17 +221,40 @@ export function initDerpVaeLoaderCore(nodeType) {
         this.refreshDerpTemplateSysMap();
 
         setTimeout(() => {
+            if (this._restoreVaeDeckPending) return;
             this.fetchVaeData();
-            if (typeof this.syncDerpOutputs === "function" && this.id !== -1) {
+            if (!this._restoreVaeDeckPending && typeof this.syncDerpOutputs === "function" && this.id !== -1) {
                 this.syncDerpOutputs();
             }
         }, 32);
     };
 
     proto.handleVaeConfigure = function() {
-        this.fetchVaeData();
+        this._restoreVaeDeckPending = true;
+        const savedDeck = JSON.parse(JSON.stringify(this.properties.vaeDeck || []));
+        this.fetchVaeData(false, { suppressSignal: true });
         setTimeout(() => {
+            if (savedDeck && savedDeck.length > 0) {
+                const currentList = this._vaeList || [];
+                const currentType = this.properties.extractFromModel ? "model" : "vae";
+                const preservedOtherSource = savedDeck.filter(saved => saved.source && saved.source !== currentType);
+                const restoredCurrentSource = savedDeck.map(saved => {
+                    if (saved.source && saved.source !== currentType) return null;
+                    const match = resolveVaePathMatch(currentList, saved.name);
+                    if (match) {
+                        return { name: match, active: !!saved.active, source: currentType };
+                    }
+                    return null;
+                }).filter(Boolean);
+
+                const mergedDeck = [...preservedOtherSource, ...restoredCurrentSource];
+                if (mergedDeck.length > 0) {
+                    this.properties.vaeDeck = normalizeVaeDeck(mergedDeck);
+                }
+            }
+            this._restoreVaeDeckPending = false;
             if (this.syncDerpOutputs) this.syncDerpOutputs();
+            if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
             this.refreshDerpTemplateSysMap();
         }, 50);
     };

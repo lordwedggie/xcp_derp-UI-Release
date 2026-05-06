@@ -115,7 +115,13 @@ app.registerExtension({
             if (!this.layout || !this.getDerpVars) return;
             bumpTWPerfCounter(this, "refresh");
 
-            const minW = this.properties?.minWidth || 200;
+            const varsForClamp = this.getDerpVars ? this.getDerpVars(this) : null;
+            const SNAP = Math.max(1, Number(varsForClamp?.SNAP) || 1);
+            const propMinW = Number(this.properties?.minWidth) || 200;
+            const padL = this._padL || 0;
+            const padR = this._padR || 0;
+            const contentMinW = this.layout?.contentMinWidth || propMinW;
+            const minW = Math.ceil(Math.max(propMinW, contentMinW + padL + padR) / SNAP) * SNAP;
             const rawW = this.size?.[0] || 0;
             const clampedW = Math.max(minW, rawW);
             if (rawW !== clampedW) {
