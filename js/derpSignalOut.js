@@ -4,6 +4,7 @@
  */
 import { app } from "../../../scripts/app.js";
 import { UI_TYPES } from "./fatha/core/masterLayoutTypes.js";
+import { startStackDrag, updateStackDrag, endStackDrag } from "./fatha/helpers/fathaDragDrop.js";
 
 if (!window._xcp_derpSignalOut_Layout_Loaded) {
     window._xcp_derpSignalOut_Layout_Loaded = true;
@@ -15,10 +16,45 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                 nodeType.prototype.onDerpSettingsPress = function() {
                     this.refreshNodeLayoutMap();
                 };
-        // --- LAYOUT MAPS ---
+                // --- LAYOUT MAPS ---
                 nodeType.prototype.refreshNodeLayoutMap = function() {
+                    if (this.flags?.collapsed || this.size?.[0] <= 0) return;
                     const { mW, mH, sW, sH, oX, oY, pW, pH } = this.getDerpVars(this);
                     const callerId = String(this.id);
+                    const isPlainWrapperSignalId = (signalId) => /^\d+$/.test(String(signalId || ""));
+                    const showSignalIds = this.properties.showSignalIds !== false;
+                    const sortMode = this.properties.signalSortMode || "Name";
+                    const formatSignalLabel = (signal) => {
+                        if (!signal) return "";
+                        const type = (signal.type || "unknown").toUpperCase();
+                        const showName = !!this.properties.showSlotNames;
+                        const showType = !!this.properties.showSlotTypes;
+                        const idPrefix = showSignalIds ? `[${signal.nodeId}] ` : "";
+                        const displayName = showName ? signal.nodeName : (signal.nodeName || "").replace(/\s\[[^\]]+\]$/, "");
+                        const tag = showType ? ` [${type}]` : "";
+                        return `${idPrefix}${displayName}${tag}`;
+                    };
+                    const resolveSignalIdFromLabel = (label) => {
+                        const match = String(label || "").match(/\[([\d:]+)\]/);
+                        if (match) return match[1];
+                        return this._signalLabelToId?.get(String(label || "")) || null;
+                    };
+                    const getSignalSortValue = (signal) => {
+                        if (sortMode === "Type") return String(signal?.type || "").toUpperCase();
+                        if (sortMode === "ID") {
+                            const signalId = String(signal?.nodeId || "");
+                            const [baseId, slotId = ""] = signalId.split(":");
+                            const baseNum = parseInt(baseId, 10);
+                            const slotNum = parseInt(slotId, 10);
+                            return `${Number.isNaN(baseNum) ? baseId : String(baseNum).padStart(10, "0")}:${Number.isNaN(slotNum) ? slotId : String(slotNum).padStart(10, "0")}`;
+                        }
+                        return String(signal?.nodeName || "").toLowerCase();
+                    };
+                    const sortSignals = (signals) => [...signals].sort((a, b) => {
+                        const primary = getSignalSortValue(a).localeCompare(getSignalSortValue(b), undefined, { numeric: true, sensitivity: "base" });
+                        if (primary !== 0) return primary;
+                        return String(a?.nodeId || "").localeCompare(String(b?.nodeId || ""), undefined, { numeric: true, sensitivity: "base" });
+                    });
 
                     // THE PHYSICAL LOOP GUARD: Traverse outputs to find all downstream nodes
                     const downstreamIds = new Set();
@@ -46,239 +82,367 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
 
                     const activeOuts = this.activeOutputs || [];
                     const activeIds = new Set(activeOuts.map(s => String(s.nodeId)));
-                    const signalItems = (this.receivedSignals || [])
+                    this._signalLabelToId = new Map();
+                    const signalItems = sortSignals((this.receivedSignals || [])
                         .filter(sig => {
                             const sigIdStr = String(sig.nodeId);
                             const sigBaseId = sigIdStr.split(":")[0];
                             const isAlreadyActive = activeIds.has(sigIdStr);
                             const isOwnSignal = sigBaseId === callerId;
+                            const isWrapperSignal = isPlainWrapperSignalId(sigIdStr);
+                            const isSignalOutSignal = sig.nodeType === "xcpDerpSignalOut";
 
                             // THE LOOP GUARD: Block signals that are physically downstream or contain this node in their upstream chain
                             const isDownstream = downstreamIds.has(sigBaseId) || (Array.isArray(sig.upstreamIds) && sig.upstreamIds.some(id => String(id) === callerId));
 
-                            return !isAlreadyActive && !isOwnSignal && !isDownstream;
-                        })
-                .map(sig => {
-                    const type = (sig.type || "unknown").toUpperCase();
-                    const showName = !!this.properties.showSlotNames;
-                    const showType = !!this.properties.showSlotTypes;
-                    const displayName = showName ? sig.nodeName : (sig.nodeName || "").replace(/\s\[[^\]]+\]$/, "");
-                    const tag = showType ? ` [${type}]` : "";
-                    return `[${sig.nodeId}] ${displayName}${tag}`;
-                });
+                            return !isWrapperSignal && !isSignalOutSignal && !isAlreadyActive && !isOwnSignal && !isDownstream;
+                        }))
+                        .map(sig => {
+                            const label = formatSignalLabel(sig);
+                            this._signalLabelToId.set(label, String(sig.nodeId));
+                            return label;
+                        });
 
-            this.layoutMap = {
-                contentRegion: {
-                    anchor: { target: "headerRegion", axis: "y", offset: oY },
-                    dir: "col", width: "full", height: "auto",
-                    margin: [mW, 0, mW, 0], padding: [pW, pH],
-                    lblContent: {
-                        type: UI_TYPES.TEXT, themeKey: "t_textsystem",
-                        text: "Select a detected signal:",
-                        labelAlign: ["left", "middle"], width: "full", height: "auto"
-                    },
-                    // THE DYNAMIC REPETITION: Generate indexed regions to repeat the outputsRegion
-                    outputsRegion: {
-                        anchor: { target: "lblContent", axis: "y", offset: oY },
-                        dir: "row", width: "full", height: 0,
-                        hidden: activeOuts.length === 0,
-                        outSlotIdx: -1 // THE TAG FIX: Recognize base anchor as a slot container
-                    },
-                    ...activeOuts.reduce((acc, sig, i) => {
-                        const prev = i === 0 ? "outputsRegion" : `outputsRegion_${i - 1}`;
+                    const activeHash = activeOuts.map((sig, idx) => `${idx}:${sig?.nodeId || ""}:${sig?.type || ""}:${sig?.nodeName || ""}:${!!sig?.isOrphaned}`).join("|");
+                    const signalHash = (this.receivedSignals || []).map((sig) => `${sig?.nodeId || ""}:${sig?.type || ""}:${sig?.nodeName || ""}`).join("|");
+                    const structureHash = `${activeHash}_${signalHash}_${this.properties.settingActive}_${this.properties.showSignalIds}_${this.properties.showSlotNames}_${this.properties.showSlotTypes}_${this.properties.showVirtualLinks}_${this.properties.signalSortMode}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}_${mW}_${mH}_${this._dropPreviewIdx}_${this._dragTrig?.index}_${this._dragMouse?.join(",")}_${this.mode}`;
 
-                        // THE GHOST FIX: Check the 'True' slot cache from the Heist instead of the native array
-                        const outputs = this._xcpTrueOutputs || this.outputs;
-                        const isConnected = !!(outputs && outputs[i] && outputs[i].links && outputs[i].links.length > 0);
+                    if (this._layoutMapHash === structureHash && this.layoutMap) {
+                        this.requestDerpSync();
+                        return;
+                    }
+                    this._layoutMapHash = structureHash;
 
-                        acc[`outputsRegion_${i}`] = {
-                            anchor: { target: prev, axis: "y", offset: i === 0 ? 0 : sH },
-                            dir: "row", width: "full", height: "auto",
-                            outSlotIdx: i, // GENERIC SLOT TAG: Allows uncleSlotHelper to find this region
-                            [`lblOutputInfo_${i}`]: {
-                                type: UI_TYPES.DROPDOWN_DERP, themeKey: "panel, t_textNormal",
-                                wrap: false, // THE TYPO FIX: Changed 'warp' to 'wrap'
-                                minWidth: 100,
-                                canvasShield: true, labelAlign: ["left", "middle"],
-                                indicator: "on",
-                                items: (this.receivedSignals || [])
-                                    .filter(s => {
-                                        const sType = (s.type || "unknown").toUpperCase();
-                                        if (sType !== (sig.type || "unknown").toUpperCase()) return false;
-                                        const sigIdStr = String(s.nodeId);
-                                        const sigBaseId = sigIdStr.split(":")[0];
-                                        const isAlreadyActive = activeIds.has(sigIdStr);
-                                        const isOwnSignal = sigBaseId === callerId;
+                    const outputItems = activeOuts.map((sig, idx) => ({ sig, idx }));
+                    let floatingItem = null;
 
-                                        // THE LOOP GUARD: Block signals that are physically downstream or contain this node in their upstream chain
-                                        const isDownstream = downstreamIds.has(sigBaseId) || (Array.isArray(s.upstreamIds) && s.upstreamIds.some(id => String(id) === callerId));
+                    if (this._dragTrig && this._dragTrig.index !== undefined) {
+                        const drag = this._dragTrig;
+                        const previewIdx = (this._dropPreviewIdx !== undefined) ? this._dropPreviewIdx : drag.index;
+                        [floatingItem] = outputItems.splice(drag.index, 1);
+                        const ghost = { ...floatingItem, isPreviewGhost: true };
+                        outputItems.splice(previewIdx, 0, ghost);
+                    }
 
-                                        return (sigIdStr === String(sig.nodeId)) || (!isAlreadyActive && !isOwnSignal && !isDownstream);
-                                    })
-                                    .map(s => {
-                                        const displayName = this.properties.showSlotNames ? s.nodeName : (s.nodeName || "").replace(/\s\[[^\]]+\]$/, "");
-                                        const tag = this.properties.showSlotTypes ? ` [${(s.type || "unknown").toUpperCase()}]` : "";
-                                        return `[${s.nodeId}] ${displayName}${tag}`;
-                                    }),
-                                value: (() => {
-                                    const displayName = this.properties.showSlotNames ? sig.nodeName : (sig.nodeName || "").replace(/\s\[[^\]]+\]$/, "");
-                                    const tag = this.properties.showSlotTypes ? ` [${(sig.type || "unknown").toUpperCase()}]` : "";
-                                    return `[${sig.nodeId}] ${displayName}${tag}`;
-                                })(),
-                                width: "full", padding: [pW, pH], spacing: [sW, 0],
-                                state: isConnected ? "OFF" : "DIS",
-                                onChange: (val) => {
-                                    const match = val.match(/\[([\d:]+)\]/);
-                                    if (match) {
-                                        const newSigId = match[1];
-                                        const newSig = (this.receivedSignals || []).find(s => String(s.nodeId) === newSigId);
-                                        if (newSig) {
-                                            this.activeOutputs[i] = newSig;
-                                            this.updateReceivedSignals();
-                                            this.manageDerpOutputs();
-                                            this.refreshNodeLayoutMap();
+                    this.layoutMap = {
+                        contentRegion: {
+                            anchor: { target: "headerRegion", axis: "y", offset: oY },
+                            dir: "col", width: "full", height: "auto",
+                            margin: [mW, 0, mW, 0], padding: [pW, pH],
+                            lblContent: {
+                                type: UI_TYPES.TEXT, themeKey: "t_textsystem",
+                                text: "Select a detected signal:",
+                                labelAlign: ["left", "middle"], width: "full", height: "auto"
+                            },
+                            // THE DYNAMIC REPETITION: Generate indexed regions to repeat the outputsRegion
+                            outputsRegion: {
+                                anchor: { target: "lblContent", axis: "y", offset: oY },
+                                dir: "row", width: "full", height: 0,
+                                hidden: activeOuts.length === 0,
+                                outSlotIdx: -1 // THE TAG FIX: Recognize base anchor as a slot container
+                            },
+                            ...outputItems.reduce((acc, item, displayIdx) => {
+                                const { sig, idx } = item;
+                                const prev = displayIdx === 0 ? "outputsRegion" : `outputsRegion_display_${displayIdx - 1}`;
+                                const rowKey = `outputsRegion_display_${displayIdx}`;
+
+                                // THE GHOST FIX: Check the 'True' slot cache from the Heist instead of the native array
+                                const outputs = this._xcpTrueOutputs || this.outputs;
+                                const slotLinks = outputs?.[idx]?.links || [];
+                                const hasSlotLinks = slotLinks.some((linkId) => !!app.graph?.links?.[linkId]);
+                                const hasGraphLinks = Object.values(app.graph?.links || {}).some((link) => String(link?.origin_id ?? link?.source_id) === callerId && Number(link?.origin_slot ?? link?.source_slot) === idx);
+                                const isConnected = hasSlotLinks || hasGraphLinks;
+                                const isBypassed = this.mode === 4 || this.mode === 2 || this._derpSpoofedBypass;
+
+                                acc[rowKey] = {
+                                    anchor: { target: prev, axis: "y", offset: displayIdx === 0 ? 0 : sH },
+                                    dir: "row", width: "full", height: item.isPreviewGhost ? 30 : "auto",
+                                    outSlotIdx: idx, // GENERIC SLOT TAG: Allows uncleSlotHelper to find this region
+                                    state: item.isPreviewGhost ? "DIS" : "OFF",
+                                    alpha: item.isPreviewGhost ? 0 : 1.0,
+                                    onDragStart: (e, data) => startStackDrag(this, data, idx, rowKey),
+                                    onDrag: (e, data) => { updateStackDrag(this, data, "outputsRegion_display_", activeOuts.length); this.refreshNodeLayoutMap(); },
+                                    onDragEnd: () => {
+                                        const fromIdx = this._dragTrig?.index;
+                                        const toIdx = this._dropPreviewIdx;
+                                        endStackDrag(this, "_derpSignalOutDragProxy");
+                                        if (fromIdx !== undefined && toIdx !== undefined && fromIdx !== toIdx && this.reorderDerpOutputs) {
+                                            this.reorderDerpOutputs(fromIdx, toIdx);
+                                        }
+                                    },
+                                    onPress: () => {
+                                        endStackDrag(this, "_derpSignalOutDragProxy");
+                                    },
+                                    [`lblOutputInfo_${idx}`]: {
+                                        type: UI_TYPES.DROPDOWN_DERP, themeKey: "panel, t_textNormal",
+                                        wrap: false, // THE TYPO FIX: Changed 'warp' to 'wrap'
+                                        minWidth: 100,
+                                        canvasShield: true, labelAlign: ["left", "middle"],
+                                        indicator: "on",
+                                        items: sortSignals((this.receivedSignals || [])
+                                            .filter(s => {
+                                                const sType = (s.type || "unknown").toUpperCase();
+                                                if (sType !== (sig.type || "unknown").toUpperCase()) return false;
+                                                const sigIdStr = String(s.nodeId);
+                                                const sigBaseId = sigIdStr.split(":")[0];
+                                                const isAlreadyActive = activeIds.has(sigIdStr);
+                                                const isOwnSignal = sigBaseId === callerId;
+                                                const isWrapperSignal = isPlainWrapperSignalId(sigIdStr);
+                                                const isSignalOutSignal = s.nodeType === "xcpDerpSignalOut";
+
+                                                // THE LOOP GUARD: Block signals that are physically downstream or contain this node in their upstream chain
+                                                const isDownstream = downstreamIds.has(sigBaseId) || (Array.isArray(s.upstreamIds) && s.upstreamIds.some(id => String(id) === callerId));
+
+                                                return (sigIdStr === String(sig.nodeId)) || (!isWrapperSignal && !isSignalOutSignal && !isAlreadyActive && !isOwnSignal && !isDownstream);
+                                            }))
+                                            .map(s => {
+                                                const label = formatSignalLabel(s);
+                                                this._signalLabelToId.set(label, String(s.nodeId));
+                                                return label;
+                                            }),
+                                        value: formatSignalLabel(sig),
+                                        width: "full", padding: [pW, pH], spacing: [sW, 0],
+                                        state: (isBypassed || !isConnected) ? "DIS" : "OFF",
+                                        alpha: item.isPreviewGhost ? 0 : 1.0,
+                                        onDragStart: (e, data) => startStackDrag(this, data, idx, rowKey),
+                                        onDrag: (e, data) => { updateStackDrag(this, data, "outputsRegion_display_", activeOuts.length); this.refreshNodeLayoutMap(); },
+                                        onDragEnd: () => {
+                                            const fromIdx = this._dragTrig?.index;
+                                            const toIdx = this._dropPreviewIdx;
+                                            endStackDrag(this, "_derpSignalOutDragProxy");
+                                            if (fromIdx !== undefined && toIdx !== undefined && fromIdx !== toIdx && this.reorderDerpOutputs) {
+                                                this.reorderDerpOutputs(fromIdx, toIdx);
+                                            }
+                                        },
+                                        onChange: (val) => {
+                                            const newSigId = resolveSignalIdFromLabel(val);
+                                            if (newSigId) {
+                                                const newSig = (this.receivedSignals || []).find(s => String(s.nodeId) === newSigId);
+                                                if (newSig) {
+                                                    this.activeOutputs[idx] = newSig;
+                                                    this.updateReceivedSignals();
+                                                    this.manageDerpOutputs();
+                                                    this.refreshNodeLayoutMap();
+                                                    this.requestDerpSync();
+                                                }
+                                            }
+                                        }
+                                    },
+                                    [`btnOutputDelete_${idx}`]: {
+                                        type: UI_TYPES.ICONBUTTON, themeKey: "buttonNode, t_textSystem",
+                                        icon: "trash", width: "match", height: "fill", spacing: [sW, 0],
+                                        alpha: item.isPreviewGhost ? 0 : 1.0,
+                                        onPress: () => this.removeDerpOutput(idx)
+                                    },
+
+                                };
+                                return acc;
+                            }, {}),
+                            signalRegion: {
+                                anchor: { target: activeOuts.length > 0 ? `outputsRegion_display_${activeOuts.length - 1}` : "lblContent", axis: "y", offset: sH },
+                                dir: "row", width: "full", height: "auto",
+                                margin: [0, mH, 0, 0], spacing: [0, sH],
+                                dropdownSignalSelect: {
+                                    type: UI_TYPES.DROPDOWN_DERP, themeKey: "dialog, t_textNormal",
+                                    wrap: false, // THE CUTOFF FIX: Explicitly disable wrapping to prevent row overlaps
+                                    canvasShield: true, labelAlign: ["left", "middle"],
+                                    width: "full", height: "auto", padding: [pW, pH], spacing: [sW, 0],
+                                    indicator: "on",
+                                    items: signalItems,
+                                    value: this.properties.selectedSignalLabel || "Select signal...",
+                                    state: (this.mode === 4 || this.mode === 2 || !signalItems?.length) ? "DIS" : "OFF",
+                                    onChange: (val) => {
+                                        const signalId = resolveSignalIdFromLabel(val);
+                                        if (signalId) {
+                                            this.properties.selectedSignalId = signalId;
+                                            this.addDerpOutput();
+                                        }
+                                    }
+                                },
+                                btnRefreshSignals: {
+                                    type: UI_TYPES.ICONBUTTON,
+                                    themeKey: "buttonNode, t_textsystem",
+                                    icon: "refresh",
+                                    width: "auto", height: "full",
+                                    padding: [pW, pH],
+                                    onPress: () => {
+                                        if (this.forceSignalRefresh) this.forceSignalRefresh();
+                                        else {
+                                            this._lastSignalStructureHash = null;
+                                            if (this.updateReceivedSignals) this.updateReceivedSignals();
+                                            if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
                                             this.requestDerpSync();
                                         }
                                     }
                                 }
                             },
-                            [`btnOutputUp_${i}`]: {
-                                type: UI_TYPES.ICONBUTTON, themeKey: "buttonNode, t_textSystem",
-                                icon: "uparrow", width: "match", height: "fill", spacing: [sW, 0],
-                                hidden: !this.properties.settingActive,
-                                state: i === 0 ? "DIS" : "OFF",
-                                onPress: () => this.moveDerpOutput(i, -1)
-                            },
-                            [`btnOutputDown_${i}`]: {
-                                type: UI_TYPES.ICONBUTTON, themeKey: "buttonNode, t_textSystem",
-                                icon: "downarrow", width: "match", height: "fill", spacing: [sW, 0],
-                                hidden: !this.properties.settingActive,
-                                state: i === activeOuts.length - 1 ? "DIS" : "OFF",
-                                onPress: () => this.moveDerpOutput(i, 1)
-                            },
-                            [`btnOutputDelete_${i}`]: {
-                                type: UI_TYPES.ICONBUTTON, themeKey: "buttonNode, t_textSystem",
-                                icon: "trash", width: "match", height: "fill", spacing: [sW, 0],
-                                onPress: () => this.removeDerpOutput(i)
-                            },
+                            layoutSpacer: {
+                                anchor: { target: "signalRegion", axis: "y", offset: oY },
+                            }
+                        },
+                    };
 
+                    if (floatingItem && this._dragMouse && this._dragOffset) {
+                        const { sig } = floatingItem;
+                        const dragX = this._dragMouse[0] - this._dragOffset[0];
+                        const dragY = this._dragMouse[1] - this._dragOffset[1];
+
+                        this.layoutMap.contentRegion.floatingOutputRow = {
+                            type: UI_TYPES.REGION,
+                            themeKey: "region",
+                            dir: "row",
+                            width: this.size[0] - (mW * 4),
+                            height: "auto",
+                            ignoreLayout: true,
+                            x: dragX,
+                            y: dragY,
+                            zIndex: 100,
+                            state: "ON",
+                            regionOffset: [0, 0],
+                            floatingLabel: {
+                                type: UI_TYPES.DROPDOWN_DERP,
+                                themeKey: "panel, t_textNormal",
+                                wrap: false,
+                                minWidth: 100,
+                                canvasShield: true,
+                                indicator: "on",
+                                items: [],
+                                value: formatSignalLabel(sig),
+                                width: "full",
+                                padding: [pW, pH],
+                                spacing: [sW, 0],
+                                mouseOver: false,
+                            },
+                            floatingDelete: {
+                                type: UI_TYPES.ICONBUTTON,
+                                themeKey: "buttonNode, t_textSystem",
+                                icon: "trash",
+                                width: "match",
+                                height: "fill",
+                                spacing: [sW, 0],
+                            }
                         };
-                        return acc;
-                    }, {}),
-                    regionSettings: {
-                        anchor: { target: activeOuts.length > 0 ? `outputsRegion_${activeOuts.length - 1}` : "lblContent", axis: "y", offset: sH },
-                        dir: "col", width: "full", height: "auto",
-                        hidden: !this.properties.settingActive,
-                        linebreakTop: { type: UI_TYPES.LINEBREAK, margin: [-mW, mH] },
-                        regionOptions: {
-                            dir: "row", width: "full", height: "auto",
-                            toggleVirtualWires: {
-                                type: UI_TYPES.TOGGLE_V2, themeKey: "dialog, t_textNormal", isTextOnly: true,
-                                text: "Show input wires", width: "full", height: "auto", margin: [0, mH],
-                                value: !!this.properties.showVirtualLinks,
-                                onPress: () => {
-                                    this.properties.showVirtualLinks = !this.properties.showVirtualLinks;
-                                    this.refreshNodeLayoutMap();
-                                    this.requestDerpSync();
+                    }
+
+                    if (this.layout) this.layout._lastCacheKey = "";
+                    this.requestDerpSync();
+                };
+
+                nodeType.prototype.refreshDerpSignalOutSysMap = function() {
+                    const { mW, mH, sW, sH, oX, oY, pW, pH } = this.getDerpVars(this);
+                    this.sysLayoutMap = {
+                        sysCustomRegion: {
+                            anchor: { target: "sysDefaultControlsRegion", axis: "y", offset: oY },
+                            width: "full", height: "auto", margin: [mW, mH],
+                            lblInfo: {
+                                // THE CONSTANT FIX: Access UI_TYPES directly instead of via the node instance
+                                type: UI_TYPES.TEXT_HTML, themeKey: "t_textsystem", mouseOver: false,
+                                text: "SignalOut node settings:", width: "auto", height: "auto",
+                                padding: [pW, pH]
+                            },
+                            regionCustom_1: {
+                                dir: "row", width: "full", height: "auto",
+                                toggleID: {
+                                    type: UI_TYPES.TOGGLE_V2,
+                                    themeKey: "buttonNode, t_textsystem",
+                                    text: "Signal ID",
+                                    width: "auto", height: "full",
+                                    padding: [pW, pH],
+                                    value: this.properties.showSignalIds !== false,
+                                    onPress: () => {
+                                        this.properties.showSignalIds = this.properties.showSignalIds === false;
+                                        this.manageDerpOutputs();
+                                        this.refreshNodeLayoutMap();
+                                        this.refreshDerpSignalOutSysMap();
+                                        this.requestDerpSync();
+                                    }
+                                },
+                                toggleSlotName: {
+                                    type: UI_TYPES.TOGGLE_V2,
+                                    themeKey: "buttonNode, t_textsystem",
+                                    text: "Signal Name",
+                                    width: "auto", height: "full",
+                                    padding: [pW, pH],
+                                    value: !!this.properties.showSlotNames,
+                                    onPress: () => {
+                                        this.properties.showSlotNames = !this.properties.showSlotNames;
+                                        this.manageDerpOutputs();
+                                        this.refreshNodeLayoutMap();
+                                        this.refreshDerpSignalOutSysMap();
+                                        this.requestDerpSync();
+                                    }
+                                },
+                                toggleSlotType: {
+                                    type: UI_TYPES.TOGGLE_V2,
+                                    themeKey: "buttonNode, t_textsystem",
+                                    text: "Signal Type",
+                                    width: "auto", height: "full",
+                                    padding: [pW, pH],
+                                    value: !!this.properties.showSlotTypes,
+                                    onPress: () => {
+                                        this.properties.showSlotTypes = !this.properties.showSlotTypes;
+                                        this.manageDerpOutputs();
+                                        this.refreshNodeLayoutMap();
+                                        this.refreshDerpSignalOutSysMap();
+                                        this.requestDerpSync();
+                                    }
+                                },
+                            },
+                            regionCustom_2: {
+                                dir: "row", width: "full", height: "auto",
+                                toggleVirtualWires: {
+                                    type: UI_TYPES.TOGGLE_V2,
+                                    themeKey: "buttonNode, t_textsystem",
+                                    text: "Show input wires",
+                                    width: "full", height: "auto",
+                                    padding: [pW, pH],
+                                    value: !!this.properties.showVirtualLinks,
+                                    onPress: () => {
+                                        this.properties.showVirtualLinks = !this.properties.showVirtualLinks;
+                                        this.refreshNodeLayoutMap();
+                                        this.refreshDerpSignalOutSysMap();
+                                        this.requestDerpSync();
+                                    }
+                                },
+                                spring: { width: "full", height: 0 },
+                                lblSort: {
+                                    type: UI_TYPES.TEXT,
+                                    themeKey: "t_textsystem",
+                                    text: "Sort signals by:",
+                                    width: "auto",
+                                    height: "auto",
+                                    padding: [pW, pH]
+                                },
+                                dropdownSort: {
+                                    type: UI_TYPES.DROPDOWN,
+                                    themeKey: "panel, t_textsystem",
+                                    canvasShield: true,
+                                    width: "auto",
+                                    height: "auto",
+                                    padding: [pW, pH],
+                                    labelAlign: ["center", "middle"],
+                                    measureText: "Name",
+                                    items: ["Name", "Type", "ID"],
+                                    value: this.properties.signalSortMode || "Name",
+                                    onChange: (val) => {
+                                        this.properties.signalSortMode = val || "Name";
+                                        if (typeof window._xcpCloseActiveDropdown === "function") {
+                                            window._xcpCloseActiveDropdown();
+                                        }
+                                        this.refreshNodeLayoutMap();
+                                        this.refreshDerpSignalOutSysMap();
+                                        this.requestDerpSync();
+                                    }
                                 }
                             }
                         },
-                        linebreakBottom: { type: UI_TYPES.LINEBREAK, margin: [-mW, mH] }
-                    },
-                    signalRegion: {
-                        anchor: { target: this.properties.settingActive ? "regionSettings" : (activeOuts.length > 0 ? `outputsRegion_${activeOuts.length - 1}` : "lblContent"), axis: "y", offset: sH },
-                        dir: "row", width: "full", height: "auto",
-                        margin: [0, mH, 0, 0], spacing: [0, sH],
-                        dropdownSignalSelect: {
-                            type: UI_TYPES.DROPDOWN_DERP, themeKey: "dialog, t_textNormal",
-                            wrap: false, // THE CUTOFF FIX: Explicitly disable wrapping to prevent row overlaps
-                            canvasShield: true, labelAlign: ["left", "middle"],
-                            width: "full", height: "auto", padding: [pW, pH], spacing: [sW, 0],
-                            indicator: "on",
-                            items: signalItems,
-                            value: this.properties.selectedSignalLabel || "Select signal...",
-                            state: (this.mode === 4 || this.mode === 2 || !signalItems?.length) ? "DIS" : "OFF",
-                            onChange: (val) => this.setDerpSelectedSignal(val)
-                        },
-                        btnRefreshSignals: {
-                            type: UI_TYPES.ICONBUTTON,
-                            themeKey: "buttonNode, t_textsystem",
-                            icon: "refresh",
-                            width: "auto", height: "full",
-                            padding: [pW, pH],
-                            onPress: () => {
-                                if (this.forceSignalRefresh) this.forceSignalRefresh();
-                                else {
-                                    this._lastSignalStructureHash = null;
-                                    if (this.updateReceivedSignals) this.updateReceivedSignals();
-                                    if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
-                                    this.requestDerpSync();
-                                }
-                            }
-                        }
-                    },
-                    layoutSpacer: {
-                        anchor: { target: "signalRegion", axis: "y", offset: oY },
-                    }
-                },
-            };
-            if (this.layout) this.layout._lastCacheKey = "";
-            this.requestDerpSync();
-        };
+                    };
 
-        nodeType.prototype.refreshDerpSignalOutSysMap = function() {
-            const { mW, mH, sW, sH, oX, oY, pW, pH } = this.getDerpVars(this);
-            this.sysLayoutMap = {
-                sysCustomRegion: {
-                    anchor: { target: "sysDefaultControlsRegion", axis: "y", offset: oY },
-                    width: "full", height: "auto", margin: [mW, mH],
-                    lblInfo: {
-                        // THE CONSTANT FIX: Access UI_TYPES directly instead of via the node instance
-                        type: UI_TYPES.TEXT_HTML, themeKey: "t_textsystem", mouseOver: false,
-                        text: "SignalOut node settings:", width: "auto", height: "auto",
-                        padding: [pW, pH]
-                    },
-                    regionCustom_1: {
-                        dir: "row", width: "full", height: "auto",
-                        toggleSlotName: {
-                            type: UI_TYPES.TOGGLE_V2,
-                            themeKey: "buttonNode, t_textsystem",
-                            text: "Slot Name",
-                            width: "auto", height: "full",
-                            padding: [pW, pH],
-                            value: !!this.properties.showSlotNames,
-                            onPress: () => {
-                                this.properties.showSlotNames = !this.properties.showSlotNames;
-                                this.manageDerpOutputs();
-                                this.refreshNodeLayoutMap();
-                                this.refreshDerpSignalOutSysMap();
-                                this.requestDerpSync();
-                            }
-                        },
-                        toggleSlotType: {
-                            type: UI_TYPES.TOGGLE_V2,
-                            themeKey: "buttonNode, t_textsystem",
-                            text: "Slot Type",
-                            width: "auto", height: "full",
-                            padding: [pW, pH],
-                            value: !!this.properties.showSlotTypes,
-                            onPress: () => {
-                                this.properties.showSlotTypes = !this.properties.showSlotTypes;
-                                this.manageDerpOutputs();
-                                this.refreshNodeLayoutMap();
-                                this.refreshDerpSignalOutSysMap();
-                                this.requestDerpSync();
-                            }
-                        },
+                    if (this._derpPanel && typeof this._derpPanel.setLayoutMap === "function") {
+                        this._derpPanel.setLayoutMap(this.sysLayoutMap);
                     }
-                },
-            };
-
-            if (this._derpPanel && typeof this._derpPanel.setLayoutMap === "function") {
-                this._derpPanel.setLayoutMap(this.sysLayoutMap);
+                };
             }
-        };
-    }
         });
     } catch (e) {
         console.warn("xcp.derpSignalOut_Layout extension already registered.");
