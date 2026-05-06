@@ -362,6 +362,41 @@ export function handlePageRename(node) {
     });
 }
 
+export function handlePageDelete(node) {
+    const book = node.properties.derpBook || [];
+    const currentIdx = node.properties.currentPageIndex || 0;
+    const page = book[currentIdx];
+    if (!page || book.length === 0) return;
+
+    showBastaFileHandler(node, "derpPromptBook", "btnPageDelete", {
+        title: "Delete Page",
+        message: `Delete page \"${page.title || "untitled"}\"?`,
+        confirm: "Delete",
+        mode: "delete",
+        originalName: page.title || "untitled",
+        initialSize: [250, 110],
+        onConfirm: () => {
+            book.splice(currentIdx, 1);
+
+            if (book.length === 0) {
+                node.properties.derpBook = [{ title: "untitled", content: "", images: [] }];
+                node.properties.currentPageIndex = 0;
+            } else {
+                node.properties.currentPageIndex = Math.min(currentIdx, book.length - 1);
+            }
+
+            const nextContent = node.properties.derpBook[node.properties.currentPageIndex]?.content || "";
+            node.properties.prompt = nextContent;
+            const w = node.widgets?.find(x => x.name === "prompt");
+            if (w) w.value = nextContent;
+
+            if (node.refreshNodeLayoutMap) node.refreshNodeLayoutMap();
+            if (node.updateDerpPromptBookUI) node.updateDerpPromptBookUI();
+            if (node.syncDerpOutputs) node.syncDerpOutputs();
+        }
+    });
+}
+
 export async function handleSaveBook(node) {
     const el = node._derpDomElements?.editorMain;
     if (el && document.activeElement === el) el.blur();

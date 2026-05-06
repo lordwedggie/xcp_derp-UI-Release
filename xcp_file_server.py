@@ -5,6 +5,8 @@ import folder_paths
 import os
 import uuid
 import shutil
+import sys
+import subprocess
 from .xcp_tagHandling import handle_import_lora_tags, handle_manage_lora_tag
 from .xcp_loraStack import (handle_save_lora_rating, handle_save_lora_notes, handle_get_loras, handle_get_lora_preview,
                             handle_get_lora_triggers, handle_get_lora_info, handle_open_folder, handle_delete_lora_preview, handle_upload_lora_preview, get_lora_stack_profiles_dir,
@@ -114,6 +116,23 @@ async def list_files(request):
     except Exception as e:
         return web.json_response({"items": [], "error": str(e)}, status=500)
 safe_get("/xcp/list/{category}", list_files)
+
+async def open_prompt_book_folder(request):
+    try:
+        target_dir = PROMPT_BOOK_DIR
+        os.makedirs(target_dir, exist_ok=True)
+
+        if os.name == 'nt':
+            os.startfile(target_dir)
+        elif sys.platform == 'darwin':
+            subprocess.Popen(['open', target_dir])
+        else:
+            subprocess.Popen(['xdg-open', target_dir])
+
+        return web.json_response({"success": True})
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=500)
+safe_get("/xcp/open_prompt_book_folder", open_prompt_book_folder)
 
 async def load_file(request):
     category = request.match_info.get("category")

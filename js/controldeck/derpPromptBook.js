@@ -11,6 +11,7 @@ import {
     handleBookChange,
     handlePageChange,
     handlePageAdd,
+    handlePageDelete,
     handlePageRename,
     handleSaveBook,
     handleNewBook,
@@ -127,6 +128,18 @@ app.registerExtension({
                             minWidth: 200, width: "full", height: "auto", padding: [pW, pH], spacing: [sW, 0],
                             onChange: (val) => handleBookChange(this, val)
                         },
+                        btnOpenBookFolder: {
+                            type: this.UI_TYPES.ICONBUTTON, icon: "folder", themeKey: "button, t_textBig",
+                            width: "match", height: "fill", padding: [pW, pH], spacing: [sW, 0], objectAlign: ["left", "middle"],
+                            labelAlign: ["center", "middle"],
+                            onPress: async () => {
+                                try {
+                                    await fetch("/xcp/open_prompt_book_folder");
+                                } catch (e) {
+                                    console.error("Prompt Book folder open failed:", e);
+                                }
+                            }
+                        },
                     } : {})
                 },
                 pageRegion: {
@@ -156,6 +169,12 @@ app.registerExtension({
                         labelAlign: ["center", "middle"],
                         onPress: () => handlePageRename(this)
                     },
+                    btnPageDelete: {
+                        type: this.UI_TYPES.ICONBUTTON, icon: "delete", themeKey: "button, t_textBig",
+                        width: "match", height: "fill", padding: [pW, pH], spacing: [sW, 0], objectAlign: ["left", "middle"],
+                        labelAlign: ["center", "middle"],
+                        onPress: () => handlePageDelete(this)
+                    },
                     btnPageRight: {
                         type: this.UI_TYPES.ICONBUTTON, icon: "rightarrow", themeKey: "button, t_textBig",
                         width: "match", height: "fill", padding: [pW, pH], objectAlign: ["left", "middle"],
@@ -165,7 +184,7 @@ app.registerExtension({
                 contentRegion: {
                     anchor: { target: "pageRegion", axis: "y", offset: oY},
                     dir: "col", width: "full", height: "fill",
-                    minHeight: 100, // THE FIX: Prevents shrinking the editor into non-existence
+                    minHeight: 100,
                     margin: [mW, mH], padding: [0,0],
                     editorMain: {
                         type: this.UI_TYPES.EDITOR, multiline: true, noHover: true, canvasShield: true, switchOnEditing: true,
@@ -173,9 +192,8 @@ app.registerExtension({
                         labelAlign: ["left", "top"], measureText: "MEASURE_RESERVE_FLOOR",
                         width: "full", height: "fill", padding: [pW, pH],
                         value: (activePage.content || "").replace(/\[\[IMG:(?!data:|http|\/|.*_IMG\/)([^\]]+)\]\]/g, (m, file) => {
-                            const book = this.properties.bookName || "Untitled Book";
-                            // THE ASSET RESOLUTION FIX: Sync category with server-side PROMPT_BOOK_DIR
-                            return `[[IMG:/xcp/get_asset/derpPromptBook?name=${encodeURIComponent(file)}&bookName=${encodeURIComponent(book)}]]`;
+                            const bookName = this.properties.bookName || "Untitled Book";
+                            return `[[IMG:/xcp/get_asset/derpPromptBook?name=${encodeURIComponent(file)}&bookName=${encodeURIComponent(bookName)}]]`;
                         }),
                         onInput: (val) => {
                             const pIndex = this.properties.currentPageIndex || 0;
@@ -188,6 +206,8 @@ app.registerExtension({
                                 this.properties.prompt = cleanVal;
                                 const w = this.widgets?.find(x => x.name === "prompt");
                                 if (w) w.value = cleanVal;
+                                if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
+                                if (this.requestDerpSync) this.requestDerpSync();
                                 if (this.syncDerpOutputs) this.syncDerpOutputs();
                             }
                         },
@@ -251,15 +271,11 @@ app.registerExtension({
         nodeType.prototype.onNodeCreated = function() {
             if (onCreated) onCreated.apply(this, arguments);
 
-            // THE ANTI-PRUNING FIX: Forces the engine to run this node even with 0 outputs.
             this.properties.isWirelessTransmitter = true;
-
-            // THE OUTPUT FIX: Explicitly remove Fatha's auto-injected virtual output
-            // to prevent graph execution validators from crashing on hidden wires.
             this.outputs = [];
 
             this.titleLabel = "Derp Prompt Book";
-            this.properties.titleLabel = "Derp Prompt Book"; // THE TITLE FIX
+            this.properties.titleLabel = "Derp Prompt Book";
 
             Object.assign(this.properties, {
                 nodeSize: [400, 400],
@@ -271,7 +287,7 @@ app.registerExtension({
                 coverPage: true,
                 showTotalPage: true
             });
-            this.size = [400, 400]; // THE FIX: Sync physical size with properties
+            this.size = [400, 400];
             this._lastSavedBookName = "Untitled Book";
 
             if (typeof this.fetchRemoteBooks === "function") this.fetchRemoteBooks();
@@ -289,7 +305,6 @@ app.registerExtension({
         nodeType.prototype.onDerpSysPanelOpen = function(panel) {
             this._derpPanel = panel;
             if (panel.showProfiles) {
-                // Looks for individual .json files in the derpPromptBook folder
                 panel.showProfiles("derpPromptBook", "nodeSettings");
             }
             if (this.sysLayoutMap) panel.setLayoutMap(this.sysLayoutMap);
