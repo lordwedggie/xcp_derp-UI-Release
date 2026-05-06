@@ -809,6 +809,9 @@ export function triggerWall_onResize(node, size) {
     const safeH = Math.max(50, size[1] || 150);
     node.size = [safeW, safeH];
     node.properties.nodeSize = [safeW, safeH];
-    // Avoid rebuilding twice during drag-resize; onDrawForeground handles width-delta rebuild.
+    node._layoutMapHash = null;
+    if (node.layout) node.layout._lastCacheKey = "";
+    // Avoid a stale inner layout during live resize; width changes must invalidate both
+    // TriggerWall's own layout-map hash and the shared layout-engine cache.
     node.requestDerpSync();
 }
