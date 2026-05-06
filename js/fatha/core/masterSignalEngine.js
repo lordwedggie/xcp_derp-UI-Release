@@ -51,6 +51,14 @@ export function transmitDerpSignal(node, value, options = {}) {
     // THE VIRTUAL NODE FIX: Correctly detect empty output arrays for virtual nodes
     const outputs = (node.outputs && node.outputs.length > 0) ? node.outputs : [{ type: "*", name: node.properties?.outputName || "Output_01" }];
 
+    const normalizeOutputType = (rawType) => {
+        if (rawType === "*") return "*";
+        if (typeof rawType === "string") return rawType.toLowerCase();
+        if (rawType && typeof rawType.name === "string") return rawType.name.toLowerCase();
+        if (Array.isArray(rawType)) return String(rawType[0] || "unknown").toLowerCase();
+        return String(rawType || "unknown").toLowerCase();
+    };
+
     let hasChanged = false;
 
     outputs.forEach((output, index) => {
@@ -61,7 +69,7 @@ export function transmitDerpSignal(node, value, options = {}) {
 
         let valType = "unknown";
         if (output.type !== "*") {
-            const raw = String(output.type).toLowerCase();
+            const raw = normalizeOutputType(output.type);
             // THE NORMALIZATION FIX: Standardize types for the receiver registry
             if (raw.includes("latent")) valType = "latent";
             else if (raw.includes("image")) valType = "image";

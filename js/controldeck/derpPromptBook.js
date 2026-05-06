@@ -3,7 +3,7 @@
  * STATUS: VIRTUAL FATHA COMPLIANT
  */
 import { app } from "../../../scripts/app.js";
-import { fatha, initDerpGlobalListener } from "./fatha/fatha.js";
+import { fatha, initDerpGlobalListener } from "../fatha/fatha.js";
 import {
     createDefaultDerpBook,
     bindPromptBookHooks,
@@ -16,7 +16,7 @@ import {
     handleNewBook,
     handleRenameBook,
     handleCopyBook
-} from "./controldeck/core/derpPromptBook_core.js";
+} from "./core/derpPromptBook_core.js";
 
 app.registerExtension({
     name: "xcp.derpPromptBook_Extension",

@@ -3,8 +3,8 @@
  * ROLE: Core extension logic and signal engine for derpSignalOut.
  */
 import { app } from "../../../scripts/app.js";
-import { uncle } from "../fatha/uncle.js";
-import { handleInitDerpGlobalListener } from "../fatha/core/fathaHandler.js";
+import { uncle } from "./fatha/uncle.js";
+import { handleInitDerpGlobalListener } from "./fatha/core/fathaHandler.js";
 
 if (!window._xcp_derpSignalOut_Core_Loaded) {
     window._xcp_derpSignalOut_Core_Loaded = true;
@@ -210,7 +210,13 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
 
                     for (let i = 0; i < targetTotal; i++) {
                         const sig = (this.activeOutputs || [])[i];
-                        let rawType = (sig && sig.type && sig.type !== "unknown") ? sig.type.toUpperCase() : "ANY";
+                        let rawType = "ANY";
+                        if (sig && sig.type && sig.type !== "unknown") {
+                            if (typeof sig.type === "string") rawType = sig.type.toUpperCase();
+                            else if (typeof sig.type?.name === "string") rawType = sig.type.name.toUpperCase();
+                            else if (Array.isArray(sig.type)) rawType = String(sig.type[0] || "ANY").toUpperCase();
+                            else rawType = String(sig.type).toUpperCase();
+                        }
 
                         // THE VISIBILITY FIX: Respect visibility toggles for both Name and Type
                         const showName = !!this.properties.showSlotNames;
@@ -553,9 +559,10 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                     this.receivedSignals = [];
                     this.activeOutputs = [];
                     this.properties.activeOutputs = 0;
-                    this.properties.showSignalIds = true;
-                    this.properties.showSlotNames = true;
+                    this.properties.showSignalIds = false;
+                    this.properties.showSlotNames = false;
                     this.properties.showSlotTypes = true;
+                    this.properties.signalSortMode = "Type";
                     this.properties.showVirtualLinks = false;
                     this.properties.drawSettingBtn = true;
                     this.properties.autoHeight = true;

@@ -23,10 +23,16 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                     const callerId = String(this.id);
                     const isPlainWrapperSignalId = (signalId) => /^\d+$/.test(String(signalId || ""));
                     const showSignalIds = this.properties.showSignalIds !== false;
-                    const sortMode = this.properties.signalSortMode || "Name";
+                    const sortMode = this.properties.signalSortMode || "Type";
+                    const normalizeSignalType = (rawType) => {
+                        if (typeof rawType === "string") return rawType.toUpperCase();
+                        if (rawType && typeof rawType.name === "string") return rawType.name.toUpperCase();
+                        if (Array.isArray(rawType)) return String(rawType[0] || "unknown").toUpperCase();
+                        return String(rawType || "unknown").toUpperCase();
+                    };
                     const formatSignalLabel = (signal) => {
                         if (!signal) return "";
-                        const type = (signal.type || "unknown").toUpperCase();
+                        const type = normalizeSignalType(signal.type);
                         const showName = !!this.properties.showSlotNames;
                         const showType = !!this.properties.showSlotTypes;
                         const idPrefix = showSignalIds ? `[${signal.nodeId}] ` : "";
@@ -40,7 +46,7 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                         return this._signalLabelToId?.get(String(label || "")) || null;
                     };
                     const getSignalSortValue = (signal) => {
-                        if (sortMode === "Type") return String(signal?.type || "").toUpperCase();
+                        if (sortMode === "Type") return normalizeSignalType(signal?.type);
                         if (sortMode === "ID") {
                             const signalId = String(signal?.nodeId || "");
                             const [baseId, slotId = ""] = signalId.split(":");
@@ -182,8 +188,8 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                         indicator: "on",
                                         items: sortSignals((this.receivedSignals || [])
                                             .filter(s => {
-                                                const sType = (s.type || "unknown").toUpperCase();
-                                                if (sType !== (sig.type || "unknown").toUpperCase()) return false;
+                                                const sType = normalizeSignalType(s.type);
+                                                if (sType !== normalizeSignalType(sig.type)) return false;
                                                 const sigIdStr = String(s.nodeId);
                                                 const sigBaseId = sigIdStr.split(":")[0];
                                                 const isAlreadyActive = activeIds.has(sigIdStr);
@@ -205,6 +211,16 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                         width: "full", padding: [pW, pH], spacing: [sW, 0],
                                         state: isPickedUp ? "ON" : ((isBypassed || !isConnected) ? "DIS" : "OFF"),
                                         alpha: item.isPreviewGhost ? 0 : 1.0,
+                                        onDragStart: (e, data) => startStackDrag(this, data, idx, rowKey),
+                                        onDrag: (e, data) => { updateStackDrag(this, data, "outputsRegion_display_", activeOuts.length); this.refreshNodeLayoutMap(); },
+                                        onDragEnd: () => {
+                                            const fromIdx = this._dragTrig?.index;
+                                            const toIdx = this._dropPreviewIdx;
+                                            endStackDrag(this, "_derpSignalOutDragProxy");
+                                            if (fromIdx !== undefined && toIdx !== undefined && fromIdx !== toIdx && this.reorderDerpOutputs) {
+                                                this.reorderDerpOutputs(fromIdx, toIdx);
+                                            }
+                                        },
                                         onChange: (val) => {
                                             const newSigId = resolveSignalIdFromLabel(val);
                                             if (newSigId) {
@@ -418,9 +434,9 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                     labelAlign: ["center", "middle"],
                                     measureText: "Name",
                                     items: ["Name", "Type", "ID"],
-                                    value: this.properties.signalSortMode || "Name",
+                                    value: this.properties.signalSortMode || "Type",
                                     onChange: (val) => {
-                                        this.properties.signalSortMode = val || "Name";
+                                        this.properties.signalSortMode = val || "Type";
                                         if (typeof window._xcpCloseActiveDropdown === "function") {
                                             window._xcpCloseActiveDropdown();
                                         }

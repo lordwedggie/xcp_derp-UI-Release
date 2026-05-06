@@ -12,6 +12,17 @@ function refreshAndSync(node, syncOutputs = true, dirtyFull = false) {
     node.setDirtyCanvas(true, dirtyFull);
 }
 
+function cloneTriggerPresetData(data) {
+    return data ? JSON.parse(JSON.stringify(data)) : null;
+}
+
+function setLoadedTriggerPreset(node, presetName, presetData) {
+    const clonedPreset = cloneTriggerPresetData(presetData);
+    node._cachedPresetData = clonedPreset;
+    node.properties.lastSavedPreset = presetName || "";
+    node.properties.loadedTriggerPreset = clonedPreset;
+}
+
 export function triggerWall_syncOutputs(node) {
     if (node.id === -1) return;
 
@@ -109,6 +120,8 @@ export function triggerWall_onNodeCreated(node, originalCallback) {
     node.titleLabel = "Derp Trigger Wall";
     node.properties.titleLabel = "Derp Trigger Wall";
     node.properties.outputName = "Triggers";
+    node.properties.lastSavedPreset = node.properties.lastSavedPreset || "";
+    node.properties.loadedTriggerPreset = node.properties.loadedTriggerPreset || null;
     const initialGroupId = `grp_${Date.now()}`;
     node.properties.triggerGroups = [{
         id: initialGroupId,
@@ -152,14 +165,15 @@ export function triggerWall_onConfigure(node, info, originalCallback) {
 
     if (info && info.properties) {
         node._lastDerpW = null; // Force frame-one rebuild in onDrawForeground
+        node._cachedPresetData = cloneTriggerPresetData(node.properties.loadedTriggerPreset);
         node.refreshNodeLayoutMap();
         node.refreshDerpTriggerWallSysMap();
-        if (node.properties.lastSavedPreset) {
+        if (!node._cachedPresetData && node.properties.lastSavedPreset) {
             fetch(`/xcp/load/triggerWall?name=${encodeURIComponent(node.properties.lastSavedPreset)}`)
                 .then(r => { if (!r.ok) return null; return r.json(); })
                 .then(json => {
                     if (json && json.data) {
-                        node._cachedPresetData = JSON.parse(JSON.stringify(json.data));
+                        setLoadedTriggerPreset(node, node.properties.lastSavedPreset, json.data);
                         if (node.refreshNodeLayoutMap) node.refreshNodeLayoutMap();
                     }
                 });
@@ -257,8 +271,7 @@ export async function triggerWall_onSavePreset(node, manualName = null) {
         if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
         const result = await response.json();
         if (result.success) {
-            node.properties.lastSavedPreset = name;
-            node._cachedPresetData = JSON.parse(JSON.stringify(presetData));
+            setLoadedTriggerPreset(node, name, presetData);
             if (typeof triggerWall_updatePresetList === "function") triggerWall_updatePresetList(node);
             console.log(`[xcpDerp] Preset '${name}' saved successfully.`);
         } else {
@@ -276,6 +289,8 @@ export async function triggerWall_updatePresetList(node) {
         if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
         const json = await res.json();
         node._presetItems = json.items || [];
+        node._sortedPresetItemsKey = null;
+        node._layoutMapHash = null;
         if (node.refreshNodeLayoutMap) node.refreshNodeLayoutMap();
     } catch (e) {
         console.error("[xcpDerp] Failed to fetch trigger presets:", e);
@@ -289,16 +304,10 @@ export async function triggerWall_onLoadPreset(node, presetName) {
         if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
         const json = await res.json();
         if (json.data && (json.data.fileType === "xcp_derp_trigger_preset" || json.data.triggerGroups)) {
-            node._cachedPresetData = json.data;
-            node.properties.lastSavedPreset = presetName;
-
-            if (json.data.triggerGroups && Array.isArray(json.data.triggerGroups)) {
-                node.properties.triggerGroups = JSON.parse(JSON.stringify(json.data.triggerGroups));
-            }
+            setLoadedTriggerPreset(node, presetName, json.data);
 
             node._layoutMapHash = null;
             if (node.refreshNodeLayoutMap) node.refreshNodeLayoutMap();
-            if (node.syncDerpOutputs) node.syncDerpOutputs();
             node.setDirtyCanvas(true, true);
         } else if (json.error) {
             console.error("[xcpDerp] Server error loading preset:", json.error);
@@ -503,6 +512,18 @@ export function triggerWall_changeGroupTemplate(node, group, v) {
     } else {
         group.title = v;
     }
+    node._layoutMapHash = null;
+    refreshAndSync(node, true, true);
+}
+
+export function triggerWall_addGroupTemplate(node, v) {
+    const library = node._cachedPresetData?.triggerGroups || [];
+    const template = library.find(tg => tg.title === v);
+    if (!template) return;
+
+    const cleanData = JSON.parse(JSON.stringify(template));
+    if (!Array.isArray(node.properties.triggerGroups)) node.properties.triggerGroups = [];
+    node.properties.triggerGroups.push(cleanData);
     node._layoutMapHash = null;
     refreshAndSync(node, true, true);
 }

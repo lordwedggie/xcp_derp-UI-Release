@@ -26,6 +26,7 @@ import {
     triggerWall_toggleRegion,
     triggerWall_renameGroup,
     triggerWall_changeGroupTemplate,
+    triggerWall_addGroupTemplate,
     triggerWall_removeGroup,
     triggerWall_toggleExclusive,
     triggerWall_toggleShowWeight,
@@ -136,8 +137,11 @@ app.registerExtension({
                 currentHash += `|${g.id}_${g.title}_${g.isExclusive}_${g.hidden || false}`;
                 g.triggers.forEach(t => { currentHash += `:${t.id}_${t.active}_${t.weight}_${t.label}_${t.disabled}_${t.hidden || false}`; });
             });
-            // Keep hash focused on geometry-affecting fields only.
-            currentHash += `|${this.properties.showWeight}_${this.properties.toggleAddAlways}_${this.properties.drawHeader}_${this.properties.settingActive}_${this.properties.lastSavedPreset || ""}`;
+            const presetItems = this._presetItems || [];
+            const presetSortKey = presetItems.join("\u0001");
+
+            // Include preset list state so the file browser rebuilds when async preset data arrives.
+            currentHash += `|${this.properties.showWeight}_${this.properties.toggleAddAlways}_${this.properties.drawHeader}_${this.properties.settingActive}_${this.properties.lastSavedPreset || ""}_${presetSortKey}`;
 
             if (this._layoutMapHash === currentHash && this.layoutMap) {
                 this.requestDerpSync();
@@ -176,8 +180,6 @@ app.registerExtension({
             const textTheme = this._t_textSmallPaintData || this._t_textNormalPaintData || {};
             const trigHeight = (textTheme.fontSize || 10) + (triggerPadH * 2);
 
-            const presetItems = this._presetItems || [];
-            const presetSortKey = presetItems.join("\u0001");
             if (this._sortedPresetItemsKey !== presetSortKey) {
                 this._sortedPresetItemsKey = presetSortKey;
                 this._sortedPresetItems = [...presetItems].sort((a, b) => String(a).localeCompare(String(b)));
@@ -368,6 +370,29 @@ app.registerExtension({
                 };
                 lastRegionKey = regionKey;
             });
+
+            const cachedTriggerGroupItems = [...(this._cachedPresetData?.triggerGroups || [])]
+                .sort((a, b) => (a.title || "").localeCompare(b.title || ""))
+                .map(g => g.title || "Trigger Group");
+
+            layoutMap.regionSelectTriggerGroup = {
+                anchor: { target: lastRegionKey, axis: "y", offset: sH },
+                dir: "row", width: "full", height: "auto", margin: [mW, 0, mW, mH],
+                spacing: [sW, 0],
+                dropdownTriggerGroup: {
+                    type: this.UI_TYPES.DROPDOWN, themeKey: "button, t_textsmall", skipBackground: false,
+                    indicator: true, canvasShield: true, mouseOver: false,
+                    width: "full", height: "auto", spacing: [sW, 0],
+                    padding: [pW, pH],
+                    value: "Select Trigger Group",
+                    items: cachedTriggerGroupItems,
+                    state: isBypassed ? "DIS" : (cachedTriggerGroupItems.length > 0 ? "OFF" : "DIS"),
+                    onChange: (v) => {
+                        if (typeof triggerWall_addGroupTemplate === "function") triggerWall_addGroupTemplate(this, v);
+                    }
+                }
+            };
+            lastRegionKey = "regionSelectTriggerGroup";
 
             layoutMap.regionOption1 = {
                 hidden: !anySelected,
