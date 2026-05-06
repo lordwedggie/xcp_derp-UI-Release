@@ -129,6 +129,24 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                     return baseHandleInteraction.call(this, type, data);
                 };
 
+                const normalizeDerpSignalType = (rawType) => {
+                    if (typeof rawType === "string") return rawType.toUpperCase();
+                    if (rawType && typeof rawType.name === "string") return rawType.name.toUpperCase();
+                    if (Array.isArray(rawType)) return String(rawType[0] || "ANY").toUpperCase();
+                    if (rawType && typeof rawType.type === "string") return rawType.type.toUpperCase();
+                    if (rawType && typeof rawType.label === "string") return rawType.label.toUpperCase();
+                    if (rawType && typeof rawType.value === "string") return rawType.value.toUpperCase();
+                    return rawType ? "ANY" : "UNKNOWN";
+                };
+
+                const sanitizeDerpSignal = (sig) => {
+                    if (!sig || typeof sig !== "object") return sig;
+                    return {
+                        ...sig,
+                        type: normalizeDerpSignalType(sig.type)
+                    };
+                };
+
                 nodeType.prototype.collectDerpOutputLinks = function(slotIndices = []) {
                     const cachedLinks = [];
                     const outputs = this._xcpTrueOutputs || this.outputs;
@@ -281,7 +299,7 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                     this._preCollapseHeight = null;
 
                     if (!this.activeOutputs) this.activeOutputs = [];
-                    this.activeOutputs.push(sig);
+                    this.activeOutputs.push(sanitizeDerpSignal(sig));
                     this.properties.activeOutputs = this.activeOutputs.length;
 
                     this.properties.selectedSignalLabel = "Select signal...";
@@ -382,7 +400,7 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                             this.activeOutputs.forEach((sig, i) => {
                                 const freshSig = globalSignals[String(sig.nodeId)];
                                 if (freshSig) {
-                                    this.activeOutputs[i] = { ...freshSig };
+                                    this.activeOutputs[i] = sanitizeDerpSignal(freshSig);
                                     // THE NULL VALUE MONITOR: Detect and log signals transmitting None/null to help debug chained errors.
                                     if (freshSig.value === null || freshSig.value === undefined) {
                                         console.warn(`⚠️ [xcpDerp] Signal Out: Detected empty (null) value from source: "${freshSig.nodeName}" [${freshSig.nodeId}]`);
@@ -402,7 +420,7 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                                             });
                                         }
                                         const preservedId = sig.nodeId;
-                                        this.activeOutputs[i] = { ...sig, nodeId: preservedId, nodeName: "⚠️ Signal source deleted", isOrphaned: true };
+                                        this.activeOutputs[i] = sanitizeDerpSignal({ ...sig, nodeId: preservedId, nodeName: "⚠️ Signal source deleted", isOrphaned: true });
                                         orphanStateChanged = true;
                                     }
                                 }
@@ -420,6 +438,7 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                                 if (sig.isPureVirtual && (sig.value === null || sig.value === undefined)) return false;
                                 return true;
                             })
+                            .map(sanitizeDerpSignal)
                             .sort((a, b) => parseInt(a.nodeId || 0) - parseInt(b.nodeId || 0));
                         const newReceivedLength = newReceived.length;
                         this.receivedSignals = newReceived;
@@ -464,7 +483,7 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                                         nodeId: outputSignalId,
                                         nodeName: `${nodeName} [Slot ${idx + 1}: ${sourceSig.nodeName}]`,
                                         nodeType: this.type,
-                                        type: sourceSig.type,
+                                        type: normalizeDerpSignalType(sourceSig.type),
                                         value: sourceSig.value,
                                         upstreamIds: [...new Set(upstreamChain)],
                                         timestamp: Date.now()
@@ -507,7 +526,7 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
 
                 nodeType.prototype.onSerialize = function(info) {
                     // THE SERIALIZATION BRIDGE: Sync the live array to properties before saving
-                    this.properties.activeOutputsData = this.activeOutputs || [];
+                    this.properties.activeOutputsData = (this.activeOutputs || []).map(sanitizeDerpSignal);
                     info.properties = { ...this.properties };
                 };
 
@@ -518,14 +537,12 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
 
                     if (info.properties) {
                         if (info.properties.activeOutputsData) {
-                            this.activeOutputs = [...info.properties.activeOutputsData];
+                            this.activeOutputs = info.properties.activeOutputsData.map(sanitizeDerpSignal);
                             this.properties.activeOutputs = this.activeOutputs.length;
                             this._preCollapseHeight = null;
                         }
-                        this.manageDerpOutputs();
-
-                        // THE CONFIG SYNC FIX: Ensure signals are refreshed from global state when the node is configured.
                         if (this.updateReceivedSignals) this.updateReceivedSignals();
+                        this.manageDerpOutputs();
                         if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
                         if (this.refreshDerpSignalOutSysMap) this.refreshDerpSignalOutSysMap();
                         this.requestDerpSync();

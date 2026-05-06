@@ -169,6 +169,7 @@ export function setupDerpSliderCore(nodeType) {
         if (onCreated) onCreated.apply(this, arguments);
 
         this.properties.isWirelessTransmitter = true;
+        this.properties.skipGenericWirelessHeartbeat = true;
 
         this.titleLabel = "Derp Slider";
         this.properties.titleLabel = "Derp Slider";
@@ -195,6 +196,7 @@ export function setupDerpSliderCore(nodeType) {
         }
 
         if (info.properties && this.refreshDerpSliderSysMap) this.refreshDerpSliderSysMap();
+        this.properties.skipGenericWirelessHeartbeat = true;
         if (typeof this.syncDerpOutputs === "function") this.syncDerpOutputs();
     };
 

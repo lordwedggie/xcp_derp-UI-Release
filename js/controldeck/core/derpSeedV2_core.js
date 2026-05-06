@@ -26,6 +26,7 @@ export const broadcastSeedSignal = (node) => {
     const valWidget = node.widgets?.find(w => w.name === "value" || w.name === "seed" || w.name === "noise_seed");
     if (!valWidget || node.id === -1) return;
     node.properties.isWirelessTransmitter = true;
+    node.properties.skipGenericWirelessHeartbeat = true;
     const baseId = String(node.id);
     const nodeName = node.titleLabel || node.title || "Derp Seed";
     const signalId = `${baseId}:0`;

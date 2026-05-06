@@ -141,6 +141,7 @@ export function transmitDerpSignal(node, value, options = {}) {
  */
 export function runWirelessHeartbeat(node, options = {}) {
     if (!node.properties?.isWirelessTransmitter || node.mode === 4 || node.mode === 2) return; // THE ENGINE-LEVEL BYPASS FIX
+    if (node.properties?.skipGenericWirelessHeartbeat) return;
 
     const values = {};
     if (node.widgets) {

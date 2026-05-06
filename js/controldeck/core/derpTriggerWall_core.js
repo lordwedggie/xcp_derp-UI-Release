@@ -116,6 +116,7 @@ export function triggerWall_onNodeCreated(node, originalCallback) {
     window.addEventListener("pointerdown", node._derpClickOutside, true);
 
     node.properties.isWirelessTransmitter = true;
+    node.properties.skipGenericWirelessHeartbeat = true;
     node.outputs = [];
 
     node.titleLabel = "Derp Trigger Wall";

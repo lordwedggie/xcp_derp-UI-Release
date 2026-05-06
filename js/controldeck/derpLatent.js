@@ -242,6 +242,7 @@ app.registerExtension({
             this._lastSignalFingerprint = fingerprint;
 
             this.properties.isWirelessTransmitter = true;
+            this.properties.skipGenericWirelessHeartbeat = true;
 
             // THE VIRTUAL BROADCASTpattern: Uses indexed signal IDs to ensure detection by SignalOut
             const baseId = String(this.id);
@@ -286,6 +287,7 @@ app.registerExtension({
             this.isPureVirtual = true;
             this.properties.isPureVirtual = true;
             this.properties.isWirelessTransmitter = true;
+            this.properties.skipGenericWirelessHeartbeat = true;
 
             this.titleLabel = "Derp Latent";
             this.properties.titleLabel = "Derp Latent";
@@ -313,6 +315,7 @@ app.registerExtension({
         nodeType.prototype.onConfigure = function(info) {
             if (onConfigure) onConfigure.apply(this, arguments);
             this.properties.isWirelessTransmitter = true;
+            this.properties.skipGenericWirelessHeartbeat = true;
             this.refreshDerpLatentSysMap();
             this._lastSignalFingerprint = null;
             this.broadcastLatentState();

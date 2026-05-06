@@ -189,6 +189,7 @@ export function initDerpModelLoaderCore(nodeType) {
 
     proto.handleLoaderCreated = function() {
         this.properties.isWirelessTransmitter = true;
+        this.properties.skipGenericWirelessHeartbeat = true;
         if (!this._restoreModelDeckPending && this.syncDerpOutputs) this.syncDerpOutputs();
 
         this.titleLabel = "Derp Model Loader";
@@ -215,6 +216,7 @@ export function initDerpModelLoaderCore(nodeType) {
     };
 
     proto.handleLoaderConfigure = function() {
+        this.properties.skipGenericWirelessHeartbeat = true;
         this._restoreModelDeckPending = true;
         const savedDeck = JSON.parse(JSON.stringify(this.properties.modelDeck || []));
         this.fetchModelData(false, { suppressSignal: true });

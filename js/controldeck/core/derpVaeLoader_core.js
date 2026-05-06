@@ -203,6 +203,7 @@ export function initDerpVaeLoaderCore(nodeType) {
 
     proto.handleVaeCreated = function() {
         this.properties.isWirelessTransmitter = true;
+        this.properties.skipGenericWirelessHeartbeat = true;
         if (!this._restoreVaeDeckPending && this.syncDerpOutputs) this.syncDerpOutputs();
 
         this.titleLabel = "Derp Vae Loader";
@@ -230,6 +231,7 @@ export function initDerpVaeLoaderCore(nodeType) {
     };
 
     proto.handleVaeConfigure = function() {
+        this.properties.skipGenericWirelessHeartbeat = true;
         this._restoreVaeDeckPending = true;
         const savedDeck = JSON.parse(JSON.stringify(this.properties.vaeDeck || []));
         this.fetchVaeData(false, { suppressSignal: true });

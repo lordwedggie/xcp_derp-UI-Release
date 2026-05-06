@@ -211,16 +211,6 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                         width: "full", padding: [pW, pH], spacing: [sW, 0],
                                         state: isPickedUp ? "ON" : ((isBypassed || !isConnected) ? "DIS" : "OFF"),
                                         alpha: item.isPreviewGhost ? 0 : 1.0,
-                                        onDragStart: (e, data) => startStackDrag(this, data, idx, rowKey),
-                                        onDrag: (e, data) => { updateStackDrag(this, data, "outputsRegion_display_", activeOuts.length); this.refreshNodeLayoutMap(); },
-                                        onDragEnd: () => {
-                                            const fromIdx = this._dragTrig?.index;
-                                            const toIdx = this._dropPreviewIdx;
-                                            endStackDrag(this, "_derpSignalOutDragProxy");
-                                            if (fromIdx !== undefined && toIdx !== undefined && fromIdx !== toIdx && this.reorderDerpOutputs) {
-                                                this.reorderDerpOutputs(fromIdx, toIdx);
-                                            }
-                                        },
                                         onChange: (val) => {
                                             const newSigId = resolveSignalIdFromLabel(val);
                                             if (newSigId) {

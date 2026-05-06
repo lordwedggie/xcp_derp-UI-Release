@@ -452,6 +452,7 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                     this.properties.nameDisplay = this.properties.nameDisplay || "Top";
                     this.signalFilters = { types: this.properties.attentionMode === "Joint-Attention" ? ["MODEL"] : ["MODEL", "CLIP"] };
                     this.properties.isWirelessTransmitter = true;
+                    this.properties.skipGenericWirelessHeartbeat = true;
                     this.isPureVirtual = true;
                     this.properties.isPureVirtual = true;
                     this.properties.drawSignalBtn = true;
