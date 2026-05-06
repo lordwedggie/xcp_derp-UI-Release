@@ -524,13 +524,13 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 }
             },
             externalRow: {
-                type: UI_TYPES.REGION, themeKey: "background", palette: bgPal, regionOffset: [sW, sH, sW, 0.5],
+                type: UI_TYPES.REGION, themeKey: "background", palette: bgPal, regionOffset: [2, 2, 2, 2],
                 corners: [0, 0, null, null],
                 hidden: !basta._externalReady || (basta._navAlpha < 0.01),
                 spawnAnim: false,
                 alpha: basta._navAlpha,
-                anchor: { target: "loraPreview", axis: "y", offset: -stableNavH -sH },
-                dir: "row", width: "full", height: "auto", margin: [sW, mH, sW, mH],
+                anchor: { target: "loraPreview", axis: "y", offset: -stableNavH - 6.5},
+                dir: "row", width: "full", height: "auto", margin: [2, 2, 2, 2],
                 btnCivit: {
                     type: UI_TYPES.BUTTON, labelAlign: ["center", "middle"], padding: [pW, pH],
                     themeKey: "button, t_textSmall", palette: civitPal,

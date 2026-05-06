@@ -16,7 +16,6 @@ import {
     resolveWidgetEnv,
     resolvePaintData,
     measureTextHeight, // THE HEIGHT FIX: Import the height measurement utility
-    getNextZIndex,
     applyInteractionStyles,
     getAlignmentMaps,
     snapToScreenGrid,
@@ -24,10 +23,11 @@ import {
 } from "../utils/widgetsUtils.js";
 import { lerpTo, animateAlpha, animateWidgetColors } from "../masterAnimator.js";
 import { getDerpVars } from "../../fatha/fatha.js";
-import { setupDerpScrollBar, updateDerpScrollBar } from "./derpScrollBar.js";
 import {
     isWidgetAnimationEnabled,
     createHybridDropdownHTML,
+    resolveHybridThemeKeys,
+    initializeHybridPicker,
     buildPickerDOMContainer,
     handleHybridPickerClosePhase,
     finalizeHybridPickerCleanup,
@@ -59,11 +59,7 @@ let activeFilePicker = null;
 let lastOpenTime = 0;
 
 function closeFilePicker() {
-    if (activeFilePicker && activeFilePicker._hoveredRow && activeFilePicker._hoveredRow.isConnected) {
-        activeFilePicker._hoveredRow.style.backgroundColor = "transparent";
-    }
     if (activeFilePicker) {
-        activeFilePicker._hoveredRow = null;
         if (activeFilePicker._previewBox) activeFilePicker._previewBox.style.display = "none";
     }
     if (handleHybridPickerClosePhase(activeFilePicker, lastOpenTime, comfyApp)) {
@@ -112,7 +108,7 @@ function openFilePicker(sourceEl, config, node, callbacks) {
     const { oY, sH, sW } = getDerpVars(node);
     const hasIndicator = config.indicator === true || config.indicator === "on";
 
-    const { bodyKey, labelKey } = parseThemeKey(config.themeKey, "t_textsystem");
+    const { bodyKey, pickerKey, textKey: labelKey } = resolveHybridThemeKeys(config.themeKey);
     const listPaint = resolvePaintData(node, bodyKey, "_OFF") || node._panelPaintData_OFF;
     const rowPaintOFF = resolvePaintData(node, labelKey, "_OFF") || node._t_textnormalPaintData_OFF;
     const rowPaintON = resolvePaintData(node, labelKey, "_ON") || node._t_textnormalPaintData_ON;
@@ -126,37 +122,28 @@ function openFilePicker(sourceEl, config, node, callbacks) {
     const dynamicRowHeight = measureTextHeight("Hgyj", 0, rowPaintOFF) + (config.padding?.[1] || 2) * 2;
 
     const picker = document.createElement("div");
-    picker._sourceEl = sourceEl;
     picker._dynamicRowHeight = dynamicRowHeight;
-    picker._offsetY = oY;
-    picker._visibleLimit = node.properties?.dropdownVisibleLimit || 20;
-    picker._hideScrollbar = node.properties?.hideScrollbar !== false;
-    picker._isClosing = false;
 
     const [aW, aH] = DROPDOWN_ANIM_SETTINGS.anchorSize;
-    picker._currentSize = [config.geometry?.w || 200, aH];
-    picker._itemAlpha = 0;
-
-    picker.style.position = "fixed";
-    picker.style.zIndex = getNextZIndex() + 2000;
-    picker.style.opacity = 0;
-    applyHTMLTheme(picker, listPaint, scale);
-    picker.style.display = "flex";
-    picker.style.flexDirection = "column";
-    picker.style.overflow = "hidden"; // Enforce hidden for custom scrollbar
-    picker.classList.add("derp-scrollbar-hidden");
-    picker.style.boxSizing = "border-box";
+    initializeHybridPicker(
+        picker,
+        sourceEl,
+        config,
+        config.geometry?.w || 200,
+        aH,
+        oY,
+        node.properties?.dropdownVisibleLimit || 20,
+        node.properties?.hideScrollbar !== false,
+        listPaint,
+        scale
+    );
     picker.style.padding = "0px"; // THE MARGIN FIX: Ensure dropdown rows snap to the absolute top of the container
-    picker._scrollTop = 0;
-    picker._hoveredRow = null;
 
     const { headerWrapper, separator, scrollBounds, contentWrapper, previewBox, previewImg } = buildPickerDOMContainer(picker, listPaint, scale, sH);
     picker._aspectRatio = 1; // THE ASPECT RATIO FIX: Initialize default ratio
 
     const maxH = picker._visibleLimit * dynamicRowHeight;
     picker.style.maxHeight = `${maxH * scale}px`;
-
-    setupDerpScrollBar(scrollBounds, contentWrapper, scale, rowPaintON);
 
     const rect = sourceEl.getBoundingClientRect();
     picker.style.left = `${rect.left}px`;
@@ -167,22 +154,6 @@ function openFilePicker(sourceEl, config, node, callbacks) {
      * THE NAVIGATION ENGINE: Recursively redraws the picker content based on the virtual path.
      */
     const renderRows = (dir) => {
-        const clearHoveredRow = () => {
-            if (picker._hoveredRow && picker._hoveredRow.isConnected) {
-                picker._hoveredRow.style.backgroundColor = "transparent";
-            }
-            picker._hoveredRow = null;
-        };
-
-        const setHoveredRow = (row, hoverColor) => {
-            if (picker._hoveredRow && picker._hoveredRow !== row && picker._hoveredRow.isConnected) {
-                picker._hoveredRow.style.backgroundColor = "transparent";
-            }
-            picker._hoveredRow = row;
-            if (row) row.style.backgroundColor = hoverColor;
-        };
-
-        clearHoveredRow();
         if (picker._previewBox) picker._previewBox.style.display = "none";
 
         if (picker._headerWrapper) while (picker._headerWrapper.firstChild) picker._headerWrapper.removeChild(picker._headerWrapper.firstChild);
@@ -260,13 +231,7 @@ function openFilePicker(sourceEl, config, node, callbacks) {
             if (entry.type === "select_current") row.style.fontStyle = "italic";
             if (prefixColor && row._glyphSpan) row._glyphSpan.style.color = prefixColor;
 
-            const hoverColor = rowPaintON?.fill || rowPaintOFF?.fill || "transparent";
-
             row.onmouseenter = () => {
-                // THE INTERACTION FIX: Disable hover highlight for the read-only path display
-                if (entry.type !== "select_current") {
-                    setHoveredRow(row, hoverColor);
-                }
                 // THE PREVIEW TRIGGER: Only show the box if the lora has a validated companion image
                 const itemObj = (config.items || []).find(i => {
                     if (!i || typeof i !== "object") return false;
@@ -277,21 +242,25 @@ function openFilePicker(sourceEl, config, node, callbacks) {
                     ? `/xcp/get_lora_preview?name=${encodeURIComponent(entry.path)}`
                     : null);
                 if (entry.type === "file" && previewUrl) {
-                    // THE ASPECT RATIO FIX: Capture dimensions when image loads to recalculate box shape
+                    // Avoid stale async image loads from reviving an old black preview box.
+                    const token = (picker._previewToken || 0) + 1;
+                    picker._previewToken = token;
                     picker._previewImg.onload = () => {
+                        if (picker._previewToken !== token) return;
                         picker._aspectRatio = (picker._previewImg.naturalWidth / picker._previewImg.naturalHeight) || 1;
+                        picker._previewBox.style.display = "block";
+                    };
+                    picker._previewImg.onerror = () => {
+                        if (picker._previewToken !== token) return;
+                        picker._previewBox.style.display = "none";
                     };
                     picker._previewImg.src = previewUrl;
-                    picker._previewBox.style.display = "block";
                 } else {
                     picker._previewBox.style.display = "none";
                 }
             };
             row.onmouseleave = () => {
-                if (picker._hoveredRow === row) {
-                    picker._hoveredRow = null;
-                }
-                row.style.backgroundColor = "transparent";
+                picker._previewToken = (picker._previewToken || 0) + 1;
                 picker._previewBox.style.display = "none";
             };
             row.onclick = (e) => {
@@ -341,8 +310,6 @@ function openFilePicker(sourceEl, config, node, callbacks) {
             selectBtn.style.fontFamily = btnPaint?.font || "Arial";
             selectBtn.style.color = btnPaint?.textColor || btnPaint?.fill || "white";
 
-            selectBtn.onmouseenter = () => { selectBtn.style.backgroundColor = rowPaintON?.fill || "rgba(255,255,255,0.1)"; };
-            selectBtn.onmouseleave = () => { selectBtn.style.backgroundColor = "transparent"; };
             selectBtn.onclick = (e) => {
                 e.stopPropagation();
                 const finalPath = picker._currentDir || "/";
@@ -352,8 +319,6 @@ function openFilePicker(sourceEl, config, node, callbacks) {
             };
             contentWrapper.appendChild(selectBtn);
         }
-
-        if (picker._updateScroll) picker._updateScroll();
 
         // THE AUTO-SCROLL ENGINE: On initial open, jump the scroll position to the selected item.
         if (!picker._hasAutoScrolled) {
@@ -377,18 +342,12 @@ function openFilePicker(sourceEl, config, node, callbacks) {
                     const maxScroll = Math.max(0, totalContentH - viewportH);
                     const finalScroll = Math.max(0, Math.min(scrollPos, maxScroll));
 
-                    // THE ANIMATION PERSISTENCE FIX: Lock the target scroll in unscaled units.
-                    picker._targetAutoScroll = finalScroll;
-
-                    // THE VIRTUAL SCROLL FIX: Apply _scrollTop and _updateScroll directly to scrollBounds,
-                    // where derpScrollBar is actually attached. Do NOT mutate native scrollTop, which causes visual clipping.
-                    scrollBounds._scrollTop = finalScroll;
-                    if (scrollBounds._updateScroll) scrollBounds._updateScroll();
+                    picker._targetAutoScroll = finalScroll * scale;
+                    scrollBounds.scrollTop = picker._targetAutoScroll;
 
                     requestAnimationFrame(() => {
                         if (scrollBounds) {
-                            scrollBounds._scrollTop = finalScroll;
-                            if (scrollBounds._updateScroll) scrollBounds._updateScroll();
+                            scrollBounds.scrollTop = picker._targetAutoScroll;
                         }
                     });
                 }
@@ -412,10 +371,6 @@ function openFilePicker(sourceEl, config, node, callbacks) {
     renderRows(startDir);
 
     picker.onmouseleave = () => {
-        if (picker._hoveredRow && picker._hoveredRow.isConnected) {
-            picker._hoveredRow.style.backgroundColor = "transparent";
-        }
-        picker._hoveredRow = null;
         if (picker._previewBox) picker._previewBox.style.display = "none";
     };
 
@@ -479,14 +434,18 @@ export function syncFileBrowser(context, node, app, config) {
 
     // THE ANIMATION TRAP FIX: Bypass the static hash lock if the widget is actively interpolating its color
     const isAnim = itemCache.res && itemCache.res.isAnimating;
-    const needsFullSync = node._forceSync || itemCache.hash !== stateHash || isAnim;
+    const needsFullSync =
+        node._forceSync ||
+        safeConfig.bypassHashOptimization === true ||
+        itemCache.hash !== stateHash ||
+        isAnim;
 
     if (!needsFullSync && itemCache.res) {
         var { props, stateStr, bodyPaint, labelPaint, fs, rawIc, animatedFillColor, animatedTextColor, isAnimating } = itemCache.res;
     } else {
-        const themeParts = (safeConfig.themeKey || "").split(",").map(p => p.trim());
-        const bodyKey = themeParts.length > 1 ? themeParts[0] : "panel";
-        const labelKey = themeParts.length === 1 ? themeParts[0] : (themeParts[1] || "t_textsystem");
+        const resolvedThemeKeys = resolveHybridThemeKeys(safeConfig.themeKey);
+        const bodyKey = resolvedThemeKeys.bodyKey;
+        const labelKey = resolvedThemeKeys.textKey;
 
         const envConfig = { ...safeConfig, themeKey: `${bodyKey}, ${labelKey}` };
         var { props, stateStr, bodyPaint, labelPaint } = resolveWidgetEnv(node, envConfig);
@@ -653,7 +612,7 @@ export function syncFileBrowser(context, node, app, config) {
 
             // THE O(N) DOM THRASH FIX: Only update row scales when physical zoom changes, not during animation
             const {sW: rowSW} = getDerpVars(node);
-            const rowHash = `${scale}_${dRowH}_${rowSW}_${el._label.style.fontSize}`;
+            const rowHash = `${scale}_${dRowH}_${rowSW}`;
             if (activeFilePicker._lastRowHash !== rowHash) {
                 activeFilePicker._lastRowHash = rowHash;
 
@@ -708,23 +667,17 @@ export function syncFileBrowser(context, node, app, config) {
         // so the scrollbar logic doesn't clamp it to 0 when the viewport is artificially small.
         if (activeFilePicker._targetAutoScroll !== undefined) {
             if (activeFilePicker._scrollBounds) {
-                // THE VIRTUAL SCROLL FIX: Sync the virtual properties instead of the native DOM properties.
-                activeFilePicker._scrollBounds._scrollTop = activeFilePicker._targetAutoScroll;
-                if (activeFilePicker._scrollBounds._updateScroll) activeFilePicker._scrollBounds._updateScroll();
+                activeFilePicker._scrollBounds.scrollTop = activeFilePicker._targetAutoScroll;
             }
 
             // Release the lock when the animation completes
             if (Math.abs(activeFilePicker._currentSize[1] - targetH) < 2) {
                 delete activeFilePicker._targetAutoScroll;
-                // Force a scroll update to restore any items that might have been culled during the tiny viewport phase
-                if (activeFilePicker._scrollBounds && activeFilePicker._scrollBounds._updateScroll) {
-                    activeFilePicker._scrollBounds._updateScroll();
-                }
             }
         }
         const canvasEl = comfyApp.canvas.canvas;
         syncSingletonShield(comfyApp, -ds.offset[0], -ds.offset[1], canvasEl.width / scale, canvasEl.height / scale);
 
-        syncHybridScroll(activeFilePicker, scale, updateDerpScrollBar);
+        syncHybridScroll(activeFilePicker, scale);
     }
 }

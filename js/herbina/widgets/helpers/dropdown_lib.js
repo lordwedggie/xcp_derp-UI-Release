@@ -4,15 +4,16 @@
  */
 import { getNextZIndex } from "../../utils/widgetsUtils.js";
 
-const scrollHideId = "derp-scrollbar-hide-style";
-if (!document.getElementById(scrollHideId)) {
-    const style = document.createElement("style");
-    style.id = scrollHideId;
-    style.innerHTML = `
-        .derp-scrollbar-hidden::-webkit-scrollbar { display: none !important; }
-        .derp-scrollbar-hidden { -ms-overflow-style: none !important; scrollbar-width: none !important; }
+const pickerHoverId = "derp-picker-hover-style";
+if (!document.getElementById(pickerHoverId)) {
+    const pickerStyle = document.createElement("style");
+    pickerStyle.id = pickerHoverId;
+    pickerStyle.innerHTML = `
+        .derp-picker-row:hover {
+            background-color: rgba(255, 255, 255, 0.12) !important;
+        }
     `;
-    document.head.appendChild(style);
+    document.head.appendChild(pickerStyle);
 }
 
 export const DROPDOWN_ANIM_SETTINGS = {
@@ -22,6 +23,80 @@ export const DROPDOWN_ANIM_SETTINGS = {
     fadeThreshold: 0.5,
     anchorSize: [10, 4]
 };
+
+export function toCssColor(color, fallback = "transparent") {
+    if (!color) return fallback;
+    if (typeof color === "string") return color;
+    if (Array.isArray(color) && color.length >= 3) {
+        const a = color.length >= 4 ? color[3] : 1;
+        return `rgba(${Math.round(color[0])}, ${Math.round(color[1])}, ${Math.round(color[2])}, ${a})`;
+    }
+    return fallback;
+}
+
+export function resolveHybridThemeKeys(themeKey) {
+    const parts = (themeKey || "").split(",").map((p) => p.trim()).filter(Boolean);
+    return {
+        bodyKey: parts[0] || "panel",
+        pickerKey: parts.length >= 3 ? parts[1] : null,
+        textKey: parts.length >= 3 ? (parts[2] || "t_textsystem") : (parts[1] || parts[0] || "t_textsystem")
+    };
+}
+
+export function initializeHybridPicker(picker, sourceEl, config, currentWidth, anchorHeight, offsetY, visibleLimit, hideScrollbar, listPaint, scale) {
+    picker._sourceEl = sourceEl;
+    picker._offsetY = offsetY;
+    picker._visibleLimit = visibleLimit;
+    picker._hideScrollbar = hideScrollbar;
+    picker._isClosing = false;
+    picker._currentSize = [currentWidth, anchorHeight];
+    picker._itemAlpha = 0;
+
+    picker.style.position = "fixed";
+    picker.style.zIndex = getNextZIndex() + 2000;
+    picker.style.opacity = 0;
+    applyBasePickerTheme(picker, listPaint, scale);
+}
+
+function applyBasePickerTheme(picker, listPaint, scale) {
+    applyBasePickerSelectionGuards(picker);
+    applyBasePickerLayout(picker);
+    picker.style.boxSizing = "border-box";
+    applyInlineTheme(picker, listPaint, scale);
+}
+
+function applyBasePickerSelectionGuards(picker) {
+    picker.style.userSelect = "none";
+    picker.style.webkitUserSelect = "none";
+    picker.style.MozUserSelect = "none";
+    picker.style.msUserSelect = "none";
+}
+
+function applyBasePickerLayout(picker) {
+    picker.style.display = "flex";
+    picker.style.flexDirection = "column";
+    picker.style.overflow = "hidden";
+}
+
+function applyInlineTheme(picker, listPaint, scale) {
+    const fill = listPaint?.fill;
+    const bg = Array.isArray(fill) ? `rgba(${fill[0]}, ${fill[1]}, ${fill[2]}, ${fill[3] ?? 1})` : (fill || "transparent");
+    picker.style.background = bg;
+    if (listPaint?.stroke) {
+        picker.style.borderStyle = "solid";
+        picker.style.borderColor = toCssColor(listPaint.stroke);
+        picker.style.borderWidth = `${(listPaint.lineWidth || 1) * scale}px`;
+    } else {
+        picker.style.borderWidth = "0px";
+    }
+    if (listPaint?.corners) {
+        const corners = Array.isArray(listPaint.corners) ? listPaint.corners : [listPaint.corners, listPaint.corners, listPaint.corners, listPaint.corners];
+        picker.style.borderRadius = corners.map((c) => `${(c || 0) * scale}px`).join(" ");
+    }
+    if (listPaint?.boxShadow) {
+        picker.style.boxShadow = listPaint.boxShadow;
+    }
+}
 
 export function isWidgetAnimationEnabled(config, node, app) {
     try {
@@ -46,6 +121,10 @@ export function createHybridDropdownHTML(callbacks = {}, glyphs = ["▼", "▲"]
     el.style.zIndex = getNextZIndex();
     el.style.display = "none";
     el.style.userSelect = "none";
+    el.style.webkitUserSelect = "none";
+    el.style.MozUserSelect = "none";
+    el.style.msUserSelect = "none";
+    el.style.webkitTapHighlightColor = "transparent";
     el.style.pointerEvents = "auto";
     el.style.boxSizing = "border-box";
 
@@ -74,6 +153,12 @@ export function createHybridDropdownHTML(callbacks = {}, glyphs = ["▼", "▲"]
 }
 
 export function buildPickerDOMContainer(picker, listPaint, scale, sH) {
+    picker.style.userSelect = "none";
+    picker.style.webkitUserSelect = "none";
+    picker.style.MozUserSelect = "none";
+    picker.style.msUserSelect = "none";
+    picker.onselectstart = () => false;
+
     const headerWrapper = document.createElement("div");
     headerWrapper.style.display = "flex";
     headerWrapper.style.flexDirection = "column";
@@ -82,6 +167,11 @@ export function buildPickerDOMContainer(picker, listPaint, scale, sH) {
     headerWrapper.style.position = "relative";
     headerWrapper.style.zIndex = "10";
     headerWrapper.style.overflow = "hidden";
+    headerWrapper.style.userSelect = "none";
+    headerWrapper.style.webkitUserSelect = "none";
+    headerWrapper.style.MozUserSelect = "none";
+    headerWrapper.style.msUserSelect = "none";
+    headerWrapper.onselectstart = () => false;
     const hp = listPaint?.fill;
     headerWrapper.style.backgroundColor = Array.isArray(hp) ? `rgba(${hp[0]}, ${hp[1]}, ${hp[2]}, ${hp[3] ?? 1})` : (hp || "rgb(30, 30, 30)");
     picker.appendChild(headerWrapper);
@@ -109,19 +199,28 @@ export function buildPickerDOMContainer(picker, listPaint, scale, sH) {
     scrollBounds.style.width = "100%";
     scrollBounds.style.display = "flex";
     scrollBounds.style.flexDirection = "column";
-    scrollBounds.style.overflow = "hidden";
-    scrollBounds.classList.add("derp-scrollbar-hidden");
+    scrollBounds.style.overflowX = "hidden";
+    scrollBounds.style.overflowY = "auto";
+    scrollBounds.style.userSelect = "none";
+    scrollBounds.style.webkitUserSelect = "none";
+    scrollBounds.style.MozUserSelect = "none";
+    scrollBounds.style.msUserSelect = "none";
+    scrollBounds.onselectstart = () => false;
+    scrollBounds.style.flex = "1 1 auto";
     picker.appendChild(scrollBounds);
     picker._scrollBounds = scrollBounds;
 
     const contentWrapper = document.createElement("div");
-    contentWrapper.style.position = "absolute";
-    contentWrapper.style.top = "0px";
-    contentWrapper.style.left = "0px";
     contentWrapper.style.display = "flex";
     contentWrapper.style.flexDirection = "column";
     contentWrapper.style.width = "100%";
+    contentWrapper.style.position = "relative";
     contentWrapper.style.overflow = "visible";
+    contentWrapper.style.userSelect = "none";
+    contentWrapper.style.webkitUserSelect = "none";
+    contentWrapper.style.MozUserSelect = "none";
+    contentWrapper.style.msUserSelect = "none";
+    contentWrapper.onselectstart = () => false;
     scrollBounds.appendChild(contentWrapper);
     picker._contentWrapper = contentWrapper;
 
@@ -165,7 +264,12 @@ export function finalizeHybridPickerCleanup(activePicker, toggleShieldCallback, 
 
 export function appendHybridPickerRow(container, sourceEl, paintOFF, paintON, scale, dynamicRowHeight, glyph, contentHTML, isSelected = false, pX = 8, iconOffset = 0, glyphSpacing = 0, glyphSizeMult = 1, sideMargin = 0) {
     const row = document.createElement("div");
+    row.classList.add("derp-picker-row");
     row.style.userSelect = "none";
+    row.style.webkitUserSelect = "none";
+    row.style.MozUserSelect = "none";
+    row.style.msUserSelect = "none";
+    row.style.webkitTapHighlightColor = "transparent";
     row.style.boxSizing = "border-box";
     row.style.height = `${dynamicRowHeight * scale}px`;
     row.style.flexShrink = "0";
@@ -189,24 +293,33 @@ export function appendHybridPickerRow(container, sourceEl, paintOFF, paintON, sc
         gSpan.style.marginRight = `${glyphSpacing * scale}px`;
         gSpan.style.fontSize = `${fs * glyphSizeMult * scale}px`;
         gSpan.style.flexShrink = "0";
+        gSpan.style.pointerEvents = "none";
         row._glyphSpan = gSpan;
         row.appendChild(gSpan);
     }
 
     const cSpan = document.createElement("span");
     cSpan.innerHTML = contentHTML;
+    cSpan.style.userSelect = "none";
+    cSpan.style.webkitUserSelect = "none";
+    cSpan.style.MozUserSelect = "none";
+    cSpan.style.msUserSelect = "none";
+    cSpan.style.pointerEvents = "none";
     row._contentSpan = cSpan;
     row.appendChild(cSpan);
 
-    container.appendChild(row);
+    row.onselectstart = () => false;
+    row.onpointerdown = (e) => {
+        if (e) e.preventDefault();
+    };
+    row.tabIndex = -1;
+    row.style.outline = "none";
+    row.style.webkitTouchCallout = "none";
+
     return row;
 }
 
-/**
- * THE ZOOM SCROLL FIX: Shared logic to stabilize scrollbars during Canvas zooming.
- * Absorbs floating-point rounding errors and cleans up phantom library elements.
- */
-export function syncHybridScroll(picker, scale, updateScrollFn) {
+export function syncHybridScroll(picker, scale) {
     if (!picker || !picker._scrollBounds) return;
     if (!picker._lastScrollHash) picker._lastScrollHash = "";
 
@@ -218,32 +331,25 @@ export function syncHybridScroll(picker, scale, updateScrollFn) {
     const scrollHash = `${scale.toFixed(3)}_${currentH}_${scrollCount}_${headerCount}`;
     if (picker._lastScrollHash === scrollHash) return;
     picker._lastScrollHash = scrollHash;
-        const sepHeightLocal = picker._sepHeightBase || 0;
-        const visibleLimit = picker._visibleLimit || 15;
+    const sepHeightLocal = picker._sepHeightBase || 0;
+    const visibleLimit = picker._visibleLimit || 15;
 
-        const viewportH = (picker._currentSize[1] - (headerCount * dRowH) - sepHeightLocal);
-        picker._scrollBounds.style.height = `${(viewportH * scale) + 1}px`;
+    const viewportH = (picker._currentSize[1] - (headerCount * dRowH) - sepHeightLocal);
+    picker._scrollBounds.style.height = `${(viewportH * scale) + 1}px`;
 
-        const isShort = (scrollCount <= (visibleLimit - headerCount));
+    const isShort = (scrollCount <= (visibleLimit - headerCount));
 
     if (isShort) {
         picker._scrollBounds.style.overflowY = "hidden";
         if (picker._contentWrapper) {
-            picker._contentWrapper.style.maxHeight = `${viewportH * scale}px`;
-            picker._contentWrapper.style.overflow = "hidden";
+            picker._contentWrapper.style.maxHeight = "none";
+            picker._contentWrapper.style.overflow = "visible";
         }
     } else {
-        picker._scrollBounds.style.overflowY = "scroll";
+        picker._scrollBounds.style.overflowY = "auto";
         if (picker._contentWrapper) {
             picker._contentWrapper.style.maxHeight = "none";
             picker._contentWrapper.style.overflow = "visible";
         }
-    }
-        if (updateScrollFn) updateScrollFn(picker._scrollBounds, picker._contentWrapper, scale);
-
-    if (isShort) {
-        Array.from(picker._scrollBounds.children).forEach(c => {
-            if (c !== picker._contentWrapper) c.style.display = "none";
-        });
     }
 }
