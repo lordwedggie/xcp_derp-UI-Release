@@ -216,7 +216,14 @@ export function bindPromptBookHooks(nodeType) {
             this.updateDerpPromptBookUI();
             if (this.refreshDerpPromptBookSysMap) this.refreshDerpPromptBookSysMap();
             if (this.fetchRemoteBooks) this.fetchRemoteBooks();
+            this._lastSyncedContent = null;
             if (this.syncDerpOutputs) this.syncDerpOutputs();
+
+            setTimeout(() => {
+                if (this.id === -1 || !this.syncDerpOutputs) return;
+                this._lastSyncedContent = null;
+                this.syncDerpOutputs();
+            }, 64);
 
             this._derpAwakeFrames = 10;
             this.requestDerpSync();

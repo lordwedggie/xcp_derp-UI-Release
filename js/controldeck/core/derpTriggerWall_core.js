@@ -167,6 +167,7 @@ export function triggerWall_onConfigure(node, info, originalCallback) {
 
     if (info && info.properties) {
         node._lastDerpW = null; // Force frame-one rebuild in onDrawForeground
+        node._lastSyncedContent = null;
         node._cachedPresetData = cloneTriggerPresetData(node.properties.loadedTriggerPreset);
         node.refreshNodeLayoutMap();
         node.refreshDerpTriggerWallSysMap();
@@ -182,6 +183,12 @@ export function triggerWall_onConfigure(node, info, originalCallback) {
         }
     }
     if (node.syncDerpOutputs) node.syncDerpOutputs();
+
+    setTimeout(() => {
+        if (node.id === -1 || !node.syncDerpOutputs) return;
+        node._lastSyncedContent = null;
+        node.syncDerpOutputs();
+    }, 64);
 }
 
 export function triggerWall_onDrawForeground(node, ctx, originalCallback) {
