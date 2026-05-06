@@ -27,6 +27,13 @@ export function createLineBreak(callbacks = {}) {
 export function syncLineBreak(ctx, node, config) {
     if (!config.geometry) return;
     const { x, y, w } = config.geometry;
+    const { alpha: sysAlpha } = resolveWidgetEnv(node, config);
+    if (sysAlpha <= 0) return;
+
+    if (sysAlpha < 1) {
+        ctx.save();
+        ctx.globalAlpha *= sysAlpha;
+    }
 
     // 1. Resolve Environment via Protocol
     const { bodyPaint } = resolveWidgetEnv(node, config);
@@ -53,4 +60,6 @@ export function syncLineBreak(ctx, node, config) {
         color: bottomColor,
         paintData: { corners: 0 }
     });
+
+    if (sysAlpha < 1) ctx.restore();
 }

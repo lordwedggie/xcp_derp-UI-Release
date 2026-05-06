@@ -5,6 +5,7 @@
 
 import { showTriggerWall } from "../../fatha/bastas/bastaTriggerWall.js";
 import { showBastaFileHandler } from "../../fatha/bastas/bastaFileHandler.js";
+import { showBastaMessage } from "../../fatha/bastas/bastaMessage.js";
 import { endStackDrag } from "../../fatha/helpers/fathaDragDrop.js";
 
 function refreshAndSync(node, syncOutputs = true, dirtyFull = false) {
@@ -673,6 +674,129 @@ export function triggerWall_isGroupDuplicate(node) {
     const selectedGroup = groups[selectedIdx];
     const cached = node._cachedPresetData?.triggerGroups || [];
     return cached.some(g => g.title === selectedGroup.title);
+}
+
+function getTriggerGroupTextSignature(group) {
+    return JSON.stringify(
+        (group?.triggers || [])
+            .filter(t => !t.hidden)
+            .map(t => String(t.label || ""))
+    );
+}
+
+export function triggerWall_hasProfileGroup(node, group) {
+    const cached = node._cachedPresetData?.triggerGroups || [];
+    return cached.some(g => g.title === group?.title);
+}
+
+export function triggerWall_hasGroupTextChanges(node, group) {
+    const cached = node._cachedPresetData?.triggerGroups || [];
+    const savedGroup = cached.find(g => g.title === group?.title);
+    if (!savedGroup) return false;
+    return getTriggerGroupTextSignature(savedGroup) !== getTriggerGroupTextSignature(group);
+}
+
+export async function triggerWall_addSelectedGroupToProfile(node) {
+    const presetName = node.properties?.lastSavedPreset;
+    if (!presetName) return;
+
+    const groups = node.properties.triggerGroups || [];
+    const selectedIdx = groups.findIndex((g, i) => !g.hidden && node._selectedRegions?.[`triggerRegion_${i}`]);
+    if (selectedIdx === -1) return;
+
+    const selectedGroup = groups[selectedIdx];
+    const presetData = cloneTriggerPresetData(node._cachedPresetData) || {
+        fileType: "xcp_derp_trigger_preset",
+        version: "1.0.0",
+        timestamp: Date.now(),
+        triggerGroups: []
+    };
+
+    if (!Array.isArray(presetData.triggerGroups)) presetData.triggerGroups = [];
+    if (presetData.triggerGroups.some(g => g.title === selectedGroup.title)) return;
+
+    const cleanGroup = {
+        id: selectedGroup.id || `grp_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`,
+        title: selectedGroup.title,
+        isExclusive: !!selectedGroup.isExclusive,
+        triggers: (selectedGroup.triggers || [])
+            .filter(t => !t.hidden)
+            .map(t => ({
+                id: t.id || `trig_${Math.random().toString(16).slice(2, 8)}`,
+                label: t.label,
+                weight: t.weight,
+                active: !!t.active
+            }))
+    };
+
+    presetData.timestamp = Date.now();
+    presetData.triggerGroups.push(cleanGroup);
+
+    try {
+        const response = await fetch("/xcp/save/triggerWall", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: presetName, data: presetData })
+        });
+        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error || "Unknown error");
+
+        setLoadedTriggerPreset(node, presetName, presetData);
+        node._layoutMapHash = null;
+        refreshAndSync(node, false, true);
+        showBastaMessage(node, "Profile Saved!", 3000, { fade: true, grow: true }, "btnAddTriggerToProfile", false, "success");
+    } catch (e) {
+        console.error("[xcpDerp] Failed to save trigger group to profile:", e);
+        showBastaMessage(node, "Save Failed", 3000, { fade: true, grow: true }, "btnAddTriggerToProfile", false, "error");
+    }
+}
+
+export async function triggerWall_saveGroupToProfile(node, group, targetRegion = "floatingBtnSave") {
+    const presetName = node.properties?.lastSavedPreset;
+    if (!presetName || !group) return;
+
+    const presetData = cloneTriggerPresetData(node._cachedPresetData);
+    if (!presetData || !Array.isArray(presetData.triggerGroups)) return;
+
+    const savedIdx = presetData.triggerGroups.findIndex(g => g.title === group.title);
+    if (savedIdx === -1) return;
+
+    const cleanGroup = {
+        id: group.id || `grp_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`,
+        title: group.title,
+        isExclusive: !!group.isExclusive,
+        triggers: (group.triggers || [])
+            .filter(t => !t.hidden)
+            .map(t => ({
+                id: t.id || `trig_${Math.random().toString(16).slice(2, 8)}`,
+                label: t.label,
+                weight: t.weight,
+                active: !!t.active
+            }))
+    };
+
+    presetData.timestamp = Date.now();
+    presetData.triggerGroups[savedIdx] = cleanGroup;
+
+    try {
+        const response = await fetch("/xcp/save/triggerWall", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: presetName, data: presetData })
+        });
+        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error || "Unknown error");
+
+        setLoadedTriggerPreset(node, presetName, presetData);
+        node._layoutMapHash = null;
+        refreshAndSync(node, false, true);
+        showBastaMessage(node, "Profile Saved!", 3000, { fade: true, grow: true }, targetRegion, false, "success");
+    } catch (e) {
+        console.error("[xcpDerp] Failed to overwrite trigger group in profile:", e);
+        showBastaMessage(node, "Save Failed", 3000, { fade: true, grow: true }, targetRegion, false, "error");
+    }
 }
 
 export function triggerWall_onDerpSysPanelOpen(node, panel) {

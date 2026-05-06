@@ -2,6 +2,16 @@ import { app } from "../../../../scripts/app.js";
 import { spawnBasta, activeBastas } from "../basta.js";
 import { UI_TYPES } from "../core/masterLayoutTypes.js";
 
+const TRIGGER_WEIGHT_MIN = -2;
+const TRIGGER_WEIGHT_MAX = 2;
+const TRIGGER_WEIGHT_DEFAULT = 1.0;
+
+function clampTriggerWeight(value) {
+    const num = Number.parseFloat(value);
+    if (!Number.isFinite(num)) return TRIGGER_WEIGHT_DEFAULT;
+    return Math.max(TRIGGER_WEIGHT_MIN, Math.min(TRIGGER_WEIGHT_MAX, num));
+}
+
 export const getTriggerWallId = () => `basta_trigger_wall_global_unique_id`;
 
 export function showTriggerWall(host, targetRegion = null) {
@@ -21,7 +31,7 @@ export function showTriggerWall(host, targetRegion = null) {
     const triggers = (gIdx !== null && host.properties.triggerGroups) ? host.properties.triggerGroups[gIdx].triggers : host.properties.triggers;
     const trig = (idx !== null && triggers) ? triggers[idx] : { label: "" };
     const initialLabel = trig.label || "";
-    const initialWeight = trig.weight !== undefined ? trig.weight : 1.0;
+    const initialWeight = clampTriggerWeight(trig.weight !== undefined ? trig.weight : TRIGGER_WEIGHT_DEFAULT);
 
     const syncBasta = () => {
         const b = activeBastas.get(id);
@@ -105,9 +115,9 @@ export function showTriggerWall(host, targetRegion = null) {
                     btnRevert: {
                         type: UI_TYPES.ICONBUTTON, themeKey: "button, t_textSmall",
                         icon: "revert", width: "match", height: "full", margin: [0, 0], padding: [pW, pH],
-                        state: initialWeight === 1.0 ? "DIS" : "OFF", spacing: [sW, 0],
+                        state: initialWeight === TRIGGER_WEIGHT_DEFAULT ? "DIS" : "OFF", spacing: [sW, 0],
                         onPress: () => {
-                            const val = 1.0;
+                            const val = TRIGGER_WEIGHT_DEFAULT;
                             config._tempWeight = val;
                             config.layoutMap.contentRegion.regionSlider.sliderWeight.value = val;
                             config.layoutMap.contentRegion.regionSlider.editorWeight.text = val.toFixed(2);
@@ -124,15 +134,15 @@ export function showTriggerWall(host, targetRegion = null) {
                     sliderWeight: {
                         type: UI_TYPES.SLIDER, themeKey: "panel, button, t_textSmall",
                         label: "Trigger Weight", labelAlign: ["center", "middle"],
-                        value: initialWeight, min: 0, max: 2, step: 0.01,
+                        value: initialWeight, min: TRIGGER_WEIGHT_MIN, max: TRIGGER_WEIGHT_MAX, step: 0.01,
                         width: "full", height: "full", spacing: [sW, 0],
                         onChange: (v) => {
-                            const val = Math.max(0, Math.min(2, parseFloat(v) || 0));
+                            const val = clampTriggerWeight(v);
                             config._tempWeight = val;
                             config.layoutMap.contentRegion.regionSlider.sliderWeight.value = val;
                             config.layoutMap.contentRegion.regionSlider.editorWeight.text = val.toFixed(2);
                             config.layoutMap.contentRegion.regionSlider.editorWeight.value = val.toFixed(2);
-                            config.layoutMap.contentRegion.regionSlider.btnRevert.state = val === 1.0 ? "DIS" : "OFF";
+                            config.layoutMap.contentRegion.regionSlider.btnRevert.state = val === TRIGGER_WEIGHT_DEFAULT ? "DIS" : "OFF";
                             const b = activeBastas.get(id);
                             if (b) {
                                 b._layoutMapHash = undefined;
@@ -145,25 +155,25 @@ export function showTriggerWall(host, targetRegion = null) {
                         type: UI_TYPES.EDITOR, themeKey: "dialog, t_textNormal",
                         text: initialWeight.toFixed(2),
                         value: initialWeight.toFixed(2),
-                        width: "auto", height: "full", padding: [pW, pH], measureText: "9.99",
+                        width: "auto", height: "full", padding: [pW, pH], measureText: "-2.00",
                         onBlur: (v) => {
-                            const val = Math.max(0, Math.min(2, parseFloat(v) || 0));
+                            const val = clampTriggerWeight(v);
                             config._tempWeight = val;
                             config.layoutMap.contentRegion.regionSlider.sliderWeight.value = val;
                             config.layoutMap.contentRegion.regionSlider.editorWeight.text = val.toFixed(2);
                             config.layoutMap.contentRegion.regionSlider.editorWeight.value = val.toFixed(2);
-                            config.layoutMap.contentRegion.regionSlider.btnRevert.state = val === 1.0 ? "DIS" : "OFF";
+                            config.layoutMap.contentRegion.regionSlider.btnRevert.state = val === TRIGGER_WEIGHT_DEFAULT ? "DIS" : "OFF";
                             syncBasta();
                         },
                         onKeyDown: (e, v) => {
                             if (e.key === "Enter") {
                                 e.preventDefault();
-                                const val = Math.max(0, Math.min(2, parseFloat(v) || 0));
+                                const val = clampTriggerWeight(v);
                                 config._tempWeight = val;
                                 config.layoutMap.contentRegion.regionSlider.sliderWeight.value = val;
                                 config.layoutMap.contentRegion.regionSlider.editorWeight.text = val.toFixed(2);
                                 config.layoutMap.contentRegion.regionSlider.editorWeight.value = val.toFixed(2);
-                                config.layoutMap.contentRegion.regionSlider.btnRevert.state = val === 1.0 ? "DIS" : "OFF";
+                                config.layoutMap.contentRegion.regionSlider.btnRevert.state = val === TRIGGER_WEIGHT_DEFAULT ? "DIS" : "OFF";
                                 const b = activeBastas.get(id);
                                 if (b) {
                                     b._layoutMapHash = undefined;
@@ -210,28 +220,43 @@ export function showTriggerWall(host, targetRegion = null) {
         }
     };
 
+    const existing = activeBastas.get(id);
+    if (existing) {
+        existing.hostNode = host;
+        existing.targetRegion = targetRegion;
+        existing.titleLabel = config.titleLabel;
+        existing.onClose = config.onClose;
+        existing.layoutMap = config.layoutMap;
+        existing._triggerWallConfig = config;
+        existing._layoutMapHash = undefined;
+        existing._forceSync = true;
+    }
+
     const bastaInstance = spawnBasta(id, config);
+    bastaInstance._triggerWallConfig = config;
 
     if (!bastaInstance._isDerpInteractionPatched) {
         const originalHandler = bastaInstance.handleShieldInteraction;
         bastaInstance.handleShieldInteraction = function(type, data) {
+            const liveConfig = this._triggerWallConfig || config;
+            const liveHost = this.hostNode || host;
             if (type === "dragStart" || type === "drag") {
                 const hit = this._pressedRegionKey || (this.layout ? this.layout.hitTest([data.localX, data.localY], null, 0) : null);
                 if (hit === "sliderWeight") {
                     const reg = this.layout.computedRegions[hit];
                     if (reg) {
                         const percent = Math.max(0, Math.min(1, (data.localX - reg.x) / reg.w));
-                        const val = Math.max(0, Math.min(2, percent * 2));
+                        const val = TRIGGER_WEIGHT_MIN + (percent * (TRIGGER_WEIGHT_MAX - TRIGGER_WEIGHT_MIN));
 
-                        config._tempWeight = val;
-                        config.layoutMap.contentRegion.regionSlider.sliderWeight.value = val;
-                        config.layoutMap.contentRegion.regionSlider.editorWeight.text = val.toFixed(2);
-                        config.layoutMap.contentRegion.regionSlider.editorWeight.value = val.toFixed(2);
-                        config.layoutMap.contentRegion.regionSlider.btnRevert.state = val === 1.0 ? "DIS" : "OFF";
+                        liveConfig._tempWeight = val;
+                        liveConfig.layoutMap.contentRegion.regionSlider.sliderWeight.value = val;
+                        liveConfig.layoutMap.contentRegion.regionSlider.editorWeight.text = val.toFixed(2);
+                        liveConfig.layoutMap.contentRegion.regionSlider.editorWeight.value = val.toFixed(2);
+                        liveConfig.layoutMap.contentRegion.regionSlider.btnRevert.state = val === TRIGGER_WEIGHT_DEFAULT ? "DIS" : "OFF";
 
                         this._forceSync = true;
-                        if (host.refreshNodeLayoutMap) host.refreshNodeLayoutMap();
-                        if (host.syncDerpOutputs) host.syncDerpOutputs();
+                        if (liveHost.refreshNodeLayoutMap) liveHost.refreshNodeLayoutMap();
+                        if (liveHost.syncDerpOutputs) liveHost.syncDerpOutputs();
                         if (this.setDirtyCanvas) this.setDirtyCanvas(true);
                         if (app.canvas) app.canvas.setDirty(true, true); // THE WAKE FIX
                         return true;

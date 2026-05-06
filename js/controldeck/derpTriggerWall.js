@@ -33,6 +33,10 @@ import {
     triggerWall_toggleShowWeight,
     triggerWall_toggleAddAlways,
     triggerWall_isGroupDuplicate,
+    triggerWall_hasProfileGroup,
+    triggerWall_hasGroupTextChanges,
+    triggerWall_addSelectedGroupToProfile,
+    triggerWall_saveGroupToProfile,
     triggerWall_onDerpSysPanelOpen,
     triggerWall_onResize,
     triggerWall_groupDrag,
@@ -385,13 +389,21 @@ app.registerExtension({
                     [`headerRegion_${gIdx}`]: {
                         alpha: isGroupPreviewGhost ? 0 : 1,
                         hidden: !this.properties.settingActive && !isSelected,
-                        dir: "row", width: "full", height: "auto", margin: [0, -mH, -mW, 0],
+                        dir: "row", width: "full", height: "auto", margin: [-mW, -mH, -mW, 0],
                         spacing: [sW, 0],
                         [`btnRename_${gIdx}`]: {
                             type: this.UI_TYPES.ICONBUTTON, icon: "rename", themeKey: "button, t_textsystem",
                             alpha: isGroupPreviewGhost ? 0 : 1,
                             width: "match", height: "fill", margin: [-sW, mH], spacing: [sW * 2, 0],
                             onPress: () => triggerWall_renameGroup(this, group, gIdx)
+                        },
+                        [`btnSave_${gIdx}`]: {
+                            type: this.UI_TYPES.ICONBUTTON, icon: "save", themeKey: "button, t_textsystem",
+                            alpha: isGroupPreviewGhost ? 0 : 1,
+                            width: "match", height: "fill", margin: [0, mH, 0, mH], spacing: [sW, 0],
+                            hidden: !triggerWall_hasProfileGroup(this, group),
+                            state: isBypassed ? "DIS" : (triggerWall_hasGroupTextChanges(this, group) ? "OFF" : "DIS"),
+                            onPress: () => triggerWall_saveGroupToProfile(this, group, `btnSave_${gIdx}`)
                         },
                         [`dropdownTriggerGroup_${gIdx}`]: {
                             type: this.UI_TYPES.DROPDOWN, themeKey: "button, t_textsmall", skipBackground: false,
@@ -406,11 +418,19 @@ app.registerExtension({
                                 .map(g => g.title || "Trigger Group"),
                             onChange: (v) => triggerWall_changeGroupTemplate(this, group, v)
                         },
+                        [`btnAddTriggerToProfile_${gIdx}`]: {
+                            type: this.UI_TYPES.BUTTON, themeKey: "button, t_textSmall",
+                            alpha: isGroupPreviewGhost ? 0 : 1,
+                            text: "Add to Profile", width: "auto", height: "auto", padding: [pW, pH], spacing: [sW, 0],
+                            hidden: triggerWall_isGroupDuplicate(this),
+                            state: isBypassed ? "DIS" : "OFF",
+                            onPress: () => triggerWall_addSelectedGroupToProfile(this)
+                        },
 
                         [`btnRemoveGroup_${gIdx}`]: {
                             type: this.UI_TYPES.ICONBUTTON, themeKey: "button, t_textsystem",
                             alpha: isGroupPreviewGhost ? 0 : 1,
-                            icon: "close", width: "match", height: "fill", margin: [0, sH, sW, sH],
+                            icon: "close", width: "match", height: "fill", margin: [0, sH, -sW, sH],
                             hidden: this.properties.triggerGroups.length <= 1,
                             onPress: () => triggerWall_removeGroup(this, gIdx)
                         }
@@ -418,7 +438,7 @@ app.registerExtension({
                     [`lineBreak_${gIdx}`]: {
                         alpha: isGroupPreviewGhost ? 0 : 1,
                         hidden: !this.properties.settingActive && !isSelected,
-                        type: this.UI_TYPES.LINEBREAK, margin: [-mW, 0, -mW, sH]
+                        type: this.UI_TYPES.LINEBREAK, margin: [-mW * 2, 0, -mW * 2, sH]
                     },
                     ...triggerRows
                 };
@@ -457,15 +477,17 @@ app.registerExtension({
                     dir: "col",
                     minWidth: 0,
                     [`floatingHeaderRegion_${floatingGIdx}`]: {
-                        hidden: !this.properties.settingActive && !floatingIsSelected,
+                        hidden: !this.properties.settingActive && !floatingIsSelected && !triggerWall_hasProfileGroup(this, floatingGroup),
                         dir: "row", width: "full", height: "auto", margin: [0, -mH, -mW, 0],
                         spacing: [sW, 0],
                         [`floatingBtnRename_${floatingGIdx}`]: {
                             type: this.UI_TYPES.ICONBUTTON, icon: "rename", themeKey: "button, t_textsystem",
+                            hidden: !this.properties.settingActive && !floatingIsSelected,
                             width: "match", height: "fill", margin: [-sW, mH], spacing: [sW * 2, 0]
                         },
                         [`floatingDropdownTriggerGroup_${floatingGIdx}`]: {
                             type: this.UI_TYPES.DROPDOWN, themeKey: "button, t_textsmall", skipBackground: false,
+                            hidden: !this.properties.settingActive && !floatingIsSelected,
                             indicator: true, canvasShield: true, mouseOver: false,
                             width: "full", height: "auto", spacing: [sW, 0],
                             padding: [pW, pH],
@@ -475,10 +497,16 @@ app.registerExtension({
                                 .sort((a, b) => (a.title || "").localeCompare(b.title || ""))
                                 .map(g => g.title || "Trigger Group")
                         },
+                        [`floatingBtnAddTriggerToProfile_${floatingGIdx}`]: {
+                            type: this.UI_TYPES.BUTTON, themeKey: "button, t_textSmall",
+                            text: "Add to Profile", width: "auto", height: "auto", padding: [pW, pH],
+                            hidden: !this.properties.settingActive && !floatingIsSelected ? true : triggerWall_isGroupDuplicate(this),
+                            state: isBypassed ? "DIS" : "OFF"
+                        },
                         [`floatingBtnRemoveGroup_${floatingGIdx}`]: {
                             type: this.UI_TYPES.ICONBUTTON, themeKey: "button, t_textsystem",
                             icon: "close", width: "match", height: "fill", margin: [0, sH, sW, sH],
-                            hidden: this.properties.triggerGroups.length <= 1
+                            hidden: (!this.properties.settingActive && !floatingIsSelected) || this.properties.triggerGroups.length <= 1,
                         }
                     },
                     [`floatingLineBreak_${floatingGIdx}`]: {
