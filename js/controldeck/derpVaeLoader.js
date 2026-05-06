@@ -62,14 +62,16 @@ app.registerExtension({
                 deckItems.splice(pIdx, 0, ghost);
             }
 
-            deckItems.forEach((item) => {
+            deckItems.forEach((item, displayIdx) => {
                 const { m, idx } = item;
                 const rowKey = `vaeRow_${idx}`;
                 const isPickedUp = !!(this._dragTrig && this._dragThresholdMet && this._dragTrig.index === idx && !item.isPreviewGhost);
+                const rowMarginBottom = displayIdx < (deckItems.length - 1) ? sH : 0;
                 deckRegions[rowKey] = {
                     type: this.UI_TYPES.REGION,
-                    dir: "row", width: "full", height: item.isPreviewGhost ? 30 : "auto",
+                    dir: "row", width: "full", height: "auto",
                     spacing: [0, sH],
+                    margin: [0, 0, 0, rowMarginBottom],
                     state: item.isPreviewGhost ? "DIS" : ((isPickedUp || m.active) ? "ON" : "OFF"),
                     alpha: item.isPreviewGhost ? 0 : 1.0,
                     onDragStart: (e, data) => startStackDrag(this, data, idx, rowKey),
@@ -110,7 +112,7 @@ app.registerExtension({
                     [`btnRemoveVae_${idx}`]: {
                         type: this.UI_TYPES.ICONBUTTON, icon: "close",
                         alpha: item.isPreviewGhost ? 0 : 1.0,
-                        width: "match", height: "full", padding: [pW, pH], margin: [0, sH],
+                        width: "match", height: "full", padding: [pW, pH], margin: [0, sH, sW, sH],
                         themeKey: "button, t_textNormal",
                         onPress: () => {
                             showBastaFileHandler(this, "none", `btnRemoveVae_${idx}`, {
