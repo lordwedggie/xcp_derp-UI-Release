@@ -407,6 +407,9 @@ export function handleShieldInteraction(entity, type, data = {}) {
                 entity.titleLabel = newTitle;
                 // THE SERIALIZATION FIX: Persist renamed titles into the property block
                 entity.properties.titleLabel = newTitle;
+                if (typeof entity.syncDerpOutputs === "function") {
+                    entity.syncDerpOutputs();
+                }
                 if (typeof entity.refreshNodeLayoutMap === "function") {
                     entity.refreshNodeLayoutMap();
                 }

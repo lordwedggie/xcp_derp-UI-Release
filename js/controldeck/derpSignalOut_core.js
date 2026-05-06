@@ -3,8 +3,8 @@
  * ROLE: Core extension logic and signal engine for derpSignalOut.
  */
 import { app } from "../../../scripts/app.js";
-import { uncle } from "./fatha/uncle.js";
-import { handleInitDerpGlobalListener } from "./fatha/core/fathaHandler.js";
+import { uncle } from "../fatha/uncle.js";
+import { handleInitDerpGlobalListener } from "../fatha/core/fathaHandler.js";
 
 if (!window._xcp_derpSignalOut_Core_Loaded) {
     window._xcp_derpSignalOut_Core_Loaded = true;
@@ -256,6 +256,35 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                     while (this.outputs.length > REQUIRED_OUTPUTS) {
                         this.removeOutput(this.outputs.length - 1);
                     }
+                };
+
+                nodeType.prototype.setDerpSelectedSignal = function(val) {
+                    const match = String(val || "").match(/\[([\d:]+)\]/);
+                    const selectedId = match?.[1] || this._signalLabelToId?.get(String(val || "")) || null;
+                    if (!selectedId) return;
+
+                    this.properties.selectedSignalId = selectedId;
+                    this.properties.selectedSignalLabel = val;
+                    this.addDerpOutput();
+                };
+
+                nodeType.prototype.addDerpOutput = function() {
+                    const sig = (this.receivedSignals || []).find(s => String(s.nodeId) === String(this.properties.selectedSignalId));
+                    if (!sig) return;
+
+                    this._preCollapseHeight = null;
+
+                    if (!this.activeOutputs) this.activeOutputs = [];
+                    this.activeOutputs.push(sig);
+                    this.properties.activeOutputs = this.activeOutputs.length;
+
+                    this.properties.selectedSignalLabel = "Select signal...";
+                    this.properties.selectedSignalId = null;
+
+                    this.updateReceivedSignals();
+                    this.manageDerpOutputs();
+                    if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
+                    this.requestDerpSync();
                 };
 
                 nodeType.prototype.removeDerpOutput = function(idx) {

@@ -47,7 +47,7 @@ app.registerExtension({
 
             // THE HEARTBEAT BRIDGE: Ensure wireless signals are transmitted every frame
             if (this.properties?.isWirelessTransmitter) {
-                runWirelessHeartbeat(this);
+                runWirelessHeartbeat(this, { forceIndexedSingleOutput: true });
             }
         };
 

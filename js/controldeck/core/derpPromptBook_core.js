@@ -2,10 +2,10 @@
  * PROJECT: derpNodes | CORE: derpPromptBook_core
  * STATUS: FATHA VIRTUAL COMPLIANT
  */
-import { setupPromptBookImageSupport, stripImageBase64FromContent } from "./derpPromptBook_imageHandler.js";
-import { showBastaFileHandler } from "./fatha/bastas/bastaFileHandler.js";
-import { showBastaMessage } from "./fatha/bastas/bastaMessage.js";
-import { playKaChing, playKaboom } from "./herbina/masterSoundEffects.js";
+import { setupPromptBookImageSupport, stripImageBase64FromContent } from "../helpers/derpPromptBook_imageHandler.js";
+import { showBastaFileHandler } from "../../fatha/bastas/bastaFileHandler.js";
+import { showBastaMessage } from "../../fatha/bastas/bastaMessage.js";
+import { playKaChing, playKaboom } from "../../herbina/masterSoundEffects.js";
 
 const defaultDerpBookPages = 3;
 
@@ -32,9 +32,10 @@ export function bindPromptBookHooks(nodeType) {
             // THE PURE CONTENT EXTRACTION: Remove images AND strip linebreaks (no spacers) for the actual output
             const rawContent = (activePage?.content || "").replace(/\[\[IMG:[\s\S]*?\]\]/g, "");
             const outContent = rawContent.replace(/\r?\n|\r/g, "").trim();
+            const syncFingerprint = `${nodeName}__${outContent}`;
 
-            if (this._lastSyncedContent === outContent) return;
-            this._lastSyncedContent = outContent;
+            if (this._lastSyncedContent === syncFingerprint) return;
+            this._lastSyncedContent = syncFingerprint;
 
             // Keep PromptBook wireless-only: Python node has zero RETURN_TYPES,
             // so creating a physical JS output can break SignalOut validation.

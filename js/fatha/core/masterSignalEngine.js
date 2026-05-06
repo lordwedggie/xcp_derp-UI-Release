@@ -41,7 +41,7 @@ if (!window.xcpDerpBrightenHex) {
     };
 }
 
-export function transmitDerpSignal(node, value) {
+export function transmitDerpSignal(node, value, options = {}) {
     if (!node || node.id === undefined) return;
     if (node.mode === 4 || node.mode === 2) return; // THE ENGINE-LEVEL BYPASS FIX
 
@@ -55,7 +55,7 @@ export function transmitDerpSignal(node, value) {
 
     outputs.forEach((output, index) => {
         // THE FULL-IDENTITY FIX: Always include the port label, even for single-output nodes
-        const signalId = outputs.length > 1 ? `${baseId}:${index}` : baseId;
+        const signalId = (outputs.length > 1 || options.forceIndexedSingleOutput) ? `${baseId}:${index}` : baseId;
         const portLabel = output.label || output.name || index;
         const displayName = `${nodeName} [${portLabel}]`;
 
@@ -114,10 +114,14 @@ export function transmitDerpSignal(node, value) {
     });
 
     // Force any open SignalOut nodes to refresh their received signals
-    if (window.app && window.app.graph) {
+    if (hasChanged && window.app && window.app.graph) {
         window.app.graph._nodes.forEach(n => {
             if (n.type === "xcpDerpSignalOut" && n.updateReceivedSignals) {
                 n.updateReceivedSignals();
+                if (n.manageDerpOutputs) n.manageDerpOutputs();
+                if (n.refreshNodeLayoutMap) n.refreshNodeLayoutMap();
+                if (n.refreshDerpSignalOutSysMap) n.refreshDerpSignalOutSysMap();
+                if (n.requestDerpSync) n.requestDerpSync();
             }
         });
     }
@@ -127,7 +131,7 @@ export function transmitDerpSignal(node, value) {
  * HEARTBEAT: Broadcasters all widget values for the node.
  * Updated to support widget-less nodes (like VAE Decode).
  */
-export function runWirelessHeartbeat(node) {
+export function runWirelessHeartbeat(node, options = {}) {
     if (!node.properties?.isWirelessTransmitter || node.mode === 4 || node.mode === 2) return; // THE ENGINE-LEVEL BYPASS FIX
 
     const values = {};
@@ -142,7 +146,7 @@ export function runWirelessHeartbeat(node) {
     const keys = Object.keys(values);
     // THE WIDGET-LESS FIX: Transmit even if no widgets exist so the signal is registered.
     const finalValue = keys.length === 0 ? {} : (keys.length === 1 ? values[keys[0]] : values);
-    transmitDerpSignal(node, finalValue);
+    transmitDerpSignal(node, finalValue, options);
 }
 
 /**

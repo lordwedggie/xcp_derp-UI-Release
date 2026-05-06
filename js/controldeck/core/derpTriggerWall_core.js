@@ -38,10 +38,11 @@ export function triggerWall_syncOutputs(node) {
         });
     }
     const outContent = allActiveStrings.length > 0 ? allActiveStrings.join(", ") + ", " : "";
+    const syncFingerprint = `${nodeName}__${outContent}`;
 
     // ZERO-INFERENCE GATING: Prevent redundant signal broadcast and server sync
-    if (node._lastSyncedContent === outContent) return;
-    node._lastSyncedContent = outContent;
+    if (node._lastSyncedContent === syncFingerprint) return;
+    node._lastSyncedContent = syncFingerprint;
 
     // THE BYPASS SIGNAL ENFORCER: Ensure root and index signals are identical and cleared on bypass
     const signalEntries = [baseId, signalId];

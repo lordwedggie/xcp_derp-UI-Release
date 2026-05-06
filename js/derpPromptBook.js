@@ -16,7 +16,7 @@ import {
     handleNewBook,
     handleRenameBook,
     handleCopyBook
-} from "./derpPromptBook_core.js";
+} from "./controldeck/core/derpPromptBook_core.js";
 
 app.registerExtension({
     name: "xcp.derpPromptBook_Extension",
