@@ -18,8 +18,7 @@ import {
     measureTextHeight, // THE HEIGHT FIX: Import the height measurement utility
     applyInteractionStyles,
     getAlignmentMaps,
-    snapToScreenGrid,
-    parseThemeKey
+    snapToScreenGrid
 } from "../utils/widgetsUtils.js";
 import { lerpTo, animateAlpha, animateWidgetColors } from "../masterAnimator.js";
 import { getDerpVars } from "../../fatha/fatha.js";
@@ -62,13 +61,7 @@ function isValidRect(rect) {
     return !!rect && Number.isFinite(rect.left) && Number.isFinite(rect.top) && rect.width > 0 && rect.height > 0;
 }
 
-function resolveScreenAnchorRect(sourceEl, node, app, geometry) {
-    const domRect = sourceEl?.getBoundingClientRect?.();
-    if (isValidRect(domRect)) return domRect;
-
-    const cachedRect = sourceEl?._screenRect;
-    if (isValidRect(cachedRect)) return cachedRect;
-
+function computeScreenAnchorRect(node, app, geometry) {
     const ds = app?.canvas?.ds;
     const canvas = app?.canvas?.canvas;
     if (!ds || !canvas || !geometry) {
@@ -88,6 +81,16 @@ function resolveScreenAnchorRect(sourceEl, node, app, geometry) {
     };
 }
 
+function resolveScreenAnchorRect(sourceEl, node, app, geometry) {
+    const domRect = sourceEl?.getBoundingClientRect?.();
+    if (isValidRect(domRect)) return domRect;
+
+    const cachedRect = sourceEl?._screenRect;
+    if (isValidRect(cachedRect)) return cachedRect;
+
+    return computeScreenAnchorRect(node, app, geometry);
+}
+
 function closeFilePicker() {
     if (activeFilePicker) {
         if (activeFilePicker._previewBox) activeFilePicker._previewBox.style.display = "none";
@@ -104,6 +107,7 @@ function closeFilePicker() {
 }
 
 function finalizeFilePickerCleanup() {
+    if (activeFilePicker?._previewBox) activeFilePicker._previewBox.style.display = "none";
     finalizeHybridPickerCleanup(activeFilePicker, toggleSingletonShield, closeFilePicker);
     activeFilePicker = null;
     window.__xcpHasActiveFileBrowser = false;
@@ -124,8 +128,7 @@ export function createFileBrowser(callbacks = {}) {
 
 function openFilePicker(sourceEl, config, node, callbacks) {
     if (activeFilePicker) {
-        activeFilePicker.remove();
-        activeFilePicker = null;
+        finalizeFilePickerCleanup();
     }
 
     if (node && node._pressedRegionKey === config.key) {

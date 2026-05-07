@@ -18,9 +18,7 @@
 import { app as comfyApp } from "../../../../scripts/app.js";
 import { applyHTMLTheme } from "../masterPainterHTML.js";
 import { masterPainter, masterPainterText, compileThemeData } from "../masterPainter.js";
-import { toRGBA } from "../utils/colorMath.js";
 import {
-    syncSingletonShield,
     toggleSingletonShield,
     executeShieldedInteraction,
     syncElementToCanvas
@@ -31,8 +29,6 @@ import {
     applyInteractionStyles,
     getAlignmentMaps,
     snapToScreenGrid,
-    parseThemeKey,
-    measureTextHeight,
     measureTextWidth,
     resolvePaletteEntry
 } from "../utils/widgetsUtils.js";
@@ -62,11 +58,14 @@ const PICKER_GLYPH_SCALE = 0.7;
 const DROPDOWN_GLYPH_OFFSET = 1;
 const lineTop = "rgba(0, 0, 0, 0.2)";
 const lineBottom = "rgba(255, 255, 255, 0.05)";
-const PREVIEW_BORDER_COLOR = "rgba(0, 0, 0, 0.5)";
 const DEFAULT_VISIBLE_LIMIT = 15;
 
 let activePicker = null;
 let lastOpenTime = 0;
+
+function isSystemPanelDropdown(config, node) {
+    return config?.isSysPanel === true || config?.isSystemPanel === true || node?.isSystemPanel === true;
+}
 
 function isValidRect(rect) {
     return !!rect && Number.isFinite(rect.left) && Number.isFinite(rect.top) && rect.width > 0 && rect.height > 0;
@@ -99,23 +98,7 @@ function resolveScreenAnchorRect(sourceEl, node, app, geometry) {
     const cachedRect = sourceEl?._screenRect;
     if (isValidRect(cachedRect)) return cachedRect;
 
-    const ds = app?.canvas?.ds;
-    const canvas = app?.canvas?.canvas;
-    if (!ds || !canvas || !geometry) {
-        return { left: 0, top: 0, width: 0, height: 0 };
-    }
-
-    const rect = canvas.getBoundingClientRect();
-    const scale = ds.scale;
-    const screenX = rect.left + (((node?.pos?.[0] || 0) + geometry.x + ds.offset[0]) * scale);
-    const screenY = rect.top + (((node?.pos?.[1] || 0) + geometry.y + ds.offset[1]) * scale);
-
-    return {
-        left: screenX,
-        top: screenY,
-        width: geometry.w * scale,
-        height: geometry.h * scale,
-    };
+    return computeScreenAnchorRect(node, app, geometry);
 }
 
 function closePicker() {
@@ -146,8 +129,7 @@ export function createDropdownDerp(callbacks = {}) {
 
 function openPicker(sourceEl, config, node, callbacks) {
     if (activePicker) {
-        activePicker.remove();
-        activePicker = null;
+        finalizePickerCleanup();
     }
 
     if (node && node._pressedRegionKey === config.key) {
@@ -209,8 +191,7 @@ function openPicker(sourceEl, config, node, callbacks) {
     const maxH = picker._visibleLimit * dynamicRowHeight;
     picker.style.maxHeight = `${maxH * scale}px`;
 
-    const isSysPanelDropdown = config.isSysPanel === true || config.isSystemPanel === true || node?.isSystemPanel === true;
-    const anchorRect = isSysPanelDropdown
+    const anchorRect = isSystemPanelDropdown(config, node)
         ? computeScreenAnchorRect(node, comfyApp, config.geometry)
         : resolveScreenAnchorRect(sourceEl, node, comfyApp, config.geometry);
     picker._anchorRect = {
@@ -306,40 +287,6 @@ function openPicker(sourceEl, config, node, callbacks) {
     activePicker = picker;
     window.__xcpHasActiveDropdown = true;
 
-    const updatePickerPosition = () => {
-        if (!activePicker || activePicker !== picker || !document.body.contains(picker)) return;
-
-        const isSysPanelDropdown = config.isSysPanel === true || config.isSystemPanel === true || node?.isSystemPanel === true;
-        const liveAnchorRect = isSysPanelDropdown
-            ? computeScreenAnchorRect(node, comfyApp, config.geometry)
-            : resolveScreenAnchorRect(sourceEl, node, comfyApp, config.geometry);
-
-        if (isValidRect(liveAnchorRect)) {
-            picker._anchorRect = {
-                left: liveAnchorRect.left,
-                top: liveAnchorRect.top,
-                width: liveAnchorRect.width,
-                height: liveAnchorRect.height,
-            };
-
-            picker.style.left = `${liveAnchorRect.left}px`;
-            picker.style.top = `${liveAnchorRect.top}px`;
-            picker.style.width = `${liveAnchorRect.width}px`;
-
-            if (picker._previewBox && picker._previewBox.style.display !== "none") {
-                const previewW = liveAnchorRect.width;
-                const previewH = previewW / (picker._aspectRatio || 1);
-                const { sH } = getDerpVars(node);
-                const scale = app?.canvas?.ds?.scale || comfyApp?.canvas?.ds?.scale || 1;
-                picker._previewBox.style.left = `${liveAnchorRect.left}px`;
-                picker._previewBox.style.top = `${liveAnchorRect.top - (sH * scale) - previewH}px`;
-            }
-        }
-
-        picker._positionRaf = requestAnimationFrame(updatePickerPosition);
-    };
-    picker._positionRaf = requestAnimationFrame(updatePickerPosition);
-
     toggleSingletonShield(true, closePicker);
 }
 
@@ -357,7 +304,7 @@ export function syncDropdownDerp(context, node, app, config) {
 
     const isCanvas = !!(context && (context.canvas || context instanceof CanvasRenderingContext2D));
     const useCanvasShield = safeConfig.canvasShield === true;
-    const isSysPanelDropdown = safeConfig.isSysPanel === true || safeConfig.isSystemPanel === true || node?.isSystemPanel === true;
+    const isSysPanelDropdown = isSystemPanelDropdown(safeConfig, node);
 
     let el;
     if (isCanvas) {
