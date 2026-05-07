@@ -19,11 +19,13 @@ export function beginDockDrag(entity, deckEngine) {
 
 export function updateDockDrag(entity, deckEngine, data, scale) {
     const { SNAP } = entity.getDerpVars(entity);
-    const dragRoot = deckEngine.getRoot(entity) || entity;
+    const dragRoot = deckEngine.getActiveRoot?.() || deckEngine.getRoot(entity) || entity;
     const rootStartPos = entity._deckDragRootStartPos || entity._startPos || dragRoot.pos || [0, 0];
-    dragRoot.pos[0] = Math.round((rootStartPos[0] + data.dx / scale) / SNAP) * SNAP;
-    dragRoot.pos[1] = Math.round((rootStartPos[1] + data.dy / scale) / SNAP) * SNAP;
-    deckEngine.syncDraggedDeck(dragRoot, SNAP).forEach((member) => {
+    const deltaX = data.dx / scale;
+    const deltaY = data.dy / scale;
+    dragRoot.pos[0] = Math.round((rootStartPos[0] + deltaX) / SNAP) * SNAP;
+    dragRoot.pos[1] = Math.round((rootStartPos[1] + deltaY) / SNAP) * SNAP;
+    deckEngine.syncDraggedDeck(dragRoot, SNAP, { dx: deltaX, dy: deltaY }).forEach((member) => {
         syncDerpShield(member);
     });
     if (data.originalEvent?.altKey) {

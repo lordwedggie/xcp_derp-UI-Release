@@ -325,7 +325,7 @@ export function getOccupiedDeckEdges(node, graph) {
     return occupied;
 }
 
-function getNodeOnDeckEdge(node, graph, side) {
+export function getNodeOnDeckEdge(node, graph, side) {
     if (!node || !graph || !side) return null;
     const peerNeighbor = getPeerDeckNeighbor(node, graph, side);
     if (peerNeighbor) return peerNeighbor;
@@ -737,6 +737,21 @@ export function captureDeckOffsets(rootNode, graph) {
     return offsets;
 }
 
+export function captureDeckPositions(rootNode, graph) {
+    const root = getDeckRoot(rootNode, graph);
+    if (!root) return new Map();
+
+    const positions = new Map();
+    getDeckMembers(root, graph).forEach((node) => {
+        positions.set(node.id, [
+            Number(node.pos?.[0]) || 0,
+            Number(node.pos?.[1]) || 0,
+        ]);
+    });
+
+    return positions;
+}
+
 export function moveDeck(rootNode, graph, offsets = new Map(), snap = DEFAULT_DECK_SNAP) {
     const root = getDeckRoot(rootNode, graph);
     if (!root) return [];
@@ -755,6 +770,25 @@ export function moveDeck(rootNode, graph, offsets = new Map(), snap = DEFAULT_DE
     });
 
     return members;
+}
+
+export function moveDeckByDelta(graph, positions = new Map(), dx = 0, dy = 0, snap = DEFAULT_DECK_SNAP) {
+    if (!graph || !(positions instanceof Map) || positions.size === 0) return [];
+
+    const moved = [];
+    positions.forEach((startPos, nodeId) => {
+        const node = getDeckNodeById(graph, nodeId);
+        if (!node) return;
+        const startX = Number(startPos?.[0]) || 0;
+        const startY = Number(startPos?.[1]) || 0;
+        node.pos[0] = snapValue(startX + dx, snap);
+        node.pos[1] = snapValue(startY + dy, snap);
+        if (typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, true);
+        if (typeof node.syncUncleSlots === "function") node.syncUncleSlots();
+        moved.push(node);
+    });
+
+    return moved;
 }
 
 export function findDeckTarget(dragNode, graph, options = {}) {
@@ -863,6 +897,7 @@ export class masterDockEngine {
         this.graph = graph;
         this.activeRootId = null;
         this.activeOffsets = new Map();
+        this.activePositions = new Map();
         this.lastDeckTargetId = null;
         this.previewTarget = null;
     }
@@ -870,6 +905,14 @@ export class masterDockEngine {
     setGraph(graph) {
         this.graph = graph;
         return this;
+    }
+
+    getNodeById(nodeId) {
+        return getDeckNodeById(this.graph, nodeId);
+    }
+
+    getActiveRoot() {
+        return this.getNodeById(this.activeRootId) || null;
     }
 
     getRoot(node) {
@@ -884,11 +927,22 @@ export class masterDockEngine {
         const root = getDeckRoot(node, this.graph);
         this.activeRootId = root?.id || null;
         this.activeOffsets = root ? captureDeckOffsets(root, this.graph) : new Map();
+        this.activePositions = root ? captureDeckPositions(root, this.graph) : new Map();
         return root;
     }
 
-    syncDraggedDeck(node, snap = DEFAULT_DECK_SNAP) {
-        const root = getDeckRoot(node, this.graph);
+    syncDraggedDeck(node, snap = DEFAULT_DECK_SNAP, delta = null) {
+        if (delta && this.activePositions.size > 0) {
+            return moveDeckByDelta(
+                this.graph,
+                this.activePositions,
+                Number(delta.dx) || 0,
+                Number(delta.dy) || 0,
+                snap,
+            );
+        }
+
+        const root = this.getActiveRoot() || getDeckRoot(node, this.graph);
         if (!root) return [];
         return moveDeck(root, this.graph, this.activeOffsets, snap);
     }
@@ -932,6 +986,7 @@ export class masterDockEngine {
     endDrag() {
         this.activeRootId = null;
         this.activeOffsets = new Map();
+        this.activePositions = new Map();
         this.lastDeckTargetId = null;
         this.previewTarget = null;
     }
