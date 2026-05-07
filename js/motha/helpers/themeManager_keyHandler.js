@@ -18,13 +18,11 @@ export function pushThemeUpdate(node, key, prop, val) {
     if (prop.toLowerCase().includes("lock")) return; // STRICTER CATCH
 
     cfg.themes[node._selectedThemeName][key][prop] = val;
+    if (cfg.touchTheme) cfg.touchTheme(node._selectedThemeName);
 
     // FATHA FIX: Clear local and global layout caches to allow for text-driven expansion
     if (node.layout) node.layout._lastCacheKey = "";
-    Object.values(app.graph._nodes).forEach(n => {
-        if (n?.onThemeUpdate) n.onThemeUpdate(cfg);
-        if (n.layout) n.layout._lastCacheKey = "";
-    });
+    if (cfg.notifyTheme) cfg.notifyTheme(node._selectedThemeName);
 }
 
 export function updateMainEditRegion(node) {
@@ -55,14 +53,7 @@ export function updateMainEditRegion(node) {
         mReg.dropdownFonts.value = safeFonts.includes(rawFont) ? `• ${rawFont}` : rawFont;
         mReg.promptFontSize.value = (keyData.fontSize || 10).toString();
     } else {
-        const corners = keyData.corners ?? [0, 0, 0, 0];
-        if (Array.isArray(corners)) {
-            mReg.promptCorners.value = corners.map(v => typeof v === "string" ? v : String(v)).join(", ");
-        } else if (typeof corners === "string") {
-            mReg.promptCorners.value = corners;
-        } else {
-            mReg.promptCorners.value = String(corners);
-        }
+        mReg.promptCorners.value = JSON.stringify(keyData.corners || [0,0,0,0]).slice(1, -1);
     }
 }
 
@@ -128,24 +119,14 @@ export function bindKeyMainEvents(node, updateThemeLayoutFn) {
         }
     };
 
-    const parseCornerValue = (s) => {
-        const token = String(s || "").trim();
-        if (!token) return null;
-        const straight = token.match(/^s\s*([0-9]*\.?[0-9]+)$/i);
-        if (straight) return `s${Number(straight[1])}`;
-        const n = Number(token);
-        if (Number.isFinite(n)) return n;
-        return null;
-    };
-
     const updateCorners = (v, isBlur = false) => {
-        const parts = String(v || "").split(',').map(s => parseCornerValue(s)).filter(x => x !== null);
+        const parts = v.split(',').map(s => s.trim()).filter(s => s !== "").map(Number);
         const key = node._selectedKeyName;
         let finalCorners = null;
 
-        if (parts.length === 4) {
+        if (parts.length === 4 && parts.every(n => !isNaN(n))) {
             finalCorners = parts;
-        } else if (isBlur && parts.length === 1) {
+        } else if (isBlur && parts.length === 1 && !isNaN(parts[0])) {
             finalCorners = [parts[0], parts[0], parts[0], parts[0]];
         }
 
@@ -276,11 +257,6 @@ export const handleKeySaveAction = (node, updateThemeLayoutFn) => {
                 const themeName = node._selectedThemeName;
                 cfg.themes[themeName] = JSON.parse(JSON.stringify(node.themeToEdit));
                 safePersist(cfg, themeName);
-                await fetch("/xcp/save/themes", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ name: themeName, data: cfg.themes[themeName] })
-                });
                 playSuccessSound();
                 if (node.layout) node.layout._lastCacheKey = "";
                 showBastaMessage(node, "Keys Saved", 2000, { width: 250 }, "btnKeySave", false, "success");

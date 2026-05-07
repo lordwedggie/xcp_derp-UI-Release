@@ -416,7 +416,9 @@ app.registerExtension({
             // THE BROADCAST HASH: Only recompile theme paint-data if the theme or local sync-state changed.
             // handleThemeUpdate and refreshNodeLayoutMap are O(N) and were previously thrashing the CPU.
             // THE THRASHING FIX: Removed volatile _forceSync from hash which caused infinite rebuild loops.
-            const configHash = `${config.activeTheme}_${this._selectedThemeName}`;
+            const themeName = this._selectedThemeName || this.properties?.selectedThemeName || config.activeTheme;
+            const themeRevision = config.getThemeRevision ? config.getThemeRevision(themeName) : 0;
+            const configHash = `${config.activeTheme}_${themeName}_${this._selectedKeyName || ""}_${themeRevision}`;
             if (this._lastBroadcastHash === configHash) return;
             this._lastBroadcastHash = configHash;
 

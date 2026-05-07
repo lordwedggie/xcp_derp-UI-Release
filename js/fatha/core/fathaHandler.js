@@ -5,7 +5,7 @@
 import { app } from "../../../../scripts/app.js";
 import { syncDerpShield } from "./fathaDOMshield.js";
 import { toggleDerpSysPanel, sysPanel, closeDerpSysPanel } from "../helpers/fathaSysPanel.js";
-import { masterPainter, compileThemeData } from "../../herbina/masterPainter.js";
+import { masterPainter, compileThemeData, invalidateCompiledThemeCache } from "../../herbina/masterPainter.js";
 import { UI_TYPES, COMPONENT_BLUEPRINTS } from "./masterLayoutTypes.js";
 import { resolvePaintData } from "../../herbina/utils/widgetsUtils.js";
 import { lerpTo } from "../../herbina/masterAnimator.js";
@@ -554,10 +554,12 @@ export function handleDrawCTX(entity, ctx, overlayPass = false) {
 
 export function handleThemeUpdate(node, config) {
     if (!config || !config.themes) return;
-    const theme = config.themes[node.properties?.selectedTheme || config.activeTheme || "Template_Standard_v02"];
+    const themeName = node.properties?.selectedTheme || node.properties?.selectedThemeName || node._selectedThemeName || config.activeTheme || "Template_Standard_v02";
+    const theme = config.themes[themeName];
     if (theme) {
         Object.entries(theme).forEach(([key, val]) => {
             if (key === "_layout" || typeof val !== 'object' || Array.isArray(val)) return;
+            invalidateCompiledThemeCache(val);
             node[`_${key}PaintData`] = compileThemeData(val, key, "OFF");
             node[`_${key}PaintData_ON`] = compileThemeData(val, key, "ON");
             node[`_${key}PaintData_DIS`] = compileThemeData(val, key, "DIS");

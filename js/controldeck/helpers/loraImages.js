@@ -55,6 +55,13 @@ export function getPreviewImageUrl(loraName, isThumbnail = false) {
     return `/xcp/get_lora_preview?name=${encodeURIComponent(loraName)}${isThumbnail ? '&thumbnail=true' : ''}&v=${session}`;
 }
 
+export function getLoraImageUrl(loraName, fileName) {
+    if (!loraName || !fileName) return null;
+    if (!window._xcpDerpSession) window._xcpDerpSession = Date.now();
+    const session = window._xcpDerpSession;
+    return `/xcp/get_lora_image?name=${encodeURIComponent(loraName)}&file=${encodeURIComponent(fileName)}&v=${session}`;
+}
+
 /**
  * switchLoraImage: Cycles through the available images in the LoRA's subfolder.
  */
@@ -264,33 +271,33 @@ export function initLoraImageHandlers(getLoraDetailIdFunc) {
                                             const msg = isCover ? "Image set as primary cover" : "Image saved to subfolder";
                                             showBastaMessage(basta, msg, 3000, {}, "loraPreview", false);
                                             playKaChing();
-                                                window._xcpDerpSession = Date.now();
+                                            window._xcpDerpSession = Date.now();
 
-                                                if (basta._loraData) {
-                                                    // THE LIST UPDATE: Ensure the host node knows it now has a preview (updates face icon)
-                                                    const lNameNorm = lName.replace(/\\/g, "/");
-                                                    if (basta.hostNode) {
-                                                        if (!basta.hostNode._loraPreviewList) basta.hostNode._loraPreviewList = [];
-                                                        if (!basta.hostNode._loraPreviewList.includes(lNameNorm)) basta.hostNode._loraPreviewList.push(lNameNorm);
-                                                        if (!basta.hostNode._loraPreviewList.includes(lName)) basta.hostNode._loraPreviewList.push(lName);
+                                            if (basta._loraData) {
+                                                // THE LIST UPDATE: Ensure the host node knows it now has a preview (updates face icon)
+                                                const lNameNorm = lName.replace(/\\/g, "/");
+                                                if (basta.hostNode) {
+                                                    if (!basta.hostNode._loraPreviewList) basta.hostNode._loraPreviewList = [];
+                                                    if (!basta.hostNode._loraPreviewList.includes(lNameNorm)) basta.hostNode._loraPreviewList.push(lNameNorm);
+                                                    if (!basta.hostNode._loraPreviewList.includes(lName)) basta.hostNode._loraPreviewList.push(lName);
 
-                                                        if (basta.hostNode.refreshNodeLayoutMap) basta.hostNode.refreshNodeLayoutMap();
-                                                        if (basta.hostNode.setDirtyCanvas) basta.hostNode.setDirtyCanvas(true);
-                                                    }
-
-                                                    // THE IMMEDIATE DISPLAY FIX: Set the pasted image as the active preview and recalculate layout
-                                                    basta._loraData.previewUrl = resizedImage;
-                                                    basta._loraData.aspectRatio = null;
-
-                                                    calculatePreviewAspectRatio(basta, basta._loraData, () => {
-                                                        // THE INDEX SYNC FIX: Pass the newly returned filename to refreshLoraImageList to lock the correct index for triggering
-                                                        refreshLoraImageList(basta, basta._loraData, data.file);
-                                                        basta._previewSelected = false;
-                                                        basta._forceSync = true;
-                                                        if (typeof basta.setDirtyCanvas === "function") basta.setDirtyCanvas(true);
-                                                    });
+                                                    if (basta.hostNode.refreshNodeLayoutMap) basta.hostNode.refreshNodeLayoutMap();
+                                                    if (basta.hostNode.setDirtyCanvas) basta.hostNode.setDirtyCanvas(true);
                                                 }
+
+                                                // THE IMMEDIATE DISPLAY FIX: Set the pasted image as the active preview and recalculate layout
+                                                basta._loraData.previewUrl = resizedImage;
+                                                basta._loraData.aspectRatio = null;
+
+                                                calculatePreviewAspectRatio(basta, basta._loraData, () => {
+                                                    // THE INDEX SYNC FIX: Pass the newly returned filename to refreshLoraImageList to lock the correct index for triggering
+                                                    refreshLoraImageList(basta, basta._loraData, data.file);
+                                                    basta._previewSelected = false;
+                                                    basta._forceSync = true;
+                                                    if (typeof basta.setDirtyCanvas === "function") basta.setDirtyCanvas(true);
+                                                });
                                             }
+                                        }
                                     });
                                 });
                             };

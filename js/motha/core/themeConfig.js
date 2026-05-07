@@ -189,6 +189,8 @@ export function initThemeConfig() {
         themes: {},
         subscribers: new Set(),
         _colorCache: new Map(),
+        _revision: 0,
+        _themeRevisions: {},
 
         // Change Detection State
         baselineHashes: {},
@@ -387,6 +389,31 @@ export function initThemeConfig() {
             localStorage.setItem("xcp_active_theme", this.activeTheme);
 
             this.subscribers.forEach(n => {
+                if (n.onThemeUpdate) n.onThemeUpdate(this);
+                if (n.setDirtyCanvas) n.setDirtyCanvas(true, true);
+            });
+        },
+
+        touchTheme(themeName) {
+            this._revision++;
+            if (!themeName) return this._revision;
+            this._themeRevisions[themeName] = (this._themeRevisions[themeName] || 0) + 1;
+            return this._themeRevisions[themeName];
+        },
+
+        getThemeRevision(themeName) {
+            if (!themeName) return this._revision;
+            return this._themeRevisions[themeName] || 0;
+        },
+
+        notifyTheme(themeName) {
+            // THE TARGETED FANOUT: Live theme edits only need to hit nodes bound to the touched theme.
+            localStorage.setItem("xcp_active_theme", this.activeTheme);
+
+            this.subscribers.forEach(n => {
+                const nodeTheme = n?.properties?.selectedTheme || n?.properties?.selectedThemeName || n?._selectedThemeName || this.activeTheme;
+                if (nodeTheme !== themeName) return;
+                if (n.layout) n.layout._lastCacheKey = "";
                 if (n.onThemeUpdate) n.onThemeUpdate(this);
                 if (n.setDirtyCanvas) n.setDirtyCanvas(true, true);
             });

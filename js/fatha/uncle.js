@@ -84,6 +84,7 @@ export function uncle(nodeType, nodeData, minWidth = 100) {
     // THE FIX: Standardize the listener hook so the global refresher can find it
     nodeType.prototype.onThemeUpdate = function(config) {
         this.handleThemeUpdate(config);
+        this.requestDerpSync();
     };
     nodeType.prototype.applyPalette = function() {
         if (window.xcpDerpThemeConfig) this.handleThemeUpdate(window.xcpDerpThemeConfig);
@@ -238,8 +239,11 @@ export function uncle(nodeType, nodeData, minWidth = 100) {
         const targetW = (autoWidth || (isMinState && collapseMinimal)) ? engineFloorW : Math.max(this.properties.nodeSize?.[0] || 0, engineFloorW);
         const targetH = (autoHeight || isMinState) ? engineFloorH : Math.max(this.properties.nodeSize?.[1] || 0, engineFloorH);
 
-        // THE RESIZE INTERVENTION FIX: Skip animateDerpSize during active drag-resize.
-        if (!this._isDerpResizing) animateDerpSize(this, targetW, targetH, useAnim);
+        // During live resize, preserve the manually dragged axis but still let the auto-managed
+        // secondary axis respond immediately (e.g. width shrink causing auto-height growth).
+        const liveTargetW = this._isDerpResizing && !autoWidth ? this.size[0] : targetW;
+        const liveTargetH = this._isDerpResizing && !autoHeight ? this.size[1] : targetH;
+        animateDerpSize(this, liveTargetW, liveTargetH, useAnim);
 
         const bounds = { x: 0, y: 0, w: this.size[0], h: this.size[1] };
 

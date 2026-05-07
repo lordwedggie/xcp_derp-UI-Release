@@ -82,9 +82,8 @@ function updateHostThemeColor(basta) {
                     globalTheme[`${keyName}${state.activeStateSuffix}`] = [...rgba];
                 }
 
-                Object.values(app.graph._nodes).forEach(n => {
-                    if (n && n.onThemeUpdate) n.onThemeUpdate(cfg);
-                });
+                if (cfg.touchTheme) cfg.touchTheme(tName);
+                if (cfg.notifyTheme) cfg.notifyTheme(tName);
             }
         }
         if (node.requestDerpSync) node.requestDerpSync();
@@ -120,9 +119,8 @@ function revertHostThemeColor() {
                 const globalTheme = cfg.themes[tName];
                 globalTheme[keyName] = JSON.parse(JSON.stringify(state.originalKeyData));
 
-                Object.values(app.graph._nodes).forEach(n => {
-                    if (n && typeof n.onThemeUpdate === "function") n.onThemeUpdate(cfg);
-                });
+                if (cfg.touchTheme) cfg.touchTheme(tName);
+                if (cfg.notifyTheme) cfg.notifyTheme(tName);
             }
         }
         if (node.requestDerpSync) node.requestDerpSync();

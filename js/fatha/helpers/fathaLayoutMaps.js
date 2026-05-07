@@ -52,7 +52,7 @@ export const getVirtualNodeLayoutMap = (node) => {
                     type: UI_TYPES.ICONBUTTON,
                     themeKey: "buttonNode, t_textSystem",
                     icon: collapseIcon,
-                    width: "match: 0.75", height: "fit", spacing: [sW, 0],
+                    width: "match", height: "fit", spacing: [sW, 0],
                     onPress: () => {
                         if (node.collapse) node.collapse();
                         else {
@@ -144,7 +144,7 @@ export const getVirtualNodeLayoutMap = (node) => {
                     themeKey: "buttonNode, t_textSystem",
                     objectAlign: ["left", "middle"],
                     icon: "power",
-                    width: "match: 0.75", height: "fill",
+                    width: "match", height: "fill",
                     onPress: () => {
                         const nextMode = (node.mode === 4) ? 0 : 4;
                         node.mode = nextMode;

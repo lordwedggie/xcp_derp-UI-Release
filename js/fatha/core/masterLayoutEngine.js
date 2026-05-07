@@ -765,9 +765,10 @@ export class masterLayoutEngine {
                 normalizedPadding[3] + (regionInset[3] || 0)
             ];
 
+            const inheritedIgnoreLayout = !!(parent?.ignoreLayout || localCfg.ignoreLayout || props.ignoreLayout);
             const currentRegion = {
                 ...localCfg,
-                ignoreLayout: localCfg.ignoreLayout || props.ignoreLayout,
+                ignoreLayout: inheritedIgnoreLayout,
                 key: key,
                 parentKey: parent.key,
                 padR: padR,
@@ -1040,7 +1041,7 @@ export class masterLayoutEngine {
 
                     if (Math.abs(finalW - currentRegion.w) > 0.5) {
                         currentRegion.w = finalW;
-                        if (!props.ignoreLayout && !config.ignoreLayout) {
+                        if (!currentRegion.ignoreLayout) {
                             if (isParentRow) {
                                 currentLevelMaxX = Math.max(currentLevelMaxX, currentRegion.x + currentRegion.w + margin[2] + (spacing[0] || 0));
                             } else {

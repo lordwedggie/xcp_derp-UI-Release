@@ -345,6 +345,7 @@ export function triggerWall_onThemeUpdate(node, config) {
     node._layoutMapHash = null;
     node.refreshNodeLayoutMap();
     if (node.refreshDerpTriggerWallSysMap) node.refreshDerpTriggerWallSysMap();
+    node.requestDerpSync();
 }
 
 export function triggerWall_applyPalette(node) {
@@ -352,6 +353,7 @@ export function triggerWall_applyPalette(node) {
     node._layoutMapHash = null;
     node.refreshNodeLayoutMap();
     if (node.refreshDerpTriggerWallSysMap) node.refreshDerpTriggerWallSysMap();
+    node.requestDerpSync();
 }
 
 export function triggerWall_addGroup(node) {

@@ -7,7 +7,7 @@ import { fatha, initDerpGlobalListener } from "../../fatha/fatha.js";
 import { activeBastas } from "../../fatha/basta.js";
 import { showBastaFileHandler, getHandlerId } from "../../fatha/bastas/bastaFileHandler.js";
 import { showBastaMessage } from "../../fatha/bastas/bastaMessage.js";
-import { fetchLoraTriggers, fetchLoraRating, syncRatingColorsCache, fetchLoraData } from "../helpers/loraComponents.js";
+import { fetchLoraTriggers, fetchLoraRating, syncRatingColorsCache, fetchLoraData, regionBelongsToRow } from "../helpers/loraComponents.js";
 import { startStackDrag, updateStackDrag, endStackDrag } from "../../fatha/helpers/fathaDragDrop.js";
 import { COMPONENT_BLUEPRINTS } from "../../fatha/core/masterLayoutTypes.js";
 
@@ -510,10 +510,11 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                     if (onDrawForeground) onDrawForeground.apply(this, arguments);
 
                     // THE GHOST DRAW FIX: Render the picked-up object freely following the mouse cursor
-                    if (this._dragTrig && this._dragThresholdMet && this.layout?.regions) {
+                    if (this._dragTrig && this._dragThresholdMet) {
                         const dragIdx = this._dragTrig.index;
                         const rowKey = `loraRow_${dragIdx}`;
-                        const baseReg = this.layout.regions[rowKey];
+                        const snapshot = this._loraFloatingSnapshot;
+                        const baseReg = snapshot?.regions?.[rowKey] || this.layout?.regions?.[rowKey];
 
                         if (baseReg && this._dragMouse && this._dragOffset) {
                             const dx = this._dragMouse[0] - this._dragOffset[0] - baseReg.x;
@@ -534,7 +535,7 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                                 // Draw an opaque canvas-backed plate under the dragged row.
                                 // REGION themes are often transparent, so we borrow REGION corners
                                 // but force the canvas OFF paint to stabilize ghost readability.
-                                const rowCfg = this.layoutMap?.mainContentRegion?.[rowKey] || {};
+                                const rowCfg = this.layoutMap?.mainContentRegion?.[rowKey] || snapshot?.regions?.[rowKey] || {};
                                 const regionBp = this.UI_TYPES ? COMPONENT_BLUEPRINTS[this.UI_TYPES.REGION] : null;
                                 if (regionBp) {
                                     const ghostPlate = {
@@ -554,15 +555,6 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
 
                                 const suffix = `_${dragIdx}`;
                                 const componentsToDraw = [];
-                                const belongsToDraggedRow = (key, reg) => {
-                                    if (key === rowKey) return true;
-                                    let parent = reg?.parentKey;
-                                    while (parent && this.layout?.regions?.[parent]) {
-                                        if (parent === rowKey) return true;
-                                        parent = this.layout.regions[parent].parentKey;
-                                    }
-                                    return false;
-                                };
                                 const ghostAllowedTypes = new Set([
                                     this.UI_TYPES.TEXT,
                                     this.UI_TYPES.ICONBUTTON,
@@ -573,10 +565,10 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                                     this.UI_TYPES.FILEBROWSER,
                                 ]);
 
-                                for (const [k, r] of Object.entries(this.layout.regions)) {
+                                for (const [k, r] of Object.entries(snapshot?.regions || this.layout.regions || {})) {
                                     if (r.type === "linebreak") continue;
                                     if (k === rowKey || k.endsWith(suffix)) {
-                                        if (!belongsToDraggedRow(k, r)) continue;
+                                        if (!(k === rowKey || regionBelongsToRow(rowKey, r, snapshot?.regions || this.layout?.regions))) continue;
                                         // Render only stable visual widgets in ghost pass.
                                         // This avoids slot/circle artifacts from non-row helper regions.
                                         const isTriggerDropdown = r.type === this.UI_TYPES.DROPDOWN_DERP || k.startsWith("dropTrigger_");

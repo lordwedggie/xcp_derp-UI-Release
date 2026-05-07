@@ -126,11 +126,8 @@ export function bindEffectEvents(node, updateThemeLayoutFn) {
     const cfg = window.xcpDerpThemeConfig;
     const broadcastUpdate = () => {
         if (!cfg) return;
-        Object.values(app.graph._nodes).forEach(n => {
-            if (n?.onThemeUpdate) n.onThemeUpdate(cfg);
-            // FATHA FIX: Force layout recalculation for all affected nodes in the graph
-            if (n.layout) n.layout._lastCacheKey = "";
-        });
+        if (node._selectedThemeName && cfg.touchTheme) cfg.touchTheme(node._selectedThemeName);
+        if (node._selectedThemeName && cfg.notifyTheme) cfg.notifyTheme(node._selectedThemeName);
     };
 
     // 1. Shadow Toggle

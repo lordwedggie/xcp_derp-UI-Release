@@ -6,7 +6,16 @@ import { app } from "../../../scripts/app.js";
 import { showBastaLoraDetail } from "../fatha/bastas/bastaLoraDetail.js";
 import { showBastaMessage } from "../fatha/bastas/bastaMessage.js";
 import { startStackDrag, updateStackDrag, endStackDrag } from "../fatha/helpers/fathaDragDrop.js";
-import { resolveRatingColor } from "./helpers/loraComponents.js";
+import {
+    resolveRatingColor,
+    buildLoraDetailPayload,
+    buildTriggerDropdownItems,
+    resolveTriggerDisplayState,
+    resolveTriggerSelectionValue,
+    captureLoraFloatingSnapshot,
+    estimateLoraDropGapHeight,
+    getLoraDisplayName,
+} from "./helpers/loraComponents.js";
 import { getPreviewImageUrl } from "./helpers/loraImages.js";
 
 if (!window._xcp_derpLoraStack_Layout_Loaded) {
@@ -42,6 +51,14 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                     const { t_textNormal_size, t_textSmall_size } = vars;
 
                     const stack = this.properties.stackData || [];
+                    if (this._dragTrig && this._dragThresholdMet && Number.isInteger(this._dragTrig.index) && this.layout?.regions) {
+                        const dragRowKey = `loraRow_${this._dragTrig.index}`;
+                        if (!this._loraFloatingSnapshot || this._loraFloatingSnapshot.rowKey !== dragRowKey) {
+                            this._loraFloatingSnapshot = captureLoraFloatingSnapshot(this, dragRowKey);
+                        }
+                    } else {
+                        this._loraFloatingSnapshot = null;
+                    }
                     const nameDisplay = this.properties.nameDisplay || "Top";
                     const bastaId = "basta_lora_detail_global_unique_id";
                     const bObj = window.xcpActiveBastas?.get(bastaId);
@@ -177,26 +194,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                     const isDetailOpen = !!(window.xcpActiveBastas?.get(detailBastaId)?.hostNode === this);
                     if (!isDetailOpen) this._activeDetailSlot = -1;
 
-                    const estimateDropGapHeight = () => {
-                        if (this._dragTrig && this.layout?.regions) {
-                            const dragRow = this.layout.regions[`loraRow_${this._dragTrig.index}`];
-                            if (dragRow && Number.isFinite(dragRow.h) && dragRow.h > 0) {
-                                return Math.round(dragRow.h);
-                            }
-                        }
-                        if (this.layout?.regions) {
-                            const heights = [];
-                            for (const [k, r] of Object.entries(this.layout.regions)) {
-                                if (k.startsWith("loraRow_") && Number.isFinite(r.h) && r.h > 0) heights.push(r.h);
-                            }
-                            if (heights.length > 0) {
-                                const avg = heights.reduce((sum, h) => sum + h, 0) / heights.length;
-                                return Math.round(avg);
-                            }
-                        }
-                        return 84;
-                    };
-                    const dropGapHeight = estimateDropGapHeight();
+                    const dropGapHeight = estimateLoraDropGapHeight(this, "loraRow_");
 
                     const isDragPreviewActive = !!(this._dragTrig && this._dragThresholdMet);
                     const dragIdx = this._dragTrig?.index;
@@ -209,13 +207,14 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                     let lastVisibleRowKey = null;
 
                     const stackRows = stack.reduce((acc, lora, i) => {
-                        let prev = i === 0 ? null : `loraRow_${i-1}`;
-                        const loraName = (lora[0] || "").split(/[\\/]/).pop().replace(/\.safetensors$/i, "");
+                        let prev = lastVisibleRowKey;
+                        const loraName = getLoraDisplayName(lora[0]);
                         // THE BYPASS SYNC: Detect if the entire node (mode 2/4, properties, or bypass widget) or just this LoRA entry is bypassed
                         const nodeBypassed = this.mode === 2 || this.mode === 4 || this.properties.isBypassed || (this.widgets && this.widgets[0] && this.widgets[0].value === "bypass");
                         const isBypassed = !!lora[5] || nodeBypassed;
+                        const isDragged = !!(this._dragTrig && this._dragThresholdMet && this._dragTrig.index === i);
 
-                        if (i > 0) {
+                        if (prev) {
                             acc[`loraSep_${i}`] = {
                                 anchor: { target: prev, axis: "y", offset: oY },
                                 type: this.UI_TYPES.LINEBREAK, width: "full", height: 1, margin: [-mW, 0, -mW, mH],
@@ -261,12 +260,15 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                             prev = gapKey;
                         }
 
+                        if (isDragged) {
+                            return acc;
+                        }
+
                         const isSelected = (i === activeSlot);
                         const rating = parseInt(this._loraRatings?.[lora[0]] || 0, 10);
                         const ratingColor = resolveRatingColor(this, lora[0], isSelected, isBypassed);
                         let previewBorder = ratingColor;
 
-                        const isDragged = !!(this._dragTrig && this._dragThresholdMet && this._dragTrig.index === i);
                         const rowAlpha = isDragged ? 0 : 1;
                         const previewAlpha = isDragged ? 0 : (isBypassed ? 0.5 : 1.0);
 
@@ -299,28 +301,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                 onDragEnd: () => endStackDrag(this, "stackData"),
                                 onPress: () => {
                                     this._activeDetailSlot = i;
-                                    const previewUrl = (this._loraPreviewList?.includes(lora[0])) ? getPreviewImageUrl(lora[0], false) : null;
-                                    const path = lora[0].toLowerCase();
-                                    let detectedBase = "SDXL"; // Default
-                                    if (path.includes("pony")) detectedBase = "Pony Diffusion V6";
-                                    else if (path.includes("illustrious")) detectedBase = "Illustrious XL";
-                                    else if (path.includes("1.5") || path.includes("v1-5")) detectedBase = "SD 1.5";
-                                    const rawTags = (typeof lora[4] === "object") ? (lora[4].tag || "") : (lora[4] || "");
-                                    const tags = rawTags.trim() !== ""
-                                        ? rawTags.split(',').map(t => t.trim()).filter(t => t !== "")
-                                        : ["None"];
-
-                                    showBastaLoraDetail(this, `loraPreview_${i}`, {
-                                        name: loraName,
-                                        slotIndex: i,
-                                        rawFileName: (lora[0] || "").replace(/\//g, "\\"),
-                                        previewUrl: previewUrl,
-                                        baseModel: detectedBase,
-                                        tags: tags,
-                                        loraList: this._loraList || [],
-                                        loraPreviewList: this._loraPreviewList || [],
-                                        ratingsPalette: this._ratingsPalette
-                                    });
+                                    showBastaLoraDetail(this, `loraPreview_${i}`, buildLoraDetailPayload(this, lora, i));
                                 },
                                 [`loraRating_${i}`]: {
                                     hidden: rating === 0,
@@ -359,26 +340,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                         onDragEnd: () => endStackDrag(this, "stackData"),
                                         onPress: () => {
                                             this._activeDetailSlot = i;
-                                            const previewUrl = (this._loraPreviewList?.includes(lora[0])) ? getPreviewImageUrl(lora[0], false) : null;
-                                            const path = lora[0].toLowerCase();
-                                            let detectedBase = "SDXL";
-                                            if (path.includes("pony")) detectedBase = "Pony Diffusion V6";
-                                            else if (path.includes("illustrious")) detectedBase = "Illustrious XL";
-                                            else if (path.includes("1.5") || path.includes("v1-5")) detectedBase = "SD 1.5";
-                                            const rawTags = (typeof lora[4] === "object") ? (lora[4].tag || "") : (lora[4] || "");
-                                            const tags = rawTags.trim() !== "" ? rawTags.split(',').map(t => t.trim()).filter(t => t !== "") : ["None"];
-
-                                            showBastaLoraDetail(this, `lblLoraNameTop_${i}`, {
-                                                name: loraName,
-                                                slotIndex: i,
-                                                rawFileName: (lora[0] || "").replace(/\//g, "\\"),
-                                                previewUrl: previewUrl,
-                                                baseModel: detectedBase,
-                                                tags: tags,
-                                                loraList: this._loraList || [],
-                                                loraPreviewList: this._loraPreviewList || [],
-                                                ratingsPalette: this._ratingsPalette
-                                            });
+                                            showBastaLoraDetail(this, `lblLoraNameTop_${i}`, buildLoraDetailPayload(this, lora, i));
                                         }
                                     },
                                     [`toggleFuseQKV_${i}`]: {
@@ -531,50 +493,21 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                         onDragStart: (e, data) => startStackDrag(this, data, i, `loraRow_${i}`),
                                         onDrag: (e, data) => { updateStackDrag(this, data, "loraRow_", stack.length); this.refreshNodeLayoutMap(); },
                                         onDragEnd: () => endStackDrag(this, "stackData"),
-                                        items: (() => {
-                                            const triggers = this._loraTriggerArrayCache?.[lora[0]] || [];
-                                            const session = window._xcpDerpSession || Date.now();
-                                            const mapped = triggers.map(t => ({
-                                                ...t,
-                                                name: (t.tag && t.tag !== t.name) ? `${t.name}:\u00A0${t.tag}` : t.name,
-                                                display: (t.tag && t.tag !== t.name) ? `${t.name}:\u00A0${t.tag}` : t.name,
-                                                value: t.key,
-                                                imageUrl: t.image ? `/xcp/get_lora_image?name=${encodeURIComponent(lora[0])}&file=${encodeURIComponent(t.image)}&v=${session}` : null
-                                            }));
-                                            return mapped.length > 0 ? mapped : ["None"];
-                                        })(),
-                                        imageUrl: (() => {
-                                            const matched = (this._loraTriggerArrayCache?.[lora[0]] || []).find(t => t.key === lora[3]);
-                                            const session = window._xcpDerpSession || Date.now();
-                                            return (matched && matched.image) ? `/xcp/get_lora_image?name=${encodeURIComponent(lora[0])}&file=${encodeURIComponent(matched.image)}&v=${session}` : null;
-                                        })(),
-                                        value: (() => {
-                                            const matched = (this._loraTriggerArrayCache?.[lora[0]] || []).find(t => t.key === lora[3]);
-                                            return matched ? matched.key : (lora[3] || "None");
-                                        })(),
-                                        label: (() => {
-                                            const matched = (this._loraTriggerArrayCache?.[lora[0]] || []).find(t => t.key === lora[3]);
-                                            return matched ? `${matched.display}:\u00A0` : "";
-                                        })(),
-                                        text: (() => {
-                                            const matched = (this._loraTriggerArrayCache?.[lora[0]] || []).find(t => t.key === lora[3]);
-                                            return (lora[4] && lora[4] !== "") ? lora[4] : (matched ? (matched.tag || matched.name) : (lora[3] || "None"));
-                                        })(),
+                                        items: buildTriggerDropdownItems(lora[0], this._loraTriggerArrayCache?.[lora[0]] || []),
+                                        ...resolveTriggerDisplayState(
+                                            lora[0],
+                                            this._loraTriggerArrayCache?.[lora[0]] || [],
+                                            lora[3],
+                                            lora[4]
+                                        ),
                                         displayMode: "cutoff",
                                         onChange: (v) => {
                                             if (!v || v === "None") {
                                                 lora[3] = "None";
                                                 lora[4] = "";
                                             } else {
-                                                // THE RESOLUTION FIX: Extract the key safely to bypass truncation bugs
-                                                const valStr = (typeof v === "object") ? (v.value || v.key || v.name) : v;
                                                 const triggers = this._loraTriggerArrayCache?.[lora[0]] || [];
-
-                                                const entry = triggers.find(t =>
-                                                    t.key === valStr ||
-                                                    ((t.tag && t.tag !== t.name) ? `${t.name}:\u00A0${t.tag}` : t.name) === valStr ||
-                                                    (t.tag || t.name) === valStr
-                                                );
+                                                const entry = resolveTriggerSelectionValue(triggers, v);
 
                                                 lora[3] = entry ? entry.key : "None";
                                                 lora[4] = entry ? entry.tag : "";

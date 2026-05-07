@@ -14,6 +14,7 @@ import { UI_TYPES, COMPONENT_BLUEPRINTS } from "./core/masterLayoutTypes.js";
 import { getVirtualNodeLayoutMap } from "./helpers/fathaLayoutMaps.js";
 import { transmitBypassedDerpSignals, transmitDerpSignal, purgeDerpSignal } from "./core/masterSignalEngine.js";
 import { animateRecoil } from "../herbina/masterAnimator.js";
+import { initPerfOverlay, togglePerfOverlay } from "./helpers/fathaPerfOverlay.js";
 
 // --- THE PERFECT HEIST (Ghost Slots & Selection Killer) ---
 // By caching states and temporarily lying to LiteGraph during its render pass,
@@ -127,6 +128,7 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
     };
     nodeType.prototype.onThemeUpdate = function(config) {
         this.handleThemeUpdate(config);
+        this.requestDerpSync();
     };
     nodeType.prototype.applyPalette = function() {
         if (window.xcpDerpThemeConfig) this.handleThemeUpdate(window.xcpDerpThemeConfig);
@@ -271,10 +273,11 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
             };
         }
 
-        // THE RESIZE INTERVENTION FIX: Skip animateDerpSize during active drag-resize.
-        // The resize handler in fathaDOMshield already correctly clamps size to minW.
-        // Letting animateDerpSize override it causes a per-frame size oscillation (flicker).
-        if (!this._isDerpResizing) animateDerpSize(this, targetW, targetH, useAnim);
+        // During live resize, preserve the manually dragged axis but still let the auto-managed
+        // secondary axis respond immediately (e.g. width shrink causing auto-height growth).
+        const liveTargetW = this._isDerpResizing && !autoWidth ? this.size[0] : targetW;
+        const liveTargetH = this._isDerpResizing && !autoHeight ? this.size[1] : targetH;
+        animateDerpSize(this, liveTargetW, liveTargetH, useAnim);
 
         const bounds = { x: 0, y: 0, w: this.size[0], h: this.size[1] };
 
@@ -486,6 +489,8 @@ if (!window._xcp_DerpVirtualLoader_Loaded) {
             },
             async setup() {
                 initDerpGlobalListener();
+                initPerfOverlay();
+                if (!window.toggleDerpPerfOverlay) window.toggleDerpPerfOverlay = (force) => togglePerfOverlay(force);
                 const orgOnDrawForeground = app.canvas.onDrawForeground;
                 app.canvas.onDrawForeground = function(ctx) {
                     if (orgOnDrawForeground) orgOnDrawForeground.apply(this, arguments);

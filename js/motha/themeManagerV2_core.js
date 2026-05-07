@@ -202,18 +202,12 @@ export function bindThemeEvents(node) {
                     if (!themeObj._layout) themeObj._layout = [4, 2, 2, 2, 2, 4, 2, 4];
                     themeObj._layout[propIndexOffset] = x;
                     themeObj._layout[propIndexOffset + 1] = y;
+                    if (cfg.touchTheme) cfg.touchTheme(node._selectedThemeName);
 
                     // THE PERFORMANCE FIX: Broadcast structural updates to the entire graph only on COMMIT (Blur).
                     // Running this $O(N)$ logic every frame during typing was destroying the framerate.
                     if (isCommit) {
-                        Object.values(app.graph._nodes).forEach(n => {
-                            if (n !== node && n?.onThemeUpdate) {
-                                if (n.layout) n.layout._lastCacheKey = "";
-                                if (n.requestDerpSync) n.requestDerpSync();
-                                else n.setDirtyCanvas(true, true);
-                            }
-                        });
-
+                        if (cfg.notifyTheme) cfg.notifyTheme(node._selectedThemeName);
                         if (cfg.markDirty) cfg.markDirty();
                     }
                 }
@@ -239,11 +233,11 @@ export function bindThemeEvents(node) {
     // 1. Static Theme Management Events
     const tReg = node.layoutMap.themeManagementRegion;
     // THE FIX: Wrap remaining root buttons in safeClick to prevent double-fire bypasses
-    tReg.btnThemeDelete.onClick = safeClick(() => handleThemeDeleteAction(node));
+    tReg.btnThemeDelete.onClick = safeClick(() => handleThemeDeleteAction(node, updateThemeLayout));
     tReg.dropdownTheme.onChange = (val) => handleThemeDropdownChange(node, val);
-    tReg.btnThemeRename.onClick = safeClick(() => handleThemeRenameAction(node));
-    tReg.btnThemeCopy.onClick = safeClick(() => handleThemeCopyAction(node));
-    tReg.btnThemeSave.onClick = safeClick(() => handleThemeSaveAction(node));
+    tReg.btnThemeRename.onClick = safeClick(() => handleThemeRenameAction(node, updateThemeLayout));
+    tReg.btnThemeCopy.onClick = safeClick(() => handleThemeCopyAction(node, updateThemeLayout));
+    tReg.btnThemeSave.onClick = safeClick(() => handleThemeSaveAction(node, updateThemeLayout));
 
     bindKeyMainEvents(node, updateThemeLayout);
 

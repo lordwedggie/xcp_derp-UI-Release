@@ -5,6 +5,7 @@
 import { app } from "../../../scripts/app.js";
 import { fatha, initDerpGlobalListener } from "../fatha/fatha.js";
 import { startStackDrag } from "../fatha/helpers/fathaDragDrop.js";
+import { COMPONENT_BLUEPRINTS } from "../fatha/core/masterLayoutTypes.js";
 import {
     triggerWall_syncOutputs,
     triggerWall_onNodeCreated,
@@ -68,6 +69,60 @@ function bumpTWPerfCounter(node, key) {
         node._twPerf.refreshCount = 0;
         node._twPerf.syncReqCount = 0;
         node._twPerf.dirtyCount = 0;
+    }
+}
+
+function captureFloatingPreviewRegions(node, rootKey) {
+    if (!node?.layout?.regions?.[rootKey]) return null;
+    const regions = node.layout.regions;
+    const captured = {};
+    const visit = (key) => {
+        const reg = regions[key];
+        if (!reg || captured[key]) return;
+        captured[key] = {
+            ...reg,
+            geometry: { x: reg.x, y: reg.y, w: reg.w, h: reg.h }
+        };
+        for (const [childKey, childReg] of Object.entries(regions)) {
+            if (childReg?.parentKey === key) visit(childKey);
+        }
+    };
+    visit(rootKey);
+    return captured;
+}
+
+function drawFloatingPreview(node, ctx) {
+    const snapshot = node?._floatingPreviewSnapshot;
+    const dragMouse = node?._dragMouse;
+    const dragOffset = node?._dragOffset;
+    if (!snapshot || !dragMouse || !dragOffset) return;
+
+    const rootKey = snapshot.rootKey;
+    const rootReg = snapshot.regions?.[rootKey];
+    if (!rootReg) return;
+
+    const targetX = dragMouse[0] - dragOffset[0];
+    const targetY = dragMouse[1] - dragOffset[1];
+    const dx = targetX - rootReg.x;
+    const dy = targetY - rootReg.y;
+
+    const entries = Object.entries(snapshot.regions)
+        .filter(([, reg]) => !!reg?.type)
+        .sort(([, a], [, b]) => (Number(a.zIndex) || 0) - (Number(b.zIndex) || 0));
+
+    for (const [key, reg] of entries) {
+        const blueprint = COMPONENT_BLUEPRINTS[reg.type];
+        if (!blueprint || blueprint.isHtml) continue;
+        const compData = {
+            ...reg,
+            key,
+            x: reg.x + dx,
+            y: reg.y + dy,
+            geometry: { x: reg.x + dx, y: reg.y + dy, w: reg.w, h: reg.h },
+            zIndex: (Number(reg.zIndex) || 0) + 1000
+        };
+        if (blueprint.isHybrid) blueprint.sync(ctx, node, app, compData);
+        else blueprint.sync(ctx, node, compData);
     }
 }
 
@@ -190,6 +245,13 @@ app.registerExtension({
             const visibleGroupEntries = [...visibleGroupEntriesBase];
             let floatingGroupEntry = null;
 
+            if (this._dragTrig && this._dragThresholdMet && this._dragTrig.index !== undefined && this._dragTrig.regionKey && !this._floatingPreviewSnapshot) {
+                this._floatingPreviewSnapshot = {
+                    rootKey: this._dragTrig.regionKey,
+                    regions: captureFloatingPreviewRegions(this, this._dragTrig.regionKey)
+                };
+            }
+
             if (this._dragTrig && this._dragThresholdMet && this._dragTrig.index !== undefined) {
                 const d = this._dragTrig;
                 const pIdx = (this._dropPreviewIdx !== undefined) ? this._dropPreviewIdx : d.index;
@@ -202,6 +264,7 @@ app.registerExtension({
             const buildGroupRows = (group, gIdx, isSelected, options = {}) => {
                 const {
                     groupWidgetAlpha = 1,
+                    renderGhostPlaceholders = false,
                     rowAnchorPrefix = "triggerRow",
                     firstRowAnchorTarget = `lineBreak_${gIdx}`,
                     itemPressEnabled = true,
@@ -246,6 +309,7 @@ app.registerExtension({
                     }
 
                     if (this.layout._measureCache) this.layout._measureCache.clear();
+                    item.measuredW = tw;
 
                     const spacing = acc[curR].length > 0 ? sW : 0;
                     if (curW + tw + spacing > maxW && acc[curR].length > 0) {
@@ -266,6 +330,22 @@ app.registerExtension({
                         dir: "row", width: "full", height: "auto", spacing: [sW, 0], minWidth: 0,
                         margin: [-mW / 2, 0, -mW / 2, isLastRow ? mH + 2 : 0],
                         ...Object.fromEntries(gItems.map(item => {
+                            if (renderGhostPlaceholders) {
+                                const placeholderKey = item.type === "trig"
+                                    ? (rowAnchorPrefix === "triggerRow" ? `triggerItem_${gIdx}_${item.idx}` : `${rowAnchorPrefix}Item_${gIdx}_${item.idx}`)
+                                    : (rowAnchorPrefix === "triggerRow" ? `btnAdd_${gIdx}` : `${rowAnchorPrefix}Add_${gIdx}`);
+                                return [placeholderKey, {
+                                    type: this.UI_TYPES.REGION,
+                                    themeKey: "region",
+                                    alpha: 0,
+                                    hoverEffect: false,
+                                    width: item.measuredW || trigHeight,
+                                    height: trigHeight,
+                                    margin: [0, 0],
+                                    padding: [0, 0]
+                                }];
+                            }
+
                             if (item.type === "trig") {
                                 const isModalActive = this._activeModalItemKey === `triggerItem_${gIdx}_${item.idx}`;
                                 const triggerActive = (item.trig.active || isModalActive) && !isBypassed && item.trig.disabled !== true;
@@ -302,6 +382,102 @@ app.registerExtension({
                 });
 
                 return triggerRows;
+            };
+
+            const buildGroupRegion = (group, gIdx, regionKey, isSelected, options = {}) => {
+                const {
+                    isPreviewGhost = false,
+                    isFloating = false,
+                    childKeyPrefix = "",
+                    rowAnchorPrefix = "triggerRow",
+                    firstRowAnchorTarget = (!this.properties.settingActive && !isSelected) ? regionKey : `${childKeyPrefix}lineBreak_${gIdx}`,
+                    groupWidgetAlpha = isPreviewGhost ? 0 : 1,
+                    renderGhostPlaceholders = isPreviewGhost,
+                    itemPressEnabled = !isFloating,
+                    itemDragEnabled = !isFloating,
+                    addPressEnabled = !isFloating,
+                    headerPressEnabled = !isFloating,
+                    regionProps = {}
+                } = options;
+
+                const triggerRows = buildGroupRows(group, gIdx, isSelected, {
+                    groupWidgetAlpha,
+                    renderGhostPlaceholders,
+                    rowAnchorPrefix,
+                    firstRowAnchorTarget,
+                    itemPressEnabled,
+                    itemDragEnabled,
+                    addPressEnabled
+                });
+
+                return {
+                    type: this.UI_TYPES.REGION,
+                    themeKey: "region",
+                    regionOffset: [mW, mH, mW, 0],
+                    alpha: isPreviewGhost ? 0 : 1,
+                    state: isFloating ? "ON" : (isSelected ? "ON" : (isBypassed ? "DIS" : "OFF")),
+                    hoverEffect: false,
+                    margin: [mW * 2, mH, mW * 2, mH],
+                    width: "full",
+                    height: "auto",
+                    dir: "col",
+                    minWidth: 0,
+                    ...regionProps,
+                    [`${childKeyPrefix}headerRegion_${gIdx}`]: {
+                        alpha: isPreviewGhost ? 0 : 1,
+                        hidden: !this.properties.settingActive && !isSelected,
+                        dir: "row", width: "full", height: "auto", margin: [-mW, -mH, -mW, 0],
+                        spacing: [sW, 0],
+                        [`${childKeyPrefix}btnRename_${gIdx}`]: {
+                            type: this.UI_TYPES.ICONBUTTON, icon: "rename", themeKey: "button, t_textsystem",
+                            alpha: isPreviewGhost ? 0 : 1,
+                            width: "match", height: "fill", margin: [-sW, mH], spacing: [sW * 2, 0],
+                            onPress: headerPressEnabled ? (() => triggerWall_renameGroup(this, group, gIdx)) : undefined
+                        },
+                        [`${childKeyPrefix}btnSave_${gIdx}`]: {
+                            type: this.UI_TYPES.ICONBUTTON, icon: "save", themeKey: "button, t_textsystem",
+                            alpha: isPreviewGhost ? 0 : 1,
+                            width: "match", height: "fill", margin: [0, mH, 0, mH], spacing: [sW, 0],
+                            hidden: !triggerWall_hasProfileGroup(this, group),
+                            state: isBypassed ? "DIS" : (triggerWall_hasGroupTextChanges(this, group) ? "OFF" : "DIS"),
+                            onPress: headerPressEnabled ? (() => triggerWall_saveGroupToProfile(this, group, `${childKeyPrefix}btnSave_${gIdx}`)) : undefined
+                        },
+                        [`${childKeyPrefix}dropdownTriggerGroup_${gIdx}`]: {
+                            type: this.UI_TYPES.DROPDOWN, themeKey: "button, t_textsmall", skipBackground: false,
+                            alpha: isPreviewGhost ? 0 : 1,
+                            indicator: true, canvasShield: true, mouseOver: false,
+                            width: "full", height: "auto", spacing: [sW, 0],
+                            padding: [pW, pH],
+                            value: group.title || "Trigger Group",
+                            items: [...(this._cachedPresetData?.triggerGroups || this.properties.triggerGroups || [])]
+                                .filter(g => !activeTitles.includes(g.title) || g.title === group.title)
+                                .sort((a, b) => (a.title || "").localeCompare(b.title || ""))
+                                .map(g => g.title || "Trigger Group"),
+                            onChange: headerPressEnabled ? ((v) => triggerWall_changeGroupTemplate(this, group, v)) : undefined
+                        },
+                        [`${childKeyPrefix}btnAddTriggerToProfile_${gIdx}`]: {
+                            type: this.UI_TYPES.BUTTON, themeKey: "button, t_textSmall",
+                            alpha: isPreviewGhost ? 0 : 1,
+                            text: "Add to Profile", width: "auto", height: "auto", padding: [pW, pH], spacing: [sW, 0],
+                            hidden: triggerWall_isGroupDuplicate(this),
+                            state: isBypassed ? "DIS" : "OFF",
+                            onPress: headerPressEnabled ? (() => triggerWall_addSelectedGroupToProfile(this)) : undefined
+                        },
+                        [`${childKeyPrefix}btnRemoveGroup_${gIdx}`]: {
+                            type: this.UI_TYPES.ICONBUTTON, themeKey: "button, t_textsystem",
+                            alpha: isPreviewGhost ? 0 : 1,
+                            icon: "close", width: "match", height: "fill", margin: [0, sH, -sW, sH],
+                            hidden: this.properties.triggerGroups.length <= 1,
+                            onPress: headerPressEnabled ? (() => triggerWall_removeGroup(this, gIdx)) : undefined
+                        }
+                    },
+                    [`${childKeyPrefix}lineBreak_${gIdx}`]: {
+                        alpha: isPreviewGhost ? 0 : 1,
+                        hidden: !this.properties.settingActive && !isSelected,
+                        type: this.UI_TYPES.LINEBREAK, margin: [-mW * 2, 0, -mW * 2, sH]
+                    },
+                    ...triggerRows
+                };
             };
 
             const textTheme = this._t_textSmallPaintData || this._t_textNormalPaintData || {};
@@ -359,163 +535,27 @@ app.registerExtension({
                 const isGroupPreviewGhost = !!isPreviewGhost;
                 const regionKey = `triggerRegion_${gIdx}`;
                 const isSelected = !!this._selectedRegions?.[regionKey];
-                const triggerRows = buildGroupRows(group, gIdx, isSelected, {
-                    groupWidgetAlpha: isGroupPreviewGhost ? 0 : 1,
+                layoutMap[regionKey] = buildGroupRegion(group, gIdx, regionKey, isSelected, {
+                    isPreviewGhost: isGroupPreviewGhost,
+                    childKeyPrefix: "",
                     rowAnchorPrefix: "triggerRow",
                     firstRowAnchorTarget: (!this.properties.settingActive && !isSelected) ? regionKey : `lineBreak_${gIdx}`,
-                    itemPressEnabled: true,
-                    itemDragEnabled: true,
-                    addPressEnabled: true
-                });
-
-                layoutMap[regionKey] = {
-                    type: this.UI_TYPES.REGION, themeKey: "region", regionOffset: [mW, mH, mW, 0],
-                    alpha: isGroupPreviewGhost ? 0 : 1,
-                    state: isSelected ? "ON" : (isBypassed ? "DIS" : "OFF"),
-                    anchor: { target: lastRegionKey, axis: "y", offset: mH },
-                    hoverEffect: false,
-                    onDragStart: (e, data) => startStackDrag(this, data, visibleGroupIndices.indexOf(gIdx), regionKey),
-                    onDrag: (e, data) => {
-                        triggerWall_groupDrag(this, data, visibleGroupIndices);
-                        this.refreshNodeLayoutMap();
-                    },
-                    onDragEnd: () => triggerWall_groupDragEnd(this),
-                    onPress: () => {
-                        triggerWall_groupDragEnd(this);
-                        triggerWall_toggleRegion(this, regionKey);
-                    },
-                    margin: [mW * 2, mH, mW * 2, mH],
-                    width: "full", height: "auto", dir: "col", minWidth: 0,
-                    [`headerRegion_${gIdx}`]: {
-                        alpha: isGroupPreviewGhost ? 0 : 1,
-                        hidden: !this.properties.settingActive && !isSelected,
-                        dir: "row", width: "full", height: "auto", margin: [-mW, -mH, -mW, 0],
-                        spacing: [sW, 0],
-                        [`btnRename_${gIdx}`]: {
-                            type: this.UI_TYPES.ICONBUTTON, icon: "rename", themeKey: "button, t_textsystem",
-                            alpha: isGroupPreviewGhost ? 0 : 1,
-                            width: "match", height: "fill", margin: [-sW, mH], spacing: [sW * 2, 0],
-                            onPress: () => triggerWall_renameGroup(this, group, gIdx)
+                    regionProps: {
+                        anchor: { target: lastRegionKey, axis: "y", offset: mH },
+                        onDragStart: (e, data) => startStackDrag(this, data, visibleGroupIndices.indexOf(gIdx), regionKey),
+                        onDrag: (e, data) => {
+                            triggerWall_groupDrag(this, data, visibleGroupIndices);
+                            this.refreshNodeLayoutMap();
                         },
-                        [`btnSave_${gIdx}`]: {
-                            type: this.UI_TYPES.ICONBUTTON, icon: "save", themeKey: "button, t_textsystem",
-                            alpha: isGroupPreviewGhost ? 0 : 1,
-                            width: "match", height: "fill", margin: [0, mH, 0, mH], spacing: [sW, 0],
-                            hidden: !triggerWall_hasProfileGroup(this, group),
-                            state: isBypassed ? "DIS" : (triggerWall_hasGroupTextChanges(this, group) ? "OFF" : "DIS"),
-                            onPress: () => triggerWall_saveGroupToProfile(this, group, `btnSave_${gIdx}`)
-                        },
-                        [`dropdownTriggerGroup_${gIdx}`]: {
-                            type: this.UI_TYPES.DROPDOWN, themeKey: "button, t_textsmall", skipBackground: false,
-                            alpha: isGroupPreviewGhost ? 0 : 1,
-                            indicator: true, canvasShield: true, mouseOver: false,
-                            width: "full", height: "auto", spacing: [sW, 0],
-                            padding: [pW, pH],
-                            value: group.title || "Trigger Group",
-                            items: [...(this._cachedPresetData?.triggerGroups || this.properties.triggerGroups || [])]
-                                .filter(g => !activeTitles.includes(g.title) || g.title === group.title)
-                                .sort((a, b) => (a.title || "").localeCompare(b.title || ""))
-                                .map(g => g.title || "Trigger Group"),
-                            onChange: (v) => triggerWall_changeGroupTemplate(this, group, v)
-                        },
-                        [`btnAddTriggerToProfile_${gIdx}`]: {
-                            type: this.UI_TYPES.BUTTON, themeKey: "button, t_textSmall",
-                            alpha: isGroupPreviewGhost ? 0 : 1,
-                            text: "Add to Profile", width: "auto", height: "auto", padding: [pW, pH], spacing: [sW, 0],
-                            hidden: triggerWall_isGroupDuplicate(this),
-                            state: isBypassed ? "DIS" : "OFF",
-                            onPress: () => triggerWall_addSelectedGroupToProfile(this)
-                        },
-
-                        [`btnRemoveGroup_${gIdx}`]: {
-                            type: this.UI_TYPES.ICONBUTTON, themeKey: "button, t_textsystem",
-                            alpha: isGroupPreviewGhost ? 0 : 1,
-                            icon: "close", width: "match", height: "fill", margin: [0, sH, -sW, sH],
-                            hidden: this.properties.triggerGroups.length <= 1,
-                            onPress: () => triggerWall_removeGroup(this, gIdx)
+                        onDragEnd: () => triggerWall_groupDragEnd(this),
+                        onPress: () => {
+                            triggerWall_groupDragEnd(this);
+                            triggerWall_toggleRegion(this, regionKey);
                         }
-                    },
-                    [`lineBreak_${gIdx}`]: {
-                        alpha: isGroupPreviewGhost ? 0 : 1,
-                        hidden: !this.properties.settingActive && !isSelected,
-                        type: this.UI_TYPES.LINEBREAK, margin: [-mW * 2, 0, -mW * 2, sH]
-                    },
-                    ...triggerRows
-                };
+                    }
+                });
                 lastRegionKey = regionKey;
             });
-
-            if (floatingGroupEntry && this._dragThresholdMet && this._dragMouse && this._dragOffset) {
-                const floatingGroup = floatingGroupEntry.group || {};
-                const floatingGIdx = floatingGroupEntry.gIdx;
-                const floatingRegionKey = `floatingTriggerRegion_${floatingGIdx}`;
-                const floatingIsSelected = !!this._selectedRegions?.[`triggerRegion_${floatingGIdx}`];
-                const floatingRows = buildGroupRows(floatingGroup, floatingGIdx, floatingIsSelected, {
-                    groupWidgetAlpha: 1,
-                    rowAnchorPrefix: "floatingTriggerRow",
-                    firstRowAnchorTarget: (!this.properties.settingActive && !floatingIsSelected) ? floatingRegionKey : `floatingLineBreak_${floatingGIdx}`,
-                    itemPressEnabled: false,
-                    itemDragEnabled: false,
-                    addPressEnabled: false
-                });
-
-                layoutMap[floatingRegionKey] = {
-                    type: this.UI_TYPES.REGION,
-                    themeKey: "region",
-                    regionOffset: [mW, mH, mW, 0],
-                    state: floatingIsSelected ? "ON" : (isBypassed ? "DIS" : "OFF"),
-                    ignoreLayout: true,
-                    x: this._dragMouse[0] - this._dragOffset[0],
-                    y: this._dragMouse[1] - this._dragOffset[1],
-                    zIndex: 100,
-                    pulseStates: true,
-                    pulseFromState: "_DIS",
-                    pulseToState: "_ON",
-                    pulseSpeed: 0.005,
-                    width: this.layout?.regions?.[`triggerRegion_${floatingGIdx}`]?.w || "full",
-                    height: "auto",
-                    dir: "col",
-                    minWidth: 0,
-                    [`floatingHeaderRegion_${floatingGIdx}`]: {
-                        hidden: !this.properties.settingActive && !floatingIsSelected && !triggerWall_hasProfileGroup(this, floatingGroup),
-                        dir: "row", width: "full", height: "auto", margin: [0, -mH, -mW, 0],
-                        spacing: [sW, 0],
-                        [`floatingBtnRename_${floatingGIdx}`]: {
-                            type: this.UI_TYPES.ICONBUTTON, icon: "rename", themeKey: "button, t_textsystem",
-                            hidden: !this.properties.settingActive && !floatingIsSelected,
-                            width: "match", height: "fill", margin: [-sW, mH], spacing: [sW * 2, 0]
-                        },
-                        [`floatingDropdownTriggerGroup_${floatingGIdx}`]: {
-                            type: this.UI_TYPES.DROPDOWN, themeKey: "button, t_textsmall", skipBackground: false,
-                            hidden: !this.properties.settingActive && !floatingIsSelected,
-                            indicator: true, canvasShield: true, mouseOver: false,
-                            width: "full", height: "auto", spacing: [sW, 0],
-                            padding: [pW, pH],
-                            value: floatingGroup.title || "Trigger Group",
-                            items: [...(this._cachedPresetData?.triggerGroups || this.properties.triggerGroups || [])]
-                                .filter(g => !activeTitles.includes(g.title) || g.title === floatingGroup.title)
-                                .sort((a, b) => (a.title || "").localeCompare(b.title || ""))
-                                .map(g => g.title || "Trigger Group")
-                        },
-                        [`floatingBtnAddTriggerToProfile_${floatingGIdx}`]: {
-                            type: this.UI_TYPES.BUTTON, themeKey: "button, t_textSmall",
-                            text: "Add to Profile", width: "auto", height: "auto", padding: [pW, pH],
-                            hidden: !this.properties.settingActive && !floatingIsSelected ? true : triggerWall_isGroupDuplicate(this),
-                            state: isBypassed ? "DIS" : "OFF"
-                        },
-                        [`floatingBtnRemoveGroup_${floatingGIdx}`]: {
-                            type: this.UI_TYPES.ICONBUTTON, themeKey: "button, t_textsystem",
-                            icon: "close", width: "match", height: "fill", margin: [0, sH, sW, sH],
-                            hidden: (!this.properties.settingActive && !floatingIsSelected) || this.properties.triggerGroups.length <= 1,
-                        }
-                    },
-                    [`floatingLineBreak_${floatingGIdx}`]: {
-                        hidden: !this.properties.settingActive && !floatingIsSelected,
-                        type: this.UI_TYPES.LINEBREAK, margin: [-mW, 0, -mW, sH]
-                    },
-                    ...floatingRows
-                };
-            }
 
             const cachedTriggerGroupItems = [...(this._cachedPresetData?.triggerGroups || [])]
                 .sort((a, b) => (a.title || "").localeCompare(b.title || ""))
@@ -660,6 +700,9 @@ app.registerExtension({
         const onDrawForeground = nodeType.prototype.onDrawForeground;
         nodeType.prototype.onDrawForeground = function(ctx) {
             triggerWall_onDrawForeground(this, ctx, onDrawForeground);
+            if (this._dragThresholdMet && this._floatingPreviewSnapshot) {
+                drawFloatingPreview(this, ctx);
+            }
         };
     }
 });

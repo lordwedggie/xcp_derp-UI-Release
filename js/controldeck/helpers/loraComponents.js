@@ -5,6 +5,125 @@
 import { app } from "../../../../scripts/app.js";
 import { playMicrowaveDing, playKaChing, playKaboom } from "../../herbina/masterSoundEffects.js";
 import { showBastaMessage } from "../../fatha/bastas/bastaMessage.js";
+import { getPreviewImageUrl, getLoraImageUrl } from "./loraImages.js";
+
+export function getLoraDisplayName(loraPath) {
+    return (loraPath || "").split(/[\\/]/).pop().replace(/\.safetensors$/i, "");
+}
+
+export function detectLoraBaseModel(loraPath) {
+    const path = String(loraPath || "").toLowerCase();
+    if (path.includes("pony")) return "Pony Diffusion V6";
+    if (path.includes("illustrious")) return "Illustrious XL";
+    if (path.includes("1.5") || path.includes("v1-5")) return "SD 1.5";
+    return "SDXL";
+}
+
+export function normalizeLoraTags(rawValue) {
+    const rawTags = (typeof rawValue === "object") ? (rawValue?.tag || "") : (rawValue || "");
+    return rawTags.trim() !== ""
+        ? rawTags.split(",").map(t => t.trim()).filter(Boolean)
+        : ["None"];
+}
+
+export function buildLoraDetailPayload(node, lora, slotIndex) {
+    return {
+        name: getLoraDisplayName(lora?.[0]),
+        slotIndex,
+        rawFileName: (lora?.[0] || "").replace(/\//g, "\\"),
+        previewUrl: (node?._loraPreviewList?.includes(lora?.[0])) ? getPreviewImageUrl(lora[0], false) : null,
+        baseModel: detectLoraBaseModel(lora?.[0]),
+        tags: normalizeLoraTags(lora?.[4]),
+        loraList: node?._loraList || [],
+        loraPreviewList: node?._loraPreviewList || [],
+        ratingsPalette: node?._ratingsPalette
+    };
+}
+
+export function getMatchedTrigger(triggers, selectedKey) {
+    return (triggers || []).find(t => t.key === selectedKey) || null;
+}
+
+export function buildTriggerDropdownItems(loraName, triggers) {
+    const mapped = (triggers || []).map(t => ({
+        ...t,
+        name: (t.tag && t.tag !== t.name) ? `${t.name}:\u00A0${t.tag}` : t.name,
+        display: (t.tag && t.tag !== t.name) ? `${t.name}:\u00A0${t.tag}` : t.name,
+        value: t.key,
+        imageUrl: t.image ? getLoraImageUrl(loraName, t.image) : null
+    }));
+    return mapped.length > 0 ? mapped : ["None"];
+}
+
+export function resolveTriggerDisplayState(loraName, triggers, selectedKey, selectedTag) {
+    const matched = getMatchedTrigger(triggers, selectedKey);
+    return {
+        matched,
+        imageUrl: matched?.image ? getLoraImageUrl(loraName, matched.image) : null,
+        value: matched ? matched.key : (selectedKey || "None"),
+        label: matched ? `${matched.display}:\u00A0` : "",
+        text: (selectedTag && selectedTag !== "") ? selectedTag : (matched ? (matched.tag || matched.name) : (selectedKey || "None"))
+    };
+}
+
+export function resolveTriggerSelectionValue(triggers, value) {
+    const valStr = (typeof value === "object") ? (value.value || value.key || value.name) : value;
+    return (triggers || []).find(t =>
+        t.key === valStr ||
+        ((t.tag && t.tag !== t.name) ? `${t.name}:\u00A0${t.tag}` : t.name) === valStr ||
+        (t.tag || t.name) === valStr
+    ) || null;
+}
+
+export function captureLoraFloatingSnapshot(node, rowKey) {
+    if (!node?.layout?.regions?.[rowKey]) return null;
+    const regions = node.layout.regions;
+    const captured = {};
+    const visit = (key) => {
+        const reg = regions[key];
+        if (!reg || captured[key]) return;
+        captured[key] = {
+            ...reg,
+            geometry: { x: reg.x, y: reg.y, w: reg.w, h: reg.h }
+        };
+        for (const [childKey, childReg] of Object.entries(regions)) {
+            if (childReg?.parentKey === key) visit(childKey);
+        }
+    };
+    visit(rowKey);
+    return { rowKey, regions: captured };
+}
+
+export function estimateLoraDropGapHeight(node, dragRowKeyPrefix = "loraRow_") {
+    if (node?._dragTrig && node?.layout?.regions) {
+        const dragRow = node.layout.regions[`${dragRowKeyPrefix}${node._dragTrig.index}`];
+        if (dragRow && Number.isFinite(dragRow.h) && dragRow.h > 0) {
+            return Math.round(dragRow.h);
+        }
+    }
+    if (node?.layout?.regions) {
+        const heights = [];
+        for (const [key, region] of Object.entries(node.layout.regions)) {
+            if (key.startsWith(dragRowKeyPrefix) && Number.isFinite(region.h) && region.h > 0) heights.push(region.h);
+        }
+        if (heights.length > 0) {
+            const avg = heights.reduce((sum, h) => sum + h, 0) / heights.length;
+            return Math.round(avg);
+        }
+    }
+    return 84;
+}
+
+export function regionBelongsToRow(rowKey, reg, regionSource) {
+    if (!rowKey || !reg || !regionSource) return false;
+    if (reg.key === rowKey) return true;
+    let parent = reg.parentKey;
+    while (parent && regionSource[parent]) {
+        if (parent === rowKey) return true;
+        parent = regionSource[parent].parentKey;
+    }
+    return false;
+}
 
 /**
  * processTriggerData: Converts the raw backend trigger dictionary into a structured array.
@@ -390,7 +509,15 @@ export const getLoraLoaderProps = (host, basta, loraData) => ({
     disabled: false,
     ratingsList: host._loraRatings || {},
     ratingsPalette: host._ratingsPalette || loraData.ratingsPalette,
-    items: host._loraList || [],
+    items: (host._loraList || []).map((p) => ({
+        name: p,
+        path: p,
+        value: p,
+        imageUrl: (host._loraPreviewList || []).includes(p)
+            ? `/xcp/get_lora_preview?name=${encodeURIComponent(p)}&v=${window._xcpDerpSession || Date.now()}`
+            : null
+    })),
+    imageUrl: loraData.previewUrl || null,
     previewList: host._loraPreviewList || [],
     onChange: (newPath) => {
         const stack = host.properties.stackData || [];

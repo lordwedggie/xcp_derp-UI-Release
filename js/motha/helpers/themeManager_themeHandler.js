@@ -82,11 +82,6 @@ export const handleThemeRenameAction = (node, updateThemeLayoutFn) => {
             if (cfg && cfg.themes && newName && newName !== currentTheme) {
                 try {
                     cfg.themes[newName] = JSON.parse(JSON.stringify(cfg.themes[currentTheme]));
-                    await fetch("/xcp/save/themes", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ name: newName, data: cfg.themes[currentTheme] })
-                    });
                     await fetch("/xcp/delete/themes", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
@@ -124,11 +119,6 @@ export const handleThemeCopyAction = (node, updateThemeLayoutFn) => {
             if (cfg && cfg.themes && newName) {
                 try {
                     const newThemeData = JSON.parse(JSON.stringify(cfg.themes[currentTheme]));
-                    await fetch("/xcp/save/themes", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ name: newName, data: newThemeData })
-                    });
                     cfg.themes[newName] = newThemeData;
                     const dropdown = node.layoutMap?.themeManagementRegion?.dropdownTheme;
                     if (dropdown) dropdown.items = Object.keys(cfg.themes);
@@ -148,23 +138,16 @@ export const handleThemeCopyAction = (node, updateThemeLayoutFn) => {
 export const handleThemeSaveAction = (node, updateThemeLayoutFn) => {
     const cfg = window.xcpDerpThemeConfig;
     if (!cfg) return;
-    const currentTheme = node._selectedThemeName || "";
 
     showBastaFileHandler(node, "themes", "btnThemeSave", {
         title: "Save Configuration",
         mode: "save",
         message: "Save all changes to theme file?",
-        originalName: currentTheme,
         onConfirm: async () => {
             try {
                 const themeName = node._selectedThemeName;
                 cfg.themes[themeName] = JSON.parse(JSON.stringify(node.themeToEdit));
                 safePersist(cfg, themeName);
-                await fetch("/xcp/save/themes", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ name: themeName, data: cfg.themes[themeName] })
-                });
                 playSuccessSound();
                 showBastaMessage(node, "Configuration saved successfully!", 2000, { width: 250 }, "btnThemeSave", false, "success");
             } catch (err) {
