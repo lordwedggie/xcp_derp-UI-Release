@@ -1,16 +1,6 @@
 import { app } from "../../../../scripts/app.js";
 import { syncDerpShield } from "./fathaDOMshield.js";
 
-function recordDockDebug(label, payload = {}) {
-    const debugPayload = {
-        label,
-        time: Date.now(),
-        ...payload,
-    };
-    window.xcpDockDebug = debugPayload;
-    console.log("[xcpDockDebug]", debugPayload);
-}
-
 export function beginDockDrag(entity, deckEngine) {
     const deckRoot = deckEngine.beginDrag(entity);
     entity._deckDragRootId = deckRoot?.id || entity.id;
@@ -51,36 +41,8 @@ export function endDockDrag(entity, deckEngine, data) {
     if (shouldFinalizeAltDock) {
         const { SNAP } = entity.getDerpVars(entity);
         const targetInfo = deckEngine.resolveDeckTarget(entity, { radius: 120, ghostThickness: 10 });
-        recordDockDebug("dragEnd", {
-            dragNodeId: entity.id,
-            pressedRegionKey: entity._pressedRegionKey || null,
-            handledRegionDragEnd,
-            altKey: true,
-            targetNodeId: targetInfo?.targetNode?.id || null,
-            side: targetInfo?.edge?.side || null,
-        });
         if (targetInfo?.targetNode) {
-            recordDockDebug("before-finalize", {
-                dragNodeId: entity.id,
-                targetNodeId: targetInfo.targetNode.id,
-                side: targetInfo.edge?.side || null,
-                dragSizeBefore: Array.isArray(entity.size) ? [...entity.size] : null,
-                dragNodeSizeBefore: Array.isArray(entity.properties?.nodeSize) ? [...entity.properties.nodeSize] : null,
-                targetSizeBefore: Array.isArray(targetInfo.targetNode.size) ? [...targetInfo.targetNode.size] : null,
-                targetNodeSizeBefore: Array.isArray(targetInfo.targetNode.properties?.nodeSize) ? [...targetInfo.targetNode.properties.nodeSize] : null,
-            });
             deckEngine.finalizeDeckTarget(entity, targetInfo, SNAP);
-            recordDockDebug("after-finalize", {
-                dragNodeId: entity.id,
-                targetNodeId: targetInfo.targetNode.id,
-                side: targetInfo.edge?.side || null,
-                dragSizeAfter: Array.isArray(entity.size) ? [...entity.size] : null,
-                dragNodeSizeAfter: Array.isArray(entity.properties?.nodeSize) ? [...entity.properties.nodeSize] : null,
-                targetSizeAfter: Array.isArray(targetInfo.targetNode.size) ? [...targetInfo.targetNode.size] : null,
-                targetNodeSizeAfter: Array.isArray(targetInfo.targetNode.properties?.nodeSize) ? [...targetInfo.targetNode.properties.nodeSize] : null,
-                autoHeightAfter: entity.properties?.autoHeight,
-                autoWidthAfter: entity.properties?.autoWidth,
-            });
             if (typeof entity.syncUncleSlots === "function") entity.syncUncleSlots();
         }
     }

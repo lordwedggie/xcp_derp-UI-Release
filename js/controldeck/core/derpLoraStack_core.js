@@ -79,6 +79,7 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                     this._xcpSyncing = true;
                     try {
                         if (this._signalSyncDebouncer) clearTimeout(this._signalSyncDebouncer);
+                        const isBypassed = this.mode === 4 || this.mode === 2 || this._derpSpoofedBypass;
 
                         const ids = this.properties.multiSignalIds || {};
                         const globalSignals = window.xcpDerpSignals || {};
@@ -158,7 +159,7 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                         if (!baseModelFallback && mSignalId) baseModelFallback = getFallback(mSignalId);
                         if (!baseClipFallback && cSignalId && !isJoint) baseClipFallback = getFallback(cSignalId);
 
-                        const packageValue = {
+                        const packageValue = isBypassed ? null : {
                             stack: combinedStack,
                             model_name_prefix: this.activeModelPrefix,
                             model_id: baseModelId,
@@ -169,7 +170,7 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                             upstream_ids: [...new Set(upstreamIds)]
                         };
 
-                        const signalHash = JSON.stringify(packageValue);
+                        const signalHash = `${isBypassed ? "bypass" : "live"}__${JSON.stringify(packageValue)}`;
                         if (this._lastBroadcastHash === signalHash) {
                             this._xcpSyncing = false;
                             return;
@@ -185,7 +186,7 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                         if (!isJoint) {
                             virtualOutputs.push({ name: "Clip", type: "CLIP", value: packageValue });
                         }
-                        virtualOutputs.push({ name: "LoRA_triggers", type: "STRING", value: allTriggers });
+                        virtualOutputs.push({ name: "LoRA_triggers", type: "STRING", value: isBypassed ? "" : allTriggers });
 
                         virtualOutputs.forEach((output, idx) => {
                             const signalId = `${baseId}:${idx}`;
@@ -193,7 +194,7 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                                 nodeId: signalId,
                                 nodeName: `${nodeName} [${output.name}]`,
                                 nodeType: this.type || "Node",
-                                type: output.type,
+                                type: output.value === null ? "null" : output.type,
                                 value: output.value,
                                 upstreamIds: output.type === "STRING" ? [] : [...new Set(upstreamIds)],
                                 timestamp: Date.now()

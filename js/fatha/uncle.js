@@ -13,7 +13,7 @@ import { drawDerpSysPanelGlobal, isHostActive, closeDerpSysPanel, sysPanel } fro
 import { drawBastaLayer } from "./basta.js";
 import { UI_TYPES, COMPONENT_BLUEPRINTS } from "./core/masterLayoutTypes.js";
 import { getVirtualNodeLayoutMap } from "./helpers/fathaLayoutMaps.js";
-import { transmitDerpSignal, purgeDerpSignal } from "./core/masterSignalEngine.js";
+import { transmitBypassedDerpSignals, transmitDerpSignal, purgeDerpSignal } from "./core/masterSignalEngine.js";
 import { animateRecoil } from "../herbina/masterAnimator.js";
 
 // THE SQUEEZE CONFIG: Centralized padding values for Uncle link-dots
@@ -144,7 +144,9 @@ export function uncle(nodeType, nodeData, minWidth = 100) {
         if (this._lastMode !== this.mode) {
             const isBypassed = this.mode === 4 || this.mode === 2 || this._derpSpoofedBypass;
             if (isBypassed) {
-                if (this.purgeDerpSignal) this.purgeDerpSignal();
+                transmitBypassedDerpSignals(this, {
+                    forceIndexedSingleOutput: !!this.properties?.skipGenericWirelessHeartbeat
+                });
                 if (this._signalSyncDebouncer) clearTimeout(this._signalSyncDebouncer);
             } else if (this.syncDerpOutputs) {
                 this.syncDerpOutputs();
@@ -404,7 +406,9 @@ export function uncle(nodeType, nodeData, minWidth = 100) {
             const origSync = this.syncDerpOutputs;
             this.syncDerpOutputs = function() {
                 if (this.mode === 4 || this.mode === 2 || this._derpSpoofedBypass) {
-                    if (this.purgeDerpSignal) this.purgeDerpSignal();
+                    transmitBypassedDerpSignals(this, {
+                        forceIndexedSingleOutput: !!this.properties?.skipGenericWirelessHeartbeat
+                    });
                     if (this._signalSyncDebouncer) clearTimeout(this._signalSyncDebouncer);
                     return;
                 }

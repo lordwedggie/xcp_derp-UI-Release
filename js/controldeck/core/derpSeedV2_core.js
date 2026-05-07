@@ -27,16 +27,17 @@ export const broadcastSeedSignal = (node) => {
     if (!valWidget || node.id === -1) return;
     node.properties.isWirelessTransmitter = true;
     node.properties.skipGenericWirelessHeartbeat = true;
+    const isBypassed = node.mode === 4 || node.mode === 2 || node._derpSpoofedBypass;
     const baseId = String(node.id);
     const nodeName = node.titleLabel || node.title || "Derp Seed";
     const signalId = `${baseId}:0`;
-    const val = valWidget.value;
+    const val = isBypassed ? null : valWidget.value;
 
     window.xcpDerpSignals[signalId] = {
         nodeId: signalId,
         nodeName: `${nodeName} [SEED]`,
         nodeType: node.type || "Node",
-        type: "INT",
+        type: isBypassed ? "null" : "INT",
         value: val,
         upstreamIds: [], // THE REGISTRY FIX: Required for receiver filtering logic
         timestamp: Date.now()

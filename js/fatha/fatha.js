@@ -12,7 +12,7 @@ import { drawDerpSysPanelGlobal, isHostActive, closeDerpSysPanel, sysPanel } fro
 import { drawBastaLayer } from "./basta.js";
 import { UI_TYPES, COMPONENT_BLUEPRINTS } from "./core/masterLayoutTypes.js";
 import { getVirtualNodeLayoutMap } from "./helpers/fathaLayoutMaps.js";
-import { transmitDerpSignal, purgeDerpSignal } from "./core/masterSignalEngine.js";
+import { transmitBypassedDerpSignals, transmitDerpSignal, purgeDerpSignal } from "./core/masterSignalEngine.js";
 import { animateRecoil } from "../herbina/masterAnimator.js";
 
 // --- THE PERFECT HEIST (Ghost Slots & Selection Killer) ---
@@ -125,6 +125,13 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
     nodeType.prototype.handleThemeUpdate = function(config) {
         handleThemeUpdate(this, config);
     };
+    nodeType.prototype.onThemeUpdate = function(config) {
+        this.handleThemeUpdate(config);
+    };
+    nodeType.prototype.applyPalette = function() {
+        if (window.xcpDerpThemeConfig) this.handleThemeUpdate(window.xcpDerpThemeConfig);
+        this.requestDerpSync();
+    };
     nodeType.prototype.UI_TYPES = UI_TYPES;
 
     nodeType.prototype.drawNodeShape = function(ctx, canvas) { };
@@ -172,7 +179,9 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
         if (this._lastMode !== this.mode) {
             const isBypassed = this.mode === 4 || this.mode === 2 || this._derpSpoofedBypass;
             if (isBypassed) {
-                if (this.purgeDerpSignal) this.purgeDerpSignal();
+                transmitBypassedDerpSignals(this, {
+                    forceIndexedSingleOutput: !!this.properties?.skipGenericWirelessHeartbeat
+                });
                 if (this._signalSyncDebouncer) clearTimeout(this._signalSyncDebouncer);
             } else if (this.syncDerpOutputs) {
                 this.syncDerpOutputs();
@@ -412,7 +421,9 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
             const origSync = this.syncDerpOutputs;
             this.syncDerpOutputs = function() {
                 if (this.mode === 4 || this.mode === 2 || this._derpSpoofedBypass) {
-                    if (this.purgeDerpSignal) this.purgeDerpSignal();
+                    transmitBypassedDerpSignals(this, {
+                        forceIndexedSingleOutput: !!this.properties?.skipGenericWirelessHeartbeat
+                    });
                     if (this._signalSyncDebouncer) clearTimeout(this._signalSyncDebouncer);
                     return;
                 }

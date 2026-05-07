@@ -51,7 +51,7 @@ export function triggerWall_syncOutputs(node) {
         });
     }
     const outContent = allActiveStrings.length > 0 ? allActiveStrings.join(", ") + ", " : "";
-    const syncFingerprint = `${nodeName}__${outContent}`;
+    const syncFingerprint = `${isBypassed ? "bypass" : "live"}__${nodeName}__${outContent}`;
 
     // ZERO-INFERENCE GATING: Prevent redundant signal broadcast and server sync
     if (node._lastSyncedContent === syncFingerprint) return;
@@ -204,6 +204,7 @@ export function triggerWall_onDrawForeground(node, ctx, originalCallback) {
 
     const isBypassed = node.mode === 4 || node.mode === 2 || node._derpSpoofedBypass;
     if (node._lastBypassState !== isBypassed) {
+        node._lastSyncedContent = null;
         if (node.syncDerpOutputs) node.syncDerpOutputs();
         if (node.refreshNodeLayoutMap) node.refreshNodeLayoutMap();
         node._lastBypassState = isBypassed;
@@ -341,12 +342,14 @@ export function triggerWall_handleShieldInteraction(node, type, data, origHandle
 
 export function triggerWall_onThemeUpdate(node, config) {
     node.handleThemeUpdate(config);
+    node._layoutMapHash = null;
     node.refreshNodeLayoutMap();
     if (node.refreshDerpTriggerWallSysMap) node.refreshDerpTriggerWallSysMap();
 }
 
 export function triggerWall_applyPalette(node) {
     if (window.xcpDerpThemeConfig) node.handleThemeUpdate(window.xcpDerpThemeConfig);
+    node._layoutMapHash = null;
     node.refreshNodeLayoutMap();
     if (node.refreshDerpTriggerWallSysMap) node.refreshDerpTriggerWallSysMap();
 }

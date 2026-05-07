@@ -25,14 +25,15 @@ export function bindPromptBookHooks(nodeType) {
         if (this.id !== -1) {
             this.properties.isWirelessTransmitter = true;
             this.properties.skipGenericWirelessHeartbeat = true;
+            const isBypassed = this.mode === 4 || this.mode === 2 || this._derpSpoofedBypass;
 
             const baseId = String(this.id);
             const nodeName = this.titleLabel || this.title || "Derp Prompt Book";
             const activePage = this.properties.derpBook?.[this.properties.currentPageIndex || 0];
 
             const rawContent = (activePage?.content || "").replace(/\[\[IMG:[\s\S]*?\]\]/g, "");
-            const outContent = rawContent.replace(/\r?\n|\r/g, "").trim();
-            const syncFingerprint = `${nodeName}__${outContent}`;
+            const outContent = isBypassed ? "" : rawContent.replace(/\r?\n|\r/g, "").trim();
+            const syncFingerprint = `${isBypassed ? "bypass" : "live"}__${nodeName}__${outContent}`;
 
             if (this._lastSyncedContent === syncFingerprint) return;
             this._lastSyncedContent = syncFingerprint;
@@ -246,6 +247,14 @@ export function bindPromptBookHooks(nodeType) {
     const onDrawForeground = nodeType.prototype.onDrawForeground;
     nodeType.prototype.onDrawForeground = function(ctx) {
         if (onDrawForeground) onDrawForeground.apply(this, arguments);
+
+        const isBypassed = this.mode === 4 || this.mode === 2 || this._derpSpoofedBypass;
+        if (this._lastBypassState !== isBypassed) {
+            this._lastSyncedContent = null;
+            this._lastBypassState = isBypassed;
+            if (this.syncDerpOutputs) this.syncDerpOutputs();
+        }
+
         const el = this._derpDomElements?.editorMain;
         if (el) {
             setupPromptBookImageSupport(el, this);

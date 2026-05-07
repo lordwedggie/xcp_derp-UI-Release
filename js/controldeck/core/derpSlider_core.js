@@ -13,9 +13,12 @@ export function setupDerpSliderCore(nodeType) {
     nodeType.prototype.broadcastWirelessSignal = function(dataArray) {
         if (!this.transmitDerpSignal || this.id === -1 || !Array.isArray(dataArray) || dataArray.length === 0) return;
 
+        const isBypassed = this.mode === 4 || this.mode === 2 || this._derpSpoofedBypass;
+
         const fingerprint = dataArray.map(s => `${s.name}:${s.value}`).join("|") + (this.titleLabel || "");
-        if (this._lastSignalFingerprint === fingerprint) return;
-        this._lastSignalFingerprint = fingerprint;
+        const gatedFingerprint = `${isBypassed ? "bypass" : "live"}__${fingerprint}`;
+        if (this._lastSignalFingerprint === gatedFingerprint) return;
+        this._lastSignalFingerprint = gatedFingerprint;
 
         const baseId = String(this.id);
         const nodeName = this.titleLabel || this.title || "Unknown";
@@ -32,7 +35,7 @@ export function setupDerpSliderCore(nodeType) {
             const signalId = `${baseId}:${i}`;
             const displayName = `${nodeName} [${item.name || `Slider_${i+1}`}]`;
 
-            const finalValue = isInt ? Math.round(val) : val;
+            const finalValue = isBypassed ? null : (isInt ? Math.round(val) : val);
             const existing = window.xcpDerpSignals[signalId];
 
             if (!existing || existing.value !== finalValue) {
@@ -40,7 +43,7 @@ export function setupDerpSliderCore(nodeType) {
                     nodeId: signalId,
                     nodeName: displayName,
                     nodeType: this.type,
-                    type: isInt ? "int" : "float",
+                    type: isBypassed ? "null" : (isInt ? "int" : "float"),
                     value: finalValue,
                     timestamp: Date.now()
                 };
@@ -60,7 +63,7 @@ export function setupDerpSliderCore(nodeType) {
             const val = parseFloat(item.value) || 0;
             const decSetting = parseInt(item.decimal ?? item.decimals ?? 2);
             const isInt = (decSetting === 0);
-            acc[item.name] = isInt ? Math.round(val) : val;
+            acc[item.name] = isBypassed ? null : (isInt ? Math.round(val) : val);
             return acc;
         }, {});
 

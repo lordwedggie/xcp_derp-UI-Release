@@ -572,6 +572,14 @@ export function handleThemeUpdate(node, config) {
     if (node._derpBgCache) {
         node._derpBgCache.key = "";
     }
+    if (node.layout) {
+        node.layout._lastCacheKey = "";
+    }
+    if (node._compDataCache) {
+        node._compDataCache = {};
+    }
+    node._prevDerpState = null;
+    node._forceSync = true;
 
     // THE UNIVERSAL AUTO-CLOSE: Immediately close all panels linked to this node when it undergoes a theme switch
     if (window.xcpActiveBastas) {
@@ -581,6 +589,9 @@ export function handleThemeUpdate(node, config) {
     }
 
     if (sysPanel.isVisible && sysPanel.hostNode === node) {
+        sysPanel._prevDerpState = null;
+        sysPanel._shouldSync = true;
+        sysPanel._layoutDirty = true;
         closeDerpSysPanel();
     }
 

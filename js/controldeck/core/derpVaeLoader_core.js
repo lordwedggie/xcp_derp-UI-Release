@@ -136,13 +136,15 @@ export function initDerpVaeLoaderCore(nodeType) {
     proto.broadcastWirelessSignal = function() {
         if (this.id === -1) return;
 
+        const isBypassed = this.mode === 4 || this.mode === 2 || this._derpSpoofedBypass;
+
         const baseId = String(this.id);
         const nodeName = this.titleLabel || this.title || "Unknown";
         const activeVae = (this.properties.vaeDeck || []).find(m => m.active);
-        const val = activeVae ? activeVae.name : null;
+        const val = isBypassed ? null : (activeVae ? activeVae.name : null);
 
         // ZERO-INFERENCE GATING: Aggressive fingerprinting including item count to catch purges
-        const fingerprint = `${val}_${nodeName}_${this.id}_${(this.properties.vaeDeck || []).length}`;
+        const fingerprint = `${isBypassed ? "bypass" : "live"}_${val}_${nodeName}_${this.id}_${(this.properties.vaeDeck || []).length}`;
         if (this._lastSignalFingerprint === fingerprint) return;
         this._lastSignalFingerprint = fingerprint;
 
@@ -162,7 +164,7 @@ export function initDerpVaeLoaderCore(nodeType) {
                 nodeId: signalId,
                 nodeName: displayName,
                 nodeType: this.type,
-                type: port.type,
+                type: vaePayload ? port.type : "null",
                 value: finalValue,
                 timestamp: Date.now()
             };
@@ -181,7 +183,7 @@ export function initDerpVaeLoaderCore(nodeType) {
             nodeId: baseId,
             nodeName: nodeName,
             nodeType: this.type,
-            type: "VAE",
+            type: vaePayload ? "VAE" : "null",
             value: vaePayload,
             timestamp: Date.now()
         };

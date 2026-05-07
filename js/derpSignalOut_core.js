@@ -401,10 +401,6 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                                 const freshSig = globalSignals[String(sig.nodeId)];
                                 if (freshSig) {
                                     this.activeOutputs[i] = sanitizeDerpSignal(freshSig);
-                                    // THE NULL VALUE MONITOR: Detect and log signals transmitting None/null to help debug chained errors.
-                                    if (freshSig.value === null || freshSig.value === undefined) {
-                                        console.warn(`⚠️ [xcpDerp] Signal Out: Detected empty (null) value from source: "${freshSig.nodeName}" [${freshSig.nodeId}]`);
-                                    }
                                     if (sig.isOrphaned) {
                                         this.activeOutputs[i].isOrphaned = false;
                                         orphanStateChanged = true;

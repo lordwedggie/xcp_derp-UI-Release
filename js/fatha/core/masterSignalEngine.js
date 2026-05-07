@@ -135,6 +135,104 @@ export function transmitDerpSignal(node, value, options = {}) {
     }
 }
 
+function normalizeOutputType(rawType) {
+    if (rawType === "*") return "*";
+    if (typeof rawType === "string") return rawType.toLowerCase();
+    if (rawType && typeof rawType.name === "string") return rawType.name.toLowerCase();
+    if (Array.isArray(rawType)) return String(rawType[0] || "unknown").toLowerCase();
+    return String(rawType || "unknown").toLowerCase();
+}
+
+function getSignalRegistryType(rawType, value) {
+    if (rawType !== "*") {
+        const normalized = normalizeOutputType(rawType);
+        if (normalized.includes("latent")) return "latent";
+        if (normalized.includes("image")) return "image";
+        if (normalized.includes("mask")) return "mask";
+        if (normalized.includes("audio")) return "audio";
+        if (normalized.includes("conditioning")) return "conditioning";
+        if (normalized.includes("model")) return "model";
+        if (normalized.includes("clip")) return "clip";
+        if (normalized.includes("vae")) return "vae";
+        return normalized;
+    }
+
+    const valueType = value === null ? "null" : (Array.isArray(value) ? "array" : typeof value);
+    if (valueType === "number") return Number.isInteger(value) ? "int" : "float";
+    return valueType;
+}
+
+function getBypassSignalValue(rawType) {
+    const normalized = normalizeOutputType(rawType);
+    if (normalized.includes("string") || normalized.includes("text") || normalized.includes("prompt")) return "";
+    if (normalized === "*" || normalized === "any") return null;
+    return null;
+}
+
+export function clearBypassSignalDebouncers(node) {
+    if (!node) return;
+    ["_signalSyncDebouncer", "_twSyncDebouncer"].forEach((key) => {
+        if (node[key]) {
+            clearTimeout(node[key]);
+            node[key] = null;
+        }
+    });
+}
+
+export function transmitBypassedDerpSignals(node, options = {}) {
+    if (!node || node.id === undefined) return;
+
+    const baseId = String(node.id);
+    const nodeName = node.titleLabel || node.title || "Unknown";
+    const outputs = (node.outputs && node.outputs.length > 0)
+        ? node.outputs
+        : [{ type: "*", name: node.properties?.outputName || "Output_01" }];
+
+    let hasChanged = false;
+
+    outputs.forEach((output, index) => {
+        const signalId = (outputs.length > 1 || options.forceIndexedSingleOutput) ? `${baseId}:${index}` : baseId;
+        const portLabel = output.label || output.name || index;
+        const displayName = `${nodeName} [${portLabel}]`;
+        const value = getBypassSignalValue(output.type);
+        const valType = getSignalRegistryType(output.type, value);
+        const currentValStr = JSON.stringify(window.xcpDerpSignals[signalId]?.value);
+        const newValStr = JSON.stringify(value);
+
+        if (newValStr !== currentValStr || window.xcpDerpSignals[signalId]?.nodeName !== displayName || window.xcpDerpSignals[signalId]?.type !== valType) {
+            hasChanged = true;
+            window.xcpDerpSignals[signalId] = {
+                nodeId: signalId,
+                nodeName: displayName,
+                nodeType: node.type || "Node",
+                type: valType,
+                value,
+                upstreamIds: [],
+                timestamp: Date.now(),
+                isPureVirtual: !!(node.isPureVirtual || node.properties?.isPureVirtual)
+            };
+
+            fetch("/xcp/update_signal", {
+                method: "POST",
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ node_id: signalId, value })
+            });
+        }
+    });
+
+    if (hasChanged && window.app && window.app.graph) {
+        window.app.graph._nodes.forEach(n => {
+            if (n.type === "xcpDerpSignalOut" && n.updateReceivedSignals) {
+                n.updateReceivedSignals();
+                if (n.manageDerpOutputs) n.manageDerpOutputs();
+                if (n.refreshNodeLayoutMap) n.refreshNodeLayoutMap();
+                if (n.refreshDerpSignalOutSysMap) n.refreshDerpSignalOutSysMap();
+                if (n.requestDerpSync) n.requestDerpSync();
+            }
+        });
+    }
+}
+
 /**
  * HEARTBEAT: Broadcasters all widget values for the node.
  * Updated to support widget-less nodes (like VAE Decode).

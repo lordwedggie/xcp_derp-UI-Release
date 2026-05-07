@@ -10,6 +10,7 @@ import { showBastaMessage } from "../bastas/bastaMessage.js";
 import { playKaChing, playKaboom } from "../../herbina/masterSoundEffects.js";
 import { resolvePaintData, measureTextWidth } from "../../herbina/utils/widgetsUtils.js";
 import { isNodeDocked, undockNodeEdges } from "../core/masterDockEngine.js";
+import { clearBypassSignalDebouncers, transmitBypassedDerpSignals } from "../core/masterSignalEngine.js";
 
 const DEBUG_OPTIONS = ["None", "Layout", "Hitbox", "Widgets Hitbox"];
 const TITLE_LABEL_DEFAULT = "Derp Nodes";
@@ -145,11 +146,22 @@ export const getVirtualNodeLayoutMap = (node) => {
                     icon: "power",
                     width: "match: 0.75", height: "fill",
                     onPress: () => {
-                        node.mode = (node.mode === 4) ? 0 : 4;
+                        const nextMode = (node.mode === 4) ? 0 : 4;
+                        node.mode = nextMode;
+                        if (typeof node.onModeChange === "function") node.onModeChange(nextMode);
+
+                        node._lastMode = null;
+                        node._lastBypassState = null;
+                        node._lastSignalFingerprint = null;
+                        node._lastSyncedContent = null;
+                        node._lastBroadcastHash = null;
+                        clearBypassSignalDebouncers(node);
+
                         // THE ENGINE-LEVEL BYPASS FIX: React immediately to the UI toggle
-                        if (node.mode === 4) {
-                            if (node.purgeDerpSignal) node.purgeDerpSignal();
-                            if (node._signalSyncDebouncer) clearTimeout(node._siFgnalSyncDebouncer);
+                        if (nextMode === 4) {
+                            transmitBypassedDerpSignals(node, {
+                                forceIndexedSingleOutput: !!node.properties?.skipGenericWirelessHeartbeat
+                            });
                         } else if (node.syncDerpOutputs) {
                             node.syncDerpOutputs();
                         }
