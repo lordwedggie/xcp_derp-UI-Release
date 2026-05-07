@@ -498,6 +498,8 @@ export function drawDerpSysPanelGlobal(ctx) {
                 ...reg,
                 key: key,
                 alpha: sysPanel.animAlpha,
+                isSysPanel: true,
+                isSystemPanel: true,
                 isPressed: sysPanel._pressedRegionKey === key,
                 isHovered: sysPanel._hoveredRegionKey === key,
                 textTheme: textTheme,
@@ -596,6 +598,7 @@ export async function toggleDerpSysPanel(hostNode) {
 
     sysPanel.hostNode = hostNode;
     sysPanel.isVisible = true;
+    window.xcpFathaSysState = sysPanel;
     sysPanel.animHeight = 0;
     sysPanel.animAlpha = 0;
 
@@ -604,6 +607,7 @@ export async function toggleDerpSysPanel(hostNode) {
     }
     sysPanel._outsidePointerHandler = (e) => {
         if (!sysPanel.isVisible || !sysPanel.layout?.regions?.panelBackground) return;
+        if (window.__xcpHasActiveDropdown || window.__xcpHasActiveFileBrowser) return;
         if (sysPanel.interactionShield?.contains(e.target)) return;
         if (Object.values(sysPanel.dynamicElements || {}).some((el) => el?.contains?.(e.target))) return;
 
@@ -699,6 +703,9 @@ export function closeDerpSysPanel() {
     removeDerpShield(sysPanel);
 
     sysPanel.isVisible = false;
+    if (window.xcpFathaSysState === sysPanel) {
+        window.xcpFathaSysState = null;
+    }
     sysPanel.hostNode = null;
     sysPanel.layout = null;
 

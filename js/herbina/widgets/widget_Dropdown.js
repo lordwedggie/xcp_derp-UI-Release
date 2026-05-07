@@ -68,14 +68,69 @@ const DEFAULT_VISIBLE_LIMIT = 15;
 let activePicker = null;
 let lastOpenTime = 0;
 
+function isValidRect(rect) {
+    return !!rect && Number.isFinite(rect.left) && Number.isFinite(rect.top) && rect.width > 0 && rect.height > 0;
+}
+
+function computeScreenAnchorRect(node, app, geometry) {
+    const ds = app?.canvas?.ds;
+    const canvas = app?.canvas?.canvas;
+    if (!ds || !canvas || !geometry) {
+        return { left: 0, top: 0, width: 0, height: 0 };
+    }
+
+    const rect = canvas.getBoundingClientRect();
+    const scale = ds.scale;
+    const screenX = rect.left + (((node?.pos?.[0] || 0) + geometry.x + ds.offset[0]) * scale);
+    const screenY = rect.top + (((node?.pos?.[1] || 0) + geometry.y + ds.offset[1]) * scale);
+
+    return {
+        left: screenX,
+        top: screenY,
+        width: geometry.w * scale,
+        height: geometry.h * scale,
+    };
+}
+
+function resolveScreenAnchorRect(sourceEl, node, app, geometry) {
+    const domRect = sourceEl?.getBoundingClientRect?.();
+    if (isValidRect(domRect)) return domRect;
+
+    const cachedRect = sourceEl?._screenRect;
+    if (isValidRect(cachedRect)) return cachedRect;
+
+    const ds = app?.canvas?.ds;
+    const canvas = app?.canvas?.canvas;
+    if (!ds || !canvas || !geometry) {
+        return { left: 0, top: 0, width: 0, height: 0 };
+    }
+
+    const rect = canvas.getBoundingClientRect();
+    const scale = ds.scale;
+    const screenX = rect.left + (((node?.pos?.[0] || 0) + geometry.x + ds.offset[0]) * scale);
+    const screenY = rect.top + (((node?.pos?.[1] || 0) + geometry.y + ds.offset[1]) * scale);
+
+    return {
+        left: screenX,
+        top: screenY,
+        width: geometry.w * scale,
+        height: geometry.h * scale,
+    };
+}
+
 function closePicker() {
     if (handleHybridPickerClosePhase(activePicker, lastOpenTime, comfyApp)) return;
     finalizePickerCleanup();
 }
 
 function finalizePickerCleanup() {
+    if (activePicker?._positionRaf) {
+        cancelAnimationFrame(activePicker._positionRaf);
+        activePicker._positionRaf = null;
+    }
     finalizeHybridPickerCleanup(activePicker, toggleSingletonShield, closePicker);
     activePicker = null;
+    window.__xcpHasActiveDropdown = false;
 }
 
 window._xcpCloseActiveDropdown = () => {
@@ -154,10 +209,19 @@ function openPicker(sourceEl, config, node, callbacks) {
     const maxH = picker._visibleLimit * dynamicRowHeight;
     picker.style.maxHeight = `${maxH * scale}px`;
 
-    const rect = sourceEl.getBoundingClientRect();
-    picker.style.left = `${rect.left}px`;
-    picker.style.top = `${rect.top}px`;
-    picker.style.width = `${rect.width}px`;
+    const isSysPanelDropdown = config.isSysPanel === true || config.isSystemPanel === true || node?.isSystemPanel === true;
+    const anchorRect = isSysPanelDropdown
+        ? computeScreenAnchorRect(node, comfyApp, config.geometry)
+        : resolveScreenAnchorRect(sourceEl, node, comfyApp, config.geometry);
+    picker._anchorRect = {
+        left: anchorRect.left,
+        top: anchorRect.top,
+        width: anchorRect.width,
+        height: anchorRect.height,
+    };
+    picker.style.left = `${anchorRect.left}px`;
+    picker.style.top = `${anchorRect.top}px`;
+    picker.style.width = `${anchorRect.width}px`;
 
     items.forEach(item => {
         const isObj = typeof item === 'object' && item !== null;
@@ -240,6 +304,41 @@ function openPicker(sourceEl, config, node, callbacks) {
 
     document.body.appendChild(picker);
     activePicker = picker;
+    window.__xcpHasActiveDropdown = true;
+
+    const updatePickerPosition = () => {
+        if (!activePicker || activePicker !== picker || !document.body.contains(picker)) return;
+
+        const isSysPanelDropdown = config.isSysPanel === true || config.isSystemPanel === true || node?.isSystemPanel === true;
+        const liveAnchorRect = isSysPanelDropdown
+            ? computeScreenAnchorRect(node, comfyApp, config.geometry)
+            : resolveScreenAnchorRect(sourceEl, node, comfyApp, config.geometry);
+
+        if (isValidRect(liveAnchorRect)) {
+            picker._anchorRect = {
+                left: liveAnchorRect.left,
+                top: liveAnchorRect.top,
+                width: liveAnchorRect.width,
+                height: liveAnchorRect.height,
+            };
+
+            picker.style.left = `${liveAnchorRect.left}px`;
+            picker.style.top = `${liveAnchorRect.top}px`;
+            picker.style.width = `${liveAnchorRect.width}px`;
+
+            if (picker._previewBox && picker._previewBox.style.display !== "none") {
+                const previewW = liveAnchorRect.width;
+                const previewH = previewW / (picker._aspectRatio || 1);
+                const { sH } = getDerpVars(node);
+                const scale = app?.canvas?.ds?.scale || comfyApp?.canvas?.ds?.scale || 1;
+                picker._previewBox.style.left = `${liveAnchorRect.left}px`;
+                picker._previewBox.style.top = `${liveAnchorRect.top - (sH * scale) - previewH}px`;
+            }
+        }
+
+        picker._positionRaf = requestAnimationFrame(updatePickerPosition);
+    };
+    picker._positionRaf = requestAnimationFrame(updatePickerPosition);
 
     toggleSingletonShield(true, closePicker);
 }
@@ -258,6 +357,7 @@ export function syncDropdownDerp(context, node, app, config) {
 
     const isCanvas = !!(context && (context.canvas || context instanceof CanvasRenderingContext2D));
     const useCanvasShield = safeConfig.canvasShield === true;
+    const isSysPanelDropdown = safeConfig.isSysPanel === true || safeConfig.isSystemPanel === true || node?.isSystemPanel === true;
 
     let el;
     if (isCanvas) {
@@ -269,7 +369,7 @@ export function syncDropdownDerp(context, node, app, config) {
         }
 
         let liveReg = node.layout?.regions?.[safeConfig.key];
-        if (safeConfig.isSysPanel && window.xcpFathaSysState?.layout?.regions) {
+        if (isSysPanelDropdown && window.xcpFathaSysState?.layout?.regions) {
             liveReg = window.xcpFathaSysState.layout.regions[safeConfig.key];
         }
 
@@ -581,7 +681,15 @@ export function syncDropdownDerp(context, node, app, config) {
         el._label.children[0].style.color = animatedTextColor;
     }
     el._arrow.style.color = el._label.style.color;
-    el.style.display = (isAwake || (isCanvas && useCanvasShield)) ? "none" : "block";
+    if (isSysPanelDropdown && isAwake) {
+        el.style.display = "block";
+        el.style.visibility = "hidden";
+        el.style.pointerEvents = "none";
+    } else {
+        el.style.display = (isAwake || (isCanvas && useCanvasShield)) ? "none" : "block";
+        el.style.visibility = "visible";
+        el.style.pointerEvents = "auto";
+    }
 
     if (el._isAnimating && node) node._derpAwakeFrames = 5;
 
@@ -594,8 +702,16 @@ export function syncDropdownDerp(context, node, app, config) {
         const canvasRect = app.canvas.canvas.getBoundingClientRect();
 
         const padL = node._padL || 0;
-        const screenX = (canvasRect.left + (node.pos[0] + padL + x + ds.offset[0]) * scale).toFixed(2);
-        const screenY = (canvasRect.top + (node.pos[1] + y + ds.offset[1]) * scale).toFixed(2);
+        const liveAnchorRect = isSysPanelDropdown
+            ? computeScreenAnchorRect(node, app, safeConfig.geometry)
+            : resolveScreenAnchorRect(el, node, app, safeConfig.geometry);
+        const anchorRect = isValidRect(liveAnchorRect) ? liveAnchorRect : activePicker._anchorRect;
+        const screenX = isSysPanelDropdown
+            ? (anchorRect?.left ?? 0).toFixed(2)
+            : (canvasRect.left + (node.pos[0] + padL + x + ds.offset[0]) * scale).toFixed(2);
+        const screenY = isSysPanelDropdown
+            ? (anchorRect?.top ?? 0).toFixed(2)
+            : (canvasRect.top + (node.pos[1] + y + ds.offset[1]) * scale).toFixed(2);
         const useAnim = isWidgetAnimationEnabled(safeConfig, node, app);
 
         const [aW, aH] = DROPDOWN_ANIM_SETTINGS.anchorSize;

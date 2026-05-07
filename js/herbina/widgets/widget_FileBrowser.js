@@ -58,6 +58,36 @@ const DROPDOWN_ANIM_SETTINGS = {
 let activeFilePicker = null;
 let lastOpenTime = 0;
 
+function isValidRect(rect) {
+    return !!rect && Number.isFinite(rect.left) && Number.isFinite(rect.top) && rect.width > 0 && rect.height > 0;
+}
+
+function resolveScreenAnchorRect(sourceEl, node, app, geometry) {
+    const domRect = sourceEl?.getBoundingClientRect?.();
+    if (isValidRect(domRect)) return domRect;
+
+    const cachedRect = sourceEl?._screenRect;
+    if (isValidRect(cachedRect)) return cachedRect;
+
+    const ds = app?.canvas?.ds;
+    const canvas = app?.canvas?.canvas;
+    if (!ds || !canvas || !geometry) {
+        return { left: 0, top: 0, width: 0, height: 0 };
+    }
+
+    const rect = canvas.getBoundingClientRect();
+    const scale = ds.scale;
+    const screenX = rect.left + (((node?.pos?.[0] || 0) + geometry.x + ds.offset[0]) * scale);
+    const screenY = rect.top + (((node?.pos?.[1] || 0) + geometry.y + ds.offset[1]) * scale);
+
+    return {
+        left: screenX,
+        top: screenY,
+        width: geometry.w * scale,
+        height: geometry.h * scale,
+    };
+}
+
 function closeFilePicker() {
     if (activeFilePicker) {
         if (activeFilePicker._previewBox) activeFilePicker._previewBox.style.display = "none";
@@ -76,6 +106,7 @@ function closeFilePicker() {
 function finalizeFilePickerCleanup() {
     finalizeHybridPickerCleanup(activeFilePicker, toggleSingletonShield, closeFilePicker);
     activeFilePicker = null;
+    window.__xcpHasActiveFileBrowser = false;
 }
 
 // THE GLOBAL HOOK: Allow the framework to force-close pickers during major state transitions (like Basta switches)
@@ -146,10 +177,16 @@ function openFilePicker(sourceEl, config, node, callbacks) {
     const maxH = picker._visibleLimit * dynamicRowHeight;
     picker.style.maxHeight = `${maxH * scale}px`;
 
-    const rect = sourceEl.getBoundingClientRect();
-    picker.style.left = `${rect.left}px`;
-    picker.style.top = `${rect.top}px`;
-    picker.style.width = `${rect.width}px`;
+    const anchorRect = resolveScreenAnchorRect(sourceEl, node, comfyApp, config.geometry);
+    picker._anchorRect = {
+        left: anchorRect.left,
+        top: anchorRect.top,
+        width: anchorRect.width,
+        height: anchorRect.height,
+    };
+    picker.style.left = `${anchorRect.left}px`;
+    picker.style.top = `${anchorRect.top}px`;
+    picker.style.width = `${anchorRect.width}px`;
 
     /**
      * THE NAVIGATION ENGINE: Recursively redraws the picker content based on the virtual path.
@@ -167,7 +204,12 @@ function openFilePicker(sourceEl, config, node, callbacks) {
         // THE ROOT NORMALIZATION FIX: Treat "/" as empty string to prevent rel-path filtering failures
         const normDir = (dir === "/" ? "" : (dir || "")).replace(/[\\/]/g, "/");
 
-        items.forEach(fullPath => {
+        items.forEach(item => {
+            const fullPath = typeof item === "string"
+                ? item
+                : (item?.path ?? item?.value ?? item?.name ?? "");
+            if (!fullPath) return;
+
             const normPath = fullPath.replace(/[\\/]/g, "/");
             if (normDir && !normPath.startsWith(normDir + "/")) return;
             const rel = normDir ? normPath.substring(normDir.length + 1) : normPath;
@@ -176,7 +218,7 @@ function openFilePicker(sourceEl, config, node, callbacks) {
             if (parts.length > 1) {
                 entries.add(parts[0]);
             } else if (parts[0]) {
-                files.push({ name: parts[0], path: fullPath });
+                files.push({ name: parts[0], path: fullPath, item });
             }
         });
 
@@ -377,6 +419,7 @@ function openFilePicker(sourceEl, config, node, callbacks) {
 
     document.body.appendChild(picker);
     activeFilePicker = picker;
+    window.__xcpHasActiveFileBrowser = true;
     toggleSingletonShield(true, closeFilePicker);
 }
 
@@ -478,7 +521,10 @@ export function syncFileBrowser(context, node, app, config) {
         }
 
         const rootDisplayName = safeConfig.rootName || (safeConfig.mode === "folder" ? "/" : "");
-        const isSelection = safeConfig.value && safeConfig.value !== "/" && (safeConfig.mode === "folder" || (safeConfig.items || []).includes(safeConfig.value));
+        const isSelection = safeConfig.value && safeConfig.value !== "/" && (safeConfig.mode === "folder" || (safeConfig.items || []).some(item => {
+            const itemValue = typeof item === "string" ? item : (item?.path ?? item?.value ?? item?.name);
+            return itemValue === safeConfig.value;
+        }));
         let currentVal = rootDisplayName;
         if (isSelection) {
             const cleanPath = safeConfig.value.replace(/\.(safetensors|json)$/i, "").replace(/\/$/, "").replace(/\//g, "\\");
@@ -523,7 +569,10 @@ export function syncFileBrowser(context, node, app, config) {
 
     // THE FAST-HASH GATING: Prevent layout thrashing and theme resolution unless state or content changes
     const rootDisplayName = safeConfig.rootName || (safeConfig.mode === "folder" ? "/" : "");
-    const isSelection = safeConfig.value && safeConfig.value !== "/" && (safeConfig.mode === "folder" || (safeConfig.items || []).includes(safeConfig.value));
+    const isSelection = safeConfig.value && safeConfig.value !== "/" && (safeConfig.mode === "folder" || (safeConfig.items || []).some(item => {
+        const itemValue = typeof item === "string" ? item : (item?.path ?? item?.value ?? item?.name);
+        return itemValue === safeConfig.value;
+    }));
     let currentVal = rootDisplayName;
     if (isSelection) {
         const cleanPath = safeConfig.value.replace(/\.(safetensors|json)$/i, "").replace(/\/$/, "").replace(/\//g, "\\");
@@ -571,11 +620,12 @@ export function syncFileBrowser(context, node, app, config) {
     if (activeFilePicker && activeFilePicker._sourceEl === el) {
         const ds = app.canvas.ds;
 
-        // THE OVERLAY POS FIX: Do not re-calculate canvas coordinates manually[cite: 17, 48].
+        const liveAnchorRect = resolveScreenAnchorRect(el, node, app, safeConfig.geometry);
+        const anchorRect = isValidRect(liveAnchorRect) ? liveAnchorRect : (activeFilePicker._anchorRect || el._screenRect);
         const canvasRect = app.canvas.canvas.getBoundingClientRect();
         const padL = node._padL || 0;
-        const screenX = (canvasRect.left + (node.pos[0] + padL + x + ds.offset[0]) * scale).toFixed(2);
-        const screenY = (canvasRect.top + (node.pos[1] + y + ds.offset[1]) * scale).toFixed(2);
+        const screenX = (anchorRect?.left ?? (canvasRect.left + (node.pos[0] + padL + x + ds.offset[0]) * scale)).toFixed(2);
+        const screenY = (anchorRect?.top ?? (canvasRect.top + (node.pos[1] + y + ds.offset[1]) * scale)).toFixed(2);
 
         const {mW} = getDerpVars(node);
         const dRowH = activeFilePicker._dynamicRowHeight;

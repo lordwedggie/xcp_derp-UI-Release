@@ -6,7 +6,7 @@
 import { getNextZIndex } from "./widgetsUtils.js";
 
 let singletonShield = null;
-let _activeCloseCallback = null; // THE FIX: Explicitly track the active caller's close function
+let _activeCloseCallback = null;
 
 export function setSingletonInteractionHandler(callback) {
     _activeCloseCallback = callback;
@@ -33,7 +33,6 @@ export function createSingletonShield() {
         willChange: "transform"
     });
 
-    // THE FIX: Deferred Event Pattern. Delays passing 'pointerdown' until a drag is confirmed.
     let dragStartX = 0;
     let dragStartY = 0;
     let pendingDownEvent = null;
@@ -63,8 +62,6 @@ export function createSingletonShield() {
             dragStartX = e.clientX;
             dragStartY = e.clientY;
             isDragging = false;
-
-            // Hold the event, do not forward it to the canvas yet!
             pendingDownEvent = e;
         }
     };
@@ -73,7 +70,6 @@ export function createSingletonShield() {
         if (e.target === el || el.hasPointerCapture(e.pointerId)) {
             const dist = Math.hypot(e.clientX - dragStartX, e.clientY - dragStartY);
 
-            // If movement exceeds 5px, it's a confirmed drag.
             if (!isDragging && dist >= 5) {
                 isDragging = true;
                 if (pendingDownEvent) {
@@ -82,7 +78,6 @@ export function createSingletonShield() {
                 }
             }
 
-            // Only forward moves if we are actively dragging
             if (isDragging) {
                 forwardToCanvas(e);
             }
@@ -94,12 +89,10 @@ export function createSingletonShield() {
             el.releasePointerCapture(e.pointerId);
 
             if (!isDragging) {
-                // It was a click! Consume it completely.
                 if (_activeCloseCallback) {
                     _activeCloseCallback();
                 }
             } else {
-                // It was a drag. Finish the sequence.
                 forwardToCanvas(e);
             }
 
@@ -138,14 +131,12 @@ export function toggleSingletonShield(visible, callback = null) {
     if (!singletonShield) createSingletonShield();
 
     if (visible) {
-        // THE FIX: Requirement 2 - Close previous caller if a new one interrupts
         if (_activeCloseCallback && callback && _activeCloseCallback !== callback) {
             _activeCloseCallback();
         }
         if (callback) _activeCloseCallback = callback;
         singletonShield.style.display = "block";
     } else {
-        // Only deactivate if there's no active callback or the caller matches
         if (!callback || _activeCloseCallback === callback) {
             _activeCloseCallback = null;
             singletonShield.style.display = "none";
@@ -153,10 +144,6 @@ export function toggleSingletonShield(visible, callback = null) {
     }
 }
 
-/**
- * Universal sync logic for position and size scaling.
- * Identification of coordinate math moved from widgets to this central utility.
- */
 export function syncElementToCanvas(el, node, app, localX, localY, w, h) {
     if (!el || !app?.canvas?.ds) return null;
     const ds = app.canvas.ds;
@@ -164,7 +151,6 @@ export function syncElementToCanvas(el, node, app, localX, localY, w, h) {
     const offset = ds.offset;
     const rect = app.canvas.canvas.getBoundingClientRect();
 
-    // THE FIX: Removed manual offset subtraction. Fatha layout natively handles the root offset.
     const graphX = (node ? node.pos[0] : 0) + localX;
     const graphY = (node ? node.pos[1] : 0) + localY;
 
@@ -178,15 +164,19 @@ export function syncElementToCanvas(el, node, app, localX, localY, w, h) {
         transform: `translate3d(${screenX}px, ${screenY}px, 0)`
     });
 
+    const liveRect = el.getBoundingClientRect();
+    el._screenRect = {
+        left: liveRect.left,
+        top: liveRect.top,
+        width: liveRect.width,
+        height: liveRect.height,
+        scale,
+    };
+
     return scale;
 }
 
-/**
- * Centralized Shielded Click Protocol
- * Handles protective scaling and position calculations to block canvas events.
- */
 export function executeShieldedInteraction(node, app, x, y, w, h, callback, ...args) {
-    // Create a unique temporary reference for the click lifecycle
     const tempClose = () => toggleSingletonShield(false, tempClose);
     toggleSingletonShield(true, tempClose);
 
@@ -195,7 +185,5 @@ export function executeShieldedInteraction(node, app, x, y, w, h, callback, ...a
     syncSingletonShield(app, graphX, graphY, w, h);
 
     if (callback) callback(...args);
-
-    // tempClose will safely ignore if a persistent singleton (like a dropdown) has already taken over
     setTimeout(tempClose, 100);
 }
