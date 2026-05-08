@@ -12,6 +12,17 @@ import { showBastaFileHandler } from "../bastaFileHandler.js";
 import { resolvePaintData, measureTextHeight } from "../../../herbina/utils/widgetsUtils.js";
 import { initLoraImageHandlers, calculatePreviewAspectRatio, refreshLoraImageList } from "../../../controldeck/helpers/loraImages.js";
 
+function debugPreviewSet(loraData, source, url) {
+    try {
+        if (window._xcpDebugLoraPreviewSwitch !== true) return;
+        const name = loraData?.rawFileName || loraData?.name || "unknown";
+        const idx = loraData?.currentImageIndex;
+        console.debug(`[LoRA Preview] ${source} | name=${name} | idx=${idx} | url=${url}`);
+    } catch (_) {
+        // no-op
+    }
+}
+
 export const getLoraDetailId = () => `basta_lora_detail_global_unique_id`;
 
 initLoraImageHandlers(getLoraDetailId);
@@ -415,14 +426,13 @@ export const getLoraTriggerDropdownProps = (host, basta, loraData, triggerItems,
                     const editorEl = basta.dynamicElements?.loraTriggersEditor;
                     if (editorEl) editorEl.value = tagContent || "";
 
-                    // THE TRIGGER IMAGE FIX: Update preview image if a linked image exists
+                    // Keep cover image by default on trigger dropdown changes.
+                    // Only explicit next/prev actions should switch to archived images.
                     const lName = loraData.rawFileName || loraData.name;
                     const session = window._xcpDerpSession || Date.now();
-                    if (matched.image) {
-                        loraData.previewUrl = `/xcp/get_lora_image?name=${encodeURIComponent(lName)}&file=${encodeURIComponent(matched.image)}&v=${session}`;
-                    } else {
-                        loraData.previewUrl = `/xcp/get_lora_preview?name=${encodeURIComponent(lName)}&v=${session}`;
-                    }
+                    loraData.currentImageIndex = -1;
+                    loraData.previewUrl = `/xcp/get_lora_preview?name=${encodeURIComponent(lName)}&v=${session}`;
+                    debugPreviewSet(loraData, "bastaLoraDetail_core:triggerDropdownChange", loraData.previewUrl);
                     loraData.aspectRatio = null;
                     calculatePreviewAspectRatio(basta, loraData, () => {
                         basta._forceSync = true;
@@ -737,6 +747,7 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
                         refreshLoraImageList(instance, loraData);
                         if (isCover) {
                             loraData.previewUrl = `/xcp/get_lora_preview?name=${encodeURIComponent(lName)}&v=${Date.now()}`;
+                            debugPreviewSet(loraData, "bastaLoraDetail_core:uploadCover", loraData.previewUrl);
                             instance._forceSync = true;
                         }
                     }

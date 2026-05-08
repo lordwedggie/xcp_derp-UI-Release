@@ -15,6 +15,17 @@ import { colorPulse2, parseColor, animateAlpha } from "../../herbina/masterAnima
 import { resolvePaintData, measureTextHeight } from "../../herbina/utils/widgetsUtils.js";
 import { calculatePreviewDisplayHeight, switchLoraImage, setLoraCover, calculatePreviewAspectRatio, deleteLoraDetailImage } from "../../controldeck/helpers/loraImages.js";
 
+function debugPreviewSet(loraData, source, url) {
+    try {
+        if (window._xcpDebugLoraPreviewSwitch !== true) return;
+        const name = loraData?.rawFileName || loraData?.name || "unknown";
+        const idx = loraData?.currentImageIndex;
+        console.debug(`[LoRA Preview] ${source} | name=${name} | idx=${idx} | url=${url}`);
+    } catch (_) {
+        // no-op
+    }
+}
+
 export { getLoraDetailId };
 export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (basta, vars) => {
     const { mW, mH, sW, sH, oY, pW, pH } = vars;
@@ -65,7 +76,10 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
     }
 
     const ratingProps = getLoraRatingDropdownProps(host, basta, loraData);
-    const previewH = Math.floor(calculatePreviewDisplayHeight(basta, loraData.aspectRatio, mW));
+    // While preview is loading, reserve space as a 1024x1024 placeholder (1:1 aspect)
+    // so panel geometry is stable before the real image ratio is known.
+    const previewAspectForLayout = loraData.aspectRatio || 1;
+    const previewH = Math.floor(calculatePreviewDisplayHeight(basta, previewAspectForLayout, mW));
     const loaderProps = getLoraLoaderProps(host, basta, loraData);
     const triggerItems = host._loraTriggerArrayCache?.[currentPath] || host._loraTriggerArrayCache?.[currentPath.replace(/\\/g, "/")] || [];
 
@@ -96,12 +110,11 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 const lName = loraData.rawFileName || loraData.name;
                 const session = window._xcpDerpSession || Date.now();
                 loraData._previewLoading = true;
-                loraData.previewUrl = null;
-                if (activeEntry.image) {
-                    loraData.previewUrl = `/xcp/get_lora_image?name=${encodeURIComponent(lName)}&file=${encodeURIComponent(activeEntry.image)}&v=${session}`;
-                } else {
-                    loraData.previewUrl = `/xcp/get_lora_preview?name=${encodeURIComponent(lName)}&v=${session}`;
-                }
+                // Keep cover image on auto selection changes.
+                // Only next/prev controls should switch to archived sub-images.
+                loraData.currentImageIndex = -1;
+                loraData.previewUrl = `/xcp/get_lora_preview?name=${encodeURIComponent(lName)}&v=${session}`;
+                debugPreviewSet(loraData, "bastaLoraDetail:autoSelection", loraData.previewUrl);
                 loraData.aspectRatio = null;
                 calculatePreviewAspectRatio(basta, loraData, () => {
                     basta._forceSync = true;

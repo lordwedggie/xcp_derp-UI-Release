@@ -206,7 +206,6 @@ export function fetchLoraTriggers(node, loraName, index, forceEditorSync = false
 
             if (node._triggerSyncDebouncer) clearTimeout(node._triggerSyncDebouncer);
             node._triggerSyncDebouncer = setTimeout(() => {
-                window._xcpDerpSession = Date.now();
                 if (node.syncDerpOutputs) node.syncDerpOutputs();
                 node._layoutMapHash = null;
                 if (node.refreshNodeLayoutMap) node.refreshNodeLayoutMap();
@@ -220,7 +219,7 @@ export function fetchLoraTriggers(node, loraName, index, forceEditorSync = false
                     b._forceSync = true;
                     if (b.requestDerpSync) b.requestDerpSync();
                 }
-                if (node.setDirtyCanvas) node.setDirtyCanvas(true, true);
+                if (node.setDirtyCanvas) node.setDirtyCanvas(true);
             }, 150);
         });
 }
@@ -616,12 +615,34 @@ export function resolveRatingColor(node, loraName, isSelected, isBypassed) {
  * fetchLoraData: Centralized metadata and file list fetcher.
  */
 export function fetchLoraData(node, showNotification = false) {
-    fetch("/xcp/get_loras")
+    if (node._fetchLoraDataInFlight) return;
+
+    node._fetchLoraDataInFlight = fetch("/xcp/get_loras")
         .then(r => r.json())
         .then(data => {
-            node._loraList = data.items || [];
-            node._loraPreviewList = data.has_preview || [];
-            if (data.ratings) node._loraRatings = { ...(node._loraRatings || {}), ...data.ratings };
+            const nextLoraList = data.items || [];
+            const nextPreviewList = data.has_preview || [];
+            const nextRatings = data.ratings || null;
+
+            const dataHash = JSON.stringify({
+                items: nextLoraList,
+                has_preview: nextPreviewList,
+                ratings: nextRatings || {}
+            });
+
+            // Prevent duplicate full-node rebuilds when the same payload arrives twice
+            // during reload (e.g., onConfigure + onNodeCreated fetch sequence).
+            if (node._loraDataHash === dataHash) {
+                if (showNotification) {
+                    showBastaMessage(node, "Lora list updated", 3000, { fade: true, grow: true }, "btnRefreshModels", false, "info", "microwave");
+                }
+                return;
+            }
+
+            node._loraDataHash = dataHash;
+            node._loraList = nextLoraList;
+            node._loraPreviewList = nextPreviewList;
+            if (nextRatings) node._loraRatings = { ...(node._loraRatings || {}), ...nextRatings };
             // Invalidate layout cache to force immediate rebuild with the new list
             node._layoutMapHash = null;
 
@@ -641,5 +662,8 @@ export function fetchLoraData(node, showNotification = false) {
             if (showNotification) {
                 showBastaMessage(node, "Lora list updated", 3000, { fade: true, grow: true }, "btnRefreshModels", false, "info", "microwave");
             }
-        }).catch(err => console.warn("[xcpDerp] LoRA data fetch failed:", err));
+        }).catch(err => console.warn("[xcpDerp] LoRA data fetch failed:", err))
+        .finally(() => {
+            node._fetchLoraDataInFlight = null;
+        });
 }

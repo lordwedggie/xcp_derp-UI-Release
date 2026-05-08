@@ -12,6 +12,17 @@ const PREVIEW_RESIZE_QUALITY = 1.00;   // THE OPTIMIZATION FIX: Compression qual
 const THUMBNAIL_LONG_SIDE_TARGET = 256; // THE RESIZE FIX: Target for the long side of the thumbnail
 const THUMBNAIL_RESIZE_QUALITY = 0.9;    // THE OPTIMIZATION FIX: Compression quality for the thumbnail upload
 
+function debugPreviewSet(loraData, source, url) {
+    try {
+        if (window._xcpDebugLoraPreviewSwitch !== true) return;
+        const name = loraData?.rawFileName || loraData?.name || "unknown";
+        const idx = loraData?.currentImageIndex;
+        console.debug(`[LoRA Preview] ${source} | name=${name} | idx=${idx} | url=${url}`);
+    } catch (_) {
+        // no-op
+    }
+}
+
 /**
  * Calculates and caches the aspect ratio of the preview image to trigger layout reflows.
  */
@@ -93,9 +104,11 @@ export function switchLoraImage(basta, direction = "next") {
     loraData._previewLoading = true;
     if (idx === -1) {
         loraData.previewUrl = `/xcp/get_lora_preview?name=${encodeURIComponent(lName)}&v=${session}`;
+        debugPreviewSet(loraData, "switchLoraImage:cover", loraData.previewUrl);
     } else {
         const fileName = loraData.images[idx];
         loraData.previewUrl = `/xcp/get_lora_image?name=${encodeURIComponent(lName)}&file=${encodeURIComponent(fileName)}&v=${session}`;
+        debugPreviewSet(loraData, "switchLoraImage:image", loraData.previewUrl);
     }
 
     loraData.aspectRatio = null; // THE REFLOW FIX: Clear aspect ratio to force recalculation on new image load
@@ -166,15 +179,10 @@ export function refreshLoraImageList(basta, loraData, targetFile = null) {
                 if (resolvedIdx === -1 && loraData.images.length > 0) resolvedIdx = 0;
                 loraData.currentImageIndex = resolvedIdx;
 
+                // Keep the current cover preview on initial open when no explicit sub-image is selected.
+                // This prevents the UI from flashing cover first, then auto-switching to another image.
                 if (resolvedIdx !== -1 && !currentFile && basta) {
-                    const session = window._xcpDerpSession || Date.now();
-                    const nextFileName = loraData.images[resolvedIdx];
-                    loraData._previewLoading = true;
-                    loraData.previewUrl = `/xcp/get_lora_image?name=${encodeURIComponent(lName)}&file=${encodeURIComponent(nextFileName)}&v=${session}`;
-                    loraData.aspectRatio = null;
-                    calculatePreviewAspectRatio(basta, loraData, () => {
-                        if (typeof basta.requestViewportFit === "function") basta.requestViewportFit(10);
-                    });
+                    loraData.currentImageIndex = -1;
                 }
 
                 if (basta) {
@@ -382,6 +390,7 @@ export function deleteLoraDetailImage(basta, loraData, onComplete) {
                     loraData.hasCover = false;
                     loraData.coverFilename = null;
                     loraData.previewUrl = getPreviewImageUrl(lName);
+                    debugPreviewSet(loraData, "deleteLoraDetailImage:coverFallback", loraData.previewUrl);
                 } else {
                     loraData.images.splice(idx, 1);
                     if (loraData.images.length === 0) {
@@ -394,6 +403,7 @@ export function deleteLoraDetailImage(basta, loraData, onComplete) {
                         const session = window._xcpDerpSession || Date.now();
                         const nextFileName = loraData.images[loraData.currentImageIndex];
                         loraData.previewUrl = `/xcp/get_lora_image?name=${encodeURIComponent(lName)}&file=${encodeURIComponent(nextFileName)}&v=${session}`;
+                        debugPreviewSet(loraData, "deleteLoraDetailImage:nextImage", loraData.previewUrl);
                     }
                 }
 
