@@ -91,7 +91,7 @@ app.registerExtension({
                         key: `modelToggle_${idx}`,
                         text: this.properties.showFolderNames ? m.name.replace(/\.safetensors$/i, "") : m.name.split(/[\\/]/).pop().replace(/\.safetensors$/i, ""),
                         value: m.active,
-                        playSound: m.active ? "powerDown" : "powerUp",
+                        playSound: m.active ? null : "powerUp",
                         alpha: item.isPreviewGhost ? 0 : 1.0,
                         width: "full", height: "auto", padding: [pW, pH],
                         themeKey: "button, t_textNormal",

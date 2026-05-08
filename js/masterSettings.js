@@ -116,6 +116,12 @@ function registerHotkeySetting({ id, name, defaultValue, onValue }) {
     });
 }
 
+function normalizeVariantIndex(value, fallback = 0) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return fallback;
+    return Math.max(0, Math.min(4, Math.floor(n)));
+}
+
 app.registerExtension({
     name: "xcp.DerpSettings",
     init() {
@@ -173,11 +179,50 @@ app.registerExtension({
             }
         });
 
+        app.ui.settings.addSetting({
+            id: "Derp.SystemBypassSoundIndex",
+            name: "Derp Nodes: Bypass Sound Variant (0-4)",
+            type: "number",
+            default: 0,
+            attrs: { min: 0, max: 4, step: 1 },
+            onChange: (v) => {
+                window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
+                window.DERP_GLOBAL_SETTINGS.systemBypassSoundIndex = normalizeVariantIndex(v, 0);
+            }
+        });
+
+        app.ui.settings.addSetting({
+            id: "Derp.SystemCollapseSoundIndex",
+            name: "Derp Nodes: Collapse Sound Variant (0-4)",
+            type: "number",
+            default: 0,
+            attrs: { min: 0, max: 4, step: 1 },
+            onChange: (v) => {
+                window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
+                window.DERP_GLOBAL_SETTINGS.systemCollapseSoundIndex = normalizeVariantIndex(v, 0);
+            }
+        });
+
+        app.ui.settings.addSetting({
+            id: "Derp.SystemDockSoundIndex",
+            name: "Derp Nodes: Dock Sound Variant (0-4)",
+            type: "number",
+            default: 0,
+            attrs: { min: 0, max: 4, step: 1 },
+            onChange: (v) => {
+                window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
+                window.DERP_GLOBAL_SETTINGS.systemDockSoundIndex = normalizeVariantIndex(v, 0);
+            }
+        });
+
         // Initialize global object for immediate access by nodes
         window.DERP_GLOBAL_SETTINGS = {
             playSound: app.ui.settings.getSettingValue("Derp.PlaySound", true),
             useAnimation: app.ui.settings.getSettingValue("Derp.UseAnimation", true),
-            perfOverlayHotkey: normalizeHotkeyString(app.ui.settings.getSettingValue("Derp.PerfOverlayHotkey", "Alt+Shift+P"), "Alt+Shift+P")
+            perfOverlayHotkey: normalizeHotkeyString(app.ui.settings.getSettingValue("Derp.PerfOverlayHotkey", "Alt+Shift+P"), "Alt+Shift+P"),
+            systemBypassSoundIndex: normalizeVariantIndex(app.ui.settings.getSettingValue("Derp.SystemBypassSoundIndex", 0), 0),
+            systemCollapseSoundIndex: normalizeVariantIndex(app.ui.settings.getSettingValue("Derp.SystemCollapseSoundIndex", 0), 0),
+            systemDockSoundIndex: normalizeVariantIndex(app.ui.settings.getSettingValue("Derp.SystemDockSoundIndex", 0), 0)
         };
     }
 });

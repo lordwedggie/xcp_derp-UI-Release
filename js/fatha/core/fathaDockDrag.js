@@ -1,5 +1,6 @@
 import { app } from "../../../../scripts/app.js";
 import { syncDerpShield } from "./fathaDOMshield.js";
+import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
 
 export function beginDockDrag(entity, deckEngine) {
     const deckRoot = deckEngine.beginDrag(entity);
@@ -42,8 +43,21 @@ export function endDockDrag(entity, deckEngine, data) {
         const { SNAP } = entity.getDerpVars(entity);
         const targetInfo = deckEngine.resolveDeckTarget(entity, { radius: 120, ghostThickness: 10 });
         if (targetInfo?.targetNode) {
-            deckEngine.finalizeDeckTarget(entity, targetInfo, SNAP);
+            const dockTarget = targetInfo.targetNode;
+            const didDock = deckEngine.finalizeDeckTarget(entity, targetInfo, SNAP);
             if (typeof entity.syncUncleSlots === "function") entity.syncUncleSlots();
+            if (typeof dockTarget?.syncUncleSlots === "function") dockTarget.syncUncleSlots();
+
+            // Ensure dock-state-dependent widgets (e.g., btnDeck) update immediately on both nodes.
+            if (didDock) {
+                if (typeof entity.requestDerpSync === "function") entity.requestDerpSync();
+                if (typeof dockTarget?.requestDerpSync === "function") dockTarget.requestDerpSync();
+                if (typeof entity.setDirtyCanvas === "function") entity.setDirtyCanvas(true, true);
+                if (typeof dockTarget?.setDirtyCanvas === "function") dockTarget.setDirtyCanvas(true, true);
+                if (window.DERP_GLOBAL_SETTINGS?.playSound !== false && SOUND_INDEX.docked) {
+                    SOUND_INDEX.docked();
+                }
+            }
         }
     }
     entity._pressedRegionKey = null;

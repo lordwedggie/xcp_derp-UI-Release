@@ -53,6 +53,7 @@ export const getVirtualNodeLayoutMap = (node) => {
                     themeKey: "buttonNode, t_textSystem",
                     icon: collapseIcon,
                     width: "match", height: "fit", spacing: [sW, 0],
+                    playSound: p.contentCollapsed ? "collapseoff" : "collapseon",
                     onPress: () => {
                         if (node.collapse) node.collapse();
                         else {
@@ -102,6 +103,7 @@ export const getVirtualNodeLayoutMap = (node) => {
                     themeKey: "buttonNode, t_textSystem",
                     objectAlign: ["left", "middle"],
                     icon: "undeck",
+                    playSound: "undocked",
                     width: "match", height: "fill", spacing: [sW, 0],
                     onPress: () => {
                         if (undockNodeEdges(node, node.graph || null)) {
@@ -145,6 +147,7 @@ export const getVirtualNodeLayoutMap = (node) => {
                     objectAlign: ["left", "middle"],
                     icon: "power",
                     width: "match", height: "fill",
+                    playSound: node.mode === 4 ? "systemoff" : "systemon",
                     onPress: () => {
                         const nextMode = (node.mode === 4) ? 0 : 4;
                         node.mode = nextMode;

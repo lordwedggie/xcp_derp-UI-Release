@@ -1,6 +1,20 @@
+import { playSystemOnVariant, playSystemOffVariant } from "./sound_lib/systemBypass.js";
+import { playCollapseOnVariant, playCollapseOffVariant } from "./sound_lib/systemCollapse.js";
+import { playDockedVariant, playUndockedVariant } from "./sound_lib/nodeDock.js";
+
 // THE SINGLETON FIX: Shared AudioContext and pre-generated noise buffer to prevent memory leaks and latency
 let sharedAudioCtx = null;
 let sharedNoiseBuffer = null;
+
+const DEFAULT_SYSTEM_BYPASS_SOUND_INDEX = 0;
+const DEFAULT_SYSTEM_COLLAPSE_SOUND_INDEX = 0;
+const DEFAULT_SYSTEM_DOCK_SOUND_INDEX = 0;
+
+function getVariantIndex(settingKey, fallback = 0) {
+    const v = window?.DERP_GLOBAL_SETTINGS?.[settingKey];
+    if (!Number.isFinite(v)) return fallback;
+    return Math.max(0, Math.floor(v));
+}
 
 function ensureAudioReady() {
     const ctx = getAudioContext();
@@ -316,6 +330,42 @@ export function playDropdown() {
     noise.stop(t + 0.2);
 }
 
+export function playSystemOn() {
+    const audioCtx = getAudioContext();
+    const idx = getVariantIndex("systemBypassSoundIndex", DEFAULT_SYSTEM_BYPASS_SOUND_INDEX);
+    playSystemOnVariant(idx, audioCtx, getNoiseBuffer);
+}
+
+export function playSystemOff() {
+    const audioCtx = getAudioContext();
+    const idx = getVariantIndex("systemBypassSoundIndex", DEFAULT_SYSTEM_BYPASS_SOUND_INDEX);
+    playSystemOffVariant(idx, audioCtx, getNoiseBuffer);
+}
+
+export function playCollapseOn() {
+    const audioCtx = getAudioContext();
+    const idx = getVariantIndex("systemCollapseSoundIndex", DEFAULT_SYSTEM_COLLAPSE_SOUND_INDEX);
+    playCollapseOnVariant(idx, audioCtx, getNoiseBuffer);
+}
+
+export function playCollapseOff() {
+    const audioCtx = getAudioContext();
+    const idx = getVariantIndex("systemCollapseSoundIndex", DEFAULT_SYSTEM_COLLAPSE_SOUND_INDEX);
+    playCollapseOffVariant(idx, audioCtx, getNoiseBuffer);
+}
+
+export function playDocked() {
+    const audioCtx = getAudioContext();
+    const idx = getVariantIndex("systemDockSoundIndex", DEFAULT_SYSTEM_DOCK_SOUND_INDEX);
+    playDockedVariant(idx, audioCtx, getNoiseBuffer);
+}
+
+export function playUndocked() {
+    const audioCtx = getAudioContext();
+    const idx = getVariantIndex("systemDockSoundIndex", DEFAULT_SYSTEM_DOCK_SOUND_INDEX);
+    playUndockedVariant(idx, audioCtx, getNoiseBuffer);
+}
+
 /**
  * THE SOUND INDEX: Maps string keys to synthesis functions for centralized calling
  */
@@ -327,7 +377,13 @@ const _SOUND_LIBRARY = {
     "powerdown": playPowerDown,
     "shuffle": playShuffle,
     "pickup": playPickup,
-    "dropdown": playDropdown
+    "dropdown": playDropdown,
+    "systemon": playSystemOn,
+    "systemoff": playSystemOff,
+    "collapseon": playCollapseOn,
+    "collapseoff": playCollapseOff,
+    "docked": playDocked,
+    "undocked": playUndocked
 };
 
 export const SOUND_INDEX = new Proxy(_SOUND_LIBRARY, {
