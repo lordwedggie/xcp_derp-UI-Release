@@ -392,6 +392,7 @@ export const SOUND_INDEX = new Proxy(_SOUND_LIBRARY, {
             const fn = target[prop.toLowerCase()];
             if (!fn) return undefined;
             return (...args) => {
+                if (window.DERP_GLOBAL_SETTINGS?.playSound === false) return;
                 const ctx = getAudioContext();
 
                 // If already running, play immediately.
