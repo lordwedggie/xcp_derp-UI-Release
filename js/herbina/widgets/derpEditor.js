@@ -33,6 +33,8 @@ import {
 } from "../utils/widgetsUtils.js";
 import { animateWidgetColors } from "../masterAnimator.js";
 
+const BYPASS_BRIGHTNESS = 0.6;
+
 /**
  * Creates the HTML portion of the Hybrid Editor.
  */
@@ -267,6 +269,8 @@ export function syncDerpEditor(context, node, app, config) {
         el._lastProps = { props, bodyPaint, labelPaint, effectiveState, content, alignments, coords, textAnchor };
         el._lastStateHash = stateHash;
     }
+
+    const isEditorBypassed = effectiveState === "DIS" || node.mode === 2 || node.mode === 4 || node._derpSpoofedBypass;
 
     const paintData = bodyPaint;
     const labelData = labelPaint;
@@ -629,7 +633,14 @@ export function syncDerpEditor(context, node, app, config) {
                             const drawH = drawW * aspect;
 
                             if (currentY + drawH > y && currentY < y + h) {
-                                ctx.drawImage(imgObj, localLeft + padX, currentY, drawW, drawH);
+                                if (isEditorBypassed) {
+                                    ctx.save();
+                                    ctx.filter = `grayscale(100%) brightness(${BYPASS_BRIGHTNESS})`;
+                                    ctx.drawImage(imgObj, localLeft + padX, currentY, drawW, drawH);
+                                    ctx.restore();
+                                } else {
+                                    ctx.drawImage(imgObj, localLeft + padX, currentY, drawW, drawH);
+                                }
                             }
                             currentY += drawH + 10;
                         }
@@ -771,6 +782,15 @@ export function syncDerpEditor(context, node, app, config) {
         el.style.justifyContent = (alignX === "center") ? "center" : (alignX === "right" ? "flex-end" : "flex-start");
     } else {
         el.style.display = "block";
+    }
+
+    // Keep PromptBook inline images visually consistent with bypassed IMAGE_HTML previews.
+    const imageFilter = isEditorBypassed ? `grayscale(100%) brightness(${BYPASS_BRIGHTNESS})` : "none";
+    if (el._lastImgFilter !== imageFilter) {
+        el._lastImgFilter = imageFilter;
+        el.querySelectorAll("img[data-derp-image]").forEach((img) => {
+            img.style.filter = imageFilter;
+        });
     }
 
     // THE THEME FIX: Removed hardcoded opacity multipliers for DIS state.

@@ -12,9 +12,59 @@ import { resolvePaintData, measureTextWidth } from "../../herbina/utils/widgetsU
 import { isNodeDocked, undockNodeEdges } from "../core/masterDockEngine.js";
 import { clearBypassSignalDebouncers, transmitBypassedDerpSignals } from "../core/masterSignalEngine.js";
 import { ensureNodeVisibleInViewport } from "../core/fathaWarp.js";
+import { warpToPoint } from "../core/fathaWarp.js";
 
 const DEBUG_OPTIONS = ["None", "Layout", "Hitbox", "Widgets Hitbox"];
 const TITLE_LABEL_DEFAULT = "Derp Nodes";
+const DEFAULT_WARP_SHORTCUT_ZOOM = 1.5;
+
+if (!window._xcpDerpWarpShortcutBound) {
+    window._xcpDerpWarpShortcutBound = true;
+    window.addEventListener("keydown", (e) => {
+        const target = e.target;
+        const tag = String(target?.tagName || "").toUpperCase();
+        const isTyping = tag === "INPUT" || tag === "TEXTAREA" || target?.isContentEditable === true;
+        if (isTyping) return;
+
+        const graph = app?.graph;
+        const nodes = graph?._nodes || [];
+        if (!Array.isArray(nodes) || nodes.length === 0) return;
+
+        for (const node of nodes) {
+            const p = node?.properties || {};
+            const enabled = p._showWarpRegion === true;
+            if (!enabled) continue;
+
+            const key = String(p.warpShortcut ?? "1").trim().toLowerCase();
+            if (!key) continue;
+
+            if (e.key?.toLowerCase() === key) {
+                e.preventDefault();
+                const nx = Number(node?.pos?.[0]);
+                const ny = Number(node?.pos?.[1]);
+                // Prefer own node dimensions when docked.
+                const nw = Number(node?.properties?.nodeSize?.[0] ?? node?.size?.[0]);
+                const nh = Number(node?.properties?.nodeSize?.[1] ?? node?.size?.[1]);
+                if (!Number.isFinite(nx) || !Number.isFinite(ny)) break;
+
+                const targetX = nx + ((Number.isFinite(nw) ? nw : 0) * 0.5);
+                const targetY = ny + ((Number.isFinite(nh) ? nh : 0) * 0.5);
+
+                warpToPoint({
+                    worldX: targetX,
+                    worldY: targetY,
+                    zoom: DEFAULT_WARP_SHORTCUT_ZOOM,
+                }, {
+                    zoomMode: "absolute",
+                    targetZoom: DEFAULT_WARP_SHORTCUT_ZOOM,
+                    durationMs: 260,
+                    easing: "easeOutQuad",
+                });
+                break;
+            }
+        }
+    }, true);
+}
 
 export const getPanelVars = (node) => {
     if (node && typeof node.getDerpVars === 'function') {
@@ -45,10 +95,10 @@ export const getVirtualNodeLayoutMap = (node) => {
             hidden: !titleVisible,
             inSlotIdx: p.contentCollapsed ? -1 : undefined,
             outSlotIdx: p.contentCollapsed ? -1 : undefined,
-            spacing: [0, sH], // THE GAP FIX: Spacing moved to parent column to separate content from the line
+            spacing: [0, sH],
             headerMain: {
                 dir: "row", width: "full", height: "auto",
-                margin: [2, 2, 2, p.contentCollapsed ? mH: 0], // THE OVERRIDE: Restores horizontal padding for header content
+                margin: [2, 2, 2, p.contentCollapsed ? mH: 0],
                 btnCollapse: {
                     type: UI_TYPES.ICONBUTTON,
                     themeKey: "buttonNode, t_textSystem",
@@ -141,7 +191,6 @@ export const getVirtualNodeLayoutMap = (node) => {
                     icon: "wireless",
                     width: "match", height: "fill", spacing: [sW, 0],
                     state: activeBastas.get(getSignalReceiverId())?.hostNode === node && !activeBastas.get(getSignalReceiverId())?.isClosing ? "ON" : "OFF",
-                    // THE PULSE DELEGATION FIX: Delegate the animation math directly to btnIcon.js
                     pulse: (() => {
                         const isBastaOpen = activeBastas.get(getSignalReceiverId())?.hostNode === node && !activeBastas.get(getSignalReceiverId())?.isClosing;
                         const reqTypes = node.signalFilters?.types || [];
@@ -170,7 +219,6 @@ export const getVirtualNodeLayoutMap = (node) => {
                         node._lastBroadcastHash = null;
                         clearBypassSignalDebouncers(node);
 
-                        // THE ENGINE-LEVEL BYPASS FIX: React immediately to the UI toggle
                         if (nextMode === 4) {
                             transmitBypassedDerpSignals(node, {
                                 forceIndexedSingleOutput: !!node.properties?.skipGenericWirelessHeartbeat
@@ -207,10 +255,10 @@ export const getVirtualNodeLayoutMap = (node) => {
     };
 };
 
-export function getPanelBaseMap(hostNode, app, sysState, closeDerpSysPanel) {
+export function getPanelBaseMap(hostNode, app, sysState) {
     const { mW, mH, sW, sH, oX, oY, pW, pH } = getPanelVars(hostNode);
+    const showWarpRegion = hostNode.properties?._showWarpRegion === true;
 
-    // THE PROFILE ANCHOR FIX: Identify the true last region of the host's custom layout to prevent overlaps
     const sysKeys = Object.keys(hostNode.sysLayoutMap || {});
     const lastSysRegion = sysKeys.length > 0 ? sysKeys[sysKeys.length - 1] : "sysDefaultControlsRegion";
 
@@ -223,8 +271,17 @@ export function getPanelBaseMap(hostNode, app, sysState, closeDerpSysPanel) {
     return {
         sysHeaderRegion: {
             width: "full", height: "auto", dir: "row",
-            margin: [mW, mH, mW, mH], // Left, Top, Right, Bottom mapping
-            padding: [0, 0], // Container stripped to allow true min-width measurement
+            margin: [mW, mH, mW, mH],
+            padding: [0, 0],
+            lblTheme: {
+                type: UI_TYPES.TEXT,
+                themeKey: "t_textSystem",
+                text: "Theme:",
+                width: "auto", height: "auto",
+                objectAlign: ["left", "middle"],
+                padding: [pW, pH],
+                spacing: [sW, 0],
+            },
             dropdownThemes: {
                 type: UI_TYPES.DROPDOWN_DERP,
                 themeKey: "dialog, t_textSmall",
@@ -233,7 +290,6 @@ export function getPanelBaseMap(hostNode, app, sysState, closeDerpSysPanel) {
                 spacing: [sW, 0],
                 padding: [pW, pH],
                 width: "full", height: "auto", minWidth: 150,
-                // THE FIX 1: Provide the dropdown with data
                 items: availableThemes,
                 value: activeTheme,
                 onChange: (val) => {
@@ -259,20 +315,57 @@ export function getPanelBaseMap(hostNode, app, sysState, closeDerpSysPanel) {
                     }
                 }
             },
-            btnClosePanel: {
-                type: UI_TYPES.ICONBUTTON,
-                themeKey: "systemButton, t_textSystem",
-                noHover: false, noFilter: true,
-                icon: "close",
-                objectAlign: ["right", "top"],
+            btnWarp: {
+                type: UI_TYPES.BUTTON,
+                themeKey: "button, t_textSystem",
+                text: "Add WarpPoint",
+                objectAlign: ["right", "middle"],
                 labelAlign: ["center", "middle"],
                 width: "auto", height: "fill",
                 padding: [pW, pH],
-                onPress: () => closeDerpSysPanel()
+                hidden: showWarpRegion,
+                onPress: () => {
+                    hostNode.properties._showWarpRegion = true;
+                    if (hostNode.properties.warpShortcut === undefined || hostNode.properties.warpShortcut === null || hostNode.properties.warpShortcut === "") {
+                        hostNode.properties.warpShortcut = "1";
+                    }
+                    if (typeof hostNode.requestDerpSync === "function") hostNode.requestDerpSync();
+                    else if (typeof hostNode.setDirtyCanvas === "function") hostNode.setDirtyCanvas(true, true);
+                },
+            },
+        },
+        regionWarp: {
+            hidden: !showWarpRegion,
+            anchor: { target: "sysHeaderRegion", axis: "y", offset: sH },
+            dir: "row",
+            width: "full", height: "auto",
+            margin: [mW, 0, mW, 0],
+            lblShortcut: {
+                type: UI_TYPES.TEXT,
+                themeKey: "t_textSystem",
+                text: "Warp shortcut:",
+                width: "auto", height: "auto",
+                objectAlign: ["left", "middle"],
+                padding: [pW, pH],
+                spacing: [sW, 0],
+            },
+            editorShortcut: {
+                type: UI_TYPES.EDITOR,
+                themeKey: "dialog, t_textSystem",
+                value: String(hostNode.properties?.warpShortcut ?? 1),
+                text: String(hostNode.properties?.warpShortcut ?? 1),
+                width: "full", height: "auto",
+                padding: [pW, pH],
+                onInput: (val) => {
+                    hostNode.properties.warpShortcut = String(val ?? "");
+                },
+                onBlur: (val) => {
+                    hostNode.properties.warpShortcut = String(val ?? "");
+                },
             },
         },
         sysDefaultControlsRegion: {
-            anchor: { target: "sysHeaderRegion", axis: "y", offset: sH },
+            anchor: { target: showWarpRegion ? "regionWarp" : "sysHeaderRegion", axis: "y", offset: sH },
             dir: "row",
             padding: [0, 0],
             width: "full", height: "auto",
@@ -526,7 +619,6 @@ export function getPanelBaseMap(hostNode, app, sysState, closeDerpSysPanel) {
                                     if (saveRes.ok) {
                                         playKaChing();
                                         showBastaMessage(hostNode, "Profile Saved!");
-                                        // THE CACHE SYNC: Update the profile list immediately to prevent "No Profiles Found" flickering
                                         hostNode._sysProfileData = profiles;
                                         hostNode._sysProfileCache = Object.keys(profiles).sort();
                                         hostNode._currentProfileName = profileName;
@@ -582,7 +674,6 @@ export function getPanelBaseMap(hostNode, app, sysState, closeDerpSysPanel) {
                                 if (saveRes.ok) {
                                     playKaboom();
                                     showBastaMessage(hostNode, "Profile Deleted!");
-                                    // THE CACHE SYNC: Update the profile list locally after deletion
                                     hostNode._sysProfileData = profiles;
                                     hostNode._sysProfileCache = Object.keys(profiles).sort();
                                     if (hostNode._sysProfileCache.length === 0) hostNode._sysProfileCache = ["(No Profiles Found)"];

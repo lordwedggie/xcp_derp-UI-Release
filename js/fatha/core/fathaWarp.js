@@ -6,7 +6,7 @@ import { startAnimatorChannel, stopAnimatorChannel, isAnimatorChannelActive } fr
 //   Higher number = faster travel (shorter duration). Lower number = slower travel.
 // - WARP_SLOWDOWN_FACTOR controls how strongly warp eases out near the end.
 //   Higher number = stronger slow-down near destination. Lower number = more linear feel.
-const WARP_TRAVEL_SPEED = 0.5;
+const WARP_TRAVEL_SPEED = 1.0;
 const WARP_SLOWDOWN_FACTOR = 3.0;
 
 const DEFAULTS = {
@@ -18,7 +18,7 @@ const DEFAULTS = {
     maxZoom: 4,
     padding: 24,
     viewportMargin: 8,
-    topUiCompensation: 40,
+    topUiCompensation: 0,
 };
 
 let activeWarp = null;
@@ -41,8 +41,11 @@ function getCanvasAndDs() {
 
 function getCanvasSize(canvas) {
     const c = canvas.canvas;
-    const width = Number(c?.width) || Number(c?.clientWidth) || 1;
-    const height = Number(c?.height) || Number(c?.clientHeight) || 1;
+    // Use on-screen canvas rect first so centering is based on visible browser canvas area,
+    // not full window/screen and not DPR-scaled backing-store pixels.
+    const rect = c?.getBoundingClientRect?.();
+    const width = Number(rect?.width) || Number(c?.clientWidth) || Number(c?.width) || 1;
+    const height = Number(rect?.height) || Number(c?.clientHeight) || Number(c?.height) || 1;
     return { width, height };
 }
 
@@ -78,8 +81,10 @@ function screenCenterFor(canvas) {
 function offsetToCenterWorldPoint(worldX, worldY, zoom, canvas) {
     const { cx, cy } = screenCenterFor(canvas);
     return {
-        x: cx - (worldX * zoom),
-        y: cy - (worldY * zoom),
+        // LiteGraph camera mapping is: screen = (world + offset) * scale
+        // so centered offset must be computed in world-space, not scaled pixels.
+        x: (cx / Math.max(0.000001, zoom)) - worldX,
+        y: (cy / Math.max(0.000001, zoom)) - worldY,
     };
 }
 
@@ -150,9 +155,14 @@ function centerOfRect(rect) {
 
 function getWorldCenterFromView(view) {
     const { cx, cy } = screenCenterFor(view.canvas);
+    const offX = Number(view.x) || 0;
+    const offY = Number(view.y) || 0;
+    const zoom = Math.max(0.000001, Number(view.zoom) || 1);
     return {
-        x: (cx - view.x) / Math.max(0.000001, view.zoom),
-        y: (cy - view.y) / Math.max(0.000001, view.zoom),
+        // LiteGraph mapping: screen = (world + offset) * scale
+        // => world = (screen / scale) - offset
+        x: (cx / zoom) - offX,
+        y: (cy / zoom) - offY,
     };
 }
 
@@ -178,14 +188,15 @@ function computeViewportDeltaForRect(rect, options = {}) {
     const topUiCompensation = Number.isFinite(options.topUiCompensation)
         ? options.topUiCompensation
         : DEFAULTS.topUiCompensation;
-    const vw = Number(window?.innerWidth) || 0;
-    const vh = Number(window?.innerHeight) || 0;
-    if (vw <= 0 || vh <= 0) return { dx: 0, dy: 0, fits: true };
 
-    const minX = margin;
-    const maxX = Math.max(margin, vw - margin);
-    const minY = margin;
-    const maxY = Math.max(margin, vh - margin);
+    // Fit against the visible ComfyUI canvas viewport, not full browser window/screen.
+    const canvasRect = app?.canvas?.canvas?.getBoundingClientRect?.();
+    if (!canvasRect) return { dx: 0, dy: 0, fits: true };
+
+    const minX = canvasRect.left + margin;
+    const maxX = Math.max(minX, canvasRect.right - margin);
+    const minY = canvasRect.top + margin;
+    const maxY = Math.max(minY, canvasRect.bottom - margin);
 
     let dx = 0;
     let dy = 0;
