@@ -17,6 +17,26 @@ import { warpToPoint } from "../core/fathaWarp.js";
 const DEBUG_OPTIONS = ["None", "Layout", "Hitbox", "Widgets Hitbox"];
 const TITLE_LABEL_DEFAULT = "Derp Nodes";
 const DEFAULT_WARP_SHORTCUT_ZOOM = 1.5;
+const WARP_SHORTCUT_ITEMS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
+
+function parseWarpShortcutCombo(raw) {
+    const value = String(raw || "").trim();
+    if (!value) return { ctrl: false, shift: false, key: "" };
+    const parts = value.split("-").map((p) => p.trim()).filter(Boolean);
+    const ctrl = parts.some((p) => p.toLowerCase() === "ctrl");
+    const shift = parts.some((p) => p.toLowerCase() === "shift");
+    const key = (parts[parts.length - 1] || "").toLowerCase();
+    return { ctrl, shift, key };
+}
+
+function buildWarpShortcutCombo(ctrl, key) {
+    const k = String(key || "").trim();
+    if (!k) return "";
+    const segs = [];
+    if (ctrl) segs.push("Ctrl");
+    segs.push(k);
+    return segs.join("-");
+}
 
 if (!window._xcpDerpWarpShortcutBound) {
     window._xcpDerpWarpShortcutBound = true;
@@ -35,16 +55,22 @@ if (!window._xcpDerpWarpShortcutBound) {
             const enabled = p._showWarpRegion === true;
             if (!enabled) continue;
 
-            const key = String(p.warpShortcut ?? "1").trim().toLowerCase();
-            if (!key) continue;
+            const combo = parseWarpShortcutCombo(p.warpShortcut ?? "1");
+            if (!combo.key) continue;
 
-            if (e.key?.toLowerCase() === key) {
+            const pressedKey = String(e.key || "").toLowerCase();
+            const ctrlMatch = combo.ctrl ? e.ctrlKey === true : e.ctrlKey === false;
+            if (combo.shift) continue;
+            if (pressedKey === combo.key && ctrlMatch && e.shiftKey === false) {
                 e.preventDefault();
                 const nx = Number(node?.pos?.[0]);
                 const ny = Number(node?.pos?.[1]);
-                // Prefer own node dimensions when docked.
-                const nw = Number(node?.properties?.nodeSize?.[0] ?? node?.size?.[0]);
-                const nh = Number(node?.properties?.nodeSize?.[1] ?? node?.size?.[1]);
+                const ownW = Number(node?.properties?.nodeSize?.[0]);
+                const ownH = Number(node?.properties?.nodeSize?.[1]);
+                const liveW = Number(node?.size?.[0]);
+                const liveH = Number(node?.size?.[1]);
+                const nw = Number.isFinite(ownW) && Number.isFinite(liveW) ? Math.max(ownW, liveW) : (Number.isFinite(ownW) ? ownW : liveW);
+                const nh = Number.isFinite(ownH) && Number.isFinite(liveH) ? Math.max(ownH, liveH) : (Number.isFinite(ownH) ? ownH : liveH);
                 if (!Number.isFinite(nx) || !Number.isFinite(ny)) break;
 
                 const targetX = nx + ((Number.isFinite(nw) ? nw : 0) * 0.5);
@@ -259,6 +285,41 @@ export function getPanelBaseMap(hostNode, app, sysState) {
     const { mW, mH, sW, sH, oX, oY, pW, pH } = getPanelVars(hostNode);
     const showWarpRegion = hostNode.properties?._showWarpRegion === true;
 
+    if (!Array.isArray(hostNode.properties.warpShortcutItems) || hostNode.properties.warpShortcutItems.length === 0) {
+        hostNode.properties.warpShortcutItems = [...WARP_SHORTCUT_ITEMS];
+    }
+
+    const shortcutPool = hostNode.properties.warpShortcutItems
+        .map((v) => String(v).trim())
+        .filter(Boolean);
+
+    const parsedCurrent = parseWarpShortcutCombo(hostNode.properties?.warpShortcut);
+    const isCtrlOn = hostNode.properties?.warpShortcutCtrl === true || parsedCurrent.ctrl;
+    const currentBaseKey = parsedCurrent.key || String(hostNode.properties?.warpShortcutBase || "").trim().toLowerCase() || "1";
+
+    hostNode.properties.warpShortcutCtrl = isCtrlOn;
+    hostNode.properties.warpShortcutShift = false;
+    hostNode.properties.warpShortcutBase = currentBaseKey;
+
+    const comboItems = shortcutPool.map((k) => buildWarpShortcutCombo(isCtrlOn, String(k).toLowerCase()));
+    const graphNodes = app?.graph?._nodes || [];
+    const usedByOthers = new Set(
+        graphNodes
+            .filter((n) => n && n !== hostNode && n.properties?._showWarpRegion === true)
+            .map((n) => String(n.properties?.warpShortcut ?? "").trim())
+            .filter(Boolean)
+    );
+
+    let selectedShortcut = buildWarpShortcutCombo(isCtrlOn, currentBaseKey);
+    let availableShortcutItems = comboItems.filter((k) => !usedByOthers.has(k) || k === selectedShortcut);
+    if (!selectedShortcut) {
+        selectedShortcut = availableShortcutItems[0] || comboItems[0] || "1";
+        hostNode.properties.warpShortcut = selectedShortcut;
+    }
+    if (!availableShortcutItems.includes(selectedShortcut)) {
+        availableShortcutItems = [selectedShortcut, ...availableShortcutItems];
+    }
+
     const sysKeys = Object.keys(hostNode.sysLayoutMap || {});
     const lastSysRegion = sysKeys.length > 0 ? sysKeys[sysKeys.length - 1] : "sysDefaultControlsRegion";
 
@@ -327,7 +388,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                 onPress: () => {
                     hostNode.properties._showWarpRegion = true;
                     if (hostNode.properties.warpShortcut === undefined || hostNode.properties.warpShortcut === null || hostNode.properties.warpShortcut === "") {
-                        hostNode.properties.warpShortcut = "1";
+                        hostNode.properties.warpShortcut = availableShortcutItems[0] || comboItems[0] || "1";
                     }
                     if (typeof hostNode.requestDerpSync === "function") hostNode.requestDerpSync();
                     else if (typeof hostNode.setDirtyCanvas === "function") hostNode.setDirtyCanvas(true, true);
@@ -349,18 +410,40 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                 padding: [pW, pH],
                 spacing: [sW, 0],
             },
-            editorShortcut: {
-                type: UI_TYPES.EDITOR,
-                themeKey: "dialog, t_textSystem",
-                value: String(hostNode.properties?.warpShortcut ?? 1),
-                text: String(hostNode.properties?.warpShortcut ?? 1),
-                width: "full", height: "auto",
+            toggleCTRL: {
+                type: UI_TYPES.TOGGLE,
+                textThemeKey: "t_textSystem",
+                icon: "radio",
+                label: "Ctrl",
+                value: isCtrlOn,
+                width: "auto", height: "auto",
                 padding: [pW, pH],
-                onInput: (val) => {
-                    hostNode.properties.warpShortcut = String(val ?? "");
-                },
-                onBlur: (val) => {
-                    hostNode.properties.warpShortcut = String(val ?? "");
+                spacing: [sW, 0],
+                onPress: () => {
+                    hostNode.properties.warpShortcutCtrl = hostNode.properties.warpShortcutCtrl !== true;
+                    const base = String(hostNode.properties.warpShortcutBase || currentBaseKey || "1").toLowerCase();
+                    hostNode.properties.warpShortcut = buildWarpShortcutCombo(hostNode.properties.warpShortcutCtrl === true, base);
+                    if (typeof hostNode.requestDerpSync === "function") hostNode.requestDerpSync();
+                    else if (typeof hostNode.setDirtyCanvas === "function") hostNode.setDirtyCanvas(true, true);
+                }
+            },
+            dropdownShortcut: {
+                type: UI_TYPES.DROPDOWN_DERP,
+                themeKey: "dialog, t_textSystem",
+                canvasShield: true,
+                items: availableShortcutItems,
+                value: selectedShortcut,
+                text: selectedShortcut,
+                width: "auto", height: "auto",
+                labelAlign: ["center", "middle"],
+                padding: [pW, pH],
+                onChange: (val) => {
+                    const nextCombo = String(val ?? "").trim();
+                    const parsed = parseWarpShortcutCombo(nextCombo);
+                    hostNode.properties.warpShortcut = nextCombo;
+                    hostNode.properties.warpShortcutBase = parsed.key || hostNode.properties.warpShortcutBase || "1";
+                    if (typeof hostNode.requestDerpSync === "function") hostNode.requestDerpSync();
+                    else if (typeof hostNode.setDirtyCanvas === "function") hostNode.setDirtyCanvas(true, true);
                 },
             },
         },

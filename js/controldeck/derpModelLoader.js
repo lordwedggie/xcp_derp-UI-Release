@@ -143,32 +143,48 @@ app.registerExtension({
                 };
             });
 
-            // 3. THE FLOATING LAYER: Append a region that follows the mouse cursor
             if (floatingItem && this._dragThresholdMet && this._dragMouse && this._dragOffset) {
                 const { m, idx } = floatingItem;
                 const dragX = this._dragMouse[0] - this._dragOffset[0];
                 const dragY = this._dragMouse[1] - this._dragOffset[1];
                 const sourceRow = this.layout?.regions?.[`modelRow_${idx}`];
                 const floatingRowWidth = sourceRow?.w || (this.size[0] - (mW * 2));
+                const floatingRowHeight = sourceRow?.h || "auto";
 
                 deckRegions[`floatingModelRow`] = {
-                    type: this.UI_TYPES.REGION, themeKey: "region",
-                    dir: "row", width: floatingRowWidth, height: "auto",
-                    ignoreLayout: true, // Prevent the floating row from shifting the main stack
-                    x: dragX, y: dragY,
-                    zIndex: 100, // Ensure it draws above all other rows
+                    type: this.UI_TYPES.REGION,
+                    themeKey: "region",
+                    dir: "row",
+                    width: floatingRowWidth,
+                    height: floatingRowHeight,
+                    ignoreLayout: true,
+                    x: dragX,
+                    y: dragY,
+                    zIndex: 100,
                     state: m.active ? "ON" : "OFF",
                     spacing: [0, sH],
+                    ignoreNodeBoundsClamp: true,
+                    corners: sourceRow?.corners,
                     regionOffset: [0, 0],
                     [`floatingToggle`]: {
-                        type: this.UI_TYPES.TOGGLE_V2, isTextOnly: true, cutoff: true,
+                        type: this.UI_TYPES.TOGGLE_V2,
+                        isTextOnly: true,
+                        mouseOver: true,
+                        cutoff: true,
                         text: this.properties.showFolderNames ? m.name.replace(/\.safetensors$/i, "") : m.name.split(/[\\/]/).pop().replace(/\.safetensors$/i, ""),
-                        value: m.active, width: "full", height: "auto", padding: [pW, pH],
+                        value: m.active,
+                        width: "full",
+                        height: "auto",
+                        padding: [pW, pH],
                         themeKey: "button, t_textNormal",
                     },
                     [`floatingRemoveBtn`]: {
-                        type: this.UI_TYPES.ICONBUTTON, icon: "close",
-                        width: "match", height: "full", padding: [pW, pH], margin: [0, sH, sW, sH],
+                        type: this.UI_TYPES.ICONBUTTON,
+                        icon: "close",
+                        width: "match",
+                        height: "full",
+                        padding: [pW, pH],
+                        margin: [0, sH, sW, sH],
                         themeKey: "button, t_textNormal",
                     }
                 };
