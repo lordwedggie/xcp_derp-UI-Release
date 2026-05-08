@@ -110,7 +110,7 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                             entry.push(lora[4] || "");
                             return entry;
                         });
-                        const allTriggers = activeStack.map(l => l[4] || "").filter(t => t.length > 0).join(", ");
+                        let allTriggers = activeStack.map(l => l[4] || "").filter(t => t.length > 0).join(", ");
 
                         const mSignalId = ids[0] || ids["0"];
                         const cSignalId = ids[1] || ids["1"];
@@ -890,9 +890,13 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                                     const idx = parseInt(parts[1]);
                                     const stackData = this.properties.stackData || [];
 
-                                    // THE CLICK INTERCEPT FIX: Only consume drag/click events for actual sliders
-                                    // so loraPreview can pass through to baseHandleInteraction and fire its onPress.
-                                    if (stackData[idx] && (sType === "sldModel" || sType === "sldClip") && (type === "click" || type === "dblclick" || type === "drag")) {
+                                    // Keep slider hit zones out of row drag arming.
+                                    // Sliders should own dragStart/click/drag so the row DnD path never activates underneath them.
+                                    if (stackData[idx] && (sType === "sldModel" || sType === "sldClip") && (type === "dragStart" || type === "click" || type === "dblclick" || type === "drag")) {
+                                        if (type === "dragStart") {
+                                            endStackDrag(this, "stackData");
+                                            return true;
+                                        }
                                         const isModel = sType === "sldModel";
                                         const loraName = stackData[idx][0];
                                         const lSetup = loraName ? this._loraSetup?.[loraName]?.sliderStrength : null;

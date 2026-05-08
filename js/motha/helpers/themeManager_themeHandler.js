@@ -138,14 +138,15 @@ export const handleThemeCopyAction = (node, updateThemeLayoutFn) => {
 export const handleThemeSaveAction = (node, updateThemeLayoutFn) => {
     const cfg = window.xcpDerpThemeConfig;
     if (!cfg) return;
+    const themeName = node._selectedThemeName || node.properties?.selectedThemeName || "";
 
     showBastaFileHandler(node, "themes", "btnThemeSave", {
         title: "Save Configuration",
         mode: "save",
         message: "Save all changes to theme file?",
+        originalName: themeName,
         onConfirm: async () => {
             try {
-                const themeName = node._selectedThemeName;
                 cfg.themes[themeName] = JSON.parse(JSON.stringify(node.themeToEdit));
                 safePersist(cfg, themeName);
                 playSuccessSound();

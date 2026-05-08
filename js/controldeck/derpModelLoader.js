@@ -16,7 +16,7 @@ app.registerExtension({
 
     async beforeRegisterNodeDef(nodeType, nodeData) {
         if (!nodeData.name.toLowerCase().includes("modelloader")) return;
-        fatha(nodeType, nodeData, 300);
+        fatha(nodeType, nodeData, 200);
         initDerpModelLoaderCore(nodeType);
 
         // --- MAIN UI LAYOUT ---
@@ -37,7 +37,6 @@ app.registerExtension({
             const structureHash = `${deckHash}_${(this._modelList || []).length}_${window._xcpDerpSession}_${this.properties.showFolderNames}_${this.properties.settingActive}_${mW}_${mH}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}_${this._dropPreviewIdx}_${this._dragTrig?.index}_${this._dragThresholdMet}_${this._dragMouse?.join(",")}`;
 
             if (this._layoutMapHash === structureHash && this.layoutMap) {
-                this.requestDerpSync();
                 return;
             }
             this._layoutMapHash = structureHash;
@@ -92,7 +91,7 @@ app.registerExtension({
                         key: `modelToggle_${idx}`,
                         text: this.properties.showFolderNames ? m.name.replace(/\.safetensors$/i, "") : m.name.split(/[\\/]/).pop().replace(/\.safetensors$/i, ""),
                         value: m.active,
-                        playSound: "powerup",
+                        playSound: m.active ? "powerDown" : "powerUp",
                         alpha: item.isPreviewGhost ? 0 : 1.0,
                         width: "full", height: "auto", padding: [pW, pH],
                         themeKey: "button, t_textNormal",
@@ -149,18 +148,17 @@ app.registerExtension({
                 const { m, idx } = floatingItem;
                 const dragX = this._dragMouse[0] - this._dragOffset[0];
                 const dragY = this._dragMouse[1] - this._dragOffset[1];
+                const sourceRow = this.layout?.regions?.[`modelRow_${idx}`];
+                const floatingRowWidth = sourceRow?.w || (this.size[0] - (mW * 2));
 
                 deckRegions[`floatingModelRow`] = {
                     type: this.UI_TYPES.REGION, themeKey: "region",
-                    dir: "row", width: this.size[0] - (mW * 4), height: "auto",
+                    dir: "row", width: floatingRowWidth, height: "auto",
                     ignoreLayout: true, // Prevent the floating row from shifting the main stack
                     x: dragX, y: dragY,
                     zIndex: 100, // Ensure it draws above all other rows
-                    state: "ON",
-                    pulseStates: true,
-                    pulseFromState: "_DIS",
-                    pulseToState: "_ON",
-                    pulseSpeed: 0.005,
+                    state: m.active ? "ON" : "OFF",
+                    spacing: [0, sH],
                     regionOffset: [0, 0],
                     [`floatingToggle`]: {
                         type: this.UI_TYPES.TOGGLE_V2, isTextOnly: true, cutoff: true,
@@ -242,7 +240,6 @@ app.registerExtension({
                     },
                 },
             };
-            if (this.layout) this.layout._lastCacheKey = "";
             this.requestDerpSync();
             if (this.setDirtyCanvas) this.setDirtyCanvas(true, true);
         };

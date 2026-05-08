@@ -38,43 +38,6 @@ export function syncDerpTrigger(ctx, node, app, config) {
     const isTextOnly = config.isTextOnly === true || config.skipBackground === true;
     const isActive = !!config.value;
 
-    // --- PERSISTENT BOUNDS & WRAPPER ---
-    if (!node._trigState) node._trigState = {};
-    if (!node._trigState[config.key]) node._trigState[config.key] = { g: {x:0, w:0}, t: {x:0, w:0} };
-    const state = node._trigState[config.key];
-
-    const actualReg = node.layout?.regions?.[config.key];
-    // THE DEADZONE FIX: Inject a precision hit-test so the framework ignores clicks in the gaps
-    if (actualReg && !actualReg.hitTest) {
-        actualReg.hitTest = (localPos) => {
-            const hitX = localPos[0];
-            const hitY = localPos[1];
-
-            // THE Y-AXIS FIX: Must check vertical bounds first!
-            if (hitY < actualReg.y || hitY > (actualReg.y + actualReg.h)) return false;
-
-            const isGlyph = hitX >= state.g.x && hitX <= (state.g.x + state.g.w);
-            const isText = hitX >= state.t.x && hitX <= (state.t.x + state.t.w);
-            return isGlyph || isText;
-        };
-    }
-    if (actualReg && actualReg.onPress && !actualReg.onPress._isDerpWrapped) {
-        const actualOrig = actualReg.onPress;
-        const wrapped = (e, data) => {
-            const hitX = data?.localX ?? 0;
-            if (hitX >= state.g.x && hitX <= (state.g.x + state.g.w)) {
-                if (actualOrig) actualOrig(e, { ...data, hitArea: "glyph" });
-                return;
-            }
-            if (hitX >= state.t.x && hitX <= (state.t.x + state.t.w)) {
-                if (actualOrig) actualOrig(e, { ...data, hitArea: "text" });
-                return;
-            }
-        };
-        wrapped._isDerpWrapped = true;
-        actualReg.onPress = wrapped;
-        config.onPress = wrapped;
-    }
 
     // --- RELOCATED SOUND & STATE TRACKING ---
     const lastValKey = `_trig_last_${config.key}`;
@@ -106,8 +69,7 @@ export function syncDerpTrigger(ctx, node, app, config) {
     const slotPaint = animatePaintData(node, `_trig_slot_${config.key}`, slotPaintRaw, useAnim, TRIGGER_COLOR_SPEED);
     const textPaint = animatePaintData(node, `_trig_text_${config.key}`, textPaintRaw, useAnim, TRIGGER_COLOR_SPEED);
 
-    let finalLabelPaint = textPaint || labelPaint;
-    if (!finalLabelPaint) finalLabelPaint = { textColor: "white", fontSize: 10, font: window.xcpDerpThemeConfig ? "DengXian Light" : "Arial" };
+    let finalLabelPaint = textPaint || labelPaint || {};
 
     const styleRaw = config.style || "default";
     const style = Array.isArray(styleRaw) ? styleRaw[0] : styleRaw;
@@ -120,7 +82,7 @@ export function syncDerpTrigger(ctx, node, app, config) {
     const gap = config.gap ?? TRIGGER_LABEL_GAP;
     const labelText = style === "default" ? t(node.properties?.[`${config.key}_label`] ?? content.text ?? "") : t(content.text || "");
     const themeFontSize = props.fontSize || finalLabelPaint.fontSize || 10;
-    const themeFont = finalLabelPaint.font || (window.xcpDerpThemeConfig ? "DengXian Light" : "Arial");
+    const themeFont = finalLabelPaint.font || "Arial";
     const weightFontSize = config.weightFontSize || props.weightFontSize || Math.min(themeFontSize, WEIGHT_FONT_SIZE);
     ctx.font = `${props.fontWeight || "normal"} ${themeFontSize}px ${themeFont}`;
 
@@ -128,7 +90,8 @@ export function syncDerpTrigger(ctx, node, app, config) {
 
     const weight = Number(config.weight ?? 1.0);
     const safeWeight = Number.isFinite(weight) ? weight : 1.0;
-    const isWeightVisible = Math.abs(safeWeight - 1.0) > WEIGHT_EPSILON;
+    const allowWeightDisplay = config.showWeight !== false;
+    const isWeightVisible = allowWeightDisplay && Math.abs(safeWeight - 1.0) > WEIGHT_EPSILON;
     const weightText = safeWeight.toFixed(2);
 
     let tW = iconWidthOverride || config.toggleWidth || tH;
@@ -155,11 +118,8 @@ export function syncDerpTrigger(ctx, node, app, config) {
     else if (alignX === "right") startX = x + finalW - padR - contentW_noPad;
 
     const tX = startX;
-    state.g = { x: tX, w: tW };
     const tY = y + padT + (h - padT - padB - tH) / 2;
-    const fallbackColor = config.iconColor || finalLabelPaint.textColor || finalLabelPaint.fill || "white";
-
-    const slotColor = slotPaint?.fill || (isActive ? fallbackColor : "rgba(0,0,0,0.2)");
+    const slotColor = slotPaint?.fill;
     masterPainter(ctx, {
         posX: tX, posY: tY, width: tW, height: tH,
         color: slotColor,
@@ -178,8 +138,6 @@ export function syncDerpTrigger(ctx, node, app, config) {
     }
 
     const availW = Math.max(0, finalW - (startX - x) - indicatorBuffer - padR);
-    state.t = { x: startX + indicatorBuffer, w: availW };
-
     if (labelText.length > 0) {
         ctx.save();
         ctx.beginPath();

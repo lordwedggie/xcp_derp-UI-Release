@@ -196,7 +196,58 @@ export function initDerpVaeLoaderCore(nodeType) {
     };
 
     proto.onDerpSysPanelOpen = function(panel) {
+        this._derpPanel = panel;
+        this._sysProfileActive = true;
+        this._sysProfileFile = "derpVaeLoader";
+        this._sysProfileFolder = "nodeSettings";
+        if (panel.showProfiles) {
+            panel.showProfiles("derpVaeLoader", "nodeSettings");
+        }
         if (this.sysLayoutMap) panel.setLayoutMap(this.sysLayoutMap);
+        if (panel) panel._layoutDirty = true;
+        if (this.setDirtyCanvas) this.setDirtyCanvas(true, true);
+    };
+
+    proto.onDerpSysPanelClose = function() {
+        this._sysProfileActive = false;
+    };
+
+    // THE PROFILE PROTOCOL: Single JSON map in settings, same profile flow as DerpSlider/DerpLatent
+    proto.applyDerpProfile = function(profileName) {
+        if (!this._sysProfileData || !this._sysProfileData[profileName] || profileName === "(No Profiles Found)") return;
+
+        const profileObj = this._sysProfileData[profileName];
+        const rawVaes = Array.isArray(profileObj)
+            ? profileObj
+            : (Array.isArray(profileObj?.vaes) ? profileObj.vaes : []);
+
+        const normalized = rawVaes
+            .map((entry, idx) => {
+                if (typeof entry === "string") {
+                    return { name: entry, active: idx === 0, source: "vae" };
+                }
+                if (entry && typeof entry.name === "string") {
+                    return {
+                        name: entry.name,
+                        active: !!entry.active,
+                        source: (entry.source === "model" || entry.source === "vae") ? entry.source : "vae"
+                    };
+                }
+                return null;
+            })
+            .filter(Boolean);
+
+        this.properties.vaeDeck = normalizeVaeDeck(normalized);
+        if (this.syncDerpOutputs) this.syncDerpOutputs();
+        if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
+        this.requestDerpSync();
+    };
+
+    proto.exportDerpProfile = function() {
+        const deck = Array.isArray(this.properties.vaeDeck) ? this.properties.vaeDeck : [];
+        return {
+            vaes: deck.map(item => String(item?.name || "")).filter(Boolean)
+        };
     };
 
     proto.onDerpSettingsPress = function() {

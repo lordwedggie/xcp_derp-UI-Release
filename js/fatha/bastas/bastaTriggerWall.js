@@ -14,6 +14,17 @@ function clampTriggerWeight(value) {
 
 export const getTriggerWallId = () => `basta_trigger_wall_global_unique_id`;
 
+function releaseTriggerWallModalState(host, preserveSelection = true) {
+    if (!host) return;
+    host._activeModalItemKey = null;
+    host._triggerWallModalOpen = false;
+    if (preserveSelection) {
+        host._suppressRegionDeselectUntil = Date.now() + 400;
+    }
+    if (host.refreshNodeLayoutMap) host.refreshNodeLayoutMap();
+    if (host.setDirtyCanvas) host.setDirtyCanvas(true, true);
+}
+
 export function showTriggerWall(host, targetRegion = null) {
     host._dragTrig = null;
     host._dragMouse = null;
@@ -32,6 +43,7 @@ export function showTriggerWall(host, targetRegion = null) {
     const trig = (idx !== null && triggers) ? triggers[idx] : { label: "" };
     const initialLabel = trig.label || "";
     const initialWeight = clampTriggerWeight(trig.weight !== undefined ? trig.weight : TRIGGER_WEIGHT_DEFAULT);
+    host._triggerWallModalOpen = true;
 
     const syncBasta = () => {
         const b = activeBastas.get(id);
@@ -46,9 +58,7 @@ export function showTriggerWall(host, targetRegion = null) {
         host: host,
         titleLabel: "Trigger Wall",
         onClose: () => {
-            host._activeModalItemKey = null;
-            host.refreshNodeLayoutMap();
-            host.setDirtyCanvas(true, true);
+            releaseTriggerWallModalState(host, true);
         },
         autoSize: true,
         targetRegion: targetRegion,
@@ -234,6 +244,26 @@ export function showTriggerWall(host, targetRegion = null) {
 
     const bastaInstance = spawnBasta(id, config);
     bastaInstance._triggerWallConfig = config;
+
+    if (!bastaInstance._isTriggerWallClosePatched) {
+        const originalClose = bastaInstance.close;
+        bastaInstance.close = function() {
+            const liveHost = this.hostNode || host;
+            releaseTriggerWallModalState(liveHost, true);
+            return originalClose.apply(this, arguments);
+        };
+        bastaInstance._isTriggerWallClosePatched = true;
+    }
+
+    if (!bastaInstance._isTriggerWallDestroyPatched) {
+        const originalDestroy = bastaInstance.destroy;
+        bastaInstance.destroy = function() {
+            const liveHost = this.hostNode || host;
+            releaseTriggerWallModalState(liveHost, true);
+            return originalDestroy.apply(this, arguments);
+        };
+        bastaInstance._isTriggerWallDestroyPatched = true;
+    }
 
     if (!bastaInstance._isDerpInteractionPatched) {
         const originalHandler = bastaInstance.handleShieldInteraction;

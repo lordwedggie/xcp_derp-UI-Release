@@ -105,17 +105,6 @@ export function triggerWall_syncOutputs(node) {
 
 export function triggerWall_onNodeCreated(node, originalCallback) {
     if (originalCallback) originalCallback.apply(node);
-    node._derpClickOutside = (e) => {
-        if (node.interactionShield && !node.interactionShield.contains(e.target)) {
-            if (node._selectedRegions && Object.keys(node._selectedRegions).length > 0) {
-                node._selectedRegions = {};
-                node.refreshNodeLayoutMap();
-                node.setDirtyCanvas(true);
-            }
-        }
-    };
-    window.addEventListener("pointerdown", node._derpClickOutside, true);
-
     node.properties.isWirelessTransmitter = true;
     node.properties.skipGenericWirelessHeartbeat = true;
     node.outputs = [];
@@ -133,7 +122,7 @@ export function triggerWall_onNodeCreated(node, originalCallback) {
         triggers: [{ id: `trig_${Date.now()}`, active: true, weight: 1.0 }]
     }];
     node.properties.triggers = []; // THE COLLISION FIX: Clear legacy array
-    node.properties.showWeight = false;
+    node.properties.showWeight = true;
     node.properties.toggleAddAlways = true;
     node.properties.drawSettingBtn = true;
     node.properties.settingActive = false;
@@ -167,6 +156,7 @@ export function triggerWall_onConfigure(node, info, originalCallback) {
     }
 
     if (info && info.properties) {
+        if (node.properties.showWeight === undefined) node.properties.showWeight = true;
         node._lastDerpW = null; // Force frame-one rebuild in onDrawForeground
         node._lastSyncedContent = null;
         node._cachedPresetData = cloneTriggerPresetData(node.properties.loadedTriggerPreset);
@@ -231,12 +221,12 @@ export function triggerWall_onDrawForeground(node, ctx, originalCallback) {
 
 export function triggerWall_onRemoved(node, originalCallback) {
     if (originalCallback) originalCallback.apply(node);
-    window.removeEventListener("pointerdown", node._derpClickOutside, true);
 }
 
 export function triggerWall_onDeselected(node) {
+    const suppressRegionDeselect = Date.now() < (node._suppressRegionDeselectUntil || 0);
     if ((node._selectedRegions && Object.keys(node._selectedRegions).length > 0) || node._activeModalItemKey) {
-        node._selectedRegions = {};
+        if (!suppressRegionDeselect) node._selectedRegions = {};
         node._activeModalItemKey = null; // THE CLEANUP FIX: Clear modal theme lock on deselection
         node.refreshNodeLayoutMap();
         node.setDirtyCanvas(true);
@@ -330,13 +320,6 @@ export async function triggerWall_onLoadPreset(node, presetName) {
 
 export function triggerWall_handleShieldInteraction(node, type, data, origHandle) {
     const handled = origHandle ? origHandle.apply(node, [type, data]) : false;
-    if (type === "click" && !handled) {
-        if (node._selectedRegions && Object.keys(node._selectedRegions).length > 0) {
-            node._selectedRegions = {};
-            node.refreshNodeLayoutMap();
-            node.setDirtyCanvas(true);
-        }
-    }
     return handled;
 }
 
@@ -467,10 +450,6 @@ export function triggerWall_groupDragEnd(node) {
 
 export function triggerWall_itemDragStart(node, e, data, gIdx, tIdx) {
     const key = `triggerItem_${gIdx}_${tIdx}`;
-    const state = node._trigState?.[key];
-    if (state && data.localX >= state.g.x && data.localX <= (state.g.x + state.g.w)) {
-        return;
-    }
     const reg = node.layout.regions[key];
     if (!reg) return;
     node._dragTrig = { key, gIdx, tIdx };
@@ -566,21 +545,31 @@ export function triggerWall_itemDragEnd(node, e, data) {
 }
 
 export function triggerWall_itemPress(node, e, data, gIdx, tIdx, group, isBypassed) {
+    endStackDrag(node, "");
     const item = { idx: tIdx, trig: group.triggers[tIdx] };
     if (isBypassed || item.trig.disabled === true) return;
     const key = `triggerItem_${gIdx}_${item.idx}`;
-    if (data.hitArea === "text") {
+    const selectedRegionKey = `triggerRegion_${gIdx}`;
+    const isSelectedRegion = !!node._selectedRegions?.[selectedRegionKey];
+    if (isSelectedRegion) {
         node._activeModalItemKey = key;
         node._hoveredRegionKey = null;
         refreshAndSync(node, false, true);
         showTriggerWall(node, key);
-    } else if (data.hitArea === "glyph") {
-        item.trig.active = !item.trig.active;
-        if (group.isExclusive && item.trig.active) {
-            group.triggers.forEach((t, i) => { if (i !== item.idx) t.active = false; });
-        }
-        refreshAndSync(node, true, true);
+        return;
     }
+    if (e?.shiftKey) {
+        node._activeModalItemKey = key;
+        node._hoveredRegionKey = null;
+        refreshAndSync(node, false, true);
+        showTriggerWall(node, key);
+        return;
+    }
+    item.trig.active = !item.trig.active;
+    if (group.isExclusive && item.trig.active) {
+        group.triggers.forEach((t, i) => { if (i !== item.idx) t.active = false; });
+    }
+    refreshAndSync(node, true, true);
 }
 
 export function triggerWall_addTrigger(node, group) {
@@ -644,6 +633,42 @@ export function triggerWall_removeGroup(node, gIdx) {
     const group = node.properties.triggerGroups[gIdx];
     if (group) group.hidden = true;
     refreshAndSync(node, true, false);
+}
+
+export function triggerWall_confirmRemoveGroup(node, gIdx) {
+    const group = node.properties.triggerGroups?.[gIdx];
+    if (!group) return;
+    const groupTitle = String(group.title || `Trigger Group ${gIdx + 1}`);
+    const removeMessage = `Remove '${groupTitle}' from the wall?`;
+
+    showBastaFileHandler(node, "none", `btnRemoveGroup_${gIdx}`, {
+        title: "Remove Trigger Group",
+        mode: "delete",
+        message: removeMessage,
+        confirm: "Remove",
+        properties: {
+            messageThemeKey: "t_textNormal",
+            showMessageLinebreak: true,
+            layoutMapOverride: {
+                contentRegion: {
+                    infoRegion: {
+                        labelMain: {
+                            text: removeMessage,
+                            themeKey: "t_textNormal"
+                        },
+                        messageBreak: {
+                            hidden: false
+                        }
+                    }
+                }
+            }
+        },
+        onConfirm: async () => {
+            triggerWall_removeGroup(node, gIdx);
+            showBastaMessage(node, `Removed '${groupTitle}'.`, 1800, { width: 260 }, `btnRemoveGroup_${gIdx}`, false, "success");
+            node.requestDerpSync();
+        }
+    });
 }
 
 export function triggerWall_toggleExclusive(node, selectedGroup, anySelected, isBypassed) {

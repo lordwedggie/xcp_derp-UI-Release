@@ -451,7 +451,8 @@ export function interpretLayoutProps(config, context = {}) {
             const widgetGap = hasIndicator ? (config.gap ?? (isToggle ? 4 : 0)) : 0;
             let baseIndicatorW = styleIconW || config.toggleWidth || (hasIndicator ? ((fs || 10) * toggleFactor) : 0);
             const triggerWeight = Number(config.weight);
-            const showTriggerWeight = Number.isFinite(triggerWeight) && Math.abs(triggerWeight - 1.0) > 1e-6;
+            const allowTriggerWeight = config.showWeight !== false;
+            const showTriggerWeight = allowTriggerWeight && Number.isFinite(triggerWeight) && Math.abs(triggerWeight - 1.0) > 1e-6;
             if (typeStr.includes("trigger") && showTriggerWeight && !config.toggleWidth) {
                 const weightFs = config.weightFontSize || Math.min((fs || 10), 5);
                 const weightW = measureTextWidth(triggerWeight.toFixed(2), weightFs, font, config.fontWeight || "normal");

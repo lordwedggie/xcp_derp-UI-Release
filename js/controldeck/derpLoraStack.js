@@ -202,7 +202,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                     const stableCount = stack.length - (isDragPreviewActive ? 1 : 0);
                     const hasPreviewIndex = Number.isInteger(rawDropIdx);
                     const dropIdx = hasPreviewIndex ? Math.max(0, Math.min(rawDropIdx, Math.max(0, stableCount))) : null;
-                    const hasEffectiveDropTarget = isDragPreviewActive && Number.isInteger(dragIdx) && hasPreviewIndex && dropIdx !== dragIdx;
+                    const hasEffectiveDropTarget = isDragPreviewActive && Number.isInteger(dragIdx) && hasPreviewIndex;
 
                     let lastVisibleRowKey = null;
 

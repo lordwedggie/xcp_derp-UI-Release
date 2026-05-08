@@ -3,7 +3,7 @@
  * ROLE: A specialized file management utility for xcpDerp.
  * INTEGRATION: Inherits Header/Footer logic and theme variables from the core engine.
  */
-import { spawnBasta } from "../basta.js";
+import { spawnBasta, activeBastas } from "../basta.js";
 import { UI_TYPES } from "../core/masterLayoutTypes.js";
 import { showBastaMessage } from "./bastaMessage.js";
 import { colorPulse2, parseColor } from "../../herbina/masterAnimator.js";
@@ -130,16 +130,24 @@ export function showBastaFileHandler(host, category = "settings", targetRegion =
                         }
                     },
                     infoRegion: {
-                        dir: "row", width: "full",
-                        anchor: { target: "regionFolder", axis: "y", offset: oY },
+                        dir: "col", width: "full",
+                        anchor: { target: "regionFolder", axis: "y", offset: mH },
                         labelMain: {
                             type: UI_TYPES.TEXT,
-                            themeKey: "t_textNormal",
+                            themeKey: basta.properties.messageThemeKey || "t_textNormal",
                             text: basta.properties.customMessage || "Custom message here",
                             labelColor: isDelete ? colorPulse2(colA, colB, 0.005) : null,
                             width: basta.properties.messageWidth || "auto",
                             labelAlign: basta.properties.messageAlign || ["left", "middle"],
-                            wrap: basta.properties.messageWrap || false
+                            wrap: basta.properties.messageWrap || false,
+                            margin: [0,mH],
+                        },
+                        messageBreak: {
+                            type: UI_TYPES.LINEBREAK,
+                            hidden: basta.properties.showMessageLinebreak !== true,
+                            anchor: { target: "labelMain", axis: "y", offset: sH },
+                            margin: [-mW, mH, -mW, mH],
+                            width: "full"
                         }
                     },
                     editorRegion: {
@@ -277,6 +285,19 @@ export function showBastaFileHandler(host, category = "settings", targetRegion =
             return map;
         }
     };
+
+    const existing = activeBastas.get(id);
+    if (existing) {
+        existing.hostNode = host;
+        existing.targetRegion = targetRegion;
+        existing.titleLabel = config.titleLabel;
+        existing.layoutMap = config.layoutMap;
+        existing.properties = { ...existing.properties, ...config.properties };
+        existing.targetSize = [...config.initialSize];
+        existing.size = [...config.initialSize];
+        existing._layoutMapHash = undefined;
+        existing._forceSync = true;
+    }
 
     const bastaInstance = spawnBasta(id, config);
 

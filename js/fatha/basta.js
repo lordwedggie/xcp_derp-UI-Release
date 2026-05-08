@@ -413,13 +413,20 @@ class BastaInstance {
         }
     }
 
-    close() {
+    close(reason = "implicit") {
+        if (this.properties?.explicitCloseOnly === true) {
+            const allowedReasons = Array.isArray(this.properties.explicitCloseReasons)
+                ? this.properties.explicitCloseReasons
+                : ["headerButton", "footerButton"];
+            if (!allowedReasons.includes(reason)) return false;
+        }
         this.isClosing = true;
         this._forceSync = true;
         if (this.hostNode) {
             if (this.hostNode.refreshNodeLayoutMap) this.hostNode.refreshNodeLayoutMap();
             if (this.hostNode.setDirtyCanvas) this.hostNode.setDirtyCanvas(true);
         }
+        return true;
     }
 
     destroy() {

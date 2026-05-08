@@ -66,9 +66,10 @@ export function showBastaPalette(host, targetRegion = null) {
             clickToClose: false,
             bastaMovalbe: true,
             bastaSingleton: true,
+            explicitCloseOnly: true,
+            explicitCloseReasons: ["headerButton", "footerButton"],
             autoWidth: false,
-            snapHeight: false,
-            ignoreLayout: true
+            snapHeight: false
         },
         initialSize: [200, 200],     // Default dimensions
 
@@ -432,7 +433,7 @@ export function showBastaPalette(host, targetRegion = null) {
                 fileMainRow: {
                     dir: "row", width: "full", height: "auto",
                     lblFileMain: { type: UI_TYPES.TEXT, themeKey: "t_textSmall", text: "Main Colors",
-                    width: "auto", height: "auto", padding: [pW, pH], spacing: [sW, 0] },
+                        width: "auto", height: "auto", padding: [pW, pH], spacing: [sW, 0] },
                     fileMainContainer: {
                         dir: "col", width: "full", height: "auto",
                         fileMain: {
@@ -521,9 +522,8 @@ export function showBastaPalette(host, targetRegion = null) {
             };
 
             return {
-                contentRegion: { ...contentRegions, ignoreLayout: true },
+                contentRegion: { ...contentRegions },
                 footerRegion: {
-                    ignoreLayout: true,
                     anchor: { target: "contentRegion", axis: "y", offset: oY },
                     btnOk: {
                         type: UI_TYPES.BUTTON,
@@ -533,7 +533,7 @@ export function showBastaPalette(host, targetRegion = null) {
                         height: "auto",
                         objectAlign: ["right", "middle"],
                         labelAlign: ["center", "middle"],
-                        onPress: () => basta.close()
+                        onPress: () => basta.close("footerButton")
                     }
                 }
             };

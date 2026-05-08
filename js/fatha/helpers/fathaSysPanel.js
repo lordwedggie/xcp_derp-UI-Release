@@ -18,6 +18,7 @@ import { playKaChing, playKaboom } from "../../herbina/masterSoundEffects.js";
 
 const PANEL_SLIDE_SPEED = 0.5;
 const PANEL_FADE_SPEED = 0.3;
+const SYS_PANEL_CLOSE_ON_OUTSIDE_CLICK = false;
 
 /**
  * The System Panel State Controller
@@ -192,7 +193,7 @@ export function drawDerpSysPanelGlobal(ctx) {
         }
     }
 
-    sysPanel.offsetGap = pulledWeight || 0;
+    sysPanel.offsetGap = 0;
 
     // --- THE OPTIMIZATION GATING ---
     const canvasDS = app.canvas.ds;
@@ -606,9 +607,23 @@ export async function toggleDerpSysPanel(hostNode) {
         window.removeEventListener("pointerdown", sysPanel._outsidePointerHandler, true);
     }
     sysPanel._outsidePointerHandler = (e) => {
+        if (!SYS_PANEL_CLOSE_ON_OUTSIDE_CLICK) return;
         if (!sysPanel.isVisible || !sysPanel.layout?.regions?.panelBackground) return;
         if (window.__xcpHasActiveDropdown || window.__xcpHasActiveFileBrowser) return;
         if (sysPanel.interactionShield?.contains(e.target)) return;
+        if (sysPanel.hostNode?.interactionShield?.contains?.(e.target)) {
+            const host = sysPanel.hostNode;
+            const sysBtn = host.layout?.regions?.systemBtn;
+            if (sysBtn && app?.canvas?.canvas && app?.canvas?.ds) {
+                const rect = app.canvas.canvas.getBoundingClientRect();
+                const ds = app.canvas.ds;
+                const canvasX = (e.clientX - rect.left) / ds.scale - ds.offset[0];
+                const canvasY = (e.clientY - rect.top) / ds.scale - ds.offset[1];
+                const localMouse = [canvasX - host.pos[0], canvasY - host.pos[1]];
+                const isOnSystemBtn = host.layout?.hitTest ? host.layout.hitTest(localMouse, sysBtn) : false;
+                if (isOnSystemBtn) return;
+            }
+        }
         if (Object.values(sysPanel.dynamicElements || {}).some((el) => el?.contains?.(e.target))) return;
 
         const rect = app.canvas.canvas.getBoundingClientRect();

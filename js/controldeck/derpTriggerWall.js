@@ -30,6 +30,7 @@ import {
     triggerWall_changeGroupTemplate,
     triggerWall_addGroupTemplate,
     triggerWall_removeGroup,
+    triggerWall_confirmRemoveGroup,
     triggerWall_toggleExclusive,
     triggerWall_toggleShowWeight,
     triggerWall_toggleAddAlways,
@@ -347,8 +348,9 @@ app.registerExtension({
                             }
 
                             if (item.type === "trig") {
-                                const isModalActive = this._activeModalItemKey === `triggerItem_${gIdx}_${item.idx}`;
-                                const triggerActive = (item.trig.active || isModalActive) && !isBypassed && item.trig.disabled !== true;
+                                const isModalActive = this._triggerWallModalOpen === true && this._activeModalItemKey === `triggerItem_${gIdx}_${item.idx}`;
+                                const triggerEnabled = !isBypassed && item.trig.disabled !== true;
+                                const triggerActive = item.trig.active && triggerEnabled;
                                 const triggerItemKey = rowAnchorPrefix === "triggerRow" ? `triggerItem_${gIdx}_${item.idx}` : `${rowAnchorPrefix}Item_${gIdx}_${item.idx}`;
                                 return [triggerItemKey, {
                                     type: this.UI_TYPES.COMPOSITE_TRIGGER, themeKey: "panel, button, t_textsmall",
@@ -356,7 +358,7 @@ app.registerExtension({
                                     width: "auto", height: "auto", padding: [triggerPadW, triggerPadH, triggerPadW, triggerPadH], margin: [0, 0], spacing: [sW, 0],
                                     showWeight: this.properties.showWeight, weight: item.trig.weight ?? 1.0,
                                     alpha: groupWidgetAlpha,
-                                    value: item.trig.active || isModalActive,
+                                    value: item.trig.active,
                                     state: isModalActive ? "ON" : ((isBypassed || item.trig.disabled === true) ? "DIS" : "OFF"),
                                     disabled: item.trig.disabled === true,
                                     bodyPaint: item.isTriggerPreviewGhost ? this._buttonPaintData_DIS : (isModalActive ? this._panelPaintData_ON : (triggerActive ? this._panelPaintData : this._panelPaintData_DIS)),
@@ -468,7 +470,7 @@ app.registerExtension({
                             alpha: isPreviewGhost ? 0 : 1,
                             icon: "close", width: "match", height: "fill", margin: [0, sH, -sW, sH],
                             hidden: this.properties.triggerGroups.length <= 1,
-                            onPress: headerPressEnabled ? (() => triggerWall_removeGroup(this, gIdx)) : undefined
+                            onPress: headerPressEnabled ? (() => triggerWall_confirmRemoveGroup(this, gIdx)) : undefined
                         }
                     },
                     [`${childKeyPrefix}lineBreak_${gIdx}`]: {
@@ -620,7 +622,7 @@ app.registerExtension({
             this.sysLayoutMap = {
                 sysContentRegion: {
                     dir: "col",
-                    anchor: { target: "sysDefaultControlsRegion", axis: "y" }, margin: [mW, mH], spacing: [0, sH],
+                    anchor: { target: "sysDefaultControlsRegion", axis: "y" }, margin: [0, mH], spacing: [0, sH],
                     width: "full", height: "auto",
                     regionOption1: {
                         dir: "row", width: "full", height: "auto",

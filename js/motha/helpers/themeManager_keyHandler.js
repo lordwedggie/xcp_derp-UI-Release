@@ -247,11 +247,14 @@ export const handleKeyCopyAction = (node, updateThemeLayoutFn) => {
 export const handleKeySaveAction = (node, updateThemeLayoutFn) => {
     const cfg = window.xcpDerpThemeConfig;
     if (!cfg || !node._selectedThemeName) return;
+    const currentKey = node._selectedKeyName || Object.keys(node.themeToEdit || {}).find(k => k !== "_category" && k !== "_layout") || "";
 
     showBastaFileHandler(node, "none", "btnKeySave", {
         title: "Save Theme Keys",
         mode: "save",
         message: `Save keys to theme '${node._selectedThemeName}'?`,
+        originalName: currentKey,
+        fileList: Object.keys(node.themeToEdit || {}).filter(k => k !== "_category" && k !== "_layout"),
         onConfirm: async () => {
             try {
                 const themeName = node._selectedThemeName;

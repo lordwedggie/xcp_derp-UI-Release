@@ -44,7 +44,7 @@ export const getBastaBaseMap = (basta) => {
                     width: "match: 1.0",
                     height: "fit",
                     padding: [pW, pH],
-                    onPress: () => basta.close()
+                    onPress: () => basta.close("headerButton")
                 }
             },
             headerBreak: {

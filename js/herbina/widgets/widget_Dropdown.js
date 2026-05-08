@@ -19,6 +19,7 @@ import { app as comfyApp } from "../../../../scripts/app.js";
 import { applyHTMLTheme } from "../masterPainterHTML.js";
 import { masterPainter, masterPainterText, compileThemeData } from "../masterPainter.js";
 import {
+    syncSingletonShield,
     toggleSingletonShield,
     executeShieldedInteraction,
     syncElementToCanvas

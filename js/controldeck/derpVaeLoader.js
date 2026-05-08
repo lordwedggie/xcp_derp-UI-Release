@@ -18,7 +18,7 @@ app.registerExtension({
         if (!nodeData.name.toLowerCase().includes("vaeloader")) return;
 
         // Initialize Fatha and the Logic Core
-        fatha(nodeType, nodeData, 300);
+        fatha(nodeType, nodeData, 200);
         initDerpVaeLoaderCore(nodeType);
 
         // --- MAIN UI LAYOUT ---
@@ -149,16 +149,15 @@ app.registerExtension({
                 const { m, idx } = floatingItem;
                 const dragX = this._dragMouse[0] - this._dragOffset[0];
                 const dragY = this._dragMouse[1] - this._dragOffset[1];
+                const sourceRow = this.layout?.regions?.[`vaeRow_${idx}`];
+                const floatingRowWidth = sourceRow?.w || (this.size[0] - (mW * 2));
 
                 deckRegions[`floatingVaeRow`] = {
                     type: this.UI_TYPES.REGION, themeKey: "region",
-                    dir: "row", width: this.size[0] - (mW * 4), height: "auto",
+                    dir: "row", width: floatingRowWidth, height: "auto",
                     ignoreLayout: true, x: dragX, y: dragY, zIndex: 100,
-                    state: "ON",
-                    pulseStates: true,
-                    pulseFromState: "_DIS",
-                    pulseToState: "_ON",
-                    pulseSpeed: 0.005,
+                    state: m.active ? "ON" : "OFF",
+                    spacing: [0, sH],
                     regionOffset: [0, 0],
                     [`floatingToggle`]: {
                         type: this.UI_TYPES.TOGGLE_V2, isTextOnly: true, cutoff: true,
@@ -168,7 +167,7 @@ app.registerExtension({
                     },
                     [`floatingRemoveBtn`]: {
                         type: this.UI_TYPES.ICONBUTTON, icon: "close",
-                        width: "match", height: "full", padding: [pW, pH], margin: [0, sH],
+                        width: "match", height: "full", padding: [pW, pH], margin: [0, sH, sW, sH],
                         themeKey: "button, t_textNormal",
                     }
                 };

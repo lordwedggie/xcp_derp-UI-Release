@@ -180,7 +180,54 @@ export function initDerpModelLoaderCore(nodeType) {
     };
 
     proto.onDerpSysPanelOpen = function(panel) {
+        this._derpPanel = panel;
+        this._sysProfileActive = true;
+        this._sysProfileFile = "derpModelLoader";
+        this._sysProfileFolder = "nodeSettings";
+        if (panel.showProfiles) {
+            panel.showProfiles("derpModelLoader", "nodeSettings");
+        }
         if (this.sysLayoutMap) panel.setLayoutMap(this.sysLayoutMap);
+        if (panel) panel._layoutDirty = true;
+        if (this.setDirtyCanvas) this.setDirtyCanvas(true, true);
+    };
+
+    proto.onDerpSysPanelClose = function() {
+        this._sysProfileActive = false;
+    };
+
+    // THE PROFILE PROTOCOL: Single JSON map in settings, same storage pattern as DerpSlider/DerpLatent
+    proto.applyDerpProfile = function(profileName) {
+        if (!this._sysProfileData || !this._sysProfileData[profileName] || profileName === "(No Profiles Found)") return;
+
+        const profileObj = this._sysProfileData[profileName];
+        const rawModels = Array.isArray(profileObj)
+            ? profileObj
+            : (Array.isArray(profileObj?.models) ? profileObj.models : []);
+
+        const normalized = rawModels
+            .map((entry, idx) => {
+                if (typeof entry === "string") {
+                    return { name: entry, active: idx === 0 };
+                }
+                if (entry && typeof entry.name === "string") {
+                    return { name: entry.name, active: !!entry.active };
+                }
+                return null;
+            })
+            .filter(Boolean);
+
+        this.properties.modelDeck = normalizeModelDeck(normalized);
+        if (this.syncDerpOutputs) this.syncDerpOutputs();
+        if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
+        this.requestDerpSync();
+    };
+
+    proto.exportDerpProfile = function() {
+        const deck = Array.isArray(this.properties.modelDeck) ? this.properties.modelDeck : [];
+        return {
+            models: deck.map(item => String(item?.name || "")).filter(Boolean)
+        };
     };
 
     proto.onDerpSettingsPress = function() {

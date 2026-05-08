@@ -323,7 +323,7 @@ export function handleShieldInteraction(entity, type, data = {}) {
         const key = entity._pressedRegionKey;
         entity._pressedRegionKey = null;
         if (key === "systemBtn") {
-            toggleDerpSysPanel(entity);
+            if (type === "click") toggleDerpSysPanel(entity);
             if (app.graph && app.graph.change) app.graph.change();
             return true;
         }
