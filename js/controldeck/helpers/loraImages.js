@@ -23,6 +23,7 @@ export function calculatePreviewAspectRatio(basta, loraData, onComplete) {
     const img = new Image();
     img.onload = () => {
         loraData.aspectRatio = img.naturalWidth / img.naturalHeight;
+        loraData._previewLoading = false;
         // THE MEMORY RELEASE FIX: Explicitly destroy the image object to free RAM/GPU memory immediately
         img.onload = null;
         img.onerror = null;
@@ -36,6 +37,7 @@ export function calculatePreviewAspectRatio(basta, loraData, onComplete) {
     };
     img.onerror = () => {
         loraData.aspectRatio = 1.0;
+        loraData._previewLoading = false;
         img.onload = null;
         img.onerror = null;
         img.src = "";
@@ -88,6 +90,7 @@ export function switchLoraImage(basta, direction = "next") {
     const session = window._xcpDerpSession || Date.now();
 
     // Construct URL based on whether we are viewing the primary cover or an archived sub-image
+    loraData._previewLoading = true;
     if (idx === -1) {
         loraData.previewUrl = `/xcp/get_lora_preview?name=${encodeURIComponent(lName)}&v=${session}`;
     } else {
@@ -98,6 +101,7 @@ export function switchLoraImage(basta, direction = "next") {
     loraData.aspectRatio = null; // THE REFLOW FIX: Clear aspect ratio to force recalculation on new image load
     calculatePreviewAspectRatio(basta, loraData, () => {
         basta._forceSync = true;
+        if (typeof basta.requestViewportFit === "function") basta.requestViewportFit(10);
         if (typeof basta.setDirtyCanvas === "function") basta.setDirtyCanvas(true);
     });
 }
@@ -165,9 +169,12 @@ export function refreshLoraImageList(basta, loraData, targetFile = null) {
                 if (resolvedIdx !== -1 && !currentFile && basta) {
                     const session = window._xcpDerpSession || Date.now();
                     const nextFileName = loraData.images[resolvedIdx];
+                    loraData._previewLoading = true;
                     loraData.previewUrl = `/xcp/get_lora_image?name=${encodeURIComponent(lName)}&file=${encodeURIComponent(nextFileName)}&v=${session}`;
                     loraData.aspectRatio = null;
-                    calculatePreviewAspectRatio(basta, loraData);
+                    calculatePreviewAspectRatio(basta, loraData, () => {
+                        if (typeof basta.requestViewportFit === "function") basta.requestViewportFit(10);
+                    });
                 }
 
                 if (basta) {

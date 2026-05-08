@@ -11,8 +11,38 @@ import { COMPONENT_BLUEPRINTS } from "./core/masterLayoutTypes.js";
 import { handleShieldInteraction, getDerpVars, handleThemeUpdate, handleDrawCTX, handleDerpRequestSync } from "./core/fathaHandler.js";
 import { animateAlpha, lerpTo } from "../herbina/masterAnimator.js";
 import { getBastaBaseMap } from "./helpers/bastaLayoutMaps.js";
+import { ensureScreenRectVisible, isWarping } from "./core/fathaWarp.js";
 
 const BASTA_FADE_SPEED = 0.4;
+
+function getBastaScreenRect(basta) {
+    const canvas = app?.canvas?.canvas;
+    const ds = app?.canvas?.ds;
+    if (!canvas || !ds) return null;
+    const rect = canvas.getBoundingClientRect();
+    const scale = Number(ds.scale) || 1;
+    const worldX = Number(basta?.pos?.[0]) || 0;
+    const worldY = Number(basta?.pos?.[1]) || 0;
+    const worldW = Number(basta?.size?.[0]) || 0;
+    const worldH = Number(basta?.size?.[1]) || 0;
+    return {
+        left: rect.left + ((worldX + (Number(ds.offset?.[0]) || 0)) * scale),
+        top: rect.top + ((worldY + (Number(ds.offset?.[1]) || 0)) * scale),
+        width: Math.max(1, worldW * scale),
+        height: Math.max(1, worldH * scale),
+    };
+}
+
+function requestBastaViewportFit(basta, options = {}) {
+    const screenRect = getBastaScreenRect(basta);
+    if (!screenRect) return false;
+    return ensureScreenRectVisible(screenRect, {
+        viewportMargin: 8,
+        durationMs: 220,
+        easing: "easeOutQuad",
+        ...options,
+    });
+}
 
 // Global Registry for active Bastas
 export const activeBastas = new Map();
@@ -132,6 +162,8 @@ class BastaInstance {
         this.properties.nodeSize = [...this.targetSize];
         this._derpAwakeFrames = 0;
         this._forceSync = true;
+        this._warpOnOpen = config?.warpOnOpen !== false;
+        this._pendingViewportFitFrames = this._warpOnOpen ? 10 : 0;
 
         this.baseZIndex = "10000";
         createDerpShield(this);
@@ -141,6 +173,12 @@ class BastaInstance {
 
         activeBastas.set(this.id, this);
         if (this.hostNode && this.hostNode.refreshNodeLayoutMap) this.hostNode.refreshNodeLayoutMap();
+
+        if (this._warpOnOpen) {
+            requestAnimationFrame(() => {
+                requestBastaViewportFit(this);
+            });
+        }
     }
 
     onThemeUpdate(config) {
@@ -152,6 +190,14 @@ class BastaInstance {
 
     requestDerpSync() {
         handleDerpRequestSync(this);
+    }
+
+    requestViewportFit(frames = 8) {
+        const n = Math.max(1, Number(frames) || 1);
+        this._pendingViewportFitFrames = Math.max(this._pendingViewportFitFrames || 0, n);
+        this._derpAwakeFrames = Math.max(this._derpAwakeFrames || 0, Math.min(24, n + 4));
+        this._forceSync = true;
+        this.setDirtyCanvas(true, true);
     }
 
     // Fatha Interface Requirements
@@ -211,6 +257,13 @@ class BastaInstance {
                 this.hostNode.properties[`bastaOffset_${this.id}`] = [...this.offset];
             } else {
                 this.pos = [this.hostNode.pos[0] + this.offset[0], this.hostNode.pos[1] + this.offset[1]];
+            }
+        }
+
+        if (!this.isClosing && this._pendingViewportFitFrames > 0) {
+            this._pendingViewportFitFrames--;
+            if (!isWarping()) {
+                requestBastaViewportFit(this);
             }
         }
 
@@ -523,6 +576,13 @@ export function spawnBasta(id, config = {}) {
 
         existing.isClosing = false; // THE RESURRECTION FIX: Abort any pending close animation if re-opened quickly
         existing._forceSync = true;
+        existing._warpOnOpen = config?.warpOnOpen !== false;
+        existing._pendingViewportFitFrames = existing._warpOnOpen ? 10 : 0;
+        if (existing._warpOnOpen) {
+            requestAnimationFrame(() => {
+                requestBastaViewportFit(existing);
+            });
+        }
         return existing;
     }
 

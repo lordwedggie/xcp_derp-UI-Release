@@ -22,6 +22,7 @@ import {
 } from "../utils/widgetsUtils.js";
 import { lerpTo, animateAlpha, animateWidgetColors } from "../masterAnimator.js";
 import { getDerpVars } from "../../fatha/fatha.js";
+import { ensureElementVisibleInViewport } from "../../fatha/core/fathaWarp.js";
 import {
     isWidgetAnimationEnabled,
     createHybridDropdownHTML,
@@ -133,6 +134,13 @@ function openFilePicker(sourceEl, config, node, callbacks) {
 
     if (node && node._pressedRegionKey === config.key) {
         node._pressedRegionKey = null;
+    }
+
+    // Keep the host node actively redrawing while the picker performs opening lerp.
+    if (node) {
+        node._derpAwakeFrames = Math.max(node._derpAwakeFrames || 0, 24);
+        if (typeof node.requestDerpSync === "function") node.requestDerpSync();
+        if (typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, true);
     }
 
     lastOpenTime = Date.now();
@@ -335,6 +343,21 @@ function openFilePicker(sourceEl, config, node, callbacks) {
             }
         });
 
+        // Re-check viewport fit after navigation because folder depth/size can change picker height.
+        requestAnimationFrame(() => {
+            if (node) {
+                node._derpAwakeFrames = Math.max(node._derpAwakeFrames || 0, 16);
+                if (typeof node.requestDerpSync === "function") node.requestDerpSync();
+                if (typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, true);
+            }
+            ensureElementVisibleInViewport(picker, {
+                viewportMargin: 8,
+                durationMs: 220,
+                easing: "easeOutQuad",
+                followFrames: 8,
+            });
+        });
+
         // THE ACTION FIX: Add dedicated "Select Folder" confirmation button at the bottom of the list
         if (config.mode === "folder") {
             const selectBtn = document.createElement("div");
@@ -423,6 +446,20 @@ function openFilePicker(sourceEl, config, node, callbacks) {
     document.body.appendChild(picker);
     activeFilePicker = picker;
     window.__xcpHasActiveFileBrowser = true;
+
+    ensureElementVisibleInViewport(picker, {
+        viewportMargin: 8,
+        durationMs: 220,
+        easing: "easeOutQuad",
+        followFrames: 8,
+    });
+
+    if (node) {
+        node._derpAwakeFrames = Math.max(node._derpAwakeFrames || 0, 24);
+        if (typeof node.requestDerpSync === "function") node.requestDerpSync();
+        if (typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, true);
+    }
+
     toggleSingletonShield(true, closeFilePicker);
 }
 

@@ -15,6 +15,7 @@ import { loadDerpLocale, handleDerpRequestSync } from "../core/fathaHandler.js";
 import { showBastaFileHandler } from "../bastas/bastaFileHandler.js";
 import { showBastaMessage } from "../bastas/bastaMessage.js";
 import { playKaChing, playKaboom } from "../../herbina/masterSoundEffects.js";
+import { ensureScreenRectVisible, isWarping } from "../core/fathaWarp.js";
 
 const PANEL_SLIDE_SPEED = 0.5;
 const PANEL_FADE_SPEED = 0.3;
@@ -42,6 +43,8 @@ export const sysPanel = {
     _pressedRegionKey: null,
     _hoveredRegionKey: null,
     _derpAwakeFrames: 0,
+    _pendingViewportFitFrames: 0,
+    _viewportFitStarted: false,
     interactionShield: null,
 
     // --- VIRTUAL NODE INTERFACE ---
@@ -468,6 +471,31 @@ export function drawDerpSysPanelGlobal(ctx) {
         sysPanel.setDirtyCanvas(true, true);
     }
 
+    if (sysPanel._pendingViewportFitFrames > 0) {
+        if (!isWarping()) {
+            sysPanel._pendingViewportFitFrames--;
+            const ds = app.canvas?.ds;
+            const canvasRect = app.canvas?.canvas?.getBoundingClientRect?.();
+            if (ds && canvasRect) {
+                const scale = Number(ds.scale) || 1;
+                const fitHeight = Math.max(sysPanel.animHeight || 0, targetH || 0);
+                const screenRect = {
+                    left: canvasRect.left + ((sysPanel.pos[0] + (Number(ds.offset[0]) || 0)) * scale),
+                    top: canvasRect.top + ((sysPanel.pos[1] + (Number(ds.offset[1]) || 0)) * scale),
+                    width: Math.max(1, (sysPanel.size[0] || 0) * scale),
+                    height: Math.max(1, fitHeight * scale),
+                };
+                ensureScreenRectVisible(screenRect, {
+                    viewportMargin: 8,
+                    axis: "y",
+                    durationMs: 220,
+                    easing: "easeOutQuad",
+                });
+                sysPanel._viewportFitStarted = true;
+            }
+        }
+    }
+
     // 4. Draw the Physical Panel Context
     ctx.save();
     ctx.translate(sysPanel.pos[0], sysPanel.pos[1]);
@@ -602,6 +630,8 @@ export async function toggleDerpSysPanel(hostNode) {
     window.xcpFathaSysState = sysPanel;
     sysPanel.animHeight = 0;
     sysPanel.animAlpha = 0;
+    sysPanel._pendingViewportFitFrames = 6;
+    sysPanel._viewportFitStarted = false;
 
     if (sysPanel._outsidePointerHandler) {
         window.removeEventListener("pointerdown", sysPanel._outsidePointerHandler, true);

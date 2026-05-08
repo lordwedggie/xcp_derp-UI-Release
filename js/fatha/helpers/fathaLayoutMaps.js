@@ -11,6 +11,7 @@ import { playKaChing, playKaboom } from "../../herbina/masterSoundEffects.js";
 import { resolvePaintData, measureTextWidth } from "../../herbina/utils/widgetsUtils.js";
 import { isNodeDocked, undockNodeEdges } from "../core/masterDockEngine.js";
 import { clearBypassSignalDebouncers, transmitBypassedDerpSignals } from "../core/masterSignalEngine.js";
+import { ensureNodeVisibleInViewport } from "../core/fathaWarp.js";
 
 const DEBUG_OPTIONS = ["None", "Layout", "Hitbox", "Widgets Hitbox"];
 const TITLE_LABEL_DEFAULT = "Derp Nodes";
@@ -55,10 +56,19 @@ export const getVirtualNodeLayoutMap = (node) => {
                     width: "match", height: "fit", spacing: [sW, 0],
                     playSound: p.contentCollapsed ? "collapseoff" : "collapseon",
                     onPress: () => {
+                        const wasCollapsed = !!node.properties.contentCollapsed;
                         if (node.collapse) node.collapse();
                         else {
                             node.properties.contentCollapsed = !node.properties.contentCollapsed;
                             if (node.requestDerpSync) node.requestDerpSync();
+                        }
+                        if (wasCollapsed) {
+                            ensureNodeVisibleInViewport(node, {
+                                axis: "y",
+                                durationMs: 220,
+                                easing: "easeOutQuad",
+                                followFrames: 8,
+                            });
                         }
                     }
                 },

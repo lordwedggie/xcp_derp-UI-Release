@@ -35,6 +35,7 @@ import {
 } from "../utils/widgetsUtils.js";
 import { lerpTo, animateAlpha, animateWidgetColors } from "../masterAnimator.js";
 import { getDerpVars } from "../../fatha/fatha.js";
+import { ensureElementVisibleInViewport } from "../../fatha/core/fathaWarp.js";
 import {
     isWidgetAnimationEnabled,
     createHybridDropdownHTML,
@@ -100,6 +101,10 @@ function resolveScreenAnchorRect(sourceEl, node, app, geometry) {
     if (isValidRect(cachedRect)) return cachedRect;
 
     return computeScreenAnchorRect(node, app, geometry);
+}
+
+function resolveLiveGeometry(config, liveReg) {
+    return liveReg?.geometry || config?.geometry;
 }
 
 function closePicker() {
@@ -288,6 +293,13 @@ function openPicker(sourceEl, config, node, callbacks) {
     activePicker = picker;
     window.__xcpHasActiveDropdown = true;
 
+    ensureElementVisibleInViewport(picker, {
+        viewportMargin: 8,
+        durationMs: 220,
+        easing: "easeOutQuad",
+        followFrames: 8,
+    });
+
     toggleSingletonShield(true, closePicker);
 }
 
@@ -320,6 +332,7 @@ export function syncDropdownDerp(context, node, app, config) {
         if (isSysPanelDropdown && window.xcpFathaSysState?.layout?.regions) {
             liveReg = window.xcpFathaSysState.layout.regions[safeConfig.key];
         }
+        const effectiveGeometry = resolveLiveGeometry(safeConfig, liveReg);
 
         if (liveReg) {
             if (!liveReg.onPress && !liveReg.onClick) {
@@ -327,12 +340,12 @@ export function syncDropdownDerp(context, node, app, config) {
                     if (e && e.stopPropagation) e.stopPropagation();
                     if (liveReg.state === "DIS") return;
 
-                    executeShieldedInteraction(node, app, safeConfig.geometry.x, safeConfig.geometry.y, safeConfig.geometry.w, safeConfig.geometry.h, () => {
+                    executeShieldedInteraction(node, app, effectiveGeometry.x, effectiveGeometry.y, effectiveGeometry.w, effectiveGeometry.h, () => {
                         node._derpAwakeFrames = 10;
                         if (activePicker && activePicker._sourceEl === el) {
                             closePicker();
                         } else {
-                            openPicker(el, safeConfig, node, safeConfig);
+                            openPicker(el, { ...safeConfig, geometry: effectiveGeometry }, node, safeConfig);
                         }
                         node.setDirtyCanvas(true, true);
                     });
@@ -411,7 +424,7 @@ export function syncDropdownDerp(context, node, app, config) {
         if (alpha <= 0) return;
 
         if (safeConfig.isPressed && !isAwake) {
-            executeShieldedInteraction(node, app, safeConfig.geometry.x, safeConfig.geometry.y, safeConfig.geometry.w, safeConfig.geometry.h, () => {
+            executeShieldedInteraction(node, app, x, y, w, h, () => {
                 node._derpAwakeFrames = 10;
                 openPicker(el, safeConfig, node, safeConfig);
                 node.setDirtyCanvas(true, true);
@@ -650,9 +663,11 @@ export function syncDropdownDerp(context, node, app, config) {
         const canvasRect = app.canvas.canvas.getBoundingClientRect();
 
         const padL = node._padL || 0;
+        const liveReg = isSysPanelDropdown ? window.xcpFathaSysState?.layout?.regions?.[safeConfig.key] : null;
+        const effectiveGeometry = resolveLiveGeometry(safeConfig, liveReg);
         const liveAnchorRect = isSysPanelDropdown
-            ? computeScreenAnchorRect(node, app, safeConfig.geometry)
-            : resolveScreenAnchorRect(el, node, app, safeConfig.geometry);
+            ? computeScreenAnchorRect(node, app, effectiveGeometry)
+            : resolveScreenAnchorRect(el, node, app, effectiveGeometry);
         const anchorRect = isValidRect(liveAnchorRect) ? liveAnchorRect : activePicker._anchorRect;
         const screenX = isSysPanelDropdown
             ? (anchorRect?.left ?? 0).toFixed(2)

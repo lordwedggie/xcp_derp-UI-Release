@@ -254,3 +254,52 @@ export function animatePaintData(node, animKey, targetPaint, useAnim = true, spe
 
     return animated;
 }
+
+const _ANIMATOR_CHANNELS = new Map();
+
+export function stopAnimatorChannel(channelId) {
+    const key = String(channelId || "");
+    if (!key) return false;
+    const channel = _ANIMATOR_CHANNELS.get(key);
+    if (!channel) return false;
+    channel.cancelled = true;
+    if (channel.rafId) cancelAnimationFrame(channel.rafId);
+    _ANIMATOR_CHANNELS.delete(key);
+    return true;
+}
+
+export function startAnimatorChannel(channelId, frameFn) {
+    const key = String(channelId || "");
+    if (!key || typeof frameFn !== "function") return null;
+
+    stopAnimatorChannel(key);
+
+    const channel = {
+        id: key,
+        rafId: 0,
+        cancelled: false,
+        startedAt: (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now(),
+    };
+    _ANIMATOR_CHANNELS.set(key, channel);
+
+    const tick = (ts) => {
+        const cur = _ANIMATOR_CHANNELS.get(key);
+        if (!cur || cur !== channel || channel.cancelled) return;
+
+        const keepRunning = frameFn(ts, channel) !== false;
+        if (!keepRunning) {
+            _ANIMATOR_CHANNELS.delete(key);
+            return;
+        }
+        channel.rafId = requestAnimationFrame(tick);
+    };
+
+    channel.rafId = requestAnimationFrame(tick);
+    return channel;
+}
+
+export function isAnimatorChannelActive(channelId) {
+    const key = String(channelId || "");
+    if (!key) return false;
+    return _ANIMATOR_CHANNELS.has(key);
+}

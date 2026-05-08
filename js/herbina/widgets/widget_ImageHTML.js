@@ -154,7 +154,7 @@ export function syncImageHTML(ctx, node, app, config, overlayPass = false) {
                 ctx.drawImage(imgObj._renderCache, Math.floor(drawX), Math.floor(drawY), Math.floor(drawW), Math.floor(drawH));
                 ctx.restore();
 
-            } else if (!config.isSelected && imgObj && imgObj.complete) {
+            } else if (!config.suppressPlaceholder && !config.isSelected && imgObj && imgObj.complete) {
                 // THE FALLBACK FIX: Display placeholder text if the image asset failed to load
                 ctx.save();
                 ctx.fillStyle = "rgba(255,255,255,0.4)";
@@ -166,7 +166,7 @@ export function syncImageHTML(ctx, node, app, config, overlayPass = false) {
             }
         } else {
             // THE SUPPRESSION FIX: Do not draw the missing image text when the preview is selected (to keep the paste overlay clean)
-            if (!config.isSelected) {
+            if (!config.suppressPlaceholder && !config.isSelected) {
                 ctx.save();
                 ctx.fillStyle = "rgba(255,255,255,0.4)";
                 ctx.font = "6px Arial";

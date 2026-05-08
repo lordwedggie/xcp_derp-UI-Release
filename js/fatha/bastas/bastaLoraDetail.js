@@ -95,6 +95,8 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
             if (isNewSelection) {
                 const lName = loraData.rawFileName || loraData.name;
                 const session = window._xcpDerpSession || Date.now();
+                loraData._previewLoading = true;
+                loraData.previewUrl = null;
                 if (activeEntry.image) {
                     loraData.previewUrl = `/xcp/get_lora_image?name=${encodeURIComponent(lName)}&file=${encodeURIComponent(activeEntry.image)}&v=${session}`;
                 } else {
@@ -103,6 +105,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 loraData.aspectRatio = null;
                 calculatePreviewAspectRatio(basta, loraData, () => {
                     basta._forceSync = true;
+                    if (typeof basta.requestViewportFit === "function") basta.requestViewportFit(10);
                     if (typeof basta.setDirtyCanvas === "function") basta.setDirtyCanvas(true);
                 });
             }
@@ -370,6 +373,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 pulseColorB: [255, 255, 255, 1.0],
                 pulseFreq: 0.003,
                 imageUrl: loraData.previewUrl || null,
+                suppressPlaceholder: !!loraData._previewLoading,
                 borderColor: ratingBorder,
                 borderWeight: 1.5,
                 borderInsideRatio: 0.4,
