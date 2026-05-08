@@ -49,6 +49,7 @@ CATEGORIES = {
     "settings": SETTINGS_DIR,
     "derpSlider": SETTINGS_DIR,
     "derpLatent": SETTINGS_DIR,
+    "derpModelLoader": SETTINGS_DIR,
     "derpLoraStack": LORA_STACKS_DIR,
     "palettes": PALETTE_DIR,
     "derpPromptBook": PROMPT_BOOK_DIR,
