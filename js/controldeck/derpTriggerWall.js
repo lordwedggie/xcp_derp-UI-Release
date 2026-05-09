@@ -205,6 +205,7 @@ app.registerExtension({
 
             // Include preset list state so the file browser rebuilds when async preset data arrives.
             currentHash += `|${this.properties.showWeight}_${this.properties.toggleAddAlways}_${this.properties.drawHeader}_${this.properties.settingActive}_${this.properties.lastSavedPreset || ""}_${presetSortKey}`;
+            currentHash += `|modal:${this._triggerWallModalOpen === true ? 1 : 0}:${this._activeModalItemKey || ""}`;
 
             if (this._layoutMapHash === currentHash && this.layoutMap) {
                 this.requestDerpSync();

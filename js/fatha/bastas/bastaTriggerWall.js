@@ -18,10 +18,12 @@ function releaseTriggerWallModalState(host, preserveSelection = true) {
     if (!host) return;
     host._activeModalItemKey = null;
     host._triggerWallModalOpen = false;
+    host._layoutMapHash = undefined;
     if (preserveSelection) {
         host._suppressRegionDeselectUntil = Date.now() + 400;
     }
     if (host.refreshNodeLayoutMap) host.refreshNodeLayoutMap();
+    if (host.requestDerpSync) host.requestDerpSync();
     if (host.setDirtyCanvas) host.setDirtyCanvas(true, true);
 }
 
