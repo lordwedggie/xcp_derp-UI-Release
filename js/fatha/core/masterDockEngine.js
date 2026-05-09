@@ -4,6 +4,9 @@
  */
 
 import { resolveDockTarget } from "./dockTargetPicking.js";
+import { syncDerpShield } from "./fathaDOMshield.js";
+import { handleNodeResize } from "./fathaNodeResize.js";
+import { getVirtualNodeLayoutMap } from "../helpers/fathaLayoutMaps.js";
 
 const DEFAULT_DECK_SNAP = 10;
 const DEFAULT_DECK_RADIUS = 48;
@@ -1022,26 +1025,105 @@ export function matchDeckNodeSizes(node, leader, side = null) {
     let nextLeaderW = leaderRect.w;
     let nextLeaderH = leaderRect.h;
 
+    const nodeMinW = getNodeMinWidth(node);
+    const nodeMinH = getNodeMinHeight(node);
+    const leaderMinW = getNodeMinWidth(leader);
+    const leaderMinH = getNodeMinHeight(leader);
+
     if (side === "left" || side === "right") {
-        const maxH = Math.max(nodeRect.h, leaderRect.h);
-        nextH = maxH;
-        nextLeaderH = maxH;
+        const targetH = Math.max(nodeRect.h, leaderRect.h, nodeMinH, leaderMinH);
+        nextH = targetH;
+        nextLeaderH = targetH;
     } else if (side === "top" || side === "bottom") {
-        const maxW = Math.max(nodeRect.w, leaderRect.w);
-        nextW = maxW;
-        nextLeaderW = maxW;
+        const targetW = Math.max(nodeRect.w, leaderRect.w, nodeMinW, leaderMinW);
+        nextW = targetW;
+        nextLeaderW = targetW;
     } else {
-        const maxW = Math.max(nodeRect.w, leaderRect.w);
-        const maxH = Math.max(nodeRect.h, leaderRect.h);
-        nextW = maxW;
-        nextH = maxH;
-        nextLeaderW = maxW;
-        nextLeaderH = maxH;
+        const targetW = leaderRect.w >= nodeMinW ? leaderRect.w : nodeMinW;
+        const targetH = leaderRect.h >= nodeMinH ? leaderRect.h : nodeMinH;
+        nextW = targetW;
+        nextH = targetH;
+        nextLeaderW = Math.max(leaderMinW, targetW);
+        nextLeaderH = Math.max(leaderMinH, targetH);
     }
 
     const nodeChanged = syncDeckNodeSize(node, nextW, nextH);
     const leaderChanged = syncDeckNodeSize(leader, nextLeaderW, nextLeaderH);
     return nodeChanged || leaderChanged;
+}
+
+function forceDockResizeRefresh(node) {
+    if (!node) return;
+    const w = getNodeSizeValue(node, 0);
+    const h = getNodeSizeValue(node, 1);
+    const prevResizing = node._isDerpResizing === true;
+    const scale = Number(globalThis?.app?.canvas?.ds?.scale) || 1;
+    node._startPos = [...(node.pos || [0, 0])];
+    node._startSize = [w, h];
+    node._resizeAnchor = "bottom-right";
+    node._layoutMapHash = undefined;
+    node._lastMapStructure = undefined;
+    node._lastDerpW = null;
+    node._prevDerpState = null;
+    node._compDataCache = {};
+    node._isDerpResizing = true;
+    if (node.layout) node.layout._lastCacheKey = "";
+    node._forceSync = true;
+    node._layoutDirty = true;
+    if (typeof node.refreshNodeLayoutMap === "function") node.refreshNodeLayoutMap();
+    if (node.layout && typeof node.layout.compute === "function") {
+        node.layout.compute(
+            { x: 0, y: 0, w, h },
+            getVirtualNodeLayoutMap(node),
+            {
+                textTheme: node._t_textSmallPaintData || node._t_textNormalPaintData,
+                useAnim: false,
+                spawnAnim: false,
+                isVirtual: true,
+            },
+            true,
+        );
+    }
+    handleNodeResize(node, { dx: 0, dy: 0, resizeAnchor: "bottom-right" }, scale);
+    if (typeof node.requestDerpSync === "function") node.requestDerpSync();
+    if (typeof node.syncUncleSlots === "function") node.syncUncleSlots();
+    syncDerpShield(node);
+    if (typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, true);
+
+    if (node._dockResizeWakeTimer) clearTimeout(node._dockResizeWakeTimer);
+    node._dockResizeWakeTimer = setTimeout(() => {
+        node._dockResizeWakeTimer = null;
+        node._isDerpResizing = prevResizing;
+        node._lastDerpW = null;
+        node._prevDerpState = null;
+        if (node.layout) node.layout._lastCacheKey = "";
+        node._forceSync = true;
+        node._layoutDirty = true;
+        if (typeof node.refreshNodeLayoutMap === "function") node.refreshNodeLayoutMap();
+        const wakeW = getNodeSizeValue(node, 0);
+        const wakeH = getNodeSizeValue(node, 1);
+        if (node.layout && typeof node.layout.compute === "function") {
+            node.layout.compute(
+                { x: 0, y: 0, w: wakeW, h: wakeH },
+                getVirtualNodeLayoutMap(node),
+                {
+                    textTheme: node._t_textSmallPaintData || node._t_textNormalPaintData,
+                    useAnim: false,
+                    spawnAnim: false,
+                    isVirtual: true,
+                },
+                true,
+            );
+        }
+        node._startPos = [...(node.pos || [0, 0])];
+        node._startSize = [wakeW, wakeH];
+        node._resizeAnchor = "bottom-right";
+        handleNodeResize(node, { dx: 0, dy: 0, resizeAnchor: "bottom-right" }, scale);
+        if (typeof node.requestDerpSync === "function") node.requestDerpSync();
+        if (typeof node.syncUncleSlots === "function") node.syncUncleSlots();
+        syncDerpShield(node);
+        if (typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, true);
+    }, 0);
 }
 
 export function deckNodeToLeader(node, leader, graph, side = null) {
@@ -1054,7 +1136,11 @@ export function deckNodeToLeader(node, leader, graph, side = null) {
     props.deckParentId = attachLeader.id;
     props.deckDockSide = side;
     connectPeerDeckEdge(attachLeader, side, node);
+    matchDeckNodeSizes(node, attachLeader, side);
+    applyDeckEdgeSnap(node, { targetNode: attachLeader, edge: { side } }, DEFAULT_DECK_SNAP);
     normalizeDockPair(attachLeader, node, side, graph, DEFAULT_DECK_SNAP);
+    forceDockResizeRefresh(node);
+    forceDockResizeRefresh(attachLeader);
     return true;
 }
 
@@ -1070,7 +1156,11 @@ export function finalizeDeck(node, leader, graph, side = null, snap = DEFAULT_DE
     props.deckParentId = attachLeader.id;
     props.deckDockSide = side;
     connectPeerDeckEdge(attachLeader, side, node);
+    matchDeckNodeSizes(node, attachLeader, side);
+    applyDeckEdgeSnap(node, { targetNode: attachLeader, edge: { side } }, snap);
     normalizeDockPair(attachLeader, node, side, graph, snap);
+    forceDockResizeRefresh(node);
+    forceDockResizeRefresh(attachLeader);
     return true;
 }
 
@@ -1101,7 +1191,11 @@ export function finalizeDeckTarget(node, targetInfo, graph, snap = DEFAULT_DECK_
         props.deckParentId = occupied.id;
         props.deckDockSide = stackSide;
         connectPeerDeckEdge(occupied, stackSide, node);
+        matchDeckNodeSizes(node, occupied, stackSide);
+        applyDeckEdgeSnap(node, { targetNode: occupied, edge: { side: stackSide } }, snap);
         normalizeDockPair(occupied, node, stackSide, graph, snap);
+        forceDockResizeRefresh(node);
+        forceDockResizeRefresh(occupied);
         return true;
     }
 
@@ -1115,7 +1209,11 @@ export function finalizeDeckTarget(node, targetInfo, graph, snap = DEFAULT_DECK_
     props.deckParentId = attachLeader.id;
     props.deckDockSide = side;
     connectPeerDeckEdge(attachLeader, side, node);
+    matchDeckNodeSizes(node, attachLeader, side);
+    applyDeckEdgeSnap(node, { targetNode: attachLeader, edge: { side } }, snap);
     normalizeDockPair(attachLeader, node, side, graph, snap);
+    forceDockResizeRefresh(node);
+    forceDockResizeRefresh(attachLeader);
     return true;
 }
 

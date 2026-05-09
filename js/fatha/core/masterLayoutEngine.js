@@ -342,7 +342,8 @@ export class masterLayoutEngine {
         const isForced = forceOverride || this.owner?._forceSync;
         const hSlot = isSys ? "sys" : (this.owner?._hideSlot);
 
-        const mapHash = (this.owner && this.owner._layoutMapHash !== undefined) ? this.owner._layoutMapHash : (this._hashMap ? this._hashMap(profileMap) : "");
+        const rawMapHash = (this.owner && this.owner._layoutMapHash !== undefined) ? this.owner._layoutMapHash : (this._hashMap ? this._hashMap(profileMap) : "");
+        const mapHash = typeof rawMapHash === "string" ? rawMapHash : (rawMapHash == null ? "" : String(rawMapHash));
 
         // invalidate common widget caches on the owner to ensure the new data is actually painted.
         if (this.owner && mapHash.includes("bypass_")) {
