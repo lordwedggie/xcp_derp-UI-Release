@@ -19,6 +19,22 @@ const TITLE_LABEL_DEFAULT = "Derp Nodes";
 const DEFAULT_WARP_SHORTCUT_ZOOM = 1.5;
 const WARP_SHORTCUT_ITEMS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
 
+function resolveDockGlyph(node) {
+    const edges = node?.properties?.deckEdges || {};
+    const hasLeft = edges.left !== null && edges.left !== undefined;
+    const hasRight = edges.right !== null && edges.right !== undefined;
+    const hasTop = edges.top !== null && edges.top !== undefined;
+    const hasBottom = edges.bottom !== null && edges.bottom !== undefined;
+
+    if (hasLeft && hasRight) return "dockleftright";
+    if (hasTop && hasBottom) return "docktopbottom";
+    if (hasLeft) return "dockleft";
+    if (hasRight) return "dockright";
+    if (hasTop) return "docktop";
+    if (hasBottom) return "dockbottom";
+    return "undeck";
+}
+
 function parseWarpShortcutCombo(raw) {
     const value = String(raw || "").trim();
     if (!value) return { ctrl: false, shift: false, key: "" };
@@ -188,7 +204,7 @@ export const getVirtualNodeLayoutMap = (node) => {
                     hidden: !isNodeDocked(node, node.graph || null),
                     themeKey: "buttonNode, t_textSystem",
                     objectAlign: ["left", "middle"],
-                    icon: "undeck",
+                    icon: resolveDockGlyph(node),
                     playSound: "undocked",
                     width: "match", height: "fill", spacing: [sW, 0],
                     onPress: () => {
