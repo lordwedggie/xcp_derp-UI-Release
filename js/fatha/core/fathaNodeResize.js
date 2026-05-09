@@ -1,5 +1,5 @@
 import { sysPanel } from "../helpers/fathaSysPanel.js";
-import { applyDockResizeResult, syncDockResizePair } from "./fathaDockResize.js";
+import { applyDockResizeResult, syncDockResizePair } from "./dockResize.js";
 
 export function handleNodeResize(entity, data, scale) {
     const { SNAP, autoWidth, autoHeight } = entity.getDerpVars ? entity.getDerpVars(entity) : getDerpVars(entity);

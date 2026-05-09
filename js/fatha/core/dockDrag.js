@@ -1,11 +1,16 @@
 import { app } from "../../../../scripts/app.js";
 import { syncDerpShield } from "./fathaDOMshield.js";
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
+import { isNodeDocked } from "./masterDockEngine.js";
+
+const DOCK_TARGET_RADIUS = 14;
+const DOCK_GHOST_THICKNESS = 10;
 
 export function beginDockDrag(entity, deckEngine) {
     const deckRoot = deckEngine.beginDrag(entity);
     entity._deckDragRootId = deckRoot?.id || entity.id;
     entity._deckDragRootStartPos = [...(deckRoot?.pos || entity.pos || [0, 0])];
+    entity._deckDragSideLock = null;
 }
 
 export function updateDockDrag(entity, deckEngine, data, scale) {
@@ -19,18 +24,47 @@ export function updateDockDrag(entity, deckEngine, data, scale) {
     deckEngine.syncDraggedDeck(dragRoot, SNAP, { dx: deltaX, dy: deltaY }).forEach((member) => {
         syncDerpShield(member);
     });
-    if (data.originalEvent?.altKey) {
-        deckEngine.resolveDeckTarget(entity, { radius: 120, ghostThickness: 10 });
+    if (data.originalEvent?.altKey && !isNodeDocked(entity, entity.graph || app.graph || null)) {
+        entity._deckDragAltActive = true;
+        const lockedSide = entity._deckDragSideLock?.side || null;
+        const lockedHoverNodeId = entity._deckDragSideLock?.hoverNodeId ?? null;
+        let target = deckEngine.resolveDeckTarget(entity, {
+            radius: DOCK_TARGET_RADIUS,
+            ghostThickness: DOCK_GHOST_THICKNESS,
+            lockedSide,
+            lockedHoverNodeId,
+        });
+
+        // If locked side no longer yields a target, release lock and retry
+        // so users can switch between horizontal/vertical edges in one drag.
+        if (lockedSide && (!target || target.valid === false)) {
+            entity._deckDragSideLock = null;
+            target = deckEngine.resolveDeckTarget(entity, {
+                radius: DOCK_TARGET_RADIUS,
+                ghostThickness: DOCK_GHOST_THICKNESS,
+                lockedSide: null,
+                lockedHoverNodeId: null,
+            });
+        }
+
+        if (!entity._deckDragSideLock && target?.valid !== false && target?.edge?.side) {
+            entity._deckDragSideLock = {
+                side: target.edge.side,
+                hoverNodeId: target.hoverNodeId ?? target.targetNode?.id ?? null,
+            };
+        }
     } else {
         deckEngine.previewTarget = null;
         deckEngine.lastDeckTargetId = null;
+        entity._deckDragAltActive = false;
+        entity._deckDragSideLock = null;
     }
     entity.setDirtyCanvas(true, true);
     syncDerpShield(dragRoot);
 }
 
 export function endDockDrag(entity, deckEngine, data) {
-    const shouldFinalizeAltDock = !!data.originalEvent?.altKey;
+    const shouldFinalizeAltDock = !!data.originalEvent?.altKey || !!entity._deckDragAltActive;
     let handledRegionDragEnd = false;
     if (entity._pressedRegionKey) {
         const reg = entity.layout?.regions[entity._pressedRegionKey];
@@ -41,7 +75,12 @@ export function endDockDrag(entity, deckEngine, data) {
     }
     if (shouldFinalizeAltDock) {
         const { SNAP } = entity.getDerpVars(entity);
-        const targetInfo = deckEngine.resolveDeckTarget(entity, { radius: 120, ghostThickness: 10 });
+        const targetInfo = deckEngine.resolveDeckTarget(entity, {
+            radius: DOCK_TARGET_RADIUS,
+            ghostThickness: DOCK_GHOST_THICKNESS,
+            lockedSide: entity._deckDragSideLock?.side || null,
+            lockedHoverNodeId: entity._deckDragSideLock?.hoverNodeId ?? null,
+        });
         if (targetInfo?.targetNode) {
             const dockTarget = targetInfo.targetNode;
             const didDock = deckEngine.finalizeDeckTarget(entity, targetInfo, SNAP);
@@ -62,6 +101,7 @@ export function endDockDrag(entity, deckEngine, data) {
     }
     entity._pressedRegionKey = null;
     entity._deckDragAltActive = false;
+    entity._deckDragSideLock = null;
     entity._deckDragRootId = null;
     entity._deckDragRootStartPos = null;
     deckEngine.endDrag();
