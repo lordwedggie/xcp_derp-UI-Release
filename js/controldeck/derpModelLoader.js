@@ -22,6 +22,7 @@ app.registerExtension({
         // --- MAIN UI LAYOUT ---
         nodeType.prototype.refreshNodeLayoutMap = function() {
             if (this.flags.collapsed || this.size[0] <= 0) return;
+            this.properties.drawSettingBtn = false;
 
             // ZERO-INFERENCE OPTIMIZATION: Lock layout variables to 2 decimal places to block zoom jitter
             const vars = this.getDerpVars(this);
@@ -34,7 +35,7 @@ app.registerExtension({
             const deckHash = deck.map(m => `${m.name}:${m.active}`).join("|");
 
             // GOLD-MASTER HASH: Includes physical width and consistent naming for caching
-            const structureHash = `${deckHash}_${(this._modelList || []).length}_${window._xcpDerpSession}_${this.properties.showFolderNames}_${this.properties.settingActive}_${mW}_${mH}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}_${this._dropPreviewIdx}_${this._dragTrig?.index}_${this._dragThresholdMet}_${this._dragMouse?.join(",")}`;
+            const structureHash = `${deckHash}_${(this._modelList || []).length}_${window._xcpDerpSession}_${this.properties.showFolderNames}_${mW}_${mH}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}_${this._dropPreviewIdx}_${this._dragTrig?.index}_${this._dragThresholdMet}_${this._dragMouse?.join(",")}`;
 
             if (this._layoutMapHash === structureHash && this.layoutMap) {
                 return;
@@ -200,22 +201,6 @@ app.registerExtension({
                         hidden: deck.length === 0,
                         margin: [0, 0, 0, mH],
                         ...deckRegions
-                    },
-                    settingRegion: {
-                        width: "full", height: "auto", margin: [-mW, 0, -mW, mH], dir: "col",
-                        hidden: !this.properties.settingActive,
-                        settingBreak1: { type: this.UI_TYPES.LINEBREAK },
-                        settingRow1: {
-                            dir: "row", width: "full", height: "auto", margin: [mW, sH, mW, sH],
-                            dropdownRating: {
-                                type: this.UI_TYPES.DROPDOWN, canvasShield: true,
-                                items: ["Red", "Green", "Blue"],
-                                value: "Red",
-                                themeKey: "button, t_textNormal",
-                                width: "full"
-                            }
-                        },
-                        settingBreak2: { type: this.UI_TYPES.LINEBREAK }
                     },
                     regionModelLoader: {
                         dir: "row", width: "full", height: "auto", spacing: [sW, 0],

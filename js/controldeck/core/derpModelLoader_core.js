@@ -230,10 +230,6 @@ export function initDerpModelLoaderCore(nodeType) {
         };
     };
 
-    proto.onDerpSettingsPress = function() {
-        this.refreshNodeLayoutMap();
-    };
-
     proto.handleLoaderCreated = function() {
         this.properties.isWirelessTransmitter = true;
         this.properties.skipGenericWirelessHeartbeat = true;
@@ -243,7 +239,7 @@ export function initDerpModelLoaderCore(nodeType) {
         this.properties.titleLabel = "Derp Model Loader";
         this.properties.modelDeck = this.properties.modelDeck || [];
         this.properties.showFolderNames = true;
-        this.properties.drawSettingBtn = true;
+        this.properties.drawSettingBtn = false;
 
         this.properties.autoWidth = false;
         this.properties.autoHeight = true;
@@ -264,6 +260,7 @@ export function initDerpModelLoaderCore(nodeType) {
 
     proto.handleLoaderConfigure = function() {
         this.properties.skipGenericWirelessHeartbeat = true;
+        this.properties.drawSettingBtn = false;
         this._restoreModelDeckPending = true;
         const savedDeck = JSON.parse(JSON.stringify(this.properties.modelDeck || []));
         this.fetchModelData(false, { suppressSignal: true });
