@@ -26,14 +26,6 @@ function getNodeSizeValue(node, index) {
     return 0;
 }
 
-function getNodeCenter(node) {
-    const x = Number(node?.pos?.[0]) || 0;
-    const y = Number(node?.pos?.[1]) || 0;
-    const w = getNodeSizeValue(node, 0);
-    const h = getNodeSizeValue(node, 1);
-    return [x + (w / 2), y + (h / 2)];
-}
-
 function snapValue(value, snap = DEFAULT_DECK_SNAP) {
     const safeSnap = isFiniteNumber(snap) && snap > 0 ? snap : DEFAULT_DECK_SNAP;
     return Math.round(value / safeSnap) * safeSnap;
@@ -80,44 +72,6 @@ function getDeckSideDistance(dragRect, targetRect, side) {
     if (side === "top") return Math.abs((dragRect.y + dragRect.h) - targetRect.y);
     if (side === "bottom") return Math.abs(dragRect.y - (targetRect.y + targetRect.h));
     return Infinity;
-}
-
-function getSideEdgeProximity(dragRect, targetRect, side) {
-    if (!dragRect || !targetRect || !side) return { distance: Infinity, overlap: 0 };
-
-    if (side === "left" || side === "right") {
-        const gapX = side === "left"
-            ? Math.abs((dragRect.x + dragRect.w) - targetRect.x)
-            : Math.abs(dragRect.x - (targetRect.x + targetRect.w));
-        const dragTop = dragRect.y;
-        const dragBottom = dragRect.y + dragRect.h;
-        const targetTop = targetRect.y;
-        const targetBottom = targetRect.y + targetRect.h;
-        const overlapY = getOverlapLength(dragTop, dragBottom, targetTop, targetBottom);
-        if (overlapY > 0) return { distance: gapX, overlap: overlapY };
-        const gapY = dragBottom < targetTop ? targetTop - dragBottom : dragTop - targetBottom;
-        return { distance: Math.hypot(gapX, gapY), overlap: 0 };
-    }
-
-    if (side === "top" || side === "bottom") {
-        const gapY = side === "top"
-            ? Math.abs((dragRect.y + dragRect.h) - targetRect.y)
-            : Math.abs(dragRect.y - (targetRect.y + targetRect.h));
-        const dragLeft = dragRect.x;
-        const dragRight = dragRect.x + dragRect.w;
-        const targetLeft = targetRect.x;
-        const targetRight = targetRect.x + targetRect.w;
-        const overlapX = getOverlapLength(dragLeft, dragRight, targetLeft, targetRight);
-        if (overlapX > 0) return { distance: gapY, overlap: overlapX };
-        const gapX = dragRight < targetLeft ? targetLeft - dragRight : dragLeft - targetRight;
-        return { distance: Math.hypot(gapY, gapX), overlap: 0 };
-    }
-
-    return { distance: Infinity, overlap: 0 };
-}
-
-function getOverlapLength(aStart, aEnd, bStart, bEnd) {
-    return Math.max(0, Math.min(aEnd, bEnd) - Math.max(aStart, bStart));
 }
 
 function getGhostContactSide(side) {
@@ -167,171 +121,6 @@ function getNodeMinWidth(node, snap = DEFAULT_DECK_SNAP) {
     const minRaw = Math.max(propMin, contentMin, 20);
     const unit = Math.max(1, snap);
     return Math.ceil(minRaw / unit) * unit;
-}
-
-function hasMeaningfulCrossAxisOverlap(dragRect, targetRect, side) {
-    if (!dragRect || !targetRect || !side) return false;
-    const minOverlapRatio = 0.2;
-    if (side === "left" || side === "right") {
-        const overlapY = getOverlapLength(
-            dragRect.y,
-            dragRect.y + dragRect.h,
-            targetRect.y,
-            targetRect.y + targetRect.h,
-        );
-        const base = Math.max(1, Math.min(dragRect.h, targetRect.h));
-        return (overlapY / base) >= minOverlapRatio;
-    }
-    if (side === "top" || side === "bottom") {
-        const overlapX = getOverlapLength(
-            dragRect.x,
-            dragRect.x + dragRect.w,
-            targetRect.x,
-            targetRect.x + targetRect.w,
-        );
-        const base = Math.max(1, Math.min(dragRect.w, targetRect.w));
-        return (overlapX / base) >= minOverlapRatio;
-    }
-    return false;
-}
-
-export function getClosestDeckEdge(dragNode, targetNode, options = {}) {
-    if (!dragNode || !targetNode) return null;
-
-    const ghostThickness = isFiniteNumber(options.ghostThickness) ? options.ghostThickness : DEFAULT_DECK_GHOST_THICKNESS;
-    const snap = isFiniteNumber(options.snap) && options.snap > 0 ? options.snap : DEFAULT_DECK_SNAP;
-    const edgeSnapThreshold = snap * 2;
-    const drag = getNodeRect(dragNode);
-    const target = getNodeRect(targetNode);
-    const dragCX = drag.x + (drag.w / 2);
-    const dragCY = drag.y + (drag.h / 2);
-    const targetCX = target.x + (target.w / 2);
-    const targetCY = target.y + (target.h / 2);
-    const overlapX = Math.max(0, Math.min(drag.x + drag.w, target.x + target.w) - Math.max(drag.x, target.x));
-    const overlapY = Math.max(0, Math.min(drag.y + drag.h, target.y + target.h) - Math.max(drag.y, target.y));
-    const gapLeft = Math.abs((drag.x + drag.w) - target.x);
-    const gapRight = Math.abs(drag.x - (target.x + target.w));
-    const gapTop = Math.abs((drag.y + drag.h) - target.y);
-    const gapBottom = Math.abs(drag.y - (target.y + target.h));
-    const horizontalGap = Math.min(gapLeft, gapRight);
-    const verticalGap = Math.min(gapTop, gapBottom);
-    const overlapRatioX = overlapX / Math.max(1, Math.min(drag.w, target.w));
-    const overlapRatioY = overlapY / Math.max(1, Math.min(drag.h, target.h));
-    const deltaX = Math.abs(dragCX - targetCX);
-    const deltaY = Math.abs(dragCY - targetCY);
-
-    if (overlapX > 0 && gapBottom <= edgeSnapThreshold) {
-        return {
-            side: "bottom",
-            distance: gapBottom,
-            ghost: getDeckGhostRect("bottom", drag, target, ghostThickness),
-        };
-    }
-
-    if (overlapX > 0 && gapTop <= edgeSnapThreshold) {
-        return {
-            side: "top",
-            distance: gapTop,
-            ghost: getDeckGhostRect("top", drag, target, ghostThickness),
-        };
-    }
-
-    if (overlapY > 0 && gapRight <= edgeSnapThreshold) {
-        return {
-            side: "right",
-            distance: gapRight,
-            ghost: getDeckGhostRect("right", drag, target, ghostThickness),
-        };
-    }
-
-    if (overlapY > 0 && gapLeft <= edgeSnapThreshold) {
-        return {
-            side: "left",
-            distance: gapLeft,
-            ghost: getDeckGhostRect("left", drag, target, ghostThickness),
-        };
-    }
-
-    if (overlapRatioX >= 0.35 && overlapRatioY >= 0.35) {
-        if (deltaY > deltaX) {
-            return dragCY < targetCY
-                ? {
-                    side: "top",
-                    distance: gapTop,
-                    ghost: getDeckGhostRect("top", drag, target, ghostThickness),
-                }
-                : {
-                    side: "bottom",
-                    distance: gapBottom,
-                    ghost: getDeckGhostRect("bottom", drag, target, ghostThickness),
-                };
-        }
-
-        return dragCX < targetCX
-            ? {
-                side: "left",
-                distance: gapLeft,
-                ghost: getDeckGhostRect("left", drag, target, ghostThickness),
-            }
-            : {
-                side: "right",
-                distance: gapRight,
-                ghost: getDeckGhostRect("right", drag, target, ghostThickness),
-            };
-    }
-
-    if (overlapY > 0 && horizontalGap <= verticalGap) {
-        return gapLeft <= gapRight
-            ? {
-                side: "left",
-                distance: gapLeft,
-                ghost: getDeckGhostRect("left", drag, target, ghostThickness),
-            }
-            : {
-                side: "right",
-                distance: gapRight,
-                ghost: getDeckGhostRect("right", drag, target, ghostThickness),
-            };
-    }
-
-    if (overlapX > 0 && verticalGap <= horizontalGap) {
-        return gapTop <= gapBottom
-            ? {
-                side: "top",
-                distance: gapTop,
-                ghost: getDeckGhostRect("top", drag, target, ghostThickness),
-            }
-            : {
-                side: "bottom",
-                distance: gapBottom,
-                ghost: getDeckGhostRect("bottom", drag, target, ghostThickness),
-            };
-    }
-
-    const candidates = [
-        {
-            side: "left",
-            distance: gapLeft,
-            ghost: getDeckGhostRect("left", drag, target, ghostThickness),
-        },
-        {
-            side: "right",
-            distance: gapRight,
-            ghost: getDeckGhostRect("right", drag, target, ghostThickness),
-        },
-        {
-            side: "top",
-            distance: gapTop,
-            ghost: getDeckGhostRect("top", drag, target, ghostThickness),
-        },
-        {
-            side: "bottom",
-            distance: gapBottom,
-            ghost: getDeckGhostRect("bottom", drag, target, ghostThickness),
-        },
-    ];
-
-    return candidates.sort((a, b) => a.distance - b.distance)[0] || null;
 }
 
 export function ensureDeckProps(node) {
@@ -423,10 +212,6 @@ function getNodeAxisSize(node, axis = "width") {
 
 function getNodeAxisMin(node, axis = "width", snap = DEFAULT_DECK_SNAP) {
     return axis === "width" ? getNodeMinWidth(node, snap) : getNodeMinHeight(node, snap);
-}
-
-function sumAxisSizes(nodes, axis = "width") {
-    return nodes.reduce((sum, node) => sum + getNodeAxisSize(node, axis), 0);
 }
 
 function quantizeSize(value, unit) {
@@ -742,6 +527,30 @@ function getStableDeckRootCandidate(members = []) {
     return [...members].sort(compareDeckRootCandidates)[0] || null;
 }
 
+function getSideAxis(side) {
+    if (side === "left" || side === "right") return "horizontal";
+    if (side === "top" || side === "bottom") return "vertical";
+    return null;
+}
+
+function getDeckGroupAxis(node, graph) {
+    const members = getDeckMembers(node, graph);
+    if (!members || members.length <= 1) return null;
+
+    let hasHorizontal = false;
+    let hasVertical = false;
+    for (const member of members) {
+        const occupied = getOccupiedDeckEdges(member, graph);
+        if (occupied.has("left") || occupied.has("right")) hasHorizontal = true;
+        if (occupied.has("top") || occupied.has("bottom")) hasVertical = true;
+        if (hasHorizontal && hasVertical) return "mixed";
+    }
+
+    if (hasHorizontal) return "horizontal";
+    if (hasVertical) return "vertical";
+    return null;
+}
+
 export function getDirectDeckNeighbors(node, graph) {
     return getAdjacentDeckNodes(node, graph);
 }
@@ -870,6 +679,30 @@ export function canDeckNodeToLeader(node, leader, graph, side = null) {
             occupied: [...nodeOccupied],
         });
         return false;
+    }
+
+    const requestedAxis = getSideAxis(side);
+    if (requestedAxis) {
+        const leaderAxis = getDeckGroupAxis(attachLeader, graph);
+        if (leaderAxis === "mixed") {
+            dockDebugLog("reject: attach leader group mixed-axis", {
+                nodeId: node.id,
+                attachLeaderId: attachLeader.id,
+                side,
+                requestedAxis,
+            });
+            return false;
+        }
+        if (leaderAxis && leaderAxis !== requestedAxis) {
+            dockDebugLog("reject: axis mismatch", {
+                nodeId: node.id,
+                attachLeaderId: attachLeader.id,
+                side,
+                requestedAxis,
+                leaderAxis,
+            });
+            return false;
+        }
     }
 
     dockDebugLog("accept", { nodeId: node.id, leaderId: leader.id, attachLeaderId: attachLeader.id, side });
