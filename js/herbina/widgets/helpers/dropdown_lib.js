@@ -280,10 +280,13 @@ export function appendHybridPickerRow(container, sourceEl, paintOFF, paintON, sc
     row.style.padding = `0px ${(pX + sideMargin) * scale}px`;
 
     const activePaint = isSelected ? (paintON || paintOFF) : paintOFF;
-    const fs = (activePaint?.fontSize || 10);
+    // Keep picker typography stable across navigation/selection states.
+    const fs = (paintOFF?.fontSize || paintON?.fontSize || 10);
     row.style.fontSize = `${fs * scale}px`;
     row.style.fontFamily = activePaint?.font || "Arial";
     row.style.color = activePaint?.textColor || activePaint?.fill || "white";
+    row._baseFontSize = fs;
+    row._glyphSizeMult = glyphSizeMult;
 
     if (glyph) {
         const gSpan = document.createElement("span");

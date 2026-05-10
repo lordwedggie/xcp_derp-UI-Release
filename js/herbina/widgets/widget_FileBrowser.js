@@ -366,6 +366,8 @@ function openFilePicker(sourceEl, config, node, callbacks) {
                 if (typeof node.requestDerpSync === "function") node.requestDerpSync();
                 if (typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, true);
             }
+            // Force row-font re-sync after navigation rebuilds list rows.
+            if (picker) picker._lastRowHash = "";
             ensureElementVisibleInViewport(picker, {
                 viewportMargin: 8,
                 durationMs: 220,
@@ -720,7 +722,7 @@ export function syncFileBrowser(context, node, app, config) {
 
             // THE O(N) DOM THRASH FIX: Only update row scales when physical zoom changes, not during animation
             const {sW: rowSW} = getDerpVars(node);
-            const rowHash = `${scale}_${dRowH}_${rowSW}`;
+            const rowHash = `${scale}_${dRowH}_${rowSW}_${fs}_${headerCount}_${scrollCount}`;
             if (activeFilePicker._lastRowHash !== rowHash) {
                 activeFilePicker._lastRowHash = rowHash;
 
