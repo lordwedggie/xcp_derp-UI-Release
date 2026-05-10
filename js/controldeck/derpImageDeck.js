@@ -263,6 +263,26 @@ app.registerExtension({
             if (typeof this.setDirtyCanvas === "function") this.setDirtyCanvas(true, true);
         };
 
+        const baseOnDrawForeground = nodeType.prototype.onDrawForeground;
+        nodeType.prototype.onDrawForeground = function(ctx) {
+            const wasCollapsed = this._lastContentCollapsed === true;
+            const isCollapsed = this.properties?.contentCollapsed === true;
+
+            if (wasCollapsed && !isCollapsed) {
+                const restoreH = Number(this._preCollapseHeight || 0);
+                if (restoreH > 0) {
+                    const restoreW = Number(this.properties?.nodeSize?.[0] || this.size?.[0] || 400);
+                    this.properties.nodeSize = [restoreW, restoreH];
+                    this.size = [restoreW, restoreH];
+                    if (typeof this.refreshNodeLayoutMap === "function") this.refreshNodeLayoutMap();
+                    if (typeof this.requestDerpSync === "function") this.requestDerpSync();
+                }
+            }
+
+            this._lastContentCollapsed = isCollapsed;
+            if (baseOnDrawForeground) baseOnDrawForeground.apply(this, arguments);
+        };
+
         nodeType.prototype.refreshNodeLayoutMap = function() {
             if (this.flags.collapsed || this.size[0] <= 0) return;
             this.properties.drawSettingBtn = false;
