@@ -1,5 +1,5 @@
 import { sysPanel } from "../helpers/fathaSysPanel.js";
-import { syncDockResizePair } from "./dockResizeSync.js";
+import { applyDockResizeResult, syncDockResizePair } from "./dockResize.js";
 
 export function handleNodeResize(entity, data, scale) {
     const { SNAP, autoWidth, autoHeight } = entity.getDerpVars ? entity.getDerpVars(entity) : getDerpVars(entity);
@@ -45,20 +45,8 @@ export function handleNodeResize(entity, data, scale) {
     const newH = allowHeightResize ? Math.max(minH, Math.round(rawH / SNAP) * SNAP) : entity.size[1];
 
     const dockResizeResult = syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH, SNAP);
-
-    if (dockResizeResult.handledAll) {
-        entity._dockResizeSession = null;
-        if (sysPanel.isVisible && sysPanel.hostNode?.id === entity.id) {
-            sysPanel._layoutDirty = true;
-            sysPanel._shouldSync = true;
-        }
-        entity.setDirtyCanvas(true, true);
-        if (entity.syncUncleSlots) entity.syncUncleSlots();
-        return;
-    }
-
-    const appliedW = newW;
-    const appliedH = newH;
+    const appliedW = dockResizeResult.handledWidth ? (dockResizeResult.appliedWidth ?? newW) : newW;
+    const appliedH = dockResizeResult.handledHeight ? (dockResizeResult.appliedHeight ?? newH) : newH;
 
     if (entity.size[0] === appliedW && entity.size[1] === appliedH && dockResizeResult.counterparts.length === 0) return;
 
@@ -73,6 +61,9 @@ export function handleNodeResize(entity, data, scale) {
     entity.size[0] = appliedW;
     entity.size[1] = appliedH;
     if (entity.properties) entity.properties.nodeSize = [appliedW, appliedH];
+
+    const dockApplyResult = applyDockResizeResult(entity, dockResizeResult);
+    if (dockApplyResult.handledAll) return;
 
     if (sysPanel.isVisible && sysPanel.hostNode?.id === entity.id) {
         sysPanel._layoutDirty = true;
