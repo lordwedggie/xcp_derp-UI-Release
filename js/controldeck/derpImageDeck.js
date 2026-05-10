@@ -62,6 +62,48 @@ app.registerExtension({
             this.refreshDerpImageDeckSysMap();
         };
 
+        nodeType.prototype.updateImageDeckSignalFilters = function() {
+            const baseTypes = ["IMAGE"];
+            const additionalTypes = this.properties.toggleModelInfo === false ? [] : ["MODEL"];
+            this.signalFilters = { types: baseTypes, additionalTypes };
+        };
+
+        nodeType.prototype.getImageDeckModelNamePrefix = function() {
+            if (this.properties.toggleModelInfo === false) return "";
+            const ids = this.properties.multiSignalIds || {};
+            const modelSignalId = ids[1] || ids["1"] || ids.Model || ids.MODEL || null;
+            const sigs = window.xcpDerpSignals || {};
+            const sig = modelSignalId ? sigs[modelSignalId] : Object.values(sigs).find(s => String(s?.type || "").toUpperCase() === "MODEL");
+            if (!sig) return "";
+
+            const v = sig.value;
+            const normalizeModelName = (raw) => {
+                if (!raw) return "";
+                const name = String(raw).split(/[\\/]/).pop() || "";
+                return name.replace(/\.(safetensors|ckpt|pt)$/i, "");
+            };
+            if (v && typeof v === "object") {
+                return normalizeModelName(v.model_name_prefix || v.ckpt_name || v.model_name || "");
+            }
+            if (typeof v === "string") return normalizeModelName(v);
+            return "";
+        };
+
+        nodeType.prototype.getImageDeckFilenameText = function() {
+            const list = Array.isArray(this._derpImageDeckList) ? this._derpImageDeckList : [];
+            const idx = Number.isInteger(this._derpImageDeckIndex) ? this._derpImageDeckIndex : (list.length - 1);
+            const image = list[idx] || null;
+
+            const rawFile = image
+                ? (image.filename || image.image || (typeof image === "string" ? image : ""))
+                : "";
+            const fileNameOnly = String(rawFile || "").split(/[\\/]/).pop();
+
+            const modelPrefix = this.getImageDeckModelNamePrefix ? this.getImageDeckModelNamePrefix() : "";
+            if (modelPrefix && fileNameOnly) return `${modelPrefix}_${fileNameOnly}`;
+            return modelPrefix || fileNameOnly || "";
+        };
+
         nodeType.prototype.applyPalette = function() {
             if (window.xcpDerpThemeConfig) this.handleThemeUpdate(window.xcpDerpThemeConfig);
             this.refreshNodeLayoutMap();
@@ -73,7 +115,8 @@ app.registerExtension({
             if (baseOnNodeCreated) baseOnNodeCreated.apply(this, arguments);
             this._derpImageDeckList = this._derpImageDeckList || [];
             this._derpImageDeckIndex = Number.isInteger(this._derpImageDeckIndex) ? this._derpImageDeckIndex : 0;
-            this.signalFilters = { types: ["IMAGE"] };
+            this.properties.toggleModelInfo = this.properties.toggleModelInfo !== false;
+            this.updateImageDeckSignalFilters();
             this.properties.multiSignalIds = this.properties.multiSignalIds || {};
             this.properties.multiSignalLabels = this.properties.multiSignalLabels || {};
             this.titleLabel = this.titleLabel || "Derp Image Deck";
@@ -108,12 +151,6 @@ app.registerExtension({
                                 : [];
 
                     if (eventNodeId && String(baseId) === eventNodeId && eventImages.length > 0 && typeof this.applyDerpImageDeckList === "function") {
-                        console.log("[DerpImageDeck] execution event image hit", {
-                            nodeId: this.id,
-                            sourceNodeId: baseId,
-                            eventNodeId,
-                            eventImages
-                        });
                         this.applyDerpImageDeckList(eventImages, "execution-event");
                         return;
                     }
@@ -153,14 +190,6 @@ app.registerExtension({
                                 ? output.output.images
                                 : [];
 
-                    console.log("[DerpImageDeck] executed event", {
-                        nodeId: this.id,
-                        sourceNodeId: baseId,
-                        eventNodeId,
-                        output,
-                        images
-                    });
-
                     if (images.length > 0 && typeof this.applyDerpImageDeckList === "function") {
                         this.applyDerpImageDeckList(images, "executed-event");
                     }
@@ -188,7 +217,8 @@ app.registerExtension({
             const index = state && Number.isInteger(state.index) ? state.index : 0;
             this._derpImageDeckList = images;
             this._derpImageDeckIndex = index;
-            this.signalFilters = { types: ["IMAGE"] };
+            this.properties.toggleModelInfo = this.properties.toggleModelInfo !== false;
+            this.updateImageDeckSignalFilters();
             this.properties.multiSignalIds = this.properties.multiSignalIds || {};
             this.properties.multiSignalLabels = this.properties.multiSignalLabels || {};
             this.properties.drawSignalBtn = true;
@@ -223,9 +253,8 @@ app.registerExtension({
             ].map(v => Number(v.toFixed(2)));
 
             const count = Array.isArray(this._derpImageDeckList) ? this._derpImageDeckList.length : 0;
-            const idx = Number.isInteger(this._derpImageDeckIndex) ? this._derpImageDeckIndex : 0;
             const imageUrl = this.getDerpImageDeckCurrentUrl ? this.getDerpImageDeckCurrentUrl() : null;
-            const structureHash = `${count}_${idx}_${imageUrl || "none"}_${this.size[0].toFixed(2)}_${(this.size[1] || 0).toFixed(2)}_${mW}_${mH}_${sW}_${sH}_${pW}_${pH}_${this.titleLabel}`;
+            const structureHash = `${count}_${imageUrl || "none"}_${this.size[0].toFixed(2)}_${(this.size[1] || 0).toFixed(2)}_${mW}_${mH}_${sW}_${sH}_${pW}_${pH}_${this.titleLabel}`;
             if (this._layoutMapHash === structureHash && this.layoutMap) return;
             this._layoutMapHash = structureHash;
 
@@ -244,7 +273,7 @@ app.registerExtension({
                         width: "full",
                         height: "fill",
                         minHeight: 60,
-                        padding: [0, 0],
+                        padding: [0, 0], spacing: [0, sH],
                         themeKey: "panel, t_textNormal",
                         imageUrl,
                         aspectFit: "contain",
@@ -252,42 +281,24 @@ app.registerExtension({
                         drawMode: "both",
                         strokeZIndex: true
                     },
-
-                    imagePagerRow: {
-                        type: this.UI_TYPES.REGION,
+                    regionImageHandling1: {
+                        dir: "row",
                         width: "full",
                         height: "auto",
-                        dir: "row",
                         spacing: [sW, 0],
-
-                        btnPrevImage: {
-                            type: this.UI_TYPES.ICONBUTTON,
-                            icon: "leftarrow",
-                            state: count > 1 ? "OFF" : "DIS",
-                            width: "auto",
-                            height: "auto",
-                            padding: [pW, pH],
-                            themeKey: "button, t_textNormal",
-                            onPress: () => this.stepDerpImageDeck(-1)
-                        },
-
-                        imageCounter: {
-                            type: this.UI_TYPES.TEXT,
+                        editorImageFilename: {
+                            type: this.UI_TYPES.EDITOR,
+                            themeKey: "dialog, t_textSystem",
                             width: "full",
                             height: "auto",
-                            themeKey: "t_textNormal",
-                            text: count > 0 ? `${idx + 1} / ${count}` : "No image"
-                        },
-
-                        btnNextImage: {
-                            type: this.UI_TYPES.ICONBUTTON,
-                            icon: "rightarrow",
-                            state: count > 1 ? "OFF" : "DIS",
-                            width: "auto",
-                            height: "auto",
                             padding: [pW, pH],
-                            themeKey: "button, t_textNormal",
-                            onPress: () => this.stepDerpImageDeck(1)
+                            labelAlign: ["left", "middle"],
+                            text: this.getImageDeckFilenameText ? this.getImageDeckFilenameText() : "",
+                            value: this.getImageDeckFilenameText ? this.getImageDeckFilenameText() : "",
+                            onBlur: () => {
+                                if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
+                                if (this.requestDerpSync) this.requestDerpSync();
+                            }
                         }
                     }
                 }
@@ -300,7 +311,8 @@ app.registerExtension({
 
         nodeType.prototype.refreshDerpImageDeckSysMap = function() {
             const vars = this.getDerpVars(this);
-            const mW = vars.mW, mH = vars.mH, oY = vars.oY, pW = vars.pW, pH = vars.pH;
+            const mW = vars.mW, mH = vars.mH, oY = vars.oY, pW = vars.pW, pH = vars.pH, sW = vars.sW;
+            const generatedFilenameText = this.getImageDeckFilenameText ? this.getImageDeckFilenameText() : "";
             this.sysLayoutMap = {
                 sysContentRegion: {
                     dir: "col",
@@ -315,7 +327,29 @@ app.registerExtension({
                         labelAlign: ["left", "middle"],
                         text: "Image Deck settings",
                         width: "full",
-                        padding: [pW, pH]
+                        padding: [pW, pH],
+                    },
+                    regionOption1: {
+                        dir: "row",
+                        width: "full",
+                        height: "auto",
+                        spacing: [sW, 0],
+                        toggleModelInfo: {
+                            type: this.UI_TYPES.TOGGLE,
+                            textThemeKey: "t_textSystem",
+                            icon: "radio",
+                            label: "Get model name",
+                            value: this.properties.toggleModelInfo !== false,
+                            width: "auto",
+                            height: "auto",
+                            padding: [pW, pH],
+                            onPress: () => {
+                                this.properties.toggleModelInfo = this.properties.toggleModelInfo === false;
+                                this.updateImageDeckSignalFilters();
+                                this.refreshDerpImageDeckSysMap();
+                                this.requestDerpSync();
+                            }
+                        }
                     }
                 }
             };

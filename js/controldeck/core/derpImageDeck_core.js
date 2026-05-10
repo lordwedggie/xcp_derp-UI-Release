@@ -135,12 +135,6 @@ export function initDerpImageDeckCore(nodeType) {
         const nextHash = JSON.stringify(list);
         if (this._lastWirelessImageHash === nextHash) return;
 
-        console.log("[DerpImageDeck] applyDerpImageDeckList", {
-            nodeId: this.id,
-            source,
-            list
-        });
-
         this._lastWirelessImageHash = nextHash;
         this._derpImageDeckList = list;
         this._derpImageDeckIndex = list.length - 1;
@@ -174,17 +168,6 @@ export function initDerpImageDeckCore(nodeType) {
         return buildComfyImageUrl(current);
     };
 
-    proto.stepDerpImageDeck = function(step) {
-        const list = Array.isArray(this._derpImageDeckList) ? this._derpImageDeckList : [];
-        if (list.length <= 1) return;
-        this._derpImageDeckIndex += step;
-        if (this._derpImageDeckIndex < 0) this._derpImageDeckIndex = list.length - 1;
-        if (this._derpImageDeckIndex >= list.length) this._derpImageDeckIndex = 0;
-        this._layoutMapHash = null;
-        if (typeof this.refreshNodeLayoutMap === "function") this.refreshNodeLayoutMap();
-        if (typeof this.requestDerpSync === "function") this.requestDerpSync();
-    };
-
     // Callback path used by bastaSignalReceiver.
     proto.setDerpSelectedSignal = function(val, idx = 0) {
         if (!this.properties.multiSignalLabels) this.properties.multiSignalLabels = {};
@@ -193,12 +176,6 @@ export function initDerpImageDeckCore(nodeType) {
 
         const match = String(val || "").match(/\[([\d:]+)\]/);
         if (match) this.properties.multiSignalIds[idx] = match[1];
-
-        console.log("[DerpImageDeck] Selected IMAGE signal", {
-            nodeId: this.id,
-            selectedLabel: val,
-            selectedSignalId: this.properties.multiSignalIds[idx]
-        });
 
         if (typeof this.syncDerpOutputs === "function") this.syncDerpOutputs();
         if (typeof this.refreshNodeLayoutMap === "function") this.refreshNodeLayoutMap();
@@ -209,72 +186,19 @@ export function initDerpImageDeckCore(nodeType) {
     proto.syncDerpOutputs = function() {
         const ids = this.properties.multiSignalIds || {};
         const signalId = ids[0] || ids["0"];
-        if (!signalId) {
-            console.log("[DerpImageDeck] syncDerpOutputs: no selected signal", {
-                nodeId: this.id,
-                ids
-            });
-            return;
-        }
+        if (!signalId) return;
 
         const sig = resolveSignalById(signalId);
-        if (!sig) {
-            console.log("[DerpImageDeck] syncDerpOutputs: signal not found", {
-                nodeId: this.id,
-                signalId,
-                knownSignals: Object.keys(window.xcpDerpSignals || {})
-            });
-            return;
-        }
-
-        console.log("[DerpImageDeck] syncDerpOutputs: resolved signal", {
-            nodeId: this.id,
-            signalId,
-            signal: sig
-        });
+        if (!sig) return;
 
         let list = parseImageList(sig.value);
-        console.log("[DerpImageDeck] parseImageList(sig.value)", {
-            nodeId: this.id,
-            signalId,
-            parsed: list,
-            rawValue: sig.value
-        });
         if (!Array.isArray(list) || list.length === 0) {
             list = resolvePreviewFromNodeOutputs(signalId);
-            console.log("[DerpImageDeck] resolvePreviewFromNodeOutputs(signalId)", {
-                nodeId: this.id,
-                signalId,
-                parsed: list,
-                nodeOutputs: window.app && window.app.nodeOutputs ? window.app.nodeOutputs[String(String(signalId).split(":")[0])] : undefined
-            });
         }
         if (!Array.isArray(list) || list.length === 0) {
             list = resolvePreviewFromSourceNode(signalId);
-            const baseId = parseInt(String(signalId || "").split(":")[0], 10);
-            const sourceNode = (!Number.isNaN(baseId) && window.app && window.app.graph) ? window.app.graph.getNodeById(baseId) : null;
-            console.log("[DerpImageDeck] resolvePreviewFromSourceNode(signalId)", {
-                nodeId: this.id,
-                signalId,
-                parsed: list,
-                sourceNodeId: baseId,
-                sourceNodeImg0: sourceNode && sourceNode.imgs ? sourceNode.imgs[0] : undefined,
-                sourceNodeImg0Src: sourceNode && sourceNode.imgs && sourceNode.imgs[0] ? sourceNode.imgs[0].src : undefined
-            });
         }
-        if (!Array.isArray(list) || list.length === 0) {
-            console.log("[DerpImageDeck] syncDerpOutputs: no image list resolved", {
-                nodeId: this.id,
-                signalId
-            });
-            return;
-        }
-
-        console.log("[DerpImageDeck] syncDerpOutputs: resolved image list", {
-            nodeId: this.id,
-            signalId,
-            list
-        });
+        if (!Array.isArray(list) || list.length === 0) return;
 
         const nextHash = JSON.stringify(list);
         if (this._lastWirelessImageHash === nextHash) return;

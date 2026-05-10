@@ -37,7 +37,9 @@ export function showBastaSignalReceiver(host, targetRegion = null, params = {}) 
             const { mW, mH, sW, sH, oY, pW, pH } = vars;
 
             const globalSignals = window.xcpDerpSignals || {};
-            const filterTypes = params.types?.length > 0 ? params.types : ["ANY"];
+            const baseTypes = Array.isArray(params.types) && params.types.length > 0 ? params.types : ["ANY"];
+            const additionalTypes = Array.isArray(params.additionalTypes) ? params.additionalTypes : [];
+            const filterTypes = [...new Set([...baseTypes, ...additionalTypes])];
 
             const signalRows = filterTypes.reduce((acc, type, idx) => {
                 const targetType = type.toUpperCase();
@@ -68,14 +70,22 @@ export function showBastaSignalReceiver(host, targetRegion = null, params = {}) 
                     width: "full", margin: [0, 0, 0, 0]
                 };
 
+                const currentLabel = basta.hostNode?.properties?.multiSignalLabels?.[idx] || null;
+                const hasCurrent = !!currentLabel && !String(currentLabel).includes("Select") && !String(currentLabel).includes("No ");
+                const hasReplacement = items.some((it) => String(it) !== String(currentLabel));
+                const canOpenPicker = !hasCurrent ? items.length > 0 : hasReplacement;
+
                 acc[`dropdownSignalSelect_${idx}`] = {
                     anchor: { target: `signalLabel_${idx}`, axis: "y", offset: sH }, labelAlign: ["left", "middle"],
                     type: UI_TYPES.DROPDOWN_DERP, canvasShield: true,
                     themeKey: "dialog, t_textNormal",
+                    mouseOver: canOpenPicker,
+                    canOpenPicker,
+                    bypassHashOptimization: true,
                     width: "full", height: "auto", padding: [pW, pH],
                     items: items,
                     value: basta.hostNode?.properties?.multiSignalLabels?.[idx] || (items.length > 0 ? "Select signal..." : `No ${targetType} signals found`),
-                    state: (basta.hostNode?.mode === 4 || basta.hostNode?.mode === 2 || (!items?.length && !basta.hostNode?.properties?.multiSignalIds?.[idx])) ? "DIS" : "OFF",
+                    state: (basta.hostNode?.mode === 4 || basta.hostNode?.mode === 2) ? "DIS" : "OFF",
                     onChange: (val) => {
                         if (!items || items.length === 0) return; // THE SAFETY GUARD: Prevent committing fallback text to properties
                         if (basta.hostNode) {

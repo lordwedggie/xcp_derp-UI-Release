@@ -339,6 +339,7 @@ export function syncDropdownDerp(context, node, app, config) {
                 liveReg.onPress = (e) => {
                     if (e && e.stopPropagation) e.stopPropagation();
                     if (liveReg.state === "DIS") return;
+                    if (liveReg.canOpenPicker === false) return;
 
                     executeShieldedInteraction(node, app, effectiveGeometry.x, effectiveGeometry.y, effectiveGeometry.w, effectiveGeometry.h, () => {
                         node._derpAwakeFrames = 10;
@@ -364,7 +365,8 @@ export function syncDropdownDerp(context, node, app, config) {
 
     const isPressed = safeConfig.isPressed || node._pressedRegionKey === safeConfig.key || (el.dataset && el.dataset.isPressed === "true");
     const isHovered = (safeConfig.mouseOver !== false && (node._hoveredRegionKey === safeConfig.key || (el.dataset && el.dataset.isHovered === "true")));
-    const stateHash = `${isPressed}_${isHovered}_${node.mode}_${window._xcpDerpSession}_${safeConfig.value}_${isAwake}`;
+    const itemCount = Array.isArray(safeConfig.items) ? safeConfig.items.length : 0;
+    const stateHash = `${isPressed}_${isHovered}_${node.mode}_${window._xcpDerpSession}_${safeConfig.value}_${isAwake}_${safeConfig.state || "OFF"}_${itemCount}`;
 
     const needsFullSync =
         node._shouldSync ||
@@ -537,6 +539,7 @@ export function syncDropdownDerp(context, node, app, config) {
 
         el.onclick = (e) => {
             if (stateStr === "DIS") return;
+            if (safeConfig.canOpenPicker === false) return;
             if (node._pressedRegionKey === safeConfig.key) return;
 
             executeShieldedInteraction(node, app, x, y, w, h, () => {
@@ -634,7 +637,7 @@ export function syncDropdownDerp(context, node, app, config) {
         const isOff = (stateStr === "OFF");
 
         const lblPaint = resolvePaintData(node, labelKey || "t_textsmall", isDis ? "_DIS" : (isOff ? "_OFF" : "_ON"));
-        const valPaint = resolvePaintData(node, labelKey || "t_textsmall", isDis ? "_DIS" : (isOff ? "_DIS" : "_OFF"));
+        const valPaint = resolvePaintData(node, labelKey || "t_textsmall", isDis ? "_DIS" : "_OFF");
 
         el._label.children[0].style.color = lblPaint?.textColor || lblPaint?.fill || animatedTextColor;
         el._label.children[1].style.color = valPaint?.textColor || valPaint?.fill || animatedTextColor;

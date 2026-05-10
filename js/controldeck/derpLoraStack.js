@@ -630,6 +630,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                     width: "auto", height: "auto", padding: [pW, pH], spacing: [sW, 0],
                                     onPress: () => {
                                         this.properties.attentionMode = this.properties.attentionMode === "Joint-Attention" ? "Cross-Attention" : "Joint-Attention";
+                                        this.signalFilters = { types: this.properties.attentionMode === "Joint-Attention" ? ["MODEL"] : ["MODEL", "CLIP"] };
                                         if (this.syncDerpOutputs) this.syncDerpOutputs();
                                         if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
                                         this.refreshDerpLoraStackSysMap();

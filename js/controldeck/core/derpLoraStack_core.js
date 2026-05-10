@@ -489,6 +489,8 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                 const onConfigure = nodeType.prototype.onConfigure;
                 nodeType.prototype.onConfigure = function(info) {
                     if (onConfigure) onConfigure.apply(this, arguments);
+                    this.properties.attentionMode = this.properties.attentionMode || "Cross-Attention";
+                    this.signalFilters = { types: this.properties.attentionMode === "Joint-Attention" ? ["MODEL"] : ["MODEL", "CLIP"] };
                     this.isPureVirtual = true;
                     this.properties.isPureVirtual = true;
                     // Re-enforce virtual state on workflow load
