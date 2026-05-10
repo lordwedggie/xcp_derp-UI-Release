@@ -39,6 +39,7 @@ import {
     triggerWall_hasGroupTextChanges,
     triggerWall_addSelectedGroupToProfile,
     triggerWall_saveGroupToProfile,
+    triggerWall_saveCurrentProfile,
     triggerWall_onDerpSysPanelOpen,
     triggerWall_onResize,
     triggerWall_groupDrag,
@@ -512,8 +513,8 @@ app.registerExtension({
                     icon: "save", width: "match", height: "fill", margin: [sW, 0, 0, 0],
                     state: "OFF",
                     onPress: () => {
-                        if (triggerWall_onSavePreset) {
-                            triggerWall_onSavePreset(this);
+                        if (triggerWall_saveCurrentProfile) {
+                            triggerWall_saveCurrentProfile(this, "btnSaveTriggerGroup");
                         }
                     }
                 },
@@ -560,7 +561,19 @@ app.registerExtension({
                 lastRegionKey = regionKey;
             });
 
+            const loadedDeckTitles = new Set(
+                (this.properties.triggerGroups || [])
+                    .filter(g => !g?.hidden)
+                    .map(g => String(g?.title || "").trim())
+                    .filter(Boolean)
+            );
+
             const cachedTriggerGroupItems = [...(this._cachedPresetData?.triggerGroups || [])]
+                .filter(g => {
+                    const title = String(g?.title || "").trim();
+                    if (!title) return false;
+                    return !loadedDeckTitles.has(title);
+                })
                 .sort((a, b) => (a.title || "").localeCompare(b.title || ""))
                 .map(g => g.title || "Trigger Group");
 

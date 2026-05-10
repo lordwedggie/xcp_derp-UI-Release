@@ -829,6 +829,62 @@ export async function triggerWall_saveGroupToProfile(node, group, targetRegion =
     }
 }
 
+export async function triggerWall_saveCurrentProfile(node, targetRegion = "btnSaveTriggerGroup") {
+    const presetName = node.properties?.lastSavedPreset;
+    if (!presetName) return;
+
+    const presetData = cloneTriggerPresetData(node._cachedPresetData) || {
+        fileType: "xcp_derp_trigger_preset",
+        version: "1.0.0",
+        timestamp: Date.now(),
+        triggerGroups: [],
+    };
+
+    if (!Array.isArray(presetData.triggerGroups)) presetData.triggerGroups = [];
+
+    const visibleGroups = (node.properties?.triggerGroups || []).filter((g) => !g?.hidden);
+    const byTitle = new Map(presetData.triggerGroups.map((g) => [String(g?.title || ""), g]));
+
+    visibleGroups.forEach((group) => {
+        const cleanGroup = {
+            id: group.id || `grp_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`,
+            title: group.title,
+            isExclusive: !!group.isExclusive,
+            triggers: (group.triggers || [])
+                .filter((t) => !t.hidden)
+                .map((t) => ({
+                    id: t.id || `trig_${Math.random().toString(16).slice(2, 8)}`,
+                    label: t.label,
+                    weight: t.weight,
+                    active: !!t.active,
+                })),
+        };
+        byTitle.set(String(cleanGroup.title || ""), cleanGroup);
+    });
+
+    presetData.triggerGroups = Array.from(byTitle.values());
+    presetData.timestamp = Date.now();
+
+    try {
+        const response = await fetch("/xcp/save/triggerWall", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: presetName, data: presetData }),
+        });
+        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error || "Unknown error");
+
+        setLoadedTriggerPreset(node, presetName, presetData);
+        node._layoutMapHash = null;
+        refreshAndSync(node, false, true);
+        showBastaMessage(node, "Profile Saved!", 3000, { fade: true, grow: true }, targetRegion, false, "success");
+    } catch (e) {
+        console.error("[xcpDerp] Failed to save current profile:", e);
+        showBastaMessage(node, "Save Failed", 3000, { fade: true, grow: true }, targetRegion, false, "error");
+    }
+}
+
 export function triggerWall_onDerpSysPanelOpen(node, panel) {
     if (node.sysLayoutMap) panel.setLayoutMap(node.sysLayoutMap);
 }
