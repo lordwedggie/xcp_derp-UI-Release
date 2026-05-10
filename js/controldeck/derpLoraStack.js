@@ -41,6 +41,20 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                     this.properties.drawSettingBtn = true;
                 };
 
+                nodeType.prototype.toggleLoraEntryBypass = function(index) {
+                    const currentStack = Array.isArray(this.properties.stackData) ? this.properties.stackData : [];
+                    if (!Number.isInteger(index) || index < 0 || index >= currentStack.length) return;
+                    const nextStack = currentStack.map((entry, idx) => {
+                        if (idx !== index || !Array.isArray(entry)) return entry;
+                        const nextEntry = [...entry];
+                        nextEntry[5] = !nextEntry[5];
+                        return nextEntry;
+                    });
+                    this.properties.stackData = nextStack;
+                    if (this.syncDerpOutputs) this.syncDerpOutputs();
+                    this.refreshNodeLayoutMap();
+                };
+
                 // --- MAIN UI LAYOUT (NODE FACE) ---
                 nodeType.prototype.refreshNodeLayoutMap = function() {
                     // ZERO-INFERENCE OPTIMIZATION: Precision Jitter Lock (toFixed 2) to block zoom-coordinate drift
@@ -84,7 +98,8 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                             if (loraRow) {
                                 // THE BYPASS SYNC: Detect if the entire node (mode 2/4, properties, or bypass widget) or just this LoRA entry is bypassed
                                 const nodeBypassed = this.mode === 2 || this.mode === 4 || this.properties.isBypassed || (this.widgets && this.widgets[0] && this.widgets[0].value === "bypass");
-                                const isBypassed = !!lora[5] || nodeBypassed;
+                                const rowBypassed = !!lora[5];
+                                const isBypassed = rowBypassed || nodeBypassed;
                                 const isDragged = !!(this._dragTrig && this._dragThresholdMet && this._dragTrig.index === i);
                                 const isSelected = (activeSlot !== -1 && i === activeSlot);
                                 if (activeSlot === -1 && this._colorAnimCache) {
@@ -122,7 +137,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                     const topRow = loraMid[`topRow_${i}`];
                                     if (topRow) {
                                         const useAnim = this.properties.useAnimations !== false && window.xcpDerpSettings?.useAnimations !== false;
-                                        if (topRow[`btnEnable_${i}`]) topRow[`btnEnable_${i}`].state = !isBypassed ? "ON" : "OFF";
+                                        if (topRow[`btnEnable_${i}`]) topRow[`btnEnable_${i}`].state = nodeBypassed ? "DIS" : (!rowBypassed ? "ON" : "OFF");
                                         if (topRow[`lblLoraNameTop_${i}`]) {
                                             topRow[`lblLoraNameTop_${i}`].state = (i === activeSlot) ? "ON" : (isBypassed ? "DIS" : "OFF");
                                         }
@@ -135,7 +150,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                     }
                                     const modelRow = loraMid[`modelRow_${i}`];
                                     if (modelRow) {
-                                        if (modelRow[`btnEnableLeft_${i}`]) modelRow[`btnEnableLeft_${i}`].state = !isBypassed ? "ON" : "OFF";
+                                        if (modelRow[`btnEnableLeft_${i}`]) modelRow[`btnEnableLeft_${i}`].state = nodeBypassed ? "DIS" : (!rowBypassed ? "ON" : "OFF");
                                         if (modelRow[`sldModel_${i}`]) {
                                             modelRow[`sldModel_${i}`].value = lora[1];
                                             modelRow[`sldModel_${i}`].state = isBypassed ? "DIS" : "OFF";
@@ -211,7 +226,8 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                         const loraName = getLoraDisplayName(lora[0]);
                         // THE BYPASS SYNC: Detect if the entire node (mode 2/4, properties, or bypass widget) or just this LoRA entry is bypassed
                         const nodeBypassed = this.mode === 2 || this.mode === 4 || this.properties.isBypassed || (this.widgets && this.widgets[0] && this.widgets[0].value === "bypass");
-                        const isBypassed = !!lora[5] || nodeBypassed;
+                        const rowBypassed = !!lora[5];
+                        const isBypassed = rowBypassed || nodeBypassed;
                         const isDragged = !!(this._dragTrig && this._dragThresholdMet && this._dragTrig.index === i);
 
                         if (prev) {
@@ -357,15 +373,15 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                         }
                                     },
                                     [`btnEnable_${i}`]: {
-                                        hidden: nameDisplay !== "Top", mouseOver: false,
+                                        hidden: nameDisplay !== "Top",
                                         type: this.UI_TYPES.ICONBUTTON, icon: "power", themeKey: "button, t_textNormal",
                                         width: "match", height: "fill", spacing: [sW, 0], alpha: rowAlpha,
-                                        state: !isBypassed ? "ON" : "OFF",
-                                        playSound: lora[5] ? "powerUp" : "powerDown",
+                                        state: nodeBypassed ? "DIS" : (!rowBypassed ? "ON" : "OFF"),
+                                        mouseOver: !nodeBypassed,
+                                        playSound: rowBypassed ? "powerUp" : "powerDown",
                                         onPress: () => {
-                                            lora[5] = !lora[5]; // Toggle the bypass flag
-                                            if (this.syncDerpOutputs) this.syncDerpOutputs();
-                                            this.refreshNodeLayoutMap();
+                                            if (nodeBypassed) return;
+                                            this.toggleLoraEntryBypass(i);
                                         }
                                     },
                                     [`btnRemoveTop_${i}`]: {
@@ -419,15 +435,15 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                         }
                                     },
                                     [`btnEnableLeft_${i}`]: {
-                                        hidden: nameDisplay !== "Slider", mouseOver: false,
+                                        hidden: nameDisplay !== "Slider",
                                         type: this.UI_TYPES.ICONBUTTON, icon: "power", themeKey: "button, t_textNormal",
                                         width: "match", height: "fill", spacing: [sW, 0], alpha: rowAlpha,
-                                        state: !isBypassed ? "ON" : "OFF",
-                                        playSound: lora[5] ? "powerUp" : "powerDown",
+                                        state: nodeBypassed ? "DIS" : (!rowBypassed ? "ON" : "OFF"),
+                                        mouseOver: !nodeBypassed,
+                                        playSound: rowBypassed ? "powerUp" : "powerDown",
                                         onPress: () => {
-                                            lora[5] = !lora[5]; // Toggle the bypass flag
-                                            if (this.syncDerpOutputs) this.syncDerpOutputs();
-                                            this.refreshNodeLayoutMap();
+                                            if (nodeBypassed) return;
+                                            this.toggleLoraEntryBypass(i);
                                         }
                                     },
                                     [`btnRemoveSlider_${i}`]: {

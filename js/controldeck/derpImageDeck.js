@@ -6,6 +6,7 @@ import { app } from "../../../scripts/app.js";
 import { fatha, initDerpGlobalListener } from "../fatha/fatha.js";
 import { initDerpImageDeckCore } from "./core/derpImageDeck_core.js";
 import { runWirelessHeartbeat } from "../fatha/core/masterSignalEngine.js";
+import { showBastaMessage } from "../fatha/bastas/bastaMessage.js";
 
 async function copyImageUrlToClipboard(imageUrl) {
     if (!imageUrl || !navigator.clipboard || typeof navigator.clipboard.write !== "function") return;
@@ -14,6 +15,45 @@ async function copyImageUrlToClipboard(imageUrl) {
     await navigator.clipboard.write([
         new ClipboardItem({ [blob.type || "image/png"]: blob })
     ]);
+}
+
+function getImageDeckCurrentImage(node) {
+    const list = Array.isArray(node?._derpImageDeckList) ? node._derpImageDeckList : [];
+    if (list.length === 0) return null;
+    let idx = Number.isInteger(node?._derpImageDeckIndex) ? node._derpImageDeckIndex : (list.length - 1);
+    if (idx < 0) idx = 0;
+    if (idx >= list.length) idx = list.length - 1;
+    return list[idx] || null;
+}
+
+async function saveImageDeckCurrentImage(node) {
+    const image = getImageDeckCurrentImage(node);
+    if (!image || !image.filename) {
+        showBastaMessage(node, "No image to save", 1800, { fade: true }, "btnSaveImage", false, "error");
+        return;
+    }
+
+    const editorName = node.getImageDeckFilenameText ? node.getImageDeckFilenameText() : "";
+    const payload = {
+        filename: image.filename,
+        type: image.type || "output",
+        subfolder: image.subfolder || "",
+        save_name: String(editorName || "").trim()
+    };
+
+    const res = await fetch("/xcp/derp_image_deck/save_current_image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!res.ok || !data?.success) {
+        const msg = data?.error || "Save failed";
+        showBastaMessage(node, msg, 2200, { fade: true }, "btnSaveImage", false, "error");
+        return;
+    }
+
+    showBastaMessage(node, `Saved: ${data.filename}`, 2200, { fade: true, grow: true }, "btnSaveImage", false, "success");
 }
 
 app.registerExtension({
@@ -280,6 +320,14 @@ app.registerExtension({
             }
 
             this._lastContentCollapsed = isCollapsed;
+            if (typeof this.getDerpImageDeckCrossfadeAlpha === "function") {
+                const alpha = this.getDerpImageDeckCrossfadeAlpha();
+                if (alpha < 1) {
+                    this._layoutMapHash = null;
+                    if (typeof this.refreshNodeLayoutMap === "function") this.refreshNodeLayoutMap();
+                    if (typeof this.setDirtyCanvas === "function") this.setDirtyCanvas(true);
+                }
+            }
             if (baseOnDrawForeground) baseOnDrawForeground.apply(this, arguments);
         };
 
@@ -294,7 +342,9 @@ app.registerExtension({
 
             const count = Array.isArray(this._derpImageDeckList) ? this._derpImageDeckList.length : 0;
             const imageUrl = this.getDerpImageDeckCurrentUrl ? this.getDerpImageDeckCurrentUrl() : null;
-            const structureHash = `${count}_${imageUrl || "none"}_${this.size[0].toFixed(2)}_${(this.size[1] || 0).toFixed(2)}_${mW}_${mH}_${sW}_${sH}_${pW}_${pH}_${this.titleLabel}`;
+            const prevImageUrl = this._derpImageDeckPrevDisplayUrl || null;
+            const fadeAlpha = this.getDerpImageDeckCrossfadeAlpha ? this.getDerpImageDeckCrossfadeAlpha() : 1;
+            const structureHash = `${count}_${imageUrl || "none"}_${prevImageUrl || "none"}_${fadeAlpha.toFixed(3)}_${this.size[0].toFixed(2)}_${(this.size[1] || 0).toFixed(2)}_${mW}_${mH}_${sW}_${sH}_${pW}_${pH}_${this.titleLabel}`;
             if (this._layoutMapHash === structureHash && this.layoutMap) return;
             this._layoutMapHash = structureHash;
 
@@ -316,6 +366,8 @@ app.registerExtension({
                         padding: [0, 0], spacing: [0, sH],
                         themeKey: "panel, t_textNormal",
                         imageUrl,
+                        previousImageUrl: prevImageUrl,
+                        transitionAlpha: fadeAlpha,
                         aspectFit: "contain",
                         suppressPlaceholder: false,
                         drawMode: "both",
@@ -351,6 +403,23 @@ app.registerExtension({
                             onBlur: () => {
                                 if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
                                 if (this.requestDerpSync) this.requestDerpSync();
+                            }
+                        },
+                        btnSaveImage: {
+                            type: this.UI_TYPES.ICONBUTTON,
+                            icon: "save",
+                            themeKey: "button, t_textSystem",
+                            width: "match",
+                            height: "auto",
+                            spacing: [sW, 0],
+                            mouseOver: true,
+                            state: "OFF",
+                            onPress: async () => {
+                                try {
+                                    await saveImageDeckCurrentImage(this);
+                                } catch (e) {
+                                    showBastaMessage(this, "Save failed", 2200, { fade: true }, "btnSaveImage", false, "error");
+                                }
                             }
                         }
                     }

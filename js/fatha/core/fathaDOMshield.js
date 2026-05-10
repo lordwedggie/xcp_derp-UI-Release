@@ -39,13 +39,15 @@ export function createDerpShield(node) {
     `;
 
     // Resize Handle
+    const SHIELD_BOTTOM_CORNER_HITBOX_PX = 9;
+    const SHIELD_TOP_CORNER_HITBOX_PX = 10;
     const resizeHandle = document.createElement("div");
     resizeHandle.style.cssText = `
         position: absolute; 
         right: 0; 
         bottom: 0;
-        width: 15px; 
-        height: 15px;
+        width: ${SHIELD_BOTTOM_CORNER_HITBOX_PX}px; 
+        height: ${SHIELD_BOTTOM_CORNER_HITBOX_PX}px;
         cursor: nwse-resize; 
         z-index: 10;
         background: transparent;
@@ -57,8 +59,8 @@ export function createDerpShield(node) {
         position: absolute;
         left: 0;
         bottom: 0;
-        width: 15px;
-        height: 15px;
+        width: ${SHIELD_BOTTOM_CORNER_HITBOX_PX}px;
+        height: ${SHIELD_BOTTOM_CORNER_HITBOX_PX}px;
         cursor: nesw-resize;
         z-index: 10;
         background: transparent;
@@ -70,8 +72,8 @@ export function createDerpShield(node) {
         position: absolute;
         left: 0;
         top: 0;
-        width: 15px;
-        height: 15px;
+        width: ${SHIELD_TOP_CORNER_HITBOX_PX}px;
+        height: ${SHIELD_TOP_CORNER_HITBOX_PX}px;
         cursor: nwse-resize;
         z-index: 10;
         background: transparent;
@@ -83,8 +85,8 @@ export function createDerpShield(node) {
         position: absolute;
         right: 0;
         top: 0;
-        width: 15px;
-        height: 15px;
+        width: ${SHIELD_TOP_CORNER_HITBOX_PX}px;
+        height: ${SHIELD_TOP_CORNER_HITBOX_PX}px;
         cursor: nesw-resize;
         z-index: 10;
         background: transparent;
@@ -466,8 +468,8 @@ export function syncDerpShield(node) {
     if (!node.interactionShield) return;
     const ds = app.canvas.ds;
     const scale = ds.scale;
-    const bottomCornerSize = 15 * scale;
-    const topCornerSize = 10 * scale;
+    const defaultBottomCornerSize = 9 * scale;
+    const defaultTopCornerSize = 10 * scale;
 
     // THE CONSOLIDATION FIX: Use the padding values calculated and owned by the Uncle prototype
     const padL = node._padL || 0;
@@ -513,6 +515,10 @@ export function syncDerpShield(node) {
     // Update the handle's cursor and interaction state based on the node's auto-resize properties.
     if (node.interactionShield._resizeHandle) {
         const vars = node.getDerpVars ? node.getDerpVars(node) : { autoWidth: true, autoHeight: true };
+        const themedBottomCornerSize = Math.max(6 * scale, (Number(vars.mW || 0) + Number(vars.mH || 0)) * 0.5 * scale);
+        const themedTopCornerSize = Math.max(6 * scale, Number(vars.mH || 0) * scale);
+        const bottomCornerSize = Number.isFinite(themedBottomCornerSize) ? themedBottomCornerSize : defaultBottomCornerSize;
+        const topCornerSize = Number.isFinite(themedTopCornerSize) ? themedTopCornerSize : defaultTopCornerSize;
         const canW = !vars.autoWidth;
         const canH = !vars.autoHeight;
         const isBasta = !!node.hostNode;

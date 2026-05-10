@@ -7,6 +7,7 @@ import uuid
 import shutil
 import sys
 import subprocess
+import re
 from .xcp_tagHandling import handle_import_lora_tags, handle_manage_lora_tag
 from .xcp_loraStack import (handle_save_lora_rating, handle_save_lora_notes, handle_get_loras, handle_get_lora_preview,
                             handle_get_lora_triggers, handle_get_lora_info, handle_open_folder, handle_delete_lora_preview, handle_upload_lora_preview, get_lora_stack_profiles_dir,
@@ -219,6 +220,72 @@ async def delete_file(request):
     except Exception as e:
         return web.json_response({"success": False, "error": str(e)}, status=500)
 safe_post("/xcp/delete/{category}", delete_file)
+
+
+def _resolve_image_source_directory(image_type):
+    image_type = str(image_type or "output").lower()
+    if image_type == "temp":
+        return folder_paths.get_temp_directory()
+    if image_type == "input" and hasattr(folder_paths, "get_input_directory"):
+        return folder_paths.get_input_directory()
+    return folder_paths.get_output_directory()
+
+
+def _sanitize_save_name(name, fallback_name):
+    raw = str(name or "").strip()
+    if not raw:
+        raw = str(fallback_name or "saved_image")
+    raw = raw.replace("\\", "_").replace("/", "_")
+    raw = re.sub(r"[^a-zA-Z0-9._ -]", "_", raw)
+    raw = re.sub(r"\s+", " ", raw).strip(" .")
+    return raw or "saved_image"
+
+
+async def save_current_image_from_deck(request):
+    try:
+        body = await request.json()
+        filename = str(body.get("filename") or "").strip()
+        image_type = str(body.get("type") or "output").strip().lower()
+        subfolder = str(body.get("subfolder") or "").strip()
+        save_name = body.get("save_name")
+
+        if not filename:
+            return web.json_response({"success": False, "error": "Missing filename"}, status=400)
+
+        src_root = _resolve_image_source_directory(image_type)
+        src_dir = os.path.normpath(os.path.join(src_root, subfolder)) if subfolder else src_root
+        src_path = os.path.normpath(os.path.join(src_dir, filename))
+
+        if not src_path.startswith(os.path.normpath(src_root)):
+            return web.json_response({"success": False, "error": "Invalid source path"}, status=400)
+        if not os.path.exists(src_path):
+            return web.json_response({"success": False, "error": "Source image not found"}, status=404)
+
+        output_dir = folder_paths.get_output_directory()
+        os.makedirs(output_dir, exist_ok=True)
+
+        original_ext = os.path.splitext(filename)[1] or ".png"
+        sanitized_name = _sanitize_save_name(save_name, os.path.splitext(filename)[0])
+        if not os.path.splitext(sanitized_name)[1]:
+            sanitized_name = f"{sanitized_name}{original_ext}"
+
+        base_name, ext = os.path.splitext(sanitized_name)
+        target_name = f"{base_name}{ext}"
+        target_path = os.path.join(output_dir, target_name)
+
+        index = 1
+        while os.path.exists(target_path):
+            target_name = f"{base_name}_{index:03d}{ext}"
+            target_path = os.path.join(output_dir, target_name)
+            index += 1
+
+        shutil.copy2(src_path, target_path)
+        return web.json_response({"success": True, "filename": target_name})
+    except Exception as e:
+        return web.json_response({"success": False, "error": str(e)}, status=500)
+
+
+safe_post("/xcp/derp_image_deck/save_current_image", save_current_image_from_deck)
 
 async def rename_file(request):
     category = request.match_info.get("category")

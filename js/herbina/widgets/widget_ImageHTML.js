@@ -78,27 +78,34 @@ export function syncImageHTML(ctx, node, app, config, overlayPass = false) {
         }
 
         // 2. Load and Draw Image Natively
-        if (config.imageUrl) {
+        if (config.imageUrl || config.previousImageUrl) {
             if (!node._imageInstanceCache) node._imageInstanceCache = {};
 
-            // THE DECODE GATING: Only create a new Image object if the URL has changed.
-            let imgObj = node._imageInstanceCache[config.key];
-            if (!imgObj || imgObj._lastUrl !== config.imageUrl) {
-                imgObj = new Image();
-                imgObj._lastUrl = config.imageUrl;
-                imgObj._isLoaded = false;
-                imgObj.onload = () => {
-                    imgObj._isLoaded = true;
-                    if (node.setDirtyCanvas) {
-                        node._derpAwakeFrames = 5;
-                        node.setDirtyCanvas(true);
+            const ensureImage = (cacheKey, url) => {
+                if (!url) return null;
+                let localObj = node._imageInstanceCache[cacheKey];
+                if (!localObj || localObj._lastUrl !== url) {
+                    if (cacheKey === config.key && localObj && localObj._isLoaded && localObj._lastUrl && localObj._lastUrl !== url) {
+                        node._imageInstanceCache[config.key + "_previous"] = localObj;
                     }
-                };
-                imgObj.src = config.imageUrl;
-                node._imageInstanceCache[config.key] = imgObj;
-            }
+                    localObj = new Image();
+                    localObj._lastUrl = url;
+                    localObj._isLoaded = false;
+                    localObj.onload = () => {
+                        localObj._isLoaded = true;
+                        if (node.setDirtyCanvas) {
+                            node._derpAwakeFrames = 5;
+                            node.setDirtyCanvas(true);
+                        }
+                    };
+                    localObj.src = url;
+                    node._imageInstanceCache[cacheKey] = localObj;
+                }
+                return localObj;
+            };
 
-            if (imgObj._isLoaded && imgObj.naturalWidth > 0) {
+            const drawImageObject = (imgObj, imageAlpha = 1) => {
+                if (!imgObj || !imgObj._isLoaded || !(imgObj.naturalWidth > 0) || imageAlpha <= 0) return false;
                 // THE DUAL-TARGET CACHE FIX: Pre-render to target resolution (1024 or 256) to maintain
                 // texture quality during zooms and resizing while keeping grayscale filters off the main loop.
                 const targetSize = config.isThumbnail ? THUMBNAIL_LONG_SIDE_TARGET : PREVIEW_LONG_SIDE_TARGET;
@@ -126,6 +133,7 @@ export function syncImageHTML(ctx, node, app, config, overlayPass = false) {
                 }
 
                 ctx.save();
+                if (imageAlpha < 1) ctx.globalAlpha *= imageAlpha;
 
                 // Apply rounding and clipping to the main context
                 ctx.beginPath();
@@ -153,8 +161,23 @@ export function syncImageHTML(ctx, node, app, config, overlayPass = false) {
                 ctx.imageSmoothingQuality = "low";
                 ctx.drawImage(imgObj._renderCache, Math.floor(drawX), Math.floor(drawY), Math.floor(drawW), Math.floor(drawH));
                 ctx.restore();
+                return true;
+            };
 
-            } else if (!config.suppressPlaceholder && !config.isSelected && imgObj && imgObj.complete) {
+            const currentObj = ensureImage(config.key, config.imageUrl);
+            const previousObj = ensureImage(config.key + "_previous", config.previousImageUrl);
+            const transitionAlpha = Math.max(0, Math.min(1, Number(config.transitionAlpha ?? 1)));
+            const hasCrossfade = !!(config.previousImageUrl && config.imageUrl && transitionAlpha < 1);
+
+            let drew = false;
+            if (hasCrossfade) {
+                drew = drawImageObject(previousObj, 1 - transitionAlpha) || drew;
+                drew = drawImageObject(currentObj, transitionAlpha) || drew;
+            } else {
+                drew = drawImageObject(currentObj, 1) || drew;
+            }
+
+            if (!drew && !config.suppressPlaceholder && !config.isSelected && currentObj && currentObj.complete) {
                 // THE FALLBACK FIX: Display placeholder text if the image asset failed to load
                 ctx.save();
                 ctx.fillStyle = "rgba(255,255,255,0.4)";

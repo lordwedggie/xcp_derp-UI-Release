@@ -2,6 +2,15 @@
  * Path: ./js/controldeck/core/derpImageDeck_core.js
  * ROLE: Runtime logic for DerpImageDeck image preview behavior.
  */
+import { animateAlpha } from "../../herbina/masterAnimator.js";
+
+// Crossfade alpha interpolation speed.
+// Higher value = faster fade, lower value = slower fade.
+const IMAGE_DECK_CROSSFADE_ALPHA_SPEED = 0.1;
+
+// End threshold for completing the crossfade.
+// Higher value = finish earlier, lower value = longer tail.
+const IMAGE_DECK_CROSSFADE_END_EPSILON = 0.01;
 
 function toArray(value) {
     if (Array.isArray(value)) return value;
@@ -130,7 +139,58 @@ export function initDerpImageDeckCore(nodeType) {
     const proto = nodeType.prototype;
     const baseOnExecuted = proto.onExecuted;
 
-    proto.applyDerpImageDeckList = function(list, source = "unknown") {
+    proto.preloadDerpImageDeckUrl = function(url, requestId) {
+        if (!url) return;
+        const img = new Image();
+        img.onload = () => {
+            if (this._derpImageDeckPendingLoadId !== requestId) return;
+            const useAnim = window.xcpDerpSettings?.useAnimations !== false;
+            const hadPrevious = typeof this._derpImageDeckDisplayUrl === "string" && this._derpImageDeckDisplayUrl.length > 0;
+            if (useAnim && hadPrevious && this._derpImageDeckDisplayUrl !== url) {
+                this._derpImageDeckPrevDisplayUrl = this._derpImageDeckDisplayUrl;
+                this._derpImageDeckCrossfadeFrom = 0;
+                this._derpImageDeckCrossfading = true;
+            } else {
+                this._derpImageDeckPrevDisplayUrl = null;
+                this._derpImageDeckCrossfading = false;
+                this._derpImageDeckCrossfadeFrom = 1;
+            }
+            this._derpImageDeckDisplayUrl = url;
+            this._derpImageDeckPendingLoadId = null;
+            this._layoutMapHash = null;
+            if (typeof this.refreshNodeLayoutMap === "function") this.refreshNodeLayoutMap();
+            if (typeof this.requestDerpSync === "function") this.requestDerpSync();
+        };
+        img.onerror = () => {
+            if (this._derpImageDeckPendingLoadId !== requestId) return;
+            this._derpImageDeckPendingLoadId = null;
+        };
+        img.src = url;
+    };
+
+    proto.syncDerpImageDeckDisplayUrl = function() {
+        const list = Array.isArray(this._derpImageDeckList) ? this._derpImageDeckList : [];
+        clampPreviewIndex(this);
+        const current = list[this._derpImageDeckIndex] || null;
+        const targetUrl = buildComfyImageUrl(current);
+
+        if (!targetUrl) {
+            this._derpImageDeckDisplayUrl = null;
+            this._derpImageDeckPrevDisplayUrl = null;
+            this._derpImageDeckCrossfading = false;
+            this._derpImageDeckCrossfadeFrom = 1;
+            this._derpImageDeckPendingLoadId = null;
+            return;
+        }
+
+        if (this._derpImageDeckDisplayUrl === targetUrl) return;
+
+        const requestId = `${Date.now()}_${Math.random()}`;
+        this._derpImageDeckPendingLoadId = requestId;
+        this.preloadDerpImageDeckUrl(targetUrl, requestId);
+    };
+
+    proto.applyDerpImageDeckList = function(list) {
         if (!Array.isArray(list) || list.length === 0) return;
         const nextHash = JSON.stringify(list);
         if (this._lastWirelessImageHash === nextHash) return;
@@ -138,6 +198,7 @@ export function initDerpImageDeckCore(nodeType) {
         this._lastWirelessImageHash = nextHash;
         this._derpImageDeckList = list;
         this._derpImageDeckIndex = list.length - 1;
+        this.syncDerpImageDeckDisplayUrl();
         this._layoutMapHash = null;
 
         if (typeof this.refreshNodeLayoutMap === "function") this.refreshNodeLayoutMap();
@@ -151,14 +212,36 @@ export function initDerpImageDeckCore(nodeType) {
 
         const list = parseImageList(payload);
         if (list.length === 0) return;
-        this.applyDerpImageDeckList(list, "physical-input");
+        this.applyDerpImageDeckList(list);
     };
 
     proto.getDerpImageDeckCurrentUrl = function() {
+        if (typeof this._derpImageDeckDisplayUrl === "string" && this._derpImageDeckDisplayUrl.length > 0) {
+            return this._derpImageDeckDisplayUrl;
+        }
+
         const list = Array.isArray(this._derpImageDeckList) ? this._derpImageDeckList : [];
-        clampPreviewIndex(this);
-        const current = list[this._derpImageDeckIndex] || null;
-        return buildComfyImageUrl(current);
+        if (list.length <= 0) return null;
+
+        // First image on a fresh node should preload, then swap without a blank frame.
+        this.syncDerpImageDeckDisplayUrl();
+        return null;
+    };
+
+    proto.getDerpImageDeckCrossfadeAlpha = function() {
+        if (!this._derpImageDeckCrossfading) return 1;
+        const current = Math.max(0, Math.min(1, Number(this._derpImageDeckCrossfadeFrom || 0)));
+        const useAnim = window.xcpDerpSettings?.useAnimations !== false;
+        const alphaRes = animateAlpha(current, 1, IMAGE_DECK_CROSSFADE_ALPHA_SPEED, useAnim);
+        const next = Math.max(0, Math.min(1, Number(alphaRes.value || 0)));
+        this._derpImageDeckCrossfadeFrom = next;
+
+        if (!alphaRes.isAnimating || (1 - next) <= IMAGE_DECK_CROSSFADE_END_EPSILON) {
+            this._derpImageDeckCrossfading = false;
+            this._derpImageDeckPrevDisplayUrl = null;
+            return 1;
+        }
+        return next;
     };
 
     // Callback path used by bastaSignalReceiver.
@@ -192,6 +275,6 @@ export function initDerpImageDeckCore(nodeType) {
             list = resolvePreviewFromSourceNode(signalId);
         }
         if (!Array.isArray(list) || list.length === 0) return;
-        this.applyDerpImageDeckList(list, "wireless-sync");
+        this.applyDerpImageDeckList(list);
     };
 }
