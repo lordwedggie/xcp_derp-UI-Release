@@ -1118,8 +1118,11 @@ export function moveDeck(rootNode, graph, offsets = new Map(), snap = DEFAULT_DE
     members.forEach((node) => {
         if (node.id === root.id) return;
         const [dx, dy] = offsets.get(node.id) || [0, 0];
-        node.pos[0] = snapValue(rootX + dx, snap);
-        node.pos[1] = snapValue(rootY + dy, snap);
+        // Keep stacked members as a rigid body relative to the snapped root.
+        // Snapping each child independently introduces per-node rounding drift,
+        // which can create tiny visual gaps in docked stacks after dragging.
+        node.pos[0] = rootX + dx;
+        node.pos[1] = rootY + dy;
         if (typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, true);
         if (typeof node.syncUncleSlots === "function") node.syncUncleSlots();
     });
@@ -1335,14 +1338,10 @@ export class masterDockEngine {
     }
 
     syncDraggedDeck(node, snap = DEFAULT_DECK_SNAP, delta = null) {
-        if (delta && this.activePositions.size > 0) {
-            return moveDeckByDelta(
-                this.graph,
-                this.activePositions,
-                Number(delta.dx) || 0,
-                Number(delta.dy) || 0,
-                snap,
-            );
+        if (delta && this.activeOffsets.size > 0) {
+            const root = this.getActiveRoot() || getDeckRoot(node, this.graph);
+            if (!root) return [];
+            return moveDeck(root, this.graph, this.activeOffsets, snap);
         }
 
         const root = this.getActiveRoot() || getDeckRoot(node, this.graph);
