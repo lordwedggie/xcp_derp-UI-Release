@@ -395,7 +395,7 @@ app.registerExtension({
                             themeKey: "dialog, t_textSystem",
                             width: "full",
                             height: "auto",
-                            padding: [pW, pH],
+                            padding: [pW, pH], spacing: [sH, 0],
                             labelAlign: ["left", "middle"],
                             text: this.getImageDeckFilenameText ? this.getImageDeckFilenameText() : "",
                             value: this.getImageDeckFilenameText ? this.getImageDeckFilenameText() : "",

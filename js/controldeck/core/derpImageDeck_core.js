@@ -6,7 +6,7 @@ import { animateAlpha } from "../../herbina/masterAnimator.js";
 
 // Crossfade alpha interpolation speed.
 // Higher value = faster fade, lower value = slower fade.
-const IMAGE_DECK_CROSSFADE_ALPHA_SPEED = 0.22;
+const IMAGE_DECK_CROSSFADE_ALPHA_SPEED = 0.05;
 
 // End threshold for completing the crossfade.
 // Higher value = finish earlier, lower value = longer tail.
