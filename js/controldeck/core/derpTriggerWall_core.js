@@ -130,6 +130,7 @@ export function triggerWall_onNodeCreated(node, originalCallback) {
     node.properties.exclusiveMode = false;
     node.properties.autoWidth = false;
     node.properties.autoHeight = true;
+    node.properties.useCollapsedTotalHeight = true;
     node.properties.minWidth = 200;
     node.properties.optimizeHoverDirty = true;
     node.properties.optimizeHoverNoSync = true;

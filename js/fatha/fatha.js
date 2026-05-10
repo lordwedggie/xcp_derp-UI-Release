@@ -257,7 +257,9 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
 
         const contentReqW = this.layout?.contentMinWidth || 0;
         const engineFloorW = Math.ceil(contentReqW / SNAP) * SNAP;
-        const rawH = this.layout?.contentMinHeight || this.layout?.totalHeight || 40;
+        const contentMinH = Number(this.layout?.contentMinHeight) || 0;
+        const totalH = Number(this.layout?.totalHeight) || 0;
+        const rawH = isMinState ? (Math.max(contentMinH, totalH) || 40) : (contentMinH || totalH || 40);
         const engineFloorH = isMinState ? rawH : Math.ceil(rawH / SNAP) * SNAP;
 
         const collapseMinimal = this.properties?.collapseMinimal === true;

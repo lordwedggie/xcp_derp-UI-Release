@@ -217,7 +217,9 @@ function settleCollapseSizeBeforeDraw(entity) {
     const isMinState = entity.properties.contentCollapsed === true;
     const contentReqW = entity.layout?.contentMinWidth || 0;
     const engineFloorW = Math.ceil(contentReqW / SNAP) * SNAP;
-    const rawH = entity.layout?.contentMinHeight || entity.layout?.totalHeight || 40;
+    const rawH = (isMinState && entity.properties?.useCollapsedTotalHeight === true)
+        ? (Math.max(Number(entity.layout?.contentMinHeight) || 0, Number(entity.layout?.totalHeight) || 0) || 40)
+        : (entity.layout?.contentMinHeight || entity.layout?.totalHeight || 40);
     const engineFloorH = isMinState ? rawH : Math.ceil(rawH / SNAP) * SNAP;
     const collapseMinimal = entity.properties?.collapseMinimal === true;
     const targetW = (autoWidth || (isMinState && collapseMinimal)) ? engineFloorW : Math.max(entity.properties.nodeSize?.[0] || 0, engineFloorW);

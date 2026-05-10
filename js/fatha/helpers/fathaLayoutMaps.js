@@ -18,6 +18,9 @@ const DEBUG_OPTIONS = ["None", "Layout", "Hitbox", "Widgets Hitbox"];
 const TITLE_LABEL_DEFAULT = "Derp Nodes";
 const DEFAULT_WARP_SHORTCUT_ZOOM = 1.5;
 const WARP_SHORTCUT_ITEMS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
+// Collapsed nodes use a fixed compact header so theme margins do not skew top/bottom spacing.
+const COLLAPSED_HEADER_HEIGHT = 20;
+const COLLAPSED_HEADER_VERTICAL_MARGIN = 0;
 
 function resolveDockGlyph(node) {
     const edges = node?.properties?.deckEdges || {};
@@ -160,8 +163,8 @@ export const getVirtualNodeLayoutMap = (node) => {
             outSlotIdx: p.contentCollapsed ? -1 : undefined,
             spacing: [0, sH],
             headerMain: {
-                dir: "row", width: "full", height: "auto",
-                margin: [2, 2, 2, p.contentCollapsed ? mH: 0],
+                dir: "row", width: "full", height: p.contentCollapsed ? COLLAPSED_HEADER_HEIGHT : "auto",
+                margin: [2, p.contentCollapsed ? COLLAPSED_HEADER_VERTICAL_MARGIN : 2, 2, p.contentCollapsed ? COLLAPSED_HEADER_VERTICAL_MARGIN : 0],
                 btnCollapse: {
                     type: UI_TYPES.ICONBUTTON,
                     themeKey: "buttonNode, t_textSystem",

@@ -982,6 +982,8 @@ function forceDockResizeRefresh(node) {
 export function deckNodeToLeader(node, leader, graph, side = null) {
     const attachLeader = side ? getDeckAttachLeaderForSide(leader, side, graph) : leader;
     if (!canDeckNodeToLeader(node, attachLeader, graph, side)) return false;
+    if (typeof node.settleBeforeDockSnap === "function") node.settleBeforeDockSnap();
+    if (typeof attachLeader.settleBeforeDockSnap === "function") attachLeader.settleBeforeDockSnap();
     lockDeckNodeAxes(node, side);
     lockDeckNodeAxes(attachLeader, side);
     matchDeckNodeSizes(node, attachLeader, side);
@@ -1001,6 +1003,8 @@ export function deckNodeToLeader(node, leader, graph, side = null) {
 export function finalizeDeck(node, leader, graph, side = null, snap = DEFAULT_DECK_SNAP) {
     const attachLeader = side ? getDeckAttachLeaderForSide(leader, side, graph) : leader;
     if (!canDeckNodeToLeader(node, attachLeader, graph, side)) return false;
+    if (typeof node.settleBeforeDockSnap === "function") node.settleBeforeDockSnap();
+    if (typeof attachLeader.settleBeforeDockSnap === "function") attachLeader.settleBeforeDockSnap();
     lockDeckNodeAxes(node, side);
     lockDeckNodeAxes(attachLeader, side);
     matchDeckNodeSizes(node, attachLeader, side);
@@ -1026,6 +1030,8 @@ export function finalizeDeckTarget(node, targetInfo, graph, snap = DEFAULT_DECK_
     if (targetInfo.edge?.stackMode) {
         const occupied = targetInfo.targetNode;
         const stackSide = targetInfo.edge?.stackSide || "bottom";
+        if (typeof node.settleBeforeDockSnap === "function") node.settleBeforeDockSnap();
+        if (typeof occupied.settleBeforeDockSnap === "function") occupied.settleBeforeDockSnap();
         const occupiedRect = getNodeRect(occupied);
 
         if (stackSide === "bottom") {
@@ -1057,6 +1063,8 @@ export function finalizeDeckTarget(node, targetInfo, graph, snap = DEFAULT_DECK_
 
     const attachLeader = side ? getDeckAttachLeaderForSide(targetInfo.targetNode, side, graph) : targetInfo.targetNode;
     if (!canDeckNodeToLeader(node, attachLeader, graph, side)) return false;
+    if (typeof node.settleBeforeDockSnap === "function") node.settleBeforeDockSnap();
+    if (typeof attachLeader.settleBeforeDockSnap === "function") attachLeader.settleBeforeDockSnap();
     lockDeckNodeAxes(node, side);
     lockDeckNodeAxes(attachLeader, side);
     matchDeckNodeSizes(node, attachLeader, side);
