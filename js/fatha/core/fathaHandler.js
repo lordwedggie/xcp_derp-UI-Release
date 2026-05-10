@@ -8,12 +8,10 @@ import { toggleDerpSysPanel, sysPanel, closeDerpSysPanel } from "../helpers/fath
 import { masterPainter, compileThemeData, invalidateCompiledThemeCache } from "../../herbina/masterPainter.js";
 import { UI_TYPES, COMPONENT_BLUEPRINTS } from "./masterLayoutTypes.js";
 import { resolvePaintData } from "../../herbina/utils/widgetsUtils.js";
-import { lerpTo } from "../../herbina/masterAnimator.js";
 import { beginDockDrag, updateDockDrag, endDockDrag } from "./dockDrag.js";
 import { handleNodeResize } from "./fathaNodeResize.js";
 import { masterDockEngine } from "./masterDockEngine.js";
 import { getDeckCornerOverride } from "./masterDockEngine.js";
-import { getDeckParent, getDeckChildren } from "./masterDockEngine.js";
 import { getDeckMembers, isLinearDeckGroup, isNodeDocked } from "./masterDockEngine.js";
 
 function getDeckEngine() {
@@ -262,6 +260,14 @@ function normalizePinnedVerticalStack(node, graph, previousRect = null) {
     return true;
 }
 
+function debugPinnedCollapse(label, node, extra = {}) {
+    return;
+}
+
+function debugPinnedDraw(label, node, extra = {}) {
+    return;
+}
+
 export function animateDerpSize(node, targetW, targetH, useAnim) {
     if (node.size[0] !== targetW || node.size[1] !== targetH) {
         const previousRect = {
@@ -270,14 +276,15 @@ export function animateDerpSize(node, targetW, targetH, useAnim) {
             h: Number(node.size?.[1]) || 0,
         };
         const prevH = Number(node.size?.[1]) || 0;
-        node.size[0] = targetW;
-        node.size[1] = targetH;
-        if (node.properties) node.properties.nodeSize = [targetW, targetH];
         const graph = app.graph || node.graph || null;
         const deltaH = (Number(targetH) || 0) - prevH;
         const shiftDirection = resolveCollapseShiftDirection(node, graph);
+        const skipCollapseShift = node._skipNextAnimateCollapseShift === true;
+        if (skipCollapseShift) node._skipNextAnimateCollapseShift = false;
+        if (node.properties) node.properties.nodeSize = [targetW, targetH];
+        node.size = [targetW, targetH];
         const normalizedPinnedStack = normalizePinnedVerticalStack(node, graph, previousRect);
-        if (!normalizedPinnedStack && deltaH !== 0 && shiftDirection !== 0) {
+        if (!normalizedPinnedStack && !skipCollapseShift && deltaH !== 0 && shiftDirection !== 0) {
             node.pos[1] = (Number(node.pos?.[1]) || 0) + (deltaH * shiftDirection);
         }
         if (graph && !normalizedPinnedStack) {
@@ -288,6 +295,10 @@ export function animateDerpSize(node, targetW, targetH, useAnim) {
             });
         }
         if (node.requestDerpSync) node.requestDerpSync();
+    }
+
+    if (node?.properties?.contentCollapsed !== true && Number(targetH) > 0) {
+        node._preCollapseHeight = Math.max(Number(node._preCollapseHeight || 0), Number(targetH));
     }
 }
 
@@ -359,33 +370,25 @@ export function handleDerpCollapse(entity, force) {
     const nextState = force !== undefined ? force : !entity.properties.contentCollapsed;
 
     if (nextState === true && !entity.properties.contentCollapsed) {
-        entity._preCollapseHeight = entity.size[1];
+        entity._preCollapseHeight = Math.max(
+            Number(entity._preCollapseHeight || 0),
+            Number(entity.size?.[1] || 0),
+            Number(entity.properties?.nodeSize?.[1] || 0),
+            Number(entity.layout?.totalHeight || 0),
+            Number(entity.layout?.contentMinHeight || 0)
+        );
     }
 
     if (nextState === false && entity.properties.contentCollapsed === true) {
         const graph = app.graph || entity.graph || null;
-        const restoreH = Number(entity._preCollapseHeight || 0);
-        const currentH = Number(entity.size?.[1] || 0);
-        const deltaH = restoreH - currentH;
+        const stack = getPinnedVerticalStack(entity, graph);
+        const isPinnedSelf = stack?.pinned?.id === entity.id;
 
-        if (restoreH > 0 && deltaH !== 0) {
-            const previousRect = {
-                id: entity.id,
-                y: Number(entity.pos?.[1]) || 0,
-                h: currentH,
-            };
-            entity.size[1] = restoreH;
-            if (entity.properties) {
-                const restoreW = Number(entity.properties.nodeSize?.[0] || entity.size?.[0] || 0);
-                entity.properties.nodeSize = [restoreW, restoreH];
-            }
-            if (!normalizePinnedVerticalStack(entity, graph, previousRect) && graph) {
-                const moved = getDeckEngine().reflowChildren(entity);
-                moved.forEach((child) => {
-                    if (typeof child.syncUncleSlots === "function") child.syncUncleSlots();
-                    if (typeof child.setDirtyCanvas === "function") child.setDirtyCanvas(true, true);
-                });
-            }
+        if (isPinnedSelf) {
+            if (entity._derpBgCache) entity._derpBgCache.key = "";
+            if (entity._compDataCache) entity._compDataCache = {};
+            entity._layoutDirty = true;
+            if (entity.layout) entity.layout._lastCacheKey = "";
         }
     }
 
@@ -562,6 +565,12 @@ export function handleShieldInteraction(entity, type, data = {}) {
 }
 
 export function handleDrawCTX(entity, ctx, overlayPass = false) {
+    debugPinnedDraw(overlayPass ? "draw-overlay-enter" : "draw-base-enter", entity, {
+        overlayPass,
+        bgCacheKey: entity?._derpBgCache?.key || null,
+        compCacheKeys: entity?._compDataCache ? Object.keys(entity._compDataCache) : [],
+        layoutCacheKey: entity?.layout?._lastCacheKey || null,
+    });
     const isBypassed = entity.mode === 4 || entity.mode === 2 || entity._derpSpoofedBypass;
     const isSelected = entity._xcpTrueSelected !== undefined ? entity._xcpTrueSelected : !!(app.canvas.selected_nodes && app.canvas.selected_nodes[entity.id]);
 

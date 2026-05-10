@@ -225,7 +225,13 @@ export function uncle(nodeType, nodeData, minWidth = 100) {
 
         this._shouldSync = hasVisualChanged || this._forceSync || this._layoutDirty || (isAnimating && isTrueSelected);
         const needsLayoutCompute = hasLayoutChanged || this._forceSync || this._layoutDirty;
+        const collapseStateChanged = this._prevContentCollapsed !== this.properties.contentCollapsed;
         if (this._layoutDirty) this._layoutDirty = false;
+
+        if (this._prevContentCollapsed !== this.properties.contentCollapsed) {
+            this._prevContentCollapsed = this.properties.contentCollapsed;
+            if (this.layout) this.layout._lastCacheKey = "";
+        }
 
         const { SNAP, autoWidth, autoHeight } = this.getDerpVars(this);
         const isMinState = this.properties.contentCollapsed;
@@ -246,11 +252,6 @@ export function uncle(nodeType, nodeData, minWidth = 100) {
         animateDerpSize(this, liveTargetW, liveTargetH, useAnim);
 
         const bounds = { x: 0, y: 0, w: this.size[0], h: this.size[1] };
-
-        if (this._prevContentCollapsed !== this.properties.contentCollapsed) {
-            this._prevContentCollapsed = this.properties.contentCollapsed;
-            if (this.layout) this.layout._lastCacheKey = "";
-        }
 
         this.layout.compute(bounds, getVirtualNodeLayoutMap(this), {
             textTheme: this._t_textSmallPaintData || this._t_textNormalPaintData,
@@ -313,7 +314,7 @@ export function uncle(nodeType, nodeData, minWidth = 100) {
                         document.body.appendChild(this._derpDomElements[key]);
                         isNewElement = true;
                     }
-                    if (this._shouldSync || isNewElement) {
+                    if (this._shouldSync || collapseStateChanged || isNewElement) {
                         blueprint.sync(this._derpDomElements[key], this, app, { ...reg, key, geometry: { x: reg.x, y: reg.y, w: reg.w, h: reg.h } });
                     }
                 } else if (blueprint.isHybrid) {

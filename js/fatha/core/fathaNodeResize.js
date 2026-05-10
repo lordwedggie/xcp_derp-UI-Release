@@ -30,9 +30,10 @@ export function handleNodeResize(entity, data, scale) {
         "top-right": { wSign: 1, hSign: -1, moveX: false, moveY: true },
         "bottom-left": { wSign: -1, hSign: 1, moveX: true, moveY: false },
         "bottom-right": { wSign: 1, hSign: 1, moveX: false, moveY: false },
-        "left": { wSign: -1, hSign: 1, moveX: true, moveY: false },
-        "right": { wSign: 1, hSign: 1, moveX: false, moveY: false },
-        "top": { wSign: 1, hSign: -1, moveX: false, moveY: true }
+        "left": { wSign: -1, hSign: 0, moveX: true, moveY: false },
+        "right": { wSign: 1, hSign: 0, moveX: false, moveY: false },
+        "top": { wSign: 1, hSign: -1, moveX: false, moveY: true },
+        "bottom": { wSign: 1, hSign: 1, moveX: false, moveY: false }
     }[resizeAnchor] || { wSign: 1, hSign: 1, moveX: false, moveY: false };
 
     const allowWidthResize = !autoWidth;
@@ -45,6 +46,11 @@ export function handleNodeResize(entity, data, scale) {
     const newH = allowHeightResize ? Math.max(minH, Math.round(rawH / SNAP) * SNAP) : entity.size[1];
 
     const dockResizeResult = syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH, SNAP);
+    if (dockResizeResult.handledAll) {
+        applyDockResizeResult(entity, dockResizeResult);
+        return;
+    }
+
     const appliedW = dockResizeResult.handledWidth ? (dockResizeResult.appliedWidth ?? newW) : newW;
     const appliedH = dockResizeResult.handledHeight ? (dockResizeResult.appliedHeight ?? newH) : newH;
 

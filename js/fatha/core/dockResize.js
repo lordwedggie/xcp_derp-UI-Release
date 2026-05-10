@@ -8,6 +8,41 @@ import {
     syncDeckNodeSize,
 } from "./masterDockEngine.js";
 
+function getNodeWidth(node) {
+    return Number(node?.properties?.nodeSize?.[0] ?? node?.size?.[0]) || 0;
+}
+
+function getNodeHeight(node) {
+    return Number(node?.properties?.nodeSize?.[1] ?? node?.size?.[1]) || 0;
+}
+
+function getNodeMinWidth(node, fallback = 0, snap = 10) {
+    const propMinW = node?.properties?.minWidth || 0;
+    const contentMinW = node?.layout?.contentMinWidth || 60;
+    const padL = node?._padL || 0;
+    const padR = node?._padR || 0;
+    const raw = Math.max(fallback, propMinW, contentMinW + padL + padR);
+    return Math.ceil(raw / snap) * snap;
+}
+
+function normalizeHorizontalMemberPositions(anchorNode, graph) {
+    const members = getDeckMembers(anchorNode, graph)
+        .sort((a, b) => {
+            const ax = Number(a?.pos?.[0]) || 0;
+            const bx = Number(b?.pos?.[0]) || 0;
+            if (ax !== bx) return ax - bx;
+            return (Number(a?.id) || 0) - (Number(b?.id) || 0);
+        });
+    if (members.length <= 1) return;
+
+    let cursorX = Number(members[0]?.pos?.[0]) || 0;
+    members.forEach((member) => {
+        member.pos[0] = cursorX;
+        cursorX += getNodeWidth(member);
+        if (typeof member.syncUncleSlots === "function") member.syncUncleSlots();
+    });
+}
+
 export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH, snap = 10) {
     const graph = app.graph || entity.graph || null;
     if (!graph) return { handledWidth: false, handledHeight: false, handledAll: false, appliedWidth: null, appliedHeight: null, counterparts: [] };
@@ -75,10 +110,10 @@ export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH,
         result.appliedHeight = snappedHeight;
     }
 
-    const isLeftHandle = resizeAnchor === "top-left" || resizeAnchor === "bottom-left";
-    const isRightHandle = resizeAnchor === "top-right" || resizeAnchor === "bottom-right";
-    const isTopHandle = resizeAnchor === "top-left" || resizeAnchor === "top-right";
-    const isBottomHandle = resizeAnchor === "bottom-left" || resizeAnchor === "bottom-right";
+    const isLeftHandle = resizeAnchor === "left" || resizeAnchor === "top-left" || resizeAnchor === "bottom-left";
+    const isRightHandle = resizeAnchor === "right" || resizeAnchor === "top-right" || resizeAnchor === "bottom-right";
+    const isTopHandle = resizeAnchor === "top" || resizeAnchor === "top-left" || resizeAnchor === "top-right";
+    const isBottomHandle = resizeAnchor === "bottom" || resizeAnchor === "bottom-left" || resizeAnchor === "bottom-right";
 
     const parent = getDeckParent(entity, graph);
     const childNodes = getDeckChildren(entity, graph);
@@ -100,7 +135,6 @@ export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH,
 
     const matchingCandidate = seamCandidates.find(({ leader, docked, side }) => {
         if (!leader || !docked || !side) return false;
-        if (getDeckChildren(leader, graph).length !== 1) return false;
         if (side === "left" || side === "right") {
             const leaderSeamUsesLeftHandle = side === "left";
             const dockedSeamUsesLeftHandle = side === "right";
@@ -149,14 +183,30 @@ export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH,
 
         const leftNode = side === "left" ? docked : leader;
         const rightNode = side === "left" ? leader : docked;
-        const draggedWidth = Math.min(totalWidth - minW, Math.max(minW, newW));
-        const counterpartWidth = Math.max(minW, totalWidth - draggedWidth);
+        const leftMinW = getNodeMinWidth(leftNode, minW, snap);
+        const rightMinW = getNodeMinWidth(rightNode, minW, snap);
+
+        if (totalWidth < leftMinW + rightMinW) {
+            result.handledWidth = true;
+            result.handledAll = true;
+            result.appliedWidth = getNodeWidth(entity);
+            addCounterpart(leftNode);
+            addCounterpart(rightNode);
+            return result;
+        }
+
+        const draggedMinW = entity.id === leftNode.id ? leftMinW : rightMinW;
+        const counterpartMinW = entity.id === leftNode.id ? rightMinW : leftMinW;
+        const maxDraggedWidth = Math.max(draggedMinW, totalWidth - counterpartMinW);
+        const draggedWidth = Math.min(maxDraggedWidth, Math.max(draggedMinW, newW));
+        const counterpartWidth = Math.max(counterpartMinW, totalWidth - draggedWidth);
         const adjustedLeftW = leftNode.id === entity.id ? draggedWidth : counterpartWidth;
         const adjustedRightW = rightNode.id === entity.id ? draggedWidth : counterpartWidth;
 
-        syncDeckNodeSize(leftNode, adjustedLeftW, leftNode.properties?.nodeSize?.[1] || leftNode.size?.[1] || 0);
-        syncDeckNodeSize(rightNode, adjustedRightW, rightNode.properties?.nodeSize?.[1] || rightNode.size?.[1] || 0);
+        syncDeckNodeSize(leftNode, adjustedLeftW, getNodeHeight(leftNode));
+        syncDeckNodeSize(rightNode, adjustedRightW, getNodeHeight(rightNode));
         rightNode.pos[0] = leftNode.pos[0] + adjustedLeftW;
+        normalizeHorizontalMemberPositions(leftNode, graph);
         if (typeof leftNode.syncUncleSlots === "function") leftNode.syncUncleSlots();
         if (typeof rightNode.syncUncleSlots === "function") rightNode.syncUncleSlots();
         result.handledWidth = true;

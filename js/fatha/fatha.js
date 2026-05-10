@@ -244,7 +244,13 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
 
         this._shouldSync = hasVisualChanged || this._forceSync || this._layoutDirty || (isAnimating && isTrueSelected);
         const needsLayoutCompute = hasLayoutChanged || this._forceSync || this._layoutDirty;
+        const collapseStateChanged = this._prevContentCollapsed !== this.properties.contentCollapsed;
         if (this._layoutDirty) this._layoutDirty = false;
+
+        if (this._prevContentCollapsed !== this.properties.contentCollapsed) {
+            this._prevContentCollapsed = this.properties.contentCollapsed;
+            if (this.layout) this.layout._lastCacheKey = "";
+        }
 
         const { SNAP, autoWidth, autoHeight } = this.getDerpVars(this);
         const isMinState = this.properties.contentCollapsed;
@@ -265,11 +271,6 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
         animateDerpSize(this, liveTargetW, liveTargetH, useAnim);
 
         const bounds = { x: 0, y: 0, w: this.size[0], h: this.size[1] };
-
-        if (this._prevContentCollapsed !== this.properties.contentCollapsed) {
-            this._prevContentCollapsed = this.properties.contentCollapsed;
-            if (this.layout) this.layout._lastCacheKey = "";
-        }
 
         this.layout.compute(bounds, getVirtualNodeLayoutMap(this), {
             textTheme: this._t_textSmallPaintData || this._t_textNormalPaintData,
@@ -317,7 +318,7 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
 
                 // THE COMP-DATA CACHE: Reuse geometry and data objects unless a layout shift occurred
                 let compData = this._compDataCache[key];
-                if (needsLayoutCompute || !compData) {
+                if (needsLayoutCompute || collapseStateChanged || !compData) {
                     compData = { ...reg, key, useAnim, geometry: { x: reg.x, y: reg.y, w: reg.w, h: reg.h } };
                     this._compDataCache[key] = compData;
                 }

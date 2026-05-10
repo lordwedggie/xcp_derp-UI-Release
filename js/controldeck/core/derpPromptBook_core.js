@@ -32,7 +32,8 @@ export function bindPromptBookHooks(nodeType) {
             const activePage = this.properties.derpBook?.[this.properties.currentPageIndex || 0];
 
             const rawContent = (activePage?.content || "").replace(/\[\[IMG:[\s\S]*?\]\]/g, "");
-            const outContent = isBypassed ? "" : rawContent.replace(/\r?\n|\r/g, "").trim();
+            // Preserve editor formatting so content edits always propagate to signal sync.
+            const outContent = isBypassed ? "" : rawContent;
             const syncFingerprint = `${isBypassed ? "bypass" : "live"}__${nodeName}__${outContent}`;
 
             if (this._lastSyncedContent === syncFingerprint) return;

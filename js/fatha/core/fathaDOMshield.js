@@ -268,6 +268,7 @@ export function createDerpShield(node) {
 
     // --- LISTENERS ---
     const startResize = (e, anchor = "bottom-right") => {
+        anchor = e.currentTarget?._resizeAnchorOverride || anchor;
         const localPos = getLocalCoords(e);
         const localMouse = [localPos.x, localPos.y];
         const collapseBtn = node.layout?.regions?.btnCollapse;
@@ -500,7 +501,6 @@ export function syncDerpShield(node) {
         offsetY: 0,
         isSystemPanel: false
     });
-    const dbg = node.interactionShield._debugLayer;
 
     // --- 3. BASE SHIELD TRANSFORM ---
     s.width = `${visualW * scale}px`;
@@ -527,6 +527,11 @@ export function syncDerpShield(node) {
         const bottomLeftWidth = isBasta ? bastaEdgeWidth : bottomCornerSize;
 
         const handleStyle = node.interactionShield._resizeHandle.style;
+        const edges = node.properties?.deckEdges || {};
+        const hasSharedLeftEdge = edges.left !== null && edges.left !== undefined;
+        const hasSharedRightEdge = edges.right !== null && edges.right !== undefined;
+        const sharedEdgeWidth = Math.max(4 * scale, Number(vars.mW || 0) * scale);
+        node.interactionShield._resizeHandle._resizeAnchorOverride = hasSharedRightEdge ? "right" : null;
         handleStyle.width = `${bottomRightWidth}px`;
         handleStyle.height = `${bottomCornerSize}px`;
         handleStyle.cursor = (canW && canH) ? "nwse-resize" : (canW ? "ew-resize" : "ns-resize");
@@ -536,14 +541,31 @@ export function syncDerpShield(node) {
         handleStyle.pointerEvents = node.resizable ? "auto" : "none";
         handleStyle.right = `-${padR * scale}px`;
 
+        if (hasSharedRightEdge && canW) {
+            handleStyle.width = `${sharedEdgeWidth}px`;
+            handleStyle.height = `${visualH * scale}px`;
+            handleStyle.cursor = "ew-resize";
+            handleStyle.display = "block";
+            handleStyle.pointerEvents = "auto";
+        }
+
         if (node.interactionShield._resizeHandleLeft) {
             const leftStyle = node.interactionShield._resizeHandleLeft.style;
+            node.interactionShield._resizeHandleLeft._resizeAnchorOverride = hasSharedLeftEdge ? "left" : null;
             leftStyle.width = `${bottomLeftWidth}px`;
             leftStyle.height = `${bottomCornerSize}px`;
             leftStyle.cursor = (canW && canH) ? "nesw-resize" : (canW ? "ew-resize" : "ns-resize");
             leftStyle.display = node.resizable ? "block" : "none";
             leftStyle.pointerEvents = node.resizable ? "auto" : "none";
             leftStyle.left = `-${padL * scale}px`;
+
+            if (hasSharedLeftEdge && canW) {
+                leftStyle.width = `${sharedEdgeWidth}px`;
+                leftStyle.height = `${visualH * scale}px`;
+                leftStyle.cursor = "ew-resize";
+                leftStyle.display = "block";
+                leftStyle.pointerEvents = "auto";
+            }
         }
 
         const showTopCorners = node.resizable;
@@ -565,8 +587,8 @@ export function syncDerpShield(node) {
             const topLeftStyle = node.interactionShield._resizeHandleTopLeft.style;
             topLeftStyle.width = `${topLeftWidth}px`;
             topLeftStyle.height = `${topCornerSize}px`;
-            topLeftStyle.display = showTopCorners ? "block" : "none";
-            topLeftStyle.pointerEvents = showTopCorners ? "auto" : "none";
+            topLeftStyle.display = (showTopCorners && !hasSharedLeftEdge) ? "block" : "none";
+            topLeftStyle.pointerEvents = (showTopCorners && !hasSharedLeftEdge) ? "auto" : "none";
             topLeftStyle.left = `-${padL * scale}px`;
             topLeftStyle.cursor = (canW && canH) ? "nwse-resize" : (canW ? "ew-resize" : "ns-resize");
         }
@@ -575,8 +597,8 @@ export function syncDerpShield(node) {
             const topRightStyle = node.interactionShield._resizeHandleTopRight.style;
             topRightStyle.width = `${topRightWidth}px`;
             topRightStyle.height = `${topCornerSize}px`;
-            topRightStyle.display = showTopCorners ? "block" : "none";
-            topRightStyle.pointerEvents = showTopCorners ? "auto" : "none";
+            topRightStyle.display = (showTopCorners && !hasSharedRightEdge) ? "block" : "none";
+            topRightStyle.pointerEvents = (showTopCorners && !hasSharedRightEdge) ? "auto" : "none";
             topRightStyle.right = `-${padR * scale}px`;
             topRightStyle.cursor = (canW && canH) ? "nesw-resize" : (canW ? "ew-resize" : "ns-resize");
         }
