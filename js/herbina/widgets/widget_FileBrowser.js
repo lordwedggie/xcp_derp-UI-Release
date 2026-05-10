@@ -114,6 +114,21 @@ function finalizeFilePickerCleanup() {
     window.__xcpHasActiveFileBrowser = false;
 }
 
+function forceFileBrowserResync(node, config, sourceEl) {
+    if (node && node._fileBrowserCache && config?.key) {
+        delete node._fileBrowserCache[config.key];
+    }
+    if (sourceEl) {
+        sourceEl._lastSyncKey = "";
+    }
+    if (node) {
+        node._forceSync = true;
+        node._layoutDirty = true;
+        if (typeof node.requestDerpSync === "function") node.requestDerpSync();
+        if (typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, true);
+    }
+}
+
 // THE GLOBAL HOOK: Allow the framework to force-close pickers during major state transitions (like Basta switches)
 window._xcpCloseActiveFileBrowser = () => {
     if (activeFilePicker) {
@@ -329,6 +344,7 @@ function openFilePicker(sourceEl, config, node, callbacks) {
                 } else if (entry.type === "dir") {
                     renderRows(dir ? `${dir}/${entry.name}` : entry.name);
                 } else {
+                    forceFileBrowserResync(node, config, sourceEl);
                     if (callbacks.onChange) callbacks.onChange(entry.path);
                     closeFilePicker();
                 }
@@ -382,6 +398,7 @@ function openFilePicker(sourceEl, config, node, callbacks) {
             selectBtn.onclick = (e) => {
                 e.stopPropagation();
                 const finalPath = picker._currentDir || "/";
+                forceFileBrowserResync(node, config, sourceEl);
                 if (callbacks.onChange) callbacks.onChange(finalPath);
                 closeFilePicker();
                 node.setDirtyCanvas(true, true);
@@ -709,7 +726,8 @@ export function syncFileBrowser(context, node, app, config) {
 
                 const syncRow = (row) => {
                     const rowPX = (safeConfig.padding?.[0] || 4);
-                    const rowFS = typeof fs !== "undefined" ? fs : (safeConfig.fontSize || 10);
+                    const rowFS = Number(row._baseFontSize) || (typeof fs !== "undefined" ? fs : (safeConfig.fontSize || 10));
+                    const glyphMult = Number(row._glyphSizeMult) || 1;
                     const rowIconOffset = rowFS * 1.2;
 
                     row.style.height = `${dRowH * scale}px`;
@@ -717,9 +735,9 @@ export function syncFileBrowser(context, node, app, config) {
                     if (row._glyphSpan) {
                         row._glyphSpan.style.width = `${rowIconOffset * scale}px`;
                         row._glyphSpan.style.marginRight = `${rowSW * scale}px`;
-                        row._glyphSpan.style.fontSize = `${rowFS * scale}px`;
+                        row._glyphSpan.style.fontSize = `${rowFS * glyphMult * scale}px`;
                     }
-                    row.style.fontSize = el._label.style.fontSize;
+                    row.style.fontSize = `${rowFS * scale}px`;
                 };
 
                 if (activeFilePicker._headerWrapper) Array.from(activeFilePicker._headerWrapper.children).forEach(syncRow);
