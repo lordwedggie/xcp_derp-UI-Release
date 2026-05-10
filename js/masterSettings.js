@@ -122,6 +122,17 @@ function normalizeVariantIndex(value, fallback = 0) {
     return Math.max(0, Math.min(4, Math.floor(n)));
 }
 
+function normalizeBooleanSetting(value, fallback = false) {
+    if (typeof value === "boolean") return value;
+    if (typeof value === "number") return value !== 0;
+    if (typeof value === "string") {
+        const v = value.trim().toLowerCase();
+        if (["true", "1", "yes", "on"].includes(v)) return true;
+        if (["false", "0", "no", "off"].includes(v)) return false;
+    }
+    return fallback;
+}
+
 app.registerExtension({
     name: "xcp.DerpSettings",
     init() {
@@ -165,6 +176,18 @@ app.registerExtension({
                     });
                 }
 
+                if (app.canvas) app.canvas.setDirty(true, true);
+            }
+        });
+
+        app.ui.settings.addSetting({
+            id: "Derp.DockPinCollapseDown",
+            name: "Derp Nodes: Dock Pin Collapse Down",
+            type: "boolean",
+            default: true,
+            onChange: (v) => {
+                window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
+                window.DERP_GLOBAL_SETTINGS.dockPinCollapseDown = normalizeBooleanSetting(v, true);
                 if (app.canvas) app.canvas.setDirty(true, true);
             }
         });
@@ -219,6 +242,7 @@ app.registerExtension({
         window.DERP_GLOBAL_SETTINGS = {
             playSound: app.ui.settings.getSettingValue("Derp.PlaySound", true),
             useAnimation: app.ui.settings.getSettingValue("Derp.UseAnimation", true),
+            dockPinCollapseDown: normalizeBooleanSetting(app.ui.settings.getSettingValue("Derp.DockPinCollapseDown", true), true),
             perfOverlayHotkey: normalizeHotkeyString(app.ui.settings.getSettingValue("Derp.PerfOverlayHotkey", "Alt+Shift+P"), "Alt+Shift+P"),
             systemBypassSoundIndex: normalizeVariantIndex(app.ui.settings.getSettingValue("Derp.SystemBypassSoundIndex", 0), 0),
             systemCollapseSoundIndex: normalizeVariantIndex(app.ui.settings.getSettingValue("Derp.SystemCollapseSoundIndex", 0), 0),

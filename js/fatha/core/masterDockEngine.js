@@ -214,6 +214,26 @@ function getNodeAxisMin(node, axis = "width", snap = DEFAULT_DECK_SNAP) {
     return axis === "width" ? getNodeMinWidth(node, snap) : getNodeMinHeight(node, snap);
 }
 
+function normalizeVerticalStackPins(node, graph, preferredPinnedNode = null) {
+    if (!node || !graph) return;
+    const members = getDeckMembers(node, graph);
+    if (!Array.isArray(members) || members.length <= 1) return;
+    if (!isLinearDeckGroup(node, graph, "vertical")) return;
+
+    const pinnedMembers = members.filter((member) => member?.properties?.pinActive === true);
+    if (pinnedMembers.length <= 1) return;
+
+    const keepPinned = (preferredPinnedNode && pinnedMembers.some((member) => member.id === preferredPinnedNode.id))
+        ? preferredPinnedNode
+        : pinnedMembers[0];
+
+    members.forEach((member) => {
+        if (!member?.properties) member.properties = {};
+        member.properties.pinActive = member.id === keepPinned.id;
+        if (typeof member.requestDerpSync === "function") member.requestDerpSync();
+    });
+}
+
 function quantizeSize(value, unit) {
     if (!isFiniteNumber(value)) return unit;
     if (!isFiniteNumber(unit) || unit <= 1) return Math.max(1, Math.round(value));
@@ -972,6 +992,7 @@ export function deckNodeToLeader(node, leader, graph, side = null) {
     matchDeckNodeSizes(node, attachLeader, side);
     applyDeckEdgeSnap(node, { targetNode: attachLeader, edge: { side } }, DEFAULT_DECK_SNAP);
     normalizeDockPair(attachLeader, node, side, graph, DEFAULT_DECK_SNAP);
+    normalizeVerticalStackPins(attachLeader, graph, attachLeader?.properties?.pinActive === true ? attachLeader : node);
     forceDockResizeRefresh(node);
     forceDockResizeRefresh(attachLeader);
     return true;
@@ -992,6 +1013,7 @@ export function finalizeDeck(node, leader, graph, side = null, snap = DEFAULT_DE
     matchDeckNodeSizes(node, attachLeader, side);
     applyDeckEdgeSnap(node, { targetNode: attachLeader, edge: { side } }, snap);
     normalizeDockPair(attachLeader, node, side, graph, snap);
+    normalizeVerticalStackPins(attachLeader, graph, attachLeader?.properties?.pinActive === true ? attachLeader : node);
     forceDockResizeRefresh(node);
     forceDockResizeRefresh(attachLeader);
     return true;
@@ -1027,6 +1049,7 @@ export function finalizeDeckTarget(node, targetInfo, graph, snap = DEFAULT_DECK_
         matchDeckNodeSizes(node, occupied, stackSide);
         applyDeckEdgeSnap(node, { targetNode: occupied, edge: { side: stackSide } }, snap);
         normalizeDockPair(occupied, node, stackSide, graph, snap);
+        normalizeVerticalStackPins(occupied, graph, occupied?.properties?.pinActive === true ? occupied : node);
         forceDockResizeRefresh(node);
         forceDockResizeRefresh(occupied);
         return true;
@@ -1045,6 +1068,7 @@ export function finalizeDeckTarget(node, targetInfo, graph, snap = DEFAULT_DECK_
     matchDeckNodeSizes(node, attachLeader, side);
     applyDeckEdgeSnap(node, { targetNode: attachLeader, edge: { side } }, snap);
     normalizeDockPair(attachLeader, node, side, graph, snap);
+    normalizeVerticalStackPins(attachLeader, graph, attachLeader?.properties?.pinActive === true ? attachLeader : node);
     forceDockResizeRefresh(node);
     forceDockResizeRefresh(attachLeader);
     return true;

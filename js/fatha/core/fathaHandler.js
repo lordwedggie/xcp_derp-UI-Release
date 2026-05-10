@@ -162,20 +162,37 @@ export async function loadDerpPalette(paletteName = "Derp_Default_v01") {
 // --- ANIMATION TUNABLES ---
 export const ANIM_SELECTION_PULSE = true;
 
-function shouldExpandUpFromPin(node, graph) {
-    if (!node || !graph) return false;
-    if (!isNodeDocked(node, graph)) return false;
-    if (!isLinearDeckGroup(node, graph, "vertical")) return false;
+function getDockPinCollapseDownSetting() {
+    const raw = window.DERP_GLOBAL_SETTINGS?.dockPinCollapseDown;
+    if (raw === false || raw === 0) return false;
+    if (typeof raw === "string") {
+        const v = raw.trim().toLowerCase();
+        if (v === "false" || v === "0" || v === "off" || v === "no") return false;
+        if (v === "true" || v === "1" || v === "on" || v === "yes") return true;
+    }
+    return raw !== false;
+}
+
+function resolveCollapseShiftDirection(node, graph) {
+    if (!node || !graph) return 0;
+    if (!isNodeDocked(node, graph)) return 0;
+    if (!isLinearDeckGroup(node, graph, "vertical")) return 0;
 
     const members = getDeckMembers(node, graph);
-    if (!Array.isArray(members) || members.length <= 1) return false;
+    if (!Array.isArray(members) || members.length <= 1) return 0;
 
     const pinned = members.find((m) => m?.properties?.pinActive === true);
-    if (!pinned || pinned.id === node.id) return false;
+    if (!pinned) return 0;
+
+    if (pinned.id === node.id) {
+        // true: collapse down / expand up -> y -= deltaH
+        // false: collapse up / expand down -> y += deltaH
+        return getDockPinCollapseDownSetting() ? -1 : 1;
+    }
 
     const nodeY = Number(node.pos?.[1]) || 0;
     const pinY = Number(pinned.pos?.[1]) || 0;
-    return nodeY < pinY;
+    return nodeY < pinY ? -1 : 0;
 }
 
 export function animateDerpSize(node, targetW, targetH, useAnim) {
@@ -186,8 +203,11 @@ export function animateDerpSize(node, targetW, targetH, useAnim) {
         if (node.properties) node.properties.nodeSize = [targetW, targetH];
         const graph = app.graph || node.graph || null;
         const deltaH = (Number(targetH) || 0) - prevH;
-        if (deltaH !== 0 && shouldExpandUpFromPin(node, graph)) {
-            node.pos[1] = (Number(node.pos?.[1]) || 0) - deltaH;
+        const shiftDirection = resolveCollapseShiftDirection(node, graph);
+        if (node._skipNextAnimateCollapseShift === true) {
+            node._skipNextAnimateCollapseShift = false;
+        } else if (deltaH !== 0 && shiftDirection !== 0) {
+            node.pos[1] = (Number(node.pos?.[1]) || 0) + (deltaH * shiftDirection);
         }
         if (graph) {
             const moved = getDeckEngine().reflowChildren(node);
@@ -269,6 +289,21 @@ export function handleDerpCollapse(entity, force) {
 
     if (nextState === true && !entity.properties.contentCollapsed) {
         entity._preCollapseHeight = entity.size[1];
+    }
+
+    if (nextState === false && entity.properties.contentCollapsed === true) {
+        const graph = app.graph || entity.graph || null;
+        const shiftDirection = resolveCollapseShiftDirection(entity, graph);
+        const restoreH = Number(entity._preCollapseHeight || 0);
+        const currentH = Number(entity.size?.[1] || 0);
+        const deltaH = restoreH - currentH;
+
+        // Pre-shift the pinned node before LiteGraph starts the next draw frame.
+        // Otherwise the first frame still renders at the old y and only corrects upward after resize.
+        if (shiftDirection !== 0 && deltaH !== 0) {
+            entity.pos[1] = (Number(entity.pos?.[1]) || 0) + (deltaH * shiftDirection);
+            entity._skipNextAnimateCollapseShift = true;
+        }
     }
 
     entity.properties.contentCollapsed = nextState;

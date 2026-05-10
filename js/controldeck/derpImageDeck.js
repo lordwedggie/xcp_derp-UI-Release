@@ -313,7 +313,6 @@ app.registerExtension({
                 if (restoreH > 0) {
                     const restoreW = Number(this.properties?.nodeSize?.[0] || this.size?.[0] || 400);
                     this.properties.nodeSize = [restoreW, restoreH];
-                    this.size = [restoreW, restoreH];
                     if (typeof this.refreshNodeLayoutMap === "function") this.refreshNodeLayoutMap();
                     if (typeof this.requestDerpSync === "function") this.requestDerpSync();
                 }
