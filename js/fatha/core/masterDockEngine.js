@@ -1118,11 +1118,8 @@ export function moveDeck(rootNode, graph, offsets = new Map(), snap = DEFAULT_DE
     members.forEach((node) => {
         if (node.id === root.id) return;
         const [dx, dy] = offsets.get(node.id) || [0, 0];
-        // Keep stacked members as a rigid body relative to the snapped root.
-        // Snapping each child independently introduces per-node rounding drift,
-        // which can create tiny visual gaps in docked stacks after dragging.
-        node.pos[0] = rootX + dx;
-        node.pos[1] = rootY + dy;
+        node.pos[0] = snapValue(rootX + dx, snap);
+        node.pos[1] = snapValue(rootY + dy, snap);
         if (typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, true);
         if (typeof node.syncUncleSlots === "function") node.syncUncleSlots();
     });
@@ -1130,8 +1127,29 @@ export function moveDeck(rootNode, graph, offsets = new Map(), snap = DEFAULT_DE
     return members;
 }
 
-export function moveDeckByDelta(graph, positions = new Map(), dx = 0, dy = 0, snap = DEFAULT_DECK_SNAP) {
+export function moveDeckByDelta(graph, positions = new Map(), dx = 0, dy = 0, snap = DEFAULT_DECK_SNAP, rootNodeId = null) {
     if (!graph || !(positions instanceof Map) || positions.size === 0) return [];
+
+    if (rootNodeId === null || rootNodeId === undefined || !positions.has(rootNodeId)) {
+        rootNodeId = [...positions.entries()]
+            .sort((a, b) => {
+                const ay = Number(a?.[1]?.[1]) || 0;
+                const by = Number(b?.[1]?.[1]) || 0;
+                if (ay !== by) return ay - by;
+                const ax = Number(a?.[1]?.[0]) || 0;
+                const bx = Number(b?.[1]?.[0]) || 0;
+                if (ax !== bx) return ax - bx;
+                return Number(a?.[0]) - Number(b?.[0]);
+            })?.[0]?.[0];
+    }
+
+    const rootStart = positions.get(rootNodeId) || [0, 0];
+    const rootStartX = Number(rootStart?.[0]) || 0;
+    const rootStartY = Number(rootStart?.[1]) || 0;
+    const snappedRootX = snapValue(rootStartX + dx, snap);
+    const snappedRootY = snapValue(rootStartY + dy, snap);
+    const snappedDx = snappedRootX - rootStartX;
+    const snappedDy = snappedRootY - rootStartY;
 
     const moved = [];
     positions.forEach((startPos, nodeId) => {
@@ -1139,8 +1157,10 @@ export function moveDeckByDelta(graph, positions = new Map(), dx = 0, dy = 0, sn
         if (!node) return;
         const startX = Number(startPos?.[0]) || 0;
         const startY = Number(startPos?.[1]) || 0;
-        node.pos[0] = snapValue(startX + dx, snap);
-        node.pos[1] = snapValue(startY + dy, snap);
+        // Move the whole deck as one rigid body using the root's snapped delta.
+        // This preserves contact between collapsed/expanded members and avoids drift.
+        node.pos[0] = startX + snappedDx;
+        node.pos[1] = startY + snappedDy;
         if (typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, true);
         if (typeof node.syncUncleSlots === "function") node.syncUncleSlots();
         moved.push(node);
@@ -1338,10 +1358,15 @@ export class masterDockEngine {
     }
 
     syncDraggedDeck(node, snap = DEFAULT_DECK_SNAP, delta = null) {
-        if (delta && this.activeOffsets.size > 0) {
-            const root = this.getActiveRoot() || getDeckRoot(node, this.graph);
-            if (!root) return [];
-            return moveDeck(root, this.graph, this.activeOffsets, snap);
+        if (delta && this.activePositions.size > 0) {
+            return moveDeckByDelta(
+                this.graph,
+                this.activePositions,
+                Number(delta.dx) || 0,
+                Number(delta.dy) || 0,
+                snap,
+                this.activeRootId,
+            );
         }
 
         const root = this.getActiveRoot() || getDeckRoot(node, this.graph);

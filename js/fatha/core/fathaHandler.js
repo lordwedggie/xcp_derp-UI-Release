@@ -195,8 +195,80 @@ function resolveCollapseShiftDirection(node, graph) {
     return nodeY < pinY ? -1 : 0;
 }
 
+function getPinnedVerticalStack(node, graph) {
+    if (!node || !graph) return null;
+    if (!isNodeDocked(node, graph)) return null;
+    if (!isLinearDeckGroup(node, graph, "vertical")) return null;
+
+    const members = getDeckMembers(node, graph);
+    if (!Array.isArray(members) || members.length <= 1) return null;
+
+    const pinned = members.find((m) => m?.properties?.pinActive === true);
+    if (!pinned) return null;
+
+    const ordered = [...members].sort((a, b) => {
+        const ay = Number(a?.pos?.[1]) || 0;
+        const by = Number(b?.pos?.[1]) || 0;
+        if (ay !== by) return ay - by;
+        return (Number(a?.id) || 0) - (Number(b?.id) || 0);
+    });
+
+    return { members: ordered, pinned };
+}
+
+function normalizePinnedVerticalStack(node, graph, previousRect = null) {
+    const stack = getPinnedVerticalStack(node, graph);
+    if (!stack) return false;
+
+    const { members, pinned } = stack;
+    const pinnedIndex = members.findIndex((member) => member.id === pinned.id);
+    if (pinnedIndex < 0) return false;
+
+    const pinnedH = Number(pinned.size?.[1] ?? pinned.properties?.nodeSize?.[1]) || 0;
+    const pinnedY = Number(pinned.pos?.[1]) || 0;
+
+    if (previousRect && previousRect.id === pinned.id) {
+        if (getDockPinCollapseDownSetting()) {
+            pinned.pos[1] = (Number(previousRect.y) || 0) + (Number(previousRect.h) || 0) - pinnedH;
+        } else {
+            pinned.pos[1] = Number(previousRect.y) || 0;
+        }
+    } else if (getDockPinCollapseDownSetting()) {
+        const pinnedBottom = pinnedY + pinnedH;
+        pinned.pos[1] = pinnedBottom - pinnedH;
+    }
+
+    let cursorY = Number(pinned.pos?.[1]) || 0;
+    for (let i = pinnedIndex - 1; i >= 0; i--) {
+        const member = members[i];
+        const h = Number(member.size?.[1] ?? member.properties?.nodeSize?.[1]) || 0;
+        member.pos[1] = cursorY - h;
+        cursorY = member.pos[1];
+    }
+
+    cursorY = (Number(pinned.pos?.[1]) || 0) + pinnedH;
+    for (let i = pinnedIndex + 1; i < members.length; i++) {
+        const member = members[i];
+        member.pos[1] = cursorY;
+        const h = Number(member.size?.[1] ?? member.properties?.nodeSize?.[1]) || 0;
+        cursorY += h;
+    }
+
+    members.forEach((member) => {
+        if (typeof member.syncUncleSlots === "function") member.syncUncleSlots();
+        if (typeof member.setDirtyCanvas === "function") member.setDirtyCanvas(true, true);
+    });
+
+    return true;
+}
+
 export function animateDerpSize(node, targetW, targetH, useAnim) {
     if (node.size[0] !== targetW || node.size[1] !== targetH) {
+        const previousRect = {
+            id: node.id,
+            y: Number(node.pos?.[1]) || 0,
+            h: Number(node.size?.[1]) || 0,
+        };
         const prevH = Number(node.size?.[1]) || 0;
         node.size[0] = targetW;
         node.size[1] = targetH;
@@ -204,12 +276,11 @@ export function animateDerpSize(node, targetW, targetH, useAnim) {
         const graph = app.graph || node.graph || null;
         const deltaH = (Number(targetH) || 0) - prevH;
         const shiftDirection = resolveCollapseShiftDirection(node, graph);
-        if (node._skipNextAnimateCollapseShift === true) {
-            node._skipNextAnimateCollapseShift = false;
-        } else if (deltaH !== 0 && shiftDirection !== 0) {
+        const normalizedPinnedStack = normalizePinnedVerticalStack(node, graph, previousRect);
+        if (!normalizedPinnedStack && deltaH !== 0 && shiftDirection !== 0) {
             node.pos[1] = (Number(node.pos?.[1]) || 0) + (deltaH * shiftDirection);
         }
-        if (graph) {
+        if (graph && !normalizedPinnedStack) {
             const moved = getDeckEngine().reflowChildren(node);
             moved.forEach((child) => {
                 if (typeof child.syncUncleSlots === "function") child.syncUncleSlots();
@@ -293,16 +364,28 @@ export function handleDerpCollapse(entity, force) {
 
     if (nextState === false && entity.properties.contentCollapsed === true) {
         const graph = app.graph || entity.graph || null;
-        const shiftDirection = resolveCollapseShiftDirection(entity, graph);
         const restoreH = Number(entity._preCollapseHeight || 0);
         const currentH = Number(entity.size?.[1] || 0);
         const deltaH = restoreH - currentH;
 
-        // Pre-shift the pinned node before LiteGraph starts the next draw frame.
-        // Otherwise the first frame still renders at the old y and only corrects upward after resize.
-        if (shiftDirection !== 0 && deltaH !== 0) {
-            entity.pos[1] = (Number(entity.pos?.[1]) || 0) + (deltaH * shiftDirection);
-            entity._skipNextAnimateCollapseShift = true;
+        if (restoreH > 0 && deltaH !== 0) {
+            const previousRect = {
+                id: entity.id,
+                y: Number(entity.pos?.[1]) || 0,
+                h: currentH,
+            };
+            entity.size[1] = restoreH;
+            if (entity.properties) {
+                const restoreW = Number(entity.properties.nodeSize?.[0] || entity.size?.[0] || 0);
+                entity.properties.nodeSize = [restoreW, restoreH];
+            }
+            if (!normalizePinnedVerticalStack(entity, graph, previousRect) && graph) {
+                const moved = getDeckEngine().reflowChildren(entity);
+                moved.forEach((child) => {
+                    if (typeof child.syncUncleSlots === "function") child.syncUncleSlots();
+                    if (typeof child.setDirtyCanvas === "function") child.setDirtyCanvas(true, true);
+                });
+            }
         }
     }
 

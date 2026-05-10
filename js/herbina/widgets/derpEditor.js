@@ -107,7 +107,7 @@ export function createDerpEditorHTML(callbacks = {}) {
             else if (el._nodeRef.setDirtyCanvas) el._nodeRef.setDirtyCanvas(true);
         }
 
-        if (el._nodeRef && el._config) {
+        if (el._isMultiline && el._nodeRef && el._config) {
             const scroll = el._nodeRef._derpScrollOffsets?.[el._config.key] || 0;
             el.scrollTop = scroll;
         }
@@ -185,11 +185,16 @@ export function syncDerpEditor(context, node, app, config) {
 
     // --- SCROLL ENGINE INITIALIZATION ---
     if (node._derpScrollOffsets === undefined) node._derpScrollOffsets = {};
-    if (node._derpScrollOffsets[safeConfig.key] === undefined) node._derpScrollOffsets[safeConfig.key] = 0;
+    if (isMultiline) {
+        if (node._derpScrollOffsets[safeConfig.key] === undefined) node._derpScrollOffsets[safeConfig.key] = 0;
+    } else if (Object.prototype.hasOwnProperty.call(node._derpScrollOffsets, safeConfig.key)) {
+        delete node._derpScrollOffsets[safeConfig.key];
+    }
 
     if (!el._hasScrollSync) {
         // 1. Sync native HTML scrolling
         el.addEventListener("scroll", () => {
+            if (!el._isMultiline) return;
             node._derpScrollOffsets[safeConfig.key] = el.scrollTop;
             node._derpAwakeFrames = 5;
             if (node.requestDerpSync) node.requestDerpSync();
@@ -198,7 +203,7 @@ export function syncDerpEditor(context, node, app, config) {
 
         // 2. THE CANVAS SCROLL FIX: Catch wheel events when the HTML overlay is asleep
         app.canvas.canvas.addEventListener("wheel", (e) => {
-            if (!el._isAwake && node._hoveredRegionKey === safeConfig.key) {
+            if (el._isMultiline && !el._isAwake && node._hoveredRegionKey === safeConfig.key) {
                 e.preventDefault(); // Stop canvas zoom
                 e.stopPropagation();
 
@@ -240,7 +245,7 @@ export function syncDerpEditor(context, node, app, config) {
 
         el._hasScrollSync = true;
     }
-    const currentScroll = node._derpScrollOffsets[safeConfig.key];
+    const currentScroll = isMultiline ? (node._derpScrollOffsets[safeConfig.key] || 0) : 0;
     const { x, y, w, h } = safeConfig.geometry || { x: 0, y: 0, w: 0, h: 0 };
     const isHovered = (safeConfig.mouseOver !== false && node._hoveredRegionKey === safeConfig.key);
     const valStr = (safeConfig.value !== undefined ? safeConfig.value : (node.properties?.[safeConfig.key] ?? "")).toString();
@@ -752,7 +757,7 @@ export function syncDerpEditor(context, node, app, config) {
         el.style.padding = `${finalPadY}px ${htmlPadX}px 0px ${htmlPadX}px`;
         el.style.lineHeight = `${uiLineHeight}px`;
         el.style.overflowX = "hidden";
-        el.style.overflowY = "auto";
+        el.style.overflowY = isMultiline ? "auto" : "hidden";
         el.style.resize = "none";
 
         el.style.whiteSpace = isMultiline ? "pre-wrap" : "nowrap";
@@ -809,7 +814,7 @@ export function syncDerpEditor(context, node, app, config) {
 
     // THE SCROLL FIX: Only force the HTML element to match the node's scroll state
     // when NOT awake to avoid fighting the user's manual scrolling.
-    if (!isAwake && Math.abs(el.scrollTop - currentScroll) > 1) {
+    if (isMultiline && !isAwake && Math.abs(el.scrollTop - currentScroll) > 1) {
         el.scrollTop = currentScroll;
     }
 }
