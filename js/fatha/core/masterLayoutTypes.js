@@ -51,6 +51,7 @@ export const UI_TYPES = {
     LINEBREAK: "lineBreak",
     FILEBROWSER: "fileBrowser",
     IMAGE_HTML: "imageHTML",
+    IMAGE_CANVAS: "imageCanvas",
     TOGGLE: "derpToggle",
     TOGGLE_V2: "derpToggleV2",
     COMPOSITE_TRIGGER: "compositeTrigger",
@@ -180,6 +181,13 @@ export const COMPONENT_BLUEPRINTS = {
         themeKey: "panel",
         width: "auto", height: "auto",
         // THE CANVAS NATIVE FIX: Convert to hybrid to draw natively on the canvas z-layer
+        isHtml: false,
+        isHybrid: true,
+        sync: (ctx, node, app, config, overlayPass) => syncImageHTML(ctx, node, app, config, overlayPass)
+    },
+    [UI_TYPES.IMAGE_CANVAS]: {
+        themeKey: "panel",
+        width: "auto", height: "auto",
         isHtml: false,
         isHybrid: true,
         sync: (ctx, node, app, config, overlayPass) => syncImageHTML(ctx, node, app, config, overlayPass)

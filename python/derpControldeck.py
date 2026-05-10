@@ -1,5 +1,4 @@
 # Path: ./python/derpControldeck.py
-
 class DerpTemplateV2Node:
     @classmethod
     def INPUT_TYPES(s):
@@ -111,6 +110,56 @@ class DerpTriggerWallNode:
         # THE PURE VIRTUAL FIX: Return None to force wireless signal handling
         return (None,)
 
+
+class DerpImageDeckNode:
+    @classmethod
+    def INPUT_TYPES(s):
+        return {"required": {}, "optional": {"images": ("IMAGE",)}}
+
+    RETURN_TYPES = ()
+    FUNCTION = "preview_images"
+    OUTPUT_NODE = True
+    CATEGORY = "🔞 derpNodes/ControlDeck"
+
+    def __init__(self):
+        import uuid
+        self._image_deck_prefix = f"derp_image_deck_{uuid.uuid4().hex[:8]}"
+        self._image_deck_counter = 0
+
+    def _to_uint8(self, image_tensor):
+        import numpy as np
+        arr = 255.0 * image_tensor.cpu().numpy()
+        arr = np.clip(arr, 0, 255).astype(np.uint8)
+        return arr
+
+    def preview_images(self, images=None):
+        import os
+        from PIL import Image
+        import folder_paths
+
+        if images is None:
+            return {"ui": {"images": []}}
+
+        output_dir = folder_paths.get_temp_directory()
+        results = []
+
+        for image in images:
+            arr = self._to_uint8(image)
+            pil = Image.fromarray(arr)
+
+            filename = f"{self._image_deck_prefix}_{self._image_deck_counter:05}.png"
+            self._image_deck_counter += 1
+            full_path = os.path.join(output_dir, filename)
+            pil.save(full_path, compress_level=4)
+
+            results.append({
+                "filename": filename,
+                "subfolder": "",
+                "type": "temp"
+            })
+
+        return {"ui": {"images": results}}
+
 # --- MAPPINGS ---
 NODE_CLASS_MAPPINGS = {
     "DerpTemplateV2Node": DerpTemplateV2Node,
@@ -120,7 +169,8 @@ NODE_CLASS_MAPPINGS = {
     "DerpLatentNode": DerpLatentNode,
     "DerpModelLoaderNode": DerpModelLoaderNode,
     "DerpVaeLoaderNode": DerpVaeLoaderNode,
-    "DerpTriggerWallNode": DerpTriggerWallNode
+    "DerpTriggerWallNode": DerpTriggerWallNode,
+    "DerpImageDeckNode": DerpImageDeckNode
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -131,5 +181,6 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "DerpLatentNode": "Derp Latent",
     "DerpModelLoaderNode": "Derp Model Loader",
     "DerpVaeLoaderNode": "Derp Vae Loader",
-    "DerpTriggerWallNode": "Derp Trigger Wall"
+    "DerpTriggerWallNode": "Derp Trigger Wall",
+    "DerpImageDeckNode": "Derp Image Deck"
 }

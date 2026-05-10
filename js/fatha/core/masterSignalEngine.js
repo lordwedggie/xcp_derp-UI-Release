@@ -68,7 +68,9 @@ export function transmitDerpSignal(node, value, options = {}) {
         const displayName = `${nodeName} [${portLabel}]`;
 
         let valType = "unknown";
-        if (output.type !== "*") {
+        if (options.forceSignalType && typeof options.forceSignalType === "string") {
+            valType = options.forceSignalType.toLowerCase();
+        } else if (output.type !== "*") {
             const raw = normalizeOutputType(output.type);
             // THE NORMALIZATION FIX: Standardize types for the receiver registry
             if (raw.includes("latent")) valType = "latent";
@@ -99,8 +101,8 @@ export function transmitDerpSignal(node, value, options = {}) {
             if (value.clip_id) extractedUpstream.push(String(value.clip_id).split(":")[0]);
         }
 
-        // Update if data or name changed
-        if (newValStr !== currentValStr || window.xcpDerpSignals[signalId]?.nodeName !== displayName) {
+        // Update if data, name, or resolved type changed
+        if (newValStr !== currentValStr || window.xcpDerpSignals[signalId]?.nodeName !== displayName || window.xcpDerpSignals[signalId]?.type !== valType) {
             hasChanged = true;
             window.xcpDerpSignals[signalId] = {
                 nodeId: signalId,
@@ -248,6 +250,61 @@ export function runWirelessHeartbeat(node, options = {}) {
                 values[w.name] = w.value;
             }
         });
+    }
+
+    const outputHasImage = Array.isArray(node.outputs) && node.outputs.some((o) => {
+        const t = (typeof o?.type === "string" ? o.type : "").toLowerCase();
+        return t.includes("image");
+    });
+
+    // IMAGE bridge for default ComfyUI preview-style nodes (e.g. VAE Decode).
+    // Prefer execution result metadata first, then canvas preview metadata.
+    if (outputHasImage && node && node.imgs && node.imgs[0] && node.imgs[0].src) {
+        try {
+            const src = String(node.imgs[0].src || "");
+            const qIndex = src.indexOf("?");
+            if (qIndex >= 0 && src.indexOf("/view") >= 0) {
+                const query = src.slice(qIndex + 1);
+                const params = new URLSearchParams(query);
+                const filename = params.get("filename");
+                const type = params.get("type") || "output";
+                const subfolder = params.get("subfolder") || "";
+                if (filename) {
+                    transmitDerpSignal(node, {
+                        images: [{ filename, type, subfolder }]
+                    }, { ...options, forceSignalType: "image" });
+                    return;
+                }
+            }
+        } catch (e) {
+            // Ignore and continue with generic heartbeat fallback.
+        }
+    }
+
+    if (outputHasImage && window.app && window.app.nodeOutputs) {
+        try {
+            const result = window.app.nodeOutputs[String(node.id)] || window.app.nodeOutputs[node.id];
+            if (result) {
+                const images = Array.isArray(result.images) ? result.images : [];
+                const uiImages = result.ui && Array.isArray(result.ui.images) ? result.ui.images : [];
+                const outputImages = result.output && Array.isArray(result.output.images) ? result.output.images : [];
+                const finalImages = images.length > 0 ? images : (uiImages.length > 0 ? uiImages : outputImages);
+                if (finalImages.length > 0) {
+                    transmitDerpSignal(node, {
+                        images: finalImages
+                    }, { ...options, forceSignalType: "image" });
+                    return;
+                }
+            }
+        } catch (e) {
+            // Ignore and continue with generic heartbeat fallback.
+        }
+    }
+
+    // Do not overwrite IMAGE signals with empty/generic heartbeat payloads.
+    // IMAGE-producing default Comfy nodes should only broadcast real preview/result metadata.
+    if (outputHasImage) {
+        return;
     }
 
     const keys = Object.keys(values);

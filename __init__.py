@@ -37,6 +37,11 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     **SIGNAL_OUT_DISPLAY,
 }
 
+# Ensure new ControlDeck nodes are always exposed from package root mappings.
+if "DerpImageDeckNode" in CONTROLDECK_NODES:
+    NODE_CLASS_MAPPINGS["DerpImageDeckNode"] = CONTROLDECK_NODES["DerpImageDeckNode"]
+    NODE_DISPLAY_NAME_MAPPINGS["DerpImageDeckNode"] = CONTROLDECK_DISPLAY.get("DerpImageDeckNode", "Derp Image Deck")
+
 # Point to your JS folder
 WEB_DIRECTORY = "./js"
 

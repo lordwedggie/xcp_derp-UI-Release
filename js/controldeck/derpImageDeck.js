@@ -1,0 +1,330 @@
+/**
+ * Path: ./js/controldeck/derpImageDeck.js
+ * STATUS: VIRTUAL FATHA COMPLIANT
+ */
+import { app } from "../../../scripts/app.js";
+import { fatha, initDerpGlobalListener } from "../fatha/fatha.js";
+import { initDerpImageDeckCore } from "./core/derpImageDeck_core.js";
+import { runWirelessHeartbeat } from "../fatha/core/masterSignalEngine.js";
+
+app.registerExtension({
+    name: "xcp.derpImageDeck_Extension",
+
+    async setup() {
+        initDerpGlobalListener();
+
+        if (!window._xcpDerpImageDeckPromptBridgeInstalled) {
+            window._xcpDerpImageDeckPromptBridgeInstalled = true;
+            const originalGraphToPrompt = app.graphToPrompt;
+            app.graphToPrompt = function() {
+                const injectWirelessImageInputs = (promptData) => {
+                    const output = promptData && promptData.output ? promptData.output : promptData;
+                    if (!output || !app.graph || !app.graph._nodes) return promptData;
+
+                    app.graph._nodes.forEach((node) => {
+                        if (!node || node._isDerpImageDeckNode !== true) return;
+                        const signalId = node.properties && node.properties.multiSignalIds
+                            ? (node.properties.multiSignalIds[0] || node.properties.multiSignalIds["0"])
+                            : null;
+                        if (!signalId) return;
+
+                        const parts = String(signalId).split(":");
+                        const sourceId = parts[0];
+                        const sourceSlot = parts.length > 1 ? parseInt(parts[1], 10) : 0;
+                        const target = output[String(node.id)];
+                        if (!target) return;
+                        if (!target.inputs) target.inputs = {};
+                        if (target.inputs.images) return;
+
+                        target.inputs.images = [String(sourceId), Number.isNaN(sourceSlot) ? 0 : sourceSlot];
+                    });
+
+                    return promptData;
+                };
+
+                const res = originalGraphToPrompt.apply(this, arguments);
+                return (res instanceof Promise) ? res.then(injectWirelessImageInputs) : injectWirelessImageInputs(res);
+            };
+        }
+    },
+
+    async beforeRegisterNodeDef(nodeType, nodeData) {
+        const nodeName = nodeData && typeof nodeData.name === "string" ? nodeData.name.toLowerCase() : "";
+        if (!nodeName.includes("imagedeck")) return;
+
+        fatha(nodeType, nodeData, 220);
+        initDerpImageDeckCore(nodeType);
+        nodeType.prototype._isDerpImageDeckNode = true;
+
+        nodeType.prototype.onThemeUpdate = function(config) {
+            this.handleThemeUpdate(config);
+            this.refreshNodeLayoutMap();
+            this.refreshDerpImageDeckSysMap();
+        };
+
+        nodeType.prototype.applyPalette = function() {
+            if (window.xcpDerpThemeConfig) this.handleThemeUpdate(window.xcpDerpThemeConfig);
+            this.refreshNodeLayoutMap();
+            this.refreshDerpImageDeckSysMap();
+        };
+
+        const baseOnNodeCreated = nodeType.prototype.onNodeCreated;
+        nodeType.prototype.onNodeCreated = function() {
+            if (baseOnNodeCreated) baseOnNodeCreated.apply(this, arguments);
+            this._derpImageDeckList = this._derpImageDeckList || [];
+            this._derpImageDeckIndex = Number.isInteger(this._derpImageDeckIndex) ? this._derpImageDeckIndex : 0;
+            this.signalFilters = { types: ["IMAGE"] };
+            this.properties.multiSignalIds = this.properties.multiSignalIds || {};
+            this.properties.multiSignalLabels = this.properties.multiSignalLabels || {};
+            this.titleLabel = this.titleLabel || "Derp Image Deck";
+            this.properties.titleLabel = this.titleLabel;
+            this.properties.autoWidth = false;
+            this.properties.autoHeight = false;
+            this.properties.nodeSize = this.properties.nodeSize || [240, 210];
+            this.size = [this.properties.nodeSize[0], this.properties.nodeSize[1]];
+            this.properties.drawSignalBtn = true;
+            this.properties.drawSettingBtn = false;
+            this.properties.imageDeckState = this.properties.imageDeckState || {
+                index: 0,
+                images: []
+            };
+
+            if (!this._imageDeckExecHooksBound && app.api) {
+                this._imageDeckExecHooksBound = true;
+                const syncFromSignal = (e) => {
+                    const ids = this.properties && this.properties.multiSignalIds ? this.properties.multiSignalIds : {};
+                    const signalId = ids[0] || ids["0"];
+                    const baseId = parseInt(String(signalId || "").split(":")[0], 10);
+                    const sourceNode = (!Number.isNaN(baseId) && app.graph) ? app.graph.getNodeById(baseId) : null;
+
+                    const eventNodeId = e && e.detail ? String(e.detail.node || "") : "";
+                    const eventOutput = e && e.detail ? e.detail.output : null;
+                    const eventImages = eventOutput && Array.isArray(eventOutput.images)
+                        ? eventOutput.images
+                        : eventOutput && eventOutput.ui && Array.isArray(eventOutput.ui.images)
+                            ? eventOutput.ui.images
+                            : eventOutput && eventOutput.output && Array.isArray(eventOutput.output.images)
+                                ? eventOutput.output.images
+                                : [];
+
+                    if (eventNodeId && String(baseId) === eventNodeId && eventImages.length > 0 && typeof this.applyDerpImageDeckList === "function") {
+                        console.log("[DerpImageDeck] execution event image hit", {
+                            nodeId: this.id,
+                            sourceNodeId: baseId,
+                            eventNodeId,
+                            eventImages
+                        });
+                        this.applyDerpImageDeckList(eventImages, "execution-event");
+                        return;
+                    }
+
+                    if (sourceNode && sourceNode.properties && sourceNode.properties.isWirelessTransmitter) {
+                        runWirelessHeartbeat(sourceNode, { forceIndexedSingleOutput: true });
+                    }
+
+                    if (typeof this.syncDerpOutputs !== "function") return;
+                    this.syncDerpOutputs();
+                    setTimeout(() => {
+                        if (sourceNode && sourceNode.properties && sourceNode.properties.isWirelessTransmitter) {
+                            runWirelessHeartbeat(sourceNode, { forceIndexedSingleOutput: true });
+                        }
+                        this.syncDerpOutputs();
+                    }, 120);
+                    setTimeout(() => {
+                        if (sourceNode && sourceNode.properties && sourceNode.properties.isWirelessTransmitter) {
+                            runWirelessHeartbeat(sourceNode, { forceIndexedSingleOutput: true });
+                        }
+                        this.syncDerpOutputs();
+                    }, 400);
+                };
+                const applyExecutedOutput = (e) => {
+                    const ids = this.properties && this.properties.multiSignalIds ? this.properties.multiSignalIds : {};
+                    const signalId = ids[0] || ids["0"];
+                    const baseId = String(signalId || "").split(":")[0];
+                    const eventNodeId = e && e.detail ? String(e.detail.node || "") : "";
+                    if (!baseId || !eventNodeId || eventNodeId !== baseId) return;
+
+                    const output = e && e.detail ? e.detail.output : null;
+                    const images = output && Array.isArray(output.images)
+                        ? output.images
+                        : output && output.ui && Array.isArray(output.ui.images)
+                            ? output.ui.images
+                            : output && output.output && Array.isArray(output.output.images)
+                                ? output.output.images
+                                : [];
+
+                    console.log("[DerpImageDeck] executed event", {
+                        nodeId: this.id,
+                        sourceNodeId: baseId,
+                        eventNodeId,
+                        output,
+                        images
+                    });
+
+                    if (images.length > 0 && typeof this.applyDerpImageDeckList === "function") {
+                        this.applyDerpImageDeckList(images, "executed-event");
+                    }
+                };
+                app.api.addEventListener("executed", applyExecutedOutput);
+                app.api.addEventListener("executing", syncFromSignal);
+                app.api.addEventListener("execution_success", syncFromSignal);
+                app.api.addEventListener("execution_error", syncFromSignal);
+                app.api.addEventListener("execution_interrupted", syncFromSignal);
+            }
+
+            this.refreshNodeLayoutMap();
+            this.refreshDerpImageDeckSysMap();
+            if (typeof this.syncDerpOutputs === "function") this.syncDerpOutputs();
+            this.requestDerpSync();
+        };
+
+        const baseOnConfigure = nodeType.prototype.onConfigure;
+        nodeType.prototype.onConfigure = function(info) {
+            if (baseOnConfigure) baseOnConfigure.apply(this, arguments);
+            const infoProps = info && info.properties ? info.properties : null;
+            const localProps = this.properties || null;
+            const state = (infoProps && infoProps.imageDeckState) || (localProps && localProps.imageDeckState) || null;
+            const images = state && Array.isArray(state.images) ? state.images : [];
+            const index = state && Number.isInteger(state.index) ? state.index : 0;
+            this._derpImageDeckList = images;
+            this._derpImageDeckIndex = index;
+            this.signalFilters = { types: ["IMAGE"] };
+            this.properties.multiSignalIds = this.properties.multiSignalIds || {};
+            this.properties.multiSignalLabels = this.properties.multiSignalLabels || {};
+            this.properties.drawSignalBtn = true;
+            this.properties.drawSettingBtn = false;
+            this.properties.autoHeight = false;
+            this.refreshDerpImageDeckSysMap();
+            if (typeof this.syncDerpOutputs === "function") this.syncDerpOutputs();
+        };
+
+        nodeType.prototype.onResize = function(size) {
+            this.properties.nodeSize = [size[0], size[1]];
+            this.refreshNodeLayoutMap();
+        };
+
+        const baseOnSerialize = nodeType.prototype.onSerialize;
+        nodeType.prototype.onSerialize = function(data) {
+            if (baseOnSerialize) baseOnSerialize.apply(this, arguments);
+            if (!data.properties) data.properties = {};
+            data.properties.imageDeckState = {
+                images: Array.isArray(this._derpImageDeckList) ? this._derpImageDeckList : [],
+                index: Number.isInteger(this._derpImageDeckIndex) ? this._derpImageDeckIndex : 0
+            };
+        };
+
+        nodeType.prototype.refreshNodeLayoutMap = function() {
+            if (this.flags.collapsed || this.size[0] <= 0) return;
+            this.properties.drawSettingBtn = false;
+
+            const vars = this.getDerpVars(this);
+            const [mW, mH, sW, sH, oY, pW, pH] = [
+                vars.mW, vars.mH, vars.sW, vars.sH, vars.oY, vars.pW, vars.pH
+            ].map(v => Number(v.toFixed(2)));
+
+            const count = Array.isArray(this._derpImageDeckList) ? this._derpImageDeckList.length : 0;
+            const idx = Number.isInteger(this._derpImageDeckIndex) ? this._derpImageDeckIndex : 0;
+            const imageUrl = this.getDerpImageDeckCurrentUrl ? this.getDerpImageDeckCurrentUrl() : null;
+            const structureHash = `${count}_${idx}_${imageUrl || "none"}_${this.size[0].toFixed(2)}_${(this.size[1] || 0).toFixed(2)}_${mW}_${mH}_${sW}_${sH}_${pW}_${pH}_${this.titleLabel}`;
+            if (this._layoutMapHash === structureHash && this.layoutMap) return;
+            this._layoutMapHash = structureHash;
+
+            this.layoutMap = {
+                contentRegion: {
+                    anchor: { target: "headerRegion", axis: "y", offset: oY },
+                    width: "full",
+                    height: "fill",
+                    dir: "col",
+                    margin: [mW, mH, mW, mH],
+                    spacing: [0, sH],
+
+                    imageRegion: {
+                        type: this.UI_TYPES.IMAGE_HTML,
+                        key: "imageDeckPreview",
+                        width: "full",
+                        height: "fill",
+                        minHeight: 60,
+                        padding: [0, 0],
+                        themeKey: "panel, t_textNormal",
+                        imageUrl,
+                        aspectFit: "contain",
+                        suppressPlaceholder: false,
+                        drawMode: "both",
+                        strokeZIndex: true
+                    },
+
+                    imagePagerRow: {
+                        type: this.UI_TYPES.REGION,
+                        width: "full",
+                        height: "auto",
+                        dir: "row",
+                        spacing: [sW, 0],
+
+                        btnPrevImage: {
+                            type: this.UI_TYPES.ICONBUTTON,
+                            icon: "leftarrow",
+                            state: count > 1 ? "OFF" : "DIS",
+                            width: "auto",
+                            height: "auto",
+                            padding: [pW, pH],
+                            themeKey: "button, t_textNormal",
+                            onPress: () => this.stepDerpImageDeck(-1)
+                        },
+
+                        imageCounter: {
+                            type: this.UI_TYPES.TEXT,
+                            width: "full",
+                            height: "auto",
+                            themeKey: "t_textNormal",
+                            text: count > 0 ? `${idx + 1} / ${count}` : "No image"
+                        },
+
+                        btnNextImage: {
+                            type: this.UI_TYPES.ICONBUTTON,
+                            icon: "rightarrow",
+                            state: count > 1 ? "OFF" : "DIS",
+                            width: "auto",
+                            height: "auto",
+                            padding: [pW, pH],
+                            themeKey: "button, t_textNormal",
+                            onPress: () => this.stepDerpImageDeck(1)
+                        }
+                    }
+                }
+            };
+
+            this._layoutMapHash = undefined;
+            if (this.layout) this.layout._lastCacheKey = "";
+            this.requestDerpSync();
+        };
+
+        nodeType.prototype.refreshDerpImageDeckSysMap = function() {
+            const vars = this.getDerpVars(this);
+            const mW = vars.mW, mH = vars.mH, oY = vars.oY, pW = vars.pW, pH = vars.pH;
+            this.sysLayoutMap = {
+                sysContentRegion: {
+                    dir: "col",
+                    width: "full",
+                    height: "auto",
+                    margin: [mW, 0, mW, mH],
+                    anchor: { target: "sysDefaultControlsRegion", axis: "y", offset: oY },
+                    lblInfo: {
+                        type: this.UI_TYPES.TEXT,
+                        mouseOver: false,
+                        themeKey: "t_textsystem",
+                        labelAlign: ["left", "middle"],
+                        text: "Image Deck settings",
+                        width: "full",
+                        padding: [pW, pH]
+                    }
+                }
+            };
+            if (this._derpPanel) this._derpPanel.setLayoutMap(this.sysLayoutMap);
+        };
+
+        nodeType.prototype.onDerpSysPanelOpen = function(panel) {
+            if (this.sysLayoutMap) panel.setLayoutMap(this.sysLayoutMap);
+        };
+
+    }
+});
