@@ -9,7 +9,7 @@ import { showBastaFileHandler, getHandlerId } from "../bastas/bastaFileHandler.j
 import { showBastaMessage } from "../bastas/bastaMessage.js";
 import { playKaChing, playKaboom } from "../../herbina/masterSoundEffects.js";
 import { resolvePaintData, measureTextWidth } from "../../herbina/utils/widgetsUtils.js";
-import { isNodeDocked, undockNodeEdges } from "../core/masterDockEngine.js";
+import { isNodeDocked, undockNodeEdges, isLinearDeckGroup, getDeckMembers } from "../core/masterDockEngine.js";
 import { clearBypassSignalDebouncers, transmitBypassedDerpSignals } from "../core/masterSignalEngine.js";
 import { ensureNodeVisibleInViewport } from "../core/fathaWarp.js";
 import { warpToPoint } from "../core/fathaWarp.js";
@@ -33,6 +33,27 @@ function resolveDockGlyph(node) {
     if (hasTop) return "docktop";
     if (hasBottom) return "dockbottom";
     return "undeck";
+}
+
+function isVerticalDockedGroup(node) {
+    const graph = node?.graph || window.app?.graph || null;
+    if (!node || !graph) return false;
+    if (!isNodeDocked(node, graph)) return false;
+    return isLinearDeckGroup(node, graph, "vertical");
+}
+
+function setVerticalStackPin(node) {
+    const graph = node?.graph || window.app?.graph || null;
+    if (!node || !graph) return;
+    const members = getDeckMembers(node, graph) || [node];
+    members.forEach((member) => {
+        if (!member?.properties) member.properties = {};
+        member.properties.pinActive = false;
+        if (member.requestDerpSync) member.requestDerpSync();
+    });
+    if (!node.properties) node.properties = {};
+    node.properties.pinActive = true;
+    if (node.requestDerpSync) node.requestDerpSync();
 }
 
 function parseWarpShortcutCombo(raw) {
@@ -211,6 +232,19 @@ export const getVirtualNodeLayoutMap = (node) => {
                         if (undockNodeEdges(node, node.graph || null)) {
                             node.requestDerpSync();
                         }
+                    }
+                },
+                btnPin: {
+                    type: UI_TYPES.ICONBUTTON,
+                    hidden: !isVerticalDockedGroup(node),
+                    themeKey: "buttonNode, t_textSystem",
+                    objectAlign: ["left", "middle"],
+                    icon: "pin",
+                    width: "match", height: "fill", spacing: [sW, 0],
+                    state: p.pinActive === true ? "ON" : "OFF",
+                    onPress: () => {
+                        if (!isVerticalDockedGroup(node)) return;
+                        setVerticalStackPin(node);
                     }
                 },
                 btnSetting: {

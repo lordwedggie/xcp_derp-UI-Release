@@ -57,6 +57,8 @@ const ICON_MAP = {
     trash: "⊝",
     close: "✕",
     power: "⏻",
+    anchor: "⚓",
+    pin: "⚲",
     fallback: "⏹",
     play: "▶",
     uparrow: "▲",

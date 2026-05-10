@@ -14,6 +14,7 @@ import { handleNodeResize } from "./fathaNodeResize.js";
 import { masterDockEngine } from "./masterDockEngine.js";
 import { getDeckCornerOverride } from "./masterDockEngine.js";
 import { getDeckParent, getDeckChildren } from "./masterDockEngine.js";
+import { getDeckMembers, isLinearDeckGroup, isNodeDocked } from "./masterDockEngine.js";
 
 function getDeckEngine() {
     if (!window.xcpMasterDeckEngine) {
@@ -161,12 +162,33 @@ export async function loadDerpPalette(paletteName = "Derp_Default_v01") {
 // --- ANIMATION TUNABLES ---
 export const ANIM_SELECTION_PULSE = true;
 
+function shouldExpandUpFromPin(node, graph) {
+    if (!node || !graph) return false;
+    if (!isNodeDocked(node, graph)) return false;
+    if (!isLinearDeckGroup(node, graph, "vertical")) return false;
+
+    const members = getDeckMembers(node, graph);
+    if (!Array.isArray(members) || members.length <= 1) return false;
+
+    const pinned = members.find((m) => m?.properties?.pinActive === true);
+    if (!pinned || pinned.id === node.id) return false;
+
+    const nodeY = Number(node.pos?.[1]) || 0;
+    const pinY = Number(pinned.pos?.[1]) || 0;
+    return nodeY < pinY;
+}
+
 export function animateDerpSize(node, targetW, targetH, useAnim) {
     if (node.size[0] !== targetW || node.size[1] !== targetH) {
+        const prevH = Number(node.size?.[1]) || 0;
         node.size[0] = targetW;
         node.size[1] = targetH;
         if (node.properties) node.properties.nodeSize = [targetW, targetH];
         const graph = app.graph || node.graph || null;
+        const deltaH = (Number(targetH) || 0) - prevH;
+        if (deltaH !== 0 && shouldExpandUpFromPin(node, graph)) {
+            node.pos[1] = (Number(node.pos?.[1]) || 0) - deltaH;
+        }
         if (graph) {
             const moved = getDeckEngine().reflowChildren(node);
             moved.forEach((child) => {
