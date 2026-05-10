@@ -151,14 +151,7 @@ export function initDerpImageDeckCore(nodeType) {
 
         const list = parseImageList(payload);
         if (list.length === 0) return;
-
-        this._derpImageDeckList = list;
-        this._derpImageDeckIndex = list.length - 1;
-        this._layoutMapHash = null;
-
-        if (typeof this.refreshNodeLayoutMap === "function") this.refreshNodeLayoutMap();
-        if (typeof this.requestDerpSync === "function") this.requestDerpSync();
-        else if (typeof this.setDirtyCanvas === "function") this.setDirtyCanvas(true, true);
+        this.applyDerpImageDeckList(list, "physical-input");
     };
 
     proto.getDerpImageDeckCurrentUrl = function() {
@@ -199,10 +192,6 @@ export function initDerpImageDeckCore(nodeType) {
             list = resolvePreviewFromSourceNode(signalId);
         }
         if (!Array.isArray(list) || list.length === 0) return;
-
-        const nextHash = JSON.stringify(list);
-        if (this._lastWirelessImageHash === nextHash) return;
-
         this.applyDerpImageDeckList(list, "wireless-sync");
     };
 }

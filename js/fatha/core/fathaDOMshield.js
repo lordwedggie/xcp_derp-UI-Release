@@ -420,6 +420,19 @@ export function createDerpShield(node) {
 
     shield.oncontextmenu = (e) => {
         e.preventDefault(); e.stopPropagation();
+        const scale = app.canvas?.ds?.scale || 1;
+        const localMouse = [e.offsetX / scale, e.offsetY / scale];
+        const regionEntries = Object.entries(node.layout?.regions || {}).reverse();
+        for (const [, reg] of regionEntries) {
+            if (!reg || typeof reg.onContextMenu !== "function") continue;
+            const isHit = reg.hitTest ? reg.hitTest(localMouse) : node.layout?.hitTest?.(localMouse, reg);
+            if (!isHit) continue;
+            const customItems = reg.onContextMenu(e, node) || [];
+            if (Array.isArray(customItems) && customItems.length > 0) {
+                new LiteGraph.ContextMenu(customItems, { event: e });
+                return false;
+            }
+        }
         app.canvas.selectNode(node);
         app.canvas.current_node = node;
         app.canvas.canvas.focus(); // THE FOCUS FIX: Ensure keyboard events reach the canvas

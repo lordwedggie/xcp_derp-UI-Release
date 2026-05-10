@@ -43,20 +43,43 @@ export function showBastaSignalReceiver(host, targetRegion = null, params = {}) 
 
             const signalRows = filterTypes.reduce((acc, type, idx) => {
                 const targetType = type.toUpperCase();
-                const items = Object.values(globalSignals)
+                let items = Object.values(globalSignals)
                     .filter(sig => {
                         const callerId = String(basta.hostNode?.id);
                         const sigIdStr = String(sig.nodeId);
                         const sigBaseId = sigIdStr.split(":")[0];
                         const isOwnSignal = sigBaseId === callerId;
                         const isDownstream = Array.isArray(sig.upstreamIds) && sig.upstreamIds.some(id => String(id) === callerId);
-                        const isPort = sigIdStr.includes(":");
-
                         const typeMatches = targetType === "ANY" || (sig.type || "unknown").toUpperCase() === targetType;
-                        return typeMatches && !isOwnSignal && !isDownstream && isPort;
+                        return typeMatches && !isOwnSignal && !isDownstream;
                     })
                     .sort((a, b) => parseInt(a.nodeId || 0) - parseInt(b.nodeId || 0))
                     .map(sig => `[${sig.nodeId}] ${sig.nodeName} [${(sig.type || "unknown").toUpperCase()}]`);
+
+                // Hard fallback: if IMAGE list is empty, derive candidates from current graph
+                // by checking nodes that expose IMAGE outputs and are wireless-enabled.
+                if (targetType === "IMAGE" && items.length === 0 && window.app?.graph?._nodes) {
+                    const callerId = String(basta.hostNode?.id);
+                    const derived = [];
+
+                    window.app.graph._nodes.forEach((node) => {
+                        if (!node || String(node.id) === callerId) return;
+                        if (!node.properties?.isWirelessTransmitter) return;
+
+                        const outs = Array.isArray(node.outputs) ? node.outputs : [];
+                        const hasImageOutput = outs.some((o) => String(o?.type || "").toUpperCase().includes("IMAGE"));
+                        if (!hasImageOutput) return;
+
+                        const signalId = `${node.id}:0`;
+                        const nodeName = node.titleLabel || node.title || node.type || `Node ${node.id}`;
+
+                        derived.push(`[${signalId}] ${nodeName} [IMAGE]`);
+                    });
+
+                    if (derived.length > 0) {
+                        items = derived;
+                    }
+                }
 
                 const prevKey = idx === 0 ? "headerSpacer" : `dropdownSignalSelect_${idx - 1}`;
                 const rowAnchor = { target: prevKey, axis: "y", offset: idx === 0 ? 0 : sH };
@@ -70,10 +93,7 @@ export function showBastaSignalReceiver(host, targetRegion = null, params = {}) 
                     width: "full", margin: [0, 0, 0, 0]
                 };
 
-                const currentLabel = basta.hostNode?.properties?.multiSignalLabels?.[idx] || null;
-                const hasCurrent = !!currentLabel && !String(currentLabel).includes("Select") && !String(currentLabel).includes("No ");
-                const hasReplacement = items.some((it) => String(it) !== String(currentLabel));
-                const canOpenPicker = !hasCurrent ? items.length > 0 : hasReplacement;
+                const canOpenPicker = items.length > 0;
 
                 acc[`dropdownSignalSelect_${idx}`] = {
                     anchor: { target: `signalLabel_${idx}`, axis: "y", offset: sH }, labelAlign: ["left", "middle"],

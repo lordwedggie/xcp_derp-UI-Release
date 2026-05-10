@@ -7,6 +7,15 @@ import { fatha, initDerpGlobalListener } from "../fatha/fatha.js";
 import { initDerpImageDeckCore } from "./core/derpImageDeck_core.js";
 import { runWirelessHeartbeat } from "../fatha/core/masterSignalEngine.js";
 
+async function copyImageUrlToClipboard(imageUrl) {
+    if (!imageUrl || !navigator.clipboard || typeof navigator.clipboard.write !== "function") return;
+    const res = await fetch(imageUrl);
+    const blob = await res.blob();
+    await navigator.clipboard.write([
+        new ClipboardItem({ [blob.type || "image/png"]: blob })
+    ]);
+}
+
 app.registerExtension({
     name: "xcp.derpImageDeck_Extension",
 
@@ -123,8 +132,7 @@ app.registerExtension({
             this.properties.titleLabel = this.titleLabel;
             this.properties.autoWidth = false;
             this.properties.autoHeight = false;
-            this.properties.nodeSize = this.properties.nodeSize || [240, 210];
-            this.size = [this.properties.nodeSize[0], this.properties.nodeSize[1]];
+            this.size = [...this.properties.nodeSize];
             this.properties.drawSignalBtn = true;
             this.properties.drawSettingBtn = false;
             this.properties.imageDeckState = this.properties.imageDeckState || {
@@ -243,6 +251,18 @@ app.registerExtension({
             };
         };
 
+        const baseOnAdded = nodeType.prototype.onAdded;
+        nodeType.prototype.onAdded = function() {
+            if (baseOnAdded) baseOnAdded.apply(this, arguments);
+
+            if (this.size?.[0] !== 220 || this.size?.[1] !== 50) return;
+            this.properties.nodeSize = [400, 400];
+            this.size = [400, 400];
+            if (typeof this.refreshNodeLayoutMap === "function") this.refreshNodeLayoutMap();
+            if (typeof this.requestDerpSync === "function") this.requestDerpSync();
+            if (typeof this.setDirtyCanvas === "function") this.setDirtyCanvas(true, true);
+        };
+
         nodeType.prototype.refreshNodeLayoutMap = function() {
             if (this.flags.collapsed || this.size[0] <= 0) return;
             this.properties.drawSettingBtn = false;
@@ -279,7 +299,20 @@ app.registerExtension({
                         aspectFit: "contain",
                         suppressPlaceholder: false,
                         drawMode: "both",
-                        strokeZIndex: true
+                        strokeZIndex: true,
+                        onContextMenu: () => {
+                            if (!imageUrl) return [];
+                            return [{
+                                content: "Copy Image",
+                                callback: async () => {
+                                    try {
+                                        await copyImageUrlToClipboard(imageUrl);
+                                    } catch (e) {
+                                        console.warn("[DerpImageDeck] Copy Image failed:", e);
+                                    }
+                                }
+                            }];
+                        }
                     },
                     regionImageHandling1: {
                         dir: "row",
@@ -304,7 +337,6 @@ app.registerExtension({
                 }
             };
 
-            this._layoutMapHash = undefined;
             if (this.layout) this.layout._lastCacheKey = "";
             this.requestDerpSync();
         };
@@ -312,7 +344,6 @@ app.registerExtension({
         nodeType.prototype.refreshDerpImageDeckSysMap = function() {
             const vars = this.getDerpVars(this);
             const mW = vars.mW, mH = vars.mH, oY = vars.oY, pW = vars.pW, pH = vars.pH, sW = vars.sW;
-            const generatedFilenameText = this.getImageDeckFilenameText ? this.getImageDeckFilenameText() : "";
             this.sysLayoutMap = {
                 sysContentRegion: {
                     dir: "col",
