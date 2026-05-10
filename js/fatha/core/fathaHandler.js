@@ -9,7 +9,7 @@ import { masterPainter, compileThemeData, invalidateCompiledThemeCache } from ".
 import { UI_TYPES, COMPONENT_BLUEPRINTS } from "./masterLayoutTypes.js";
 import { resolvePaintData } from "../../herbina/utils/widgetsUtils.js";
 import { lerpTo } from "../../herbina/masterAnimator.js";
-import { beginDockDrag, updateDockDrag, endDockDrag } from "./dockDrag.js";
+import { beginDockDrag, updateDockDrag, endDockDrag } from "./dockInteraction.js";
 import { handleNodeResize } from "./fathaNodeResize.js";
 import { masterDockEngine } from "./masterDockEngine.js";
 import { getDeckCornerOverride } from "./masterDockEngine.js";
