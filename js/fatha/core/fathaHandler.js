@@ -13,6 +13,7 @@ import { handleNodeResize } from "./fathaNodeResize.js";
 import { masterDockEngine } from "./masterDockEngine.js";
 import { getDeckCornerOverride } from "./masterDockEngine.js";
 import { getDeckMembers, isLinearDeckGroup, isNodeDocked } from "./masterDockEngine.js";
+import { getVirtualNodeLayoutMap } from "../helpers/fathaLayoutMaps.js";
 
 function getDeckEngine() {
     if (!window.xcpMasterDeckEngine) {
@@ -193,73 +194,6 @@ function resolveCollapseShiftDirection(node, graph) {
     return nodeY < pinY ? -1 : 0;
 }
 
-function getPinnedVerticalStack(node, graph) {
-    if (!node || !graph) return null;
-    if (!isNodeDocked(node, graph)) return null;
-    if (!isLinearDeckGroup(node, graph, "vertical")) return null;
-
-    const members = getDeckMembers(node, graph);
-    if (!Array.isArray(members) || members.length <= 1) return null;
-
-    const pinned = members.find((m) => m?.properties?.pinActive === true);
-    if (!pinned) return null;
-
-    const ordered = [...members].sort((a, b) => {
-        const ay = Number(a?.pos?.[1]) || 0;
-        const by = Number(b?.pos?.[1]) || 0;
-        if (ay !== by) return ay - by;
-        return (Number(a?.id) || 0) - (Number(b?.id) || 0);
-    });
-
-    return { members: ordered, pinned };
-}
-
-function normalizePinnedVerticalStack(node, graph, previousRect = null) {
-    const stack = getPinnedVerticalStack(node, graph);
-    if (!stack) return false;
-
-    const { members, pinned } = stack;
-    const pinnedIndex = members.findIndex((member) => member.id === pinned.id);
-    if (pinnedIndex < 0) return false;
-
-    const pinnedH = Number(pinned.size?.[1] ?? pinned.properties?.nodeSize?.[1]) || 0;
-    const pinnedY = Number(pinned.pos?.[1]) || 0;
-
-    if (previousRect && previousRect.id === pinned.id) {
-        if (getDockPinCollapseDownSetting()) {
-            pinned.pos[1] = (Number(previousRect.y) || 0) + (Number(previousRect.h) || 0) - pinnedH;
-        } else {
-            pinned.pos[1] = Number(previousRect.y) || 0;
-        }
-    } else if (getDockPinCollapseDownSetting()) {
-        const pinnedBottom = pinnedY + pinnedH;
-        pinned.pos[1] = pinnedBottom - pinnedH;
-    }
-
-    let cursorY = Number(pinned.pos?.[1]) || 0;
-    for (let i = pinnedIndex - 1; i >= 0; i--) {
-        const member = members[i];
-        const h = Number(member.size?.[1] ?? member.properties?.nodeSize?.[1]) || 0;
-        member.pos[1] = cursorY - h;
-        cursorY = member.pos[1];
-    }
-
-    cursorY = (Number(pinned.pos?.[1]) || 0) + pinnedH;
-    for (let i = pinnedIndex + 1; i < members.length; i++) {
-        const member = members[i];
-        member.pos[1] = cursorY;
-        const h = Number(member.size?.[1] ?? member.properties?.nodeSize?.[1]) || 0;
-        cursorY += h;
-    }
-
-    members.forEach((member) => {
-        if (typeof member.syncUncleSlots === "function") member.syncUncleSlots();
-        if (typeof member.setDirtyCanvas === "function") member.setDirtyCanvas(true, true);
-    });
-
-    return true;
-}
-
 function debugPinnedCollapse(label, node, extra = {}) {
     return;
 }
@@ -268,26 +202,45 @@ function debugPinnedDraw(label, node, extra = {}) {
     return;
 }
 
+function settleCollapseSizeBeforeDraw(entity) {
+    if (!entity?.layout || !entity?.properties) return;
+
+    if (entity.layout) entity.layout._lastCacheKey = "";
+    entity.layout.compute({ x: 0, y: 0, w: entity.size?.[0] || 0, h: entity.size?.[1] || 0 }, getVirtualNodeLayoutMap(entity), {
+        textTheme: entity._t_textSmallPaintData || entity._t_textNormalPaintData,
+        useAnim: false,
+        spawnAnim: false,
+        isVirtual: true,
+    }, true);
+
+    const { SNAP, autoWidth, autoHeight } = getDerpVars(entity);
+    const isMinState = entity.properties.contentCollapsed === true;
+    const contentReqW = entity.layout?.contentMinWidth || 0;
+    const engineFloorW = Math.ceil(contentReqW / SNAP) * SNAP;
+    const rawH = entity.layout?.contentMinHeight || entity.layout?.totalHeight || 40;
+    const engineFloorH = isMinState ? rawH : Math.ceil(rawH / SNAP) * SNAP;
+    const collapseMinimal = entity.properties?.collapseMinimal === true;
+    const targetW = (autoWidth || (isMinState && collapseMinimal)) ? engineFloorW : Math.max(entity.properties.nodeSize?.[0] || 0, engineFloorW);
+    const targetH = (autoHeight || isMinState) ? engineFloorH : Math.max(entity.properties.nodeSize?.[1] || 0, engineFloorH);
+
+    animateDerpSize(entity, targetW, targetH, false);
+}
+
 export function animateDerpSize(node, targetW, targetH, useAnim) {
     if (node.size[0] !== targetW || node.size[1] !== targetH) {
-        const previousRect = {
-            id: node.id,
-            y: Number(node.pos?.[1]) || 0,
-            h: Number(node.size?.[1]) || 0,
-        };
         const prevH = Number(node.size?.[1]) || 0;
+        node.size[0] = targetW;
+        node.size[1] = targetH;
+        if (node.properties) node.properties.nodeSize = [targetW, targetH];
         const graph = app.graph || node.graph || null;
         const deltaH = (Number(targetH) || 0) - prevH;
         const shiftDirection = resolveCollapseShiftDirection(node, graph);
         const skipCollapseShift = node._skipNextAnimateCollapseShift === true;
         if (skipCollapseShift) node._skipNextAnimateCollapseShift = false;
-        if (node.properties) node.properties.nodeSize = [targetW, targetH];
-        node.size = [targetW, targetH];
-        const normalizedPinnedStack = normalizePinnedVerticalStack(node, graph, previousRect);
-        if (!normalizedPinnedStack && !skipCollapseShift && deltaH !== 0 && shiftDirection !== 0) {
+        if (!skipCollapseShift && deltaH !== 0 && shiftDirection !== 0) {
             node.pos[1] = (Number(node.pos?.[1]) || 0) + (deltaH * shiftDirection);
         }
-        if (graph && !normalizedPinnedStack) {
+        if (graph) {
             const moved = getDeckEngine().reflowChildren(node);
             moved.forEach((child) => {
                 if (typeof child.syncUncleSlots === "function") child.syncUncleSlots();
@@ -379,22 +332,10 @@ export function handleDerpCollapse(entity, force) {
         );
     }
 
-    if (nextState === false && entity.properties.contentCollapsed === true) {
-        const graph = app.graph || entity.graph || null;
-        const stack = getPinnedVerticalStack(entity, graph);
-        const isPinnedSelf = stack?.pinned?.id === entity.id;
-
-        if (isPinnedSelf) {
-            if (entity._derpBgCache) entity._derpBgCache.key = "";
-            if (entity._compDataCache) entity._compDataCache = {};
-            entity._layoutDirty = true;
-            if (entity.layout) entity.layout._lastCacheKey = "";
-        }
-    }
-
     entity.properties.contentCollapsed = nextState;
     if (!entity.flags) entity.flags = {};
     entity.flags.collapsed = false;
+    settleCollapseSizeBeforeDraw(entity);
 
     if (entity.syncUncleSlots) entity.syncUncleSlots();
     if (entity.requestDerpSync) entity.requestDerpSync();

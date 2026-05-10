@@ -17,6 +17,17 @@ const refreshSeedState = (node) => {
     node.suppressDefaultWidgets();
 
     if (node.widgets) {
+        node.widgets.forEach((w) => {
+            w.hidden = true;
+            w.last_y = -5000;
+            if (w.element) {
+                w.element.style.display = "none";
+                w.element.style.pointerEvents = "none";
+            }
+        });
+    }
+
+    if (node.widgets) {
         const ctrl = node.widgets.find(w => w.name === "control_after_generate");
         if (ctrl) ctrl.value = "fixed";
     }
@@ -333,6 +344,7 @@ export function attachDerpSeedLogic(nodeType) {
         }, 20);
 
         if (onCreated) onCreated.apply(this, arguments);
+        refreshSeedState(this);
 
         this.titleLabel = "Derp Seed";
         // THE SERIALIZATION FIX: Initialize default titleLabel property
