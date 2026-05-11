@@ -3,6 +3,7 @@
  * ROLE: Logic Controller for the Derp Sampler Loader.
  */
 import { showBastaMessage } from "../../fatha/bastas/bastaMessage.js";
+import { playMicrowaveDing } from "../../herbina/masterSoundEffects.js";
 
 export function initDerpSamplerLoaderCore(nodeType) {
     const proto = nodeType.prototype;
@@ -11,17 +12,14 @@ export function initDerpSamplerLoaderCore(nodeType) {
         if (!Array.isArray(deck) || deck.length === 0) return [];
 
         let activeFound = false;
-        return deck.map((entry, idx) => {
+        return deck.map((entry) => {
             const next = { ...entry, active: !!entry.active };
             if (next.active) {
-                if (!activeFound) {
-                    activeFound = true;
-                } else {
-                    next.active = false;
-                }
+                if (!activeFound) activeFound = true;
+                else next.active = false;
             }
             return next;
-        }).map((entry, idx, arr) => {
+        }).map((entry, idx) => {
             if (!activeFound && idx === 0) return { ...entry, active: true };
             return entry;
         });
@@ -33,101 +31,68 @@ export function initDerpSamplerLoaderCore(nodeType) {
         return list.find(name => name === savedName) || null;
     }
 
+    function getSamplerTypeList(node) {
+        return Array.isArray(node._samplerList) && node._samplerList.length > 0
+            ? [...node._samplerList]
+            : "COMBO";
+    }
+
     proto.onThemeUpdate = function(config) {
         this.handleThemeUpdate(config);
-        this._layoutMapHash = null; // THE STRUCTURAL RESET: Force full map rebuild on theme change
+        this._layoutMapHash = null;
         this.refreshNodeLayoutMap();
         this.refreshDerpTemplateSysMap();
     };
 
     proto.applyPalette = function() {
         if (window.xcpDerpThemeConfig) this.handleThemeUpdate(window.xcpDerpThemeConfig);
-        this._layoutMapHash = null; // Force layout refresh for palette shift
+        this._layoutMapHash = null;
         this.refreshNodeLayoutMap();
         this.refreshDerpTemplateSysMap();
     };
 
     proto.fetchSamplerData = function(showNotification = false, options = {}) {
-        const session = window._xcpDerpSession || Date.now();
-        const suppressSignal = options.suppressSignal || false;
+        if (this.id === -1) return;
 
+        const suppressSignal = options?.suppressSignal === true;
+        const session = window._xcpDerpSession || Date.now();
         fetch(`/object_info/KSampler?v=${session}`)
             .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 return response.json();
             })
             .then(data => {
-                // Extract sampler names from the KSampler node info
-                const ksamplerInfo = data.KSampler;
-                if (ksamplerInfo && ksamplerInfo.input && ksamplerInfo.input.required) {
-                    const samplerInput = ksamplerInfo.input.required.sampler_name;
-                    if (samplerInput && Array.isArray(samplerInput[0])) {
-                        this._samplerList = samplerInput[0];
-                    } else {
-                        this._samplerList = [];
+                const samplerInput = data?.KSampler?.input?.required?.sampler_name;
+                this._samplerList = Array.isArray(samplerInput?.[0]) ? samplerInput[0] : [];
+
+                const missing = [];
+                if (this.properties.samplerDeck) {
+                    this.properties.samplerDeck = this.properties.samplerDeck.map(saved => {
+                        const match = resolveSamplerMatch(this._samplerList, saved.name);
+                        if (match) return { ...saved, name: match };
+                        missing.push(saved.name);
+                        return null;
+                    }).filter(Boolean);
+                    this.properties.samplerDeck = normalizeSamplerDeck(this.properties.samplerDeck);
+                }
+
+                if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
+                if (this.syncDerpOutputs) this.syncDerpOutputs();
+                if (!suppressSignal && this.broadcastWirelessSignal) this.broadcastWirelessSignal();
+
+                if (showNotification || missing.length > 0) {
+                    if (typeof playMicrowaveDing === "function") playMicrowaveDing();
+
+                    const mode = missing.length > 0 ? "error" : "info";
+                    const msg = missing.length > 0
+                        ? `Missing Samplers Purged: ${missing.join(", ")}`
+                        : "Sampler list updated";
+                    if (typeof showBastaMessage === "function") {
+                        showBastaMessage(this, msg, missing.length > 0 ? 6000 : 3000, { fade: true, grow: true }, "btnRefreshSamplers", false, mode);
                     }
-                } else {
-                    this._samplerList = [];
                 }
 
-                // Filter to only include samplers that are in our static list for type compatibility
-                const STATIC_SAMPLER_NAMES = [
-                    "euler", "euler_ancestral", "heun", "heunpp2", "dpm_2", "dpm_2_ancestral",
-                    "lms", "dpm_fast", "dpm_adaptive", "dpmpp_2s_ancestral", "dpmpp_sde",
-                    "dpmpp_sde_gpu", "dpmpp_2m", "dpmpp_2m_sde", "dpmpp_2m_sde_gpu",
-                    "dpmpp_3m_sde", "dpmpp_3m_sde_gpu", "ddpm", "lcm"
-                ];
-                this._samplerList = this._samplerList.filter(name => STATIC_SAMPLER_NAMES.includes(name));
-
-                // Process existing deck against current list
-                const deck = normalizeSamplerDeck(this.properties.samplerDeck || []);
-                let deckUpdated = false;
-
-                const newDeck = deck.map(m => {
-                    if (m.name && this._samplerList.includes(m.name)) {
-                        return m;
-                    }
-                    const match = resolveSamplerMatch(this._samplerList, m.name);
-                    if (match) {
-                        deckUpdated = true;
-                        return { ...m, name: match };
-                    }
-                    deckUpdated = true;
-                    return { ...m, active: false };
-                }).filter(m => this._samplerList.includes(m.name));
-
-                // Add any new samplers not in deck
-                const currentNames = new Set(newDeck.map(m => m.name));
-                this._samplerList.forEach(name => {
-                    if (!currentNames.has(name)) {
-                        newDeck.push({ name, active: false });
-                        deckUpdated = true;
-                    }
-                });
-
-                // Ensure at least one active sampler
-                if (newDeck.length > 0 && !newDeck.some(m => m.active)) {
-                    newDeck[0].active = true;
-                    deckUpdated = true;
-                }
-
-                if (deckUpdated) {
-                    this.properties.samplerDeck = newDeck;
-                }
-
-                if (!suppressSignal && typeof this.broadcastWirelessSignal === "function") {
-                    this.broadcastWirelessSignal();
-                }
-
-                this._layoutMapHash = null;
-                this.refreshNodeLayoutMap();
-                this.requestDerpSync();
-
-                if (showNotification && newDeck.length > 0) {
-                    showBastaMessage(`Loaded ${newDeck.length} samplers`, "success");
-                }
+                if (this.setDirtyCanvas) this.setDirtyCanvas(true, true);
             })
             .catch(error => {
                 console.error("Failed to fetch sampler data:", error);
@@ -135,98 +100,207 @@ export function initDerpSamplerLoaderCore(nodeType) {
                 this._layoutMapHash = null;
                 this.refreshNodeLayoutMap();
                 this.requestDerpSync();
-
-                if (showNotification) {
-                    showBastaMessage("Failed to load samplers", "error");
+                if (showNotification && typeof showBastaMessage === "function") {
+                    showBastaMessage(this, "Failed to load samplers", 4000, { fade: true, grow: true }, "btnRefreshSamplers", false, "error");
                 }
             });
     };
 
-    // --- LIFECYCLE HOOKS ---
-    const originalOnNodeCreated = proto.onNodeCreated;
-    proto.onNodeCreated = function() {
-        if (originalOnNodeCreated) originalOnNodeCreated.apply(this, arguments);
+    /**
+     * THE PURE VIRTUAL ENFORCER: Keeps one logical wireless combo port while Fatha hides native slots.
+     */
+    proto.syncDerpOutputs = function() {
+        const ports = [
+            { name: "Sampler", type: getSamplerTypeList(this) }
+        ];
 
-        this.properties.isWirelessTransmitter = true;
-        this.properties.skipGenericWirelessHeartbeat = true;
-        this.titleLabel = "Derp Sampler Loader";
-        this.properties.titleLabel = "Derp Sampler Loader";
-        this.properties.outputName = "Sampler";
-        this.properties.samplerDeck = normalizeSamplerDeck(this.properties.samplerDeck || []);
-        this.properties.showFolderNames = this.properties.showFolderNames !== false;
+        if (!this.outputs || this.outputs.length !== ports.length || JSON.stringify(this.outputs[0]?.type) !== JSON.stringify(ports[0].type)) {
+            this.outputs = ports;
+        }
 
-        // Initial fetch
-        setTimeout(() => {
-            this.fetchSamplerData();
-        }, 100);
+        this.outputs.forEach(o => { if (o.links) o.links = null; });
+        if (this.broadcastWirelessSignal) this.broadcastWirelessSignal();
     };
 
-    const originalOnConfigure = proto.onConfigure;
-    proto.onConfigure = function(info) {
-        if (originalOnConfigure) originalOnConfigure.apply(this, arguments);
-
-        this.properties.isWirelessTransmitter = true;
-        this.properties.skipGenericWirelessHeartbeat = true;
-        this.titleLabel = this.properties.titleLabel || "Derp Sampler Loader";
-        this.properties.titleLabel = this.titleLabel;
-        this.properties.outputName = "Sampler";
-        this.properties.samplerDeck = normalizeSamplerDeck(this.properties.samplerDeck || []);
-        this.properties.showFolderNames = this.properties.showFolderNames !== false;
-
-        // Refresh data after configuration
-        setTimeout(() => {
-            this.fetchSamplerData(false, { suppressSignal: true });
-        }, 50);
-    };
-
-    // --- WIRELESS SIGNAL HANDLING ---
     proto.broadcastWirelessSignal = function() {
         if (this.id === -1) return;
+
+        const isBypassed = this.mode === 4 || this.mode === 2 || this._derpSpoofedBypass;
         const deck = this.properties.samplerDeck || [];
         const activeItem = deck.find(m => m.active);
-        if (activeItem) {
-            const samplerType = Array.isArray(this._samplerList) && this._samplerList.length > 0
-                ? [...this._samplerList]
-                : "COMBO";
-            const nodeName = this.titleLabel || this.title || "Derp Sampler Loader";
-            const fingerprint = `${activeItem.name}_${nodeName}_${this.id}_${deck.length}_${JSON.stringify(samplerType)}`;
-            if (this._lastSignalFingerprint === fingerprint) return;
-            this._lastSignalFingerprint = fingerprint;
+        const val = isBypassed ? null : (activeItem ? activeItem.name : null);
+        const nodeName = this.titleLabel || this.title || "Derp Sampler Loader";
+        const signalType = val ? getSamplerTypeList(this) : "null";
+        const fingerprint = `${isBypassed ? "bypass" : "live"}_${val}_${nodeName}_${this.id}_${deck.length}_${JSON.stringify(signalType)}`;
+        if (this._lastSignalFingerprint === fingerprint) return;
+        this._lastSignalFingerprint = fingerprint;
 
-            if (!window.xcpDerpSignals) window.xcpDerpSignals = {};
-            const signalId = `${this.id}:0`;
-            window.xcpDerpSignals[signalId] = {
-                nodeId: signalId,
-                nodeName: `${nodeName} [Sampler]`,
-                nodeType: this.type,
-                type: samplerType,
-                value: activeItem.name,
-                upstreamIds: [],
-                timestamp: Date.now(),
-            };
+        if (!window.xcpDerpSignals) window.xcpDerpSignals = {};
 
+        const baseId = String(this.id);
+        const signalId = `${baseId}:0`;
+        window.xcpDerpSignals[signalId] = {
+            nodeId: signalId,
+            nodeName: `${nodeName} [Sampler]`,
+            nodeType: this.type,
+            type: signalType,
+            value: val,
+            upstreamIds: [],
+            timestamp: Date.now(),
+        };
+
+        window.xcpDerpSignals[baseId] = {
+            nodeId: baseId,
+            nodeName: nodeName,
+            nodeType: this.type,
+            type: signalType,
+            value: val,
+            timestamp: Date.now(),
+        };
+
+        setTimeout(() => {
             fetch("/xcp/update_signal", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ node_id: signalId, value: activeItem.name }),
+                body: JSON.stringify({ node_id: signalId, value: val }),
             });
+        }, 50);
 
-            if (window.app?.graph) {
-                window.app.graph._nodes.forEach(n => {
-                    if (n.type === "xcpDerpSignalOut" && n.updateReceivedSignals) n.updateReceivedSignals();
-                });
-            }
+        if (window.app?.graph) {
+            window.app.graph._nodes.forEach(n => {
+                if (n.type === "xcpDerpSignalOut" && n.updateReceivedSignals) n.updateReceivedSignals();
+            });
         }
     };
 
-    // --- SYSTEM PANEL HANDLING ---
     proto.onDerpSysPanelOpen = function(panel) {
+        this._derpPanel = panel;
+        this._sysProfileActive = true;
+        this._sysProfileFile = "derpSamplerLoader";
+        this._sysProfileFolder = "nodeSettings";
+        if (panel.showProfiles) {
+            panel.showProfiles("derpSamplerLoader", "nodeSettings");
+        }
         if (this.sysLayoutMap) panel.setLayoutMap(this.sysLayoutMap);
+        if (panel) panel._layoutDirty = true;
+        if (this.setDirtyCanvas) this.setDirtyCanvas(true, true);
     };
 
-    const originalOnRemoved = proto.onRemoved;
-    proto.onRemoved = function() {
-        if (originalOnRemoved) originalOnRemoved.apply(this, arguments);
-        // Cleanup any ongoing operations if needed
+    proto.onDerpSysPanelClose = function() {
+        this._sysProfileActive = false;
+    };
+
+    proto.applyDerpProfile = function(profileName) {
+        if (!this._sysProfileData || !this._sysProfileData[profileName] || profileName === "(No Profiles Found)") return;
+
+        const profileObj = this._sysProfileData[profileName];
+        const rawSamplers = Array.isArray(profileObj)
+            ? profileObj
+            : (Array.isArray(profileObj?.samplers) ? profileObj.samplers : []);
+
+        const normalized = rawSamplers
+            .map((entry, idx) => {
+                if (typeof entry === "string") return { name: entry, active: idx === 0 };
+                if (entry && typeof entry.name === "string") return { name: entry.name, active: !!entry.active };
+                return null;
+            })
+            .filter(Boolean);
+
+        this.properties.samplerDeck = normalizeSamplerDeck(normalized);
+        if (this.syncDerpOutputs) this.syncDerpOutputs();
+        if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
+        this.requestDerpSync();
+    };
+
+    proto.exportDerpProfile = function() {
+        const deck = Array.isArray(this.properties.samplerDeck) ? this.properties.samplerDeck : [];
+        return {
+            samplers: deck.map(item => String(item?.name || "")).filter(Boolean)
+        };
+    };
+
+    proto.handleSamplerCreated = function() {
+        this.properties.isWirelessTransmitter = true;
+        this.properties.skipGenericWirelessHeartbeat = true;
+        if (!this._restoreSamplerDeckPending && this.syncDerpOutputs) this.syncDerpOutputs();
+
+        this.titleLabel = "Derp Sampler Loader";
+        this.properties.titleLabel = "Derp Sampler Loader";
+        this.properties.outputName = "Sampler";
+        this.properties.samplerDeck = [];
+        this.properties.drawSettingBtn = false;
+
+        this.properties.autoWidth = false;
+        this.properties.autoHeight = true;
+        this.properties.nodeSize = [220, 90];
+        this.size = [220, 90];
+
+        this.refreshNodeLayoutMap();
+        this.refreshDerpTemplateSysMap();
+
+        setTimeout(() => {
+            if (this._restoreSamplerDeckPending) return;
+            this.fetchSamplerData();
+            if (!this._restoreSamplerDeckPending && typeof this.syncDerpOutputs === "function" && this.id !== -1) {
+                this.syncDerpOutputs();
+            }
+        }, 32);
+    };
+
+    proto.handleSamplerConfigure = function() {
+        this.properties.skipGenericWirelessHeartbeat = true;
+        this.properties.drawSettingBtn = false;
+        this.titleLabel = this.properties.titleLabel || "Derp Sampler Loader";
+        this.properties.titleLabel = this.titleLabel;
+        this.properties.outputName = "Sampler";
+
+        this._restoreSamplerDeckPending = true;
+        const savedDeck = JSON.parse(JSON.stringify(this.properties.samplerDeck || []));
+        this.fetchSamplerData(false, { suppressSignal: true });
+        setTimeout(() => {
+            if (savedDeck && savedDeck.length > 0) {
+                const currentList = this._samplerList || [];
+                const restored = savedDeck.map(saved => {
+                    const match = resolveSamplerMatch(currentList, saved.name);
+                    if (match) return { name: match, active: !!saved.active };
+                    return null;
+                }).filter(Boolean);
+                if (restored.length > 0) {
+                    this.properties.samplerDeck = normalizeSamplerDeck(restored);
+                }
+            }
+            this._restoreSamplerDeckPending = false;
+            if (this.syncDerpOutputs) this.syncDerpOutputs();
+            if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
+            this.refreshDerpTemplateSysMap();
+        }, 50);
+    };
+
+    proto.handleSamplerDraw = function() {
+        if (this.flags?.collapsed) return;
+
+        const isBypassed = this.mode === 4 || this.mode === 2 || this._derpSpoofedBypass;
+        if (this._lastBypassState !== isBypassed) {
+            this._lastBypassState = isBypassed;
+            if (this.syncDerpOutputs) this.syncDerpOutputs();
+            this.refreshNodeLayoutMap();
+            this.requestDerpSync();
+        }
+
+        const currentW = Math.round(this.size[0]);
+        if (this._lastDerpW !== currentW) {
+            this._lastDerpW = currentW;
+            this.refreshNodeLayoutMap();
+        }
+
+        if (this._lastTitleLabel !== this.titleLabel) {
+            this._lastTitleLabel = this.titleLabel;
+            if (this.broadcastWirelessSignal) this.broadcastWirelessSignal();
+        }
+    };
+
+    proto.handleSamplerResize = function(size) {
+        this.properties.nodeSize = [size[0], size[1]];
+        this.refreshNodeLayoutMap();
     };
 }
