@@ -21,6 +21,7 @@ const WARP_SHORTCUT_ITEMS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
 // Collapsed nodes use a fixed compact header so theme margins do not skew top/bottom spacing.
 const COLLAPSED_HEADER_HEIGHT = 20;
 const COLLAPSED_HEADER_VERTICAL_MARGIN = 0;
+const HEADER_ICON_SIZE = { width: "match", height: "auto" };
 
 function resolveDockGlyph(node) {
     const edges = node?.properties?.deckEdges || {};
@@ -169,7 +170,7 @@ export const getVirtualNodeLayoutMap = (node) => {
                     type: UI_TYPES.ICONBUTTON,
                     themeKey: "buttonNode, t_textSystem",
                     icon: collapseIcon,
-                    width: "match", height: "fit", spacing: [sW, 0],
+                    ...HEADER_ICON_SIZE, spacing: [sW, 0],
                     playSound: p.contentCollapsed ? "collapseoff" : "collapseon",
                     onPress: () => {
                         const wasCollapsed = !!node.properties.contentCollapsed;
@@ -230,7 +231,7 @@ export const getVirtualNodeLayoutMap = (node) => {
                     objectAlign: ["left", "middle"],
                     icon: resolveDockGlyph(node),
                     playSound: "undocked",
-                    width: "match", height: "fill", spacing: [sW, 0],
+                    ...HEADER_ICON_SIZE, spacing: [sW, 0],
                     onPress: () => {
                         if (undockNodeEdges(node, node.graph || null)) {
                             node.requestDerpSync();
@@ -243,7 +244,7 @@ export const getVirtualNodeLayoutMap = (node) => {
                     themeKey: "buttonNode, t_textSystem",
                     objectAlign: ["left", "middle"],
                     icon: "pin",
-                    width: "match", height: "fill", spacing: [sW, 0],
+                    ...HEADER_ICON_SIZE, spacing: [sW, 0],
                     state: p.pinActive === true ? "ON" : "OFF",
                     onPress: () => {
                         if (!isVerticalDockedGroup(node)) return;
@@ -255,7 +256,7 @@ export const getVirtualNodeLayoutMap = (node) => {
                     themeKey: "buttonNode, t_textSystem",
                     objectAlign: ["left", "middle"],
                     icon: "settings",
-                    width: "match", height: "fill", spacing: [sW, 0],
+                    ...HEADER_ICON_SIZE, spacing: [sW, 0],
                     state: p.settingActive ? "ON" : "OFF",
                     onPress: () => {
                         node.properties.settingActive = !node.properties.settingActive;
@@ -268,7 +269,7 @@ export const getVirtualNodeLayoutMap = (node) => {
                     themeKey: "buttonNode, t_textSystem",
                     objectAlign: ["left", "middle"],
                     icon: "wireless",
-                    width: "match", height: "fill", spacing: [sW, 0],
+                    ...HEADER_ICON_SIZE, spacing: [sW, 0],
                     state: activeBastas.get(getSignalReceiverId())?.hostNode === node && !activeBastas.get(getSignalReceiverId())?.isClosing ? "ON" : "OFF",
                     pulse: (() => {
                         const isBastaOpen = activeBastas.get(getSignalReceiverId())?.hostNode === node && !activeBastas.get(getSignalReceiverId())?.isClosing;
@@ -284,7 +285,7 @@ export const getVirtualNodeLayoutMap = (node) => {
                     themeKey: "buttonNode, t_textSystem",
                     objectAlign: ["left", "middle"],
                     icon: "power",
-                    width: "match", height: "fill",
+                    ...HEADER_ICON_SIZE,
                     playSound: node.mode === 4 ? "systemoff" : "systemon",
                     onPress: () => {
                         const nextMode = (node.mode === 4) ? 0 : 4;
