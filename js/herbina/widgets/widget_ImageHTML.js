@@ -298,6 +298,13 @@ export function syncImageHTML(ctx, node, app, config, overlayPass = false) {
 
             // Interaction Feedback
             dropZone.addEventListener("focus", () => dropZone.style.outline = "none");
+            dropZone.addEventListener("click", (e) => {
+                if (typeof dropZone._onPreviewClick === "function") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropZone._onPreviewClick(e);
+                }
+            });
             dropZone.addEventListener("dragover", (e) => {
                 e.preventDefault();
                 dropZone.style.backgroundColor = "rgba(76, 175, 80, 0.3)";
@@ -334,6 +341,7 @@ export function syncImageHTML(ctx, node, app, config, overlayPass = false) {
         // THE DOM SYNC GATING: Prevent layout thrashing by strictly relying on physical coordinate changes.
         // Removed node._shouldSync bypass which forced continuous DOM reflows during UI interaction loops.
         const domHash = `${node._lastDerpX}_${node._lastDerpY}_${app.canvas.ds.scale}_${w}_${h}_${node.interactionShield?.style.display}`;
+        dropZone._onPreviewClick = config.onPress;
         if (app && app.canvas && (dropZone._lastHash !== domHash)) {
             const coords = calculateScreenCoords(node, app, x, y, w, h);
 
@@ -345,6 +353,7 @@ export function syncImageHTML(ctx, node, app, config, overlayPass = false) {
                 dropZone.style.height = `${coords.h}px`;
                 dropZone.style.opacity = alpha;
                 dropZone.style.visibility = "visible";
+                if (config.isSelected && document.activeElement !== dropZone) dropZone.focus({ preventScroll: true });
             }
         }
     } else if (node._derpDomElements && node._derpDomElements[config.key + "_dropzone"]) {

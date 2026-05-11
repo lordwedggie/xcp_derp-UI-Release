@@ -26,8 +26,58 @@ function debugPreviewSet(loraData, source, url) {
     }
 }
 
+function getBLDPerf(basta) {
+    if (!basta || !window.DERP_BLD_PROFILE) return null;
+    if (!basta._bldPerf) {
+        basta._bldPerf = {
+            layoutBuild: 0,
+            resolvePaint: 0,
+            measureText: 0,
+            lastLog: performance.now()
+        };
+    }
+    return basta._bldPerf;
+}
+
+function bumpBLDPerf(basta, key, amount = 1) {
+    const perf = getBLDPerf(basta);
+    if (!perf) return;
+    perf[key] = (perf[key] || 0) + amount;
+}
+
+function flushBLDPerf(basta) {
+    const perf = getBLDPerf(basta);
+    if (!perf) return;
+    const now = performance.now();
+    if (now - perf.lastLog < 1000) return;
+    const seconds = Math.max((now - perf.lastLog) / 1000, 0.001);
+    const perSec = (value) => Math.round((value || 0) / seconds);
+    console.log(
+        `[BLDPerf] ${basta.title || basta.titleLabel || "bastaLoraDetail"} | ` +
+        `layoutBuild=${perSec(perf.layoutBuild)}/s ` +
+        `resolvePaint=${perSec(perf.resolvePaint)}/s ` +
+        `measureText=${perSec(perf.measureText)}/s`
+    );
+    perf.layoutBuild = 0;
+    perf.resolvePaint = 0;
+    perf.measureText = 0;
+    perf.lastLog = now;
+}
+
+function profileResolvePaint(basta, ...args) {
+    bumpBLDPerf(basta, "resolvePaint");
+    return resolvePaintData(basta, ...args);
+}
+
+function profileMeasureText(basta, ...args) {
+    bumpBLDPerf(basta, "measureText");
+    return measureTextHeight(...args);
+}
+
 export { getLoraDetailId };
 export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (basta, vars) => {
+    bumpBLDPerf(basta, "layoutBuild");
+    flushBLDPerf(basta);
     const { mW, mH, sW, sH, oY, pW, pH } = vars;
 
     const bgPal = { path: "_system/NODE_loraDetail_default.json", entry: "background" };
@@ -149,8 +199,8 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
     let initialPulseColor = null;
     if (isSaveEnabled && (window.xcpDerpSettings?.useAnimations !== false)) {
         if (!basta._savePulseColors) {
-            const paintDIS = resolvePaintData(basta, "button", "_DIS");
-            const paintON = resolvePaintData(basta, "button", "_ON");
+            const paintDIS = profileResolvePaint(basta, "button", "_DIS");
+            const paintON = profileResolvePaint(basta, "button", "_ON");
             basta._savePulseColors = { a: parseColor(paintDIS?.fill), b: parseColor(paintON?.fill) };
         }
         initialPulseColor = basta.layout?.regions?.btnSaveTrigger?.btnColor || `rgba(${basta._savePulseColors.a.join(',')})`;
@@ -397,13 +447,26 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
 
                 onPress: () => {
                     basta._previewSelected = !basta._previewSelected;
+                    if (basta.layout?.regions?.loraPreview) {
+                        basta.layout.regions.loraPreview.isSelected = !!basta._previewSelected;
+                        basta.layout.regions.loraPreview.showPasteOverlay = !!basta._previewSelected;
+                    }
+                    if (basta._compDataCache?.loraPreview) {
+                        basta._compDataCache.loraPreview.isSelected = !!basta._previewSelected;
+                        basta._compDataCache.loraPreview.showPasteOverlay = !!basta._previewSelected;
+                    }
+                    const dropZone = basta._derpDomElements?.loraPreview_dropzone;
+                    if (basta._previewSelected && dropZone && typeof dropZone.focus === "function") {
+                        dropZone.focus({ preventScroll: true });
+                    }
+                    basta._derpAwakeFrames = Math.max(basta._derpAwakeFrames || 0, 2);
                     basta.requestDerpSync();
                 }
             },
             imageHandlingRegion: {
                 themeKey: "background", palette: bgPal,
                 type: UI_TYPES.REGION, regionOffset: [0, 0, 0, 0], corners: [null, null, -1, -1],
-                hidden: basta._navAlpha < 0.01 || !hasImages,
+                hidden: !hasImages,
                 spawnAnim: false,
                 alpha: basta._navAlpha,
                 anchor: { target: "loraPreview", axis: "y", offset: -previewH },
@@ -511,7 +574,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
             labelRegion: {
                 themeKey: "background", palette: bgPal,
                 type: UI_TYPES.REGION, regionOffset: [0, sH, 0, sH], corners: [0, 0, 0, 0],
-                hidden: basta._navAlpha < 0.01 || !hasImages,
+                hidden: !hasImages,
                 spawnAnim: false, alpha: basta._navAlpha,
                 anchor: { target: "imageHandlingRegion", axis: "y",},
                 dir: "row", width: "full", height: "auto", margin: [0, 0, 0, sH],
@@ -543,7 +606,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
             externalRow: {
                 type: UI_TYPES.REGION, themeKey: "background", palette: bgPal, regionOffset: [sW, sH, sW, 0.5],
                 corners: [0, 0, null, null],
-                hidden: !basta._externalReady || (basta._navAlpha < 0.01),
+                hidden: !basta._externalReady,
                 spawnAnim: false,
                 alpha: basta._navAlpha,
                 anchor: { target: "loraPreview", axis: "y", offset: -stableNavH -sH },
@@ -555,7 +618,10 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                     text: "CivitAI",
                     width: "auto", spacing: [sW, 0],
                     objectAlign: ["left", "middle"],
-                    onPress: async () => openCivitAI(basta, loraData)
+                    onPress: async () => {
+                        if (basta._navAlpha < 0.5) return;
+                        openCivitAI(basta, loraData);
+                    }
                 },
                 btnCivArchive: {
                     type: UI_TYPES.BUTTON, labelAlign: ["center", "middle"], padding: [pW, pH],
@@ -563,7 +629,10 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                     alpha: basta._navAlpha,
                     text: "CivArchive",
                     width: "auto", spacing: [sW, 0],
-                    onPress: async () => openCivArchive(basta, loraData)
+                    onPress: async () => {
+                        if (basta._navAlpha < 0.5) return;
+                        openCivArchive(basta, loraData);
+                    }
                 },
                 spring: { width: "full" },
                 btnOpenFolder: {
@@ -573,6 +642,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                     text: "Open LoRA folder",
                     width: "auto", spacing: [sW, 0],
                     onPress: (e) => {
+                        if (basta._navAlpha < 0.5) return;
                         const liveStack = host.properties?.stackData || [];
                         const fileName = liveStack[loraData.slotIndex]?.[0] || currentPath;
                         const isShift = (e && e.shiftKey) ||

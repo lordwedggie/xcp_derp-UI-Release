@@ -23,9 +23,133 @@ function debugPreviewSet(loraData, source, url) {
     }
 }
 
+function getBLDPerf(basta) {
+    if (!basta || !window.DERP_BLD_PROFILE) return null;
+    if (!basta._bldPerf) {
+        basta._bldPerf = {
+            layoutBuild: 0,
+            update: 0,
+            dirty: 0,
+            syncReq: 0,
+            hostRefresh: 0,
+            resolvePaint: 0,
+            measureText: 0,
+            avgUpdateMs: 0,
+            updateMs: 0,
+            lastLog: performance.now()
+        };
+    }
+    return basta._bldPerf;
+}
+
+function bumpBLDPerf(basta, key, amount = 1) {
+    const perf = getBLDPerf(basta);
+    if (!perf) return;
+    perf[key] = (perf[key] || 0) + amount;
+}
+
+function getBLDSourceLine(stack) {
+    if (!stack) return "unknown";
+    const lines = String(stack).split("\n").map(line => line.trim());
+    return lines.find(line =>
+        line &&
+        !line.includes("getBLDSourceLine") &&
+        !line.includes("bumpBLDSource") &&
+        !line.includes("markBLDDirty") &&
+        !line.includes("Error")
+    ) || "unknown";
+}
+
+function bumpBLDSource(basta, key) {
+    const perf = getBLDPerf(basta);
+    if (!perf) return;
+    if (!perf[key]) perf[key] = new Map();
+    const source = getBLDSourceLine(new Error().stack);
+    perf[key].set(source, (perf[key].get(source) || 0) + 1);
+}
+
+function flushBLDPerf(basta) {
+    const perf = getBLDPerf(basta);
+    if (!perf) return;
+    const now = performance.now();
+    if (now - perf.lastLog < 1000) return;
+    const seconds = Math.max((now - perf.lastLog) / 1000, 0.001);
+    const perSec = (value) => Math.round((value || 0) / seconds);
+    const avgUpdateMs = perf.update > 0 ? perf.updateMs / perf.update : 0;
+    console.log(
+        `[BLDPerf] ${basta.title || basta.titleLabel || "bastaLoraDetail"} | ` +
+        `layoutBuild=${perSec(perf.layoutBuild)}/s ` +
+        `update=${perSec(perf.update)}/s ` +
+        `avgUpdateMs=${avgUpdateMs.toFixed(3)} ` +
+        `dirty=${perSec(perf.dirty)}/s ` +
+        `syncReq=${perSec(perf.syncReq)}/s ` +
+        `hostRefresh=${perSec(perf.hostRefresh)}/s ` +
+        `resolvePaint=${perSec(perf.resolvePaint)}/s ` +
+        `measureText=${perSec(perf.measureText)}/s`
+    );
+    if (perf.dirtySources?.size) {
+        const top = [...perf.dirtySources.entries()]
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 6)
+            .map(([source, count]) => `${perSec(count)}/s ${source}`);
+        console.log(`[BLDPerf:dirtySources] ${top.join(" | ")}`);
+        perf.dirtySources.clear();
+    }
+    if (perf.hostRefreshSources?.size) {
+        const top = [...perf.hostRefreshSources.entries()]
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 6)
+            .map(([source, count]) => `${perSec(count)}/s ${source}`);
+        console.log(`[BLDPerf:hostRefreshSources] ${top.join(" | ")}`);
+        perf.hostRefreshSources.clear();
+    }
+    perf.layoutBuild = 0;
+    perf.update = 0;
+    perf.dirty = 0;
+    perf.syncReq = 0;
+    perf.hostRefresh = 0;
+    perf.resolvePaint = 0;
+    perf.measureText = 0;
+    perf.updateMs = 0;
+    perf.lastLog = now;
+}
+
+function profileResolvePaint(basta, ...args) {
+    bumpBLDPerf(basta, "resolvePaint");
+    return resolvePaintData(basta, ...args);
+}
+
+function profileMeasureText(basta, ...args) {
+    bumpBLDPerf(basta, "measureText");
+    return measureTextHeight(...args);
+}
+
+function markBLDDirty(basta, structural = false) {
+    bumpBLDPerf(basta, "dirty");
+    bumpBLDSource(basta, "dirtySources");
+    if (structural) bumpBLDPerf(basta, "syncReq");
+}
+
 export const getLoraDetailId = () => `basta_lora_detail_global_unique_id`;
 
 initLoraImageHandlers(getLoraDetailId);
+
+function deselectLoraPreview(basta) {
+    if (!basta || !basta._previewSelected) return false;
+    basta._previewSelected = false;
+    if (basta.layout?.regions?.loraPreview) {
+        basta.layout.regions.loraPreview.isSelected = false;
+        basta.layout.regions.loraPreview.showPasteOverlay = false;
+    }
+    if (basta._compDataCache?.loraPreview) {
+        basta._compDataCache.loraPreview.isSelected = false;
+        basta._compDataCache.loraPreview.showPasteOverlay = false;
+    }
+    bumpBLDPerf(basta, "syncReq");
+    if (typeof basta.requestDerpSync === "function") basta.requestDerpSync();
+    else if (typeof basta.setDirtyCanvas === "function") basta.setDirtyCanvas(true, true);
+    return true;
+}
 
 export const getNotesEditorProps = (host, basta, loraData, vars) => {
     const { mW, mH, pW, pH, sH } = vars;
@@ -40,13 +164,13 @@ export const getNotesEditorProps = (host, basta, loraData, vars) => {
             if (basta._hCache?.[hKey]) return basta._hCache[hKey];
             if (!basta._hCache) basta._hCache = {};
 
-            const paint = resolvePaintData(basta, "t_textSmall", "OFF");
+            const paint = profileResolvePaint(basta, "t_textSmall", "OFF");
             const fs = paint?.fontSize || 10;
 
             const segments = val.split('\n');
             let textH = 0;
             segments.forEach(s => {
-                textH += measureTextHeight(s || " ", innerW, { font: paint?.font, fontSize: fs, fontWeight: paint?.fontWeight });
+                textH += profileMeasureText(basta, s || " ", innerW, { font: paint?.font, fontSize: fs, fontWeight: paint?.fontWeight });
             });
 
             const finalH = Math.max(mH * 2, textH + sH);
@@ -60,10 +184,11 @@ export const getNotesEditorProps = (host, basta, loraData, vars) => {
             if (config) {
                 config.text = val;
                 config.value = val;
+                markBLDDirty(basta, true);
                 basta._layoutDirty = true; // Flag for structural resize on next frame
             }
             if (el && !el._derpStyled) {
-                const paint = resolvePaintData(basta, "t_textSmall", "OFF");
+                const paint = profileResolvePaint(basta, "t_textSmall", "OFF");
                 if (paint) {
                     el.style.fontFamily = paint.font || "Arial, sans-serif";
                     el.style.fontSize = (paint.fontSize || 10) + "px";
@@ -79,18 +204,19 @@ export const getNotesEditorProps = (host, basta, loraData, vars) => {
 
             // THE ALIGNMENT FIX: Use the identical dynamic inner-width calculation as loraTriggersEditor
             if (el) {
-                const paint = resolvePaintData(basta, "t_textSmall", "OFF");
+                const paint = profileResolvePaint(basta, "t_textSmall", "OFF");
                 const fs = paint?.fontSize || 10;
                 const innerW = (basta.size ? basta.size[0] : (basta.targetSize ? basta.targetSize[0] : 220)) - (mW * 2) - (pW * 2);
 
                 const segments = val.split('\n');
                 let newH = 0;
                 segments.forEach(s => {
-                    newH += measureTextHeight(s || " ", innerW, { font: paint?.font, fontSize: fs, fontWeight: paint?.fontWeight });
+                    newH += profileMeasureText(basta, s || " ", innerW, { font: paint?.font, fontSize: fs, fontWeight: paint?.fontWeight });
                 });
 
                 if (Math.abs(newH - (el._lastH || 0)) > 2) {
                     el._lastH = newH;
+                    bumpBLDPerf(basta, "syncReq");
                     if (basta.requestDerpSync) basta.requestDerpSync();
                 }
             }
@@ -110,6 +236,7 @@ export const getNotesEditorProps = (host, basta, loraData, vars) => {
             // THE VISIBILITY FIX: Ensure it hides if the user manually cleared the text
             if (basta && basta.layout?.regions?.editorLoraNotes) {
                 basta.layout.regions.editorLoraNotes.hidden = !finalValue;
+                markBLDDirty(basta, true);
                 basta._layoutDirty = true;
                 basta._forceSync = true;
                 basta.setDirtyCanvas(true);
@@ -212,13 +339,13 @@ export const getEditorProps = (host, basta, loraData, initialTr, vars) => {
             if (basta._hCache?.[hKey]) return basta._hCache[hKey];
             if (!basta._hCache) basta._hCache = {};
 
-            const paint = resolvePaintData(basta, "t_textSmall", "OFF");
+            const paint = profileResolvePaint(basta, "t_textSmall", "OFF");
             const fs = paint?.fontSize || 10;
 
             const segments = val.split('\n');
             let textH = 0;
             segments.forEach(s => {
-                textH += measureTextHeight(s || " ", innerW, { font: paint?.font, fontSize: fs, fontWeight: paint?.fontWeight });
+                textH += profileMeasureText(basta, s || " ", innerW, { font: paint?.font, fontSize: fs, fontWeight: paint?.fontWeight });
             });
 
             const finalH = Math.max(mH * 4, textH + fs + sH);
@@ -243,7 +370,7 @@ export const getEditorProps = (host, basta, loraData, initialTr, vars) => {
 
             // THE CRASH FIX: Use safe navigation and fallback to region width to prevent "undefined reading w"
             if (el && !el._derpStyled) {
-                const paint = resolvePaintData(basta, "t_textSmall", "OFF");
+                const paint = profileResolvePaint(basta, "t_textSmall", "OFF");
                 if (paint) {
                     el.style.fontFamily = paint.font || "Arial, sans-serif";
                     el.style.fontSize = (paint.fontSize || 10) + "px";
@@ -275,18 +402,19 @@ export const getEditorProps = (host, basta, loraData, initialTr, vars) => {
                 if (basta.setDirtyCanvas) basta.setDirtyCanvas(true);
 
                 if (el) {
-                    const paint = resolvePaintData(basta, "t_textSmall", "OFF");
+                    const paint = profileResolvePaint(basta, "t_textSmall", "OFF");
                     const fs = paint?.fontSize || 10;
                     const innerW = (basta.size ? basta.size[0] : (basta.targetSize ? basta.targetSize[0] : 220)) - (mW * 2) - (pW * 2);
 
                     const segments = val.split('\n');
                     let newH = 0;
                     segments.forEach(s => {
-                        newH += measureTextHeight(s || " ", innerW, { font: paint?.font, fontSize: fs, fontWeight: paint?.fontWeight });
+                        newH += profileMeasureText(basta, s || " ", innerW, { font: paint?.font, fontSize: fs, fontWeight: paint?.fontWeight });
                     });
 
                     if (Math.abs(newH - (el._lastH || 0)) > 2) {
                         el._lastH = newH;
+                        bumpBLDPerf(basta, "syncReq");
                         if (basta.requestDerpSync) basta.requestDerpSync();
                     }
                 }
@@ -302,6 +430,7 @@ export const getEditorProps = (host, basta, loraData, initialTr, vars) => {
                 loraData.tags = (finalValue || "").split(',').map(t => t.trim()).filter(t => t !== "");
                 if (host.syncDerpOutputs) host.syncDerpOutputs();
                 if (host.refreshNodeLayoutMap) host.refreshNodeLayoutMap();
+                bumpBLDPerf(basta, "syncReq");
                 if (basta.requestDerpSync) basta.requestDerpSync();
             }
         }
@@ -329,6 +458,7 @@ export const getLoraNotesEditorPropsWrapped = (host, basta, loraData, currentPat
         });
         if (basta.layout?.regions?.editorLoraNotes) {
             basta.layout.regions.editorLoraNotes.hidden = !finalValue;
+            markBLDDirty(basta, true);
             basta._layoutDirty = true;
             basta._forceSync = true;
             basta.setDirtyCanvas(true);
@@ -361,6 +491,7 @@ export const getLoraTriggerEditorProps = (host, basta, loraData, currentPath, va
             if (basta.layout?.regions?.btnSaveTrigger) {
                 basta.layout.regions.btnSaveTrigger.state = (val.trim() !== originalContent.trim()) ? "OFF" : "DIS";
             }
+            markBLDDirty(basta, false);
             host.setDirtyCanvas(true);
         }
         if (baseInput) baseInput(val, el, config);
@@ -375,6 +506,7 @@ export const getLoraTriggerEditorProps = (host, basta, loraData, currentPath, va
             loraData.tags = (finalValue || "").split(',').map(t => t.trim()).filter(t => t !== "");
             if (host.syncDerpOutputs) host.syncDerpOutputs();
             if (host.refreshNodeLayoutMap) host.refreshNodeLayoutMap();
+            bumpBLDPerf(basta, "syncReq");
             if (basta.requestDerpSync) basta.requestDerpSync();
         }
     };
@@ -435,6 +567,7 @@ export const getLoraTriggerDropdownProps = (host, basta, loraData, triggerItems,
                     debugPreviewSet(loraData, "bastaLoraDetail_core:triggerDropdownChange", loraData.previewUrl);
                     loraData.aspectRatio = null;
                     calculatePreviewAspectRatio(basta, loraData, () => {
+                        markBLDDirty(basta, false);
                         basta._forceSync = true;
                         if (typeof basta.setDirtyCanvas === "function") basta.setDirtyCanvas(true);
                     });
@@ -445,6 +578,7 @@ export const getLoraTriggerDropdownProps = (host, basta, loraData, triggerItems,
                     host.setDirtyCanvas(true);
                 }
             }
+            bumpBLDPerf(basta, "syncReq");
             basta.requestDerpSync();
         }
     };
@@ -472,9 +606,15 @@ window.addEventListener("pointerdown", (e) => {
     const rect = basta.interactionShield?.getBoundingClientRect();
     const isOverShield = rect && e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom;
 
-    if (!isOverShield) {
-        basta._previewSelected = false;
-        basta.requestDerpSync();
+    if (!isOverShield) deselectLoraPreview(basta);
+}, true);
+
+window.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    const basta = window.xcpActiveBastas?.get(getLoraDetailId());
+    if (deselectLoraPreview(basta)) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
     }
 }, true);
 
@@ -549,6 +689,7 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
                     const rInt = loraData.rating;
                     const ratingBadge = (rInt >= 1 && rInt <= 7) ? (ratingGlyphs[rInt] || "") : (host.properties.previewList?.includes(loraData.name) ? "🖻 " : "🖺 ");
                     b.titleLabel = ratingBadge + (loraData.name || "LoRA Detail").replace(/\.safetensors$/i, "");
+                    markBLDDirty(b, false);
                     b._forceSync = true;
                     b.setDirtyCanvas(true);
                 }
@@ -568,6 +709,7 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
                             b.layout.regions.editorLoraNotes.text = loraData.notes || "";
                             b.layout.regions.editorLoraNotes.value = loraData.notes || "";
                         }
+                        markBLDDirty(b, false);
                         b._forceSync = true;
                         b._skipAnimOnce = true;
                         b.setDirtyCanvas(true);
@@ -598,7 +740,7 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
                             b.layout.regions.editorLoraNotes.hidden = !loraData.notes;
                             b.layout.regions.editorLoraNotes.text = loraData.notes || "";
                             b.layout.regions.editorLoraNotes.value = loraData.notes || "";
-                            b.layout.regions.editorLoraNotes.minHeight = loraData.notes ? measureTextHeight(loraData.notes, (b.layout.regions.editorLoraNotes.w || 200) - 12, 10, "Arial, sans-serif") + 24 : 0;
+                            b.layout.regions.editorLoraNotes.minHeight = loraData.notes ? profileMeasureText(b, loraData.notes, (b.layout.regions.editorLoraNotes.w || 200) - 12, 10, "Arial, sans-serif") + 24 : 0;
                         }
                     }
                 };
@@ -614,6 +756,7 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
             loraData.metadataString = "Failed to fetch metadata.";
             const b = window.xcpActiveBastas?.get(id);
             if (b) {
+                markBLDDirty(b, false);
                 b._forceSync = true;
                 b._skipAnimOnce = true;
                 b.setDirtyCanvas(true);
@@ -684,9 +827,14 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
         const orgRefresh = host.refreshNodeLayoutMap;
         if (orgRefresh) {
             host.refreshNodeLayoutMap = function() {
+                const prevHash = this._layoutMapHash;
                 const res = orgRefresh.apply(this, arguments);
                 const b = window.xcpActiveBastas?.get(getLoraDetailId());
-                if (b && b.hostNode === this) {
+                const nextHash = this._layoutMapHash;
+                if (b && b.hostNode === this && prevHash !== nextHash) {
+                    bumpBLDPerf(b, "hostRefresh");
+                    bumpBLDSource(b, "hostRefreshSources");
+                    markBLDDirty(b, true);
                     b._layoutDirty = true;
                     b._forceSync = true;
                     b.setDirtyCanvas(true);
@@ -760,6 +908,7 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
         if (!instance._derpLoraDetailInitialized) {
             const orgUpdate = instance.update;
             instance.update = function() {
+                const bldUpdateStart = window.DERP_BLD_PROFILE ? performance.now() : 0;
                 const liveStack = host.properties?.stackData || [];
                 const slotIdx = this._loraData?.slotIndex ?? loraData.slotIndex;
                 const path = liveStack[slotIdx]?.[0] || "";
@@ -768,6 +917,7 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
                 if (this._derpKnownTriggers !== tCount) {
                     this._derpKnownTriggers = tCount;
                     if (tCount > 0) {
+                        markBLDDirty(this, true);
                         this._layoutDirty = true;
                         this._forceSync = true;
                         this._derpAwakeFrames = 30;
@@ -791,6 +941,7 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
                     const navH = this.layout?.regions?.imageHandlingRegion?.h || 0;
                     if (navH > 5) {
                         this._externalReady = true;
+                        markBLDDirty(this, true);
                         this._layoutDirty = true;
                         this._forceSync = true;
                         this._derpAwakeFrames = Math.max(this._derpAwakeFrames || 0, 8);
@@ -817,11 +968,6 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
                 const prevAlpha = this._navAlpha;
                 const alphaRes = animateAlpha(this._navAlpha, targetAlpha, IMAGE_NAV_ALPHA_SPEED, this.properties.useAnimations !== false);
                 this._navAlpha = alphaRes.value;
-
-                if ((prevAlpha < 0.01 && this._navAlpha >= 0.01) || (prevAlpha >= 0.01 && this._navAlpha < 0.01)) {
-                    this._layoutDirty = true;
-                    this._forceSync = true;
-                }
 
                 let isPulsing = false;
 
@@ -856,6 +1002,11 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
                 }
 
                 const orgRes = orgUpdate ? orgUpdate.apply(this, arguments) : false;
+                if (window.DERP_BLD_PROFILE) {
+                    bumpBLDPerf(this, "update");
+                    bumpBLDPerf(this, "updateMs", performance.now() - bldUpdateStart);
+                    flushBLDPerf(this);
+                }
                 return isPulsing || alphaRes.isAnimating || orgRes;
             };
 
@@ -896,11 +1047,17 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
 
                 if (type === "click") {
                     const overKey = this._pressedRegionKey || "";
-                    const isPreviewHit = (overKey === "loraPreview") || overKey.startsWith("btn");
+                    const previewReg = this.layout?.regions?.loraPreview;
+                    const localMouse = [data.localX || 0, data.localY || 0];
+                    const isPreviewDirectHit = previewReg && this.layout?.hitTest?.(localMouse, previewReg);
+                    if (!overKey && isPreviewDirectHit && typeof previewReg.onPress === "function") {
+                        previewReg.onPress(data.originalEvent, data);
+                        return true;
+                    }
+                    const isPreviewHit = (overKey === "loraPreview") || overKey.startsWith("btn") || isPreviewDirectHit;
 
                     if (!isPreviewHit) {
-                        this._previewSelected = false;
-                        this.requestDerpSync();
+                        deselectLoraPreview(this);
                     }
                 }
                 return originalHandler.apply(this, arguments);

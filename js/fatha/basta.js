@@ -8,12 +8,149 @@ import { app } from "../../../scripts/app.js";
 import { masterLayoutEngine } from "./core/masterLayoutEngine.js";
 import { createDerpShield, syncDerpShield, removeDerpShield } from "./core/fathaDOMshield.js";
 import { COMPONENT_BLUEPRINTS } from "./core/masterLayoutTypes.js";
-import { handleShieldInteraction, getDerpVars, handleThemeUpdate, handleDrawCTX, handleDerpRequestSync } from "./core/fathaHandler.js";
+import { handleShieldInteraction, getDerpVars, handleThemeUpdate, handleDrawCTX } from "./core/fathaHandler.js";
 import { animateAlpha, lerpTo } from "../herbina/masterAnimator.js";
 import { getBastaBaseMap } from "./helpers/bastaLayoutMaps.js";
 import { ensureScreenRectVisible, isWarping } from "./core/fathaWarp.js";
 
 const BASTA_FADE_SPEED = 0.4;
+const BLD_ID = "basta_lora_detail_global_unique_id";
+
+function getBLDPerf(basta) {
+    if (!basta || basta.id !== BLD_ID || !window.DERP_BLD_PROFILE) return null;
+    if (!basta._bldPerf) basta._bldPerf = { lastLog: performance.now() };
+    return basta._bldPerf;
+}
+
+function bumpBLDPerf(basta, key, amount = 1) {
+    const perf = getBLDPerf(basta);
+    if (!perf) return;
+    perf[key] = (perf[key] || 0) + amount;
+}
+
+function bumpBLDComponentPerf(basta, key, type, kind, elapsedMs) {
+    const perf = getBLDPerf(basta);
+    if (!perf) return;
+    if (!perf.componentDetail) perf.componentDetail = new Map();
+    const detailKey = `${kind}:${type || "unknown"}:${key || "unknown"}`;
+    let row = perf.componentDetail.get(detailKey);
+    if (!row) {
+        row = { count: 0, ms: 0 };
+        perf.componentDetail.set(detailKey, row);
+    }
+    row.count++;
+    row.ms += elapsedMs || 0;
+}
+
+function getBLDSourceLine(stack) {
+    if (!stack) return "unknown";
+    const lines = String(stack).split("\n").map(line => line.trim());
+    return lines.find(line =>
+        line &&
+        !line.includes("set _forceSync") &&
+        !line.includes("BastaInstance.set") &&
+        !line.includes("trackBLDForceSync") &&
+        !line.includes("Error")
+    ) || "unknown";
+}
+
+function trackBLDForceSync(basta) {
+    if (!basta || basta.id !== BLD_ID || !window.DERP_BLD_PROFILE) return;
+    basta._bldLastForceSource = getBLDSourceLine(new Error().stack);
+}
+
+function bumpBLDForceSource(basta) {
+    const perf = getBLDPerf(basta);
+    if (!perf) return;
+    const source = basta._bldLastForceSource || "unknown";
+    if (!perf.forceSources) perf.forceSources = new Map();
+    perf.forceSources.set(source, (perf.forceSources.get(source) || 0) + 1);
+}
+
+function flushBLDPerf(basta) {
+    const perf = getBLDPerf(basta);
+    if (!perf) return;
+    const now = performance.now();
+    if (now - perf.lastLog < 1000) return;
+    const seconds = Math.max((now - perf.lastLog) / 1000, 0.001);
+    const perSec = (value) => Math.round((value || 0) / seconds);
+    const avgDrawMs = perf.draw > 0 ? (perf.drawMs || 0) / perf.draw : 0;
+    const avgComponentMs = perf.componentSync > 0 ? (perf.componentMs || 0) / perf.componentSync : 0;
+    const avgBgMs = perf.bgDraw > 0 ? (perf.bgMs || 0) / perf.bgDraw : 0;
+    const avgLayoutMs = perf.layoutCall > 0 ? (perf.layoutMs || 0) / perf.layoutCall : 0;
+    const avgOverlayMs = perf.overlayBg > 0 ? (perf.overlayBgMs || 0) / perf.overlayBg : 0;
+    const avgLoopMs = perf.componentLoop > 0 ? (perf.componentLoopMs || 0) / perf.componentLoop : 0;
+    const avgShieldMs = perf.shieldSync > 0 ? (perf.shieldMs || 0) / perf.shieldSync : 0;
+    console.log(
+        `[BLDPerf] ${basta.title || basta.titleLabel || "bastaLoraDetail"} | ` +
+        `draw=${perSec(perf.draw)}/s ` +
+        `avgDrawMs=${avgDrawMs.toFixed(3)} ` +
+        `layoutCompute=${perSec(perf.layoutCompute)}/s ` +
+        `layoutForce=${perSec(perf.layoutForce)}/s ` +
+        `layoutDirty=${perSec(perf.layoutDirty)}/s ` +
+        `layoutSize=${perSec(perf.layoutSize)}/s ` +
+        `layoutHash=${perSec(perf.layoutHash)}/s ` +
+        `layoutCall=${perSec(perf.layoutCall)}/s ` +
+        `layoutSkip=${perSec(perf.layoutSkip)}/s ` +
+        `avgLayoutMs=${avgLayoutMs.toFixed(3)} ` +
+        `bg=${perSec(perf.bgDraw)}/s ` +
+        `avgBgMs=${avgBgMs.toFixed(3)} ` +
+        `overlayBg=${perSec(perf.overlayBg)}/s ` +
+        `avgOverlayMs=${avgOverlayMs.toFixed(3)} ` +
+        `avgLoopMs=${avgLoopMs.toFixed(3)} ` +
+        `componentSync=${perSec(perf.componentSync)}/s ` +
+        `avgComponentMs=${avgComponentMs.toFixed(3)} ` +
+        `canvas=${perSec(perf.canvasSync)}/s ` +
+        `hybrid=${perSec(perf.hybridSync)}/s ` +
+        `html=${perSec(perf.htmlSync)}/s ` +
+        `htmlOpacity=${perSec(perf.htmlOpacity)}/s ` +
+        `overlayHybrid=${perSec(perf.overlayHybrid)}/s ` +
+        `shield=${perSec(perf.shieldSync)}/s ` +
+        `avgShieldMs=${avgShieldMs.toFixed(3)}`
+    );
+    if (perf.componentDetail?.size) {
+        const top = [...perf.componentDetail.entries()]
+            .sort((a, b) => b[1].ms - a[1].ms)
+            .slice(0, 8)
+            .map(([key, row]) => `${key} ${perSec(row.count)}/s avg=${(row.count > 0 ? row.ms / row.count : 0).toFixed(3)}ms`);
+        console.log(`[BLDPerf:components] ${top.join(" | ")}`);
+        perf.componentDetail.clear();
+    }
+    if (perf.forceSources?.size) {
+        const topSources = [...perf.forceSources.entries()]
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 6)
+            .map(([source, count]) => `${perSec(count)}/s ${source}`);
+        console.log(`[BLDPerf:forceSources] ${topSources.join(" | ")}`);
+        perf.forceSources.clear();
+    }
+    perf.draw = 0;
+    perf.drawMs = 0;
+    perf.layoutCompute = 0;
+    perf.layoutForce = 0;
+    perf.layoutDirty = 0;
+    perf.layoutSize = 0;
+    perf.layoutHash = 0;
+    perf.layoutCall = 0;
+    perf.layoutSkip = 0;
+    perf.layoutMs = 0;
+    perf.bgDraw = 0;
+    perf.bgMs = 0;
+    perf.overlayBg = 0;
+    perf.overlayBgMs = 0;
+    perf.componentLoop = 0;
+    perf.componentLoopMs = 0;
+    perf.componentSync = 0;
+    perf.componentMs = 0;
+    perf.canvasSync = 0;
+    perf.hybridSync = 0;
+    perf.htmlSync = 0;
+    perf.htmlOpacity = 0;
+    perf.overlayHybrid = 0;
+    perf.shieldSync = 0;
+    perf.shieldMs = 0;
+    perf.lastLog = now;
+}
 
 function getBastaScreenRect(basta) {
     const canvas = app?.canvas?.canvas;
@@ -84,6 +221,18 @@ class BastaInstance {
             useAnimations,
             ...config.properties
         };
+        if (this.id === BLD_ID && !this._bldForceTracked) {
+            let forceValue = false;
+            Object.defineProperty(this, "_forceSync", {
+                configurable: true,
+                get() { return forceValue; },
+                set(value) {
+                    if (value === true) trackBLDForceSync(this);
+                    forceValue = value;
+                }
+            });
+            this._bldForceTracked = true;
+        }
         this.layout = new masterLayoutEngine(this);
 
         if (window.xcpDerpThemeConfig) {
@@ -189,7 +338,9 @@ class BastaInstance {
     }
 
     requestDerpSync() {
-        handleDerpRequestSync(this);
+        // Basta callers often use requestDerpSync for visual refreshes. Structural paths set
+        // _layoutDirty/_forceSync directly before requesting a redraw.
+        if (this.setDirtyCanvas) this.setDirtyCanvas(true, true);
     }
 
     requestViewportFit(frames = 8) {
@@ -284,6 +435,7 @@ class BastaInstance {
 
     draw(ctx) {
         if (this.alpha <= 0) return;
+        const bldDrawStart = window.DERP_BLD_PROFILE && this.id === BLD_ID ? performance.now() : 0;
 
         ctx.save();
         ctx.globalAlpha = this.alpha;
@@ -304,9 +456,14 @@ class BastaInstance {
 
         // THE STRUCTURAL HASH GATE: Prevent 20fps loss by skipping layout generation if state is static.
         // THE PERF FIX: Remove alpha from the structure hash so fade animations don't trigger deep layout computes
-        const structureHash = `${app.canvas.ds.scale}_${window._xcpDerpSession}_${this.hostNode?._layoutMapHash || ""}`;
-        const needsLayoutCompute = this._forceSync || this._layoutDirty || hasLayoutChanged || (this._lastStructureHash !== structureHash);
-        const needsSync = this._forceSync || hasVisualChanged || (this._lastStructureHash !== structureHash);
+        const prevStructureHash = this._lastStructureHash;
+        const structureHash = `${window._xcpDerpSession}_${this.hostNode?._layoutMapHash || ""}`;
+        const structureChanged = prevStructureHash !== structureHash;
+        const layoutForceReason = !!this._forceSync;
+        const layoutDirtyReason = !!this._layoutDirty;
+        const layoutSizeReason = !!hasLayoutChanged;
+        const needsLayoutCompute = layoutForceReason || layoutDirtyReason || layoutSizeReason || structureChanged;
+        const needsSync = this._forceSync || hasVisualChanged || structureChanged;
         this._lastStructureHash = structureHash;
 
         // THE COMP-DATA CACHE: Pre-allocate geometry objects to prevent per-frame garbage collection
@@ -331,7 +488,27 @@ class BastaInstance {
             if (baseMap.headerRegion) baseMap.headerRegion.hidden = true;
         }
 
-        this.layout.compute(bounds, baseMap, { textTheme: engineTextTheme, isVirtual: true, useAnim: false, spawnAnim: false }, needsLayoutCompute);
+        const hasLayoutRegions = this.layout?.regions && Object.keys(this.layout.regions).length > 0;
+        if (needsLayoutCompute || !hasLayoutRegions) {
+            const bldLayoutStart = window.DERP_BLD_PROFILE && this.id === BLD_ID ? performance.now() : 0;
+            if (needsLayoutCompute) {
+                bumpBLDPerf(this, "layoutCompute");
+                if (layoutForceReason) {
+                    bumpBLDPerf(this, "layoutForce");
+                    bumpBLDForceSource(this);
+                }
+                if (layoutDirtyReason) bumpBLDPerf(this, "layoutDirty");
+                if (layoutSizeReason) bumpBLDPerf(this, "layoutSize");
+                if (structureChanged) bumpBLDPerf(this, "layoutHash");
+            }
+            this.layout.compute(bounds, baseMap, { textTheme: engineTextTheme, isVirtual: true, useAnim: false, spawnAnim: false }, true);
+            if (window.DERP_BLD_PROFILE && this.id === BLD_ID) {
+                bumpBLDPerf(this, "layoutCall");
+                bumpBLDPerf(this, "layoutMs", performance.now() - bldLayoutStart);
+            }
+        } else {
+            bumpBLDPerf(this, "layoutSkip");
+        }
         this._layoutDirty = false;
         this._forceSync = false;
 
@@ -378,10 +555,16 @@ class BastaInstance {
         }
 
         // 2. Background Paint (Standardized to Fatha)
+        const bldBgStart = window.DERP_BLD_PROFILE && this.id === BLD_ID ? performance.now() : 0;
         handleDrawCTX(this, ctx);
+        if (window.DERP_BLD_PROFILE && this.id === BLD_ID) {
+            bumpBLDPerf(this, "bgDraw");
+            bumpBLDPerf(this, "bgMs", performance.now() - bldBgStart);
+        }
 
         // 3. Components
         if (this.layout.regions) {
+            const bldLoopStart = window.DERP_BLD_PROFILE && this.id === BLD_ID ? performance.now() : 0;
             // THE COMPONENT ITERATION FIX: Avoid Object.entries and per-frame object allocation.
             if (needsLayoutCompute || !this._activeRegionKeys) {
                 this._activeRegionKeys = Object.keys(this.layout.regions).filter(k => k !== "panelBackground" && this.layout.regions[k].type);
@@ -391,13 +574,17 @@ class BastaInstance {
                     const zB = this.layout.regions[b].zIndex || 0;
                     return zA - zB;
                 });
+                this._activeRegionEntries = this._activeRegionKeys
+                    .map(key => ({ key, reg: this.layout.regions[key], blueprint: COMPONENT_BLUEPRINTS[this.layout.regions[key]?.type] }))
+                    .filter(entry => entry.blueprint);
+                this._overlayHybridEntries = this._activeRegionEntries
+                    .filter(entry => entry.reg.strokeZIndex && entry.blueprint.isHybrid);
             }
 
-            for (let i = 0; i < this._activeRegionKeys.length; i++) {
-                const key = this._activeRegionKeys[i];
-                const reg = this.layout.regions[key];
-                const blueprint = COMPONENT_BLUEPRINTS[reg.type];
-                if (!blueprint) continue;
+            const activeEntries = this._activeRegionEntries || [];
+            for (let i = 0; i < activeEntries.length; i++) {
+                const { key, reg, blueprint } = activeEntries[i];
+                if (!blueprint.isHtml && Number(reg.alpha) <= 0.001) continue;
 
                 // THE COMP-DATA CACHE: Reuse geometry and data objects unless a layout shift occurred.
                 let compData = this._compDataCache[key];
@@ -414,32 +601,76 @@ class BastaInstance {
                         isNewElement = true;
                     }
                     if (needsSync || isNewElement) {
+                        const bldCompStart = window.DERP_BLD_PROFILE && this.id === BLD_ID ? performance.now() : 0;
                         blueprint.sync(this.dynamicElements[key], this, app, compData);
+                        if (window.DERP_BLD_PROFILE && this.id === BLD_ID) {
+                            const bldCompElapsed = performance.now() - bldCompStart;
+                            bumpBLDPerf(this, "componentSync");
+                            bumpBLDPerf(this, "htmlSync");
+                            bumpBLDPerf(this, "componentMs", bldCompElapsed);
+                            bumpBLDComponentPerf(this, key, reg.type, "html", bldCompElapsed);
+                        }
                     }
+                    bumpBLDPerf(this, "htmlOpacity");
                     this.dynamicElements[key].style.opacity = this.alpha;
                     if (reg.zIndex !== undefined) {
                         this.dynamicElements[key].style.zIndex = reg.zIndex;
                     }
                 } else if (blueprint.isHybrid) {
-                    blueprint.sync(ctx, this, app, { ...compData, alpha: this.alpha });
+                    const bldCompStart = window.DERP_BLD_PROFILE && this.id === BLD_ID ? performance.now() : 0;
+                    compData.alpha = this.alpha;
+                    blueprint.sync(ctx, this, app, compData);
+                    if (window.DERP_BLD_PROFILE && this.id === BLD_ID) {
+                        const bldCompElapsed = performance.now() - bldCompStart;
+                        bumpBLDPerf(this, "componentSync");
+                        bumpBLDPerf(this, "hybridSync");
+                        bumpBLDPerf(this, "componentMs", bldCompElapsed);
+                        bumpBLDComponentPerf(this, key, reg.type, "hybrid", bldCompElapsed);
+                    }
                 } else {
+                    const bldCompStart = window.DERP_BLD_PROFILE && this.id === BLD_ID ? performance.now() : 0;
                     blueprint.sync(ctx, this, compData);
+                    if (window.DERP_BLD_PROFILE && this.id === BLD_ID) {
+                        const bldCompElapsed = performance.now() - bldCompStart;
+                        bumpBLDPerf(this, "componentSync");
+                        bumpBLDPerf(this, "canvasSync");
+                        bumpBLDPerf(this, "componentMs", bldCompElapsed);
+                        bumpBLDComponentPerf(this, key, reg.type, "canvas", bldCompElapsed);
+                    }
                 }
             }
 
             // THE OVERLAY BACKDROP FIX: Draw regions requested to render above components
+            const bldOverlayStart = window.DERP_BLD_PROFILE && this.id === BLD_ID ? performance.now() : 0;
             handleDrawCTX(this, ctx, true);
+            if (window.DERP_BLD_PROFILE && this.id === BLD_ID) {
+                bumpBLDPerf(this, "overlayBg");
+                bumpBLDPerf(this, "overlayBgMs", performance.now() - bldOverlayStart);
+            }
 
             // THE HYBRID OVERLAY PASS: Call widgets that requested Z-Index priority
-            for (let i = 0; i < this._activeRegionKeys.length; i++) {
-                const key = this._activeRegionKeys[i];
-                const reg = this.layout.regions[key];
-                if (reg.strokeZIndex) {
-                    const blueprint = COMPONENT_BLUEPRINTS[reg.type];
-                    if (blueprint && blueprint.isHybrid) {
-                        blueprint.sync(ctx, this, app, { ...this._compDataCache[key], alpha: this.alpha }, true);
+            const overlayEntries = this._overlayHybridEntries || [];
+            for (let i = 0; i < overlayEntries.length; i++) {
+                const { key, reg, blueprint } = overlayEntries[i];
+                if (Number(reg.alpha) <= 0.001) continue;
+                const bldCompStart = window.DERP_BLD_PROFILE && this.id === BLD_ID ? performance.now() : 0;
+                const overlayData = this._compDataCache[key];
+                if (overlayData) {
+                    overlayData.alpha = this.alpha;
+                    blueprint.sync(ctx, this, app, overlayData, true);
+                    if (window.DERP_BLD_PROFILE && this.id === BLD_ID) {
+                        const bldCompElapsed = performance.now() - bldCompStart;
+                        bumpBLDPerf(this, "componentSync");
+                        bumpBLDPerf(this, "hybridSync");
+                        bumpBLDPerf(this, "overlayHybrid");
+                        bumpBLDPerf(this, "componentMs", bldCompElapsed);
+                        bumpBLDComponentPerf(this, key, reg.type, "overlayHybrid", bldCompElapsed);
                     }
                 }
+            }
+            if (window.DERP_BLD_PROFILE && this.id === BLD_ID) {
+                bumpBLDPerf(this, "componentLoop");
+                bumpBLDPerf(this, "componentLoopMs", performance.now() - bldLoopStart);
             }
 
             // THE HYBRID ORPHAN CLEANUP: Remove shared DOM elements generated by hybrid widgets
@@ -454,7 +685,15 @@ class BastaInstance {
         }
 
         ctx.restore();
+        const bldShieldStart = window.DERP_BLD_PROFILE && this.id === BLD_ID ? performance.now() : 0;
         syncDerpShield(this);
+        if (window.DERP_BLD_PROFILE && this.id === BLD_ID) {
+            bumpBLDPerf(this, "shieldSync");
+            bumpBLDPerf(this, "shieldMs", performance.now() - bldShieldStart);
+            bumpBLDPerf(this, "draw");
+            bumpBLDPerf(this, "drawMs", performance.now() - bldDrawStart);
+            flushBLDPerf(this);
+        }
 
         if (needsSync) {
             this._prevBastaState = {

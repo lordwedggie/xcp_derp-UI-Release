@@ -297,7 +297,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                             hoverEffect: false,
                             margin: [mW * 2, 0, mW * 2, mH],
                             onDragStart: (e, data) => startStackDrag(this, data, i, `loraRow_${i}`),
-                            onDrag: (e, data) => { updateStackDrag(this, data, "loraRow_", stack.length); this.refreshNodeLayoutMap(); },
+                            onDrag: (e, data) => { updateStackDrag(this, data, "loraRow_", stack.length); },
                             onDragEnd: () => endStackDrag(this, "stackData"),
                             [`loraPreview_${i}`]: {
                                 hidden: false,
@@ -313,7 +313,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                 grayscale: isBypassed, margin: [-mW * 2 + sW, 0, 0, 0],
                                 width: "match", height: "fill", spacing: [ sW , 0],
                                 onDragStart: (e, data) => startStackDrag(this, data, i, `loraRow_${i}`),
-                                onDrag: (e, data) => { updateStackDrag(this, data, "loraRow_", stack.length); this.refreshNodeLayoutMap(); },
+                                onDrag: (e, data) => { updateStackDrag(this, data, "loraRow_", stack.length); },
                                 onDragEnd: () => endStackDrag(this, "stackData"),
                                 onPress: () => {
                                     this._activeDetailSlot = i;
@@ -352,7 +352,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                         allowDragWhenDisabled: isBypassed,
                                         dragProxyKey: `loraRow_${i}`,
                                         onDragStart: (e, data) => startStackDrag(this, data, i, `loraRow_${i}`),
-                                        onDrag: (e, data) => { updateStackDrag(this, data, "loraRow_", stack.length); this.refreshNodeLayoutMap(); },
+                                        onDrag: (e, data) => { updateStackDrag(this, data, "loraRow_", stack.length); },
                                         onDragEnd: () => endStackDrag(this, "stackData"),
                                         onPress: () => {
                                             this._activeDetailSlot = i;
@@ -420,7 +420,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                         allowDragWhenDisabled: isBypassed,
                                         dragProxyKey: `loraRow_${i}`,
                                         onDragStart: (e, data) => startStackDrag(this, data, i, `loraRow_${i}`),
-                                        onDrag: (e, data) => { updateStackDrag(this, data, "loraRow_", stack.length); this.refreshNodeLayoutMap(); },
+                                        onDrag: (e, data) => { updateStackDrag(this, data, "loraRow_", stack.length); },
                                         onDragEnd: () => endStackDrag(this, "stackData"),
                                         width: "full", height: "auto", themeKey: "panel, button, t_textSmall", labelAlign: ["center", "middle"], spacing: [sW, 0]
                                     },
@@ -480,7 +480,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                         allowDragWhenDisabled: isBypassed,
                                         dragProxyKey: `loraRow_${i}`,
                                         onDragStart: (e, data) => startStackDrag(this, data, i, `loraRow_${i}`),
-                                        onDrag: (e, data) => { updateStackDrag(this, data, "loraRow_", stack.length); this.refreshNodeLayoutMap(); },
+                                        onDrag: (e, data) => { updateStackDrag(this, data, "loraRow_", stack.length); },
                                         onDragEnd: () => endStackDrag(this, "stackData"),
                                         width: "full", height: "auto", themeKey: "panel, button, t_textSmall", labelAlign: ["center", "middle"], spacing: [sW, 0]
                                     },
@@ -507,7 +507,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                         mouseOver: false,
                                         indicator: "on",
                                         onDragStart: (e, data) => startStackDrag(this, data, i, `loraRow_${i}`),
-                                        onDrag: (e, data) => { updateStackDrag(this, data, "loraRow_", stack.length); this.refreshNodeLayoutMap(); },
+                                        onDrag: (e, data) => { updateStackDrag(this, data, "loraRow_", stack.length); },
                                         onDragEnd: () => endStackDrag(this, "stackData"),
                                         items: buildTriggerDropdownItems(lora[0], this._loraTriggerArrayCache?.[lora[0]] || []),
                                         ...resolveTriggerDisplayState(

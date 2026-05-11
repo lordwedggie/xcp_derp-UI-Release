@@ -484,7 +484,8 @@ export function handleShieldInteraction(entity, type, data = {}) {
         if (entity._hoveredRegionKey !== nextKey) {
             entity._hoveredRegionKey = nextKey;
             entity._derpAwakeFrames = (entity?.properties?.optimizeHoverDirty !== false && !isPickerRegion) ? 1 : 5;
-            const useHoverFastPath = (entity?.properties?.optimizeHoverNoSync !== false) && !isPickerRegion;
+            const isBasta = entity?.properties?.bastaSingleton !== undefined || entity?.properties?.bastaMovalbe !== undefined;
+            const useHoverFastPath = isBasta || ((entity?.properties?.optimizeHoverNoSync !== false) && !isPickerRegion);
             if (!useHoverFastPath) {
                 entity._forceSync = true;
                 if (typeof entity.requestDerpSync === "function") entity.requestDerpSync();

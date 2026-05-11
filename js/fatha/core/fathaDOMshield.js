@@ -400,14 +400,16 @@ export function createDerpShield(node) {
     };
 
     shield.onmouseenter = () => {
+        const isBasta = node?.properties?.bastaSingleton !== undefined || node?.properties?.bastaMovalbe !== undefined;
         node._uiHovered = true;
         node._derpAwakeFrames = 5;
-        node._forceSync = true;
+        if (!isBasta) node._forceSync = true;
         if (typeof node.requestDerpSync === "function") node.requestDerpSync();
         if (typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, true);
         if (window.app && window.app.canvas) window.app.canvas.setDirty(true, true);
     };
     shield.onmouseleave = () => {
+        const isBasta = node?.properties?.bastaSingleton !== undefined || node?.properties?.bastaMovalbe !== undefined;
         node._uiHovered = false;
         node._systemBtnHovered = false;
         node._hoveredRegionKey = null; // --- Clear hover key to allow re-entry detection ---
@@ -415,7 +417,7 @@ export function createDerpShield(node) {
         if (shield) shield.style.cursor = "default";
 
         node._derpAwakeFrames = 5;
-        node._forceSync = true;
+        if (!isBasta) node._forceSync = true;
         if (typeof node.requestDerpSync === "function") node.requestDerpSync();
         if (typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, true);
         if (window.app && window.app.canvas) window.app.canvas.setDirty(true, true);
