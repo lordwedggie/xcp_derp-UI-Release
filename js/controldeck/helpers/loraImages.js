@@ -277,7 +277,7 @@ export function initLoraImageHandlers(getLoraDetailIdFunc) {
                                                 const sigs = window.xcpDerpSignals;
                                                 if (!sigs) return "Unknown_Model";
                                                 const mId = h?.properties?.multiSignalIds?.Model || h?.properties?.modelSignalId;
-                                                const sig = sigs[mId] || Object.values(sigs).find(s => s.type?.toUpperCase() === "MODEL" && s.value?.model_name_prefix);
+                                                const sig = sigs[mId] || Object.values(sigs).find(s => String(s.type || "").toUpperCase() === "MODEL" && s.value?.model_name_prefix);
                                                 return sig?.value?.model_name_prefix || h?.properties?.selectedModel || "Unknown_Model";
                                             })()
                                         })
