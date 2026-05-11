@@ -220,10 +220,6 @@ export function triggerWall_onDrawForeground(node, ctx, originalCallback) {
     }
 }
 
-export function triggerWall_onRemoved(node, originalCallback) {
-    if (originalCallback) originalCallback.apply(node);
-}
-
 export function triggerWall_onDeselected(node) {
     const suppressRegionDeselect = Date.now() < (node._suppressRegionDeselectUntil || 0);
     if ((node._selectedRegions && Object.keys(node._selectedRegions).length > 0) || node._activeModalItemKey) {
@@ -231,57 +227,6 @@ export function triggerWall_onDeselected(node) {
         node._activeModalItemKey = null; // THE CLEANUP FIX: Clear modal theme lock on deselection
         node.refreshNodeLayoutMap();
         node.setDirtyCanvas(true);
-    }
-}
-
-export async function triggerWall_onSavePreset(node, manualName = null) {
-    const name = manualName || prompt("Enter preset name:", node.properties.lastSavedPreset || "my_triggers");
-    if (!name) return;
-
-    node.properties.triggerGroups.forEach(group => {
-        if (!group.id) group.id = `grp_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`;
-        if (group.triggers) {
-            group.triggers.forEach(t => {
-                if (!t.id) t.id = `trig_${Math.random().toString(16).slice(2, 8)}`;
-            });
-        }
-    });
-
-    const presetData = {
-        fileType: "xcp_derp_trigger_preset",
-        version: "1.0.0",
-        timestamp: Date.now(),
-        triggerGroups: node.properties.triggerGroups.filter(g => !g.hidden).map(group => ({
-            id: group.id,
-            title: group.title,
-            isExclusive: !!group.isExclusive,
-            triggers: group.triggers.filter(t => !t.hidden).map(t => ({
-                id: t.id,
-                label: t.label,
-                weight: t.weight,
-                active: !!t.active
-            }))
-        }))
-    };
-
-    try {
-        const response = await fetch("/xcp/save/triggerWall", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name, data: presetData })
-        });
-        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-        const result = await response.json();
-        if (result.success) {
-            setLoadedTriggerPreset(node, name, presetData);
-            if (typeof triggerWall_updatePresetList === "function") triggerWall_updatePresetList(node);
-            console.log(`[xcpDerp] Preset '${name}' saved successfully.`);
-        } else {
-            throw new Error(result.error || "Unknown error");
-        }
-    } catch (e) {
-        console.error("[xcpDerp] Failed to save preset:", e);
-        alert("Save failed: " + e.message);
     }
 }
 
@@ -317,11 +262,6 @@ export async function triggerWall_onLoadPreset(node, presetName) {
     } catch (e) {
         console.error("[xcpDerp] Failed to load preset:", e);
     }
-}
-
-export function triggerWall_handleShieldInteraction(node, type, data, origHandle) {
-    const handled = origHandle ? origHandle.apply(node, [type, data]) : false;
-    return handled;
 }
 
 export function triggerWall_onThemeUpdate(node, config) {
@@ -443,6 +383,7 @@ export function triggerWall_groupDragEnd(node) {
     const fromVisibleIdx = node._dragTrig?.index;
     const toVisibleIdx = node._dropPreviewIdx;
     endStackDrag(node, "");
+    node._floatingPreviewSnapshot = null;
 
     if (fromVisibleIdx !== undefined && toVisibleIdx !== undefined && fromVisibleIdx !== toVisibleIdx) {
         triggerWall_reorderGroups(node, fromVisibleIdx, toVisibleIdx);
@@ -532,6 +473,7 @@ export function triggerWall_itemDragEnd(node, e, data) {
     node._dragMouse = null;
     node._dragOffset = null;
     node._dropPreviewIdx = undefined;
+    node._floatingPreviewSnapshot = null;
 
     if (!drag) return;
 

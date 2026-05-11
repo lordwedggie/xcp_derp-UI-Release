@@ -11,12 +11,9 @@ import {
     triggerWall_onNodeCreated,
     triggerWall_onConfigure,
     triggerWall_onDrawForeground,
-    triggerWall_onRemoved,
     triggerWall_onDeselected,
-    triggerWall_onSavePreset,
     triggerWall_onLoadPreset,
     triggerWall_updatePresetList,
-    triggerWall_handleShieldInteraction,
     triggerWall_onThemeUpdate,
     triggerWall_applyPalette,
     triggerWall_addGroup,
@@ -46,32 +43,134 @@ import {
     triggerWall_groupDragEnd
 } from "./core/derpTriggerWall_core.js";
 
-function bumpTWPerfCounter(node, key) {
+function ensureTWPerfState(node) {
     if (!node) return;
-    if (!window.DERP_TW_PROFILE) return;
     if (!node._twPerf) {
         node._twPerf = {
             windowStart: performance.now(),
             refreshCount: 0,
             syncReqCount: 0,
-            dirtyCount: 0
+            dirtyCount: 0,
+            hashHitCount: 0,
+            hashMissCount: 0,
+            measureCount: 0,
+            floatingDrawCount: 0,
+            drawCount: 0,
+            drawMs: 0,
+            triggerWidgetCount: 0,
+            triggerWidgetMs: 0
         };
     }
+}
+
+function flushTWPerfWindow(node, force = false) {
+    if (!node || !window.DERP_TW_PROFILE) return;
+    ensureTWPerfState(node);
+    const now = performance.now();
+    const elapsed = Math.max(0.001, (now - node._twPerf.windowStart) / 1000);
+    if (!force && elapsed < 1) return;
+    const perSec = (v) => Math.round(v / elapsed);
+    console.log(
+        `[TWPerf] ${node.titleLabel || node.title || "TriggerWall"} | ` +
+        `refresh=${perSec(node._twPerf.refreshCount)}/s hashHit=${perSec(node._twPerf.hashHitCount)}/s hashMiss=${perSec(node._twPerf.hashMissCount)}/s ` +
+        `measure=${perSec(node._twPerf.measureCount)}/s syncReq=${perSec(node._twPerf.syncReqCount)}/s dirty=${perSec(node._twPerf.dirtyCount)}/s ` +
+        `floatingDraw=${perSec(node._twPerf.floatingDrawCount)}/s draw=${perSec(node._twPerf.drawCount)}/s ` +
+        `avgDrawMs=${(node._twPerf.drawCount > 0 ? node._twPerf.drawMs / node._twPerf.drawCount : 0).toFixed(2)} ` +
+        `triggerWidgets=${perSec(node._twPerf.triggerWidgetCount)}/s ` +
+        `avgTriggerMs=${(node._twPerf.triggerWidgetCount > 0 ? node._twPerf.triggerWidgetMs / node._twPerf.triggerWidgetCount : 0).toFixed(3)}`
+    );
+    node._twPerf.windowStart = now;
+    node._twPerf.refreshCount = 0;
+    node._twPerf.syncReqCount = 0;
+    node._twPerf.dirtyCount = 0;
+    node._twPerf.hashHitCount = 0;
+    node._twPerf.hashMissCount = 0;
+    node._twPerf.measureCount = 0;
+    node._twPerf.floatingDrawCount = 0;
+    node._twPerf.drawCount = 0;
+    node._twPerf.drawMs = 0;
+    node._twPerf.triggerWidgetCount = 0;
+    node._twPerf.triggerWidgetMs = 0;
+}
+
+function getTWPerfNodeSet() {
+    if (!window._DERP_TW_PERF_NODES) window._DERP_TW_PERF_NODES = new Set();
+    return window._DERP_TW_PERF_NODES;
+}
+
+function ensureTWPerfHeartbeat() {
+    if (window._DERP_TW_PERF_HEARTBEAT_ID) return;
+    window._DERP_TW_PERF_HEARTBEAT_ID = window.setInterval(() => {
+        if (!window.DERP_TW_PROFILE) return;
+        getTWPerfNodeSet().forEach((node) => {
+            if (!node || node.graph == null) return;
+            flushTWPerfWindow(node, true);
+        });
+    }, 1000);
+}
+
+function registerTWPerfNode(node) {
+    if (!node) return;
+    ensureTWPerfState(node);
+    getTWPerfNodeSet().add(node);
+    ensureTWPerfHeartbeat();
+}
+
+function unregisterTWPerfNode(node) {
+    if (!node || !window._DERP_TW_PERF_NODES) return;
+    window._DERP_TW_PERF_NODES.delete(node);
+}
+
+function bumpTWPerfCounter(node, key) {
+    if (!node) return;
+    if (!window.DERP_TW_PROFILE) return;
+    ensureTWPerfState(node);
     if (key === "refresh") node._twPerf.refreshCount++;
     if (key === "sync") node._twPerf.syncReqCount++;
     if (key === "dirty") node._twPerf.dirtyCount++;
+    if (key === "hashHit") node._twPerf.hashHitCount++;
+    if (key === "hashMiss") node._twPerf.hashMissCount++;
+    if (key === "measure") node._twPerf.measureCount++;
+    if (key === "floatingDraw") node._twPerf.floatingDrawCount++;
+    if (key === "draw") node._twPerf.drawCount++;
+    if (key === "triggerWidget") node._twPerf.triggerWidgetCount++;
+}
+
+function bumpTWPerfDraw(node, elapsedMs) {
+    if (!node || !window.DERP_TW_PROFILE) return;
+    bumpTWPerfCounter(node, "draw");
+    if (node._twPerf) node._twPerf.drawMs += elapsedMs;
+}
+
+function bumpTWPerfSource(node, key) {
+    if (!node || !window.DERP_TW_PROFILE_SOURCES) return;
+    if (!node._twPerfSources) node._twPerfSources = { windowStart: performance.now(), dirty: new Map(), sync: new Map() };
+    const bucket = node._twPerfSources[key];
+    if (!bucket) return;
+    const stack = new Error().stack || "";
+    const signature = stack
+        .split("\n")
+        .slice(3, 8)
+        .map((line) => line.trim().replace(/^at\s+/, ""))
+        .join(" <- ");
+    bucket.set(signature, (bucket.get(signature) || 0) + 1);
 
     const now = performance.now();
-    if (now - node._twPerf.windowStart >= 1000) {
-        console.log(
-            `[TWPerf] ${node.titleLabel || node.title || "TriggerWall"} | ` +
-            `refresh=${node._twPerf.refreshCount}/s syncReq=${node._twPerf.syncReqCount}/s dirty=${node._twPerf.dirtyCount}/s`
-        );
-        node._twPerf.windowStart = now;
-        node._twPerf.refreshCount = 0;
-        node._twPerf.syncReqCount = 0;
-        node._twPerf.dirtyCount = 0;
-    }
+    if (now - node._twPerfSources.windowStart < 1000) return;
+    const formatTop = (map) => [...map.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([source, count]) => `${count}/s ${source}`);
+    const dirtySources = formatTop(node._twPerfSources.dirty);
+    const syncSources = formatTop(node._twPerfSources.sync);
+    console.log(
+        `[TWPerfSource] ${node.titleLabel || node.title || "TriggerWall"}\n` +
+        `dirty:\n${dirtySources.length ? dirtySources.join("\n") : "none"}\n` +
+        `sync:\n${syncSources.length ? syncSources.join("\n") : "none"}`
+    );
+    node._twPerfSources.windowStart = now;
+    node._twPerfSources.dirty.clear();
+    node._twPerfSources.sync.clear();
 }
 
 function captureFloatingPreviewRegions(node, rootKey) {
@@ -102,6 +201,7 @@ function drawFloatingPreview(node, ctx) {
     const rootKey = snapshot.rootKey;
     const rootReg = snapshot.regions?.[rootKey];
     if (!rootReg) return;
+    bumpTWPerfCounter(node, "floatingDraw");
 
     const targetX = dragMouse[0] - dragOffset[0];
     const targetY = dragMouse[1] - dragOffset[1];
@@ -145,11 +245,6 @@ app.registerExtension({
         // Initialize the Virtual Fatha framework hijacking
         fatha(nodeType, nodeData, 200);
 
-        const origHandle = nodeType.prototype.handleShieldInteraction;
-        nodeType.prototype.handleShieldInteraction = function (type, data) {
-            return triggerWall_handleShieldInteraction(this, type, data, origHandle);
-        };
-
         // --- THEME & LAYOUT REFRESH ---
         nodeType.prototype.onThemeUpdate = function(config) {
             triggerWall_onThemeUpdate(this, config);
@@ -166,12 +261,14 @@ app.registerExtension({
         const originalRequestDerpSync = nodeType.prototype.requestDerpSync;
         nodeType.prototype.requestDerpSync = function() {
             bumpTWPerfCounter(this, "sync");
+            bumpTWPerfSource(this, "sync");
             if (originalRequestDerpSync) return originalRequestDerpSync.apply(this, arguments);
         };
 
         const originalSetDirtyCanvas = nodeType.prototype.setDirtyCanvas;
         nodeType.prototype.setDirtyCanvas = function() {
             bumpTWPerfCounter(this, "dirty");
+            bumpTWPerfSource(this, "dirty");
             if (originalSetDirtyCanvas) return originalSetDirtyCanvas.apply(this, arguments);
         };
 
@@ -209,15 +306,16 @@ app.registerExtension({
             currentHash += `|modal:${this._triggerWallModalOpen === true ? 1 : 0}:${this._activeModalItemKey || ""}`;
 
             if (this._layoutMapHash === currentHash && this.layoutMap) {
-                this.requestDerpSync();
+                bumpTWPerfCounter(this, "hashHit");
                 return;
             }
+            bumpTWPerfCounter(this, "hashMiss");
             this._layoutMapHash = currentHash;
 
             const triggerPadW = 1, triggerPadH = 1;
             const vars = this.getDerpVars(this);
-            const [mW, mH, sW, sH, oX, oY, pW, pH] = [
-                vars.mW, vars.mH, vars.sW, vars.sH, vars.oX, vars.oY, vars.pW, vars.pH
+            const [mW, mH, sW, sH, pW, pH] = [
+                vars.mW, vars.mH, vars.sW, vars.sH, vars.pW, vars.pH
             ].map(v => Number(v.toFixed(2)));
             const isBypassed = this.mode === 4 || this.mode === 2 || this._derpSpoofedBypass;
 
@@ -297,6 +395,7 @@ app.registerExtension({
                 const trigGroups = items.reduce((acc, item) => {
                     let tw = 0;
                     if (item.type === "trig") {
+                        bumpTWPerfCounter(this, "measure");
                         tw = Math.ceil(this.layout.measure({
                             type: this.UI_TYPES.COMPOSITE_TRIGGER, themeKey: "panel, button, t_textsmall",
                             text: item.trig.label || "Trigger Test", width: "auto", height: "auto",
@@ -305,13 +404,13 @@ app.registerExtension({
                         }, { textTheme: this._t_textSmallPaintData || this._t_textNormalPaintData }));
                     } else {
                         const showAdd = isSelected || this.properties.toggleAddAlways;
+                        if (showAdd) bumpTWPerfCounter(this, "measure");
                         tw = showAdd ? Math.ceil(this.layout.measure({
                             type: this.UI_TYPES.ICONBUTTON, themeKey: "button, t_textsmall",
                             icon: "add", width: "auto", height: "match", minHeight: 22, baseHeight: 22, padding: [triggerPadW, triggerPadH, triggerPadW, triggerPadH], margin: [0, 0]
                         }, { textTheme: this._t_textSmallPaintData || this._t_textNormalPaintData })) : 0;
                     }
 
-                    if (this.layout._measureCache) this.layout._measureCache.clear();
                     item.measuredW = tw;
 
                     const spacing = acc[curR].length > 0 ? sW : 0;
@@ -549,7 +648,6 @@ app.registerExtension({
                         onDragStart: (e, data) => startStackDrag(this, data, visibleGroupIndices.indexOf(gIdx), regionKey),
                         onDrag: (e, data) => {
                             triggerWall_groupDrag(this, data, visibleGroupIndices);
-                            this.refreshNodeLayoutMap();
                         },
                         onDragEnd: () => triggerWall_groupDragEnd(this),
                         onPress: () => {
@@ -614,7 +712,7 @@ app.registerExtension({
                     type: this.UI_TYPES.BUTTON, themeKey: "button, t_textSmall",
                     text: "Save to current", width: "auto", height: "auto", padding: [pW, pH],
                     state: isBypassed ? "DIS" : (triggerWall_isGroupDuplicate(this) ? "DIS" : "OFF"),
-                    onPress: () => { }
+                    onPress: () => triggerWall_addSelectedGroupToProfile(this)
                 }
             };
             if (anySelected) lastRegionKey = "regionOption1";
@@ -632,7 +730,7 @@ app.registerExtension({
 
         // --- SYSTEM PANEL LAYOUT ---
         nodeType.prototype.refreshDerpTriggerWallSysMap = function() {
-            const { mW, mH, sW, sH, oX, oY, pW, pH } = this.getDerpVars(this);
+            const { mH, sH, pW, pH } = this.getDerpVars(this);
             this.sysLayoutMap = {
                 sysContentRegion: {
                     dir: "col",
@@ -701,6 +799,7 @@ app.registerExtension({
         const onCreated = nodeType.prototype.onNodeCreated;
         nodeType.prototype.onNodeCreated = function() {
             triggerWall_onNodeCreated(this, onCreated);
+            registerTWPerfNode(this);
         };
         const onConfigure = nodeType.prototype.onConfigure;
         nodeType.prototype.onConfigure = function(info) {
@@ -708,17 +807,21 @@ app.registerExtension({
         };
         const onRemoved = nodeType.prototype.onRemoved;
         nodeType.prototype.onRemoved = function() {
-            triggerWall_onRemoved(this, onRemoved);
+            unregisterTWPerfNode(this);
+            if (onRemoved) onRemoved.apply(this);
         };
         nodeType.prototype.onDeselected = function() {
             triggerWall_onDeselected(this);
         };
         const onDrawForeground = nodeType.prototype.onDrawForeground;
         nodeType.prototype.onDrawForeground = function(ctx) {
+            if (window.DERP_TW_PROFILE) registerTWPerfNode(this);
+            const twDrawStart = window.DERP_TW_PROFILE ? performance.now() : 0;
             triggerWall_onDrawForeground(this, ctx, onDrawForeground);
             if (this._dragThresholdMet && this._floatingPreviewSnapshot) {
                 drawFloatingPreview(this, ctx);
             }
+            if (window.DERP_TW_PROFILE) bumpTWPerfDraw(this, performance.now() - twDrawStart);
         };
     }
 });

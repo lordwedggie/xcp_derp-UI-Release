@@ -2,7 +2,7 @@
  * Path: ./js/widget_Slider.js
  * ROLE: The "Derp Slider" Virtual Node frontend.
  * STATUS: FIXED - Refactored lifecycle into core.
- * BASIS: derpTemplateV2.js
+ * BASIS: derpFathaTemplate.js
  */
 import { app } from "../../../scripts/app.js";
 import { fatha, initDerpGlobalListener } from "../fatha/fatha.js";

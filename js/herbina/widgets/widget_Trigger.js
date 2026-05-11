@@ -1,5 +1,5 @@
 import { masterPainter, masterPainterText } from "../masterPainter.js";
-import { animateWidgetColors, lerpTo, animateAlpha, animatePaintData } from "../masterAnimator.js";
+import { animatePaintData } from "../masterAnimator.js";
 import { resolveWidgetEnv, resolvePaintData } from "../utils/widgetsUtils.js";
 import { playPowerUp, playPowerDown } from "../masterSoundEffects.js";
 import { t } from "../../fatha/core/masterLayoutEngine.js";
@@ -10,7 +10,82 @@ const WEIGHT_ICON_PAD = 3;
 const TRIGGER_LABEL_GAP = 2;
 const WEIGHT_EPSILON = 1e-6;
 
+function isTriggerWallNode(node) {
+    return String(node?.type || "").toLowerCase().includes("triggerwall");
+}
+
+function stripFx(paint) {
+    if (!paint) return paint;
+    return {
+        ...paint,
+        shadow: null,
+        glow: null,
+    };
+}
+
+function drawFastBox(ctx, x, y, w, h, paint, fallbackColor) {
+    if (!paint && !fallbackColor) return;
+    const radiusRaw = paint?.corners ?? 0;
+    const radius = Array.isArray(radiusRaw)
+        ? radiusRaw.map((r) => Math.max(0, Math.min(Number(r) || 0, Math.min(w, h) / 2)))
+        : Math.max(0, Math.min(Number(radiusRaw) || 0, Math.min(w, h) / 2));
+    ctx.save();
+    ctx.fillStyle = paint?.fill || fallbackColor || "transparent";
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, radius);
+    ctx.fill();
+    if (paint?.border?.color && Number(paint.border.width) > 0) {
+        const lineWidth = Number(paint.border.width) || 1;
+        ctx.lineWidth = lineWidth;
+        ctx.strokeStyle = paint.border.color;
+        ctx.stroke();
+    }
+    ctx.restore();
+}
+
+function drawFastText(ctx, text, x, y, paint, options = {}) {
+    if (!text) return;
+    const fontSize = options.fontSize || paint?.fontSize || 10;
+    const fontFamily = paint?.font || "Arial";
+    const fontWeight = options.fontWeight || paint?.fontWeight || "normal";
+    ctx.save();
+    ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+    ctx.fillStyle = paint?.fill || paint?.textColor || "white";
+    ctx.textAlign = options.align || "left";
+    ctx.textBaseline = options.baseline || "middle";
+    ctx.fillText(text, x, y);
+    ctx.restore();
+}
+
+function measureTriggerText(ctx, node, key, font, text) {
+    const cacheKey = `${font}|${text}`;
+    if (!node._triggerTextMeasureCache) node._triggerTextMeasureCache = new Map();
+    const scopedKey = `${key}|${cacheKey}`;
+    if (node._triggerTextMeasureCache.has(scopedKey)) return node._triggerTextMeasureCache.get(scopedKey);
+    const width = ctx.measureText(text).width;
+    node._triggerTextMeasureCache.set(scopedKey, width);
+    return width;
+}
+
+function bumpTriggerWallWidgetProfile(node, elapsedMs) {
+    if (!window.DERP_TW_PROFILE || !node?._twPerf || !String(node.type || "").toLowerCase().includes("triggerwall")) return;
+    node._twPerf.triggerWidgetCount = (node._twPerf.triggerWidgetCount || 0) + 1;
+    node._twPerf.triggerWidgetMs = (node._twPerf.triggerWidgetMs || 0) + elapsedMs;
+}
+
+function getTriggerStaticCache(node, key) {
+    if (!node._triggerStaticCache) node._triggerStaticCache = new Map();
+    return node._triggerStaticCache.get(key) || null;
+}
+
+function setTriggerStaticCache(node, key, value) {
+    if (!node._triggerStaticCache) node._triggerStaticCache = new Map();
+    node._triggerStaticCache.set(key, value);
+}
+
 export function syncDerpTrigger(ctx, node, app, config) {
+    const triggerWallNode = isTriggerWallNode(node);
+    const profileStart = window.DERP_TW_PROFILE && triggerWallNode ? performance.now() : 0;
     if (!config.geometry) return;
     let { x, y, w, h } = config.geometry;
     const sysAlpha = config.alpha !== undefined ? config.alpha : 1;
@@ -35,11 +110,14 @@ export function syncDerpTrigger(ctx, node, app, config) {
         props, bodyPaint, labelPaint, content, textAnchor, suffix, useAnim, playSound
     } = resolveWidgetEnv(node, config, app);
 
+    const guardNoFx = triggerWallNode && window.DERP_TW_GUARD_NO_FX === true;
+    const guardNoAnim = triggerWallNode && window.DERP_TW_GUARD_NO_ANIM === true;
+    const guardTextUpscale = triggerWallNode && window.DERP_TW_GUARD_TEXT_UPSCALE === true;
+    const effectiveUseAnim = guardNoAnim ? false : useAnim;
+
     const isTextOnly = config.isTextOnly === true || config.skipBackground === true;
     const isActive = !!config.value;
 
-
-    // --- RELOCATED SOUND & STATE TRACKING ---
     const lastValKey = `_trig_last_${config.key}`;
     const validatedActive = !!config.value;
     if (node[lastValKey] !== undefined && node[lastValKey] !== validatedActive) {
@@ -50,26 +128,15 @@ export function syncDerpTrigger(ctx, node, app, config) {
     }
     node[lastValKey] = validatedActive;
 
-    // --- 3-KEY THEME SYSTEM ---
     const tKeys = config.themeKey || config.textThemeKey || "";
-    const parts = Array.isArray(tKeys) ? tKeys : tKeys.split(",").map(p => p.trim());
+    const parts = Array.isArray(tKeys) ? tKeys : tKeys.split(",").map((p) => p.trim());
     const isThree = parts.length === 3;
 
-    let keyBody = isThree ? parts[0] : (parts[0] === "" ? null : parts[0]);
-    let keyIcon = isThree ? parts[1] : (parts.length > 1 ? parts[0] : (parts[0] === "" ? null : "button"));
-    let keyText = isThree ? parts[2] : (parts.length === 1 ? parts[0] : (parts[1] || (parts[0] === "" ? null : "t_textsmall")));
+    const keyBody = isThree ? parts[0] : (parts[0] === "" ? null : parts[0]);
+    const keyIcon = isThree ? parts[1] : (parts.length > 1 ? parts[0] : (parts[0] === "" ? null : "button"));
+    const keyText = isThree ? parts[2] : (parts.length === 1 ? parts[0] : (parts[1] || (parts[0] === "" ? null : "t_textsmall")));
 
     const triggerSuffix = suffix === "_ON" ? "_ON" : (suffix === "_DIS" ? "_DIS" : (isActive ? "_OFF" : "_DIS"));
-
-    let bodyPaintRaw = keyBody ? resolvePaintData(node, keyBody, triggerSuffix) : (config.bodyPaint || bodyPaint);
-    let slotPaintRaw = keyIcon ? resolvePaintData(node, keyIcon, triggerSuffix) : config.slotPaint;
-    let textPaintRaw = keyText ? resolvePaintData(node, keyText, triggerSuffix) : config.labelPaint;
-
-    const finalBodyPaint = animatePaintData(node, `_trig_body_${config.key}`, bodyPaintRaw, useAnim, TRIGGER_COLOR_SPEED);
-    const slotPaint = animatePaintData(node, `_trig_slot_${config.key}`, slotPaintRaw, useAnim, TRIGGER_COLOR_SPEED);
-    const textPaint = animatePaintData(node, `_trig_text_${config.key}`, textPaintRaw, useAnim, TRIGGER_COLOR_SPEED);
-
-    let finalLabelPaint = textPaint || labelPaint || {};
 
     const styleRaw = config.style || "default";
     const style = Array.isArray(styleRaw) ? styleRaw[0] : styleRaw;
@@ -81,13 +148,54 @@ export function syncDerpTrigger(ctx, node, app, config) {
     const padB = props.padding ? props.padding[3] : 4;
     const gap = config.gap ?? TRIGGER_LABEL_GAP;
     const labelText = style === "default" ? t(node.properties?.[`${config.key}_label`] ?? content.text ?? "") : t(content.text || "");
-    const themeFontSize = props.fontSize || finalLabelPaint.fontSize || 10;
-    const themeFont = finalLabelPaint.font || "Arial";
+    const canReuseStatic = triggerWallNode && !isDragging && sysAlpha === 1 && effectiveUseAnim === false;
+    const staticKey = canReuseStatic ? [
+        config.key,
+        config.themeKey || config.textThemeKey || "",
+        triggerSuffix,
+        isActive ? 1 : 0,
+        config.disabled === true ? 1 : 0,
+        config.state || "",
+        labelText,
+        String(config.weight ?? 1.0),
+        config.showWeight === false ? 0 : 1,
+        guardNoFx ? 1 : 0,
+        guardTextUpscale ? 1 : 0,
+        props.fontSize || "",
+        props.fontWeight || "",
+        props.weightFontSize || "",
+        iconWidthOverride || "",
+        config.toggleWidth || "",
+    ].join("|") : null;
+    const staticCache = canReuseStatic ? getTriggerStaticCache(node, config.key) : null;
+
+    let bodyPaintOut;
+    let slotPaintOut;
+    let labelPaintOut;
+    let themeFontSize;
+    let themeFont;
+    if (staticCache && staticCache.key === staticKey) {
+        ({ bodyPaintOut, slotPaintOut, labelPaintOut, themeFontSize, themeFont } = staticCache);
+    } else {
+        const bodyPaintRaw = keyBody ? resolvePaintData(node, keyBody, triggerSuffix) : (config.bodyPaint || bodyPaint);
+        const slotPaintRaw = keyIcon ? resolvePaintData(node, keyIcon, triggerSuffix) : config.slotPaint;
+        const textPaintRaw = keyText ? resolvePaintData(node, keyText, triggerSuffix) : config.labelPaint;
+        const finalBodyPaint = animatePaintData(node, `_trig_body_${config.key}`, bodyPaintRaw, effectiveUseAnim, TRIGGER_COLOR_SPEED);
+        const slotPaint = animatePaintData(node, `_trig_slot_${config.key}`, slotPaintRaw, effectiveUseAnim, TRIGGER_COLOR_SPEED);
+        const textPaint = animatePaintData(node, `_trig_text_${config.key}`, textPaintRaw, effectiveUseAnim, TRIGGER_COLOR_SPEED);
+        const finalLabelPaint = textPaint || labelPaint || {};
+        bodyPaintOut = guardNoFx ? stripFx(finalBodyPaint) : finalBodyPaint;
+        slotPaintOut = guardNoFx ? stripFx(slotPaint) : slotPaint;
+        labelPaintOut = guardNoFx ? stripFx(finalLabelPaint) : finalLabelPaint;
+        const themeFontSizeRaw = props.fontSize || finalLabelPaint.fontSize || 10;
+        themeFontSize = guardTextUpscale ? Math.max(themeFontSizeRaw, 12) : themeFontSizeRaw;
+        themeFont = finalLabelPaint.font || "Arial";
+        if (canReuseStatic) setTriggerStaticCache(node, config.key, { key: staticKey, bodyPaintOut, slotPaintOut, labelPaintOut, themeFontSize, themeFont });
+    }
     const weightFontSize = config.weightFontSize || props.weightFontSize || Math.min(themeFontSize, WEIGHT_FONT_SIZE);
     ctx.font = `${props.fontWeight || "normal"} ${themeFontSize}px ${themeFont}`;
 
     const tH = themeFontSize;
-
     const weight = Number(config.weight ?? 1.0);
     const safeWeight = Number.isFinite(weight) ? weight : 1.0;
     const allowWeightDisplay = config.showWeight !== false;
@@ -97,67 +205,97 @@ export function syncDerpTrigger(ctx, node, app, config) {
     let tW = iconWidthOverride || config.toggleWidth || tH;
     if (isWeightVisible && !config.toggleWidth) {
         ctx.save();
-        ctx.font = `${props.fontWeight || finalLabelPaint.fontWeight || "normal"} ${weightFontSize}px ${themeFont}`;
-        const weightW = ctx.measureText(weightText).width;
+        ctx.font = `${props.fontWeight || labelPaintOut.fontWeight || "normal"} ${weightFontSize}px ${themeFont}`;
+        const weightW = measureTriggerText(ctx, node, `${config.key}:weight`, ctx.font, weightText);
         ctx.restore();
         tW = Math.max(tW, weightW + (WEIGHT_ICON_PAD * 2));
     }
 
     const indicatorBuffer = tW + gap;
-    const labelW = labelText ? ctx.measureText(labelText).width : 0;
-    const finalW = w;
+    const labelW = labelText ? measureTriggerText(ctx, node, `${config.key}:label`, ctx.font, labelText) : 0;
+    const finalW = Math.max(1, Math.round(w));
+    const finalH = Math.max(1, Math.round(h));
+    const baseX = Math.round(x);
+    const baseY = Math.round(y);
 
     if (!isTextOnly) {
-        masterPainter(ctx, { posX: x, posY: y, width: finalW, height: h, color: finalBodyPaint.fill, paintData: finalBodyPaint });
+        if (guardNoFx) drawFastBox(ctx, baseX, baseY, finalW, finalH, bodyPaintOut, bodyPaintOut?.fill);
+        else masterPainter(ctx, { posX: baseX, posY: baseY, width: finalW, height: finalH, color: bodyPaintOut.fill, paintData: bodyPaintOut });
     }
 
     const alignX = props.labelAlign?.[0] || "left";
-    let startX = x + padL;
-    const contentW_noPad = indicatorBuffer + labelW;
-    if (alignX === "center") startX = x + (finalW / 2) - (contentW_noPad / 2);
-    else if (alignX === "right") startX = x + finalW - padR - contentW_noPad;
+    let startX = baseX + padL;
+    const contentWNoPad = indicatorBuffer + labelW;
+    if (alignX === "center") startX = baseX + (finalW / 2) - (contentWNoPad / 2);
+    else if (alignX === "right") startX = baseX + finalW - padR - contentWNoPad;
+
+    startX = Math.round(startX);
 
     const tX = startX;
-    const tY = y + padT + (h - padT - padB - tH) / 2;
-    const slotColor = slotPaint?.fill;
-    masterPainter(ctx, {
-        posX: tX, posY: tY, width: tW, height: tH,
-        color: slotColor,
-        paintData: slotPaint
-    });
-
-    if (isWeightVisible) {
-        masterPainterText(ctx, {
-            x: tX + (tW / 2),
-            y: tY + (tH / 2),
-            width: tW, height: tH,
-            text: weightText,
-            paintData: { ...finalLabelPaint, fontSize: weightFontSize, fontWeight: props.fontWeight || finalLabelPaint.fontWeight },
-            align: "center", baseline: "middle"
+    const tY = Math.round(baseY + padT + (finalH - padT - padB - tH) / 2);
+    if (guardNoFx) {
+        drawFastBox(ctx, tX, tY, tW, tH, slotPaintOut, slotPaintOut?.fill);
+    } else {
+        masterPainter(ctx, {
+            posX: tX, posY: tY, width: tW, height: tH,
+            color: slotPaintOut?.fill,
+            paintData: slotPaintOut
         });
     }
 
-    const availW = Math.max(0, finalW - (startX - x) - indicatorBuffer - padR);
+    if (isWeightVisible) {
+        if (guardNoFx) {
+            drawFastText(ctx, weightText, tX + (tW / 2), tY + (tH / 2), labelPaintOut, {
+                fontSize: weightFontSize,
+                fontWeight: props.fontWeight || labelPaintOut.fontWeight,
+                align: "center",
+                baseline: "middle"
+            });
+        } else {
+            masterPainterText(ctx, {
+                x: tX + (tW / 2),
+                y: tY + (tH / 2),
+                width: tW,
+                height: tH,
+                text: weightText,
+                paintData: { ...labelPaintOut, fontSize: weightFontSize, fontWeight: props.fontWeight || labelPaintOut.fontWeight },
+                align: "center",
+                baseline: "middle"
+            });
+        }
+    }
+
+    const availW = Math.max(0, finalW - (startX - baseX) - indicatorBuffer - padR);
     if (labelText.length > 0) {
         ctx.save();
         ctx.beginPath();
-        ctx.rect(startX + indicatorBuffer, y, availW, h);
+        ctx.rect(Math.round(startX + indicatorBuffer), baseY, Math.round(availW), finalH);
         ctx.clip();
-        masterPainterText(ctx, {
-            x: startX + indicatorBuffer,
-            y: textAnchor?.y || (y + h / 2),
-            width: availW,
-            height: h,
-            text: labelText,
-            paintData: { ...finalLabelPaint, fontSize: themeFontSize, fontWeight: props.fontWeight },
-            align: "left",
-            baseline: props.labelAlign?.[1] || "middle",
-            cutoff: true
-        });
+        if (guardNoFx) {
+            drawFastText(ctx, labelText, Math.round(startX + indicatorBuffer), textAnchor?.y ? Math.round(textAnchor.y) : Math.round(baseY + finalH / 2), labelPaintOut, {
+                fontSize: themeFontSize,
+                fontWeight: props.fontWeight,
+                align: "left",
+                baseline: props.labelAlign?.[1] || "middle"
+            });
+        } else {
+            masterPainterText(ctx, {
+                x: Math.round(startX + indicatorBuffer),
+                y: (!isDragging && textAnchor?.y) ? Math.round(textAnchor.y) : Math.round(baseY + finalH / 2),
+                width: availW,
+                height: finalH,
+                text: labelText,
+                paintData: { ...labelPaintOut, fontSize: themeFontSize, fontWeight: props.fontWeight },
+                align: "left",
+                baseline: props.labelAlign?.[1] || "middle",
+                cutoff: true
+            });
+        }
         ctx.restore();
     }
 
     if (saved) ctx.restore();
+    if (profileStart) bumpTriggerWallWidgetProfile(node, performance.now() - profileStart);
 }
 
 export const syncDerpCompositeTrigger = syncDerpTrigger;

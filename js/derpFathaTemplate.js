@@ -1,5 +1,5 @@
 /**
- * Path: ./js/fatha/nodes/derpTemplateV2.js
+ * Path: ./js/fatha/nodes/derpFathaTemplate.js
  * STATUS: VIRTUAL FATHA COMPLIANT | FIXED: Pure Virtual Enforcer & Title Persistence
  */
 import { app } from "../../../scripts/app.js";
