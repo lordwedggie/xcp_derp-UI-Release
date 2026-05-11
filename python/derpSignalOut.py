@@ -8,6 +8,8 @@ from .signalDictionaryDefault import process_signal_fallback
 class AnyType(str):
     def __eq__(self, _) -> bool: return True
     def __ne__(self, _) -> bool: return False
+    def __contains__(self, _) -> bool: return True
+    def __hash__(self) -> int: return hash("*")
 
 any_type = AnyType("*")
 
@@ -60,7 +62,8 @@ class xcpDerpSignalOut:
                 node_id = str(active_ids[i])
                 sig_obj = signals.get(node_id, {})
                 val = sig_obj.get("value")
-                sig_type = sig_obj.get("type", "").upper()
+                raw_sig_type = sig_obj.get("type", "")
+                sig_type = "COMBO" if isinstance(raw_sig_type, list) else str(raw_sig_type).upper()
 
                 is_live = False
 

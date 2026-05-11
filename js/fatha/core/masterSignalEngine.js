@@ -68,7 +68,9 @@ export function transmitDerpSignal(node, value, options = {}) {
         const displayName = `${nodeName} [${portLabel}]`;
 
         let valType = "unknown";
-        if (options.forceSignalType && typeof options.forceSignalType === "string") {
+        if (Array.isArray(options.forceSignalType)) {
+            valType = [...options.forceSignalType];
+        } else if (options.forceSignalType && typeof options.forceSignalType === "string") {
             valType = options.forceSignalType.toLowerCase();
         } else if (output.type !== "*") {
             const raw = normalizeOutputType(output.type);
@@ -102,7 +104,9 @@ export function transmitDerpSignal(node, value, options = {}) {
         }
 
         // Update if data, name, or resolved type changed
-        if (newValStr !== currentValStr || window.xcpDerpSignals[signalId]?.nodeName !== displayName || window.xcpDerpSignals[signalId]?.type !== valType) {
+        const currentTypeStr = JSON.stringify(window.xcpDerpSignals[signalId]?.type);
+        const newTypeStr = JSON.stringify(valType);
+        if (newValStr !== currentValStr || window.xcpDerpSignals[signalId]?.nodeName !== displayName || currentTypeStr !== newTypeStr) {
             hasChanged = true;
             window.xcpDerpSignals[signalId] = {
                 nodeId: signalId,

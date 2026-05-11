@@ -25,9 +25,9 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                     const showSignalIds = this.properties.showSignalIds !== false;
                     const sortMode = this.properties.signalSortMode || "Type";
                     const normalizeSignalType = (rawType) => {
+                        if (Array.isArray(rawType)) return "COMBO";
                         if (typeof rawType === "string") return rawType.toUpperCase();
                         if (rawType && typeof rawType.name === "string") return rawType.name.toUpperCase();
-                        if (Array.isArray(rawType)) return String(rawType[0] || "unknown").toUpperCase();
                         return String(rawType || "unknown").toUpperCase();
                     };
                     const formatSignalLabel = (signal) => {

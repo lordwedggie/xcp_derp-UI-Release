@@ -130,9 +130,9 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                 };
 
                 const normalizeDerpSignalType = (rawType) => {
+                    if (Array.isArray(rawType)) return [...rawType];
                     if (typeof rawType === "string") return rawType.toUpperCase();
                     if (rawType && typeof rawType.name === "string") return rawType.name.toUpperCase();
-                    if (Array.isArray(rawType)) return String(rawType[0] || "ANY").toUpperCase();
                     if (rawType && typeof rawType.type === "string") return rawType.type.toUpperCase();
                     if (rawType && typeof rawType.label === "string") return rawType.label.toUpperCase();
                     if (rawType && typeof rawType.value === "string") return rawType.value.toUpperCase();
@@ -232,7 +232,7 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                         if (sig && sig.type && sig.type !== "unknown") {
                             if (typeof sig.type === "string") rawType = sig.type.toUpperCase();
                             else if (typeof sig.type?.name === "string") rawType = sig.type.name.toUpperCase();
-                            else if (Array.isArray(sig.type)) rawType = String(sig.type[0] || "ANY").toUpperCase();
+                            else if (Array.isArray(sig.type)) rawType = [...sig.type];
                             else rawType = String(sig.type).toUpperCase();
                         }
 
@@ -240,19 +240,23 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                         const showName = !!this.properties.showSlotNames;
                         const showType = !!this.properties.showSlotTypes;
                         const displayName = sig ? (showName ? sig.nodeName : sig.nodeName.replace(/\s\[[^\]]+\]$/, "")) : INVISIBLE_CHAR;
-                        const tag = (sig && showType) ? ` [${rawType}]` : "";
+                        const displayType = Array.isArray(rawType) ? "COMBO" : rawType;
+                        const tag = (sig && showType) ? ` [${displayType}]` : "";
                         const targetLabel = `${displayName}${tag}`;
 
                         // THE NORMALIZATION FIX: Map variants to standard Comfy types
-                        if (rawType.includes("EMPTY") && rawType.includes("LATENT")) rawType = "EMPTY_LATENT";
-                        else if (rawType.includes("LATENT")) rawType = "LATENT";
-                        else if (rawType.includes("IMAGE")) rawType = "IMAGE";
-                        else if (rawType.includes("MASK")) rawType = "MASK";
-                        else if (rawType.includes("AUDIO")) rawType = "AUDIO";
-                        else if (rawType.includes("CONDITIONING")) rawType = "CONDITIONING";
+                        if (!Array.isArray(rawType)) {
+                            if (rawType.includes("EMPTY") && rawType.includes("LATENT")) rawType = "EMPTY_LATENT";
+                            else if (rawType.includes("LATENT")) rawType = "LATENT";
+                            else if (rawType.includes("IMAGE")) rawType = "IMAGE";
+                            else if (rawType.includes("MASK")) rawType = "MASK";
+                            else if (rawType.includes("AUDIO")) rawType = "AUDIO";
+                            else if (rawType.includes("CONDITIONING")) rawType = "CONDITIONING";
+                            else if (rawType.includes("COMBO")) rawType = "COMBO";
+                        }
 
-                        const targetType = rawType === "ANY" ? "*" : rawType;
-                        const targetColor = TYPE_COLORS[rawType] || null;
+                        const targetType = Array.isArray(rawType) ? rawType : (rawType === "ANY" ? "*" : rawType);
+                        const targetColor = TYPE_COLORS[Array.isArray(rawType) ? "COMBO" : rawType] || null;
 
                         if (!this.outputs[i]) {
                             this.addOutput(targetLabel, targetType);
