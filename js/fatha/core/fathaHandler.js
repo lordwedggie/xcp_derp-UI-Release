@@ -218,6 +218,22 @@ function getPinnedVerticalDeckAnchor(node, graph) {
     return { members, pinned, bottom: pinnedY + pinnedH };
 }
 
+function restorePinnedVerticalDeckAnchor(anchor) {
+    const pinned = anchor?.pinned;
+    if (!pinned) return 0;
+
+    const nextPinnedY = Number(pinned.pos?.[1]) || 0;
+    const nextPinnedH = Number(pinned.size?.[1] ?? pinned.properties?.nodeSize?.[1]) || 0;
+    const offsetY = (Number(anchor.bottom) || 0) - (nextPinnedY + nextPinnedH);
+    if (offsetY === 0) return 0;
+
+    anchor.members.forEach((member) => {
+        if (!member?.pos) return;
+        member.pos[1] = (Number(member.pos[1]) || 0) + offsetY;
+    });
+    return offsetY;
+}
+
 export function settleDerpSizeBeforeDraw(entity) {
     if (!entity?.layout || !entity?.properties) return;
 
@@ -254,9 +270,11 @@ export function animateDerpSize(node, targetW, targetH, useAnim) {
         const graph = app.graph || node.graph || null;
         const deltaH = (Number(targetH) || 0) - prevH;
         const allowCollapseShift = node._allowDockCollapseShift === true;
-        const passiveAnchor = (!allowCollapseShift && deltaH !== 0)
+        const deckAnchor = (deltaH !== 0)
             ? getPinnedVerticalDeckAnchor(node, graph)
             : null;
+        const isPassiveCollapsedDeckSize = !!deckAnchor && !allowCollapseShift && node.properties?.contentCollapsed === true;
+        const shouldAnchorAfterReflow = !!deckAnchor && !allowCollapseShift && !isPassiveCollapsedDeckSize;
         node.size[0] = targetW;
         node.size[1] = targetH;
         if (node.properties) node.properties.nodeSize = [targetW, targetH];
@@ -266,8 +284,11 @@ export function animateDerpSize(node, targetW, targetH, useAnim) {
         if (!skipCollapseShift && deltaH !== 0 && shiftDirection !== 0) {
             node.pos[1] = (Number(node.pos?.[1]) || 0) + (deltaH * shiftDirection);
         }
-        if (graph && !passiveAnchor) {
+        if (graph && !isPassiveCollapsedDeckSize) {
             const moved = getDeckEngine().reflowChildren(node);
+            if (shouldAnchorAfterReflow) {
+                restorePinnedVerticalDeckAnchor(deckAnchor);
+            }
             moved.forEach((child) => {
                 if (typeof child.syncUncleSlots === "function") child.syncUncleSlots();
                 if (typeof child.setDirtyCanvas === "function") child.setDirtyCanvas(true, true);
