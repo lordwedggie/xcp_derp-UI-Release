@@ -8,6 +8,17 @@ import { runWirelessHeartbeat } from "../core/masterSignalEngine.js";
 
 export const getSignalReceiverId = () => `basta_signal_receiver_global_unique_id`;
 
+function normalizeSignalType(type) {
+    if (Array.isArray(type)) return "COMBO";
+    return String(type || "unknown").toUpperCase();
+}
+
+function signalTypeMatches(type, targetType) {
+    if (targetType === "ANY") return true;
+    if (Array.isArray(type)) return type.some(item => String(item || "").toUpperCase() === targetType);
+    return normalizeSignalType(type) === targetType;
+}
+
 export function showBastaSignalReceiver(host, targetRegion = null, params = {}) {
     const id = getSignalReceiverId();
 
@@ -50,11 +61,11 @@ export function showBastaSignalReceiver(host, targetRegion = null, params = {}) 
                         const sigBaseId = sigIdStr.split(":")[0];
                         const isOwnSignal = sigBaseId === callerId;
                         const isDownstream = Array.isArray(sig.upstreamIds) && sig.upstreamIds.some(id => String(id) === callerId);
-                        const typeMatches = targetType === "ANY" || (sig.type || "unknown").toUpperCase() === targetType;
+                        const typeMatches = signalTypeMatches(sig.type, targetType);
                         return typeMatches && !isOwnSignal && !isDownstream;
                     })
                     .sort((a, b) => parseInt(a.nodeId || 0) - parseInt(b.nodeId || 0))
-                    .map(sig => `[${sig.nodeId}] ${sig.nodeName} [${(sig.type || "unknown").toUpperCase()}]`);
+                    .map(sig => `[${sig.nodeId}] ${sig.nodeName} [${normalizeSignalType(sig.type)}]`);
 
                 // Hard fallback: if IMAGE list is empty, derive candidates from current graph
                 // by checking nodes that expose IMAGE outputs and are wireless-enabled.
