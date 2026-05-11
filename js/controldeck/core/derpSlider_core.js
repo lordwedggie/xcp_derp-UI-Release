@@ -77,6 +77,27 @@ export function setupDerpSliderCore(nodeType) {
         }
     };
 
+    nodeType.prototype.updateDerpSliderVisualValue = function(index, value) {
+        const key = `dynamicSlider_${index}`;
+        const valueKey = `dynamicSliderValue_${index}`;
+        if (this.layout?.regions?.[key]) this.layout.regions[key].value = value;
+        if (this._compDataCache?.[key]) this._compDataCache[key].value = value;
+
+        const data = this.properties.sliderContainer?.[index];
+        if (data) {
+            const dec = data.decimal !== undefined ? parseInt(data.decimal) : 2;
+            const text = parseFloat(value ?? 0).toFixed(dec);
+            if (this.layout?.regions?.[valueKey]) {
+                this.layout.regions[valueKey].text = text;
+                this.layout.regions[valueKey].value = text;
+            }
+            if (this._compDataCache?.[valueKey]) {
+                this._compDataCache[valueKey].text = text;
+                this._compDataCache[valueKey].value = text;
+            }
+        }
+    };
+
     nodeType.prototype.syncDerpOutputs = function() {
         if (this.purgeDerpSignal) this.purgeDerpSignal();
         this._lastSignalFingerprint = null;
@@ -268,12 +289,14 @@ export function setupDerpSliderCore(nodeType) {
                         // This ensures that the property change is "locked in" and survives the end of the interaction.
                         this.properties.sliderContainer = dataArr;
 
-                        if (this.broadcastWirelessSignal) {
+                        if (this.updateDerpSliderVisualValue) this.updateDerpSliderVisualValue(targetIdx, config.value);
+
+                        if (type !== "drag" && this.broadcastWirelessSignal) {
                             this.broadcastWirelessSignal(dataArr);
                         }
 
-                        // Rebuild map to synchronize component values with the updated property
-                        if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
+                        // During drag, keep the current component cache hot and defer structural sync until dragEnd.
+                        if (type !== "drag" && this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
 
                         this._shouldSync = true;
                         this.setDirtyCanvas(true);

@@ -21,6 +21,7 @@ import {
     triggerWall_itemDrag,
     triggerWall_itemDragEnd,
     triggerWall_itemPress,
+    triggerWall_itemContextMenu,
     triggerWall_addTrigger,
     triggerWall_toggleRegion,
     triggerWall_renameGroup,
@@ -468,7 +469,8 @@ app.registerExtension({
                                     onDragStart: itemDragEnabled ? ((e, data) => triggerWall_itemDragStart(this, e, data, gIdx, item.idx)) : undefined,
                                     onDrag: itemDragEnabled ? ((e, data) => triggerWall_itemDrag(this, e, data)) : undefined,
                                     onDragEnd: itemDragEnabled ? ((e, data) => triggerWall_itemDragEnd(this, e, data)) : undefined,
-                                    onPress: itemPressEnabled ? ((e, data) => triggerWall_itemPress(this, e, data, gIdx, item.idx, group, isBypassed)) : undefined
+                                    onPress: itemPressEnabled ? ((e, data) => triggerWall_itemPress(this, e, data, gIdx, item.idx, group, isBypassed)) : undefined,
+                                    onContextMenu: itemPressEnabled ? ((e) => triggerWall_itemContextMenu(this, e, gIdx, item.idx, group, isBypassed)) : undefined
                                 }];
                             }
 

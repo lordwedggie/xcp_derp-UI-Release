@@ -424,7 +424,9 @@ export function createDerpShield(node) {
     };
 
     shield.oncontextmenu = (e) => {
-        e.preventDefault(); e.stopPropagation();
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof e.stopImmediatePropagation === "function") e.stopImmediatePropagation();
         const scale = app.canvas?.ds?.scale || 1;
         const localMouse = [e.offsetX / scale, e.offsetY / scale];
         const regionEntries = Object.entries(node.layout?.regions || {}).reverse();
@@ -432,7 +434,13 @@ export function createDerpShield(node) {
             if (!reg || typeof reg.onContextMenu !== "function") continue;
             const isHit = reg.hitTest ? reg.hitTest(localMouse) : node.layout?.hitTest?.(localMouse, reg);
             if (!isHit) continue;
-            const customItems = reg.onContextMenu(e, node) || [];
+            const customItems = reg.onContextMenu(e, node);
+            if (customItems === false) {
+                e.preventDefault();
+                e.stopPropagation();
+                if (typeof e.stopImmediatePropagation === "function") e.stopImmediatePropagation();
+                return false;
+            }
             if (Array.isArray(customItems) && customItems.length > 0) {
                 new LiteGraph.ContextMenu(customItems, { event: e });
                 return false;

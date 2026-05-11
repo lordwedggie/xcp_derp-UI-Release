@@ -7,11 +7,19 @@ import { showTriggerWall } from "../../fatha/bastas/bastaTriggerWall.js";
 import { showBastaFileHandler } from "../../fatha/bastas/bastaFileHandler.js";
 import { showBastaMessage } from "../../fatha/bastas/bastaMessage.js";
 import { endStackDrag } from "../../fatha/helpers/fathaDragDrop.js";
+import { settleDerpSizeBeforeDraw } from "../../fatha/core/fathaHandler.js";
 
 function refreshAndSync(node, syncOutputs = true, dirtyFull = false) {
     node.refreshNodeLayoutMap();
     if (syncOutputs && node.syncDerpOutputs) node.syncDerpOutputs();
     node.setDirtyCanvas(true, dirtyFull);
+}
+
+function openTriggerWallModal(node, key) {
+    node._activeModalItemKey = key;
+    node._hoveredRegionKey = null;
+    refreshAndSync(node, false, true);
+    showTriggerWall(node, key);
 }
 
 function cloneTriggerPresetData(data) {
@@ -492,20 +500,8 @@ export function triggerWall_itemPress(node, e, data, gIdx, tIdx, group, isBypass
     const item = { idx: tIdx, trig: group.triggers[tIdx] };
     if (isBypassed || item.trig.disabled === true) return;
     const key = `triggerItem_${gIdx}_${item.idx}`;
-    const selectedRegionKey = `triggerRegion_${gIdx}`;
-    const isSelectedRegion = !!node._selectedRegions?.[selectedRegionKey];
-    if (isSelectedRegion) {
-        node._activeModalItemKey = key;
-        node._hoveredRegionKey = null;
-        refreshAndSync(node, false, true);
-        showTriggerWall(node, key);
-        return;
-    }
     if (e?.shiftKey) {
-        node._activeModalItemKey = key;
-        node._hoveredRegionKey = null;
-        refreshAndSync(node, false, true);
-        showTriggerWall(node, key);
+        openTriggerWallModal(node, key);
         return;
     }
     item.trig.active = !item.trig.active;
@@ -513,6 +509,14 @@ export function triggerWall_itemPress(node, e, data, gIdx, tIdx, group, isBypass
         group.triggers.forEach((t, i) => { if (i !== item.idx) t.active = false; });
     }
     refreshAndSync(node, true, true);
+}
+
+export function triggerWall_itemContextMenu(node, e, gIdx, tIdx, group, isBypassed) {
+    endStackDrag(node, "");
+    const trig = group?.triggers?.[tIdx];
+    if (isBypassed || trig?.disabled === true) return false;
+    openTriggerWallModal(node, `triggerItem_${gIdx}_${tIdx}`);
+    return false;
 }
 
 export function triggerWall_addTrigger(node, group) {
@@ -529,6 +533,7 @@ export function triggerWall_toggleRegion(node, regionKey) {
     node._selectedRegions = {};
     if (!wasSelected) node._selectedRegions[regionKey] = true;
     node.refreshNodeLayoutMap();
+    settleDerpSizeBeforeDraw(node);
 }
 
 export function triggerWall_renameGroup(node, group, gIdx) {

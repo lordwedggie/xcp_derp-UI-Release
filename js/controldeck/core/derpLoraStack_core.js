@@ -11,6 +11,17 @@ import { fetchLoraTriggers, fetchLoraRating, syncRatingColorsCache, fetchLoraDat
 import { startStackDrag, updateStackDrag, endStackDrag } from "../../fatha/helpers/fathaDragDrop.js";
 import { COMPONENT_BLUEPRINTS } from "../../fatha/core/masterLayoutTypes.js";
 
+const LORA_DETAIL_BASTA_ID = "basta_lora_detail_global_unique_id";
+
+function closeLoraDetailForHost(host) {
+    if (!host) return false;
+    const b = activeBastas?.get(LORA_DETAIL_BASTA_ID);
+    if (!b || b.hostNode !== host) return false;
+    host._activeDetailSlot = null;
+    if (!b.isClosing) b.close();
+    return true;
+}
+
 if (!window._xcp_derpLoraStack_Core_Loaded) {
     window._xcp_derpLoraStack_Core_Loaded = true;
     // THE CACHE BUSTER: Persistent timestamp for the current session to force refresh on reload
@@ -681,7 +692,11 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                     }
 
                     // ZERO-INFERENCE GUARD: Prevent execution on collapsed or uninitialized nodes
-                    if (this.flags?.collapsed || this.id === -1) return;
+                    if (this.flags?.collapsed || this.properties?.contentCollapsed === true) {
+                        closeLoraDetailForHost(this);
+                        return;
+                    }
+                    if (this.id === -1) return;
 
                     const isBypassed = this.mode === 4 || this.mode === 2 || this._derpSpoofedBypass;
                     if (this._lastBypassState !== isBypassed) {

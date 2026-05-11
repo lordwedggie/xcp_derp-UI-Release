@@ -77,6 +77,23 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                     const bastaId = "basta_lora_detail_global_unique_id";
                     const bObj = window.xcpActiveBastas?.get(bastaId);
                     const activeSlot = (bObj?.hostNode === this && !bObj.isClosing) ? (bObj._loraData?.slotIndex ?? this._activeDetailSlot ?? -1) : -1;
+                    const toggleLoraDetail = (slotIdx, targetKey, loraEntry) => {
+                        const liveBasta = window.xcpActiveBastas?.get(bastaId);
+                        const liveActiveSlot = (liveBasta?.hostNode === this && !liveBasta.isClosing)
+                            ? (liveBasta._loraData?.slotIndex ?? this._activeDetailSlot ?? -1)
+                            : -1;
+
+                        if (liveActiveSlot === slotIdx) {
+                            this._activeDetailSlot = null;
+                            if (liveBasta && liveBasta.hostNode === this) liveBasta.close();
+                            if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
+                            if (this.setDirtyCanvas) this.setDirtyCanvas(true, true);
+                            return;
+                        }
+
+                        this._activeDetailSlot = slotIdx;
+                        showBastaLoraDetail(this, targetKey, buildLoraDetailPayload(this, loraEntry, slotIdx));
+                    };
                     const trigHash = stack.map(l => (this._loraTriggerArrayCache?.[l[0]] || []).length).join('|');
 
                     const dragIdxHash = (this._dragTrig) ? `drag_${this._dragTrig.index}_${this._dragThresholdMet}_${this._dropPreviewIdx}` : "no-drag";
@@ -299,6 +316,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                             onDragStart: (e, data) => startStackDrag(this, data, i, `loraRow_${i}`),
                             onDrag: (e, data) => { updateStackDrag(this, data, "loraRow_", stack.length); },
                             onDragEnd: () => endStackDrag(this, "stackData"),
+                            onPress: isSelected ? (() => toggleLoraDetail(i, `loraPreview_${i}`, lora)) : undefined,
                             [`loraPreview_${i}`]: {
                                 hidden: false,
                                 isThumbnail: true, // THE CACHE OPTIMIZATION: Use THUMBNAIL_LONG_SIDE_TARGET for stack images
@@ -315,10 +333,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                 onDragStart: (e, data) => startStackDrag(this, data, i, `loraRow_${i}`),
                                 onDrag: (e, data) => { updateStackDrag(this, data, "loraRow_", stack.length); },
                                 onDragEnd: () => endStackDrag(this, "stackData"),
-                                onPress: () => {
-                                    this._activeDetailSlot = i;
-                                    showBastaLoraDetail(this, `loraPreview_${i}`, buildLoraDetailPayload(this, lora, i));
-                                },
+                                onPress: () => toggleLoraDetail(i, `loraPreview_${i}`, lora),
                                 [`loraRating_${i}`]: {
                                     hidden: rating === 0,
                                     type: this.UI_TYPES.ICONBUTTON, themeKey: "t_textNormal",
@@ -354,10 +369,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                         onDragStart: (e, data) => startStackDrag(this, data, i, `loraRow_${i}`),
                                         onDrag: (e, data) => { updateStackDrag(this, data, "loraRow_", stack.length); },
                                         onDragEnd: () => endStackDrag(this, "stackData"),
-                                        onPress: () => {
-                                            this._activeDetailSlot = i;
-                                            showBastaLoraDetail(this, `lblLoraNameTop_${i}`, buildLoraDetailPayload(this, lora, i));
-                                        }
+                                        onPress: () => toggleLoraDetail(i, `lblLoraNameTop_${i}`, lora)
                                     },
                                     [`toggleFuseQKV_${i}`]: {
                                         hidden: nameDisplay !== "Top" || this.properties.attentionMode !== "Joint-Attention",

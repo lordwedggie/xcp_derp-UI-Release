@@ -202,7 +202,7 @@ function debugPinnedDraw(label, node, extra = {}) {
     return;
 }
 
-function settleCollapseSizeBeforeDraw(entity) {
+export function settleDerpSizeBeforeDraw(entity) {
     if (!entity?.layout || !entity?.properties) return;
 
     if (entity.layout) entity.layout._lastCacheKey = "";
@@ -226,6 +226,10 @@ function settleCollapseSizeBeforeDraw(entity) {
     const targetH = (autoHeight || isMinState) ? engineFloorH : Math.max(entity.properties.nodeSize?.[1] || 0, engineFloorH);
 
     animateDerpSize(entity, targetW, targetH, false);
+}
+
+function settleCollapseSizeBeforeDraw(entity) {
+    settleDerpSizeBeforeDraw(entity);
 }
 
 export function animateDerpSize(node, targetW, targetH, useAnim) {

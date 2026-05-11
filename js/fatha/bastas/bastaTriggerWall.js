@@ -41,6 +41,10 @@ export function showTriggerWall(host, targetRegion = null) {
     const gIdx = parts.length > 2 ? parseInt(parts[1]) : null;
     const idx = parts.length > 2 ? parseInt(parts[2]) : (parts.length > 1 ? parseInt(parts[1]) : null);
 
+    if (host.properties) {
+        delete host.properties[`bastaOffset_${id}`];
+    }
+
     const triggers = (gIdx !== null && host.properties.triggerGroups) ? host.properties.triggerGroups[gIdx].triggers : host.properties.triggers;
     const trig = (idx !== null && triggers) ? triggers[idx] : { label: "" };
     const initialLabel = trig.label || "";
@@ -67,7 +71,7 @@ export function showTriggerWall(host, targetRegion = null) {
         getDerpVars: (node) => ({ ...vars, mW: 0 }),
         properties: {
             clickToClose: false,
-            bastaMovalbe: true,
+            bastaMovalbe: false,
             bastaSingleton: true,
             autoWidth: false,
             snapHeight: false
@@ -236,6 +240,7 @@ export function showTriggerWall(host, targetRegion = null) {
     if (existing) {
         existing.hostNode = host;
         existing.targetRegion = targetRegion;
+        existing.offset = config.offset || [0, 0];
         existing.titleLabel = config.titleLabel;
         existing.onClose = config.onClose;
         existing.layoutMap = config.layoutMap;
