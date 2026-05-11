@@ -762,6 +762,24 @@ function restoreDeckNodeAxes(node) {
     return true;
 }
 
+function refreshDeckStateWidgets(nodes = []) {
+    const seen = new Set();
+    nodes.forEach((node) => {
+        if (!node || seen.has(node.id)) return;
+        seen.add(node.id);
+        node._layoutMapHash = undefined;
+        node._lastMapStructure = undefined;
+        node._prevDerpState = null;
+        node._forceSync = true;
+        node._layoutDirty = true;
+        if (node.layout) node.layout._lastCacheKey = "";
+        if (typeof node.refreshNodeLayoutMap === "function") node.refreshNodeLayoutMap();
+        if (typeof node.requestDerpSync === "function") node.requestDerpSync();
+        if (typeof node.syncUncleSlots === "function") node.syncUncleSlots();
+        if (typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, true);
+    });
+}
+
 export function undeckNode(node, graph = null) {
     const props = ensureDeckProps(node);
     if (!props) return false;
@@ -796,6 +814,7 @@ export function undockNodeEdges(node, graph = null) {
     if (!node || !activeGraph) return false;
 
     let changed = false;
+    const affectedMembers = getDeckMembers(node, activeGraph);
     const directNeighbors = getDirectDeckNeighbors(node, activeGraph);
 
     if (isNodeDocked(node, activeGraph)) {
@@ -808,6 +827,10 @@ export function undockNodeEdges(node, graph = null) {
             changed = undeckNode(neighbor, activeGraph) || changed;
         }
     });
+
+    if (changed) {
+        refreshDeckStateWidgets(affectedMembers.length > 0 ? affectedMembers : [node, ...directNeighbors]);
+    }
 
     return changed;
 }
