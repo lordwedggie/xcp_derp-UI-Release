@@ -202,6 +202,22 @@ function debugPinnedDraw(label, node, extra = {}) {
     return;
 }
 
+function getPinnedVerticalDeckAnchor(node, graph) {
+    if (!node || !graph) return null;
+    if (!isNodeDocked(node, graph)) return null;
+    if (!isLinearDeckGroup(node, graph, "vertical")) return null;
+
+    const members = getDeckMembers(node, graph);
+    if (!Array.isArray(members) || members.length <= 1) return null;
+
+    const pinned = members.find((m) => m?.properties?.pinActive === true);
+    if (!pinned) return null;
+
+    const pinnedY = Number(pinned.pos?.[1]) || 0;
+    const pinnedH = Number(pinned.size?.[1] ?? pinned.properties?.nodeSize?.[1]) || 0;
+    return { members, pinned, bottom: pinnedY + pinnedH };
+}
+
 export function settleDerpSizeBeforeDraw(entity) {
     if (!entity?.layout || !entity?.properties) return;
 
@@ -235,18 +251,22 @@ function settleCollapseSizeBeforeDraw(entity) {
 export function animateDerpSize(node, targetW, targetH, useAnim) {
     if (node.size[0] !== targetW || node.size[1] !== targetH) {
         const prevH = Number(node.size?.[1]) || 0;
+        const graph = app.graph || node.graph || null;
+        const deltaH = (Number(targetH) || 0) - prevH;
+        const allowCollapseShift = node._allowDockCollapseShift === true;
+        const passiveAnchor = (!allowCollapseShift && deltaH !== 0)
+            ? getPinnedVerticalDeckAnchor(node, graph)
+            : null;
         node.size[0] = targetW;
         node.size[1] = targetH;
         if (node.properties) node.properties.nodeSize = [targetW, targetH];
-        const graph = app.graph || node.graph || null;
-        const deltaH = (Number(targetH) || 0) - prevH;
-        const shiftDirection = resolveCollapseShiftDirection(node, graph);
+        const shiftDirection = allowCollapseShift ? resolveCollapseShiftDirection(node, graph) : 0;
         const skipCollapseShift = node._skipNextAnimateCollapseShift === true;
         if (skipCollapseShift) node._skipNextAnimateCollapseShift = false;
         if (!skipCollapseShift && deltaH !== 0 && shiftDirection !== 0) {
             node.pos[1] = (Number(node.pos?.[1]) || 0) + (deltaH * shiftDirection);
         }
-        if (graph) {
+        if (graph && !passiveAnchor) {
             const moved = getDeckEngine().reflowChildren(node);
             moved.forEach((child) => {
                 if (typeof child.syncUncleSlots === "function") child.syncUncleSlots();
@@ -341,7 +361,12 @@ export function handleDerpCollapse(entity, force) {
     entity.properties.contentCollapsed = nextState;
     if (!entity.flags) entity.flags = {};
     entity.flags.collapsed = false;
-    settleCollapseSizeBeforeDraw(entity);
+    entity._allowDockCollapseShift = true;
+    try {
+        settleCollapseSizeBeforeDraw(entity);
+    } finally {
+        entity._allowDockCollapseShift = false;
+    }
 
     if (entity.syncUncleSlots) entity.syncUncleSlots();
     if (entity.requestDerpSync) entity.requestDerpSync();
