@@ -35,6 +35,14 @@ export function syncImageHTML(ctx, node, app, config, overlayPass = false) {
 
     const drawMode = config.drawMode || "both";
     const strokeOnOverlay = !!config.strokeZIndex;
+    const cornerRadius = Number(config.cornerRadius ?? 4);
+    const currentImageObj = node._imageInstanceCache?.[config.key];
+    const previousImageObj = node._imageInstanceCache?.[config.key + "_previous"];
+    const hasDisplayedImage = !!(
+        (currentImageObj?._isLoaded && currentImageObj._lastUrl === config.imageUrl) ||
+        (previousImageObj?._isLoaded && previousImageObj._lastUrl === config.previousImageUrl)
+    );
+    const drawBackground = !(config.hideBackgroundWhenImage && hasDisplayedImage);
 
     const stateHash = `${node.mode}_${window._xcpDerpSession}_${config.imageUrl}_${config.state}_${w}_${h}_${config.btnColor}_${node._xcpTrueSelected}_${config.alpha}`;
     const cache = node._imageHTMLCache || (node._imageHTMLCache = {});
@@ -59,17 +67,17 @@ export function syncImageHTML(ctx, node, app, config, overlayPass = false) {
     if (alpha < 1) ctx.globalAlpha *= alpha;
 
     if (!overlayPass && (drawMode === "both" || drawMode === "image")) {
-        if (paintData) {
+        if (paintData && drawBackground) {
             masterPainter(ctx, {
                 posX: x, posY: y, width: w, height: h,
                 paintData: paintData, color: paintData.fill || config.btnColor || "transparent"
             });
-        } else if (config.btnColor && config.btnColor !== "transparent") {
+        } else if (drawBackground && config.btnColor && config.btnColor !== "transparent") {
             ctx.save();
             ctx.fillStyle = config.btnColor;
-            if (ctx.roundRect) {
+            if (ctx.roundRect && cornerRadius > 0) {
                 ctx.beginPath();
-                ctx.roundRect(x, y, w, h, 4);
+                ctx.roundRect(x, y, w, h, cornerRadius);
                 ctx.fill();
             } else {
                 ctx.fillRect(x, y, w, h);
@@ -137,7 +145,7 @@ export function syncImageHTML(ctx, node, app, config, overlayPass = false) {
 
                 // Apply rounding and clipping to the main context
                 ctx.beginPath();
-                if (ctx.roundRect) ctx.roundRect(x, y, w, h, 4);
+                if (ctx.roundRect && cornerRadius > 0) ctx.roundRect(x, y, w, h, cornerRadius);
                 else ctx.rect(x, y, w, h);
                 ctx.clip();
 
@@ -274,9 +282,9 @@ export function syncImageHTML(ctx, node, app, config, overlayPass = false) {
         const strokeY = y + inset;
         const strokeW = Math.max(0, w - (inset * 2));
         const strokeH = Math.max(0, h - (inset * 2));
-        if (ctx.roundRect) {
+        if (ctx.roundRect && cornerRadius > 0) {
             ctx.beginPath();
-            ctx.roundRect(strokeX, strokeY, strokeW, strokeH, 4);
+            ctx.roundRect(strokeX, strokeY, strokeW, strokeH, cornerRadius);
             ctx.stroke();
         } else {
             ctx.strokeRect(strokeX, strokeY, strokeW, strokeH);

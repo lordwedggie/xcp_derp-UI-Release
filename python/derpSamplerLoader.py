@@ -1,20 +1,24 @@
-# Comprehensive list of common ComfyUI samplers
-SAMPLER_NAMES = [
-    "euler", "euler_ancestral", "heun", "heunpp2", "dpm_2", "dpm_2_ancestral",
-    "lms", "dpm_fast", "dpm_adaptive", "dpmpp_2s_ancestral", "dpmpp_sde",
-    "dpmpp_sde_gpu", "dpmpp_2m", "dpmpp_2m_sde", "dpmpp_2m_sde_gpu",
-    "dpmpp_3m_sde", "dpmpp_3m_sde_gpu", "ddpm", "lcm"
-]
+def get_sampler_names():
+    try:
+        from comfy.samplers import KSampler
+        samplers = getattr(KSampler, "SAMPLERS", None)
+        if samplers:
+            return list(samplers)
+    except Exception:
+        pass
+
+    return ["euler"]
 
 class derpSamplerLoader:
     INVISIBLE_CHAR = '\u200b'
 
     @classmethod
     def INPUT_TYPES(s):
+        sampler_names = get_sampler_names()
         return {
             "required": {},
             "optional": {
-                "sampler_name": (SAMPLER_NAMES,),
+                "sampler_name": (sampler_names,),
             }
         }
 
@@ -25,12 +29,10 @@ class derpSamplerLoader:
     OUTPUT_NODE = True
 
     def load_sampler(self, sampler_name=""):
-        # Validate that the sampler name is in our list
-        if sampler_name in SAMPLER_NAMES:
+        sampler_names = get_sampler_names()
+        if sampler_name in sampler_names:
             return (sampler_name,)
-        else:
-            # Fallback to first sampler if not found
-            return (SAMPLER_NAMES[0] if SAMPLER_NAMES else "euler",)
+        return (sampler_names[0] if sampler_names else "euler",)
 
 
 NODE_CLASS_MAPPINGS = {
