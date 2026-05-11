@@ -125,6 +125,34 @@ function buildComfyImageUrl(img) {
     return `/view?${q.toString()}`;
 }
 
+function resizeNodeToImageAspect(node, img) {
+    if (!node || !img || !(img.naturalWidth > 0) || !(img.naturalHeight > 0)) return;
+    if (node.flags?.collapsed || node.properties?.contentCollapsed === true) return;
+
+    const imageRegion = node.layout?.regions?.imageRegion;
+    const imageW = Number(imageRegion?.w || 0);
+    const currentImageH = Number(imageRegion?.h || 0);
+    if (!(imageW > 0) || !(currentImageH > 0)) return;
+
+    const aspect = img.naturalWidth / img.naturalHeight;
+    const nextImageH = Math.max(1, imageW / aspect);
+    const currentNodeW = Number(node.size?.[0] || node.properties?.nodeSize?.[0] || 0);
+    const currentNodeH = Number(node.size?.[1] || node.properties?.nodeSize?.[1] || 0);
+    if (!(currentNodeW > 0) || !(currentNodeH > 0)) return;
+
+    const nextNodeH = Math.max(1, Math.round(currentNodeH + (nextImageH - currentImageH)));
+    if (Math.abs(nextNodeH - currentNodeH) < 1) return;
+
+    const bottomY = Number(node.pos?.[1] || 0) + currentNodeH;
+    node.size[0] = currentNodeW;
+    node.size[1] = nextNodeH;
+    node.pos[1] = bottomY - nextNodeH;
+    if (node.properties) node.properties.nodeSize = [currentNodeW, nextNodeH];
+    node._preCollapseHeight = nextNodeH;
+    if (typeof node.syncUncleSlots === "function") node.syncUncleSlots();
+    if (typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, true);
+}
+
 function clampPreviewIndex(node) {
     const count = Array.isArray(node._derpImageDeckList) ? node._derpImageDeckList.length : 0;
     if (count <= 0) {
@@ -157,6 +185,7 @@ export function initDerpImageDeckCore(nodeType) {
             }
             this._derpImageDeckDisplayUrl = url;
             this._derpImageDeckPendingLoadId = null;
+            resizeNodeToImageAspect(this, img);
             this._layoutMapHash = null;
             if (typeof this.refreshNodeLayoutMap === "function") this.refreshNodeLayoutMap();
             if (typeof this.requestDerpSync === "function") this.requestDerpSync();
