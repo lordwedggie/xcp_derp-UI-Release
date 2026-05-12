@@ -231,10 +231,10 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                     }
                 };
 
-                nodeType.prototype.fetchDerpLoraTriggers = function(loraName, index) {
+                nodeType.prototype.fetchDerpLoraTriggers = function(loraName, index, forceEditorSync = false) {
                     if (!loraName) return;
                     fetchLoraRating(this, loraName);
-                    fetchLoraTriggers(this, loraName, index);
+                    fetchLoraTriggers(this, loraName, index, forceEditorSync);
                 };
 
                 nodeType.prototype.fetchDerpLoraData = function(showNotification = false) {

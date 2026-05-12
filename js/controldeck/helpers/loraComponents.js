@@ -545,7 +545,7 @@ export const getLoraLoaderProps = (host, basta, loraData) => ({
 
             // 4. START TRIGGER FETCH
             if (host.fetchDerpLoraTriggers) {
-                host.fetchDerpLoraTriggers(newPath, idx);
+                host.fetchDerpLoraTriggers(newPath, idx, true);
             }
         }
     }
