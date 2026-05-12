@@ -1,4 +1,28 @@
 # Path: ./python/derpControldeck.py
+def get_sampler_names():
+    try:
+        from comfy.samplers import KSampler
+        samplers = getattr(KSampler, "SAMPLERS", None)
+        if samplers:
+            return list(samplers)
+    except Exception:
+        pass
+
+    return ["euler"]
+
+
+def get_scheduler_names():
+    try:
+        from comfy.samplers import KSampler
+        schedulers = getattr(KSampler, "SCHEDULERS", None)
+        if schedulers:
+            return list(schedulers)
+    except Exception:
+        pass
+
+    return ["normal"]
+
+
 class DerpTemplateV2Node:
     @classmethod
     def INPUT_TYPES(s):
@@ -96,6 +120,59 @@ class DerpVaeLoaderNode:
         # THE PURE VIRTUAL FIX: Return None to force wireless signal handling
         return (None,)
 
+
+class derpSamplerLoader:
+    INVISIBLE_CHAR = '\u200b'
+
+    @classmethod
+    def INPUT_TYPES(s):
+        sampler_names = get_sampler_names()
+        return {
+            "required": {},
+            "optional": {
+                "sampler_name": (sampler_names,),
+            }
+        }
+
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = (INVISIBLE_CHAR,)
+    FUNCTION = "load_sampler"
+    CATEGORY = "🔞 derpNodes/Loaders"
+    OUTPUT_NODE = True
+
+    def load_sampler(self, sampler_name=""):
+        sampler_names = get_sampler_names()
+        if sampler_name in sampler_names:
+            return (sampler_name,)
+        return (sampler_names[0] if sampler_names else "euler",)
+
+
+class derpSchedulerLoader:
+    INVISIBLE_CHAR = '\u200b'
+
+    @classmethod
+    def INPUT_TYPES(s):
+        scheduler_names = get_scheduler_names()
+        return {
+            "required": {},
+            "optional": {
+                "scheduler": (scheduler_names,),
+            }
+        }
+
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = (INVISIBLE_CHAR,)
+    FUNCTION = "load_scheduler"
+    CATEGORY = "🔞 derpNodes/Loaders"
+    OUTPUT_NODE = True
+
+    def load_scheduler(self, scheduler=""):
+        scheduler_names = get_scheduler_names()
+        if scheduler in scheduler_names:
+            return (scheduler,)
+        return (scheduler_names[0] if scheduler_names else "normal",)
+
+
 class DerpTriggerWallNode:
     @classmethod
     def INPUT_TYPES(s):
@@ -169,6 +246,8 @@ NODE_CLASS_MAPPINGS = {
     "DerpLatentNode": DerpLatentNode,
     "DerpModelLoaderNode": DerpModelLoaderNode,
     "DerpVaeLoaderNode": DerpVaeLoaderNode,
+    "derpSamplerLoader": derpSamplerLoader,
+    "derpSchedulerLoader": derpSchedulerLoader,
     "DerpTriggerWallNode": DerpTriggerWallNode,
     "DerpImageDeckNode": DerpImageDeckNode
 }
@@ -181,6 +260,8 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "DerpLatentNode": "Derp Latent",
     "DerpModelLoaderNode": "Derp Model Loader",
     "DerpVaeLoaderNode": "Derp Vae Loader",
+    "derpSamplerLoader": "Derp Sampler Loader",
+    "derpSchedulerLoader": "Derp Scheduler Loader",
     "DerpTriggerWallNode": "Derp Trigger Wall",
     "DerpImageDeckNode": "Derp Image Deck"
 }
