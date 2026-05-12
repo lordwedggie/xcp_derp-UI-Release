@@ -43,6 +43,25 @@ app.registerExtension({
             this.requestDerpSync();
         };
 
+        nodeType.prototype.hydrateDerpLatentProfileData = function(profileName = null) {
+            if (!this._sysProfileData) return false;
+            const selectedName = profileName || this._currentProfileName || Object.keys(this._sysProfileData).sort()[0];
+            const profile = this._sysProfileData[selectedName];
+            if (!profile || selectedName === "(No Profiles Found)") return false;
+
+            this._currentProfileName = selectedName;
+            this.properties.latentPresets = profile.presets || [];
+            if (!this.properties.selectedLatent && this.properties.latentPresets.length > 0) {
+                this.applyDerpProfile(selectedName);
+                return true;
+            }
+
+            this.refreshNodeLayoutMap();
+            this.broadcastLatentState();
+            this.requestDerpSync();
+            return true;
+        };
+
         nodeType.prototype.loadFirstProfile = async function() {
             try {
                 const res = await fetch("/xcp/load/settings?name=derpLatent.json");
@@ -54,8 +73,8 @@ app.registerExtension({
                 const firstName = profileNames[0];
                 this._sysProfileData = profiles;
                 this._sysProfileCache = profileNames;
-                this._currentProfileName = firstName;
-                this.applyDerpProfile(firstName);
+                this._currentProfileName = this._currentProfileName || firstName;
+                this.hydrateDerpLatentProfileData(this._currentProfileName);
             } catch (e) {
                 console.warn("[DerpLatent] Failed to load profiles:", e);
             }
@@ -306,6 +325,7 @@ app.registerExtension({
             this._lastSignalFingerprint = null;
 
             setTimeout(() => {
+                if (this._configuredFromWorkflow === true) return;
                 this.loadFirstProfile();
                 this.broadcastLatentState();
             }, 100);
@@ -314,8 +334,22 @@ app.registerExtension({
         const onConfigure = nodeType.prototype.onConfigure;
         nodeType.prototype.onConfigure = function(info) {
             if (onConfigure) onConfigure.apply(this, arguments);
+            this._configuredFromWorkflow = true;
             this.properties.isWirelessTransmitter = true;
             this.properties.skipGenericWirelessHeartbeat = true;
+            this.properties.latentPresets = Array.isArray(this.properties.latentPresets) ? this.properties.latentPresets : [];
+            if (!this.properties.selectedLatent && this.properties.width && this.properties.height) {
+                const mode = this.properties.mode || "Landscape";
+                const isPortrait = mode === "Portrait";
+                const width = Number(this.properties.width) || 512;
+                const height = Number(this.properties.height) || 512;
+                const major = isPortrait ? height : width;
+                const minor = isPortrait ? width : height;
+                this.properties.selectedLatent = `${major}:${minor} - ${width} x ${height}`;
+            }
+            if (this._sysProfileData) this.hydrateDerpLatentProfileData(this._currentProfileName);
+            else this.loadFirstProfile();
+            this.refreshNodeLayoutMap();
             this.refreshDerpLatentSysMap();
             this._lastSignalFingerprint = null;
             this.broadcastLatentState();
