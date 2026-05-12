@@ -5,6 +5,7 @@
 import { app } from "../../../scripts/app.js";
 import { fatha, initDerpGlobalListener } from "../fatha/fatha.js";
 import { initDerpSamplerLoaderCore } from "./core/derpSamplerLoader_core.js";
+import { showBastaFileHandler } from "../fatha/bastas/bastaFileHandler.js";
 import { startStackDrag, updateStackDrag, endStackDrag } from "../fatha/helpers/fathaDragDrop.js";
 
 app.registerExtension({
@@ -112,6 +113,39 @@ app.registerExtension({
                             this.refreshNodeLayoutMap();
                             this.requestDerpSync();
                         }
+                    },
+                    [`btnRemoveSampler_${idx}`]: {
+                        type: this.UI_TYPES.ICONBUTTON,
+                        icon: "close",
+                        hidden: !m.active,
+                        alpha: item.isPreviewGhost ? 0 : 1.0,
+                        width: "match", height: "full", padding: [pW, pH], margin: [0, sH, sW, sH],
+                        themeKey: "button, t_textNormal",
+                        onPress: () => {
+                            showBastaFileHandler(this, "none", `btnRemoveSampler_${idx}`, {
+                                title: "Remove Sampler",
+                                message: `Remove ${m.name} from deck?`,
+                                confirm: "Remove",
+                                mode: "delete",
+                                playSound: "delete",
+                                onConfirm: () => {
+                                    const currentIdx = this.properties.samplerDeck.indexOf(m);
+                                    if (currentIdx === -1) return;
+
+                                    const wasActive = m.active;
+                                    this.properties.samplerDeck.splice(currentIdx, 1);
+
+                                    if (wasActive && this.properties.samplerDeck.length > 0) {
+                                        const nextIdx = (currentIdx > 0) ? currentIdx - 1 : 0;
+                                        this.properties.samplerDeck[nextIdx].active = true;
+                                    }
+                                    sendSignal();
+                                    if (this.syncDerpOutputs) this.syncDerpOutputs();
+                                    this.refreshNodeLayoutMap();
+                                    this.requestDerpSync();
+                                }
+                            });
+                        }
                     }
                 };
             });
@@ -149,6 +183,16 @@ app.registerExtension({
                         width: "full",
                         height: "auto",
                         padding: [pW, pH],
+                        themeKey: "button, t_textNormal",
+                    },
+                    floatingRemoveBtn: {
+                        type: this.UI_TYPES.ICONBUTTON,
+                        icon: "close",
+                        hidden: !m.active,
+                        width: "match",
+                        height: "full",
+                        padding: [pW, pH],
+                        margin: [0, sH, sW, sH],
                         themeKey: "button, t_textNormal",
                     }
                 };

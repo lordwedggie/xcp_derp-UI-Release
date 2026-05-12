@@ -114,6 +114,7 @@ app.registerExtension({
                     },
                     [`btnRemoveModel_${idx}`]: {
                         type: this.UI_TYPES.ICONBUTTON, icon: "close",
+                        hidden: !m.active,
                         alpha: item.isPreviewGhost ? 0 : 1.0,
                         width: "match", height: "full", padding: [pW, pH], margin: [0, sH, sW, sH],
                         themeKey: "button, t_textNormal",
@@ -182,6 +183,7 @@ app.registerExtension({
                     [`floatingRemoveBtn`]: {
                         type: this.UI_TYPES.ICONBUTTON,
                         icon: "close",
+                        hidden: !m.active,
                         width: "match",
                         height: "full",
                         padding: [pW, pH],
