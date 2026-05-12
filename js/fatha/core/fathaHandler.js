@@ -370,6 +370,9 @@ export function handleDerpCollapse(entity, force) {
     const nextState = force !== undefined ? force : !entity.properties.contentCollapsed;
 
     if (nextState === true && !entity.properties.contentCollapsed) {
+        if (sysPanel.isVisible && sysPanel.hostNode?.id === entity.id) {
+            closeDerpSysPanel();
+        }
         entity._preCollapseHeight = Math.max(
             Number(entity._preCollapseHeight || 0),
             Number(entity.size?.[1] || 0),
