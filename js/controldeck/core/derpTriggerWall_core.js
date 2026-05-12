@@ -9,8 +9,9 @@ import { showBastaMessage } from "../../fatha/bastas/bastaMessage.js";
 import { endStackDrag } from "../../fatha/helpers/fathaDragDrop.js";
 import { settleDerpSizeBeforeDraw } from "../../fatha/core/fathaHandler.js";
 
-function refreshAndSync(node, syncOutputs = true, dirtyFull = false) {
+function refreshAndSync(node, syncOutputs = true, dirtyFull = false, settleOptions = {}) {
     node.refreshNodeLayoutMap();
+    if (typeof settleDerpSizeBeforeDraw === "function") settleDerpSizeBeforeDraw(node, settleOptions);
     if (syncOutputs && node.syncDerpOutputs) node.syncDerpOutputs();
     node.setDirtyCanvas(true, dirtyFull);
 }
@@ -532,8 +533,7 @@ export function triggerWall_toggleRegion(node, regionKey) {
     const wasSelected = node._selectedRegions[regionKey];
     node._selectedRegions = {};
     if (!wasSelected) node._selectedRegions[regionKey] = true;
-    node.refreshNodeLayoutMap();
-    settleDerpSizeBeforeDraw(node);
+    refreshAndSync(node, false, false);
 }
 
 export function triggerWall_renameGroup(node, group, gIdx) {
@@ -580,7 +580,7 @@ export function triggerWall_addGroupTemplate(node, v) {
 export function triggerWall_removeGroup(node, gIdx) {
     const group = node.properties.triggerGroups[gIdx];
     if (group) group.hidden = true;
-    refreshAndSync(node, true, false);
+    refreshAndSync(node, true, false, { forceAutoHeight: true });
 }
 
 export function triggerWall_confirmRemoveGroup(node, gIdx) {

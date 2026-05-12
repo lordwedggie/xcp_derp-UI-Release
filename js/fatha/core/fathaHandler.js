@@ -10,9 +10,9 @@ import { UI_TYPES, COMPONENT_BLUEPRINTS } from "./masterLayoutTypes.js";
 import { resolvePaintData } from "../../herbina/utils/widgetsUtils.js";
 import { beginDockDrag, updateDockDrag, endDockDrag } from "./dockDrag.js";
 import { handleNodeResize } from "./fathaNodeResize.js";
+import { getPinnedVerticalDeckAnchor, restorePinnedVerticalDeckAnchor, resolveCollapseShiftDirection, shouldPreserveVerticalDeckWidth as shouldPreserveVerticalDeckWidthForGraph } from "./dockResize.js";
 import { masterDockEngine } from "./masterDockEngine.js";
 import { getDeckCornerOverride } from "./masterDockEngine.js";
-import { getDeckMembers, isLinearDeckGroup, isNodeDocked } from "./masterDockEngine.js";
 import { getVirtualNodeLayoutMap } from "../helpers/fathaLayoutMaps.js";
 
 function getDeckEngine() {
@@ -161,39 +161,6 @@ export async function loadDerpPalette(paletteName = "Derp_Default_v01") {
 // --- ANIMATION TUNABLES ---
 export const ANIM_SELECTION_PULSE = true;
 
-function getDockPinCollapseDownSetting() {
-    const raw = window.DERP_GLOBAL_SETTINGS?.dockPinCollapseDown;
-    if (raw === false || raw === 0) return false;
-    if (typeof raw === "string") {
-        const v = raw.trim().toLowerCase();
-        if (v === "false" || v === "0" || v === "off" || v === "no") return false;
-        if (v === "true" || v === "1" || v === "on" || v === "yes") return true;
-    }
-    return raw !== false;
-}
-
-function resolveCollapseShiftDirection(node, graph) {
-    if (!node || !graph) return 0;
-    if (!isNodeDocked(node, graph)) return 0;
-    if (!isLinearDeckGroup(node, graph, "vertical")) return 0;
-
-    const members = getDeckMembers(node, graph);
-    if (!Array.isArray(members) || members.length <= 1) return 0;
-
-    const pinned = members.find((m) => m?.properties?.pinActive === true);
-    if (!pinned) return 0;
-
-    if (pinned.id === node.id) {
-        // true: collapse down / expand up -> y -= deltaH
-        // false: collapse up / expand down -> y += deltaH
-        return getDockPinCollapseDownSetting() ? -1 : 1;
-    }
-
-    const nodeY = Number(node.pos?.[1]) || 0;
-    const pinY = Number(pinned.pos?.[1]) || 0;
-    return nodeY < pinY ? -1 : 0;
-}
-
 function debugPinnedCollapse(label, node, extra = {}) {
     return;
 }
@@ -202,39 +169,7 @@ function debugPinnedDraw(label, node, extra = {}) {
     return;
 }
 
-function getPinnedVerticalDeckAnchor(node, graph) {
-    if (!node || !graph) return null;
-    if (!isNodeDocked(node, graph)) return null;
-    if (!isLinearDeckGroup(node, graph, "vertical")) return null;
-
-    const members = getDeckMembers(node, graph);
-    if (!Array.isArray(members) || members.length <= 1) return null;
-
-    const pinned = members.find((m) => m?.properties?.pinActive === true);
-    if (!pinned) return null;
-
-    const pinnedY = Number(pinned.pos?.[1]) || 0;
-    const pinnedH = Number(pinned.size?.[1] ?? pinned.properties?.nodeSize?.[1]) || 0;
-    return { members, pinned, bottom: pinnedY + pinnedH };
-}
-
-function restorePinnedVerticalDeckAnchor(anchor) {
-    const pinned = anchor?.pinned;
-    if (!pinned) return 0;
-
-    const nextPinnedY = Number(pinned.pos?.[1]) || 0;
-    const nextPinnedH = Number(pinned.size?.[1] ?? pinned.properties?.nodeSize?.[1]) || 0;
-    const offsetY = (Number(anchor.bottom) || 0) - (nextPinnedY + nextPinnedH);
-    if (offsetY === 0) return 0;
-
-    anchor.members.forEach((member) => {
-        if (!member?.pos) return;
-        member.pos[1] = (Number(member.pos[1]) || 0) + offsetY;
-    });
-    return offsetY;
-}
-
-export function settleDerpSizeBeforeDraw(entity) {
+export function settleDerpSizeBeforeDraw(entity, options = {}) {
     if (!entity?.layout || !entity?.properties) return;
 
     if (entity.layout) entity.layout._lastCacheKey = "";
@@ -249,13 +184,18 @@ export function settleDerpSizeBeforeDraw(entity) {
     const isMinState = entity.properties.contentCollapsed === true;
     const contentReqW = entity.layout?.contentMinWidth || 0;
     const engineFloorW = Math.ceil(contentReqW / SNAP) * SNAP;
-    const rawH = (isMinState && entity.properties?.useCollapsedTotalHeight === true)
-        ? (Math.max(Number(entity.layout?.contentMinHeight) || 0, Number(entity.layout?.totalHeight) || 0) || 40)
-        : (entity.layout?.contentMinHeight || entity.layout?.totalHeight || 40);
+    const layoutTotalH = Number(entity.layout?.totalHeight) || 0;
+    const layoutContentH = Number(entity.layout?.contentMinHeight) || 0;
+    const forceAutoHeight = options?.forceAutoHeight === true;
+    const rawH = forceAutoHeight && !isMinState
+        ? (layoutContentH || layoutTotalH || 40)
+        : (isMinState && entity.properties?.useCollapsedTotalHeight === true)
+            ? (Math.max(layoutContentH, layoutTotalH) || 40)
+            : (layoutTotalH || layoutContentH || 40);
     const engineFloorH = isMinState ? rawH : Math.ceil(rawH / SNAP) * SNAP;
     const collapseMinimal = entity.properties?.collapseMinimal === true;
     const targetW = (autoWidth || (isMinState && collapseMinimal)) ? engineFloorW : Math.max(entity.properties.nodeSize?.[0] || 0, engineFloorW);
-    const targetH = (autoHeight || isMinState) ? engineFloorH : Math.max(entity.properties.nodeSize?.[1] || 0, engineFloorH);
+    const targetH = (forceAutoHeight || autoHeight || isMinState) ? engineFloorH : Math.max(entity.properties.nodeSize?.[1] || 0, engineFloorH);
 
     animateDerpSize(entity, targetW, targetH, false);
 }
@@ -300,6 +240,11 @@ export function animateDerpSize(node, targetW, targetH, useAnim) {
     if (node?.properties?.contentCollapsed !== true && Number(targetH) > 0) {
         node._preCollapseHeight = Math.max(Number(node._preCollapseHeight || 0), Number(targetH));
     }
+}
+
+export function shouldPreserveVerticalDeckWidth(node) {
+    const graph = app.graph || node?.graph || null;
+    return shouldPreserveVerticalDeckWidthForGraph(node, graph);
 }
 
 export const getDerpVars = (node) => {

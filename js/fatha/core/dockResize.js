@@ -5,8 +5,78 @@ import {
     getDeckChildren,
     getDeckMembers,
     isLinearDeckGroup,
+    isNodeDocked,
     syncDeckNodeSize,
 } from "./masterDockEngine.js";
+
+export function getDockPinCollapseDownSetting() {
+    const raw = window.DERP_GLOBAL_SETTINGS?.dockPinCollapseDown;
+    if (raw === false || raw === 0) return false;
+    if (typeof raw === "string") {
+        const v = raw.trim().toLowerCase();
+        if (v === "false" || v === "0" || v === "off" || v === "no") return false;
+        if (v === "true" || v === "1" || v === "on" || v === "yes") return true;
+    }
+    return raw !== false;
+}
+
+export function resolveCollapseShiftDirection(node, graph) {
+    if (!node || !graph) return 0;
+    if (!isNodeDocked(node, graph)) return 0;
+    if (!isLinearDeckGroup(node, graph, "vertical")) return 0;
+
+    const members = getDeckMembers(node, graph);
+    if (!Array.isArray(members) || members.length <= 1) return 0;
+
+    const pinned = members.find((m) => m?.properties?.pinActive === true);
+    if (!pinned) return 0;
+
+    if (pinned.id === node.id) {
+        // true: collapse down / expand up -> y -= deltaH
+        // false: collapse up / expand down -> y += deltaH
+        return getDockPinCollapseDownSetting() ? -1 : 1;
+    }
+
+    const nodeY = Number(node.pos?.[1]) || 0;
+    const pinY = Number(pinned.pos?.[1]) || 0;
+    return nodeY < pinY ? -1 : 0;
+}
+
+export function getPinnedVerticalDeckAnchor(node, graph) {
+    if (!node || !graph) return null;
+    if (!isNodeDocked(node, graph)) return null;
+    if (!isLinearDeckGroup(node, graph, "vertical")) return null;
+
+    const members = getDeckMembers(node, graph);
+    if (!Array.isArray(members) || members.length <= 1) return null;
+
+    const pinned = members.find((m) => m?.properties?.pinActive === true);
+    if (!pinned) return null;
+
+    const pinnedY = Number(pinned.pos?.[1]) || 0;
+    const pinnedH = Number(pinned.size?.[1] ?? pinned.properties?.nodeSize?.[1]) || 0;
+    return { members, pinned, bottom: pinnedY + pinnedH };
+}
+
+export function restorePinnedVerticalDeckAnchor(anchor) {
+    const pinned = anchor?.pinned;
+    if (!pinned) return 0;
+
+    const nextPinnedY = Number(pinned.pos?.[1]) || 0;
+    const nextPinnedH = Number(pinned.size?.[1] ?? pinned.properties?.nodeSize?.[1]) || 0;
+    const offsetY = (Number(anchor.bottom) || 0) - (nextPinnedY + nextPinnedH);
+    if (offsetY === 0) return 0;
+
+    anchor.members.forEach((member) => {
+        if (!member?.pos) return;
+        member.pos[1] = (Number(member.pos[1]) || 0) + offsetY;
+    });
+    return offsetY;
+}
+
+export function shouldPreserveVerticalDeckWidth(node, graph = app.graph || node?.graph || null) {
+    return !!(graph && node && isLinearDeckGroup(node, graph, "vertical"));
+}
 
 function getNodeWidth(node) {
     return Number(node?.properties?.nodeSize?.[0] ?? node?.size?.[0]) || 0;
