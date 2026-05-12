@@ -273,7 +273,10 @@ export const getVirtualNodeLayoutMap = (node) => {
                     state: activeBastas.get(getSignalReceiverId())?.hostNode === node && !activeBastas.get(getSignalReceiverId())?.isClosing ? "ON" : "OFF",
                     pulse: (() => {
                         const isBastaOpen = activeBastas.get(getSignalReceiverId())?.hostNode === node && !activeBastas.get(getSignalReceiverId())?.isClosing;
-                        const reqTypes = node.signalFilters?.types || [];
+                        const reqTypes = [
+                            ...(node.signalFilters?.types || []),
+                            ...(node.signalFilters?.additionalTypes || []),
+                        ];
                         const selections = node.properties?.multiSignalLabels || {};
                         const hasMissing = reqTypes.length > 0 && reqTypes.some((_, i) => !selections[i] || selections[i].includes("Select") || selections[i].includes("No "));
                         return !isBastaOpen && hasMissing;

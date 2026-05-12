@@ -13,10 +13,26 @@ function normalizeSignalType(type) {
     return String(type || "unknown").toUpperCase();
 }
 
-function signalTypeMatches(type, targetType) {
+function signalTypeMatches(sig, targetType) {
     if (targetType === "ANY") return true;
+    const nodeType = String(sig?.nodeType || "").toLowerCase();
+    const nodeName = String(sig?.nodeName || "").toLowerCase();
+    if (targetType === "SAMPLER") return nodeType.includes("samplerloader") || nodeName.includes("[sampler]");
+    if (targetType === "SCHEDULER") return nodeType.includes("schedulerloader") || nodeName.includes("[scheduler]");
+    const type = sig?.type;
     if (Array.isArray(type)) return type.some(item => String(item || "").toUpperCase() === targetType);
     return normalizeSignalType(type) === targetType;
+}
+
+function isPlainWrapperSignalId(signalId) {
+    return /^\d+$/.test(String(signalId || ""));
+}
+
+function hasIndexedSignalForBase(globalSignals, baseId) {
+    return Object.values(globalSignals || {}).some(sig => {
+        const sigId = String(sig?.nodeId || "");
+        return sigId.startsWith(`${baseId}:`);
+    });
 }
 
 export function showBastaSignalReceiver(host, targetRegion = null, params = {}) {
@@ -51,6 +67,9 @@ export function showBastaSignalReceiver(host, targetRegion = null, params = {}) 
             const baseTypes = Array.isArray(params.types) && params.types.length > 0 ? params.types : ["ANY"];
             const additionalTypes = Array.isArray(params.additionalTypes) ? params.additionalTypes : [];
             const filterTypes = [...new Set([...baseTypes, ...additionalTypes])];
+            const layoutOverrides = params.layoutOverrides || {};
+            const labelOverrides = layoutOverrides.signalLabelText || {};
+            const hiddenLabels = new Set(layoutOverrides.hiddenSignalLabels || []);
 
             const signalRows = filterTypes.reduce((acc, type, idx) => {
                 const targetType = type.toUpperCase();
@@ -60,9 +79,10 @@ export function showBastaSignalReceiver(host, targetRegion = null, params = {}) 
                         const sigIdStr = String(sig.nodeId);
                         const sigBaseId = sigIdStr.split(":")[0];
                         const isOwnSignal = sigBaseId === callerId;
+                        const isWrapperSignal = isPlainWrapperSignalId(sigIdStr) && hasIndexedSignalForBase(globalSignals, sigBaseId);
                         const isDownstream = Array.isArray(sig.upstreamIds) && sig.upstreamIds.some(id => String(id) === callerId);
-                        const typeMatches = signalTypeMatches(sig.type, targetType);
-                        return typeMatches && !isOwnSignal && !isDownstream;
+                        const typeMatches = signalTypeMatches(sig, targetType);
+                        return typeMatches && !isWrapperSignal && !isOwnSignal && !isDownstream;
                     })
                     .sort((a, b) => parseInt(a.nodeId || 0) - parseInt(b.nodeId || 0))
                     .map(sig => `[${sig.nodeId}] ${sig.nodeName} [${normalizeSignalType(sig.type)}]`);
@@ -98,8 +118,9 @@ export function showBastaSignalReceiver(host, targetRegion = null, params = {}) 
                 acc[`signalLabel_${idx}`] = {
                     anchor: rowAnchor,
                     type: UI_TYPES.TEXT,
+                    hidden: hiddenLabels.has(targetType),
                     themeKey: "t_textSystem",
-                    text: `Select ${targetType} Signal:`,
+                    text: labelOverrides[targetType] || `Select ${targetType} Signal:`,
                     labelAlign: ["left", "middle"],
                     width: "full", margin: [0, 0, 0, 0]
                 };

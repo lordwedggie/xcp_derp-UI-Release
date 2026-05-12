@@ -7,6 +7,8 @@ import { fatha, initDerpGlobalListener } from "../fatha/fatha.js";
 import { initDerpImageDeckCore } from "./core/derpImageDeck_core.js";
 import { runWirelessHeartbeat } from "../fatha/core/masterSignalEngine.js";
 import { showBastaMessage } from "../fatha/bastas/bastaMessage.js";
+import { activeBastas } from "../fatha/basta.js";
+import { getSignalReceiverId } from "../fatha/bastas/bastaSignalReceiver.js";
 
 async function copyImageUrlToClipboard(imageUrl) {
     if (!imageUrl || !navigator.clipboard || typeof navigator.clipboard.write !== "function") return;
@@ -24,6 +26,15 @@ function getImageDeckCurrentImage(node) {
     if (idx < 0) idx = 0;
     if (idx >= list.length) idx = list.length - 1;
     return list[idx] || null;
+}
+
+function normalizeImageDeckToken(raw) {
+    return String(raw || "").trim();
+}
+
+function normalizeImageDeckFilenameToken(raw) {
+    return normalizeImageDeckToken(raw)
+        .replace(/\.(png|jpg|jpeg|webp|gif|bmp)$/i, "");
 }
 
 async function saveImageDeckCurrentImage(node) {
@@ -113,16 +124,142 @@ app.registerExtension({
 
         nodeType.prototype.updateImageDeckSignalFilters = function() {
             const baseTypes = ["IMAGE"];
-            const additionalTypes = this.properties.toggleModelInfo === false ? [] : ["MODEL"];
-            this.signalFilters = { types: baseTypes, additionalTypes };
+            const additionalTypes = [];
+            if (this.properties.toggleModelInfo !== false) additionalTypes.push("MODEL");
+            if (this.properties.toggleSamplerInfo !== false) additionalTypes.push("SAMPLER");
+            if (this.properties.toggleSchedulerInfo !== false) additionalTypes.push("SCHEDULER");
+            this.signalFilters = {
+                types: baseTypes,
+                additionalTypes,
+                layoutOverrides: {
+                    signalLabelText: {
+                        IMAGE: "Select IMAGE signal (required):",
+                        MODEL: "Select optional signals for file name parsing:"
+                    },
+                    hiddenSignalLabels: ["SAMPLER", "SCHEDULER"]
+                }
+            };
+        };
+
+        nodeType.prototype.refreshOpenImageDeckSignalReceiver = function() {
+            const receiver = activeBastas.get(getSignalReceiverId());
+            if (!receiver || receiver.hostNode !== this || receiver.isClosing) return;
+            receiver._layoutDirty = true;
+            receiver._forceSync = true;
+            if (typeof receiver.requestDerpSync === "function") receiver.requestDerpSync();
+        };
+
+        nodeType.prototype.fetchImageDeckKSamplerInfo = function() {
+            const session = window._xcpDerpSession || Date.now();
+            fetch(`/object_info/KSampler?v=${session}`)
+                .then(response => {
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    return response.json();
+                })
+                .then(data => {
+                    const samplerInput = data?.KSampler?.input?.required?.sampler_name;
+                    const schedulerInput = data?.KSampler?.input?.required?.scheduler;
+                    this.properties.imageDeckSamplerNames = Array.isArray(samplerInput?.[0]) ? samplerInput[0] : [];
+                    this.properties.imageDeckSchedulerNames = Array.isArray(schedulerInput?.[0]) ? schedulerInput[0] : [];
+                    this.updateImageDeckSignalFilters();
+                    if (this.refreshDerpImageDeckSysMap) this.refreshDerpImageDeckSysMap();
+                    if (this.requestDerpSync) this.requestDerpSync();
+                })
+                .catch(error => {
+                    console.error("[DerpImageDeck] Failed to fetch KSampler info:", error);
+                    this.properties.imageDeckSamplerNames = [];
+                    this.properties.imageDeckSchedulerNames = [];
+                    this.updateImageDeckSignalFilters();
+                    if (this.refreshDerpImageDeckSysMap) this.refreshDerpImageDeckSysMap();
+                });
+        };
+
+        nodeType.prototype.getImageDeckInfoSignalIndex = function(kind) {
+            const normalized = String(kind || "").toUpperCase();
+            if (normalized === "MODEL") return 1;
+            if (normalized === "SAMPLER") return 2;
+            if (normalized === "SCHEDULER") return 3;
+            return null;
+        };
+
+        nodeType.prototype.getImageDeckSignalIdByKind = function(kind) {
+            const idx = this.getImageDeckInfoSignalIndex ? this.getImageDeckInfoSignalIndex(kind) : null;
+            if (idx === null) return null;
+            const ids = this.properties.multiSignalIds || {};
+            const signalId = ids[idx] || ids[String(idx)] || ids[kind] || ids[String(kind || "").toUpperCase()] || null;
+            if (!signalId) return null;
+            const sigs = window.xcpDerpSignals || {};
+            const sig = sigs[signalId] || sigs[String(signalId).split(":")[0]] || null;
+            return this.signalMatchesImageDeckKind(sig, kind) ? signalId : null;
+        };
+
+        nodeType.prototype.signalMatchesImageDeckKind = function(sig, kind) {
+            const normalized = String(kind || "").toUpperCase();
+            if (!sig) return false;
+            if (normalized === "SAMPLER") {
+                const nodeType = String(sig.nodeType || "").toLowerCase();
+                const nodeName = String(sig.nodeName || "").toLowerCase();
+                return nodeType.includes("samplerloader") || nodeName.includes("[sampler]");
+            }
+            if (normalized === "SCHEDULER") {
+                const nodeType = String(sig.nodeType || "").toLowerCase();
+                const nodeName = String(sig.nodeName || "").toLowerCase();
+                return nodeType.includes("schedulerloader") || nodeName.includes("[scheduler]");
+            }
+            const rawType = sig.type;
+            if (Array.isArray(rawType)) return rawType.some(item => String(item || "").toUpperCase() === normalized);
+            return String(rawType || "").toUpperCase() === normalized;
+        };
+
+        nodeType.prototype.getImageDeckSignalIdByValueType = function(typeList) {
+            const ids = this.properties.multiSignalIds || {};
+            const sigs = window.xcpDerpSignals || {};
+            const targets = new Set((Array.isArray(typeList) ? typeList : [typeList]).map(item => String(item || "").toUpperCase()));
+            const matchesType = (sig) => {
+                const rawType = sig?.type;
+                if (Array.isArray(rawType)) return rawType.some(item => targets.has(String(item || "").toUpperCase()));
+                return targets.has(String(rawType || "").toUpperCase());
+            };
+
+            const selected = Object.values(ids).find(signalId => matchesType(sigs[signalId] || sigs[String(signalId).split(":")[0]]));
+            if (selected) return selected;
+            const fallback = Object.values(sigs).find(matchesType);
+            return fallback?.nodeId || null;
+        };
+
+        nodeType.prototype.getImageDeckSignalValueByType = function(typeList) {
+            const signalId = this.getImageDeckSignalIdByValueType ? this.getImageDeckSignalIdByValueType(typeList) : null;
+            if (!signalId) return "";
+            const sigs = window.xcpDerpSignals || {};
+            const sig = sigs[signalId] || sigs[String(signalId).split(":")[0]] || null;
+            return normalizeImageDeckToken(sig?.value);
+        };
+
+        nodeType.prototype.getImageDeckSignalValueByKind = function(kind) {
+            const signalId = this.getImageDeckSignalIdByKind ? this.getImageDeckSignalIdByKind(kind) : null;
+            if (!signalId) return "";
+            const sigs = window.xcpDerpSignals || {};
+            const sig = sigs[signalId] || sigs[String(signalId).split(":")[0]] || null;
+            return normalizeImageDeckToken(sig?.value);
+        };
+
+        nodeType.prototype.parseImageDeckNameToken = function(fileNameOnly, names = []) {
+            const cleanFile = normalizeImageDeckFilenameToken(fileNameOnly);
+            if (!cleanFile || !Array.isArray(names) || names.length === 0) return "";
+            const lowerFile = cleanFile.toLowerCase();
+            const sorted = [...names].filter(Boolean).sort((a, b) => String(b).length - String(a).length);
+            return sorted.find(name => lowerFile.includes(String(name).toLowerCase())) || "";
         };
 
         nodeType.prototype.getImageDeckModelNamePrefix = function() {
             if (this.properties.toggleModelInfo === false) return "";
-            const ids = this.properties.multiSignalIds || {};
-            const modelSignalId = ids[1] || ids["1"] || ids.Model || ids.MODEL || null;
+            const modelSignalId = this.getImageDeckSignalIdByKind ? this.getImageDeckSignalIdByKind("MODEL") : null;
             const sigs = window.xcpDerpSignals || {};
-            const sig = modelSignalId ? sigs[modelSignalId] : Object.values(sigs).find(s => String(s?.type || "").toUpperCase() === "MODEL");
+            const fallbackSignalId = this.properties?.multiSignalIds?.Model || this.properties?.modelSignalId;
+            const sig = sigs[modelSignalId]
+                || sigs[fallbackSignalId]
+                || Object.values(sigs).find(s => String(s?.type || "").toUpperCase() === "MODEL" && s.value?.model_name_prefix)
+                || Object.values(sigs).find(s => String(s?.type || "").toUpperCase() === "MODEL");
             if (!sig) return "";
 
             const v = sig.value;
@@ -138,6 +275,18 @@ app.registerExtension({
             return "";
         };
 
+        nodeType.prototype.getImageDeckSamplerNamePrefix = function(fileNameOnly = "") {
+            if (this.properties.toggleSamplerInfo === false) return "";
+            const names = Array.isArray(this.properties.imageDeckSamplerNames) ? this.properties.imageDeckSamplerNames : [];
+            return this.getImageDeckSignalValueByKind("SAMPLER") || this.parseImageDeckNameToken(fileNameOnly, names);
+        };
+
+        nodeType.prototype.getImageDeckSchedulerNamePrefix = function(fileNameOnly = "") {
+            if (this.properties.toggleSchedulerInfo === false) return "";
+            const names = Array.isArray(this.properties.imageDeckSchedulerNames) ? this.properties.imageDeckSchedulerNames : [];
+            return this.getImageDeckSignalValueByKind("SCHEDULER") || this.parseImageDeckNameToken(fileNameOnly, names);
+        };
+
         nodeType.prototype.getImageDeckFilenameText = function() {
             const list = Array.isArray(this._derpImageDeckList) ? this._derpImageDeckList : [];
             const idx = Number.isInteger(this._derpImageDeckIndex) ? this._derpImageDeckIndex : (list.length - 1);
@@ -149,8 +298,10 @@ app.registerExtension({
             const fileNameOnly = String(rawFile || "").split(/[\\/]/).pop();
 
             const modelPrefix = this.getImageDeckModelNamePrefix ? this.getImageDeckModelNamePrefix() : "";
-            if (modelPrefix && fileNameOnly) return `${modelPrefix}_${fileNameOnly}`;
-            return modelPrefix || fileNameOnly || "";
+            const samplerPrefix = this.getImageDeckSamplerNamePrefix ? this.getImageDeckSamplerNamePrefix(fileNameOnly) : "";
+            const schedulerPrefix = this.getImageDeckSchedulerNamePrefix ? this.getImageDeckSchedulerNamePrefix(fileNameOnly) : "";
+            const parts = [modelPrefix, samplerPrefix, schedulerPrefix].map(normalizeImageDeckToken).filter(Boolean);
+            return parts.join("-");
         };
 
         nodeType.prototype.applyPalette = function() {
@@ -165,6 +316,10 @@ app.registerExtension({
             this._derpImageDeckList = this._derpImageDeckList || [];
             this._derpImageDeckIndex = Number.isInteger(this._derpImageDeckIndex) ? this._derpImageDeckIndex : 0;
             this.properties.toggleModelInfo = this.properties.toggleModelInfo !== false;
+            this.properties.toggleSamplerInfo = this.properties.toggleSamplerInfo !== false;
+            this.properties.toggleSchedulerInfo = this.properties.toggleSchedulerInfo !== false;
+            this.properties.imageDeckSamplerNames = Array.isArray(this.properties.imageDeckSamplerNames) ? this.properties.imageDeckSamplerNames : [];
+            this.properties.imageDeckSchedulerNames = Array.isArray(this.properties.imageDeckSchedulerNames) ? this.properties.imageDeckSchedulerNames : [];
             this.updateImageDeckSignalFilters();
             this.properties.multiSignalIds = this.properties.multiSignalIds || {};
             this.properties.multiSignalLabels = this.properties.multiSignalLabels || {};
@@ -251,6 +406,7 @@ app.registerExtension({
 
             this.refreshNodeLayoutMap();
             this.refreshDerpImageDeckSysMap();
+            this.fetchImageDeckKSamplerInfo();
             if (typeof this.syncDerpOutputs === "function") this.syncDerpOutputs();
             this.requestDerpSync();
         };
@@ -266,6 +422,10 @@ app.registerExtension({
             this._derpImageDeckList = images;
             this._derpImageDeckIndex = index;
             this.properties.toggleModelInfo = this.properties.toggleModelInfo !== false;
+            this.properties.toggleSamplerInfo = this.properties.toggleSamplerInfo !== false;
+            this.properties.toggleSchedulerInfo = this.properties.toggleSchedulerInfo !== false;
+            this.properties.imageDeckSamplerNames = Array.isArray(this.properties.imageDeckSamplerNames) ? this.properties.imageDeckSamplerNames : [];
+            this.properties.imageDeckSchedulerNames = Array.isArray(this.properties.imageDeckSchedulerNames) ? this.properties.imageDeckSchedulerNames : [];
             this.updateImageDeckSignalFilters();
             this.properties.multiSignalIds = this.properties.multiSignalIds || {};
             this.properties.multiSignalLabels = this.properties.multiSignalLabels || {};
@@ -273,6 +433,7 @@ app.registerExtension({
             this.properties.drawSettingBtn = false;
             this.properties.autoHeight = false;
             this.refreshDerpImageDeckSysMap();
+            this.fetchImageDeckKSamplerInfo();
             if (typeof this.syncDerpOutputs === "function") this.syncDerpOutputs();
         };
 
@@ -343,7 +504,8 @@ app.registerExtension({
             const imageUrl = this.getDerpImageDeckCurrentUrl ? this.getDerpImageDeckCurrentUrl() : null;
             const prevImageUrl = this._derpImageDeckPrevDisplayUrl || null;
             const fadeAlpha = this.getDerpImageDeckCrossfadeAlpha ? this.getDerpImageDeckCrossfadeAlpha() : 1;
-            const structureHash = `${count}_${imageUrl || "none"}_${prevImageUrl || "none"}_${fadeAlpha.toFixed(3)}_${this.size[0].toFixed(2)}_${(this.size[1] || 0).toFixed(2)}_${mW}_${mH}_${sW}_${sH}_${pW}_${pH}_${this.titleLabel}`;
+            const filenameText = this.getImageDeckFilenameText ? this.getImageDeckFilenameText() : "";
+            const structureHash = `${count}_${imageUrl || "none"}_${prevImageUrl || "none"}_${fadeAlpha.toFixed(3)}_${this.size[0].toFixed(2)}_${(this.size[1] || 0).toFixed(2)}_${mW}_${mH}_${sW}_${sH}_${pW}_${pH}_${this.titleLabel}_${filenameText}`;
             if (this._layoutMapHash === structureHash && this.layoutMap) return;
             this._layoutMapHash = structureHash;
 
@@ -399,8 +561,8 @@ app.registerExtension({
                             height: "auto",
                             padding: [pW, pH], spacing: [sH, 0],
                             labelAlign: ["left", "middle"],
-                            text: this.getImageDeckFilenameText ? this.getImageDeckFilenameText() : "",
-                            value: this.getImageDeckFilenameText ? this.getImageDeckFilenameText() : "",
+                            text: filenameText,
+                            value: filenameText,
                             onBlur: () => {
                                 if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
                                 if (this.requestDerpSync) this.requestDerpSync();
@@ -467,7 +629,47 @@ app.registerExtension({
                             onPress: () => {
                                 this.properties.toggleModelInfo = this.properties.toggleModelInfo === false;
                                 this.updateImageDeckSignalFilters();
+                                this.refreshOpenImageDeckSignalReceiver();
                                 this.refreshDerpImageDeckSysMap();
+                                this.refreshNodeLayoutMap();
+                                this.requestDerpSync();
+                            }
+                        },
+                        toggleSamplerInfo: {
+                            type: this.UI_TYPES.TOGGLE,
+                            textThemeKey: "t_textSystem",
+                            icon: "radio",
+                            label: "Get sampler name",
+                            value: this.properties.toggleSamplerInfo !== false,
+                            width: "auto",
+                            height: "auto",
+                            padding: [pW, pH],
+                            onPress: () => {
+                                this.properties.toggleSamplerInfo = this.properties.toggleSamplerInfo === false;
+                                if (this.properties.toggleSamplerInfo !== false) this.fetchImageDeckKSamplerInfo();
+                                this.updateImageDeckSignalFilters();
+                                this.refreshOpenImageDeckSignalReceiver();
+                                this.refreshDerpImageDeckSysMap();
+                                this.refreshNodeLayoutMap();
+                                this.requestDerpSync();
+                            }
+                        },
+                        toggleSchedulerInfo: {
+                            type: this.UI_TYPES.TOGGLE,
+                            textThemeKey: "t_textSystem",
+                            icon: "radio",
+                            label: "Get scheduler name",
+                            value: this.properties.toggleSchedulerInfo !== false,
+                            width: "auto",
+                            height: "auto",
+                            padding: [pW, pH],
+                            onPress: () => {
+                                this.properties.toggleSchedulerInfo = this.properties.toggleSchedulerInfo === false;
+                                if (this.properties.toggleSchedulerInfo !== false) this.fetchImageDeckKSamplerInfo();
+                                this.updateImageDeckSignalFilters();
+                                this.refreshOpenImageDeckSignalReceiver();
+                                this.refreshDerpImageDeckSysMap();
+                                this.refreshNodeLayoutMap();
                                 this.requestDerpSync();
                             }
                         }
