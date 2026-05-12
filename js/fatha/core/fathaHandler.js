@@ -10,7 +10,7 @@ import { UI_TYPES, COMPONENT_BLUEPRINTS } from "./masterLayoutTypes.js";
 import { resolvePaintData } from "../../herbina/utils/widgetsUtils.js";
 import { beginDockDrag, updateDockDrag, endDockDrag } from "./dockDrag.js";
 import { handleNodeResize } from "./fathaNodeResize.js";
-import { getPinnedVerticalDeckAnchor, restorePinnedVerticalDeckAnchor, resolveCollapseShiftDirection, shouldPreserveVerticalDeckWidth as shouldPreserveVerticalDeckWidthForGraph } from "./dockResize.js";
+import { getPinnedVerticalDeckAnchor, restorePinnedVerticalDeckAnchor, resolveCollapseShiftDirection, shouldPreserveHorizontalDeckHeight as shouldPreserveHorizontalDeckHeightForGraph, shouldPreserveVerticalDeckWidth as shouldPreserveVerticalDeckWidthForGraph, syncHorizontalDeckHeight as syncHorizontalDeckHeightForGraph } from "./dockResize.js";
 import { masterDockEngine } from "./masterDockEngine.js";
 import { getDeckCornerOverride } from "./masterDockEngine.js";
 import { getVirtualNodeLayoutMap } from "../helpers/fathaLayoutMaps.js";
@@ -245,6 +245,16 @@ export function animateDerpSize(node, targetW, targetH, useAnim) {
 export function shouldPreserveVerticalDeckWidth(node) {
     const graph = app.graph || node?.graph || null;
     return shouldPreserveVerticalDeckWidthForGraph(node, graph);
+}
+
+export function shouldPreserveHorizontalDeckHeight(node) {
+    const graph = app.graph || node?.graph || null;
+    return shouldPreserveHorizontalDeckHeightForGraph(node, graph);
+}
+
+export function syncHorizontalDeckHeight(node, targetHeight = 0) {
+    const graph = app.graph || node?.graph || null;
+    return syncHorizontalDeckHeightForGraph(node, graph, targetHeight);
 }
 
 export const getDerpVars = (node) => {

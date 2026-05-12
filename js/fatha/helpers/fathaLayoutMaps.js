@@ -341,6 +341,7 @@ export const getVirtualNodeLayoutMap = (node) => {
 export function getPanelBaseMap(hostNode, app, sysState) {
     const { mW, mH, sW, sH, oX, oY, pW, pH } = getPanelVars(hostNode);
     const showWarpRegion = hostNode.properties?._showWarpRegion === true;
+    const isDocked = isNodeDocked(hostNode, hostNode?.graph || app?.graph || null);
 
     if (!Array.isArray(hostNode.properties.warpShortcutItems) || hostNode.properties.warpShortcutItems.length === 0) {
         hostNode.properties.warpShortcutItems = [...WARP_SHORTCUT_ITEMS];
@@ -514,6 +515,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                 textThemeKey: "t_textSystem",
                 icon: "radio",
                 value: hostNode.properties?.autoWidth !== false,
+                state: isDocked ? "DIS" : "OFF",
                 objectAlign: ["left", "top"],
                 labelAlign: ["left", "middle"],
                 label: "$system.auto_width",
@@ -521,6 +523,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                 padding: [pW, pH],
 
                 onPress: () => {
+                    if (isDocked) return;
                     hostNode.properties.autoWidth = (hostNode.properties.autoWidth !== false) ? false : true;
                     hostNode.requestDerpSync();
                 }
@@ -530,12 +533,14 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                 textThemeKey: "t_textSystem",
                 icon: "radio",
                 value: hostNode.properties?.autoHeight !== false,
+                state: isDocked ? "DIS" : "OFF",
                 objectAlign: ["left", "top"],
                 labelAlign: ["left", "middle"],
                 label: "$system.auto_height",
                 width: "auto", height: "fill",
                 padding: [pW, pH],
                 onPress: () => {
+                    if (isDocked) return;
                     hostNode.properties.autoHeight = (hostNode.properties.autoHeight !== false) ? false : true;
                     hostNode.requestDerpSync();
                 }

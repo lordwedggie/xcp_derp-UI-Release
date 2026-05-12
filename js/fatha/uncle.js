@@ -6,7 +6,7 @@
 import { app } from "../../../../scripts/app.js";
 import { createDerpShield, syncDerpShield, removeDerpShield } from "./core/fathaDOMshield.js";
 import { masterLayoutEngine } from "./core/masterLayoutEngine.js";
-import { handleShieldInteraction, handleDrawCTX, handleThemeUpdate, handleInitDerpGlobalListener, getDerpVars, handleDerpRequestSync, handleDerpComputeSize, handleDerpCollapse, animateDerpSize, drawDeckPreviewGlobal } from "./core/fathaHandler.js";
+import { handleShieldInteraction, handleDrawCTX, handleThemeUpdate, handleInitDerpGlobalListener, getDerpVars, handleDerpRequestSync, handleDerpComputeSize, handleDerpCollapse, animateDerpSize, drawDeckPreviewGlobal, shouldPreserveHorizontalDeckHeight, shouldPreserveVerticalDeckWidth, syncHorizontalDeckHeight } from "./core/fathaHandler.js";
 export { getDerpVars };
 import { suppressDefaultWidgets, syncUncleSlots, lerpUnclePadding, drawUncleSlots } from "./helpers/uncleSlotHelper.js";
 import { drawDerpSysPanelGlobal, isHostActive, closeDerpSysPanel, sysPanel } from "./helpers/fathaSysPanel.js";
@@ -244,14 +244,17 @@ export function uncle(nodeType, nodeData, minWidth = 100) {
         const engineFloorH = isMinState ? rawH : Math.ceil(rawH / SNAP) * SNAP;
 
         const collapseMinimal = this.properties?.collapseMinimal === true;
-        const targetW = (autoWidth || (isMinState && collapseMinimal)) ? engineFloorW : Math.max(this.properties.nodeSize?.[0] || 0, engineFloorW);
-        const targetH = (autoHeight || isMinState) ? engineFloorH : Math.max(this.properties.nodeSize?.[1] || 0, engineFloorH);
+        const preserveVerticalDeckWidth = shouldPreserveVerticalDeckWidth(this);
+        const preserveHorizontalDeckHeight = shouldPreserveHorizontalDeckHeight(this);
+        const targetW = (autoWidth || (isMinState && collapseMinimal && !preserveVerticalDeckWidth)) ? engineFloorW : Math.max(this.properties.nodeSize?.[0] || 0, engineFloorW);
+        const targetH = ((autoHeight || isMinState) && !preserveHorizontalDeckHeight) ? engineFloorH : Math.max(this.properties.nodeSize?.[1] || 0, engineFloorH);
 
         // During live resize, preserve the manually dragged axis but still let the auto-managed
         // secondary axis respond immediately (e.g. width shrink causing auto-height growth).
         const liveTargetW = this._isDerpResizing && !autoWidth ? this.size[0] : targetW;
         const liveTargetH = this._isDerpResizing && !autoHeight ? this.size[1] : targetH;
         animateDerpSize(this, liveTargetW, liveTargetH, useAnim);
+        if (preserveHorizontalDeckHeight) syncHorizontalDeckHeight(this, liveTargetH);
 
         const bounds = { x: 0, y: 0, w: this.size[0], h: this.size[1] };
 

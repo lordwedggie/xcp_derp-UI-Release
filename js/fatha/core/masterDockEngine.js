@@ -928,8 +928,9 @@ export function matchDeckNodeSizes(node, leader, side = null) {
     return nodeChanged || leaderChanged;
 }
 
-function forceDockResizeRefresh(node) {
+function forceDockResizeRefresh(node, options = {}) {
     if (!node) return;
+    const preserveMatchedSize = options?.preserveMatchedSize === true;
     const w = getNodeSizeValue(node, 0);
     const h = getNodeSizeValue(node, 1);
     const prevResizing = node._isDerpResizing === true;
@@ -960,7 +961,9 @@ function forceDockResizeRefresh(node) {
             true,
         );
     }
-    handleNodeResize(node, { dx: 0, dy: 0, resizeAnchor: "bottom-right" }, scale);
+    if (!preserveMatchedSize) {
+        handleNodeResize(node, { dx: 0, dy: 0, resizeAnchor: "bottom-right" }, scale);
+    }
     if (typeof node.requestDerpSync === "function") node.requestDerpSync();
     if (typeof node.syncUncleSlots === "function") node.syncUncleSlots();
     syncDerpShield(node);
@@ -994,7 +997,9 @@ function forceDockResizeRefresh(node) {
         node._startPos = [...(node.pos || [0, 0])];
         node._startSize = [wakeW, wakeH];
         node._resizeAnchor = "bottom-right";
-        handleNodeResize(node, { dx: 0, dy: 0, resizeAnchor: "bottom-right" }, scale);
+        if (!preserveMatchedSize) {
+            handleNodeResize(node, { dx: 0, dy: 0, resizeAnchor: "bottom-right" }, scale);
+        }
         if (typeof node.requestDerpSync === "function") node.requestDerpSync();
         if (typeof node.syncUncleSlots === "function") node.syncUncleSlots();
         syncDerpShield(node);
@@ -1018,8 +1023,9 @@ export function deckNodeToLeader(node, leader, graph, side = null) {
     applyDeckEdgeSnap(node, { targetNode: attachLeader, edge: { side } }, DEFAULT_DECK_SNAP);
     normalizeDockPair(attachLeader, node, side, graph, DEFAULT_DECK_SNAP);
     normalizeVerticalStackPins(attachLeader, graph, attachLeader?.properties?.pinActive === true ? attachLeader : node);
-    forceDockResizeRefresh(node);
-    forceDockResizeRefresh(attachLeader);
+    const preserveMatchedSize = side === "left" || side === "right";
+    forceDockResizeRefresh(node, { preserveMatchedSize });
+    forceDockResizeRefresh(attachLeader, { preserveMatchedSize });
     return true;
 }
 
@@ -1041,8 +1047,9 @@ export function finalizeDeck(node, leader, graph, side = null, snap = DEFAULT_DE
     applyDeckEdgeSnap(node, { targetNode: attachLeader, edge: { side } }, snap);
     normalizeDockPair(attachLeader, node, side, graph, snap);
     normalizeVerticalStackPins(attachLeader, graph, attachLeader?.properties?.pinActive === true ? attachLeader : node);
-    forceDockResizeRefresh(node);
-    forceDockResizeRefresh(attachLeader);
+    const preserveMatchedSize = side === "left" || side === "right";
+    forceDockResizeRefresh(node, { preserveMatchedSize });
+    forceDockResizeRefresh(attachLeader, { preserveMatchedSize });
     return true;
 }
 
@@ -1079,8 +1086,9 @@ export function finalizeDeckTarget(node, targetInfo, graph, snap = DEFAULT_DECK_
         applyDeckEdgeSnap(node, { targetNode: occupied, edge: { side: stackSide } }, snap);
         normalizeDockPair(occupied, node, stackSide, graph, snap);
         normalizeVerticalStackPins(occupied, graph, occupied?.properties?.pinActive === true ? occupied : node);
-        forceDockResizeRefresh(node);
-        forceDockResizeRefresh(occupied);
+        const preserveMatchedSize = stackSide === "left" || stackSide === "right";
+        forceDockResizeRefresh(node, { preserveMatchedSize });
+        forceDockResizeRefresh(occupied, { preserveMatchedSize });
         return true;
     }
 
@@ -1100,8 +1108,9 @@ export function finalizeDeckTarget(node, targetInfo, graph, snap = DEFAULT_DECK_
     applyDeckEdgeSnap(node, { targetNode: attachLeader, edge: { side } }, snap);
     normalizeDockPair(attachLeader, node, side, graph, snap);
     normalizeVerticalStackPins(attachLeader, graph, attachLeader?.properties?.pinActive === true ? attachLeader : node);
-    forceDockResizeRefresh(node);
-    forceDockResizeRefresh(attachLeader);
+    const preserveMatchedSize = side === "left" || side === "right";
+    forceDockResizeRefresh(node, { preserveMatchedSize });
+    forceDockResizeRefresh(attachLeader, { preserveMatchedSize });
     return true;
 }
 

@@ -78,6 +78,41 @@ export function shouldPreserveVerticalDeckWidth(node, graph = app.graph || node?
     return !!(graph && node && isLinearDeckGroup(node, graph, "vertical"));
 }
 
+export function shouldPreserveHorizontalDeckHeight(node, graph = app.graph || node?.graph || null) {
+    return !!(graph && node && isLinearDeckGroup(node, graph, "horizontal"));
+}
+
+export function syncHorizontalDeckHeight(node, graph = app.graph || node?.graph || null, targetHeight = 0) {
+    if (!graph || !node || !isLinearDeckGroup(node, graph, "horizontal")) return false;
+
+    const members = getDeckMembers(node, graph);
+    if (!Array.isArray(members) || members.length <= 1) return false;
+
+    const resolvedHeight = members.reduce((maxHeight, member) => {
+        return Math.max(maxHeight, getNodeHeight(member));
+    }, Number(targetHeight) || 0);
+    if (resolvedHeight <= 0) return false;
+
+    const topY = members.reduce((minY, member) => {
+        return Math.min(minY, Number(member?.pos?.[1]) || 0);
+    }, Number.POSITIVE_INFINITY);
+    const resolvedY = Number.isFinite(topY) ? topY : (Number(node.pos?.[1]) || 0);
+    let changed = false;
+
+    members.forEach((member) => {
+        const heightChanged = syncDeckNodeSize(member, getNodeWidth(member), resolvedHeight);
+        const yChanged = (Number(member?.pos?.[1]) || 0) !== resolvedY;
+        if (member?.pos && yChanged) member.pos[1] = resolvedY;
+        if (heightChanged || yChanged) {
+            changed = true;
+            if (typeof member.syncUncleSlots === "function") member.syncUncleSlots();
+            if (typeof member.setDirtyCanvas === "function") member.setDirtyCanvas(true, true);
+        }
+    });
+
+    return changed;
+}
+
 function getNodeWidth(node) {
     return Number(node?.properties?.nodeSize?.[0] ?? node?.size?.[0]) || 0;
 }
