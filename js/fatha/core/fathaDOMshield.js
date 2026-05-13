@@ -18,6 +18,7 @@
  */
 import { app } from "../../../../scripts/app.js";
 import { renderHitboxDebug } from "../helpers/debugPainter.js";
+import { getDeckMembers, isLinearDeckGroup } from "./masterDockEngine.js";
 
 // DEBUG_MODE is now dynamically handled via node.properties.debugMode
 
@@ -540,6 +541,18 @@ export function syncDerpShield(node) {
         const edges = node.properties?.deckEdges || {};
         const hasSharedLeftEdge = edges.left !== null && edges.left !== undefined;
         const hasSharedRightEdge = edges.right !== null && edges.right !== undefined;
+        const graph = node.graph || globalThis?.app?.graph || null;
+        const verticalMembers = graph && isLinearDeckGroup(node, graph, "vertical")
+            ? [...getDeckMembers(node, graph)].sort((a, b) => {
+                const ay = Number(a?.pos?.[1]) || 0;
+                const by = Number(b?.pos?.[1]) || 0;
+                if (ay !== by) return ay - by;
+                return (Number(a?.id) || 0) - (Number(b?.id) || 0);
+            })
+            : null;
+        const isVerticalMiddleNode = Array.isArray(verticalMembers) && verticalMembers.length > 2
+            ? verticalMembers[0]?.id !== node.id && verticalMembers[verticalMembers.length - 1]?.id !== node.id
+            : false;
         const sharedEdgeWidth = Math.max(4 * scale, Number(vars.mW || 0) * scale);
         node.interactionShield._resizeHandle._resizeAnchorOverride = hasSharedRightEdge ? "right" : null;
         handleStyle.width = `${bottomRightWidth}px`;
@@ -551,12 +564,15 @@ export function syncDerpShield(node) {
         handleStyle.pointerEvents = node.resizable ? "auto" : "none";
         handleStyle.right = `-${padR * scale}px`;
 
-        if (hasSharedRightEdge && canW) {
+        if (hasSharedRightEdge && canW && !isVerticalMiddleNode) {
             handleStyle.width = `${sharedEdgeWidth}px`;
             handleStyle.height = `${visualH * scale}px`;
             handleStyle.cursor = "ew-resize";
             handleStyle.display = "block";
             handleStyle.pointerEvents = "auto";
+        } else if (hasSharedRightEdge && isVerticalMiddleNode) {
+            handleStyle.display = "none";
+            handleStyle.pointerEvents = "none";
         }
 
         if (node.interactionShield._resizeHandleLeft) {
@@ -569,12 +585,15 @@ export function syncDerpShield(node) {
             leftStyle.pointerEvents = node.resizable ? "auto" : "none";
             leftStyle.left = `-${padL * scale}px`;
 
-            if (hasSharedLeftEdge && canW) {
+            if (hasSharedLeftEdge && canW && !isVerticalMiddleNode) {
                 leftStyle.width = `${sharedEdgeWidth}px`;
                 leftStyle.height = `${visualH * scale}px`;
                 leftStyle.cursor = "ew-resize";
                 leftStyle.display = "block";
                 leftStyle.pointerEvents = "auto";
+            } else if (hasSharedLeftEdge && isVerticalMiddleNode) {
+                leftStyle.display = "none";
+                leftStyle.pointerEvents = "none";
             }
         }
 

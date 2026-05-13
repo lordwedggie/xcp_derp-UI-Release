@@ -8,6 +8,7 @@ import { showBastaFileHandler } from "../../fatha/bastas/bastaFileHandler.js";
 import { showBastaMessage } from "../../fatha/bastas/bastaMessage.js";
 import { endStackDrag } from "../../fatha/helpers/fathaDragDrop.js";
 import { settleDerpSizeBeforeDraw } from "../../fatha/core/fathaHandler.js";
+import { isLinearDeckGroup, isNodeDocked } from "../../fatha/core/masterDockEngine.js";
 
 function refreshAndSync(node, syncOutputs = true, dirtyFull = false, settleOptions = {}) {
     node.refreshNodeLayoutMap();
@@ -215,7 +216,14 @@ export function triggerWall_onDrawForeground(node, ctx, originalCallback) {
     const currentW = Math.round(node.size[0]);
     if (node._lastDerpW !== currentW) {
         node._lastDerpW = currentW;
-        node.refreshNodeLayoutMap();
+        const graph = node.graph || window.app?.graph || null;
+        const suppressDockedWidthRefreshSync = !!(graph && isNodeDocked(node, graph) && isLinearDeckGroup(node, graph, "vertical"));
+        if (suppressDockedWidthRefreshSync) node._suppressDockedWidthRefreshSync = true;
+        try {
+            node.refreshNodeLayoutMap();
+        } finally {
+            if (suppressDockedWidthRefreshSync) node._suppressDockedWidthRefreshSync = false;
+        }
     }
 
     if (originalCallback) originalCallback.apply(node, [ctx]);
@@ -845,7 +853,10 @@ export function triggerWall_onResize(node, size) {
     node.properties.nodeSize = [safeW, safeH];
     node._layoutMapHash = null;
     if (node.layout) node.layout._lastCacheKey = "";
-    // Avoid a stale inner layout during live resize; width changes must invalidate both
-    // TriggerWall's own layout-map hash and the shared layout-engine cache.
-    node.requestDerpSync();
+    // Avoid forcing an immediate secondary sync chain here. Docking and live resize
+    // already have their own settlement paths, and an extra requestDerpSync from
+    // TriggerWall can cause stack position drift during structural changes.
+    node._forceSync = true;
+    node._layoutDirty = true;
+    if (typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, true);
 }

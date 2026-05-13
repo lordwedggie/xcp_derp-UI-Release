@@ -10,10 +10,11 @@ import { UI_TYPES, COMPONENT_BLUEPRINTS } from "./masterLayoutTypes.js";
 import { resolvePaintData } from "../../herbina/utils/widgetsUtils.js";
 import { beginDockDrag, updateDockDrag, endDockDrag } from "./dockDrag.js";
 import { handleNodeResize } from "./fathaNodeResize.js";
-import { getPinnedVerticalDeckAnchor, restorePinnedVerticalDeckAnchor, resolveCollapseShiftDirection, shouldPreserveHorizontalDeckHeight as shouldPreserveHorizontalDeckHeightForGraph, shouldPreserveVerticalDeckWidth as shouldPreserveVerticalDeckWidthForGraph, syncHorizontalDeckHeight as syncHorizontalDeckHeightForGraph } from "./dockResize.js";
-import { masterDockEngine } from "./masterDockEngine.js";
+import { getPinnedVerticalDeckAnchor, restorePinnedVerticalDeckAnchor, resolveCollapseShiftDirection, syncHorizontalDeckHeight as syncHorizontalDeckHeightForGraph } from "./dockResize.js";
+import { masterDockEngine, getDeckMembers } from "./masterDockEngine.js";
 import { getDeckCornerOverride } from "./masterDockEngine.js";
 import { getVirtualNodeLayoutMap } from "../helpers/fathaLayoutMaps.js";
+import { getDockGroupAxisFromMembers, resolveRuntimeDockSize, shouldPreserveDockHeight, shouldPreserveDockWidth } from "./dockDimensions.js";
 
 function getDeckEngine() {
     if (!window.xcpMasterDeckEngine) {
@@ -21,6 +22,36 @@ function getDeckEngine() {
     }
     window.xcpMasterDeckEngine.setGraph(app.graph || null);
     return window.xcpMasterDeckEngine;
+}
+
+function dockDebug(label, payload = {}) {
+    if (!globalThis?.DERP_DOCK_RESIZE_DEBUG) return;
+    globalThis.DERP_DOCK_RESIZE_LOGS = globalThis.DERP_DOCK_RESIZE_LOGS || [];
+    const entry = { label, payload, time: Date.now() };
+    globalThis.DERP_DOCK_RESIZE_LOGS.push(entry);
+    if (globalThis.DERP_DOCK_RESIZE_LOGS.length > 500) globalThis.DERP_DOCK_RESIZE_LOGS.shift();
+}
+
+function snapshotDockNode(node) {
+    if (!node) return null;
+    return {
+        id: node.id,
+        type: node.type,
+        title: node.titleLabel || node.title,
+        pos: [...(node.pos || [])],
+        size: [...(node.size || [])],
+        nodeSize: [...(node.properties?.nodeSize || [])],
+        autoWidth: node.properties?.autoWidth,
+        autoHeight: node.properties?.autoHeight,
+        pinActive: node.properties?.pinActive === true,
+        contentCollapsed: node.properties?.contentCollapsed === true,
+        contentMinWidth: node.layout?.contentMinWidth,
+        contentMinHeight: node.layout?.contentMinHeight,
+        totalHeight: node.layout?.totalHeight,
+        deckParentId: node.properties?.deckParentId,
+        deckDockSide: node.properties?.deckDockSide,
+        deckEdges: { ...(node.properties?.deckEdges || {}) },
+    };
 }
 
 export function drawDeckPreviewGlobal(ctx) {
@@ -195,16 +226,36 @@ export function settleDerpSizeBeforeDraw(entity, options = {}) {
     const engineFloorH = isMinState ? rawH : Math.ceil(rawH / SNAP) * SNAP;
     const collapseMinimal = entity.properties?.collapseMinimal === true;
     const targetW = (autoWidth || (isMinState && collapseMinimal)) ? engineFloorW : Math.max(entity.properties.nodeSize?.[0] || 0, engineFloorW);
-    const targetH = (forceAutoHeight || autoHeight || isMinState) ? engineFloorH : Math.max(entity.properties.nodeSize?.[1] || 0, engineFloorH);
+    const preserveCurrentHeight = options?.preserveCurrentHeight === true;
+    const currentH = Number(entity.size?.[1]) || Number(entity.properties.nodeSize?.[1]) || 0;
+    const targetH = preserveCurrentHeight
+        ? currentH
+        : (forceAutoHeight || autoHeight || isMinState) ? engineFloorH : Math.max(entity.properties.nodeSize?.[1] || 0, engineFloorH);
 
-    animateDerpSize(entity, targetW, targetH, false);
+    dockDebug("settle-before-draw", {
+        node: snapshotDockNode(entity),
+        options,
+        measured: {
+            contentReqW,
+            layoutContentH,
+            layoutTotalH,
+            engineFloorW,
+            engineFloorH,
+            preserveCurrentHeight,
+        },
+        target: { width: targetW, height: targetH },
+    });
+
+    animateDerpSize(entity, targetW, targetH, false, {
+        suppressRequestSync: options?.suppressRequestSync === true,
+    });
 }
 
 function settleCollapseSizeBeforeDraw(entity) {
     settleDerpSizeBeforeDraw(entity);
 }
 
-export function animateDerpSize(node, targetW, targetH, useAnim) {
+export function animateDerpSize(node, targetW, targetH, useAnim, options = {}) {
     if (node.size[0] !== targetW || node.size[1] !== targetH) {
         const prevH = Number(node.size?.[1]) || 0;
         const graph = app.graph || node.graph || null;
@@ -215,6 +266,16 @@ export function animateDerpSize(node, targetW, targetH, useAnim) {
             : null;
         const isPassiveCollapsedDeckSize = !!deckAnchor && !allowCollapseShift && node.properties?.contentCollapsed === true;
         const shouldAnchorAfterReflow = !!deckAnchor && !allowCollapseShift && !isPassiveCollapsedDeckSize;
+        dockDebug("animate-size-before", {
+            node: snapshotDockNode(node),
+            target: { width: targetW, height: targetH },
+            deltaH,
+            useAnim,
+            options,
+            allowCollapseShift,
+            hasDeckAnchor: !!deckAnchor,
+            shouldAnchorAfterReflow,
+        });
         node.size[0] = targetW;
         node.size[1] = targetH;
         if (node.properties) node.properties.nodeSize = [targetW, targetH];
@@ -226,6 +287,11 @@ export function animateDerpSize(node, targetW, targetH, useAnim) {
         }
         if (graph && !isPassiveCollapsedDeckSize) {
             const moved = getDeckEngine().reflowChildren(node);
+            dockDebug("animate-size-reflow", {
+                node: snapshotDockNode(node),
+                moved: moved.map(snapshotDockNode),
+                shouldAnchorAfterReflow,
+            });
             if (shouldAnchorAfterReflow) {
                 restorePinnedVerticalDeckAnchor(deckAnchor);
             }
@@ -234,7 +300,11 @@ export function animateDerpSize(node, targetW, targetH, useAnim) {
                 if (typeof child.setDirtyCanvas === "function") child.setDirtyCanvas(true, true);
             });
         }
-        if (node.requestDerpSync) node.requestDerpSync();
+        dockDebug("animate-size-after", {
+            node: snapshotDockNode(node),
+            graphMembers: graph ? getDeckMembers(node, graph).map(snapshotDockNode) : [],
+        });
+        if (options?.suppressRequestSync !== true && node.requestDerpSync) node.requestDerpSync();
     }
 
     if (node?.properties?.contentCollapsed !== true && Number(targetH) > 0) {
@@ -244,12 +314,20 @@ export function animateDerpSize(node, targetW, targetH, useAnim) {
 
 export function shouldPreserveVerticalDeckWidth(node) {
     const graph = app.graph || node?.graph || null;
-    return shouldPreserveVerticalDeckWidthForGraph(node, graph);
+    if (!graph || !node) return false;
+    return shouldPreserveDockWidth(getDockGroupAxisFromMembers(getDeckMembers(node, graph)));
 }
 
 export function shouldPreserveHorizontalDeckHeight(node) {
     const graph = app.graph || node?.graph || null;
-    return shouldPreserveHorizontalDeckHeightForGraph(node, graph);
+    if (!graph || !node) return false;
+    return shouldPreserveDockHeight(getDockGroupAxisFromMembers(getDeckMembers(node, graph)));
+}
+
+export function resolveDerpRuntimeSize(node, measured, vars = {}) {
+    const graph = app.graph || node?.graph || null;
+    const axis = graph && node ? getDockGroupAxisFromMembers(getDeckMembers(node, graph)) : null;
+    return resolveRuntimeDockSize(node, axis, measured, vars);
 }
 
 export function syncHorizontalDeckHeight(node, targetHeight = 0) {

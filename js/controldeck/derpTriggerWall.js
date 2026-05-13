@@ -4,6 +4,8 @@
  */
 import { app } from "../../../scripts/app.js";
 import { fatha, initDerpGlobalListener } from "../fatha/fatha.js";
+import { settleDerpSizeBeforeDraw } from "../fatha/core/fathaHandler.js";
+import { isLinearDeckGroup, isNodeDocked } from "../fatha/core/masterDockEngine.js";
 import { startStackDrag } from "../fatha/helpers/fathaDragDrop.js";
 import { COMPONENT_BLUEPRINTS } from "../fatha/core/masterLayoutTypes.js";
 import {
@@ -44,6 +46,46 @@ import {
     triggerWall_groupDragEnd
 } from "./core/derpTriggerWall_core.js";
 
+function dockDebug(label, payload = {}) {
+    if (!globalThis?.DERP_DOCK_RESIZE_DEBUG) return;
+    globalThis.DERP_DOCK_RESIZE_LOGS = globalThis.DERP_DOCK_RESIZE_LOGS || [];
+    const entry = { label, payload, time: Date.now() };
+    globalThis.DERP_DOCK_RESIZE_LOGS.push(entry);
+    if (globalThis.DERP_DOCK_RESIZE_LOGS.length > 500) globalThis.DERP_DOCK_RESIZE_LOGS.shift();
+}
+
+function twPerfDebug(label, payload = {}) {
+    globalThis.DERP_TW_PROFILE_LOGS = globalThis.DERP_TW_PROFILE_LOGS || [];
+    const entry = { label, payload, time: Date.now() };
+    globalThis.DERP_TW_PROFILE_LOGS.push(entry);
+    if (globalThis.DERP_TW_PROFILE_LOGS.length > 300) globalThis.DERP_TW_PROFILE_LOGS.shift();
+    if (globalThis.DERP_TW_PROFILE_CONSOLE === true) {
+        console.log(`[TWPerf:${label}] ${JSON.stringify(payload)}`);
+    }
+}
+
+function snapshotDockNode(node) {
+    if (!node) return null;
+    return {
+        id: node.id,
+        type: node.type,
+        title: node.titleLabel || node.title,
+        pos: [...(node.pos || [])],
+        size: [...(node.size || [])],
+        nodeSize: [...(node.properties?.nodeSize || [])],
+        autoWidth: node.properties?.autoWidth,
+        autoHeight: node.properties?.autoHeight,
+        pinActive: node.properties?.pinActive === true,
+        contentCollapsed: node.properties?.contentCollapsed === true,
+        contentMinWidth: node.layout?.contentMinWidth,
+        contentMinHeight: node.layout?.contentMinHeight,
+        totalHeight: node.layout?.totalHeight,
+        deckParentId: node.properties?.deckParentId,
+        deckDockSide: node.properties?.deckDockSide,
+        deckEdges: { ...(node.properties?.deckEdges || {}) },
+    };
+}
+
 function ensureTWPerfState(node) {
     if (!node) return;
     if (!node._twPerf) {
@@ -71,15 +113,20 @@ function flushTWPerfWindow(node, force = false) {
     const elapsed = Math.max(0.001, (now - node._twPerf.windowStart) / 1000);
     if (!force && elapsed < 1) return;
     const perSec = (v) => Math.round(v / elapsed);
-    console.log(
-        `[TWPerf] ${node.titleLabel || node.title || "TriggerWall"} | ` +
-        `refresh=${perSec(node._twPerf.refreshCount)}/s hashHit=${perSec(node._twPerf.hashHitCount)}/s hashMiss=${perSec(node._twPerf.hashMissCount)}/s ` +
-        `measure=${perSec(node._twPerf.measureCount)}/s syncReq=${perSec(node._twPerf.syncReqCount)}/s dirty=${perSec(node._twPerf.dirtyCount)}/s ` +
-        `floatingDraw=${perSec(node._twPerf.floatingDrawCount)}/s draw=${perSec(node._twPerf.drawCount)}/s ` +
-        `avgDrawMs=${(node._twPerf.drawCount > 0 ? node._twPerf.drawMs / node._twPerf.drawCount : 0).toFixed(2)} ` +
-        `triggerWidgets=${perSec(node._twPerf.triggerWidgetCount)}/s ` +
-        `avgTriggerMs=${(node._twPerf.triggerWidgetCount > 0 ? node._twPerf.triggerWidgetMs / node._twPerf.triggerWidgetCount : 0).toFixed(3)}`
-    );
+    twPerfDebug("window", {
+        title: node.titleLabel || node.title || "TriggerWall",
+        refreshPerSec: perSec(node._twPerf.refreshCount),
+        hashHitPerSec: perSec(node._twPerf.hashHitCount),
+        hashMissPerSec: perSec(node._twPerf.hashMissCount),
+        measurePerSec: perSec(node._twPerf.measureCount),
+        syncReqPerSec: perSec(node._twPerf.syncReqCount),
+        dirtyPerSec: perSec(node._twPerf.dirtyCount),
+        floatingDrawPerSec: perSec(node._twPerf.floatingDrawCount),
+        drawPerSec: perSec(node._twPerf.drawCount),
+        avgDrawMs: Number((node._twPerf.drawCount > 0 ? node._twPerf.drawMs / node._twPerf.drawCount : 0).toFixed(2)),
+        triggerWidgetsPerSec: perSec(node._twPerf.triggerWidgetCount),
+        avgTriggerMs: Number((node._twPerf.triggerWidgetCount > 0 ? node._twPerf.triggerWidgetMs / node._twPerf.triggerWidgetCount : 0).toFixed(3)),
+    });
     node._twPerf.windowStart = now;
     node._twPerf.refreshCount = 0;
     node._twPerf.syncReqCount = 0;
@@ -164,11 +211,11 @@ function bumpTWPerfSource(node, key) {
         .map(([source, count]) => `${count}/s ${source}`);
     const dirtySources = formatTop(node._twPerfSources.dirty);
     const syncSources = formatTop(node._twPerfSources.sync);
-    console.log(
-        `[TWPerfSource] ${node.titleLabel || node.title || "TriggerWall"}\n` +
-        `dirty:\n${dirtySources.length ? dirtySources.join("\n") : "none"}\n` +
-        `sync:\n${syncSources.length ? syncSources.join("\n") : "none"}`
-    );
+    twPerfDebug("source-window", {
+        title: node.titleLabel || node.title || "TriggerWall",
+        dirtySources,
+        syncSources,
+    });
     node._twPerfSources.windowStart = now;
     node._twPerfSources.dirty.clear();
     node._twPerfSources.sync.clear();
@@ -238,9 +285,11 @@ app.registerExtension({
     async beforeRegisterNodeDef(nodeType, nodeData) {
         if (!nodeData.name.toLowerCase().includes("triggerwall")) return;
 
-        console.log(`[Fatha] Intercepting Python Node: ${nodeData.name}`);
-        if (window.DERP_TW_PROFILE) {
-            console.log("[TWPerf] profiler active (set window.DERP_TW_PROFILE = false to disable)");
+        if (globalThis.DERP_TW_PROFILE_CONSOLE === true) {
+            console.log(`[Fatha] Intercepting Python Node: ${nodeData.name}`);
+            if (window.DERP_TW_PROFILE) {
+                console.log("[TWPerf] profiler active (set window.DERP_TW_PROFILE = false to disable)");
+            }
         }
 
         // Initialize the Virtual Fatha framework hijacking
@@ -727,7 +776,32 @@ app.registerExtension({
             this.layoutMap = layoutMap;
 
             if (this.layout) this.layout._lastCacheKey = "";
-            this.requestDerpSync();
+            dockDebug("triggerwall-refresh-layout", {
+                node: snapshotDockNode(this),
+                isDerpResizing: this._isDerpResizing === true,
+                clampedW,
+                groupCount: groups.length,
+                selectedGroupOriginalIdx,
+                lastRegionKey,
+                selectRegion: layoutMap.regionSelectTriggerGroup,
+                bottomSpacer: layoutMap.bottomSpacer,
+            });
+            const graph = this.graph || globalThis?.app?.graph || null;
+            const suppressDockedVerticalSync = !!(graph && this.properties?.contentCollapsed !== true && this.properties?.autoHeight !== false && isNodeDocked(this, graph) && isLinearDeckGroup(this, graph, "vertical"));
+            if (this._isDerpResizing) {
+                settleDerpSizeBeforeDraw(this, {
+                    preserveCurrentHeight: true,
+                    suppressRequestSync: true,
+                });
+                this._forceSync = true;
+                this._layoutDirty = true;
+            } else if (suppressDockedVerticalSync) {
+                this._forceSync = true;
+                this._layoutDirty = true;
+                if (typeof this.setDirtyCanvas === "function") this.setDirtyCanvas(true, true);
+            } else {
+                this.requestDerpSync();
+            }
         };
 
         // --- SYSTEM PANEL LAYOUT ---
@@ -777,6 +851,15 @@ app.registerExtension({
 
         nodeType.prototype.onResize = function(size) {
             triggerWall_onResize(this, size);
+        };
+
+        nodeType.prototype.settleAfterDockWidthMatch = function() {
+            if (!this.layout || typeof settleDerpSizeBeforeDraw !== "function") return;
+            settleDerpSizeBeforeDraw(this, {
+                suppressRequestSync: true,
+            });
+            this._forceSync = true;
+            this._layoutDirty = true;
         };
 
         const baseHandleInteraction = nodeType.prototype.handleShieldInteraction;

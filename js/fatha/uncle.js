@@ -6,7 +6,7 @@
 import { app } from "../../../../scripts/app.js";
 import { createDerpShield, syncDerpShield, removeDerpShield } from "./core/fathaDOMshield.js";
 import { masterLayoutEngine } from "./core/masterLayoutEngine.js";
-import { handleShieldInteraction, handleDrawCTX, handleThemeUpdate, handleInitDerpGlobalListener, getDerpVars, handleDerpRequestSync, handleDerpComputeSize, handleDerpCollapse, animateDerpSize, drawDeckPreviewGlobal, shouldPreserveHorizontalDeckHeight, shouldPreserveVerticalDeckWidth, syncHorizontalDeckHeight } from "./core/fathaHandler.js";
+import { handleShieldInteraction, handleDrawCTX, handleThemeUpdate, handleInitDerpGlobalListener, getDerpVars, handleDerpRequestSync, handleDerpComputeSize, handleDerpCollapse, animateDerpSize, drawDeckPreviewGlobal, shouldPreserveHorizontalDeckHeight, syncHorizontalDeckHeight, resolveDerpRuntimeSize } from "./core/fathaHandler.js";
 export { getDerpVars };
 import { suppressDefaultWidgets, syncUncleSlots, lerpUnclePadding, drawUncleSlots } from "./helpers/uncleSlotHelper.js";
 import { drawDerpSysPanelGlobal, isHostActive, closeDerpSysPanel, sysPanel } from "./helpers/fathaSysPanel.js";
@@ -236,18 +236,14 @@ export function uncle(nodeType, nodeData, minWidth = 100) {
         const { SNAP, autoWidth, autoHeight } = this.getDerpVars(this);
         const isMinState = this.properties.contentCollapsed;
 
-        const contentReqW = this.layout?.contentMinWidth || 0;
-        const engineFloorW = Math.ceil(contentReqW / SNAP) * SNAP;
-        const contentMinH = Number(this.layout?.contentMinHeight) || 0;
-        const totalH = Number(this.layout?.totalHeight) || 0;
-        const rawH = isMinState ? (Math.max(contentMinH, totalH) || 40) : (contentMinH || totalH || 40);
-        const engineFloorH = isMinState ? rawH : Math.ceil(rawH / SNAP) * SNAP;
-
-        const collapseMinimal = this.properties?.collapseMinimal === true;
-        const preserveVerticalDeckWidth = shouldPreserveVerticalDeckWidth(this);
         const preserveHorizontalDeckHeight = shouldPreserveHorizontalDeckHeight(this);
-        const targetW = (autoWidth || (isMinState && collapseMinimal && !preserveVerticalDeckWidth)) ? engineFloorW : Math.max(this.properties.nodeSize?.[0] || 0, engineFloorW);
-        const targetH = ((autoHeight || isMinState) && !preserveHorizontalDeckHeight) ? engineFloorH : Math.max(this.properties.nodeSize?.[1] || 0, engineFloorH);
+        const resolvedSize = resolveDerpRuntimeSize(this, {
+            contentMinWidth: this.layout?.contentMinWidth || 0,
+            contentMinHeight: this.layout?.contentMinHeight || 0,
+            totalHeight: this.layout?.totalHeight || 0,
+        }, { SNAP, autoWidth, autoHeight });
+        const targetW = resolvedSize.width;
+        const targetH = resolvedSize.height;
 
         // During live resize, preserve the manually dragged axis but still let the auto-managed
         // secondary axis respond immediately (e.g. width shrink causing auto-height growth).

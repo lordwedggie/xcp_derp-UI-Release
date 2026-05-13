@@ -1,25 +1,57 @@
 import { sysPanel } from "../helpers/fathaSysPanel.js";
 import { applyDockResizeResult, syncDockResizePair } from "./dockResize.js";
+import { getDockGroupAxisFromMembers, getDockNodeMinHeight, getDockNodeMinWidth, resolveDockResizeAxes } from "./dockDimensions.js";
+import { getDeckMembers } from "./masterDockEngine.js";
+
+function dockDebug(label, payload = {}) {
+    if (!globalThis?.DERP_DOCK_RESIZE_DEBUG) return;
+    globalThis.DERP_DOCK_RESIZE_LOGS = globalThis.DERP_DOCK_RESIZE_LOGS || [];
+    const entry = { label, payload, time: Date.now() };
+    globalThis.DERP_DOCK_RESIZE_LOGS.push(entry);
+    if (globalThis.DERP_DOCK_RESIZE_LOGS.length > 500) globalThis.DERP_DOCK_RESIZE_LOGS.shift();
+}
+
+function snapshotDockNode(node) {
+    if (!node) return null;
+    return {
+        id: node.id,
+        type: node.type,
+        title: node.titleLabel || node.title,
+        pos: [...(node.pos || [])],
+        size: [...(node.size || [])],
+        nodeSize: [...(node.properties?.nodeSize || [])],
+        autoWidth: node.properties?.autoWidth,
+        autoHeight: node.properties?.autoHeight,
+        pinActive: node.properties?.pinActive === true,
+        contentCollapsed: node.properties?.contentCollapsed === true,
+        contentMinWidth: node.layout?.contentMinWidth,
+        contentMinHeight: node.layout?.contentMinHeight,
+        totalHeight: node.layout?.totalHeight,
+        deckParentId: node.properties?.deckParentId,
+        deckDockSide: node.properties?.deckDockSide,
+        deckEdges: { ...(node.properties?.deckEdges || {}) },
+    };
+}
 
 export function handleNodeResize(entity, data, scale) {
     const { SNAP, autoWidth, autoHeight } = entity.getDerpVars ? entity.getDerpVars(entity) : getDerpVars(entity);
-    if (autoWidth && autoHeight) return;
+    const graph = entity.graph || globalThis?.app?.graph || null;
+    const axis = graph ? getDockGroupAxisFromMembers(getDeckMembers(entity, graph)) : null;
+    const resizeAxes = resolveDockResizeAxes(axis, { autoWidth, autoHeight });
+    dockDebug("handle-node-resize-start", {
+        entity: snapshotDockNode(entity),
+        data,
+        scale,
+        axis,
+        resizeAxes,
+        vars: { SNAP, autoWidth, autoHeight },
+        startPos: entity._startPos,
+        startSize: entity._startSize,
+    });
+    if (!resizeAxes.allowWidth && !resizeAxes.allowHeight) return;
 
-    const propMinW = entity.properties?.minWidth || 0;
-    const padL = entity._padL || 0;
-    const padR = entity._padR || 0;
-    const contentMinW = entity.layout?.contentMinWidth || 60;
-    const minW = Math.ceil(Math.max(propMinW, contentMinW + padL + padR) / SNAP) * SNAP;
-
-    const isMinState = entity.properties?.contentCollapsed;
-
-    let explicitMinH = 0;
-    if (entity.layoutMap) {
-        Object.values(entity.layoutMap).forEach((reg) => { if (reg.minHeight) explicitMinH += reg.minHeight; });
-    }
-
-    const minRawH = Math.max(explicitMinH, entity.layout?.contentMinHeight || entity.layout?.totalHeight || 40);
-    const minH = isMinState ? minRawH : Math.ceil(minRawH / SNAP) * SNAP;
+    const minW = getDockNodeMinWidth(entity, 0, SNAP);
+    const minH = getDockNodeMinHeight(entity, 0, SNAP);
 
     const resizeAnchor = data.resizeAnchor || "bottom-right";
     const deltaX = data.dx / scale;
@@ -36,8 +68,8 @@ export function handleNodeResize(entity, data, scale) {
         "bottom": { wSign: 1, hSign: 1, moveX: false, moveY: false }
     }[resizeAnchor] || { wSign: 1, hSign: 1, moveX: false, moveY: false };
 
-    const allowWidthResize = !autoWidth;
-    const allowHeightResize = !autoHeight;
+    const allowWidthResize = resizeAxes.allowWidth;
+    const allowHeightResize = resizeAxes.allowHeight;
 
     const rawW = entity._startSize[0] + (deltaX * anchorMode.wSign);
     const newW = allowWidthResize ? Math.max(minW, Math.round(rawW / SNAP) * SNAP) : entity.size[0];
@@ -46,6 +78,19 @@ export function handleNodeResize(entity, data, scale) {
     const newH = allowHeightResize ? Math.max(minH, Math.round(rawH / SNAP) * SNAP) : entity.size[1];
 
     const dockResizeResult = syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH, SNAP);
+    dockDebug("handle-node-resize-after-dock-pair", {
+        entity: snapshotDockNode(entity),
+        resizeAnchor,
+        computed: { rawW, newW, rawH, newH, minW, minH },
+        dockResizeResult: {
+            handledWidth: dockResizeResult.handledWidth,
+            handledHeight: dockResizeResult.handledHeight,
+            handledAll: dockResizeResult.handledAll,
+            appliedWidth: dockResizeResult.appliedWidth,
+            appliedHeight: dockResizeResult.appliedHeight,
+            counterparts: dockResizeResult.counterparts.map(snapshotDockNode),
+        },
+    });
     if (dockResizeResult.handledAll) {
         applyDockResizeResult(entity, dockResizeResult);
         return;
@@ -67,6 +112,14 @@ export function handleNodeResize(entity, data, scale) {
     entity.size[0] = appliedW;
     entity.size[1] = appliedH;
     if (entity.properties) entity.properties.nodeSize = [appliedW, appliedH];
+
+    dockDebug("handle-node-resize-after-apply-size", {
+        entity: snapshotDockNode(entity),
+        applied: { width: appliedW, height: appliedH },
+        allowWidthResize,
+        allowHeightResize,
+        anchorMode,
+    });
 
     const dockApplyResult = applyDockResizeResult(entity, dockResizeResult);
     if (dockApplyResult.handledAll) return;
