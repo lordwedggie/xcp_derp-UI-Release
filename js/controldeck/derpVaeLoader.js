@@ -34,7 +34,7 @@ app.registerExtension({
 
             const deck = this.properties.vaeDeck || [];
             const deckHash = deck.map(m => `${m.name}:${m.active}:${m.source || ""}`).join("|");
-            const structureHash = `${deckHash}_${(this._vaeList || []).length}_${window._xcpDerpSession}_${this.properties.showFolderNames}_${this.properties.settingActive}_${this.properties.extractFromModel}_${mW}_${mH}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}_${this._dropPreviewIdx}_${this._dragTrig?.index}_${this._dragThresholdMet}_${this._dragMouse?.join(",")}`;
+            const structureHash = `${deckHash}_${(this._vaeList || []).length}_${window._xcpDerpSession}_${this.properties.showFolderNames}_${this.properties.extractFromModel}_${mW}_${mH}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}_${this._dropPreviewIdx}_${this._dragTrig?.index}_${this._dragThresholdMet}_${this._dragMouse?.join(",")}`;
 
             if (this._layoutMapHash === structureHash && this.layoutMap) {
                 this.requestDerpSync();
@@ -204,30 +204,32 @@ app.registerExtension({
                         margin: [0, 0, 0, mH],
                         ...deckRegions
                     },
-                    settingRegion: {
-                        width: "full", height: "auto", margin: [-mW, 0, -mW, mH], dir: "col",
-                        hidden: !this.properties.settingActive,
-                        settingBreak1: { type: this.UI_TYPES.LINEBREAK },
-                        settingRow1: {
-                            dir: "row", width: "full", height: "auto", margin: [mW, sH, mW, sH],
-                            toggleModelVAE: {
-                                type: this.UI_TYPES.TOGGLE_V2, isTextOnly: true,
-                                text: "Extract VAE from model",
-                                value: this.properties.extractFromModel || false,
-                                themeKey: "button, t_textNormal",
-                                width: "full", padding: [pW, pH],
-                                onChange: (v) => {
-                                    this.properties.extractFromModel = v;
-                                    this.fetchVaeData();
-                                    this.refreshNodeLayoutMap();
-                                }
-                            }
-                        },
-                        settingBreak2: { type: this.UI_TYPES.LINEBREAK }
-                    },
                     regionVaeLoader: {
                         dir: "row", width: "full", height: "auto", spacing: [sW, 0],
                         margin: [0, mH, 0, 0],
+                        btnNew: {
+                            type: this.UI_TYPES.ICONBUTTON,
+                            icon: "new",
+                            width: "match", height: "fill", padding: [pW, pH], spacing: [sW, 0],
+                            themeKey: "button, t_textNormal",
+                            onPress: () => {
+                                showBastaFileHandler(this, "none", "btnNew", {
+                                    title: "Clear VAE Deck",
+                                    message: "Clear the VAE deck?",
+                                    confirm: "Clear",
+                                    mode: "delete",
+                                    playSound: "delete",
+                                    properties: { bastaMovalbe: false },
+                                    onConfirm: () => {
+                                        this.properties.vaeDeck = [];
+                                        sendSignal();
+                                        if (this.syncDerpOutputs) this.syncDerpOutputs();
+                                        this.refreshNodeLayoutMap();
+                                        this.requestDerpSync();
+                                    }
+                                });
+                            }
+                        },
                         browserVaes: {
                             type: this.UI_TYPES.FILEBROWSER,
                             items: (this._vaeList || []).filter(name => !deck.some(m => m.name === name)),
@@ -276,8 +278,8 @@ app.registerExtension({
         nodeType.prototype.refreshDerpTemplateSysMap = function() {
             // ZERO-INFERENCE OPTIMIZATION: Precision Jitter Lock (toFixed 2)
             const vars = this.getDerpVars(this);
-            const [mW, mH, oY, pW, pH, sW] = [
-                vars.mW, vars.mH, vars.oY, vars.pW, vars.pH, vars.sW
+            const [mW, mH, oY, pW, pH, sW, sH] = [
+                vars.mW, vars.mH, vars.oY, vars.pW, vars.pH, vars.sW, vars.sH
             ].map(v => Number(v.toFixed(2)));
             this.sysLayoutMap = {
                 sysContentRegion: {
@@ -291,22 +293,34 @@ app.registerExtension({
                         text: "Custom node properties:",
                         width: "full", padding: [pW, pH],
                     },
-                    "regionSetting-1": {
+                    regionSetting1: {
                         anchor: { target: "lblTitle", axis: "y", offset: oY },
                         dir: "row", width: "full", height: "auto", spacing: [sW, 0],
                         toggleShowFolder: {
                             type: this.UI_TYPES.TOGGLE_V2, isTextOnly: true, themeKey: "button, t_textSystem",
                             text: "Show Folder Names",
-                            width: "full", height: "auto", padding: [pW, pH],
+                            width: "auto", height: "auto", padding: [pW, pH],
                             value: this.properties.showFolderNames !== false,
                             onChange: (v) => {
                                 this.properties.showFolderNames = v;
                                 this.refreshNodeLayoutMap();
                                 this.refreshDerpTemplateSysMap();
                             }
+                        },
+                        toggleModelVAE: {
+                            type: this.UI_TYPES.TOGGLE_V2, isTextOnly: true, themeKey: "button, t_textSystem",
+                            text: "Extract VAE from model",
+                            width: "auto", height: "auto", padding: [pW, pH],
+                            value: this.properties.extractFromModel || false,
+                            onChange: (v) => {
+                                this.properties.extractFromModel = v;
+                                this.fetchVaeData();
+                                this.refreshNodeLayoutMap();
+                                this.refreshDerpTemplateSysMap();
+                            }
                         }
                     },
-                    layoutSpacer: { anchor: { target: "regionSetting-1", axis: "y", offset: oY } }
+                    layoutSpacer: { anchor: { target: "regionSetting1", axis: "y", offset: oY } }
                 }
             };
         };

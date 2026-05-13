@@ -122,9 +122,10 @@ app.registerExtension({
                             onPress: () => handleSaveBook(this)
                         },
                         dropdownBooks: {
-                            type: this.UI_TYPES.DROPDOWN_DERP, canvasShield: true, skipBackground: false, themeKey: "button, t_textBig",
+                            type: this.UI_TYPES.FILEBROWSER, canvasShield: true, skipBackground: false, themeKey: "button, t_textBig",
                             indicator: "on",
                             items: this._availableBooks || [], value: this.properties.bookName || "Untitled Book",
+                            mode: "file", rootName: "Prompt Books", fileType: "promptBook", displayText: "Select Book...",
                             minWidth: 200, width: "full", height: "auto", padding: [pW, pH], spacing: [sW, 0],
                             onChange: (val) => handleBookChange(this, val)
                         },

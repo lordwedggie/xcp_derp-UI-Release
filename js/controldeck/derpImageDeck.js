@@ -9,6 +9,7 @@ import { runWirelessHeartbeat } from "../fatha/core/masterSignalEngine.js";
 import { showBastaMessage } from "../fatha/bastas/bastaMessage.js";
 import { activeBastas } from "../fatha/basta.js";
 import { getSignalReceiverId } from "../fatha/bastas/bastaSignalReceiver.js";
+import { getPinnedVerticalDeckAnchor, restorePinnedVerticalDeckAnchor } from "../fatha/core/dockResize.js";
 
 async function copyImageUrlToClipboard(imageUrl) {
     if (!imageUrl || !navigator.clipboard || typeof navigator.clipboard.write !== "function") return;
@@ -35,6 +36,43 @@ function normalizeImageDeckToken(raw) {
 function normalizeImageDeckFilenameToken(raw) {
     return normalizeImageDeckToken(raw)
         .replace(/\.(png|jpg|jpeg|webp|gif|bmp)$/i, "");
+}
+
+function getImageDeckBottomY(node) {
+    const y = Number(node?.pos?.[1]) || 0;
+    const h = Number(node?.size?.[1] ?? node?.properties?.nodeSize?.[1]) || 0;
+    return y + h;
+}
+
+function getImageDeckRefreshAnchor(node) {
+    if (node?.properties?.pinActive !== true) return null;
+    const graph = window.app?.graph || node?.graph || null;
+    const deckAnchor = getPinnedVerticalDeckAnchor(node, graph);
+    if (deckAnchor) {
+        if (Number.isFinite(node._imageDeckConfiguredBottomY) && deckAnchor.pinned?.id === node.id) {
+            return { ...deckAnchor, bottom: node._imageDeckConfiguredBottomY };
+        }
+        return deckAnchor;
+    }
+    return {
+        node,
+        bottom: Number.isFinite(node._imageDeckConfiguredBottomY)
+            ? node._imageDeckConfiguredBottomY
+            : getImageDeckBottomY(node)
+    };
+}
+
+function restoreImageDeckRefreshAnchor(anchor) {
+    if (!anchor) return;
+    if (anchor.pinned) {
+        restorePinnedVerticalDeckAnchor(anchor);
+        return;
+    }
+    const node = anchor.node;
+    if (!node?.pos || node?.properties?.pinActive !== true) return;
+    const h = Number(node.size?.[1] ?? node.properties?.nodeSize?.[1]) || 0;
+    if (!(h > 0)) return;
+    node.pos[1] = anchor.bottom - h;
 }
 
 async function saveImageDeckCurrentImage(node) {
@@ -413,7 +451,18 @@ app.registerExtension({
 
         const baseOnConfigure = nodeType.prototype.onConfigure;
         nodeType.prototype.onConfigure = function(info) {
+            const infoY = Number(info?.pos?.[1]);
+            const infoH = Number(info?.size?.[1] ?? info?.properties?.nodeSize?.[1]);
+            const configuredBottomY = Number.isFinite(infoY) && Number.isFinite(infoH) ? infoY + infoH : null;
             if (baseOnConfigure) baseOnConfigure.apply(this, arguments);
+            if (Array.isArray(info?.size) && info.size.length >= 2) {
+                this.size = [Number(info.size[0]) || this.size?.[0] || 400, Number(info.size[1]) || this.size?.[1] || 400];
+                this.properties.nodeSize = [...this.size];
+            }
+            if (configuredBottomY !== null && this.properties?.pinActive === true) {
+                this._imageDeckConfiguredBottomY = configuredBottomY;
+                restoreImageDeckRefreshAnchor(getImageDeckRefreshAnchor(this));
+            }
             const infoProps = info && info.properties ? info.properties : null;
             const localProps = this.properties || null;
             const state = (infoProps && infoProps.imageDeckState) || (localProps && localProps.imageDeckState) || null;
@@ -435,6 +484,7 @@ app.registerExtension({
             this.refreshDerpImageDeckSysMap();
             this.fetchImageDeckKSamplerInfo();
             if (typeof this.syncDerpOutputs === "function") this.syncDerpOutputs();
+            restoreImageDeckRefreshAnchor(getImageDeckRefreshAnchor(this));
         };
 
         nodeType.prototype.onResize = function(size) {
@@ -446,6 +496,8 @@ app.registerExtension({
         nodeType.prototype.onSerialize = function(data) {
             if (baseOnSerialize) baseOnSerialize.apply(this, arguments);
             if (!data.properties) data.properties = {};
+            data.size = Array.isArray(this.size) ? [...this.size] : data.size;
+            data.properties.nodeSize = Array.isArray(this.size) ? [...this.size] : this.properties.nodeSize;
             data.properties.imageDeckState = {
                 images: Array.isArray(this._derpImageDeckList) ? this._derpImageDeckList : [],
                 index: Number.isInteger(this._derpImageDeckIndex) ? this._derpImageDeckIndex : 0
@@ -466,6 +518,7 @@ app.registerExtension({
 
         const baseOnDrawForeground = nodeType.prototype.onDrawForeground;
         nodeType.prototype.onDrawForeground = function(ctx) {
+            const refreshAnchor = getImageDeckRefreshAnchor(this);
             const wasCollapsed = this._lastContentCollapsed === true;
             const isCollapsed = this.properties?.contentCollapsed === true;
 
@@ -489,6 +542,7 @@ app.registerExtension({
                 }
             }
             if (baseOnDrawForeground) baseOnDrawForeground.apply(this, arguments);
+            restoreImageDeckRefreshAnchor(refreshAnchor);
         };
 
         nodeType.prototype.refreshNodeLayoutMap = function() {

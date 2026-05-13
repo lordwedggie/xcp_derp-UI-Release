@@ -97,6 +97,7 @@ export function showBastaFileHandler(host, category = "settings", targetRegion =
             const btnState = isDelete ? "OFF" : (isInvalid ? "DIS" : "OFF");
             // THE DETECTION FIX: Clashes trigger 'Overwrite' even if identical to source. Save/Duplicate/New now correctly detect collisions.
             const showWarning = !isDelete && isDuplicate && (mode === "rename" ? !isSame : true);
+            const warningText = basta.properties.warningMessage || "Duplicate found!";
 
             // THE THEME-PULSE FIX: Resolve colors from the theme key for the pulse animation
             const paintOFF = resolvePaintData(basta, "t_textSmall", "_OFF");
@@ -158,13 +159,30 @@ export function showBastaFileHandler(host, category = "settings", targetRegion =
                             type: UI_TYPES.EDITOR,
                             themeKey: "dialog, t_textNormal", canvasShield: true,
                             text: basta.properties.pendingName,
+                            value: basta.properties.pendingName,
                             width: "full", height: 20, padding: [pW, pH], spacing: [0, sH],
                             onInput: (v) => {
                                 basta.properties.pendingName = v;
+                                const editorReg = basta.layout?.regions?.editorNewName;
+                                if (editorReg) {
+                                    editorReg.text = v;
+                                    editorReg.value = v;
+                                }
+                                if (basta._compDataCache) delete basta._compDataCache.editorNewName;
+                                basta._layoutDirty = true;
+                                basta._forceSync = true;
                                 basta.requestDerpSync();
                             },
                             onBlur: (v) => {
                                 basta.properties.pendingName = v;
+                                const editorReg = basta.layout?.regions?.editorNewName;
+                                if (editorReg) {
+                                    editorReg.text = v;
+                                    editorReg.value = v;
+                                }
+                                if (basta._compDataCache) delete basta._compDataCache.editorNewName;
+                                basta._layoutDirty = true;
+                                basta._forceSync = true;
                                 basta.requestDerpSync();
                             }
                         },
@@ -191,20 +209,19 @@ export function showBastaFileHandler(host, category = "settings", targetRegion =
                     labelWarning: {
                         type: UI_TYPES.TEXT,
                         themeKey: "t_textSmall", labelAlign: ["center", "middle"],
-                        hidden: !showWarning,
-                        text: basta.properties.warningMessage || "Duplicate found!",
-                        pulseStates: true,
+                        hidden: isDelete,
+                        text: warningText,
+                        pulseStates: showWarning,
                         pulseFromState: "_ON",
                         pulseToState: "_DIS",
                         pulseSpeed: 0.005,
+                        alpha: showWarning ? 1 : 0,
                         fontWeight: "italic",
                         width: "full", height: "auto", padding: [pW, 0],
                         objectAlign: ["left", "middle"],
                     },
                     regionButtons: {
-                        // Anchor to a guaranteed-visible region in non-warning modes.
-                        // This avoids hidden-anchor jitter that can desync button text paint.
-                        anchor: { target: showWarning ? "labelWarning" : "contentRegion", axis: "y", offset: oY },
+                        anchor: { target: isDelete ? "contentRegion" : "labelWarning", axis: "y", offset: oY },
                         dir: "row", width: "full", height: "auto",
                         btnCancel: {
                             type: UI_TYPES.BUTTON, themeKey: "buttonNode, t_textSystem",

@@ -210,6 +210,29 @@ app.registerExtension({
                     regionSchedulerLoader: {
                         dir: "row", width: "full", height: "auto", spacing: [sW, 0],
                         margin: [0, mH, 0, 0],
+                        btnNew: {
+                            type: this.UI_TYPES.ICONBUTTON,
+                            icon: "new",
+                            width: "match", height: "fill", padding: [pW, pH], spacing: [sW, 0],
+                            themeKey: "button, t_textNormal",
+                            onPress: () => {
+                                showBastaFileHandler(this, "none", "btnNew", {
+                                    title: "Clear Scheduler Deck",
+                                    message: "Clear the Scheduler deck?",
+                                    confirm: "Clear",
+                                    mode: "delete",
+                                    playSound: "delete",
+                                    properties: { bastaMovalbe: false },
+                                    onConfirm: () => {
+                                        this.properties.schedulerDeck = [];
+                                        sendSignal();
+                                        if (this.syncDerpOutputs) this.syncDerpOutputs();
+                                        this.refreshNodeLayoutMap();
+                                        this.requestDerpSync();
+                                    }
+                                });
+                            }
+                        },
                         browserSchedulers: {
                             type: this.UI_TYPES.DROPDOWN_DERP,
                             items: schedulerList.filter(name => !deck.some(m => m.name === name)),

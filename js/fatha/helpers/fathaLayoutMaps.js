@@ -155,7 +155,8 @@ export const getVirtualNodeLayoutMap = (node) => {
     const customKeys = Object.keys(node.layoutMap || {});
     const lastCustomRegion = (p.contentCollapsed || customKeys.length === 0) ? "headerRegion" : customKeys[customKeys.length - 1];
 
-    const titleVisible = p.contentCollapsed || p.drawHeader !== false;
+    const isVerticalDocked = isVerticalDockedGroup(node);
+    const titleVisible = isVerticalDocked || p.contentCollapsed || p.drawHeader !== false;
     return {
         headerRegion: {
             dir: "col", width: "full", height: "auto",
@@ -342,6 +343,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
     const { mW, mH, sW, sH, oX, oY, pW, pH } = getPanelVars(hostNode);
     const showWarpRegion = hostNode.properties?._showWarpRegion === true;
     const isDocked = isNodeDocked(hostNode, hostNode?.graph || app?.graph || null);
+    const isVerticalDocked = isVerticalDockedGroup(hostNode);
 
     if (!Array.isArray(hostNode.properties.warpShortcutItems) || hostNode.properties.warpShortcutItems.length === 0) {
         hostNode.properties.warpShortcutItems = [...WARP_SHORTCUT_ITEMS];
@@ -549,12 +551,14 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                 type: UI_TYPES.TOGGLE,
                 textThemeKey: "t_textSystem",
                 icon: "radio",
-                value: hostNode.properties?.drawHeader !== false,
+                value: isVerticalDocked || hostNode.properties?.drawHeader !== false,
+                state: isVerticalDocked ? "DIS" : "OFF",
                 objectAlign: ["left", "top"], labelAlign: ["left", "middle"],
                 label: "$system.title",
                 width: "auto", height: "fill",
                 padding: [pW, pH], spacing: [sW,0],
                 onPress: () => {
+                    if (isVerticalDocked) return;
                     hostNode.properties.drawHeader = (hostNode.properties.drawHeader !== false) ? false : true;
                     hostNode.requestDerpSync();
                 }

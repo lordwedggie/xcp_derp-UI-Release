@@ -262,9 +262,9 @@ export function initDerpVaeLoaderCore(nodeType) {
         this.titleLabel = "Derp Vae Loader";
         this.properties.titleLabel = "Derp Vae Loader";
         this.properties.vaeDeck = [];
-        this.properties.extractFromModel = false;
+        this.properties.extractFromModel = true;
         this.properties.showFolderNames = true;
-        this.properties.drawSettingBtn = true;
+        this.properties.drawSettingBtn = false;
 
         this.properties.autoWidth = false;
         this.properties.autoHeight = true;

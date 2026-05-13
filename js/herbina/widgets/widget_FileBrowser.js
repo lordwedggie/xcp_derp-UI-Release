@@ -142,6 +142,11 @@ export function createFileBrowser(callbacks = {}) {
     return createHybridDropdownHTML(callbacks, ["📁", "📂"]);
 }
 
+function shouldShowFileBrowserIndicator(config) {
+    const indicator = config?.indicator;
+    return !(indicator === false || indicator === "off" || indicator === "false" || indicator === 0);
+}
+
 function openFilePicker(sourceEl, config, node, callbacks) {
     if (activeFilePicker) {
         finalizeFilePickerCleanup();
@@ -163,7 +168,7 @@ function openFilePicker(sourceEl, config, node, callbacks) {
     const scale = ds.scale;
     const items = config.items || [];
     const { oY, sH, sW, mH } = getDerpVars(node);
-    const hasIndicator = config.indicator === true || config.indicator === "on";
+    const hasIndicator = shouldShowFileBrowserIndicator(config);
 
     const { bodyKey, pickerKey, textKey: labelKey } = resolveHybridThemeKeys(config.themeKey);
     const listPaint = resolvePaintData(node, bodyKey, "_OFF") || node._panelPaintData_OFF;
@@ -602,18 +607,20 @@ export function syncFileBrowser(context, node, app, config) {
             ctx.clip();
 
             // Draw indicator on canvas (LEFT SIDE)
-            masterPainterText(ctx, {
-                text: el._glyphs[0],
-                x: snapToScreenGrid(x + pX, dsScale),
-                y: snapToScreenGrid(y + (h / 2), dsScale),
-                align: "left", baseline: "middle",
-                paintData: { ...labelPaint, fontSize: fs * 0.8, fill: animatedTextColor }
-            });
+            if (shouldShowFileBrowserIndicator(safeConfig)) {
+                masterPainterText(ctx, {
+                    text: el._glyphs[0],
+                    x: snapToScreenGrid(x + pX, dsScale),
+                    y: snapToScreenGrid(y + (h / 2), dsScale),
+                    align: "left", baseline: "middle",
+                    paintData: { ...labelPaint, fontSize: fs * 0.8, fill: animatedTextColor }
+                });
+            }
 
             // Draw path label (OFFSET TO RIGHT)
             masterPainterText(ctx, {
                 text: labelStr,
-                x: snapToScreenGrid(x + pX + iconOffset, dsScale),
+                x: snapToScreenGrid(x + pX + (shouldShowFileBrowserIndicator(safeConfig) ? iconOffset : 0), dsScale),
                 y: snapToScreenGrid(y + (h / 2), dsScale),
                 align: "left", baseline: "middle",
                 paintData: { ...labelPaint, fontSize: fs, fill: animatedTextColor }
@@ -660,7 +667,8 @@ export function syncFileBrowser(context, node, app, config) {
 
         // THE ICON ALIGNMENT FIX: Move arrow to left and adjust label padding
         const pX = (safeConfig.padding?.[0] || 4) * scale;
-        const iconOffset = (fs * 1.2) * scale;
+        const hasIndicator = shouldShowFileBrowserIndicator(safeConfig);
+        const iconOffset = hasIndicator ? (fs * 1.2) * scale : 0;
         el._label.style.padding = `0px ${pX}px 0px ${pX + iconOffset}px`;
 
         el._arrow.style.fontSize = `${fs * 0.8 * scale}px`;
@@ -671,7 +679,7 @@ export function syncFileBrowser(context, node, app, config) {
     }
 
     el._arrow.innerHTML = el._glyphs[0];
-    const hasIndicator = safeConfig.indicator === true || safeConfig.indicator === "on";
+    const hasIndicator = shouldShowFileBrowserIndicator(safeConfig);
     el._arrow.style.display = hasIndicator ? "block" : "none";
 
     el.style.display = (isAwake || (isCanvas && useCanvasShield)) ? "none" : "block";

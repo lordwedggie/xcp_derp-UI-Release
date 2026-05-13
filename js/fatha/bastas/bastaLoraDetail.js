@@ -142,9 +142,26 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
     }
 
     // THE SELECTION SYNC: Initialize Basta state from the host's active stack selection
-    if (triggerItems.length > 0) {
-        const stack = host.properties.stackData || [];
-        const idx = loraData.slotIndex;
+    const stack = host.properties.stackData || [];
+    const idx = loraData.slotIndex;
+    if (triggerItems.length === 0) {
+        const entry = stack[idx];
+        const hasStaleSelection = !!(entry && (entry[3] && entry[3] !== "None" || entry[4]));
+        if (entry && hasStaleSelection) {
+            entry[3] = "None";
+            entry[4] = "";
+            loraData.tags = [];
+            const editorEl = basta.dynamicElements?.loraTriggersEditor;
+            if (editorEl) editorEl.value = "";
+            if (host.syncDerpOutputs) host.syncDerpOutputs();
+            if (host.refreshDerpLoraStackSysMap) host.refreshDerpLoraStackSysMap();
+        }
+        if (basta._activeTagKey || basta._activeTagName) {
+            basta._activeTagKey = null;
+            basta._activeTagName = null;
+            basta._forceSync = true;
+        }
+    } else {
         const nodeSelectionKey = stack[idx]?.[3];
 
         let activeEntry = triggerItems.find(t => t.key === basta._activeTagKey) ||

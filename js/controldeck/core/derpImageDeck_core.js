@@ -3,6 +3,7 @@
  * ROLE: Runtime logic for DerpImageDeck image preview behavior.
  */
 import { animateAlpha } from "../../herbina/masterAnimator.js";
+import { getPinnedVerticalDeckAnchor, restorePinnedVerticalDeckAnchor } from "../../fatha/core/dockResize.js";
 
 // Crossfade alpha interpolation speed.
 // Higher value = faster fade, lower value = slower fade.
@@ -11,6 +12,29 @@ const IMAGE_DECK_CROSSFADE_ALPHA_SPEED = 0.05;
 // End threshold for completing the crossfade.
 // Higher value = finish earlier, lower value = longer tail.
 const IMAGE_DECK_CROSSFADE_END_EPSILON = 0.01;
+
+function getNodeBottomY(node) {
+    const y = Number(node?.pos?.[1]) || 0;
+    const h = Number(node?.size?.[1] ?? node?.properties?.nodeSize?.[1]) || 0;
+    return y + h;
+}
+
+function getImageDeckPinnedAnchor(node) {
+    const graph = window.app?.graph || node?.graph || null;
+    const deckAnchor = getPinnedVerticalDeckAnchor(node, graph);
+    if (deckAnchor) return deckAnchor;
+    return null;
+}
+
+function restoreImageDeckPinnedAnchor(anchor) {
+    if (!anchor) return;
+    restorePinnedVerticalDeckAnchor(anchor);
+}
+
+function snapImageDeckHeight(node, height) {
+    const snap = Number(node?.getDerpVars?.(node)?.SNAP) || 10;
+    return Math.max(snap, Math.ceil((Number(height) || 1) / snap) * snap);
+}
 
 function toArray(value) {
     if (Array.isArray(value)) return value;
@@ -140,15 +164,18 @@ function resizeNodeToImageAspect(node, img) {
     const currentNodeH = Number(node.size?.[1] || node.properties?.nodeSize?.[1] || 0);
     if (!(currentNodeW > 0) || !(currentNodeH > 0)) return;
 
-    const nextNodeH = Math.max(1, Math.round(currentNodeH + (nextImageH - currentImageH)));
+    const nextNodeH = snapImageDeckHeight(node, currentNodeH + (nextImageH - currentImageH));
     if (Math.abs(nextNodeH - currentNodeH) < 1) return;
 
-    const bottomY = Number(node.pos?.[1] || 0) + currentNodeH;
+    const bottomY = getNodeBottomY(node);
+    const pinnedAnchor = getImageDeckPinnedAnchor(node);
     node.size[0] = currentNodeW;
     node.size[1] = nextNodeH;
     node.pos[1] = bottomY - nextNodeH;
     if (node.properties) node.properties.nodeSize = [currentNodeW, nextNodeH];
     node._preCollapseHeight = nextNodeH;
+    restoreImageDeckPinnedAnchor(pinnedAnchor);
+    node._imageDeckPinnedAnchor = pinnedAnchor;
     if (typeof node.syncUncleSlots === "function") node.syncUncleSlots();
     if (typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, true);
 }
@@ -188,6 +215,15 @@ export function initDerpImageDeckCore(nodeType) {
             resizeNodeToImageAspect(this, img);
             this._layoutMapHash = null;
             if (typeof this.refreshNodeLayoutMap === "function") this.refreshNodeLayoutMap();
+            if (this._imageDeckPinnedAnchor) {
+                const pinnedAnchor = this._imageDeckPinnedAnchor;
+                restoreImageDeckPinnedAnchor(pinnedAnchor);
+                requestAnimationFrame(() => {
+                    restoreImageDeckPinnedAnchor(pinnedAnchor);
+                    if (typeof this.syncUncleSlots === "function") this.syncUncleSlots();
+                    if (typeof this.setDirtyCanvas === "function") this.setDirtyCanvas(true, true);
+                });
+            }
             if (typeof this.requestDerpSync === "function") this.requestDerpSync();
         };
         img.onerror = () => {

@@ -133,6 +133,11 @@ export function createDropdownDerp(callbacks = {}) {
     return createHybridDropdownHTML(callbacks, ["▶", "▼"]);
 }
 
+function shouldShowDropdownIndicator(config) {
+    const indicator = config?.indicator;
+    return !(indicator === false || indicator === "off" || indicator === "false" || indicator === 0);
+}
+
 function openPicker(sourceEl, config, node, callbacks) {
     if (activePicker) {
         finalizePickerCleanup();
@@ -149,7 +154,8 @@ function openPicker(sourceEl, config, node, callbacks) {
 
     const pX = (config.padding?.[0] || 4);
     const fs = (config.fontSize || 10);
-    const iconOffset = (config.indicator === true || config.indicator === "on") ? (fs * PICKER_GLYPH_SCALE * 1.2) + DROPDOWN_GLYPH_OFFSET : 0;
+    const hasIndicator = shouldShowDropdownIndicator(config);
+    const iconOffset = hasIndicator ? (fs * DROPDOWN_GLYPH_SCALE * 1.2) + DROPDOWN_GLYPH_OFFSET : 0;
     const { sH, oY, sW, mW, mH } = getDerpVars(node);
 
     const { bodyKey, pickerKey, textKey: labelKey } = resolveHybridThemeKeys(config.themeKey);
@@ -191,8 +197,9 @@ function openPicker(sourceEl, config, node, callbacks) {
     } else {
         hContent = config.displayText || "Select...";
     }
-    const hasIndicator = config.indicator === true || config.indicator === "on";
-    appendHybridPickerRow(headerWrapper, sourceEl, rowPaintOFF, rowPaintON, scale, dynamicRowHeight, hasIndicator ? sourceEl._glyphs[1] : null, hContent, false, pX, iconOffset, sW, PICKER_GLYPH_SCALE, 0);
+    const headerGlyph = hasIndicator ? sourceEl._glyphs[1] : null;
+    const headerRow = appendHybridPickerRow(headerWrapper, sourceEl, rowPaintOFF, rowPaintON, scale, dynamicRowHeight, headerGlyph, hContent, false, pX, iconOffset, sW, DROPDOWN_GLYPH_SCALE, 0);
+    headerWrapper.appendChild(headerRow);
 
     const maxH = picker._visibleLimit * dynamicRowHeight;
     picker.style.maxHeight = `${maxH * scale}px`;
@@ -405,7 +412,7 @@ export function syncDropdownDerp(context, node, app, config) {
         }
 
         var fs = props.fontSize || labelData?.fontSize || 10;
-        var hasIndicator = safeConfig.indicator === true || safeConfig.indicator === "on";
+        var hasIndicator = shouldShowDropdownIndicator(safeConfig);
         var arrowWidth = hasIndicator ? (fs * DROPDOWN_GLYPH_SCALE * 1.2) + DROPDOWN_GLYPH_OFFSET : 0;
 
         var rawBg = safeConfig.btnColor || paintData?.fill || "transparent";
@@ -746,7 +753,7 @@ export function syncDropdownDerp(context, node, app, config) {
             const syncRow = (row) => {
                 const rowPX = (safeConfig.padding?.[0] || 4);
                 const rowFS = (safeConfig.fontSize || 10);
-                const rowIconOffset = (safeConfig.indicator === true || safeConfig.indicator === "on") ? (rowFS * PICKER_GLYPH_SCALE * 1.2) + DROPDOWN_GLYPH_OFFSET : 0;
+                const rowIconOffset = shouldShowDropdownIndicator(safeConfig) ? (rowFS * DROPDOWN_GLYPH_SCALE * 1.2) + DROPDOWN_GLYPH_OFFSET : 0;
 
                 const isHeader = row.parentElement === activePicker._headerWrapper;
                 const currentMW = isHeader ? 0 : rowMW;
@@ -757,7 +764,7 @@ export function syncDropdownDerp(context, node, app, config) {
                 if (row._glyphSpan) {
                     row._glyphSpan.style.width = `${rowIconOffset * scale}px`;
                     row._glyphSpan.style.marginRight = `${rowSW * scale}px`;
-                    row._glyphSpan.style.fontSize = `${rowFS * PICKER_GLYPH_SCALE * scale}px`;
+                    row._glyphSpan.style.fontSize = `${rowFS * DROPDOWN_GLYPH_SCALE * scale}px`;
                 }
                 row.style.fontSize = el._label.style.fontSize;
             };

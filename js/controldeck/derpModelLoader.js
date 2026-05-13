@@ -207,6 +207,29 @@ app.registerExtension({
                     regionModelLoader: {
                         dir: "row", width: "full", height: "auto", spacing: [sW, 0],
                         margin: [0, mH, 0, 0],
+                        btnNew: {
+                            type: this.UI_TYPES.ICONBUTTON,
+                            icon: "new",
+                            width: "match", height: "fill", padding: [pW, pH], spacing: [sW, 0],
+                            themeKey: "button, t_textNormal",
+                            onPress: () => {
+                                showBastaFileHandler(this, "none", "btnNew", {
+                                    title: "Clear Model Deck",
+                                    message: "Clear the Model deck?",
+                                    confirm: "Clear",
+                                    mode: "delete",
+                                    playSound: "delete",
+                                    properties: { bastaMovalbe: false },
+                                    onConfirm: () => {
+                                        this.properties.modelDeck = [];
+                                        sendSignal();
+                                        if (this.syncDerpOutputs) this.syncDerpOutputs();
+                                        this.refreshNodeLayoutMap();
+                                        this.requestDerpSync();
+                                    }
+                                });
+                            }
+                        },
                         browserModels: {
                             type: this.UI_TYPES.FILEBROWSER,
                             items: (this._modelList || []).filter(name => !deck.some(m => m.name === name)),

@@ -212,6 +212,29 @@ app.registerExtension({
                     regionSamplerLoader: {
                         dir: "row", width: "full", height: "auto", spacing: [sW, 0],
                         margin: [0, mH, 0, 0],
+                        btnNew: {
+                            type: this.UI_TYPES.ICONBUTTON,
+                            icon: "new",
+                            width: "match", height: "fill", padding: [pW, pH], spacing: [sW, 0],
+                            themeKey: "button, t_textNormal",
+                            onPress: () => {
+                                showBastaFileHandler(this, "none", "btnNew", {
+                                    title: "Clear Sampler Deck",
+                                    message: "Clear the Sampler deck?",
+                                    confirm: "Clear",
+                                    mode: "delete",
+                                    playSound: "delete",
+                                    properties: { bastaMovalbe: false },
+                                    onConfirm: () => {
+                                        this.properties.samplerDeck = [];
+                                        sendSignal();
+                                        if (this.syncDerpOutputs) this.syncDerpOutputs();
+                                        this.refreshNodeLayoutMap();
+                                        this.requestDerpSync();
+                                    }
+                                });
+                            }
+                        },
                         browserSamplers: {
                             type: this.UI_TYPES.DROPDOWN_DERP,
                             items: samplerList.filter(name => !deck.some(m => m.name === name)),
