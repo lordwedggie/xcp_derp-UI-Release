@@ -14,6 +14,7 @@ import { getPinnedVerticalDeckAnchor, restorePinnedVerticalDeckAnchor, resolveCo
 import { masterDockEngine, getDeckMembers, getDeckCornerOverride, isLinearDeckGroup } from "./masterDockEngine.js";
 import { getVirtualNodeLayoutMap } from "../helpers/fathaLayoutMaps.js";
 import { getDockGroupAxisFromMembers, resolveRuntimeDockSize, shouldPreserveDockHeight, shouldPreserveDockWidth } from "./dockDimensions.js";
+import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
 
 function getDeckEngine() {
     if (!window.xcpMasterDeckEngine) {
@@ -153,6 +154,12 @@ function applyPaletteEntryColors(paint, entry, state = "_OFF", effectSource = pa
 function applyNodeHeaderPalette(entity, paint, state = "_OFF", effectSource = paint) {
     const match = resolveNodeHeaderPaletteMatch(entity);
     return applyPaletteEntryColors(paint, match?.entry, state, effectSource, match?.paletteData?.effects === true);
+}
+
+function playRegionSound(region) {
+    const soundKey = region?.playSound;
+    if (!soundKey || window.DERP_GLOBAL_SETTINGS?.playSound === false) return;
+    if (SOUND_INDEX?.[soundKey]) SOUND_INDEX[soundKey]();
 }
 
 export function drawDeckPreviewGlobal(ctx) {
@@ -641,6 +648,7 @@ export function handleShieldInteraction(entity, type, data = {}) {
         const headerCollapseEnabled = window.DERP_GLOBAL_SETTINGS?.verticalDockHeaderCollapse ?? true;
         if (headerCollapseEnabled && header && graph && isLinearDeckGroup(entity, graph, "vertical") && entity.layout.hitTest(localMouse, header)) {
             const wasCollapsed = !!entity.properties?.contentCollapsed;
+            playRegionSound(entity.layout?.regions?.btnCollapse);
             if (typeof entity.collapse === "function") entity.collapse();
             else handleDerpCollapse(entity);
             if (wasCollapsed) {
