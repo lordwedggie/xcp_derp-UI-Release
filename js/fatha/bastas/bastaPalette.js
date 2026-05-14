@@ -46,6 +46,7 @@ const getPaletteHash = (palettes, effects) => {
 function invalidatePaletteControls(basta, keys = ["browserPalette", "dropdownKeys"]) {
     basta._layoutDirty = true;
     basta._forceSync = true;
+    if (basta.layout) basta.layout._lastCacheKey = "";
     keys.forEach(key => {
         if (basta._fileBrowserCache) delete basta._fileBrowserCache[key];
         if (basta._compDataCache) delete basta._compDataCache[key];
@@ -57,6 +58,30 @@ function invalidatePaletteControls(basta, keys = ["browserPalette", "dropdownKey
         }
     });
     basta.requestDerpSync();
+}
+
+function refreshPaletteLayout(basta) {
+    invalidatePaletteControls(basta, [
+        "toggleEffectsKeys",
+        "shadowRegion",
+        "strokeRegion",
+        "glowRegion",
+        "colorkeyShadow",
+        "colorkeyStroke",
+        "colorkeyGlow",
+        "dropdownKeys",
+        "keysFromFile",
+        "lblFileShadow",
+        "lblFileStroke",
+        "lblFileGlow",
+        "fileShadowContainer",
+        "fileStrokeContainer",
+        "fileGlowContainer",
+        "fileMain",
+        "fileShadow",
+        "fileStroke",
+        "fileGlow",
+    ]);
 }
 
 function applyPaletteFileList(basta, items) {
@@ -137,7 +162,7 @@ export function showBastaPalette(host, targetRegion = null) {
                     value: basta.properties.includeEffectKeys || false, isTextOnly: true, mouseOver: false,
                     onPress: () => {
                         basta.properties.includeEffectKeys = !basta.properties.includeEffectKeys;
-                        basta.requestDerpSync();
+                        refreshPaletteLayout(basta);
                     }
                 },
                 mainRegion: {
@@ -266,7 +291,8 @@ export function showBastaPalette(host, targetRegion = null) {
                             basta.properties.activePaletteId = null;
                             basta._selectedPaletteEntry = null;
                         } catch (e) { console.error("[Palette Manager] Collection Load Error:", e); }
-                        invalidatePaletteControls(basta, ["browserPalette", "dropdownKeys"]);
+                        invalidatePaletteControls(basta, ["browserPalette"]);
+                        refreshPaletteLayout(basta);
                     },
                     width: "full", height: 20, padding: [pW, pH],
                     canvasShield: true, spacing: [sW, 0],
@@ -397,7 +423,7 @@ export function showBastaPalette(host, targetRegion = null) {
                             if (res.ok) {
                                 basta._lastFileHash = currentHash;
                                 showBastaMessage(basta, `Collection Saved`, 3000, { fade: true, grow: true }, "btnSaveKey", false, "success");
-                                basta.requestDerpSync();
+                                refreshPaletteLayout(basta);
                             } else {
                                 showBastaMessage(basta, "Save Failed", 3000, { fade: true, grow: true }, "btnSaveKey", false, "error");
                             }
@@ -420,7 +446,7 @@ export function showBastaPalette(host, targetRegion = null) {
                             basta.properties.activePaletteId = palette.id;
                             // THE PREVIEW BINDING: Assign the specific JSON entry to the preview storage
                             basta._selectedPaletteEntry = palette;
-                            basta.requestDerpSync();
+                            refreshPaletteLayout(basta);
                         }
                     },
                     canvasShield: true
@@ -438,7 +464,7 @@ export function showBastaPalette(host, targetRegion = null) {
                                 basta.properties.activePaletteId = null;
                                 basta._selectedPaletteEntry = null;
                                 showBastaMessage(basta, "Entry Deleted", 3000, { fade: true, grow: true }, "btnDeleteKey", false, "success");
-                                invalidatePaletteControls(basta, ["dropdownKeys"]);
+                                refreshPaletteLayout(basta);
                             }
                         }
                     })
@@ -459,6 +485,7 @@ export function showBastaPalette(host, targetRegion = null) {
                         dir: "col", width: "full", height: "auto",
                         fileMain: {
                             type: UI_TYPES.COLORKEYEDIT, themeKey: "button, t_textSmall", width: "full", height: 16,
+                            key: "fileMain",
                             colorSuffix: "",
                             themeToEdit: palEntry?.entries,
                             _selectedKeyName: "main",
@@ -477,13 +504,14 @@ export function showBastaPalette(host, targetRegion = null) {
                         isTextOnly: true, mouseOver: false,
                         // THE NULL GUARD: Prevent crash if no entry is currently selected
                         value: palEntry?.showShadow ?? !!palEntry?.entries?.shadow,
-                        onPress: () => { if (palEntry) { const cur = palEntry.showShadow ?? !!palEntry?.entries?.shadow; palEntry.showShadow = !cur; basta.requestDerpSync(); } }
+                        onPress: () => { if (palEntry) { const cur = palEntry.showShadow ?? !!palEntry?.entries?.shadow; palEntry.showShadow = !cur; refreshPaletteLayout(basta); } }
                     },
                     fileShadowContainer: {
                         hidden: !(palEntry?.showShadow ?? !!palEntry?.entries?.shadow),
                         dir: "col", width: "full", height: "auto",
                         fileShadow: {
                             type: UI_TYPES.COLORKEYEDIT, themeKey: "button, t_textSmall", width: "full", height: 16,
+                            key: "fileShadow",
                             colorSuffix: "",
                             themeToEdit: palEntry?.entries,
                             _selectedKeyName: "shadow",
@@ -502,13 +530,14 @@ export function showBastaPalette(host, targetRegion = null) {
                         isTextOnly: true, mouseOver: false,
                         // THE NULL GUARD: Prevent crash if no entry is currently selected
                         value: palEntry?.showStroke ?? !!palEntry?.entries?.stroke,
-                        onPress: () => { if (palEntry) { const cur = palEntry.showStroke ?? !!palEntry?.entries?.stroke; palEntry.showStroke = !cur; basta.requestDerpSync(); } }
+                        onPress: () => { if (palEntry) { const cur = palEntry.showStroke ?? !!palEntry?.entries?.stroke; palEntry.showStroke = !cur; refreshPaletteLayout(basta); } }
                     },
                     fileStrokeContainer: {
                         hidden: !(palEntry?.showStroke ?? !!palEntry?.entries?.stroke),
                         dir: "col", width: "full", height: "auto",
                         fileStroke: {
                             type: UI_TYPES.COLORKEYEDIT, themeKey: "button, t_textSmall", width: "full", height: 16,
+                            key: "fileStroke",
                             colorSuffix: "",
                             themeToEdit: palEntry?.entries,
                             _selectedKeyName: "stroke",
@@ -526,13 +555,14 @@ export function showBastaPalette(host, targetRegion = null) {
                         width: "auto", height: "auto", padding: [1, pH],
                         isTextOnly: true, mouseOver: false,
                         value: palEntry?.showGlow ?? !!palEntry?.entries?.glow,
-                        onPress: () => { if (palEntry) { const cur = palEntry.showGlow ?? !!palEntry?.entries?.glow; palEntry.showGlow = !cur; basta.requestDerpSync(); } }
+                        onPress: () => { if (palEntry) { const cur = palEntry.showGlow ?? !!palEntry?.entries?.glow; palEntry.showGlow = !cur; refreshPaletteLayout(basta); } }
                     },
                     fileGlowContainer: {
                         hidden: !(palEntry?.showGlow ?? !!palEntry?.entries?.glow),
                         dir: "col", width: "full", height: "auto",
                         fileGlow: {
                             type: UI_TYPES.COLORKEYEDIT, themeKey: "button, t_textSmall", width: "full", height: 16,
+                            key: "fileGlow",
                             colorSuffix: "",
                             themeToEdit: palEntry?.entries,
                             _selectedKeyName: "glow",
