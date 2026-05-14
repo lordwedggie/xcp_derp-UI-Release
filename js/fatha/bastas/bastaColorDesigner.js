@@ -87,6 +87,7 @@ function updateHostThemeColor(basta) {
             }
         }
         if (node.requestDerpSync) node.requestDerpSync();
+        if (typeof node.onPaletteEdit === "function") node.onPaletteEdit();
     }
 
     if (basta) {

@@ -37,6 +37,13 @@ export function initDerpModelLoaderCore(nodeType) {
         return list.find(path => path.endsWith(fileName) || path.split(/[\\/]/).pop() === fileName) || null;
     }
 
+    function ensureModelIdentity(node) {
+        node._sysProfileFile = "derpModelLoader";
+        node._sysProfileFolder = "nodeSettings";
+        node.titleLabel = node.properties.titleLabel || node.titleLabel || "Derp Model Loader";
+        node.properties.titleLabel = node.titleLabel;
+    }
+
     proto.onThemeUpdate = function(config) {
         this.handleThemeUpdate(config);
         this._layoutMapHash = null; // THE STRUCTURAL RESET: Force full map rebuild on theme change
@@ -231,12 +238,11 @@ export function initDerpModelLoaderCore(nodeType) {
     };
 
     proto.handleLoaderCreated = function() {
+        ensureModelIdentity(this);
         this.properties.isWirelessTransmitter = true;
         this.properties.skipGenericWirelessHeartbeat = true;
         if (!this._restoreModelDeckPending && this.syncDerpOutputs) this.syncDerpOutputs();
 
-        this.titleLabel = "Derp Model Loader";
-        this.properties.titleLabel = "Derp Model Loader";
         this.properties.modelDeck = this.properties.modelDeck || [];
         this.properties.showFolderNames = true;
         this.properties.drawSettingBtn = false;
@@ -259,6 +265,7 @@ export function initDerpModelLoaderCore(nodeType) {
     };
 
     proto.handleLoaderConfigure = function() {
+        ensureModelIdentity(this);
         this.properties.skipGenericWirelessHeartbeat = true;
         this.properties.drawSettingBtn = false;
         this._restoreModelDeckPending = true;

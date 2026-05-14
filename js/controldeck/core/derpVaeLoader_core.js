@@ -33,6 +33,13 @@ export function initDerpVaeLoaderCore(nodeType) {
         return list.find(path => path.endsWith(fileName) || path.split(/[\\/]/).pop() === fileName) || null;
     }
 
+    function ensureVaeIdentity(node) {
+        node._sysProfileFile = "derpVaeLoader";
+        node._sysProfileFolder = "nodeSettings";
+        node.titleLabel = node.properties.titleLabel || node.titleLabel || "Derp Vae Loader";
+        node.properties.titleLabel = node.titleLabel;
+    }
+
     proto.onThemeUpdate = function(config) {
         this.handleThemeUpdate(config);
         this._layoutMapHash = null; // THE STRUCTURAL RESET: Synchronized cache nuke
@@ -255,12 +262,11 @@ export function initDerpVaeLoaderCore(nodeType) {
     };
 
     proto.handleVaeCreated = function() {
+        ensureVaeIdentity(this);
         this.properties.isWirelessTransmitter = true;
         this.properties.skipGenericWirelessHeartbeat = true;
         if (!this._restoreVaeDeckPending && this.syncDerpOutputs) this.syncDerpOutputs();
 
-        this.titleLabel = "Derp Vae Loader";
-        this.properties.titleLabel = "Derp Vae Loader";
         this.properties.vaeDeck = [];
         this.properties.extractFromModel = true;
         this.properties.showFolderNames = true;
@@ -284,6 +290,7 @@ export function initDerpVaeLoaderCore(nodeType) {
     };
 
     proto.handleVaeConfigure = function() {
+        ensureVaeIdentity(this);
         this.properties.skipGenericWirelessHeartbeat = true;
         this._restoreVaeDeckPending = true;
         const savedDeck = JSON.parse(JSON.stringify(this.properties.vaeDeck || []));

@@ -53,6 +53,108 @@ function snapshotDockNode(node) {
     };
 }
 
+function paletteColorToCss(color) {
+    if (!Array.isArray(color) || color.length < 3) return null;
+    const r = Math.round(Number(color[0]) || 0);
+    const g = Math.round(Number(color[1]) || 0);
+    const b = Math.round(Number(color[2]) || 0);
+    const a = color[3] === undefined ? 1 : Number(color[3]);
+    return `rgba(${r}, ${g}, ${b}, ${Number.isFinite(a) ? a : 1})`;
+}
+
+function resolvePaletteStateColor(entry, key, state) {
+    const source = entry?.entries?.[key];
+    if (!source) return null;
+    const stateKey = state === "_ON" || state === "ON"
+        ? "_ON"
+        : state === "_DIS" || state === "DIS"
+            ? "_DIS"
+            : "_OFF";
+    return source[stateKey] || source._OFF || source._ON || source._DIS || null;
+}
+
+function findPaletteEntry(paletteData, entryName) {
+    if (!entryName) return null;
+    const palettes = paletteData?.palettes;
+    if (!Array.isArray(palettes)) return null;
+    const target = String(entryName).toLowerCase();
+    return palettes.find((entry) => String(entry?.name || "").toLowerCase() === target) || null;
+}
+
+function normalizePaletteName(name) {
+    return String(name || "").replace(/\\/g, "/").trim();
+}
+
+function getPaletteCache() {
+    if (!window.xcpPaletteCache || typeof window.xcpPaletteCache !== "object") window.xcpPaletteCache = {};
+    return window.xcpPaletteCache;
+}
+
+function rememberPaletteData(paletteName, data) {
+    const normalizedName = normalizePaletteName(paletteName);
+    if (!normalizedName || !data) return;
+    getPaletteCache()[normalizedName] = data;
+}
+
+function findNodePaletteEntry(entity, entryName) {
+    const paletteName = normalizePaletteName(entity?._headerPaletteName || "");
+    if (!paletteName) return null;
+    return findPaletteEntry(getPaletteCache()[paletteName], entryName);
+}
+
+function getNodePaletteData(entity) {
+    const paletteName = normalizePaletteName(entity?._headerPaletteName || "");
+    return paletteName ? getPaletteCache()[paletteName] : null;
+}
+
+function getNodeHeaderPaletteNames(entity) {
+    return [
+        entity?.type,
+        entity?.constructor?.type,
+        entity?.comfyClass,
+        (entity?.titleLabel || "").replace(/\s+/g, ""),
+        entity?._sysProfileFile,
+    ].filter(Boolean);
+}
+
+function resolveNodeHeaderPaletteEntry(entity) {
+    const candidates = getNodeHeaderPaletteNames(entity).flatMap((name) => [`header_${name}`, `Header_${name}`]);
+    return candidates.map((name) => findNodePaletteEntry(entity, name)).find(Boolean) || null;
+}
+
+function resolveNodeHeaderPaletteMatch(entity) {
+    const paletteData = getNodePaletteData(entity);
+    const candidates = getNodeHeaderPaletteNames(entity).flatMap((name) => [`header_${name}`, `Header_${name}`]);
+    const entry = candidates.map((name) => findPaletteEntry(paletteData, name)).find(Boolean) || null;
+    return entry ? { entry, paletteData } : null;
+}
+
+function getNodeHeaderPaletteFingerprint(entity) {
+    const match = resolveNodeHeaderPaletteMatch(entity);
+    return match ? JSON.stringify({ effects: match.paletteData?.effects === true, entries: match.entry.entries || {} }) : "no-header-palette";
+}
+
+function applyPaletteEntryColors(paint, entry, state = "_OFF", effectSource = paint, effectsEnabled = false) {
+    if (!paint || !entry) return paint;
+    const next = { ...paint };
+    const fill = paletteColorToCss(resolvePaletteStateColor(entry, "main", state));
+    const shadow = effectsEnabled ? paletteColorToCss(resolvePaletteStateColor(entry, "shadow", state)) : null;
+    const stroke = effectsEnabled ? paletteColorToCss(resolvePaletteStateColor(entry, "stroke", state)) : null;
+    const glow = effectsEnabled ? paletteColorToCss(resolvePaletteStateColor(entry, "glow", state)) : null;
+
+    if (fill) next.fill = fill;
+    if (shadow && effectSource?.shadow) next.shadow = { ...effectSource.shadow, color: shadow };
+    if (stroke && effectSource?.border) next.border = { ...effectSource.border, color: stroke };
+    if (glow && effectSource?.glow) next.glow = { ...effectSource.glow, color: glow };
+
+    return next;
+}
+
+function applyNodeHeaderPalette(entity, paint, state = "_OFF", effectSource = paint) {
+    const match = resolveNodeHeaderPaletteMatch(entity);
+    return applyPaletteEntryColors(paint, match?.entry, state, effectSource, match?.paletteData?.effects === true);
+}
+
 export function drawDeckPreviewGlobal(ctx) {
     getDeckEngine().drawPreview(ctx);
 }
@@ -152,14 +254,21 @@ export async function loadDerpLocale(langCode = "en-US") {
  * loadDerpPalette: Fetches the active palette and triggers a global reflow.
  */
 export async function loadDerpPalette(paletteName = "Derp_Default_v01") {
+    if (!paletteName) return;
+    const normalizedName = normalizePaletteName(paletteName);
+    if (!normalizedName) return;
+    if (window.xcpActivePaletteName === normalizedName && getPaletteCache()[normalizedName]) return;
+    if (window.xcpActivePalettePendingName === normalizedName) return;
+    window.xcpActivePalettePendingName = normalizedName;
     try {
-        const response = await fetch(`/xcp/load/palettes?name=${paletteName}`);
-        if (!response.ok) throw new Error(`Palette ${paletteName} not found.`);
+        const response = await fetch(`/xcp/load/palettes?name=${encodeURIComponent(normalizedName)}`);
+        if (!response.ok) throw new Error(`Palette ${normalizedName} not found.`);
 
         const result = await response.json();
         if (result.data) {
+            rememberPaletteData(normalizedName, result.data);
             window.xcpActivePalette = result.data;
-            window.xcpActivePaletteName = paletteName;
+            window.xcpActivePaletteName = normalizedName;
 
             // Fire event for paletteExtender.js
             window.dispatchEvent(new CustomEvent("xcp_palette_changed", { detail: result.data }));
@@ -185,6 +294,8 @@ export async function loadDerpPalette(paletteName = "Derp_Default_v01") {
         }
     } catch (e) {
         console.error(`❌ [xcpDerp] Palette Load Error:`, e);
+    } finally {
+        if (window.xcpActivePalettePendingName === normalizedName) window.xcpActivePalettePendingName = "";
     }
 }
 
@@ -284,7 +395,7 @@ export function animateDerpSize(node, targetW, targetH, useAnim, options = {}) {
         if (!skipCollapseShift && deltaH !== 0 && shiftDirection !== 0) {
             node.pos[1] = (Number(node.pos?.[1]) || 0) + (deltaH * shiftDirection);
         }
-        if (graph && !isPassiveCollapsedDeckSize) {
+        if (graph) {
             const moved = getDeckEngine().reflowChildren(node);
             dockDebug("animate-size-reflow", {
                 node: snapshotDockNode(node),
@@ -633,27 +744,32 @@ export function handleDrawCTX(entity, ctx, overlayPass = false) {
         // In those cases prefer direct paint to preserve smooth corners.
         const useStaticBgCache = nodeWantsCache && !hasRoundedOrFx(paintOFF) && !hasRoundedOrFx(paintON);
 
-        const renderBaseBackground = (targetCtx) => {
-            if (header && paintOFF && paintON) {
-                const cOFF = applyCornerOverride(paintOFF.corners || [8, 8, 8, 8], cornerOverride);
-                const cON = applyCornerOverride(paintON.corners || [8, 8, 8, 8], cornerOverride);
+        const renderBaseBackground = (targetCtx, options = {}) => {
+            const bodyPaint = options.bodyPaint || paintOFF;
+            const headerPaletteState = options.headerPaletteState || (isBypassed ? "_DIS" : isSelected ? "_ON" : "_OFF");
+            const headerEffectPaint = options.headerEffectPaint || bodyPaint;
+
+            if (header && bodyPaint && paintON) {
+                const cOFF = applyCornerOverride(bodyPaint.corners || [8, 8, 8, 8], cornerOverride);
+                const cON = applyCornerOverride((options.cornerPaint || paintON).corners || [8, 8, 8, 8], cornerOverride);
 
                 if (isCollapsed) {
-                    const collapsedPaint = { ...paintOFF, corners: [cON[0], cON[1], cOFF[2], cOFF[3]] };
-                    masterPainter(targetCtx, { posX: 0, posY: 0, width: entity.size[0], height: entity.size[1], color: paintOFF.fill, paintData: collapsedPaint });
+                    const collapsedPaint = applyNodeHeaderPalette(entity, { ...bodyPaint, corners: [cON[0], cON[1], cOFF[2], cOFF[3]] }, headerPaletteState, headerEffectPaint);
+                    masterPainter(targetCtx, { posX: 0, posY: 0, width: entity.size[0], height: entity.size[1], color: collapsedPaint.fill, paintData: collapsedPaint });
                 } else {
                     const splitY = header.y + header.h + (header.margin?.length === 4 ? header.margin[3] : (header.margin?.[1] || 0));
-                    const headerPaint = { ...paintOFF, corners: [cON[0], cON[1], 0, 0], border: null, shadow: null, glow: null };
-                    masterPainter(targetCtx, { posX: 0, posY: 0, width: entity.size[0], height: splitY, color: paintOFF.fill, paintData: headerPaint });
+                    const headerBasePaint = { ...bodyPaint, corners: [cON[0], cON[1], 0, 0], border: null, shadow: null, glow: null };
+                    const headerPaint = applyNodeHeaderPalette(entity, headerBasePaint, headerPaletteState, headerEffectPaint);
+                    masterPainter(targetCtx, { posX: 0, posY: 0, width: entity.size[0], height: splitY, color: headerPaint.fill, paintData: headerPaint });
 
-                    const contentPaint = { ...paintOFF, corners: [0, 0, cOFF[2], cOFF[3]], border: null, shadow: null, glow: null };
-                    masterPainter(targetCtx, { posX: 0, posY: splitY, width: entity.size[0], height: entity.size[1] - splitY, color: paintOFF.fill, paintData: contentPaint });
+                    const contentPaint = { ...bodyPaint, corners: [0, 0, cOFF[2], cOFF[3]], border: null, shadow: null, glow: null };
+                    masterPainter(targetCtx, { posX: 0, posY: splitY, width: entity.size[0], height: entity.size[1] - splitY, color: bodyPaint.fill, paintData: contentPaint });
 
-                    const silhouettePaint = { ...paintOFF, corners: [cON[0], cON[1], cOFF[2], cOFF[3]] };
+                    const silhouettePaint = { ...bodyPaint, corners: [cON[0], cON[1], cOFF[2], cOFF[3]] };
                     masterPainter(targetCtx, { posX: 0, posY: 0, width: entity.size[0], height: entity.size[1], color: "transparent", paintData: silhouettePaint });
                 }
             } else {
-                const paint = applyNodeCornerOverride(isSelected ? paintON : paintOFF);
+                const paint = applyNodeCornerOverride(options.bodyPaint || (isSelected ? paintON : paintOFF));
                 if (paint) {
                     masterPainter(targetCtx, { posX: 0, posY: 0, width: entity.size[0], height: entity.size[1], color: paint.fill, paintData: paint });
                 }
@@ -663,7 +779,9 @@ export function handleDrawCTX(entity, ctx, overlayPass = false) {
         if (isSelected && !isBypassed && ANIM_SELECTION_PULSE) {
             // --- SELECTION PULSE ---
             if (paintOFF) {
-                if (useStaticBgCache) {
+                if (header && paintON) {
+                    renderBaseBackground(ctx, { bodyPaint: paintOFF, headerPaletteState: "_OFF", headerEffectPaint: paintOFF });
+                } else if (useStaticBgCache) {
                     const bw = Math.max(1, Math.round(entity.size[0]));
                     const bh = Math.max(1, Math.round(entity.size[1]));
                     const cache = getOrCreateBgCache(entity, bw, bh);
@@ -690,11 +808,15 @@ export function handleDrawCTX(entity, ctx, overlayPass = false) {
                 }
             }
             if (paintON) {
-                const directPaintON = applyNodeCornerOverride(paintON);
                 const pulseAlpha = (Math.sin(Date.now() * 0.003) + 1) / 2;
                 ctx.save();
                 ctx.globalAlpha = pulseAlpha;
-                masterPainter(ctx, { posX: 0, posY: 0, width: entity.size[0], height: entity.size[1], color: directPaintON.fill, paintData: directPaintON });
+                if (header) {
+                    renderBaseBackground(ctx, { bodyPaint: paintON, headerPaletteState: "_ON", headerEffectPaint: paintON, cornerPaint: paintON });
+                } else {
+                    const directPaintON = applyNodeCornerOverride(paintON);
+                    masterPainter(ctx, { posX: 0, posY: 0, width: entity.size[0], height: entity.size[1], color: directPaintON.fill, paintData: directPaintON });
+                }
                 ctx.restore();
             }
             entity.setDirtyCanvas(true, false);
@@ -713,6 +835,7 @@ export function handleDrawCTX(entity, ctx, overlayPass = false) {
                     entity._currentThemeName || "",
                     isSelected ? "selected" : "normal",
                     header ? `${header.y}_${header.h}_${header.margin?.join?.("_") || ""}` : "noheader",
+                    getNodeHeaderPaletteFingerprint(entity),
                     cornerOverride ? cornerOverride.join("_") : "nocorners",
                     getPaintFingerprint(paintOFF),
                     getPaintFingerprint(paintON)
@@ -759,7 +882,7 @@ export function handleThemeUpdate(node, config) {
     const theme = config.themes[themeName];
     if (theme) {
         Object.entries(theme).forEach(([key, val]) => {
-            if (key === "_layout" || typeof val !== 'object' || Array.isArray(val)) return;
+            if (key.startsWith("_") || typeof val !== 'object' || Array.isArray(val)) return;
             invalidateCompiledThemeCache(val);
             node[`_${key}PaintData`] = compileThemeData(val, key, "OFF");
             node[`_${key}PaintData_ON`] = compileThemeData(val, key, "ON");
@@ -770,6 +893,9 @@ export function handleThemeUpdate(node, config) {
                 sysPanel[`_${key}PaintData_DIS`] = node[`_${key}PaintData_DIS`];
             }
         });
+        const paletteName = typeof theme._palette === "string" ? theme._palette.trim() : "";
+        node._headerPaletteName = normalizePaletteName(paletteName);
+        if (node._headerPaletteName) loadDerpPalette(node._headerPaletteName);
     }
 
     if (node._derpBgCache) {

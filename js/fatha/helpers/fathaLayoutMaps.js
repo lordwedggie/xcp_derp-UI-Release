@@ -23,6 +23,36 @@ const COLLAPSED_HEADER_HEIGHT = 20;
 const COLLAPSED_HEADER_VERTICAL_MARGIN = 0;
 const HEADER_ICON_SIZE = { width: "match", height: "auto" };
 
+function paletteColorToCss(color) {
+    if (!Array.isArray(color) || color.length < 3) return null;
+    const r = Math.round(Number(color[0]) || 0);
+    const g = Math.round(Number(color[1]) || 0);
+    const b = Math.round(Number(color[2]) || 0);
+    const a = color[3] === undefined ? 1 : Number(color[3]);
+    return `rgba(${r}, ${g}, ${b}, ${Number.isFinite(a) ? a : 1})`;
+}
+
+function findHeaderPaletteEntry(node) {
+    const palettes = window.xcpActivePalette?.palettes;
+    if (!Array.isArray(palettes)) return null;
+    const names = [
+        node?.type,
+        node?.constructor?.type,
+        node?.comfyClass,
+        (node?.titleLabel || "").replace(/\s+/g, "")
+    ].filter(Boolean);
+    for (const name of names) {
+        const entry = palettes.find((item) => item?.name === `header_${name}`);
+        if (entry) return entry;
+    }
+    return null;
+}
+
+function resolveHeaderPaletteFill(node) {
+    const main = findHeaderPaletteEntry(node)?.entries?.main;
+    return paletteColorToCss(main?._OFF || main?._ON || main?._DIS || null);
+}
+
 function resolveDockGlyph(node) {
     const edges = node?.properties?.deckEdges || {};
     const hasLeft = edges.left !== null && edges.left !== undefined;
@@ -154,6 +184,7 @@ export const getVirtualNodeLayoutMap = (node) => {
     const collapseIcon = p.contentCollapsed ? "add" : "subtract";
     const customKeys = Object.keys(node.layoutMap || {});
     const lastCustomRegion = (p.contentCollapsed || customKeys.length === 0) ? "headerRegion" : customKeys[customKeys.length - 1];
+    const headerPaletteFill = resolveHeaderPaletteFill(node);
 
     const isVerticalDocked = isVerticalDockedGroup(node);
     const titleVisible = isVerticalDocked || p.contentCollapsed || p.drawHeader !== false;
@@ -166,6 +197,7 @@ export const getVirtualNodeLayoutMap = (node) => {
             spacing: [0, sH],
             headerMain: {
                 dir: "row", width: "full", height: p.contentCollapsed ? COLLAPSED_HEADER_HEIGHT : "auto",
+                btnColor: headerPaletteFill,
                 margin: [2, p.contentCollapsed ? COLLAPSED_HEADER_VERTICAL_MARGIN : 2, 2, p.contentCollapsed ? COLLAPSED_HEADER_VERTICAL_MARGIN : 0],
                 btnCollapse: {
                     type: UI_TYPES.ICONBUTTON,

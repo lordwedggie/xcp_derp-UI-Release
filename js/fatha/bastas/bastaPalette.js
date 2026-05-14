@@ -85,6 +85,60 @@ function refreshPaletteLayout(basta, options = {}) {
     ], options);
 }
 
+function markPaletteDirty(basta, options = {}) {
+    basta._paletteDirty = true;
+    refreshPaletteLayout(basta, options);
+}
+
+function syncActivePalettePreview(basta) {
+    const activeName = normalizePaletteName(basta?.properties?.activePaletteName || "");
+    if (!activeName) return false;
+
+    if (!window.xcpPaletteCache || typeof window.xcpPaletteCache !== "object") window.xcpPaletteCache = {};
+    window.xcpPaletteCache[activeName] = {
+        effects: basta.properties.includeEffectKeys === true,
+        palettes: basta._availablePalettes || [],
+    };
+    if (normalizePaletteName(window.xcpActivePaletteName || "") === activeName) {
+        if (!window.xcpActivePalette) window.xcpActivePalette = {};
+        window.xcpActivePalette.effects = basta.properties.includeEffectKeys === true;
+        window.xcpActivePalette.palettes = basta._availablePalettes || [];
+        window.xcpActivePaletteName = activeName;
+    }
+    return true;
+}
+
+function schedulePalettePreviewRedraw(basta) {
+    if (!syncActivePalettePreview(basta)) return;
+    if (basta._palettePreviewRaf) return;
+
+    basta._palettePreviewRaf = requestAnimationFrame(() => {
+        basta._palettePreviewRaf = null;
+        if (basta.isClosing) return;
+
+        const nodes = window.app?.graph?._nodes || [];
+        nodes.forEach(node => {
+            if (!node?.isFathaNode && !node?.isUncleNode) return;
+            if (normalizePaletteName(node._headerPaletteName || "") !== normalizePaletteName(basta.properties.activePaletteName || "")) return;
+            if (node._derpBgCache) node._derpBgCache.key = "";
+            if (node._compDataCache) node._compDataCache = {};
+            if (typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, false);
+        });
+
+        if (window.app?.canvas) window.app.canvas.setDirty(true, false);
+    });
+}
+
+function markPaletteColorEdited(basta) {
+    basta._paletteDirty = true;
+    schedulePalettePreviewRedraw(basta);
+
+    if (basta.layout) basta.layout._lastCacheKey = "";
+    basta._layoutDirty = true;
+    basta._forceSync = true;
+    if (basta.setDirtyCanvas) basta.setDirtyCanvas(true, false);
+}
+
 function normalizePaletteName(name) {
     return String(name || "").replace(/\\/g, "/");
 }
@@ -147,7 +201,7 @@ export function showBastaPalette(host, targetRegion = null) {
 
             // THE CHANGE DETECTION: Compare current state vs stored baseline
             const currentHash = getPaletteHash(basta._availablePalettes, basta.properties.includeEffectKeys);
-            const hasChanges = basta._lastFileHash && (basta._lastFileHash !== currentHash);
+            const hasChanges = !!basta._paletteDirty || (basta._lastFileHash && (basta._lastFileHash !== currentHash));
 
             // THE SAVE PULSE: Pulse logic for save buttons if changes are detected
             let pulsedSaveColor = null;
@@ -166,6 +220,7 @@ export function showBastaPalette(host, targetRegion = null) {
                 safeHost._selectedKeyName = keyName;
                 safeHost._selectedThemeName = "__PALETTE_LOCAL__"; // Block designer from overwriting global theme config
                 safeHost.requestDerpSync = () => basta.requestDerpSync();
+                safeHost.onPaletteEdit = () => markPaletteColorEdited(basta);
                 showBastaColorDesigner(safeHost, exactKey, persistentKey);
             };
 
@@ -303,6 +358,7 @@ export function showBastaPalette(host, targetRegion = null) {
                             });
                             basta.properties.includeEffectKeys = json.data?.effects === true;
                             basta._lastFileHash = getPaletteHash(basta._availablePalettes, basta.properties.includeEffectKeys);
+                            basta._paletteDirty = false;
 
                             basta.properties.activePaletteId = null;
                             basta._selectedPaletteEntry = null;
@@ -370,7 +426,7 @@ export function showBastaPalette(host, targetRegion = null) {
                             if (currentPal) {
                                 currentPal.name = newName;
                                 showBastaMessage(basta, `Entry Renamed: ${newName}`, 3000, { fade: true, grow: true }, "btnRenameKey", false, "success");
-                                refreshPaletteLayout(basta);
+                                markPaletteDirty(basta);
                             }
                         }
                     })
@@ -395,7 +451,7 @@ export function showBastaPalette(host, targetRegion = null) {
                                 basta.properties.activePaletteId = newEntry.id;
                                 basta._selectedPaletteEntry = newEntry;
                                 showBastaMessage(basta, `Entry Duplicated: ${newName}`, 3000, { fade: true, grow: true }, "btnCopyKey", false, "success");
-                                refreshPaletteLayout(basta);
+                                markPaletteDirty(basta);
                             }
                         }
                     })
@@ -439,7 +495,8 @@ export function showBastaPalette(host, targetRegion = null) {
                                 })
                             });
                             if (res.ok) {
-                                basta._lastFileHash = currentHash;
+                                basta._lastFileHash = getPaletteHash(basta._availablePalettes, basta.properties.includeEffectKeys);
+                                basta._paletteDirty = false;
                                 showBastaMessage(basta, `Collection Saved`, 3000, { fade: true, grow: true }, "btnSaveKey", false, "success");
                                 refreshPaletteLayout(basta);
                             } else {
@@ -482,7 +539,7 @@ export function showBastaPalette(host, targetRegion = null) {
                                 basta.properties.activePaletteId = null;
                                 basta._selectedPaletteEntry = null;
                                 showBastaMessage(basta, "Entry Deleted", 3000, { fade: true, grow: true }, "btnDeleteKey", false, "success");
-                                refreshPaletteLayout(basta);
+                                markPaletteDirty(basta);
                             }
                         }
                     })
@@ -522,7 +579,7 @@ export function showBastaPalette(host, targetRegion = null) {
                         isTextOnly: true, mouseOver: false,
                         // THE NULL GUARD: Prevent crash if no entry is currently selected
                         value: palEntry?.showShadow ?? !!palEntry?.entries?.shadow,
-                        onPress: () => { if (palEntry) { const cur = palEntry.showShadow ?? !!palEntry?.entries?.shadow; palEntry.showShadow = !cur; refreshPaletteLayout(basta); } }
+                        onPress: () => { if (palEntry) { const cur = palEntry.showShadow ?? !!palEntry?.entries?.shadow; palEntry.showShadow = !cur; markPaletteDirty(basta); } }
                     },
                     fileShadowContainer: {
                         hidden: !(palEntry?.showShadow ?? !!palEntry?.entries?.shadow),
@@ -548,7 +605,7 @@ export function showBastaPalette(host, targetRegion = null) {
                         isTextOnly: true, mouseOver: false,
                         // THE NULL GUARD: Prevent crash if no entry is currently selected
                         value: palEntry?.showStroke ?? !!palEntry?.entries?.stroke,
-                        onPress: () => { if (palEntry) { const cur = palEntry.showStroke ?? !!palEntry?.entries?.stroke; palEntry.showStroke = !cur; refreshPaletteLayout(basta); } }
+                        onPress: () => { if (palEntry) { const cur = palEntry.showStroke ?? !!palEntry?.entries?.stroke; palEntry.showStroke = !cur; markPaletteDirty(basta); } }
                     },
                     fileStrokeContainer: {
                         hidden: !(palEntry?.showStroke ?? !!palEntry?.entries?.stroke),
@@ -573,7 +630,7 @@ export function showBastaPalette(host, targetRegion = null) {
                         width: "auto", height: "auto", padding: [1, pH],
                         isTextOnly: true, mouseOver: false,
                         value: palEntry?.showGlow ?? !!palEntry?.entries?.glow,
-                        onPress: () => { if (palEntry) { const cur = palEntry.showGlow ?? !!palEntry?.entries?.glow; palEntry.showGlow = !cur; refreshPaletteLayout(basta); } }
+                        onPress: () => { if (palEntry) { const cur = palEntry.showGlow ?? !!palEntry?.entries?.glow; palEntry.showGlow = !cur; markPaletteDirty(basta); } }
                     },
                     fileGlowContainer: {
                         hidden: !(palEntry?.showGlow ?? !!palEntry?.entries?.glow),
@@ -606,6 +663,13 @@ export function showBastaPalette(host, targetRegion = null) {
                     }
                 }
             };
+        },
+        onClose: () => {
+            const instance = window.xcpActiveBastas?.get?.(id);
+            if (instance?._palettePreviewRaf) {
+                cancelAnimationFrame(instance._palettePreviewRaf);
+                instance._palettePreviewRaf = null;
+            }
         }
     };
 
