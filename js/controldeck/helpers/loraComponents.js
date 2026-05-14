@@ -11,6 +11,13 @@ export function getLoraDisplayName(loraPath) {
     return (loraPath || "").split(/[\\/]/).pop().replace(/\.safetensors$/i, "");
 }
 
+export function getLoraDetailTitle(loraPath, rating = 0, hasPreview = false) {
+    const ratingGlyphs = ["", "🆂 ", "🅰 ", "🅱 ", "🅲 ", "🅳 ", "🅴 ", "🅵 "];
+    const rInt = parseInt(rating, 10) || 0;
+    const icon = (rInt >= 1 && rInt <= 7) ? (ratingGlyphs[rInt] || "") : (hasPreview ? "🖻 " : "🖺 ");
+    return icon + (getLoraDisplayName(loraPath) || "LoRA Detail");
+}
+
 export function detectLoraBaseModel(loraPath) {
     const path = String(loraPath || "").toLowerCase();
     if (path.includes("pony")) return "Pony Diffusion V6";
@@ -522,30 +529,54 @@ export const getLoraLoaderProps = (host, basta, loraData) => ({
         const stack = host.properties.stackData || [];
         const idx = loraData.slotIndex;
         if (stack[idx] !== undefined) {
+            const normalizedPath = String(newPath || "").replace(/\\/g, "/");
             // 1. REPLACE LORA PATH, ENABLE LORA, & RESET TRIGGERS
-            stack[idx][0] = newPath;
+            stack[idx][0] = normalizedPath;
             stack[idx][5] = false; // Auto-Enable on swap
             stack[idx][3] = "None";
             stack[idx][4] = "";
 
+            loraData.loraPath = normalizedPath;
+            loraData.rawFileName = normalizedPath;
+            loraData.name = getLoraDisplayName(normalizedPath);
+            loraData.baseModel = detectLoraBaseModel(normalizedPath);
+            loraData.tags = [];
+            loraData.metadataString = null;
+            loraData.notes = "";
+            loraData.setup = null;
+            loraData._setupFetched = false;
+            loraData.currentImageIndex = -1;
+            loraData.previewUrl = (host._loraPreviewList || []).includes(normalizedPath)
+                ? getPreviewImageUrl(normalizedPath, false)
+                : null;
+            loraData.aspectRatio = null;
+
+            basta._activeTagKey = null;
+            basta._activeTagName = null;
+            basta._lastLoraName = "";
+            basta._derpKnownTriggers = -1;
+            basta._layoutDirty = true;
+            basta._forceSync = true;
+            basta.titleLabel = getLoraDetailTitle(normalizedPath, loraData.rating, !!loraData.previewUrl);
+            if (basta.properties) basta.properties.titleLabel = basta.titleLabel;
+
             // 2. TRIGGER REFRESH: Update the host node face and sync to Python
+            host._layoutMapHash = null;
+            host._lastStackValues = "";
             if (host.refreshNodeLayoutMap) host.refreshNodeLayoutMap();
             if (host.syncDerpOutputs) host.syncDerpOutputs();
             if (host.requestDerpSync) host.requestDerpSync();
             host._shouldSync = true;
             host.setDirtyCanvas(true, true);
 
-            // 3. PANEL RE-SYNC: Force the host to re-open the panel for this slot index.
-            const b = window.xcpActiveBastas?.get("basta_lora_detail_global_unique_id");
-            if (b) b._skipAnimOnce = true;
-
-            if (host.layout?.regions[`loraPreview_${idx}`]?.onPress) {
-                host.layout.regions[`loraPreview_${idx}`].onPress();
-            }
+            // 3. PANEL RE-SYNC: Keep this detail panel bound to the new LoRA immediately.
+            basta._skipAnimOnce = true;
+            if (basta.requestDerpSync) basta.requestDerpSync();
+            if (basta.setDirtyCanvas) basta.setDirtyCanvas(true, true);
 
             // 4. START TRIGGER FETCH
             if (host.fetchDerpLoraTriggers) {
-                host.fetchDerpLoraTriggers(newPath, idx, true);
+                host.fetchDerpLoraTriggers(normalizedPath, idx, true);
             }
         }
     }

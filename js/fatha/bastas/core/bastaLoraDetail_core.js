@@ -11,6 +11,7 @@ import { showBastaMessage } from "../bastaMessage.js";
 import { showBastaFileHandler } from "../bastaFileHandler.js";
 import { resolvePaintData, measureTextHeight } from "../../../herbina/utils/widgetsUtils.js";
 import { initLoraImageHandlers, calculatePreviewAspectRatio, refreshLoraImageList } from "../../../controldeck/helpers/loraImages.js";
+import { getLoraDetailTitle } from "../../../controldeck/helpers/loraComponents.js";
 
 function debugPreviewSet(loraData, source, url) {
     try {
@@ -628,10 +629,8 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
     const existing = window.xcpActiveBastas?.get(id);
     if (existing) existing.destroy(); // kill the bastard if it's already born
 
-    const ratingGlyphs = ["", "🆂 ", "🅰 ", "🅱 ", "🅲 ", "🅳 ", "🅴 ", "🅵 "];
-    const rInt = parseInt(loraData.rating, 10) || 0;
-    const loraIcon = (rInt >= 1 && rInt <= 7) ? (ratingGlyphs[rInt] || "") : (host.properties.previewList?.includes(loraData.name) ? "🖻 " : "🖺 ");
-    const loraName = loraIcon + (loraData.name || "LoRA Detail").replace(/\.safetensors$/i, "");
+    const loraPath = loraData.loraPath || loraData.rawFileName || loraData.path || loraData.name || "";
+    const loraName = getLoraDetailTitle(loraPath, loraData.rating, !!loraData.previewUrl);
 
     if (loraData.previewUrl && !loraData.aspectRatio) {
         const b = window.xcpActiveBastas?.get(id);
