@@ -5,6 +5,22 @@
 import { app } from "../../../scripts/app.js";
 
 const HOTKEY_SETTINGS = [];
+const DERP_CATEGORY = "Derp";
+function makeDerpCategory(group, leaf) {
+    return [DERP_CATEGORY, group, leaf];
+}
+const DERP_GROUPS = {
+    general: (leaf) => makeDerpCategory("General", leaf),
+    docking: (leaf) => makeDerpCategory("Docking", leaf),
+    sound: (leaf) => makeDerpCategory("Sound", leaf),
+    hotkeys: (leaf) => makeDerpCategory("Hotkeys", leaf)
+};
+const DERP_GROUP_SORT_ORDER = {
+    general: 400,
+    docking: 300,
+    sound: 200,
+    hotkeys: 100,
+};
 
 function normalizeHotkeyString(value, fallback = "") {
     const raw = String(value || "").trim();
@@ -104,12 +120,14 @@ function installHotkeyCapture() {
     }, true);
 }
 
-function registerHotkeySetting({ id, name, defaultValue, onValue }) {
+function registerHotkeySetting({ id, name, defaultValue, onValue, category, sortOrder }) {
     HOTKEY_SETTINGS.push({ id, name, defaultValue, onValue });
 
     app.ui.settings.addSetting({
         id,
         name,
+        category,
+        sortOrder,
         type: "text",
         default: defaultValue,
         onChange: (v) => onValue(normalizeHotkeyString(v, defaultValue))
@@ -142,6 +160,8 @@ app.registerExtension({
         app.ui.settings.addSetting({
             id: "Derp.PlaySound",
             name: "Derp Nodes: Play Sound",
+            category: DERP_GROUPS.sound("Play Sound"),
+            sortOrder: DERP_GROUP_SORT_ORDER.sound,
             type: "boolean",
             default: true,
             onChange: (v) => {
@@ -154,6 +174,8 @@ app.registerExtension({
         app.ui.settings.addSetting({
             id: "Derp.UseAnimation",
             name: "Derp Nodes: Use Animation",
+            category: DERP_GROUPS.general("Use Animation"),
+            sortOrder: DERP_GROUP_SORT_ORDER.general,
             type: "boolean",
             default: true,
             onChange: (v) => {
@@ -182,7 +204,9 @@ app.registerExtension({
 
         app.ui.settings.addSetting({
             id: "Derp.VerticalDockHeaderCollapse",
-            name: "Derp Nodes: Clicking on node header to toggle collapsing state of the node.",
+            name: "Header Collapse: Clicking on node header to toggle collapsing state of the node.",
+            category: DERP_GROUPS.docking("Header Collapse Toggle"),
+            sortOrder: DERP_GROUP_SORT_ORDER.docking,
             type: "boolean",
             default: true,
             onChange: (v) => {
@@ -192,10 +216,26 @@ app.registerExtension({
             }
         });
 
+        app.ui.settings.addSetting({
+            id: "Derp.SyncedCollapse",
+            name: "Synced Collapse: Horizontal docked stacks will collapse/un-collapse together.",
+            category: DERP_GROUPS.docking("Synced Collapse"),
+            sortOrder: DERP_GROUP_SORT_ORDER.docking,
+            type: "boolean",
+            default: true,
+            onChange: (v) => {
+                window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
+                window.DERP_GLOBAL_SETTINGS.syncedCollapse = normalizeBooleanSetting(v, true);
+                if (app.canvas) app.canvas.setDirty(true, true);
+            }
+        });
+
         registerHotkeySetting({
             id: "Derp.PerfOverlayHotkey",
             name: "Derp Nodes: Perf Overlay Hotkey",
             defaultValue: "Alt+Shift+P",
+            category: DERP_GROUPS.hotkeys("Perf Overlay Hotkey"),
+            sortOrder: DERP_GROUP_SORT_ORDER.hotkeys,
             onValue: (v) => {
                 window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
                 window.DERP_GLOBAL_SETTINGS.perfOverlayHotkey = normalizeHotkeyString(v, "Alt+Shift+P");
@@ -205,6 +245,8 @@ app.registerExtension({
         app.ui.settings.addSetting({
             id: "Derp.SystemBypassSoundIndex",
             name: "Derp Nodes: Bypass Sound Variant (0-4)",
+            category: DERP_GROUPS.sound("Bypass Sound Variant"),
+            sortOrder: DERP_GROUP_SORT_ORDER.sound,
             type: "number",
             default: 0,
             attrs: { min: 0, max: 4, step: 1 },
@@ -217,6 +259,8 @@ app.registerExtension({
         app.ui.settings.addSetting({
             id: "Derp.SystemCollapseSoundIndex",
             name: "Derp Nodes: Collapse Sound Variant (0-4)",
+            category: DERP_GROUPS.sound("Collapse Sound Variant"),
+            sortOrder: DERP_GROUP_SORT_ORDER.sound,
             type: "number",
             default: 0,
             attrs: { min: 0, max: 4, step: 1 },
@@ -229,6 +273,8 @@ app.registerExtension({
         app.ui.settings.addSetting({
             id: "Derp.SystemDockSoundIndex",
             name: "Derp Nodes: Dock Sound Variant (0-4)",
+            category: DERP_GROUPS.sound("Dock Sound Variant"),
+            sortOrder: DERP_GROUP_SORT_ORDER.sound,
             type: "number",
             default: 0,
             attrs: { min: 0, max: 4, step: 1 },
@@ -243,6 +289,7 @@ app.registerExtension({
             playSound: app.ui.settings.getSettingValue("Derp.PlaySound", true),
             useAnimation: app.ui.settings.getSettingValue("Derp.UseAnimation", true),
             verticalDockHeaderCollapse: normalizeBooleanSetting(app.ui.settings.getSettingValue("Derp.VerticalDockHeaderCollapse", true), true),
+            syncedCollapse: normalizeBooleanSetting(app.ui.settings.getSettingValue("Derp.SyncedCollapse", true), true),
             perfOverlayHotkey: normalizeHotkeyString(app.ui.settings.getSettingValue("Derp.PerfOverlayHotkey", "Alt+Shift+P"), "Alt+Shift+P"),
             systemBypassSoundIndex: normalizeVariantIndex(app.ui.settings.getSettingValue("Derp.SystemBypassSoundIndex", 0), 0),
             systemCollapseSoundIndex: normalizeVariantIndex(app.ui.settings.getSettingValue("Derp.SystemCollapseSoundIndex", 0), 0),

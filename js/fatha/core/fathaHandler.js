@@ -518,33 +518,44 @@ export function handleDerpComputeSize(entity, out, minWidth = 100) {
 
 export function handleDerpCollapse(entity, force) {
     const nextState = force !== undefined ? force : !entity.properties.contentCollapsed;
+    const graph = app.graph || entity.graph || null;
+    const syncedCollapseEnabled = window.DERP_GLOBAL_SETTINGS?.syncedCollapse ?? true;
+    const collapseTargets = (syncedCollapseEnabled && graph && isLinearDeckGroup(entity, graph, "horizontal"))
+        ? getDeckMembers(entity, graph)
+        : [entity];
 
-    if (nextState === true && !entity.properties.contentCollapsed) {
-        if (sysPanel.isVisible && sysPanel.hostNode?.id === entity.id) {
-            closeDerpSysPanel();
+    const applyCollapseState = (target) => {
+        if (!target?.properties) target.properties = {};
+
+        if (nextState === true && !target.properties.contentCollapsed) {
+            if (sysPanel.isVisible && sysPanel.hostNode?.id === target.id) {
+                closeDerpSysPanel();
+            }
+            target._preCollapseHeight = Math.max(
+                Number(target._preCollapseHeight || 0),
+                Number(target.size?.[1] || 0),
+                Number(target.properties?.nodeSize?.[1] || 0),
+                Number(target.layout?.totalHeight || 0),
+                Number(target.layout?.contentMinHeight || 0)
+            );
         }
-        entity._preCollapseHeight = Math.max(
-            Number(entity._preCollapseHeight || 0),
-            Number(entity.size?.[1] || 0),
-            Number(entity.properties?.nodeSize?.[1] || 0),
-            Number(entity.layout?.totalHeight || 0),
-            Number(entity.layout?.contentMinHeight || 0)
-        );
-    }
 
-    entity.properties.contentCollapsed = nextState;
-    if (!entity.flags) entity.flags = {};
-    entity.flags.collapsed = false;
-    entity._allowDockCollapseShift = true;
-    try {
-        settleCollapseSizeBeforeDraw(entity);
-    } finally {
-        entity._allowDockCollapseShift = false;
-    }
+        target.properties.contentCollapsed = nextState;
+        if (!target.flags) target.flags = {};
+        target.flags.collapsed = false;
+        target._allowDockCollapseShift = true;
+        try {
+            settleCollapseSizeBeforeDraw(target);
+        } finally {
+            target._allowDockCollapseShift = false;
+        }
 
-    if (entity.syncUncleSlots) entity.syncUncleSlots();
-    if (entity.requestDerpSync) entity.requestDerpSync();
-    else handleDerpRequestSync(entity);
+        if (target.syncUncleSlots) target.syncUncleSlots();
+        if (target.requestDerpSync) target.requestDerpSync();
+        else handleDerpRequestSync(target);
+    };
+
+    collapseTargets.forEach(applyCollapseState);
 
     if (app.graph && app.graph.change) app.graph.change();
 }
