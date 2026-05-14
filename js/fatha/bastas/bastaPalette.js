@@ -43,7 +43,7 @@ const getPaletteHash = (palettes, effects) => {
     }
 };
 
-function invalidatePaletteControls(basta, keys = ["browserPalette", "dropdownKeys"]) {
+function invalidatePaletteControls(basta, keys = ["browserPalette", "dropdownKeys"], options = {}) {
     basta._layoutDirty = true;
     basta._forceSync = true;
     if (basta.layout) basta.layout._lastCacheKey = "";
@@ -57,11 +57,12 @@ function invalidatePaletteControls(basta, keys = ["browserPalette", "dropdownKey
             el._lastProps = null;
         }
     });
-    basta.requestDerpSync();
+    if (options.request !== false) basta.requestDerpSync();
 }
 
-function refreshPaletteLayout(basta) {
+function refreshPaletteLayout(basta, options = {}) {
     invalidatePaletteControls(basta, [
+        "browserPalette",
         "toggleEffectsKeys",
         "shadowRegion",
         "strokeRegion",
@@ -81,12 +82,28 @@ function refreshPaletteLayout(basta) {
         "fileShadow",
         "fileStroke",
         "fileGlow",
-    ]);
+    ], options);
 }
 
-function applyPaletteFileList(basta, items) {
+function normalizePaletteName(name) {
+    return String(name || "").replace(/\\/g, "/");
+}
+
+function applyPaletteFileList(basta, items, options = {}) {
     basta._paletteList = (items || []).map(item => String(item || "").replace(/\\/g, "/"));
-    invalidatePaletteControls(basta, ["browserPalette"]);
+    invalidatePaletteControls(basta, ["browserPalette"], options);
+}
+
+async function refreshPaletteFileList(basta, options = {}) {
+    try {
+        const res = await fetch(`/xcp/list/palettes?t=${Date.now()}`);
+        if (!res.ok) throw new Error(`Palette list failed with status ${res.status}`);
+        const data = await res.json();
+        applyPaletteFileList(basta, data.items, options);
+    } catch (e) {
+        console.error("[Palette Manager] Palette List Error:", e);
+        if (options.showError) showBastaMessage(basta, "Palette List Error", 3000, { width: 250 }, options.anchor || false, false, "error");
+    }
 }
 
 /**
@@ -142,10 +159,9 @@ export function showBastaPalette(host, targetRegion = null) {
                 }
                 pulsedSaveColor = colorPulse2(basta._savePulseColors.a, basta._savePulseColors.b, 0.005);
                 basta._derpAwakeFrames = 2;
-                basta._layoutDirty = true;
             }
             const openDesigner = (targetTheme, keyName, exactKey, persistentKey) => {
-                const safeHost = Object.create(host); // FIXED: Changed hostNode to host
+                const safeHost = Object.create(host || basta); // FIXED: Changed hostNode to host
                 safeHost.themeToEdit = targetTheme;
                 safeHost._selectedKeyName = keyName;
                 safeHost._selectedThemeName = "__PALETTE_LOCAL__"; // Block designer from overwriting global theme config
@@ -258,16 +274,16 @@ export function showBastaPalette(host, targetRegion = null) {
                     fileType: "palette", // THE ICON HINT: Enables the ❖ glyph in the browser list
                     items: basta._paletteList || [],
                     onChange: async (selectedFile) => {
-                        basta.properties.activePaletteName = selectedFile;
+                        const normalizedSelected = normalizePaletteName(selectedFile);
                         try {
                             // THE URL ENCODING FIX: Safely encode filenames containing spaces, quotes, or special characters for the GET request
-                            const res = await fetch(`/xcp/load/palettes?name=${encodeURIComponent(selectedFile)}`);
+                            const res = await fetch(`/xcp/load/palettes?name=${encodeURIComponent(normalizedSelected)}`);
                             if (!res.ok) {
-                                console.error(`[Palette Manager] Failed to load palette. Server returned status: ${res.status}. Check if the JSON file is valid.`);
-                                return;
+                                throw new Error(`Palette load failed with status ${res.status}`);
                             }
                             const json = await res.json();
                             // THE COLLECTION LOAD: Extract palettes array from root object and sync effect toggle
+                            basta.properties.activePaletteName = normalizedSelected;
                             basta._availablePalettes = json.data?.palettes || [];
 
                             // THE UI INITIALIZATION: Set default visibility flags and hydrate missing effect keys
@@ -290,8 +306,10 @@ export function showBastaPalette(host, targetRegion = null) {
 
                             basta.properties.activePaletteId = null;
                             basta._selectedPaletteEntry = null;
-                        } catch (e) { console.error("[Palette Manager] Collection Load Error:", e); }
-                        invalidatePaletteControls(basta, ["browserPalette"]);
+                        } catch (e) {
+                            console.error("[Palette Manager] Collection Load Error:", e);
+                            showBastaMessage(basta, "Load Failed", 3000, { width: 250 }, "browserPalette", false, "error");
+                        }
                         refreshPaletteLayout(basta);
                     },
                     width: "full", height: 20, padding: [pW, pH],
@@ -352,7 +370,7 @@ export function showBastaPalette(host, targetRegion = null) {
                             if (currentPal) {
                                 currentPal.name = newName;
                                 showBastaMessage(basta, `Entry Renamed: ${newName}`, 3000, { fade: true, grow: true }, "btnRenameKey", false, "success");
-                                invalidatePaletteControls(basta, ["dropdownKeys"]);
+                                refreshPaletteLayout(basta);
                             }
                         }
                     })
@@ -377,7 +395,7 @@ export function showBastaPalette(host, targetRegion = null) {
                                 basta.properties.activePaletteId = newEntry.id;
                                 basta._selectedPaletteEntry = newEntry;
                                 showBastaMessage(basta, `Entry Duplicated: ${newName}`, 3000, { fade: true, grow: true }, "btnCopyKey", false, "success");
-                                invalidatePaletteControls(basta, ["dropdownKeys"]);
+                                refreshPaletteLayout(basta);
                             }
                         }
                     })
@@ -596,42 +614,26 @@ export function showBastaPalette(host, targetRegion = null) {
     // THE SUCCESS FEEDBACK: Handle UI updates and messaging after a successful file rename
     bastaInstance.onRenameSuccess = (newName) => {
         showBastaMessage(bastaInstance, `Renamed to: ${newName}`, 3000, { fade: true, grow: true }, "btnRename", false, "success");
-        fetch(`/xcp/list/palettes?t=${Date.now()}`)
-            .then(r => r.json())
-            .then(data => {
-                applyPaletteFileList(bastaInstance, data.items);
-            });
+        refreshPaletteFileList(bastaInstance, { showError: true, anchor: "btnRename" });
     };
 
     bastaInstance.onDuplicateSuccess = (newName) => {
         showBastaMessage(bastaInstance, `Duplicated to: ${newName}`, 3000, { fade: true, grow: true }, "btnCopy", false, "success");
-        fetch(`/xcp/list/palettes?t=${Date.now()}`)
-            .then(r => r.json())
-            .then(data => {
-                applyPaletteFileList(bastaInstance, data.items);
-            });
+        refreshPaletteFileList(bastaInstance, { showError: true, anchor: "btnCopy" });
     };
 
     bastaInstance.onDeleteSuccess = (deletedName) => {
         showBastaMessage(bastaInstance, `Deleted: ${deletedName}`, 3000, { fade: true, grow: true }, "btnDelete", false, "success");
-        if (bastaInstance.properties.activePaletteName === deletedName) {
+        if (normalizePaletteName(bastaInstance.properties.activePaletteName) === normalizePaletteName(deletedName)) {
             bastaInstance.properties.activePaletteName = "";
             bastaInstance.properties.activePaletteId = null;
             bastaInstance._availablePalettes = [];
             bastaInstance._selectedPaletteEntry = null;
         }
-        fetch(`/xcp/list/palettes?t=${Date.now()}`)
-            .then(r => r.json())
-            .then(data => {
-                applyPaletteFileList(bastaInstance, data.items);
-            });
+        refreshPaletteFileList(bastaInstance, { showError: true, anchor: "btnDelete" });
     };
 
-    fetch(`/xcp/list/palettes?t=${Date.now()}`)
-        .then(r => r.json())
-        .then(data => {
-            applyPaletteFileList(bastaInstance, data.items);
-        });
+    refreshPaletteFileList(bastaInstance);
 
     /**
      * THE CONTEXT LINK: The widget_ColorKey requires themeToEdit and _selectedKeyName
