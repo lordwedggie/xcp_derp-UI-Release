@@ -94,9 +94,14 @@ export function createDerpEditorHTML(callbacks = {}) {
         if (e.stopImmediatePropagation) e.stopImmediatePropagation();
     });
     el.addEventListener("input", () => {
+        const nextValue = el.value;
+        if (el._config) {
+            el._config.value = nextValue;
+            el._config.text = nextValue;
+        }
         if (el._nodeRef) el._nodeRef._derpAwakeFrames = 5;
         const cb = el._config?.onInput || callbacks.onInput;
-        if (cb) cb(el.value);
+        if (cb) cb(nextValue);
     });
 
     el.addEventListener("focus", () => {
@@ -131,6 +136,10 @@ export function createDerpEditorHTML(callbacks = {}) {
 
     el.addEventListener("blur", () => {
         el._isAwake = false;
+        if (el._config) {
+            el._config.value = el.value;
+            el._config.text = el.value;
+        }
         const cb = el._config?.onBlur || callbacks.onBlur;
         if (cb) cb(el.value);
         if (el._nodeRef) {
