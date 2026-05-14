@@ -75,6 +75,16 @@ function profileMeasureText(basta, ...args) {
 }
 
 export { getLoraDetailId };
+
+function getTriggerItemsForPath(host, loraPath) {
+    const cache = host?._loraTriggerArrayCache;
+    if (!cache || !loraPath) return [];
+
+    const normalized = String(loraPath).replace(/\\/g, "/");
+    const windowsStyle = normalized.replace(/\//g, "\\");
+    return cache[loraPath] || cache[normalized] || cache[windowsStyle] || [];
+}
+
 export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (basta, vars) => {
     bumpBLDPerf(basta, "layoutBuild");
     flushBLDPerf(basta);
@@ -131,7 +141,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
     const previewAspectForLayout = loraData.aspectRatio || 1;
     const previewH = Math.floor(calculatePreviewDisplayHeight(basta, previewAspectForLayout, mW));
     const loaderProps = getLoraLoaderProps(host, basta, loraData);
-    const triggerItems = host._loraTriggerArrayCache?.[currentPath] || host._loraTriggerArrayCache?.[currentPath.replace(/\\/g, "/")] || [];
+    const triggerItems = getTriggerItemsForPath(host, currentPath);
 
     // THE RESET ENGINE: If the model or slot has changed, clear the stale trigger selection
     if (basta._lastLoraName !== currentPath || basta._lastSlotIndex !== loraData.slotIndex) {
@@ -145,22 +155,9 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
     const stack = host.properties.stackData || [];
     const idx = loraData.slotIndex;
     if (triggerItems.length === 0) {
-        const entry = stack[idx];
-        const hasStaleSelection = !!(entry && (entry[3] && entry[3] !== "None" || entry[4]));
-        if (entry && hasStaleSelection) {
-            entry[3] = "None";
-            entry[4] = "";
-            loraData.tags = [];
-            const editorEl = basta.dynamicElements?.loraTriggersEditor;
-            if (editorEl) editorEl.value = "";
-            if (host.syncDerpOutputs) host.syncDerpOutputs();
-            if (host.refreshDerpLoraStackSysMap) host.refreshDerpLoraStackSysMap();
-        }
-        if (basta._activeTagKey || basta._activeTagName) {
-            basta._activeTagKey = null;
-            basta._activeTagName = null;
-            basta._forceSync = true;
-        }
+        // Preserve the current trigger selection during transient empty-cache windows.
+        // Save/fetch rebuilds can briefly produce no trigger items even though the trigger
+        // still exists on disk; clearing here causes the post-save disappearance bug.
     } else {
         const nodeSelectionKey = stack[idx]?.[3];
 
@@ -200,7 +197,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
     }
 
     const isSaveEnabled = (() => {
-        const items = host._loraTriggerArrayCache?.[currentPath] || [];
+        const items = triggerItems;
         const active = items.find(t => t.key === basta._activeTagKey);
         if (!active) return false;
 

@@ -13,6 +13,15 @@ import { resolvePaintData, measureTextHeight } from "../../../herbina/utils/widg
 import { initLoraImageHandlers, calculatePreviewAspectRatio, refreshLoraImageList } from "../../../controldeck/helpers/loraImages.js";
 import { getLoraDetailTitle } from "../../../controldeck/helpers/loraComponents.js";
 
+function getTriggerItemsForPath(host, loraPath) {
+    const cache = host?._loraTriggerArrayCache;
+    if (!cache || !loraPath) return [];
+
+    const normalized = String(loraPath).replace(/\\/g, "/");
+    const windowsStyle = normalized.replace(/\//g, "\\");
+    return cache[loraPath] || cache[normalized] || cache[windowsStyle] || [];
+}
+
 function debugPreviewSet(loraData, source, url) {
     try {
         if (window._xcpDebugLoraPreviewSwitch !== true) return;
@@ -814,10 +823,13 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
     instance._lastHoverKey = null;
     instance._externalReady = false;
 
-    const currentPath = loraData.path || loraData.name || "";
-    const triggerItems = host._loraTriggerArrayCache?.[currentPath] || [];
-    const currentTag = host.properties.stackData[loraData.slotIndex]?.[4] || "";
-    const activeMatch = triggerItems.find(t => t.tag === currentTag || t.name === currentTag);
+    const currentPath = loraData.loraPath || loraData.rawFileName || loraData.path || loraData.name || "";
+    const triggerItems = getTriggerItemsForPath(host, currentPath);
+    const currentEntry = host.properties.stackData[loraData.slotIndex] || [];
+    const currentKey = currentEntry[3] || "";
+    const currentTag = currentEntry[4] || "";
+    const activeMatch = triggerItems.find(t => t.key === currentKey)
+        || triggerItems.find(t => t.tag === currentTag || t.name === currentTag);
     instance._activeTagKey = activeMatch ? activeMatch.key : null;
     instance._activeTagName = activeMatch ? activeMatch.name : null;
 
@@ -911,7 +923,7 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
                 const liveStack = host.properties?.stackData || [];
                 const slotIdx = this._loraData?.slotIndex ?? loraData.slotIndex;
                 const path = liveStack[slotIdx]?.[0] || "";
-                const tCount = (host._loraTriggerArrayCache?.[path] || []).length;
+                const tCount = getTriggerItemsForPath(host, path).length;
 
                 if (this._derpKnownTriggers !== tCount) {
                     this._derpKnownTriggers = tCount;
