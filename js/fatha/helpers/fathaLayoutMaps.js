@@ -13,6 +13,7 @@ import { isNodeDocked, undockNodeEdges, isLinearDeckGroup, getDeckMembers } from
 import { clearBypassSignalDebouncers, transmitBypassedDerpSignals } from "../core/masterSignalEngine.js";
 import { ensureNodeVisibleInViewport } from "../core/fathaWarp.js";
 import { warpToPoint } from "../core/fathaWarp.js";
+import { handleDerpCollapse } from "../core/fathaHandler.js";
 
 const DEBUG_OPTIONS = ["None", "Layout", "Hitbox", "Widgets Hitbox"];
 const TITLE_LABEL_DEFAULT = "Derp Nodes";
@@ -207,11 +208,7 @@ export const getVirtualNodeLayoutMap = (node) => {
                     playSound: p.contentCollapsed ? "collapseoff" : "collapseon",
                     onPress: () => {
                         const wasCollapsed = !!node.properties.contentCollapsed;
-                        if (node.collapse) node.collapse();
-                        else {
-                            node.properties.contentCollapsed = !node.properties.contentCollapsed;
-                            if (node.requestDerpSync) node.requestDerpSync();
-                        }
+                        handleDerpCollapse(node);
                         if (wasCollapsed) {
                             ensureNodeVisibleInViewport(node, {
                                 axis: "y",

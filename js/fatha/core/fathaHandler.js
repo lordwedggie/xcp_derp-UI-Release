@@ -519,10 +519,19 @@ export function handleDerpComputeSize(entity, out, minWidth = 100) {
 export function handleDerpCollapse(entity, force) {
     const nextState = force !== undefined ? force : !entity.properties.contentCollapsed;
     const graph = app.graph || entity.graph || null;
+    const isHorizontalDeckGroup = !!(graph && isLinearDeckGroup(entity, graph, "horizontal"));
     const syncedCollapseEnabled = window.DERP_GLOBAL_SETTINGS?.syncedCollapse ?? true;
-    const collapseTargets = (syncedCollapseEnabled && graph && isLinearDeckGroup(entity, graph, "horizontal"))
+    const collapseTargets = (syncedCollapseEnabled && isHorizontalDeckGroup)
         ? getDeckMembers(entity, graph)
         : [entity];
+    const orderedCollapseTargets = (syncedCollapseEnabled && isHorizontalDeckGroup && nextState === false)
+        ? [...collapseTargets].sort((a, b) => {
+            const ax = Number(a?.pos?.[0]) || 0;
+            const bx = Number(b?.pos?.[0]) || 0;
+            if (ax !== bx) return bx - ax;
+            return (Number(b?.id) || 0) - (Number(a?.id) || 0);
+        })
+        : collapseTargets;
 
     const applyCollapseState = (target) => {
         if (!target?.properties) target.properties = {};
@@ -555,7 +564,31 @@ export function handleDerpCollapse(entity, force) {
         else handleDerpRequestSync(target);
     };
 
-    collapseTargets.forEach(applyCollapseState);
+    orderedCollapseTargets.forEach(applyCollapseState);
+
+    if (syncedCollapseEnabled && isHorizontalDeckGroup) {
+        const sharedHeight = collapseTargets.reduce((maxHeight, target) => {
+            const expandedHeight = nextState === false
+                ? Math.max(
+                    Number(target._preCollapseHeight || 0),
+                    Number(target.size?.[1] || 0),
+                    Number(target.properties?.nodeSize?.[1] || 0),
+                    Number(target.layout?.contentMinHeight || 0),
+                    Number(target.layout?.totalHeight || 0)
+                )
+                : Math.max(
+                    Number(target.size?.[1] || 0),
+                    Number(target.properties?.nodeSize?.[1] || 0),
+                    Number(target.layout?.contentMinHeight || 0),
+                    Number(target.layout?.totalHeight || 0)
+                );
+            return Math.max(maxHeight, expandedHeight);
+        }, 0);
+
+        if (sharedHeight > 0) {
+            syncHorizontalDeckHeight(entity, sharedHeight);
+        }
+    }
 
     if (app.graph && app.graph.change) app.graph.change();
 }
