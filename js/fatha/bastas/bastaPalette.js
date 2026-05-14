@@ -43,6 +43,27 @@ const getPaletteHash = (palettes, effects) => {
     }
 };
 
+function invalidatePaletteControls(basta, keys = ["browserPalette", "dropdownKeys"]) {
+    basta._layoutDirty = true;
+    basta._forceSync = true;
+    keys.forEach(key => {
+        if (basta._fileBrowserCache) delete basta._fileBrowserCache[key];
+        if (basta._compDataCache) delete basta._compDataCache[key];
+        const el = basta._derpDomElements?.[key];
+        if (el) {
+            el._lastStateHash = "";
+            el._lastSyncKey = "";
+            el._lastProps = null;
+        }
+    });
+    basta.requestDerpSync();
+}
+
+function applyPaletteFileList(basta, items) {
+    basta._paletteList = (items || []).map(item => String(item || "").replace(/\\/g, "/"));
+    invalidatePaletteControls(basta, ["browserPalette"]);
+}
+
 /**
  * THE ID PROTOCOL: Centralized ID generator for global singleton checks.
  >>>>
@@ -245,7 +266,7 @@ export function showBastaPalette(host, targetRegion = null) {
                             basta.properties.activePaletteId = null;
                             basta._selectedPaletteEntry = null;
                         } catch (e) { console.error("[Palette Manager] Collection Load Error:", e); }
-                        basta.requestDerpSync();
+                        invalidatePaletteControls(basta, ["browserPalette", "dropdownKeys"]);
                     },
                     width: "full", height: 20, padding: [pW, pH],
                     canvasShield: true, spacing: [sW, 0],
@@ -305,7 +326,7 @@ export function showBastaPalette(host, targetRegion = null) {
                             if (currentPal) {
                                 currentPal.name = newName;
                                 showBastaMessage(basta, `Entry Renamed: ${newName}`, 3000, { fade: true, grow: true }, "btnRenameKey", false, "success");
-                                basta.requestDerpSync();
+                                invalidatePaletteControls(basta, ["dropdownKeys"]);
                             }
                         }
                     })
@@ -330,7 +351,7 @@ export function showBastaPalette(host, targetRegion = null) {
                                 basta.properties.activePaletteId = newEntry.id;
                                 basta._selectedPaletteEntry = newEntry;
                                 showBastaMessage(basta, `Entry Duplicated: ${newName}`, 3000, { fade: true, grow: true }, "btnCopyKey", false, "success");
-                                basta.requestDerpSync();
+                                invalidatePaletteControls(basta, ["dropdownKeys"]);
                             }
                         }
                     })
@@ -417,7 +438,7 @@ export function showBastaPalette(host, targetRegion = null) {
                                 basta.properties.activePaletteId = null;
                                 basta._selectedPaletteEntry = null;
                                 showBastaMessage(basta, "Entry Deleted", 3000, { fade: true, grow: true }, "btnDeleteKey", false, "success");
-                                basta.requestDerpSync();
+                                invalidatePaletteControls(basta, ["dropdownKeys"]);
                             }
                         }
                     })
@@ -548,8 +569,7 @@ export function showBastaPalette(host, targetRegion = null) {
         fetch(`/xcp/list/palettes?t=${Date.now()}`)
             .then(r => r.json())
             .then(data => {
-                bastaInstance._paletteList = data.items || [];
-                bastaInstance.requestDerpSync();
+                applyPaletteFileList(bastaInstance, data.items);
             });
     };
 
@@ -558,8 +578,7 @@ export function showBastaPalette(host, targetRegion = null) {
         fetch(`/xcp/list/palettes?t=${Date.now()}`)
             .then(r => r.json())
             .then(data => {
-                bastaInstance._paletteList = data.items || [];
-                bastaInstance.requestDerpSync();
+                applyPaletteFileList(bastaInstance, data.items);
             });
     };
 
@@ -574,16 +593,14 @@ export function showBastaPalette(host, targetRegion = null) {
         fetch(`/xcp/list/palettes?t=${Date.now()}`)
             .then(r => r.json())
             .then(data => {
-                bastaInstance._paletteList = data.items || [];
-                bastaInstance.requestDerpSync();
+                applyPaletteFileList(bastaInstance, data.items);
             });
     };
 
     fetch(`/xcp/list/palettes?t=${Date.now()}`)
         .then(r => r.json())
         .then(data => {
-            bastaInstance._paletteList = data.items || [];
-            bastaInstance.requestDerpSync();
+            applyPaletteFileList(bastaInstance, data.items);
         });
 
     /**

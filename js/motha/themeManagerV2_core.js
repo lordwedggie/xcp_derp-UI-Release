@@ -228,6 +228,15 @@ export function bindThemeEvents(node) {
 
         lReg.editorPadding.onInput = (v) => updateLayoutProp("padding", 6, v, false);
         lReg.editorPadding.onBlur = (v) => updateLayoutProp("padding", 6, v, true);
+
+        if (lReg.dropdownPalette) {
+            lReg.dropdownPalette.onChange = (v) => {
+                if (v === "Loading palettes..." || v === "No _system palettes found") return;
+                node.properties.systemPaletteName = v;
+                lReg.dropdownPalette.value = v;
+                node.requestDerpSync();
+            };
+        }
     }
 
     // 1. Static Theme Management Events

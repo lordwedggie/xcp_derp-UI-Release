@@ -422,7 +422,11 @@ async def handle_open_folder(request):
         # THE SYSTEM CATEGORY FIX: Handle explicit directory names like "palettes" or "themes"
         if name in ["palettes", "themes"]:
             derp_root = os.path.join(folder_paths.get_user_directory(), "derpNodes")
-            target_path = os.path.join(derp_root, name)
+            target_name = "Palettes" if name == "palettes" else name
+            target_path = os.path.join(derp_root, target_name)
+            if name == "palettes" and not os.path.exists(target_path):
+                legacy_path = os.path.join(derp_root, "palettes")
+                target_path = legacy_path if os.path.exists(legacy_path) else target_path
             if not os.path.exists(target_path): os.makedirs(target_path, exist_ok=True)
 
             if os.name == 'nt': os.startfile(target_path)

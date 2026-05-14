@@ -180,6 +180,18 @@ app.registerExtension({
             }
         });
 
+        app.ui.settings.addSetting({
+            id: "Derp.VerticalDockHeaderCollapse",
+            name: "Derp Nodes: Clicking on node header to toggle collapsing state of the node.",
+            type: "boolean",
+            default: true,
+            onChange: (v) => {
+                window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
+                window.DERP_GLOBAL_SETTINGS.verticalDockHeaderCollapse = normalizeBooleanSetting(v, true);
+                if (app.canvas) app.canvas.setDirty(true, true);
+            }
+        });
+
         registerHotkeySetting({
             id: "Derp.PerfOverlayHotkey",
             name: "Derp Nodes: Perf Overlay Hotkey",
@@ -230,6 +242,7 @@ app.registerExtension({
         window.DERP_GLOBAL_SETTINGS = {
             playSound: app.ui.settings.getSettingValue("Derp.PlaySound", true),
             useAnimation: app.ui.settings.getSettingValue("Derp.UseAnimation", true),
+            verticalDockHeaderCollapse: normalizeBooleanSetting(app.ui.settings.getSettingValue("Derp.VerticalDockHeaderCollapse", true), true),
             perfOverlayHotkey: normalizeHotkeyString(app.ui.settings.getSettingValue("Derp.PerfOverlayHotkey", "Alt+Shift+P"), "Alt+Shift+P"),
             systemBypassSoundIndex: normalizeVariantIndex(app.ui.settings.getSettingValue("Derp.SystemBypassSoundIndex", 0), 0),
             systemCollapseSoundIndex: normalizeVariantIndex(app.ui.settings.getSettingValue("Derp.SystemCollapseSoundIndex", 0), 0),

@@ -18,7 +18,7 @@
  */
 import { app } from "../../../../scripts/app.js";
 import { renderHitboxDebug } from "../helpers/debugPainter.js";
-import { getDeckMembers, isLinearDeckGroup } from "./masterDockEngine.js";
+import { getNodeOnDeckEdge, isLinearDeckGroup } from "./masterDockEngine.js";
 
 // DEBUG_MODE is now dynamically handled via node.properties.debugMode
 
@@ -541,59 +541,45 @@ export function syncDerpShield(node) {
         const edges = node.properties?.deckEdges || {};
         const hasSharedLeftEdge = edges.left !== null && edges.left !== undefined;
         const hasSharedRightEdge = edges.right !== null && edges.right !== undefined;
-        const graph = node.graph || globalThis?.app?.graph || null;
-        const verticalMembers = graph && isLinearDeckGroup(node, graph, "vertical")
-            ? [...getDeckMembers(node, graph)].sort((a, b) => {
-                const ay = Number(a?.pos?.[1]) || 0;
-                const by = Number(b?.pos?.[1]) || 0;
-                if (ay !== by) return ay - by;
-                return (Number(a?.id) || 0) - (Number(b?.id) || 0);
-            })
-            : null;
-        const isVerticalMiddleNode = Array.isArray(verticalMembers) && verticalMembers.length > 2
-            ? verticalMembers[0]?.id !== node.id && verticalMembers[verticalMembers.length - 1]?.id !== node.id
-            : false;
         const sharedEdgeWidth = Math.max(4 * scale, Number(vars.mW || 0) * scale);
-        node.interactionShield._resizeHandle._resizeAnchorOverride = hasSharedRightEdge ? "right" : null;
+        const graph = app.graph || node.graph || null;
+        const isVerticalDockStack = !!(graph && isLinearDeckGroup(node, graph, "vertical"));
+        const allowTopResizeCorners = !isVerticalDockStack || !getNodeOnDeckEdge(node, graph, "top");
+        const allowBottomResizeCorners = !isVerticalDockStack || !getNodeOnDeckEdge(node, graph, "bottom");
+        node.interactionShield._resizeHandle._resizeAnchorOverride = (!isVerticalDockStack && hasSharedRightEdge) ? "right" : null;
         handleStyle.width = `${bottomRightWidth}px`;
         handleStyle.height = `${bottomCornerSize}px`;
         handleStyle.cursor = (canW && canH) ? "nwse-resize" : (canW ? "ew-resize" : "ns-resize");
         // THE INTERACTION GUARD: Disable handle interaction entirely if both axes are auto-managed
         node.resizable = !(vars.autoWidth && vars.autoHeight); // THE NATIVE FIX: Kill LiteGraph's own resize logic
-        handleStyle.display = node.resizable ? "block" : "none"; // THE VISUAL FIX: Completely remove the handle
-        handleStyle.pointerEvents = node.resizable ? "auto" : "none";
+        handleStyle.display = (node.resizable && allowBottomResizeCorners) ? "block" : "none"; // THE VISUAL FIX: Completely remove the handle
+        handleStyle.pointerEvents = (node.resizable && allowBottomResizeCorners) ? "auto" : "none";
         handleStyle.right = `-${padR * scale}px`;
 
-        if (hasSharedRightEdge && canW && !isVerticalMiddleNode) {
+        if (!isVerticalDockStack && allowBottomResizeCorners && hasSharedRightEdge && canW) {
             handleStyle.width = `${sharedEdgeWidth}px`;
             handleStyle.height = `${visualH * scale}px`;
             handleStyle.cursor = "ew-resize";
             handleStyle.display = "block";
             handleStyle.pointerEvents = "auto";
-        } else if (hasSharedRightEdge && isVerticalMiddleNode) {
-            handleStyle.display = "none";
-            handleStyle.pointerEvents = "none";
         }
 
         if (node.interactionShield._resizeHandleLeft) {
             const leftStyle = node.interactionShield._resizeHandleLeft.style;
-            node.interactionShield._resizeHandleLeft._resizeAnchorOverride = hasSharedLeftEdge ? "left" : null;
+            node.interactionShield._resizeHandleLeft._resizeAnchorOverride = (!isVerticalDockStack && hasSharedLeftEdge) ? "left" : null;
             leftStyle.width = `${bottomLeftWidth}px`;
             leftStyle.height = `${bottomCornerSize}px`;
             leftStyle.cursor = (canW && canH) ? "nesw-resize" : (canW ? "ew-resize" : "ns-resize");
-            leftStyle.display = node.resizable ? "block" : "none";
-            leftStyle.pointerEvents = node.resizable ? "auto" : "none";
+            leftStyle.display = (node.resizable && allowBottomResizeCorners) ? "block" : "none";
+            leftStyle.pointerEvents = (node.resizable && allowBottomResizeCorners) ? "auto" : "none";
             leftStyle.left = `-${padL * scale}px`;
 
-            if (hasSharedLeftEdge && canW && !isVerticalMiddleNode) {
+            if (!isVerticalDockStack && allowBottomResizeCorners && hasSharedLeftEdge && canW) {
                 leftStyle.width = `${sharedEdgeWidth}px`;
                 leftStyle.height = `${visualH * scale}px`;
                 leftStyle.cursor = "ew-resize";
                 leftStyle.display = "block";
                 leftStyle.pointerEvents = "auto";
-            } else if (hasSharedLeftEdge && isVerticalMiddleNode) {
-                leftStyle.display = "none";
-                leftStyle.pointerEvents = "none";
             }
         }
 
@@ -616,8 +602,8 @@ export function syncDerpShield(node) {
             const topLeftStyle = node.interactionShield._resizeHandleTopLeft.style;
             topLeftStyle.width = `${topLeftWidth}px`;
             topLeftStyle.height = `${topCornerSize}px`;
-            topLeftStyle.display = (showTopCorners && !hasSharedLeftEdge) ? "block" : "none";
-            topLeftStyle.pointerEvents = (showTopCorners && !hasSharedLeftEdge) ? "auto" : "none";
+            topLeftStyle.display = (showTopCorners && allowTopResizeCorners && !hasSharedLeftEdge) ? "block" : "none";
+            topLeftStyle.pointerEvents = (showTopCorners && allowTopResizeCorners && !hasSharedLeftEdge) ? "auto" : "none";
             topLeftStyle.left = `-${padL * scale}px`;
             topLeftStyle.cursor = (canW && canH) ? "nwse-resize" : (canW ? "ew-resize" : "ns-resize");
         }
@@ -626,8 +612,8 @@ export function syncDerpShield(node) {
             const topRightStyle = node.interactionShield._resizeHandleTopRight.style;
             topRightStyle.width = `${topRightWidth}px`;
             topRightStyle.height = `${topCornerSize}px`;
-            topRightStyle.display = (showTopCorners && !hasSharedRightEdge) ? "block" : "none";
-            topRightStyle.pointerEvents = (showTopCorners && !hasSharedRightEdge) ? "auto" : "none";
+            topRightStyle.display = (showTopCorners && allowTopResizeCorners && !hasSharedRightEdge) ? "block" : "none";
+            topRightStyle.pointerEvents = (showTopCorners && allowTopResizeCorners && !hasSharedRightEdge) ? "auto" : "none";
             topRightStyle.right = `-${padR * scale}px`;
             topRightStyle.cursor = (canW && canH) ? "nesw-resize" : (canW ? "ew-resize" : "ns-resize");
         }

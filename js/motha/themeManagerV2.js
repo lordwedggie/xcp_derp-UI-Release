@@ -26,6 +26,33 @@ import {
     bindThemeEvents
 } from "./themeManagerV2_core.js";
 
+function refreshSystemPaletteList(node) {
+    if (!node || node._loadingSystemPaletteList) return;
+    node._loadingSystemPaletteList = true;
+    fetch(`/xcp/list/palettes?t=${Date.now()}`)
+        .then(r => r.json())
+        .then(data => {
+            node._systemPaletteList = (data.items || [])
+                .map(item => String(item || "").replace(/\\/g, "/"))
+                .filter(item => item.startsWith("_system/"))
+                .sort((a, b) => String(a).localeCompare(String(b)));
+            node._systemPaletteListLoaded = true;
+            if (!node._systemPaletteList.includes(node.properties.systemPaletteName)) {
+                node.properties.systemPaletteName = node._systemPaletteList[0] || "";
+            }
+            node._layoutMapHash = "";
+            if (typeof node.refreshNodeLayoutMap === "function") node.refreshNodeLayoutMap();
+            if (typeof node.requestDerpSync === "function") node.requestDerpSync();
+        })
+        .catch(() => {
+            node._systemPaletteList = [];
+            node._systemPaletteListLoaded = true;
+        })
+        .finally(() => {
+            node._loadingSystemPaletteList = false;
+        });
+}
+
 app.registerExtension({
     name: "xcp.derpThemeManagerV2_Extension",
     async setup() { initDerpGlobalListener(); },
@@ -49,11 +76,12 @@ app.registerExtension({
 
         // THE FIX: Protocol Authority. Using Fatha's centralized variable resolver
         nodeType.prototype.refreshNodeLayoutMap = function() {
+            if (!Array.isArray(this._systemPaletteList)) refreshSystemPaletteList(this);
             const isPaletteOpen = activeBastas.has(getPaletteId(this));
             // THE STRUCTURAL HASH FIX: Include the active theme to ensure
             // the map re-binds correctly when the global state shifts.
             // THE THRASHING FIX: Removed volatile _forceSync from hash which was causing infinite map rebuilds.
-            const layoutHash = `${this._selectedThemeName}_${this._selectedKeyName}_${this._cachedFonts?.length || 0}_${isPaletteOpen}_${window.xcpDerpThemeConfig?.activeTheme}`;
+            const layoutHash = `${this._selectedThemeName}_${this._selectedKeyName}_${this._cachedFonts?.length || 0}_${this._systemPaletteList?.length || 0}_${this._systemPaletteListLoaded ? 1 : 0}_${this.properties.systemPaletteName || ""}_${isPaletteOpen}_${window.xcpDerpThemeConfig?.activeTheme}`;
 
             if (this._layoutMapHash === layoutHash && this.layoutMap) return;
             const mapChanged = this._layoutMapHash !== layoutHash;
@@ -66,6 +94,12 @@ app.registerExtension({
             // THE REFRESH FIX: Ensure items list is never empty during the initial boot sequence
             const themeList = Object.keys(window.xcpDerpThemeConfig?.themes || {});
             const keyList = Object.keys(this.themeToEdit || {}).filter(k => k !== "_category" && k !== "_layout");
+            const systemPaletteList = Array.isArray(this._systemPaletteList) && this._systemPaletteList.length > 0
+                ? this._systemPaletteList
+                : [this._systemPaletteListLoaded ? "No _system palettes found" : "Loading palettes..."];
+            const selectedSystemPalette = this._systemPaletteList?.includes(this.properties.systemPaletteName)
+                ? this.properties.systemPaletteName
+                : systemPaletteList[0];
 
             this.layoutMap = {
                 themeManagementRegion: {
@@ -139,6 +173,17 @@ app.registerExtension({
                         labelAlign: ["center", "middle"], measureText: "10, 10", width: "auto", height: "auto", padding: [pW, pH], spacing: [sW, 0]
                     },
                     spring: { width: "full", height: 0 },
+                    lblPalSelector: {
+                        type: UI_TYPES.TEXT, themeKey: "t_textSmall", text: "Palette:", noHover: true,
+                        width: "auto", height: "auto", spacing: [sW, 0]
+                    },
+                    dropdownPalette: {
+                        type: UI_TYPES.DROPDOWN, themeKey: "dialog, t_textSmall", canvasShield: true,
+                        indicator: true, width: "fit", height: "auto", minWidth: 120,
+                        items: systemPaletteList,
+                        value: selectedSystemPalette,
+                        objectAlign: ["left", "middle"], padding: [pW, pH], spacing: [sW, 0]
+                    },
                 },
                 previewRegion: {
                     anchor: { target: "themeLayoutRegion", axis: "y", offset: oY }, state: "_DIS",

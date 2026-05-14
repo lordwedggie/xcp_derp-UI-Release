@@ -27,7 +27,10 @@ except Exception:
 THEME_DIR = os.path.join(DERP_ROOT, "themes")
 os.makedirs(THEME_DIR, exist_ok=True)
 
-PALETTE_DIR = os.path.join(DERP_ROOT, "palettes")
+PALETTE_DIR = os.path.join(DERP_ROOT, "Palettes")
+if not os.path.exists(PALETTE_DIR):
+    legacy_palette_dir = os.path.join(DERP_ROOT, "palettes")
+    PALETTE_DIR = legacy_palette_dir if os.path.exists(legacy_palette_dir) else PALETTE_DIR
 os.makedirs(PALETTE_DIR, exist_ok=True)
 
 SETTINGS_DIR = os.path.join(DERP_ROOT, "nodeSettings")

@@ -11,8 +11,7 @@ import { resolvePaintData } from "../../herbina/utils/widgetsUtils.js";
 import { beginDockDrag, updateDockDrag, endDockDrag } from "./dockDrag.js";
 import { handleNodeResize } from "./fathaNodeResize.js";
 import { getPinnedVerticalDeckAnchor, restorePinnedVerticalDeckAnchor, resolveCollapseShiftDirection, syncHorizontalDeckHeight as syncHorizontalDeckHeightForGraph } from "./dockResize.js";
-import { masterDockEngine, getDeckMembers } from "./masterDockEngine.js";
-import { getDeckCornerOverride } from "./masterDockEngine.js";
+import { masterDockEngine, getDeckMembers, getDeckCornerOverride, isLinearDeckGroup } from "./masterDockEngine.js";
 import { getVirtualNodeLayoutMap } from "../helpers/fathaLayoutMaps.js";
 import { getDockGroupAxisFromMembers, resolveRuntimeDockSize, shouldPreserveDockHeight, shouldPreserveDockWidth } from "./dockDimensions.js";
 
@@ -522,6 +521,21 @@ export function handleShieldInteraction(entity, type, data = {}) {
                 reg.onClick(data.originalEvent, data);
             }
             entity.setDirtyCanvas(true);
+            if (app.graph && app.graph.change) app.graph.change();
+            return true;
+        }
+
+        const header = entity.layout?.regions?.headerRegion;
+        const graph = app.graph || entity.graph || null;
+        const headerCollapseEnabled = window.DERP_GLOBAL_SETTINGS?.verticalDockHeaderCollapse ?? true;
+        if (headerCollapseEnabled && header && graph && isLinearDeckGroup(entity, graph, "vertical") && entity.layout.hitTest(localMouse, header)) {
+            const wasCollapsed = !!entity.properties?.contentCollapsed;
+            if (typeof entity.collapse === "function") entity.collapse();
+            else handleDerpCollapse(entity);
+            if (wasCollapsed) {
+                entity._derpAwakeFrames = Math.max(Number(entity._derpAwakeFrames || 0), 8);
+            }
+            entity.setDirtyCanvas(true, true);
             if (app.graph && app.graph.change) app.graph.change();
             return true;
         }
