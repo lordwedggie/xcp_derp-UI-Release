@@ -5,7 +5,7 @@
 import { app } from "../../../../scripts/app.js";
 import { playMicrowaveDing, playKaChing, playKaboom } from "../../herbina/masterSoundEffects.js";
 import { showBastaMessage } from "../../fatha/bastas/bastaMessage.js";
-import { getPreviewImageUrl, getLoraImageUrl } from "./loraImages.js";
+import { getPreviewImageUrl, getLoraImageUrl, refreshLoraImageList } from "./loraImages.js";
 
 export function getLoraDisplayName(loraPath) {
     return (loraPath || "").split(/[\\/]/).pop().replace(/\.safetensors$/i, "");
@@ -36,6 +36,7 @@ export function normalizeLoraTags(rawValue) {
 export function buildLoraDetailPayload(node, lora, slotIndex) {
     return {
         name: getLoraDisplayName(lora?.[0]),
+        loraPath: (lora?.[0] || "").replace(/\\/g, "/"),
         slotIndex,
         rawFileName: (lora?.[0] || "").replace(/\//g, "\\"),
         previewUrl: (node?._loraPreviewList?.includes(lora?.[0])) ? getPreviewImageUrl(lora[0], false) : null,
@@ -537,7 +538,7 @@ export const getLoraLoaderProps = (host, basta, loraData) => ({
             stack[idx][4] = "";
 
             loraData.loraPath = normalizedPath;
-            loraData.rawFileName = normalizedPath;
+            loraData.rawFileName = normalizedPath.replace(/\//g, "\\");
             loraData.name = getLoraDisplayName(normalizedPath);
             loraData.baseModel = detectLoraBaseModel(normalizedPath);
             loraData.tags = [];
@@ -546,9 +547,11 @@ export const getLoraLoaderProps = (host, basta, loraData) => ({
             loraData.setup = null;
             loraData._setupFetched = false;
             loraData.currentImageIndex = -1;
-            loraData.previewUrl = (host._loraPreviewList || []).includes(normalizedPath)
-                ? getPreviewImageUrl(normalizedPath, false)
-                : null;
+            loraData.images = [];
+            loraData.imageCount = 0;
+            loraData.hasCover = false;
+            loraData.coverFilename = null;
+            loraData.previewUrl = null;
             loraData.aspectRatio = null;
 
             basta._activeTagKey = null;
@@ -573,6 +576,31 @@ export const getLoraLoaderProps = (host, basta, loraData) => ({
             basta._skipAnimOnce = true;
             if (basta.requestDerpSync) basta.requestDerpSync();
             if (basta.setDirtyCanvas) basta.setDirtyCanvas(true, true);
+            refreshLoraImageList(basta, loraData);
+
+            fetch(`/xcp/get_lora_info?name=${encodeURIComponent(normalizedPath)}&lite=true`)
+                .then(r => r.ok ? r.json() : null)
+                .then((data) => {
+                    if (!data) return;
+                    const hasPreview = data.has_preview === true;
+                    const normalizedKey = normalizedPath.replace(/\\/g, "/");
+                    const rawKey = loraData.rawFileName;
+                    host._loraPreviewList = Array.isArray(host._loraPreviewList) ? [...host._loraPreviewList] : [];
+
+                    if (hasPreview) {
+                        if (!host._loraPreviewList.includes(normalizedKey)) host._loraPreviewList.push(normalizedKey);
+                        if (rawKey && !host._loraPreviewList.includes(rawKey)) host._loraPreviewList.push(rawKey);
+                        loraData.previewUrl = getPreviewImageUrl(normalizedKey, false);
+                    } else {
+                        host._loraPreviewList = host._loraPreviewList.filter((item) => item !== normalizedKey && item !== rawKey);
+                    }
+
+                    basta._forceSync = true;
+                    if (host.refreshNodeLayoutMap) host.refreshNodeLayoutMap();
+                    if (host.setDirtyCanvas) host.setDirtyCanvas(true, true);
+                    if (basta.setDirtyCanvas) basta.setDirtyCanvas(true, true);
+                })
+                .catch(() => {});
 
             // 4. START TRIGGER FETCH
             if (host.fetchDerpLoraTriggers) {

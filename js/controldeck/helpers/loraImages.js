@@ -12,15 +12,11 @@ const PREVIEW_RESIZE_QUALITY = 1.00;   // THE OPTIMIZATION FIX: Compression qual
 const THUMBNAIL_LONG_SIDE_TARGET = 256; // THE RESIZE FIX: Target for the long side of the thumbnail
 const THUMBNAIL_RESIZE_QUALITY = 0.9;    // THE OPTIMIZATION FIX: Compression quality for the thumbnail upload
 
-function debugPreviewSet(loraData, source, url) {
-    try {
-        if (window._xcpDebugLoraPreviewSwitch !== true) return;
-        const name = loraData?.rawFileName || loraData?.name || "unknown";
-        const idx = loraData?.currentImageIndex;
-        console.debug(`[LoRA Preview] ${source} | name=${name} | idx=${idx} | url=${url}`);
-    } catch (_) {
-        // no-op
-    }
+function getLiveLoraName(basta, loraData) {
+    const liveStack = basta?.hostNode?.properties?.stackData || [];
+    const slotIdx = loraData?.slotIndex;
+    const liveName = Number.isInteger(slotIdx) ? liveStack[slotIdx]?.[0] : null;
+    return (liveName || loraData?.loraPath || loraData?.rawFileName || loraData?.name || "").replace(/\\/g, "/");
 }
 
 /**
@@ -97,18 +93,16 @@ export function switchLoraImage(basta, direction = "next") {
     }
 
     loraData.currentImageIndex = idx;
-    const lName = loraData.rawFileName || loraData.name;
+    const lName = getLiveLoraName(basta, loraData);
     const session = window._xcpDerpSession || Date.now();
 
     // Construct URL based on whether we are viewing the primary cover or an archived sub-image
     loraData._previewLoading = true;
     if (idx === -1) {
         loraData.previewUrl = `/xcp/get_lora_preview?name=${encodeURIComponent(lName)}&v=${session}`;
-        debugPreviewSet(loraData, "switchLoraImage:cover", loraData.previewUrl);
     } else {
         const fileName = loraData.images[idx];
         loraData.previewUrl = `/xcp/get_lora_image?name=${encodeURIComponent(lName)}&file=${encodeURIComponent(fileName)}&v=${session}`;
-        debugPreviewSet(loraData, "switchLoraImage:image", loraData.previewUrl);
     }
 
     loraData.aspectRatio = null; // THE REFLOW FIX: Clear aspect ratio to force recalculation on new image load
@@ -129,7 +123,7 @@ export function setLoraCover(basta) {
 
     const currentFile = loraData.images[loraData.currentImageIndex];
 
-    const lName = loraData.rawFileName || loraData.name;
+    const lName = getLiveLoraName(basta, loraData);
     fetch("/xcp/set_lora_cover", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: lName, file: currentFile, no_backup: true })
@@ -138,14 +132,25 @@ export function setLoraCover(basta) {
             playKaChing();
             window._xcpDerpSession = Date.now();
 
+            loraData.previewUrl = getPreviewImageUrl(lName);
+            loraData.currentImageIndex = -1;
+            loraData.hasCover = true;
+            loraData.aspectRatio = null;
+
             // THE HOST SYNC FIX: Force the parent node to pick up the new session timestamp and re-render its face
             if (basta.hostNode) {
+                if (!Array.isArray(basta.hostNode._loraPreviewList)) basta.hostNode._loraPreviewList = [];
+                if (!basta.hostNode._loraPreviewList.includes(lName)) basta.hostNode._loraPreviewList.push(lName);
                 if (basta.hostNode.refreshNodeLayoutMap) basta.hostNode.refreshNodeLayoutMap();
                 if (basta.hostNode.setDirtyCanvas) basta.hostNode.setDirtyCanvas(true, true);
             }
 
             // THE REFRESH FIX: Immediately refresh the list to reflect the swap
             refreshLoraImageList(basta, loraData);
+            calculatePreviewAspectRatio(basta, loraData, () => {
+                basta._forceSync = true;
+                if (typeof basta.setDirtyCanvas === "function") basta.setDirtyCanvas(true, true);
+            });
         }
     });
 }
@@ -155,7 +160,7 @@ export function setLoraCover(basta) {
  * This handles folders populated before the indexing feature was added.
  */
 export function refreshLoraImageList(basta, loraData, targetFile = null) {
-    const lName = loraData.rawFileName || loraData.name;
+    const lName = getLiveLoraName(basta, loraData);
     if (!lName) return;
 
     fetch(`/xcp/list_lora_images?name=${encodeURIComponent(lName)}`)
@@ -185,6 +190,12 @@ export function refreshLoraImageList(basta, loraData, targetFile = null) {
                     loraData.currentImageIndex = -1;
                 }
 
+                if (loraData.currentImageIndex === -1) {
+                    loraData.previewUrl = loraData.hasCover ? getPreviewImageUrl(lName) : (loraData.images[0] ? getLoraImageUrl(lName, loraData.images[0]) : null);
+                } else if (loraData.images[loraData.currentImageIndex]) {
+                    loraData.previewUrl = getLoraImageUrl(lName, loraData.images[loraData.currentImageIndex]);
+                }
+
                 if (basta) {
                     basta._forceSync = true;
                     basta.requestDerpSync();
@@ -194,6 +205,7 @@ export function refreshLoraImageList(basta, loraData, targetFile = null) {
                 loraData.images = [];
                 loraData.imageCount = 0;
                 loraData.currentImageIndex = -1;
+                loraData.previewUrl = loraData.hasCover ? getPreviewImageUrl(lName) : null;
             }
         });
 }

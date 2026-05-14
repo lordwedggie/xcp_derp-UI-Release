@@ -386,10 +386,9 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                     },
                                     [`btnEnable_${i}`]: {
                                         hidden: nameDisplay !== "Top",
-                                        type: this.UI_TYPES.ICONBUTTON, icon: "power", themeKey: "button, t_textNormal",
+                                        type: this.UI_TYPES.ICONBUTTON, icon: "power", themeKey: "button, t_textNormal", mouseOver: false,
                                         width: "match", height: "fill", spacing: [sW, 0], alpha: rowAlpha,
                                         state: nodeBypassed ? "DIS" : (!rowBypassed ? "ON" : "OFF"),
-                                        mouseOver: !nodeBypassed,
                                         playSound: rowBypassed ? "powerUp" : "powerDown",
                                         onPress: () => {
                                             if (nodeBypassed) return;
@@ -448,10 +447,9 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                     },
                                     [`btnEnableLeft_${i}`]: {
                                         hidden: nameDisplay !== "Slider",
-                                        type: this.UI_TYPES.ICONBUTTON, icon: "power", themeKey: "button, t_textNormal",
+                                        type: this.UI_TYPES.ICONBUTTON, icon: "power", themeKey: "button, t_textNormal", mouseOver: false,
                                         width: "match", height: "fill", spacing: [sW, 0], alpha: rowAlpha,
                                         state: nodeBypassed ? "DIS" : (!rowBypassed ? "ON" : "OFF"),
-                                        mouseOver: !nodeBypassed,
                                         playSound: rowBypassed ? "powerUp" : "powerDown",
                                         onPress: () => {
                                             if (nodeBypassed) return;

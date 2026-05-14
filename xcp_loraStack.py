@@ -233,7 +233,10 @@ async def handle_get_lora_preview(request):
         is_thumb = request.query.get("thumbnail") == "true"
         if not name: return web.Response(status=400)
 
-        full_path = folder_paths.get_full_path("loras", name)
+        # THE NORMALIZATION FIX: Keep preview lookup consistent with the rest of the LoRA API.
+        # The frontend can send either slash style after bastaLoraDetail swaps models.
+        clean_name = name.replace("\\", "/")
+        full_path = folder_paths.get_full_path("loras", clean_name)
         if not full_path: return web.Response(status=404)
 
         base_path = os.path.splitext(full_path)[0]
@@ -354,8 +357,18 @@ async def handle_get_lora_info(request):
             except: pass
 
         if is_lite:
+            # THE PREVIEW STATE FIX: The frontend relies on lite metadata to rebuild preview state
+            # immediately after swapping LoRAs in bastaLoraDetail.
+            base_path = os.path.splitext(full_path)[0]
+            has_preview = any(os.path.exists(base_path + ext) for ext in [".png", ".jpg", ".jpeg", ".webp"])
             # THE MODEL NAME FIX: Ensure lite response also returns the clean model name without extension
-            return web.json_response({ "name": os.path.splitext(os.path.basename(full_path))[0], "rating": rating, "setup": setup })
+            return web.json_response({
+                "name": os.path.splitext(os.path.basename(full_path))[0],
+                "rating": rating,
+                "setup": setup,
+                "has_preview": has_preview,
+                "loraPath": clean_name
+            })
         metadata = {}
         base_model = "Unknown"
 
