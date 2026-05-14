@@ -1,0 +1,20 @@
+[project]
+name = "xcp_derpNodes"
+description = "A ComfyUI custom node pack for derp-themed workflow utilities, loaders, dockable UI panels, palettes, and prompt tools."
+version = "1.0.2"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+classifiers = [
+    "Operating System :: OS Independent"
+]
+
+[project.urls]
+Repository = "https://github.com/lordwedggie/xcp_derpNodes"
+Documentation = "https://github.com/lordwedggie/xcp_derpNodes"
+"Bug Tracker" = "https://github.com/lordwedggie/xcp_derpNodes/issues"
+
+[tool.comfy]
+PublisherId = "lordwedggie522"
+DisplayName = "xcpDerpNodes"
+Icon = ""
+includes = []
