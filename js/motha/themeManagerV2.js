@@ -37,8 +37,11 @@ function refreshSystemPaletteList(node) {
                 .filter(item => item.startsWith("_system/"))
                 .sort((a, b) => String(a).localeCompare(String(b)));
             node._systemPaletteListLoaded = true;
-            if (!node._systemPaletteList.includes(node.properties.systemPaletteName)) {
-                node.properties.systemPaletteName = node._systemPaletteList[0] || "";
+            const themePalette = node.themeToEdit?._palette || "";
+            if (themePalette && node._systemPaletteList.includes(themePalette)) {
+                node.properties.systemPaletteName = themePalette;
+            } else if (!node._systemPaletteList.includes(node.properties.systemPaletteName)) {
+                node.properties.systemPaletteName = "";
             }
             node._layoutMapHash = "";
             if (typeof node.refreshNodeLayoutMap === "function") node.refreshNodeLayoutMap();
@@ -93,13 +96,13 @@ app.registerExtension({
 
             // THE REFRESH FIX: Ensure items list is never empty during the initial boot sequence
             const themeList = Object.keys(window.xcpDerpThemeConfig?.themes || {});
-            const keyList = Object.keys(this.themeToEdit || {}).filter(k => k !== "_category" && k !== "_layout");
+            const keyList = Object.keys(this.themeToEdit || {}).filter(k => !k.startsWith("_"));
             const systemPaletteList = Array.isArray(this._systemPaletteList) && this._systemPaletteList.length > 0
-                ? this._systemPaletteList
+                ? ["None", ...this._systemPaletteList]
                 : [this._systemPaletteListLoaded ? "No _system palettes found" : "Loading palettes..."];
             const selectedSystemPalette = this._systemPaletteList?.includes(this.properties.systemPaletteName)
                 ? this.properties.systemPaletteName
-                : systemPaletteList[0];
+                : "None";
 
             this.layoutMap = {
                 themeManagementRegion: {

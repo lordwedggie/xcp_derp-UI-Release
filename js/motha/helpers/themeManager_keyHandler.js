@@ -11,6 +11,8 @@ import { showBastaMessage } from "../../fatha/bastas/bastaMessage.js";
 import { playKaChing } from "../../herbina/masterSoundEffects.js";
 import { safeClick, safePersist, playSuccessSound } from "../themeManagerV2_core.js";
 
+const THEME_META_KEYS = new Set(["_category", "_layout", "_palette"]);
+
 export function pushThemeUpdate(node, key, prop, val) {
     const cfg = window.xcpDerpThemeConfig;
     if (!cfg || !node._selectedThemeName) return;
@@ -161,7 +163,7 @@ const syncAndPersistKey = async (node, newKey, updateThemeLayoutFn) => {
         });
     }
     const dropdown = node.layoutMap?.keyManagementRegion?.dropdownKey;
-    const remainingKeys = Object.keys(node.themeToEdit).filter(k => k !== "_category");
+    const remainingKeys = Object.keys(node.themeToEdit).filter(k => !THEME_META_KEYS.has(k));
     const safeKey = newKey || remainingKeys[0] || "";
     if (dropdown) {
         dropdown.items = remainingKeys;
@@ -247,14 +249,14 @@ export const handleKeyCopyAction = (node, updateThemeLayoutFn) => {
 export const handleKeySaveAction = (node, updateThemeLayoutFn) => {
     const cfg = window.xcpDerpThemeConfig;
     if (!cfg || !node._selectedThemeName) return;
-    const currentKey = node._selectedKeyName || Object.keys(node.themeToEdit || {}).find(k => k !== "_category" && k !== "_layout") || "";
+    const currentKey = node._selectedKeyName || Object.keys(node.themeToEdit || {}).find(k => !THEME_META_KEYS.has(k)) || "";
 
     showBastaFileHandler(node, "none", "btnKeySave", {
         title: "Save Theme Keys",
         mode: "save",
         message: `Save keys to theme '${node._selectedThemeName}'?`,
         originalName: currentKey,
-        fileList: Object.keys(node.themeToEdit || {}).filter(k => k !== "_category" && k !== "_layout"),
+        fileList: Object.keys(node.themeToEdit || {}).filter(k => !THEME_META_KEYS.has(k)),
         onConfirm: async () => {
             try {
                 const themeName = node._selectedThemeName;

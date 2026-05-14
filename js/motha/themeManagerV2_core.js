@@ -16,6 +16,8 @@ import {
     handleThemeSaveAction
 } from "./helpers/themeManager_themeHandler.js";
 
+const THEME_META_KEYS = new Set(["_category", "_layout", "_palette"]);
+
 let _lastClickTime = 0;
 export const safeClick = (fn) => {
     return (e) => {
@@ -117,8 +119,9 @@ export function initThemeManager(node) {
         node.themeToEdit = JSON.parse(JSON.stringify(cfg.themes[themeName]));
 
         if (!node.themeToEdit._layout) node.themeToEdit._layout = [4, 2, 2, 2, 2, 4, 2, 4];
+        node.properties.systemPaletteName = node.themeToEdit._palette || "";
 
-        const availableKeys = Object.keys(node.themeToEdit).filter(k => k !== "_category" && k !== "_layout");
+        const availableKeys = Object.keys(node.themeToEdit).filter(k => !THEME_META_KEYS.has(k));
         if (!node._selectedKeyName || !availableKeys.includes(node._selectedKeyName)) {
             node._selectedKeyName = availableKeys[0] || "";
         }
@@ -232,8 +235,23 @@ export function bindThemeEvents(node) {
         if (lReg.dropdownPalette) {
             lReg.dropdownPalette.onChange = (v) => {
                 if (v === "Loading palettes..." || v === "No _system palettes found") return;
-                node.properties.systemPaletteName = v;
-                lReg.dropdownPalette.value = v;
+                const paletteName = v === "None" ? "" : String(v || "").replace(/\\/g, "/");
+                node.properties.systemPaletteName = paletteName;
+                lReg.dropdownPalette.value = paletteName || "None";
+                if (node.themeToEdit) {
+                    if (paletteName) node.themeToEdit._palette = paletteName;
+                    else delete node.themeToEdit._palette;
+                }
+                const cfg = window.xcpDerpThemeConfig;
+                if (cfg?.themes && node._selectedThemeName) {
+                    const themeObj = cfg.themes[node._selectedThemeName];
+                    if (themeObj) {
+                        if (paletteName) themeObj._palette = paletteName;
+                        else delete themeObj._palette;
+                    }
+                    if (cfg.touchTheme) cfg.touchTheme(node._selectedThemeName);
+                    if (cfg.markDirty) cfg.markDirty();
+                }
                 node.requestDerpSync();
             };
         }

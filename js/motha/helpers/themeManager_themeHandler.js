@@ -8,6 +8,8 @@ import { showBastaMessage } from "../../fatha/bastas/bastaMessage.js";
 import { showBastaColorDesigner } from "../../fatha/bastas/bastaColorDesigner.js";
 import { safeClick, safePersist, playSuccessSound } from "../themeManagerV2_core.js";
 
+const THEME_META_KEYS = new Set(["_category", "_layout", "_palette"]);
+
 export const handleThemeDeleteAction = (node, updateThemeLayoutFn) => {
     const currentTheme = node._selectedThemeName;
     if (!currentTheme) return;
@@ -50,8 +52,12 @@ export const handleThemeDropdownChange = (node, val, updateThemeLayoutFn) => {
     if (source) {
         node.themeToEdit = JSON.parse(JSON.stringify(source));
         if (!node.themeToEdit._layout) node.themeToEdit._layout = [4, 2, 2, 2, 2, 4, 2, 4];
+        node.properties.systemPaletteName = node.themeToEdit._palette || "";
+        if (node.layoutMap?.themeLayoutRegion?.dropdownPalette) {
+            node.layoutMap.themeLayoutRegion.dropdownPalette.value = node.properties.systemPaletteName || "None";
+        }
 
-        const availableKeys = Object.keys(node.themeToEdit).filter(k => k !== "_category" && k !== "_layout");
+        const availableKeys = Object.keys(node.themeToEdit).filter(k => !THEME_META_KEYS.has(k));
         node._selectedKeyName = availableKeys[0] || "";
         if (node.layoutMap?.keyManagementRegion?.dropdownKey) {
             node.layoutMap.keyManagementRegion.dropdownKey.items = availableKeys;
