@@ -7,6 +7,7 @@ import { showBastaFileHandler } from "../../fatha/bastas/bastaFileHandler.js";
 import { showBastaMessage } from "../../fatha/bastas/bastaMessage.js";
 import { showBastaColorDesigner } from "../../fatha/bastas/bastaColorDesigner.js";
 import { safeClick, safePersist, playSuccessSound } from "../themeManagerV2_core.js";
+import { getSystemPaletteDisplayName } from "./themeManager_paletteUtils.js";
 
 const THEME_META_KEYS = new Set(["_category", "_layout", "_palette"]);
 
@@ -55,6 +56,9 @@ export const handleThemeDropdownChange = (node, val, updateThemeLayoutFn) => {
         node.properties.systemPaletteName = node.themeToEdit._palette || "";
         if (node.layoutMap?.themeLayoutRegion?.dropdownPalette) {
             node.layoutMap.themeLayoutRegion.dropdownPalette.value = node.properties.systemPaletteName || "None";
+            node.layoutMap.themeLayoutRegion.dropdownPalette.text = node.properties.systemPaletteName
+                ? getSystemPaletteDisplayName(node.properties.systemPaletteName)
+                : "None";
         }
 
         const availableKeys = Object.keys(node.themeToEdit).filter(k => !THEME_META_KEYS.has(k));

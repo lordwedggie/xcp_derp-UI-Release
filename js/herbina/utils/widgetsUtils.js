@@ -411,7 +411,7 @@ export function interpretLayoutProps(config, context = {}) {
     // Trigger measurement if content exists or legacy label string is present
     if (!isContainer && (config.themeKey || config.text || config.label || config.value || config.icon || labelStr)) {
         // THE MULTI-KEY DISPLAY FIX: Combine label and text for accurate width measurement
-        let txt = (config.label && config.text) ? `${config.label}${config.text}` : (config.text ?? labelStr ?? config.value);
+        let txt = (config.label && config.text) ? `${config.label}${config.text}` : (config.text ?? config.displayText ?? labelStr ?? config.value);
         // THE FIX: Allow numeric seeds and dashes to be measured
         const hasText = isLabelVisible && (txt !== undefined && txt !== null && txt.toString().length > 0);
         const fontWeight = config.fontWeight || "normal";

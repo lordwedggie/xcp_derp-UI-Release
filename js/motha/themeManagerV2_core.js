@@ -15,6 +15,7 @@ import {
     handleThemeCopyAction,
     handleThemeSaveAction
 } from "./helpers/themeManager_themeHandler.js";
+import { getSystemPaletteDisplayName } from "./helpers/themeManager_paletteUtils.js";
 
 const THEME_META_KEYS = new Set(["_category", "_layout", "_palette"]);
 
@@ -238,6 +239,7 @@ export function bindThemeEvents(node) {
                 const paletteName = v === "None" ? "" : String(v || "").replace(/\\/g, "/");
                 node.properties.systemPaletteName = paletteName;
                 lReg.dropdownPalette.value = paletteName || "None";
+                lReg.dropdownPalette.text = paletteName ? getSystemPaletteDisplayName(paletteName) : "None";
                 if (node.themeToEdit) {
                     if (paletteName) node.themeToEdit._palette = paletteName;
                     else delete node.themeToEdit._palette;

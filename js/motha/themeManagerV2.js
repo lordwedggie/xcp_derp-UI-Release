@@ -25,6 +25,7 @@ import {
     updateThemeLayout,
     bindThemeEvents
 } from "./themeManagerV2_core.js";
+import { getSystemPaletteDisplayName, toSystemPaletteDropdownItem } from "./helpers/themeManager_paletteUtils.js";
 
 function refreshSystemPaletteList(node) {
     if (!node || node._loadingSystemPaletteList) return;
@@ -98,11 +99,14 @@ app.registerExtension({
             const themeList = Object.keys(window.xcpDerpThemeConfig?.themes || {});
             const keyList = Object.keys(this.themeToEdit || {}).filter(k => !k.startsWith("_"));
             const systemPaletteList = Array.isArray(this._systemPaletteList) && this._systemPaletteList.length > 0
-                ? ["None", ...this._systemPaletteList]
+                ? ["None", ...this._systemPaletteList.map(toSystemPaletteDropdownItem)]
                 : [this._systemPaletteListLoaded ? "No _system palettes found" : "Loading palettes..."];
             const selectedSystemPalette = this._systemPaletteList?.includes(this.properties.systemPaletteName)
                 ? this.properties.systemPaletteName
                 : "None";
+            const selectedSystemPaletteText = selectedSystemPalette === "None"
+                ? "None"
+                : getSystemPaletteDisplayName(selectedSystemPalette);
 
             this.layoutMap = {
                 themeManagementRegion: {
@@ -185,6 +189,7 @@ app.registerExtension({
                         indicator: true, width: "fit", height: "auto", minWidth: 120,
                         items: systemPaletteList,
                         value: selectedSystemPalette,
+                        text: selectedSystemPaletteText,
                         objectAlign: ["left", "middle"], padding: [pW, pH], spacing: [sW, 0]
                     },
                 },
