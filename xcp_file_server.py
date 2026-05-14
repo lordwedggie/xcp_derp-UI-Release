@@ -9,7 +9,7 @@ import sys
 import subprocess
 import re
 from .xcp_tagHandling import handle_import_lora_tags, handle_manage_lora_tag
-from .xcp_loraStack import (handle_save_lora_rating, handle_save_lora_notes, handle_get_loras, handle_get_lora_preview,
+from .xcp_loraStack import (handle_save_lora_rating, handle_save_lora_notes, handle_get_loras, handle_check_lora_files, handle_get_lora_preview,
                             handle_get_lora_triggers, handle_get_lora_info, handle_open_folder, handle_delete_lora_preview, handle_upload_lora_preview, get_lora_stack_profiles_dir,
                             handle_list_derpLoraStack, handle_save_derpLoraStack, handle_load_derpLoraStack, handle_list_lora_images, handle_get_lora_image, handle_set_lora_cover, handle_delete_lora_image)
 
@@ -501,6 +501,10 @@ safe_post("/xcp/delete_asset/{category}", delete_asset)
 async def get_loras(request):
     return await handle_get_loras(request)
 safe_get("/xcp/get_loras", get_loras)
+
+async def check_lora_files(request):
+    return await handle_check_lora_files(request)
+safe_post("/xcp/check_lora_files", check_lora_files)
 
 async def get_lora_preview(request):
     return await handle_get_lora_preview(request)

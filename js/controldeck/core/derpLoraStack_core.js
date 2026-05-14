@@ -974,19 +974,37 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                 };
 
                 // THE INTEGRITY FIX: Validate that loaded LoRAs still exist on disk
-                nodeType.prototype.validateLoraStack = function() {
-                    // Safety: Do not validate if we haven't fetched the list yet
-                    if (!this._loraList || this._loraList.length === 0) return;
-
+                nodeType.prototype.validateLoraStack = async function() {
                     const stack = this.properties.stackData || [];
-                    const removed = [];
+                    const namesToCheck = [...new Set(
+                        stack
+                            .map((entry) => entry?.[0])
+                            .filter((name) => name && name !== "None")
+                    )];
+                    if (namesToCheck.length === 0) return;
 
-                    const newStack = stack.filter(entry => {
+                    let existsMap = null;
+                    try {
+                        const res = await fetch("/xcp/check_lora_files", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ names: namesToCheck }),
+                        });
+                        if (!res.ok) return;
+                        const data = await res.json();
+                        existsMap = data?.exists && typeof data.exists === "object" ? data.exists : null;
+                    } catch (err) {
+                        console.warn("[xcpDerp] validateLoraStack file check failed:", err);
+                        return;
+                    }
+                    if (!existsMap) return;
+
+                    const removed = [];
+                    const newStack = stack.filter((entry) => {
                         const loraName = entry[0];
-                        // Always keep empty slots or the "None" placeholder
                         if (!loraName || loraName === "None") return true;
 
-                        const exists = this._loraList.includes(loraName);
+                        const exists = existsMap[loraName] === true;
                         if (!exists) removed.push(loraName);
                         return exists;
                     });

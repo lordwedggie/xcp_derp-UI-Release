@@ -168,7 +168,7 @@ export function getSharedDockHeight(members = [], fallback = 0) {
     const heights = (Array.isArray(members) ? members : [])
         .map(getDockNodeHeight)
         .filter((height) => height > 0);
-    return heights[0] || Number(fallback) || 0;
+    return heights.length ? Math.max(...heights) : (Number(fallback) || 0);
 }
 
 export function resolveDockResizeDimensions(axis, members = [], requested = {}, fallback = {}, snap = DEFAULT_SNAP) {

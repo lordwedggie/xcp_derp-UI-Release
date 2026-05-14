@@ -206,6 +206,27 @@ async def handle_get_loras(request):
     except Exception as e:
         return web.json_response({"items": [], "has_preview": [], "ratings": {}, "error": str(e)}, status=500)
 
+async def handle_check_lora_files(request):
+    try:
+        body = await request.json()
+        names = body.get("names") or []
+        if not isinstance(names, list):
+            return web.json_response({"error": "Invalid names payload"}, status=400)
+
+        exists = {}
+        for raw_name in names:
+            name = str(raw_name or "").strip()
+            if not name or name == "None":
+                exists[name] = True
+                continue
+
+            full_path = folder_paths.get_full_path("loras", name.replace("\\", "/"))
+            exists[name] = bool(full_path and os.path.exists(full_path))
+
+        return web.json_response({"exists": exists})
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=500)
+
 async def handle_get_lora_preview(request):
     try:
         name = request.query.get("name")
