@@ -262,7 +262,10 @@ function drawFloatingPreview(node, ctx) {
 
     for (const [key, reg] of entries) {
         const blueprint = COMPONENT_BLUEPRINTS[reg.type];
-        if (!blueprint || blueprint.isHtml) continue;
+        if (!blueprint) continue;
+        if (blueprint.isHtml && !blueprint.isHybrid) {
+            ctx.fillStyle = "rgba(60,60,60,0.85)"; ctx.fillRect(reg.x + dx, reg.y + dy, reg.w, reg.h); continue;
+        }
         const compData = {
             ...reg,
             key,
@@ -479,8 +482,7 @@ app.registerExtension({
                     const isLastRow = rIdx === trigGroups.length - 1;
                     triggerRows[`${rowAnchorPrefix}_${gIdx}_${rIdx}`] = {
                         anchor: { target: rIdx === 0 ? firstRowAnchorTarget : `${rowAnchorPrefix}_${gIdx}_${rIdx - 1}`, axis: "y", offset: sH },
-                        dir: "row", width: "full", height: "auto", spacing: [sW, 0], minWidth: 0,
-                        margin: [-mW / 2, 0, -mW / 2, isLastRow ? mH + 2 : 0],
+                        dir: "row", width: "full", height: "auto", spacing: [sW, 0], minWidth: 0, margin: [-mW / 2, 0, -mW / 2, isLastRow ? mH + 2 : 0],
                         ...Object.fromEntries(gItems.map(item => {
                             if (renderGhostPlaceholders) {
                                 const placeholderKey = item.type === "trig"
@@ -544,6 +546,7 @@ app.registerExtension({
                     isFloating = false,
                     childKeyPrefix = "",
                     rowAnchorPrefix = "triggerRow",
+                    groupMarginOverride = null,
                     firstRowAnchorTarget = (!this.properties.settingActive && !isSelected) ? regionKey : `${childKeyPrefix}lineBreak_${gIdx}`,
                     groupWidgetAlpha = isPreviewGhost ? 0 : 1,
                     renderGhostPlaceholders = isPreviewGhost,
@@ -567,11 +570,11 @@ app.registerExtension({
                 return {
                     type: this.UI_TYPES.REGION,
                     themeKey: "region",
-                    regionOffset: [mW, mH, mW, 0],
+                    regionOffset: [mW, -sH, mW, -sH],
                     alpha: isPreviewGhost ? 0 : 1,
                     state: isFloating ? "ON" : (isSelected ? "ON" : (isBypassed ? "DIS" : "OFF")),
                     hoverEffect: false,
-                    margin: [mW * 2, mH, mW * 2, mH],
+                    margin: groupMarginOverride || [mW * 2, sH, mW * 2, mH],
                     width: "full",
                     height: "auto",
                     dir: "col",
@@ -580,7 +583,7 @@ app.registerExtension({
                     [`${childKeyPrefix}headerRegion_${gIdx}`]: {
                         alpha: isPreviewGhost ? 0 : 1,
                         hidden: !this.properties.settingActive && !isSelected,
-                        dir: "row", width: "full", height: "auto", margin: [-mW, -mH, -mW, 0],
+                        dir: "row", width: "full", height: "auto", margin: [-mW, sH, -mW, 0],
                         spacing: [sW, 0],
                         [`${childKeyPrefix}btnRename_${gIdx}`]: {
                             type: this.UI_TYPES.ICONBUTTON, icon: "rename", themeKey: "button, t_textsystem",
@@ -598,7 +601,7 @@ app.registerExtension({
                         },
                         [`${childKeyPrefix}dropdownTriggerGroup_${gIdx}`]: {
                             type: this.UI_TYPES.DROPDOWN, themeKey: "button, t_textsmall", skipBackground: false,
-                            alpha: isPreviewGhost ? 0 : 1,
+                            hidden: isPreviewGhost,
                             indicator: true, canvasShield: true, mouseOver: false,
                             width: "full", height: "auto", spacing: [sW, 0],
                             padding: [pW, pH],
@@ -646,13 +649,13 @@ app.registerExtension({
                 contentRegion: {
                     anchor: { target: "headerRegion", axis: "y", },
                     width: "full", height: "auto", dir: "col", padding: [0, 0], minWidth: 0,
-                    margin: [mW, mH, mW, 0],
+                    margin: [mW, 0, mW, 0],
                 }
             };
 
             layoutMap.groupControlRow1 = {
                 anchor: { target: "contentRegion", axis: "y" },
-                dir: "row", width: "full", height: "auto", margin: [mW, mH, mW, mH],
+                dir: "row", width: "full", height: "auto", margin: [mW, mH, mW, 0],
                 addGroup: {
                     type: this.UI_TYPES.BUTTON, themeKey: "button, t_textsmall", labelAlign: ["center", "middle"],
                     text: "New trigger group", width: "fit", padding: [pW, pH],
@@ -689,13 +692,15 @@ app.registerExtension({
                 const isGroupPreviewGhost = !!isPreviewGhost;
                 const regionKey = `triggerRegion_${gIdx}`;
                 const isSelected = !!this._selectedRegions?.[regionKey];
+                const isFirstGroup = Object.keys(layoutMap).filter(k => k.startsWith("triggerRegion_")).length === 0;
                 layoutMap[regionKey] = buildGroupRegion(group, gIdx, regionKey, isSelected, {
+                    groupMarginOverride: isFirstGroup ? [mW * 2, mH, mW * 2, mH] : undefined,
                     isPreviewGhost: isGroupPreviewGhost,
                     childKeyPrefix: "",
                     rowAnchorPrefix: "triggerRow",
                     firstRowAnchorTarget: (!this.properties.settingActive && !isSelected) ? regionKey : `lineBreak_${gIdx}`,
                     regionProps: {
-                        anchor: { target: lastRegionKey, axis: "y", offset: mH },
+                        anchor: { target: lastRegionKey, axis: "y", offset: isFirstGroup ? 0 : -mH },
                         onDragStart: (e, data) => startStackDrag(this, data, visibleGroupIndices.indexOf(gIdx), regionKey),
                         onDrag: (e, data) => {
                             triggerWall_groupDrag(this, data, visibleGroupIndices);
@@ -727,7 +732,7 @@ app.registerExtension({
                 .map(g => g.title || "Trigger Group");
 
             layoutMap.regionSelectTriggerGroup = {
-                anchor: { target: lastRegionKey, axis: "y", offset: sH },
+                anchor: { target: lastRegionKey, axis: "y"},
                 dir: "row", width: "full", height: "auto", margin: [mW, 0, mW, mH],
                 spacing: [sW, 0],
                 dropdownTriggerGroup: {

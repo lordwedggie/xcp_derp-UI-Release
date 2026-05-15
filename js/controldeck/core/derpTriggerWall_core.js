@@ -16,15 +16,30 @@ function syncTriggerGroupToProperties(node) {
     const full = node._triggerGroupData || [];
     node.properties.triggerGroups = full
         .filter(g => !g.hidden)
-        .map(g => ({ id: g.id, title: g.title, isExclusive: !!g.isExclusive }));
+        .map(g => ({ id: g.id, title: g.title, isExclusive: !!g.isExclusive, triggers: (g.triggers || []).filter(t => !t.hidden).map(t => ({ id: t.id, label: t.label })) }));
 }
 
 // Ensure runtime cache exists, seeded from properties if needed
-function ensureTriggerGroupData(node) {
-    if (!Array.isArray(node._triggerGroupData)) {
-        node._triggerGroupData = (node.properties.triggerGroups || []).map(g => ({ ...g, triggers: g.triggers || [] }));
+function ensureTriggerGroupData(node, force = false) {
+    if (force || !Array.isArray(node._triggerGroupData)) {
+        node._triggerGroupData = (node.properties.triggerGroups || []).map(g => ({ ...g, triggers: (g.triggers || []).map(t => ({ ...t, active: t.active !== false, weight: t.weight ?? 1.0 })) }));
     }
     return node._triggerGroupData;
+}
+
+function applyDeckProfileToData(node, deckGroups) {
+    if (!Array.isArray(deckGroups) || !Array.isArray(node._triggerGroupData)) return;
+    const deckMap = new Map(deckGroups.map(g => [g.id, g]));
+    node._triggerGroupData.forEach(group => {
+        const deck = deckMap.get(group.id);
+        if (deck && Array.isArray(deck.triggers)) {
+            const triggerMap = new Map(deck.triggers.map(t => [t.id, t]));
+            (group.triggers || []).forEach(trig => {
+                const dt = triggerMap.get(trig.id);
+                if (dt) { trig.weight = dt.weight; trig.active = !!dt.active; }
+            });
+        }
+    });
 }
 
 function refreshAndSync(node, syncOutputs = true, dirtyFull = false, settleOptions = {}) {
@@ -33,6 +48,7 @@ function refreshAndSync(node, syncOutputs = true, dirtyFull = false, settleOptio
     if (typeof settleDerpSizeBeforeDraw === "function") settleDerpSizeBeforeDraw(node, settleOptions);
     if (syncOutputs && node.syncDerpOutputs) node.syncDerpOutputs();
     node.setDirtyCanvas(true, dirtyFull);
+    if (node.properties?.lastSavedPreset) triggerWall_saveDeckProfile(node);
     if (window.app?.graph?.change) window.app.graph.change();
 }
 
@@ -190,7 +206,13 @@ export function triggerWall_onConfigure(node, info, originalCallback) {
         if (node.properties.showWeight === undefined) node.properties.showWeight = true;
         node._lastDerpW = null; // Force frame-one rebuild in onDrawForeground
         node._lastSyncedContent = null;
-        ensureTriggerGroupData(node);
+        ensureTriggerGroupData(node, true); // force re-seed from deserialized properties
+        // Load deck profile to restore weights/active states
+        if (node.properties.lastSavedPreset) {
+            triggerWall_loadDeckProfile(node).then(deckGroups => {
+                if (deckGroups) { applyDeckProfileToData(node, deckGroups); node.refreshNodeLayoutMap(); }
+            });
+        }
         node._cachedPresetData = cloneTriggerPresetData(node.properties.loadedTriggerPreset);
         node.refreshNodeLayoutMap();
         node.refreshDerpTriggerWallSysMap();
@@ -732,9 +754,7 @@ export async function triggerWall_addSelectedGroupToProfile(node) {
             .filter(t => !t.hidden)
             .map(t => ({
                 id: t.id || `trig_${Math.random().toString(16).slice(2, 8)}`,
-                label: t.label,
-                weight: t.weight,
-                active: !!t.active
+                label: t.label
             }))
     };
 
@@ -779,9 +799,7 @@ export async function triggerWall_saveGroupToProfile(node, group, targetRegion =
             .filter(t => !t.hidden)
             .map(t => ({
                 id: t.id || `trig_${Math.random().toString(16).slice(2, 8)}`,
-                label: t.label,
-                weight: t.weight,
-                active: !!t.active
+                label: t.label
             }))
     };
 
@@ -834,8 +852,6 @@ export async function triggerWall_saveCurrentProfile(node, targetRegion = "btnSa
                 .map((t) => ({
                     id: t.id || `trig_${Math.random().toString(16).slice(2, 8)}`,
                     label: t.label,
-                    weight: t.weight,
-                    active: !!t.active,
                 })),
         };
         byTitle.set(String(cleanGroup.title || ""), cleanGroup);
@@ -861,6 +877,50 @@ export async function triggerWall_saveCurrentProfile(node, targetRegion = "btnSa
     } catch (e) {
         console.error("[xcpDerp] Failed to save current profile:", e);
         showBastaMessage(node, "Save Failed", 3000, { fade: true, grow: true }, targetRegion, false, "error");
+    }
+}
+
+export async function triggerWall_saveDeckProfile(node) {
+    const presetName = node.properties?.lastSavedPreset;
+    if (!presetName) return;
+    const deckData = {
+        fileType: "xcp_derp_trigger_deck",
+        version: "1.0.0",
+        timestamp: Date.now(),
+        triggerGroups: (node._triggerGroupData || []).filter(g => !g.hidden).map(g => ({
+            id: g.id,
+            title: g.title,
+            isExclusive: !!g.isExclusive,
+            triggers: (g.triggers || []).filter(t => !t.hidden).map(t => ({
+                id: t.id,
+                label: t.label,
+                weight: t.weight,
+                active: !!t.active
+            }))
+        }))
+    };
+    try {
+        await fetch("/xcp/save/triggerWallDeck", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: presetName, data: deckData })
+        });
+    } catch (e) {
+        console.warn("[xcpDerp] Deck profile save failed:", e);
+    }
+}
+
+export async function triggerWall_loadDeckProfile(node) {
+    const presetName = node.properties?.lastSavedPreset;
+    if (!presetName) return null;
+    try {
+        const res = await fetch(`/xcp/load/triggerWallDeck?name=${encodeURIComponent(presetName)}`);
+        if (!res.ok) return null;
+        const json = await res.json();
+        return json?.data?.triggerGroups || null;
+    } catch (e) {
+        console.warn("[xcpDerp] Deck profile load failed:", e);
+        return null;
     }
 }
 

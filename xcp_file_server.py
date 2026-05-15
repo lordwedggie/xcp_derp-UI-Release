@@ -42,6 +42,9 @@ os.makedirs(PROMPT_BOOK_DIR, exist_ok=True)
 TRIGGER_WALL_DIR = os.path.join(DERP_ROOT, "derpTriggerWall")
 os.makedirs(TRIGGER_WALL_DIR, exist_ok=True)
 
+TRIGGER_WALL_DECK_DIR = os.path.join(DERP_ROOT, "derpTriggerWallDeck")
+os.makedirs(TRIGGER_WALL_DECK_DIR, exist_ok=True)
+
 EXT_ROOT = os.path.dirname(os.path.abspath(__file__))
 LOCALE_DIR = os.path.join(EXT_ROOT, "locales")
 os.makedirs(LOCALE_DIR, exist_ok=True)
@@ -62,7 +65,8 @@ CATEGORIES = {
     "locales": LOCALE_DIR,
     "models": folder_paths.get_folder_paths("checkpoints")[0],
     "vaes": folder_paths.get_folder_paths("vae")[0],
-    "triggerWall": TRIGGER_WALL_DIR
+    "triggerWall": TRIGGER_WALL_DIR,
+    "triggerWallDeck": TRIGGER_WALL_DECK_DIR,
 }
 
 def get_category_dir(category):
