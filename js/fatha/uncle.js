@@ -19,55 +19,8 @@ import { animateRecoil } from "../herbina/masterAnimator.js";
 // THE SQUEEZE CONFIG: Centralized padding values for Uncle link-dots
 const UNCLE_LINK_PAD = { LEFT: 15, RIGHT: 15 };
 
-// --- THE PERFECT HEIST (Ghost Slots & Selection Killer) ---
-// Injected directly into Uncle to wipe out native UI while keeping functionality.
-if (!window._xcpUncleGhostSlotsHijack) {
-    const originalDrawNode = LGraphCanvas.prototype.drawNode;
-    LGraphCanvas.prototype.drawNode = function(node, ctx) {
-        if (node.isUncleNode) {
-            // 1. Cache the true selection states so your custom UI still highlights
-            node._xcpTrueSelected = node.selected;
-            node._xcpTrueInMap = !!(app.canvas.selected_nodes && app.canvas.selected_nodes[node.id]);
-
-            // 2. THE GHOST RECALL: Hide slots unless the node is active
-            // This restores the visual 'Perfect Heist' while providing the data needed for the Squeeze logic
-            // THE GHOST RECALL: Filter out internal wireless bridge wires from the visual drawing pass
-            node._xcpTrueInputs = node.inputs;
-            node._xcpTrueOutputs = node.outputs;
-            const isSelected = node._xcpTrueSelected || node._xcpTrueInMap;
-            const regions = node.layout?.regions || {};
-
-            // THE FILTERED HEIST: Only present slots to the native renderer that are explicitly
-            // defined in the current Layout Map via inSlotIdx or outSlotIdx.
-            // THE FADE HEIST: Allow slots to remain visible while the alpha animation is active
-            if (node.inputs) node.inputs = []; // THE MANUAL DRAW FIX: Blind LiteGraph completely to slots
-            if (node.outputs) node.outputs = []; // THE MANUAL DRAW FIX: Blind LiteGraph completely to slots
-
-            node._xcpGhosted = !isSelected;
-
-            // 3. Blind the selection engine to kill the dashed green box
-            if (node.selected) node.selected = false;
-            if (node._xcpTrueInMap) delete app.canvas.selected_nodes[node.id];
-
-            // 3.5 THE SLOT SYNC FIX: Force immediate slot alignment during the draw pass
-            if (node.syncUncleSlots) node.syncUncleSlots();
-
-            // EXECUTE DRAW (Suppresses native LiteGraph background and selection box)
-            node.onDrawForeground(ctx);
-
-            // 5. RESTORE REALITY: Put the arrays back immediately so mouse clicks and link wires still work
-            node.inputs = node._xcpTrueInputs;
-            node.outputs = node._xcpTrueOutputs;
-            node._xcpGhosted = false;
-
-            if (node._xcpTrueSelected) node.selected = true;
-            if (node._xcpTrueInMap) app.canvas.selected_nodes[node.id] = node;
-        } else {
-            originalDrawNode.apply(this, arguments);
-        }
-    };
-    window._xcpUncleGhostSlotsHijack = true;
-}
+// Uncle heist now lives in fatha.js unified drawNode wrapper
+window._xcpUncleGhostSlotsHijack = true;
 
 export function uncle(nodeType, nodeData, minWidth = 100) {
     // THE IDENTITY FIX: Core identity changed to Uncle

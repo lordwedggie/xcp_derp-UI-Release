@@ -91,6 +91,31 @@ if (!window._xcpFathaGlobalHijack) {
             node.outputs = node._xcpTrueOutputs;
             if (node._xcpTrueSelected) node.selected = true;
             if (node._xcpTrueInMap) app.canvas.selected_nodes[node.id] = node;
+        } else if (node.isUncleNode) {
+            // UNCLE HEIST: Cache state and ghost slots (shared pattern with Fatha)
+            node._xcpTrueSelected = node.selected;
+            node._xcpTrueInMap = !!(app.canvas.selected_nodes && app.canvas.selected_nodes[node.id]);
+
+            node._xcpTrueInputs = node.inputs;
+            node._xcpTrueOutputs = node.outputs;
+            if (node.inputs) node.inputs = [];
+            if (node.outputs) node.outputs = [];
+
+            const isSelected = node._xcpTrueSelected || node._xcpTrueInMap;
+            node._xcpGhosted = !isSelected;
+
+            if (node.selected) node.selected = false;
+            if (node._xcpTrueInMap) delete app.canvas.selected_nodes[node.id];
+
+            if (node.syncUncleSlots) node.syncUncleSlots();
+
+            node.onDrawForeground(ctx);
+
+            node.inputs = node._xcpTrueInputs;
+            node.outputs = node._xcpTrueOutputs;
+            node._xcpGhosted = false;
+            if (node._xcpTrueSelected) node.selected = true;
+            if (node._xcpTrueInMap) app.canvas.selected_nodes[node.id] = node;
         } else {
             originalDrawNode.apply(this, arguments);
         }
