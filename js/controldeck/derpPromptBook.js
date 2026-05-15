@@ -143,9 +143,40 @@ app.registerExtension({
                         },
                     } : {})
                 },
-                pageRegion: {
+                contentRegion: {
                     anchor: { target: "bookRegion", axis: "y", },
-                    dir: "row", width: "full", height: "auto", margin: [mW, 0], padding: [0, 0],
+                    dir: "col", width: "full", height: "fill", margin: [mW, sH, mW, mH], padding: [0,0],
+                    minHeight: 100,
+                    editorMain: {
+                        type: this.UI_TYPES.EDITOR, multiline: true, noHover: true, canvasShield: true, switchOnEditing: true,
+                        themeKey: "dialog, t_textNormal",
+                        labelAlign: ["left", "top"], measureText: "MEASURE_RESERVE_FLOOR",
+                        width: "full", height: "fill", padding: [pW, pH],
+                        value: (activePage.content || "").replace(/\[\[IMG:(?!data:|http|\/|.*_IMG\/)([^\]]+)\]\]/g, (m, file) => {
+                            const bookName = this.properties.bookName || "Untitled Book";
+                            return `[[IMG:/xcp/get_asset/derpPromptBook?name=${encodeURIComponent(file)}&bookName=${encodeURIComponent(bookName)}]]`;
+                        }),
+                        onInput: (val) => {
+                            const pIndex = this.properties.currentPageIndex || 0;
+                            if (book[pIndex]) {
+                                const cleanVal = val.replace(/\[\[IMG:\/xcp\/get_asset\/derpPromptBook\?name=([^&\]]+)(?:&bookName=[^\]]*)?\]\]/g, (m, encFile) => {
+                                    return `[[IMG:${decodeURIComponent(encFile)}]]`;
+                                });
+                                if (book[pIndex].content === cleanVal) return;
+                                book[pIndex].content = cleanVal;
+                                this.properties.prompt = cleanVal;
+                                const w = this.widgets?.find(x => x.name === "prompt");
+                                if (w) w.value = cleanVal;
+                                if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
+                                if (this.requestDerpSync) this.requestDerpSync();
+                                if (this.syncDerpOutputs) this.syncDerpOutputs();
+                            }
+                        },
+                    }
+                },
+                pageRegion: {
+                    anchor: { target: "contentRegion", axis: "y", },
+                    dir: "row", width: "full", height: "auto", margin: [mW, mH, mW, mH], padding: [0, 0],
                     btnPageLeft: {
                         type: this.UI_TYPES.ICONBUTTON, icon: "leftarrow", themeKey: "button, t_textBig",
                         width: "match", height: "fill", spacing: [sW, 0], objectAlign: ["left", "middle"],
@@ -182,38 +213,6 @@ app.registerExtension({
                         onPress: () => handlePageChange(this, 1)
                     }
                 },
-                contentRegion: {
-                    anchor: { target: "pageRegion", axis: "y", offset: oY},
-                    dir: "col", width: "full", height: "fill",
-                    minHeight: 100,
-                    margin: [mW, mH], padding: [0,0],
-                    editorMain: {
-                        type: this.UI_TYPES.EDITOR, multiline: true, noHover: true, canvasShield: true, switchOnEditing: true,
-                        themeKey: "dialog, t_textNormal",
-                        labelAlign: ["left", "top"], measureText: "MEASURE_RESERVE_FLOOR",
-                        width: "full", height: "fill", padding: [pW, pH],
-                        value: (activePage.content || "").replace(/\[\[IMG:(?!data:|http|\/|.*_IMG\/)([^\]]+)\]\]/g, (m, file) => {
-                            const bookName = this.properties.bookName || "Untitled Book";
-                            return `[[IMG:/xcp/get_asset/derpPromptBook?name=${encodeURIComponent(file)}&bookName=${encodeURIComponent(bookName)}]]`;
-                        }),
-                        onInput: (val) => {
-                            const pIndex = this.properties.currentPageIndex || 0;
-                            if (book[pIndex]) {
-                                const cleanVal = val.replace(/\[\[IMG:\/xcp\/get_asset\/derpPromptBook\?name=([^&\]]+)(?:&bookName=[^\]]*)?\]\]/g, (m, encFile) => {
-                                    return `[[IMG:${decodeURIComponent(encFile)}]]`;
-                                });
-                                if (book[pIndex].content === cleanVal) return;
-                                book[pIndex].content = cleanVal;
-                                this.properties.prompt = cleanVal;
-                                const w = this.widgets?.find(x => x.name === "prompt");
-                                if (w) w.value = cleanVal;
-                                if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
-                                if (this.requestDerpSync) this.requestDerpSync();
-                                if (this.syncDerpOutputs) this.syncDerpOutputs();
-                            }
-                        },
-                    }
-                }
             };
 
             this.requestDerpSync();
