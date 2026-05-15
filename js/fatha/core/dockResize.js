@@ -18,39 +18,11 @@ import {
     shouldPreserveDockHeight,
     shouldPreserveDockWidth,
 } from "./dockDimensions.js";
+import { dockDebug, snapshotDockNode } from "./dockDebugHelpers.js";
 
 globalThis.DERP_DOCK_RESIZE_DEBUG = true;
 globalThis.DERP_DOCK_RESIZE_CONSOLE = false;
 globalThis.DERP_DOCK_RESIZE_LOGS = globalThis.DERP_DOCK_RESIZE_LOGS || [];
-
-function dockDebug(label, payload = {}) {
-    if (!globalThis?.DERP_DOCK_RESIZE_DEBUG) return;
-    const entry = { label, payload, time: Date.now() };
-    globalThis.DERP_DOCK_RESIZE_LOGS.push(entry);
-    if (globalThis.DERP_DOCK_RESIZE_LOGS.length > 500) globalThis.DERP_DOCK_RESIZE_LOGS.shift();
-}
-
-function snapshotDockNode(node) {
-    if (!node) return null;
-    return {
-        id: node.id,
-        type: node.type,
-        title: node.titleLabel || node.title,
-        pos: [...(node.pos || [])],
-        size: [...(node.size || [])],
-        nodeSize: [...(node.properties?.nodeSize || [])],
-        autoWidth: node.properties?.autoWidth,
-        autoHeight: node.properties?.autoHeight,
-        pinActive: node.properties?.pinActive === true,
-        contentCollapsed: node.properties?.contentCollapsed === true,
-        contentMinWidth: node.layout?.contentMinWidth,
-        contentMinHeight: node.layout?.contentMinHeight,
-        totalHeight: node.layout?.totalHeight,
-        deckParentId: node.properties?.deckParentId,
-        deckDockSide: node.properties?.deckDockSide,
-        deckEdges: { ...(node.properties?.deckEdges || {}) },
-    };
-}
 
 function snapshotDockMembers(node, graph) {
     return graph && node ? getDeckMembers(node, graph).map(snapshotDockNode) : [];

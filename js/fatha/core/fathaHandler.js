@@ -3,6 +3,7 @@
  * ROLE: Protocol-based interaction and theme engine for all Fatha entities.
  */
 import { app } from "../../../../scripts/app.js";
+import { dockDebug, snapshotDockNode } from "./dockDebugHelpers.js";
 import { syncDerpShield } from "./fathaDOMshield.js";
 import { toggleDerpSysPanel, sysPanel, closeDerpSysPanel } from "../helpers/fathaSysPanel.js";
 import { masterPainter, compileThemeData, invalidateCompiledThemeCache } from "../../herbina/masterPainter.js";
@@ -22,36 +23,6 @@ function getDeckEngine() {
     }
     window.xcpMasterDeckEngine.setGraph(app.graph || null);
     return window.xcpMasterDeckEngine;
-}
-
-function dockDebug(label, payload = {}) {
-    if (!globalThis?.DERP_DOCK_RESIZE_DEBUG) return;
-    globalThis.DERP_DOCK_RESIZE_LOGS = globalThis.DERP_DOCK_RESIZE_LOGS || [];
-    const entry = { label, payload, time: Date.now() };
-    globalThis.DERP_DOCK_RESIZE_LOGS.push(entry);
-    if (globalThis.DERP_DOCK_RESIZE_LOGS.length > 500) globalThis.DERP_DOCK_RESIZE_LOGS.shift();
-}
-
-function snapshotDockNode(node) {
-    if (!node) return null;
-    return {
-        id: node.id,
-        type: node.type,
-        title: node.titleLabel || node.title,
-        pos: [...(node.pos || [])],
-        size: [...(node.size || [])],
-        nodeSize: [...(node.properties?.nodeSize || [])],
-        autoWidth: node.properties?.autoWidth,
-        autoHeight: node.properties?.autoHeight,
-        pinActive: node.properties?.pinActive === true,
-        contentCollapsed: node.properties?.contentCollapsed === true,
-        contentMinWidth: node.layout?.contentMinWidth,
-        contentMinHeight: node.layout?.contentMinHeight,
-        totalHeight: node.layout?.totalHeight,
-        deckParentId: node.properties?.deckParentId,
-        deckDockSide: node.properties?.deckDockSide,
-        deckEdges: { ...(node.properties?.deckEdges || {}) },
-    };
 }
 
 function paletteColorToCss(color) {

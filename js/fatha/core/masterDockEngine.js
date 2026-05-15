@@ -3,6 +3,7 @@
  * PATH: ./js/fatha/core/masterDockEngine.js
  */
 
+import { dockDebug, snapshotDockNode } from "./dockDebugHelpers.js";
 import { resolveDockTarget } from "./dockTargetPicking.js";
 import { syncDerpShield } from "./fathaDOMshield.js";
 import { handleNodeResize } from "./fathaNodeResize.js";
@@ -13,38 +14,8 @@ const DEFAULT_DECK_SNAP = 10;
 const DEFAULT_DECK_RADIUS = 48;
 const DEFAULT_DECK_GHOST_THICKNESS = 10;
 
-function dockDebug(label, payload = {}) {
-    if (!globalThis?.DERP_DOCK_RESIZE_DEBUG) return;
-    globalThis.DERP_DOCK_RESIZE_LOGS = globalThis.DERP_DOCK_RESIZE_LOGS || [];
-    const entry = { label, payload, time: Date.now() };
-    globalThis.DERP_DOCK_RESIZE_LOGS.push(entry);
-    if (globalThis.DERP_DOCK_RESIZE_LOGS.length > 500) globalThis.DERP_DOCK_RESIZE_LOGS.shift();
-}
-
 function dockDebugLog(label, payload = {}) {
     dockDebug(`target:${label}`, payload);
-}
-
-function snapshotDockNode(node) {
-    if (!node) return null;
-    return {
-        id: node.id,
-        type: node.type,
-        title: node.titleLabel || node.title,
-        pos: [...(node.pos || [])],
-        size: [...(node.size || [])],
-        nodeSize: [...(node.properties?.nodeSize || [])],
-        autoWidth: node.properties?.autoWidth,
-        autoHeight: node.properties?.autoHeight,
-        pinActive: node.properties?.pinActive === true,
-        contentCollapsed: node.properties?.contentCollapsed === true,
-        contentMinWidth: node.layout?.contentMinWidth,
-        contentMinHeight: node.layout?.contentMinHeight,
-        totalHeight: node.layout?.totalHeight,
-        deckParentId: node.properties?.deckParentId,
-        deckDockSide: node.properties?.deckDockSide,
-        deckEdges: { ...(node.properties?.deckEdges || {}) },
-    };
 }
 
 function snapshotDockMembers(node, graph) {
