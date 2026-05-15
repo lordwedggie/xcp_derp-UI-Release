@@ -95,36 +95,7 @@ export class masterLayoutEngine {
         const itemsLen = Array.isArray(c.items) ? c.items.length : 0;
         const parentH = Number.isFinite(context?.parentHeight) ? Number(context.parentHeight).toFixed(2) : "";
 
-        return [
-            key,
-            this.originalWidth,
-            parentH,
-            c.type || "",
-            c.themeKey || "",
-            c.width,
-            c.height,
-            c.minWidth,
-            c.minHeight,
-            c.dir || "",
-            c.wrap === true ? 1 : 0,
-            c.cutoff === true ? 1 : 0,
-            c.displayMode || "",
-            c.indicator === true ? 1 : (c.indicator || 0),
-            c.toggleWidth,
-            c.gap,
-            c.showWeight === true ? 1 : 0,
-            c.weight,
-            c.fontWeight || "",
-            c.text || "",
-            c.label || "",
-            c.value || "",
-            c.measureText || "",
-            c.icon || "",
-            itemsLen,
-            margin,
-            padding,
-            spacing
-        ].join("|");
+        return `${key}|${this.originalWidth}|${parentH}|${c.type || ""}|${c.themeKey || ""}|${c.width}|${c.height}|${c.minWidth}|${c.minHeight}|${c.dir || ""}|${c.wrap === true ? 1 : 0}|${c.cutoff === true ? 1 : 0}|${c.displayMode || ""}|${c.indicator === true ? 1 : (c.indicator || 0)}|${c.toggleWidth}|${c.gap}|${c.showWeight === true ? 1 : 0}|${c.weight}|${c.fontWeight || ""}|${c.text || ""}|${c.label || ""}|${c.value || ""}|${c.measureText || ""}|${c.icon || ""}|${itemsLen}|${margin}|${padding}|${spacing}`;
     }
 
     /**
@@ -138,11 +109,11 @@ export class masterLayoutEngine {
             const v = map[k];
             if (typeof v === "object" && v !== null) {
                 if (v.id && v.type) continue; // Skip LiteGraph nodes
-                if (v.bypassHashOptimization) { str += `${k}:bypass_${Math.random()}|`; continue; }
+                if (v.bypassHashOptimization) { str += `${k}:bypass_${this._hashStamp}|`; continue; }
                 if (Array.isArray(v)) str += `${k}:[${v.join(",")}]|`;
                 else str += `${k}:{${this._hashMap(v, depth + 1)}}|`;
             } else {
-                if (k === "bypassHashOptimization" && v) str += `bypass_${Math.random()}|`;
+                if (k === "bypassHashOptimization" && v) str += `bypass_${this._hashStamp}|`;
                 else str += `${k}:${v}|`;
             }
         }
@@ -173,6 +144,7 @@ export class masterLayoutEngine {
         this.contentMinHeight = 0;
         this._lastCacheKey = ""; // Optimization: Tracks the previous state hash
         this._cachedMapHash = ""; // Optimization: Cached _hashMap result to avoid per-frame recursion
+        this._hashStamp = 1; // Optimization: Scoped invalidation stamp for bypassHashOptimization
         this._measureCache = new Map(); // Optimization: Tracks intra-pass measurements
         this._profile = {
             windowStart: performance.now(),
@@ -341,6 +313,7 @@ export class masterLayoutEngine {
         const isSys = context.isSystemPanel === true;
 
         const isForced = forceOverride || this.owner?._forceSync;
+        if (isForced || forceOverride) this._hashStamp++;
         const hSlot = isSys ? "sys" : (this.owner?._hideSlot);
 
         if (isForced || forceOverride) this._cachedMapHash = "";
