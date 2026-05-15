@@ -151,14 +151,6 @@ app.registerExtension({
                         width: "match", height: "fill", spacing: [sW, 0], objectAlign: ["left", "middle"],
                         onPress: () => handlePageChange(this, -1)
                     },
-                    dropdownPages: {
-                        type: this.UI_TYPES.DROPDOWN_DERP, canvasShield: true, multiline: false, themeKey: "dialog, t_textBig",
-                        items: book.map((page, idx) => getPageLabel(this, idx, page.title)),
-                        indicator: "on",
-                        width: "full", height: "auto", padding: [pW, pH], spacing: [sW, 0],
-                        value: getPageLabel(this, safeIndex, activePage.title),
-                        onChange: (val) => handlePageChange(this, val)
-                    },
                     btnPageAdd: {
                         type: this.UI_TYPES.ICONBUTTON, icon: "add", themeKey: "button, t_textBig",
                         width: "match", height: "fill", padding: [pW, pH], spacing: [sW, 0], objectAlign: ["left", "middle"],
@@ -169,6 +161,14 @@ app.registerExtension({
                         width: "match", height: "fill", padding: [pW, pH], spacing: [sW, 0], objectAlign: ["left", "middle"],
                         labelAlign: ["center", "middle"],
                         onPress: () => handlePageRename(this)
+                    },
+                    dropdownPages: {
+                        type: this.UI_TYPES.DROPDOWN_DERP, canvasShield: true, multiline: false, themeKey: "dialog, t_textBig",
+                        items: book.map((page, idx) => getPageLabel(this, idx, page.title)),
+                        indicator: "on",
+                        width: "full", height: "auto", padding: [pW, pH], spacing: [sW, 0],
+                        value: getPageLabel(this, safeIndex, activePage.title),
+                        onChange: (val) => handlePageChange(this, val)
                     },
                     btnPageDelete: {
                         type: this.UI_TYPES.ICONBUTTON, icon: "delete", themeKey: "button, t_textBig",
