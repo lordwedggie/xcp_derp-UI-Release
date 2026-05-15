@@ -700,7 +700,27 @@ export function fetchLoraData(node, showNotification = false) {
 
             node._loraDataHash = dataHash;
             node._loraList = nextLoraList;
-            node._loraPreviewList = nextPreviewList;
+            // Normalize: include both forward-slash and backslash variants so all comparison sites match
+            node._loraPreviewList = [];
+            for (const p of nextPreviewList) {
+                node._loraPreviewList.push(p);
+                node._loraPreviewList.push(p.replace(/\//g, "\\"));
+                node._loraPreviewList.push(p.replace(/\\/g, "/"));
+            }
+            // Update preview URL in active basta panel if open (survives refresh)
+            const basta = window.xcpActiveBastas?.get("basta_lora_detail_global_unique_id");
+            if (basta && basta.hostNode === node && !basta.isClosing) {
+                const loraData = basta._loraData;
+                if (loraData) {
+                    const loraPath = (loraData.loraPath || loraData.rawFileName || "").replace(/\\/g, "/");
+                    if (loraPath && nextPreviewList.some(p => String(p).replace(/\\/g, "/") === loraPath)) {
+                        loraData.previewUrl = getPreviewImageUrl(loraPath, false);
+                        loraData.hasCover = true;
+                    }
+                    basta._forceSync = true;
+                    if (basta.setDirtyCanvas) basta.setDirtyCanvas(true, true);
+                }
+            }
             if (nextRatings) node._loraRatings = { ...(node._loraRatings || {}), ...nextRatings };
             // Invalidate layout cache to force immediate rebuild with the new list
             node._layoutMapHash = null;
