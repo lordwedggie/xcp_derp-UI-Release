@@ -615,7 +615,6 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                         if (this.fetchDerpLoraTriggers) this.fetchDerpLoraTriggers(val, this.properties.stackData.length - 1);
                                         if (this.syncDerpOutputs) this.syncDerpOutputs();
                                         this.refreshNodeLayoutMap();
-                                        this.setDirtyCanvas(true, true);
                                         if (app.graph && app.graph.change) app.graph.change();
                                     }
                                 },

@@ -704,8 +704,10 @@ export function fetchLoraData(node, showNotification = false) {
             node._loraPreviewList = [];
             for (const p of nextPreviewList) {
                 node._loraPreviewList.push(p);
-                node._loraPreviewList.push(p.replace(/\//g, "\\"));
-                node._loraPreviewList.push(p.replace(/\\/g, "/"));
+                const backslash = p.replace(/\//g, "\\");
+                const forwardslash = p.replace(/\\/g, "/");
+                if (backslash !== p) node._loraPreviewList.push(backslash);
+                if (forwardslash !== p && forwardslash !== backslash) node._loraPreviewList.push(forwardslash);
             }
             // Update preview URL in active basta panel if open (survives refresh)
             const basta = window.xcpActiveBastas?.get("basta_lora_detail_global_unique_id");
