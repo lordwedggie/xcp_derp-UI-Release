@@ -147,6 +147,14 @@ function openPicker(sourceEl, config, node, callbacks) {
         node._pressedRegionKey = null;
     }
 
+    // Keep the host redrawing while the picker animates open and the viewport-fit
+    // follow-up frames may still pan the canvas.
+    if (node) {
+        node._derpAwakeFrames = Math.max(node._derpAwakeFrames || 0, 24);
+        if (typeof node.requestDerpSync === "function") node.requestDerpSync();
+        if (typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, true);
+    }
+
     lastOpenTime = Date.now();
     const ds = comfyApp.canvas.ds;
     const scale = ds.scale;
@@ -306,6 +314,12 @@ function openPicker(sourceEl, config, node, callbacks) {
         easing: "easeOutQuad",
         followFrames: 8,
     });
+
+    if (node) {
+        node._derpAwakeFrames = Math.max(node._derpAwakeFrames || 0, 24);
+        if (typeof node.requestDerpSync === "function") node.requestDerpSync();
+        if (typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, true);
+    }
 
     toggleSingletonShield(true, closePicker);
 }

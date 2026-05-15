@@ -662,7 +662,25 @@ app.registerExtension({
                     onPress: () => triggerWall_addGroup(this)
                 },
                 btnSaveTriggerGroup: {
+                filebrowserDeck: {
+                    type: this.UI_TYPES.FILEBROWSER, themeKey: "button, t_textsmall", canvasShield: true,
+                    text: this.properties.lastSavedDeckPreset || "Load Deck Profile", mouseOver: false,
+                    icon: this.properties.lastSavedDeckPreset ? "file" : "folder",
+                    width: "full", height: "fill", padding: [pW, pH], margin: [sW, 0, 0, 0],
+                    items: this._sortedDeckPresetItems || [],
+                    indicator: true,
+                    rootName: "Deck Profiles",
+                    fileType: "triggerWallDeck",
+                    onChange: (val) => {
+                        if (typeof triggerWall_onLoadDeckProfile === "function") triggerWall_onLoadDeckProfile(this, val);
+                    }
+                },
+                btnSaveDeckProfile: {
                     type: this.UI_TYPES.ICONBUTTON, themeKey: "button, t_textnormal",
+                    icon: "save", width: "match", height: "fill", margin: [sW, 0, 0, 0],
+                    state: "OFF",
+                    onPress: () => triggerWall_saveDeckProfile(this)
+                },
                     icon: "save", width: "match", height: "fill", margin: [sW, 0, 0, 0],
                     state: "OFF",
                     onPress: () => {
