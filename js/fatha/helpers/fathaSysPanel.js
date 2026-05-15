@@ -688,7 +688,7 @@ export async function toggleDerpSysPanel(hostNode) {
 
                 if (!hostNode._sysProfileCache) {
                     // INDIVIDUAL FILE NODES (Requires /xcp/list)
-                    const isIndividual = (fileName === "derpLoraStack" || fileName === "derpPromptBook");
+                    const isIndividual = (fileName === "derpLoraStack" || fileName === "derpPromptBook" || fileName === "triggerWallDeck");
                     if (isIndividual) {
                         fetch(`/xcp/list/${fileName}`)
                             .then(res => res.json())

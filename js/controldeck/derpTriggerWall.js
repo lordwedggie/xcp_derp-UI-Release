@@ -14,6 +14,9 @@ import {
     triggerWall_onConfigure,
     triggerWall_onDrawForeground,
     triggerWall_onDeselected,
+    triggerWall_updateDeckPresetList,
+    triggerWall_onLoadDeckProfile,
+    triggerWall_saveDeckProfile,
     triggerWall_onLoadPreset,
     triggerWall_updatePresetList,
     triggerWall_onThemeUpdate,
@@ -294,6 +297,26 @@ app.registerExtension({
                 console.log("[TWPerf] profiler active (set window.DERP_TW_PROFILE = false to disable)");
             }
         }
+
+        // --- PROFILE LOGIC (sys panel dropdown) ---
+        nodeType.prototype.applyDerpProfile = function(profileName) {
+        // --- PROFILE EXPORT (sys panel save button) ---
+        nodeType.prototype.exportDerpProfile = function() {
+            const groups = this._triggerGroupData || [];
+            return {
+                triggerGroups: groups.filter(g => !g.hidden).map(g => ({
+                    id: g.id, title: g.title, isExclusive: !!g.isExclusive,
+                    triggers: (g.triggers || []).filter(t => !t.hidden).map(t => ({
+                        id: t.id, label: t.label, weight: t.weight, active: !!t.active
+                    }))
+                }))
+            };
+        };
+            if (!profileName || profileName === "(No Profiles Found)") return;
+            if (typeof triggerWall_onLoadDeckProfile === "function") {
+                triggerWall_onLoadDeckProfile(this, profileName);
+            }
+        };
 
         // Initialize the Virtual Fatha framework hijacking
         fatha(nodeType, nodeData, 200);
@@ -644,6 +667,11 @@ app.registerExtension({
                 this._sortedPresetItemsKey = presetSortKey;
                 this._sortedPresetItems = [...presetItems].sort((a, b) => String(a).localeCompare(String(b)));
             }
+            const deckPresetItems = this._deckPresetItems || [];
+            if (this._sortedDeckPresetItemsKey !== deckPresetItems.join("\u0001")) {
+                this._sortedDeckPresetItemsKey = deckPresetItems.join("\u0001");
+                this._sortedDeckPresetItems = [...deckPresetItems].sort((a, b) => String(a).localeCompare(String(b)));
+            }
 
             const layoutMap = {
                 contentRegion: {
@@ -662,25 +690,7 @@ app.registerExtension({
                     onPress: () => triggerWall_addGroup(this)
                 },
                 btnSaveTriggerGroup: {
-                filebrowserDeck: {
-                    type: this.UI_TYPES.FILEBROWSER, themeKey: "button, t_textsmall", canvasShield: true,
-                    text: this.properties.lastSavedDeckPreset || "Load Deck Profile", mouseOver: false,
-                    icon: this.properties.lastSavedDeckPreset ? "file" : "folder",
-                    width: "full", height: "fill", padding: [pW, pH], margin: [sW, 0, 0, 0],
-                    items: this._sortedDeckPresetItems || [],
-                    indicator: true,
-                    rootName: "Deck Profiles",
-                    fileType: "triggerWallDeck",
-                    onChange: (val) => {
-                        if (typeof triggerWall_onLoadDeckProfile === "function") triggerWall_onLoadDeckProfile(this, val);
-                    }
-                },
-                btnSaveDeckProfile: {
                     type: this.UI_TYPES.ICONBUTTON, themeKey: "button, t_textnormal",
-                    icon: "save", width: "match", height: "fill", margin: [sW, 0, 0, 0],
-                    state: "OFF",
-                    onPress: () => triggerWall_saveDeckProfile(this)
-                },
                     icon: "save", width: "match", height: "fill", margin: [sW, 0, 0, 0],
                     state: "OFF",
                     onPress: () => {
@@ -699,6 +709,25 @@ app.registerExtension({
                     rootName: "Presets",
                     onChange: (val) => {
                         if (typeof triggerWall_onLoadPreset === "function") triggerWall_onLoadPreset(this, val);
+                    }
+                },
+                btnSaveDeckProfile: {
+                    type: this.UI_TYPES.ICONBUTTON, themeKey: "button, t_textnormal",
+                    icon: "save", width: "match", height: "fill", margin: [sW, 0, 0, 0],
+                    state: "OFF",
+                    onPress: () => triggerWall_saveDeckProfile(this)
+                },
+                filebrowserDeck: {
+                    type: this.UI_TYPES.FILEBROWSER, themeKey: "button, t_textsmall", canvasShield: true,
+                    text: this.properties.lastSavedDeckPreset || "Load Deck Profile", mouseOver: false,
+                    icon: this.properties.lastSavedDeckPreset ? "file" : "folder",
+                    width: "full", height: "fill", padding: [pW, pH], margin: [sW, 0, 0, 0],
+                    items: this._sortedDeckPresetItems || [],
+                    indicator: true,
+                    rootName: "Deck Profiles",
+                    fileType: "triggerWallDeck",
+                    onChange: (val) => {
+                        if (typeof triggerWall_onLoadDeckProfile === "function") triggerWall_onLoadDeckProfile(this, val);
                     }
                 },
             };

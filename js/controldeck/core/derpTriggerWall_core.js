@@ -225,6 +225,7 @@ export function triggerWall_onConfigure(node, info, originalCallback) {
         node._cachedPresetData = cloneTriggerPresetData(node.properties.loadedTriggerPreset);
         node.refreshNodeLayoutMap();
         node.refreshDerpTriggerWallSysMap();
+        triggerWall_updateDeckPresetList(node);
         if (!node._cachedPresetData && node.properties.lastSavedPreset) {
             fetch(`/xcp/load/triggerWall?name=${encodeURIComponent(node.properties.lastSavedPreset)}`)
                 .then(r => { if (!r.ok) return null; return r.json(); })
@@ -313,6 +314,20 @@ export async function triggerWall_updatePresetList(node) {
     }
 }
 
+export async function triggerWall_updateDeckPresetList(node) {
+    try {
+        const res = await fetch("/xcp/list/triggerWallDeck");
+        if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
+        const json = await res.json();
+        node._deckPresetItems = json.items || [];
+        node._sortedDeckPresetItemsKey = null;
+        node._layoutMapHash = null;
+        if (node.refreshNodeLayoutMap) node.refreshNodeLayoutMap();
+    } catch (e) {
+        console.error("[xcpDerp] Failed to fetch deck presets:", e);
+    }
+}
+
 export async function triggerWall_onLoadPreset(node, presetName) {
     if (!presetName) return;
     try {
@@ -330,6 +345,27 @@ export async function triggerWall_onLoadPreset(node, presetName) {
         }
     } catch (e) {
         console.error("[xcpDerp] Failed to load preset:", e);
+    }
+}
+
+export async function triggerWall_onLoadDeckProfile(node, presetName) {
+    if (!presetName) return;
+    try {
+        const res = await fetch(`/xcp/load/triggerWallDeck?name=${encodeURIComponent(presetName)}`);
+        if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
+        const json = await res.json();
+        if (json?.data?.triggerGroups) {
+            ensureTriggerGroupData(node);
+            node._triggerGroupData = json.data.triggerGroups;
+            syncTriggerGroupToProperties(node);
+            node.properties.lastSavedDeckPreset = presetName;
+            node._layoutMapHash = null;
+            if (node.refreshNodeLayoutMap) node.refreshNodeLayoutMap();
+            if (node.syncDerpOutputs) node.syncDerpOutputs();
+            if (node.setDirtyCanvas) node.setDirtyCanvas(true, true);
+        }
+    } catch (e) {
+        console.warn("[xcpDerp] Failed to load deck profile:", e);
     }
 }
 
@@ -978,6 +1014,10 @@ export async function triggerWall_autoload(node) {
 }
 
 export function triggerWall_onDerpSysPanelOpen(node, panel) {
+    node._derpPanel = panel;
+    if (panel.showProfiles) {
+        panel.showProfiles("triggerWallDeck", "triggerWallDeck");
+    }
     if (node.sysLayoutMap) panel.setLayoutMap(node.sysLayoutMap);
 }
 
