@@ -145,7 +145,7 @@ app.registerExtension({
                 },
                 contentRegion: {
                     anchor: { target: "bookRegion", axis: "y", },
-                    dir: "col", width: "full", height: "fill", margin: [mW, sH, mW, mH], padding: [0,0],
+                    dir: "col", width: "full", height: "fill", margin: [mW, sH, mW, sH], padding: [0,0],
                     minHeight: 100,
                     editorMain: {
                         type: this.UI_TYPES.EDITOR, multiline: true, noHover: true, canvasShield: true, switchOnEditing: true,
