@@ -623,7 +623,7 @@ app.registerExtension({
                         [`${childKeyPrefix}btnRemoveGroup_${gIdx}`]: {
                             type: this.UI_TYPES.ICONBUTTON, themeKey: "button, t_textsystem",
                             alpha: isPreviewGhost ? 0 : 1,
-                            icon: "close", width: "match", height: "fill", margin: [0, sH, -sW, sH],
+                            icon: "close", width: "match", height: "fill", margin: [0, mH, 0, mH],
                             hidden: this._triggerGroupData.length <= 1,
                             onPress: headerPressEnabled ? (() => triggerWall_confirmRemoveGroup(this, gIdx)) : undefined
                         }
@@ -733,7 +733,7 @@ app.registerExtension({
 
             layoutMap.regionSelectTriggerGroup = {
                 anchor: { target: lastRegionKey, axis: "y"},
-                dir: "row", width: "full", height: "auto", margin: [mW, 0, mW, mH],
+                dir: "row", width: "full", height: "auto", margin: [mW, 0, mW, 0],
                 spacing: [sW, 0],
                 dropdownTriggerGroup: {
                     type: this.UI_TYPES.DROPDOWN, themeKey: "button, t_textsmall", skipBackground: false,
@@ -775,7 +775,7 @@ app.registerExtension({
 
             layoutMap.bottomSpacer = {
                 anchor: { target: lastRegionKey, axis: "y" },
-                width: "full", height: mH
+                width: "full", height: 0
             };
 
             this.layoutMap = layoutMap;

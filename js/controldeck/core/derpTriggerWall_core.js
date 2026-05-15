@@ -43,12 +43,17 @@ function applyDeckProfileToData(node, deckGroups) {
 }
 
 function refreshAndSync(node, syncOutputs = true, dirtyFull = false, settleOptions = {}) {
+    // Auto-persist current state so groups survive page refresh
+    try {
+        triggerWall_autosave(node);
+    } catch (e) {
+        // best-effort; don't block the UI
+    }
     syncTriggerGroupToProperties(node);
     node.refreshNodeLayoutMap();
     if (typeof settleDerpSizeBeforeDraw === "function") settleDerpSizeBeforeDraw(node, settleOptions);
     if (syncOutputs && node.syncDerpOutputs) node.syncDerpOutputs();
     node.setDirtyCanvas(true, dirtyFull);
-    if (node.properties?.lastSavedPreset) triggerWall_saveDeckProfile(node);
     if (window.app?.graph?.change) window.app.graph.change();
 }
 
@@ -207,6 +212,10 @@ export function triggerWall_onConfigure(node, info, originalCallback) {
         node._lastDerpW = null; // Force frame-one rebuild in onDrawForeground
         node._lastSyncedContent = null;
         ensureTriggerGroupData(node, true); // force re-seed from deserialized properties
+        // Restore from autosave (survives page refresh even without workflow save)
+        triggerWall_autoload(node).then(groups => {
+            if (groups) { node._triggerGroupData = groups; node.refreshNodeLayoutMap(); }
+        });
         // Load deck profile to restore weights/active states
         if (node.properties.lastSavedPreset) {
             triggerWall_loadDeckProfile(node).then(deckGroups => {
@@ -922,6 +931,50 @@ export async function triggerWall_loadDeckProfile(node) {
         console.warn("[xcpDerp] Deck profile load failed:", e);
         return null;
     }
+}
+
+function _triggerWall_autosaveKey(node) {
+    const workflowId = node?.graph?.extra?.workflowId || node?.graph?.name || node?.id || "unknown";
+    return `_autosave_${workflowId}`;
+}
+
+export async function triggerWall_autosave(node) {
+    if (!node?._triggerGroupData || !node?.id) return;
+    const key = _triggerWall_autosaveKey(node);
+    const deckData = {
+        fileType: "xcp_derp_trigger_autosave",
+        version: "1.0.0",
+        timestamp: Date.now(),
+        triggerGroups: (node._triggerGroupData || []).filter(g => !g.hidden).map(g => ({
+            id: g.id,
+            title: g.title,
+            isExclusive: !!g.isExclusive,
+            triggers: (g.triggers || []).filter(t => !t.hidden).map(t => ({
+                id: t.id,
+                label: t.label,
+                weight: t.weight,
+                active: !!t.active
+            }))
+        }))
+    };
+    try {
+        await fetch("/xcp/save/triggerWallDeck", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: key, data: deckData })
+        });
+    } catch (e) {
+        // silent best-effort
+    }
+}
+
+export async function triggerWall_autoload(node) {
+    try {
+        const res = await fetch(`/xcp/load/triggerWallDeck?name=${encodeURIComponent(_triggerWall_autosaveKey(node))}`);
+        if (!res.ok) return null;
+        const json = await res.json();
+        return json?.data?.triggerGroups || null;
+    } catch (e) { return null; }
 }
 
 export function triggerWall_onDerpSysPanelOpen(node, panel) {
