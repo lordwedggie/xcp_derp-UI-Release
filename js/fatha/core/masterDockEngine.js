@@ -1270,8 +1270,11 @@ export function moveDeck(rootNode, graph, offsets = new Map(), snap = DEFAULT_DE
     members.forEach((node) => {
         if (node.id === root.id) return;
         const [dx, dy] = offsets.get(node.id) || [0, 0];
-        node.pos[0] = snapValue(rootX + dx, snap);
-        node.pos[1] = snapValue(rootY + dy, snap);
+        // Keep stacked members as a rigid body relative to the snapped root.
+        // Snapping each child independently introduces per-node rounding drift
+        // which causes Y position shift after page refresh.
+        node.pos[0] = rootX + dx;
+        node.pos[1] = rootY + dy;
         if (typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, true);
         if (typeof node.syncUncleSlots === "function") node.syncUncleSlots();
     });

@@ -353,7 +353,7 @@ export function animateDerpSize(node, targetW, targetH, useAnim, options = {}) {
             ? getPinnedVerticalDeckAnchor(node, graph)
             : null;
         const isPassiveCollapsedDeckSize = !!deckAnchor && !allowCollapseShift && node.properties?.contentCollapsed === true;
-        const shouldAnchorAfterReflow = !!deckAnchor && !allowCollapseShift && !isPassiveCollapsedDeckSize;
+        const shouldAnchorAfterReflow = false; // Only restore anchor during explicit collapse/expand, not passive re-measurement
         dockDebug("animate-size-before", {
             node: snapshotDockNode(node),
             target: { width: targetW, height: targetH },
@@ -373,7 +373,7 @@ export function animateDerpSize(node, targetW, targetH, useAnim, options = {}) {
         if (!skipCollapseShift && deltaH !== 0 && shiftDirection !== 0) {
             node.pos[1] = (Number(node.pos?.[1]) || 0) + (deltaH * shiftDirection);
         }
-        if (graph) {
+        if (graph && allowCollapseShift) {
             const moved = getDeckEngine().reflowChildren(node);
             dockDebug("animate-size-reflow", {
                 node: snapshotDockNode(node),
