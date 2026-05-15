@@ -172,6 +172,7 @@ export class masterLayoutEngine {
         this.contentMinWidth = 0; // Tracks the absolute minimum width required by content
         this.contentMinHeight = 0;
         this._lastCacheKey = ""; // Optimization: Tracks the previous state hash
+        this._cachedMapHash = ""; // Optimization: Cached _hashMap result to avoid per-frame recursion
         this._measureCache = new Map(); // Optimization: Tracks intra-pass measurements
         this._profile = {
             windowStart: performance.now(),
@@ -342,7 +343,10 @@ export class masterLayoutEngine {
         const isForced = forceOverride || this.owner?._forceSync;
         const hSlot = isSys ? "sys" : (this.owner?._hideSlot);
 
-        const rawMapHash = (this.owner && this.owner._layoutMapHash !== undefined) ? this.owner._layoutMapHash : (this._hashMap ? this._hashMap(profileMap) : "");
+        if (isForced || forceOverride) this._cachedMapHash = "";
+        const rawMapHash = (this.owner && this.owner._layoutMapHash !== undefined)
+            ? this.owner._layoutMapHash
+            : (this._cachedMapHash || (this._hashMap ? (this._cachedMapHash = this._hashMap(profileMap)) : ""));
         const mapHash = typeof rawMapHash === "string" ? rawMapHash : (rawMapHash == null ? "" : String(rawMapHash));
 
         // invalidate common widget caches on the owner to ensure the new data is actually painted.
