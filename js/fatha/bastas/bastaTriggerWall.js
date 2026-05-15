@@ -45,7 +45,7 @@ export function showTriggerWall(host, targetRegion = null) {
         delete host.properties[`bastaOffset_${id}`];
     }
 
-    const triggers = (gIdx !== null && host.properties.triggerGroups) ? host.properties.triggerGroups[gIdx].triggers : host.properties.triggers;
+    const triggers = (gIdx !== null && host._triggerGroupData) ? host._triggerGroupData[gIdx].triggers : host.properties.triggers;
     const trig = (idx !== null && triggers) ? triggers[idx] : { label: "" };
     const initialLabel = trig.label || "";
     const initialWeight = clampTriggerWeight(trig.weight !== undefined ? trig.weight : TRIGGER_WEIGHT_DEFAULT);

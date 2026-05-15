@@ -342,8 +342,8 @@ app.registerExtension({
             }
 
             // ZERO-INFERENCE GATING: Early return if structure and size haven't changed
-            const groupsForHash = (this.properties.triggerGroups || []).filter(g => !g.hidden);
-            let currentHash = `${clampedW.toFixed(2)}_${(this.properties.triggerGroups || []).findIndex((g, gIdx) => !g.hidden && this._selectedRegions?.[`triggerRegion_${gIdx}`])}_${this._dropPreviewIdx}_${this._dragTrig?.tIdx}_${this._dragTrig?.index}_${this._dragThresholdMet}_${this._dragMouse?.join(",")}`;
+            const groupsForHash = (this._triggerGroupData || []).filter(g => !g.hidden);
+            let currentHash = `${clampedW.toFixed(2)}_${(this._triggerGroupData || []).findIndex((g, gIdx) => !g.hidden && this._selectedRegions?.[`triggerRegion_${gIdx}`])}_${this._dropPreviewIdx}_${this._dragTrig?.tIdx}_${this._dragTrig?.index}_${this._dragThresholdMet}_${this._dragMouse?.join(",")}`;
             groupsForHash.forEach(g => {
                 currentHash += `|${g.id}_${g.title}_${g.isExclusive}_${g.hidden || false}`;
                 g.triggers.forEach(t => { currentHash += `:${t.id}_${t.active}_${t.weight}_${t.label}_${t.disabled}_${t.hidden || false}`; });
@@ -369,13 +369,13 @@ app.registerExtension({
             ].map(v => Number(v.toFixed(2)));
             const isBypassed = this.mode === 4 || this.mode === 2 || this._derpSpoofedBypass;
 
-            if (!this.properties.triggerGroups || this.properties.triggerGroups.filter(g => !g.hidden).length === 0) {
+            if (!this._triggerGroupData || this._triggerGroupData.filter(g => !g.hidden).length === 0) {
                 const legacy = (this.properties.triggers || [{ active: true }]).map(t => ({
                     id: t.id || `trig_${Math.random().toString(16).slice(2, 8)}`,
                     weight: 1.0,
                     ...t
                 }));
-                this.properties.triggerGroups = [{
+                this._triggerGroupData = [{
                     id: `grp_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`,
                     title: this.properties.regionTitle || "Trigger Group 1",
                     triggers: legacy,
@@ -384,13 +384,13 @@ app.registerExtension({
                 this.properties.triggers = [];
             }
 
-            const visibleGroupEntriesBase = (this.properties.triggerGroups || [])
+            const visibleGroupEntriesBase = (this._triggerGroupData || [])
                 .map((group, gIdx) => ({ group, gIdx }))
                 .filter(({ group }) => !group.hidden);
             const groups = visibleGroupEntriesBase.map(({ group }) => group);
             const activeTitles = groups.map(g => g.title);
-            const selectedGroupOriginalIdx = (this.properties.triggerGroups || []).findIndex((g, gIdx) => !g.hidden && this._selectedRegions?.[`triggerRegion_${gIdx}`]);
-            const selectedGroup = selectedGroupOriginalIdx !== -1 ? this.properties.triggerGroups[selectedGroupOriginalIdx] : null;
+            const selectedGroupOriginalIdx = (this._triggerGroupData || []).findIndex((g, gIdx) => !g.hidden && this._selectedRegions?.[`triggerRegion_${gIdx}`]);
+            const selectedGroup = selectedGroupOriginalIdx !== -1 ? this._triggerGroupData[selectedGroupOriginalIdx] : null;
             const anySelected = selectedGroup !== null;
             const visibleGroupIndices = visibleGroupEntriesBase.map(({ gIdx }) => gIdx);
             const visibleGroupEntries = [...visibleGroupEntriesBase];
@@ -603,7 +603,7 @@ app.registerExtension({
                             width: "full", height: "auto", spacing: [sW, 0],
                             padding: [pW, pH],
                             value: group.title || "Trigger Group",
-                            items: [...(this._cachedPresetData?.triggerGroups || this.properties.triggerGroups || [])]
+                            items: [...(this._cachedPresetData?.triggerGroups || this._triggerGroupData || [])]
                                 .filter(g => !activeTitles.includes(g.title) || g.title === group.title)
                                 .sort((a, b) => (a.title || "").localeCompare(b.title || ""))
                                 .map(g => g.title || "Trigger Group"),
@@ -621,7 +621,7 @@ app.registerExtension({
                             type: this.UI_TYPES.ICONBUTTON, themeKey: "button, t_textsystem",
                             alpha: isPreviewGhost ? 0 : 1,
                             icon: "close", width: "match", height: "fill", margin: [0, sH, -sW, sH],
-                            hidden: this.properties.triggerGroups.length <= 1,
+                            hidden: this._triggerGroupData.length <= 1,
                             onPress: headerPressEnabled ? (() => triggerWall_confirmRemoveGroup(this, gIdx)) : undefined
                         }
                     },
@@ -711,7 +711,7 @@ app.registerExtension({
             });
 
             const loadedDeckTitles = new Set(
-                (this.properties.triggerGroups || [])
+                (this._triggerGroupData || [])
                     .filter(g => !g?.hidden)
                     .map(g => String(g?.title || "").trim())
                     .filter(Boolean)

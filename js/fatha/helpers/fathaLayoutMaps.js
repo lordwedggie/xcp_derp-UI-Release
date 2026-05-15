@@ -182,6 +182,7 @@ export const getPanelVars = (node) => {
 export const getVirtualNodeLayoutMap = (node) => {
     const p = node.properties || {};
     const { mW, mH, sW, sH, oX, oY, pW, pH } = getPanelVars(node);
+    const footerGapHeight = Number.isFinite(Number(p.footerGapHeight)) ? Number(p.footerGapHeight) : oY;
     const collapseIcon = p.contentCollapsed ? "add" : "subtract";
     const customKeys = Object.keys(node.layoutMap || {});
     const lastCustomRegion = (p.contentCollapsed || customKeys.length === 0) ? "headerRegion" : customKeys[customKeys.length - 1];
@@ -354,9 +355,9 @@ export const getVirtualNodeLayoutMap = (node) => {
         ])),
         footerRegion: {
             hidden: !!p.contentCollapsed,
-            anchor: { target: lastCustomRegion, axis: "y", offset: oY},
+            anchor: { target: lastCustomRegion, axis: "y", offset: 0},
             dir: "col", width: "full", height: "fill", minHeight: oY + 6,
-            footerGap: { height: oY },
+            footerGap: { height: footerGapHeight },
             systemBtn: {
                 type: UI_TYPES.ICONBUTTON, noHover: false,
                 themeKey: "buttonNode, t_textSystem, 3",

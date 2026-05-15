@@ -10,11 +10,30 @@ import { endStackDrag } from "../../fatha/helpers/fathaDragDrop.js";
 import { settleDerpSizeBeforeDraw } from "../../fatha/core/fathaHandler.js";
 import { isLinearDeckGroup, isNodeDocked } from "../../fatha/core/masterDockEngine.js";
 
+// Sync structural-only data from runtime cache to workflow-serializable properties
+function syncTriggerGroupToProperties(node) {
+    if (!node.properties) return;
+    const full = node._triggerGroupData || [];
+    node.properties.triggerGroups = full
+        .filter(g => !g.hidden)
+        .map(g => ({ id: g.id, title: g.title, isExclusive: !!g.isExclusive }));
+}
+
+// Ensure runtime cache exists, seeded from properties if needed
+function ensureTriggerGroupData(node) {
+    if (!Array.isArray(node._triggerGroupData)) {
+        node._triggerGroupData = (node.properties.triggerGroups || []).map(g => ({ ...g, triggers: g.triggers || [] }));
+    }
+    return node._triggerGroupData;
+}
+
 function refreshAndSync(node, syncOutputs = true, dirtyFull = false, settleOptions = {}) {
+    syncTriggerGroupToProperties(node);
     node.refreshNodeLayoutMap();
     if (typeof settleDerpSizeBeforeDraw === "function") settleDerpSizeBeforeDraw(node, settleOptions);
     if (syncOutputs && node.syncDerpOutputs) node.syncDerpOutputs();
     node.setDirtyCanvas(true, dirtyFull);
+    if (window.app?.graph?.change) window.app.graph.change();
 }
 
 function openTriggerWallModal(node, key) {
@@ -52,7 +71,7 @@ export function triggerWall_syncOutputs(node) {
 
     // ONLY process triggers if NOT bypassed; otherwise, outContent remains empty string ""
     if (!isBypassed) {
-        (node.properties.triggerGroups || []).filter(g => !g.hidden).forEach(group => {
+        (node._triggerGroupData || node.properties.triggerGroups || []).filter(g => !g.hidden).forEach(group => {
             const groupTrigs = (group.triggers || []).filter(t => t.active && t.label && t.disabled !== true && !t.hidden).map(t => {
                 const w = t.weight !== undefined ? t.weight : 1.0;
                 return w === 1.0 ? t.label : `(${t.label}:${w.toFixed(2)})`;
@@ -125,12 +144,13 @@ export function triggerWall_onNodeCreated(node, originalCallback) {
     node.properties.lastSavedPreset = node.properties.lastSavedPreset || "";
     node.properties.loadedTriggerPreset = node.properties.loadedTriggerPreset || null;
     const initialGroupId = `grp_${Date.now()}`;
-    node.properties.triggerGroups = [{
+    node._triggerGroupData = [{
         id: initialGroupId,
         title: "Trigger Group 1",
         isExclusive: false,
         triggers: [{ id: `trig_${Date.now()}`, active: true, weight: 1.0 }]
     }];
+    syncTriggerGroupToProperties(node);
     node.properties.triggers = []; // THE COLLISION FIX: Clear legacy array
     node.properties.showWeight = true;
     node.properties.toggleAddAlways = true;
@@ -170,6 +190,7 @@ export function triggerWall_onConfigure(node, info, originalCallback) {
         if (node.properties.showWeight === undefined) node.properties.showWeight = true;
         node._lastDerpW = null; // Force frame-one rebuild in onDrawForeground
         node._lastSyncedContent = null;
+        ensureTriggerGroupData(node);
         node._cachedPresetData = cloneTriggerPresetData(node.properties.loadedTriggerPreset);
         node.refreshNodeLayoutMap();
         node.refreshDerpTriggerWallSysMap();
@@ -298,15 +319,14 @@ export function triggerWall_applyPalette(node) {
 }
 
 export function triggerWall_addGroup(node) {
-    node.properties.triggerGroups.push({
+    ensureTriggerGroupData(node);
+    node._triggerGroupData.push({
         id: `grp_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`,
-        title: `Trigger Group ${node.properties.triggerGroups.length + 1}`,
+        title: `Trigger Group ${node._triggerGroupData.length + 1}`,
         triggers: [{ id: `trig_${Math.random().toString(16).slice(2, 8)}`, active: true, weight: 1.0 }],
         isExclusive: false
     });
-    node.refreshNodeLayoutMap();
-    if (node.syncDerpOutputs) node.syncDerpOutputs();
-    node.setDirtyCanvas(true);
+    refreshAndSync(node, true, false);
 }
 
 export function triggerWall_groupDrag(node, data, visibleGroupIndices = []) {
@@ -359,7 +379,8 @@ export function triggerWall_groupDrag(node, data, visibleGroupIndices = []) {
 }
 
 export function triggerWall_reorderGroups(node, fromVisibleIdx, toVisibleIdx) {
-    const allGroups = Array.isArray(node.properties.triggerGroups) ? node.properties.triggerGroups : [];
+    ensureTriggerGroupData(node);
+    const allGroups = node._triggerGroupData;
     const visibleActualIndices = allGroups.reduce((acc, group, actualIdx) => {
         if (!group?.hidden) acc.push(actualIdx);
         return acc;
@@ -381,14 +402,14 @@ export function triggerWall_reorderGroups(node, fromVisibleIdx, toVisibleIdx) {
     visibleGroups.splice(toVisibleIdx, 0, moved);
 
     let visibleCursor = 0;
-    node.properties.triggerGroups = allGroups.map((group) => {
+    node._triggerGroupData = allGroups.map((group) => {
         if (group?.hidden) return group;
         return visibleGroups[visibleCursor++];
     });
 
     if (selectedGroupId) {
         node._selectedRegions = {};
-        const newSelectedIdx = node.properties.triggerGroups.findIndex((group) => !group?.hidden && group?.id === selectedGroupId);
+        const newSelectedIdx = node._triggerGroupData.findIndex((group) => !group?.hidden && group?.id === selectedGroupId);
         if (newSelectedIdx !== -1) node._selectedRegions[`triggerRegion_${newSelectedIdx}`] = true;
     }
 
@@ -421,7 +442,7 @@ export function triggerWall_itemDrag(node, e, data) {
     node._dragMouse = [data.localX, data.localY];
     const mouseX = data.localX;
     const mouseY = data.localY;
-    const group = node.properties.triggerGroups[node._dragTrig.gIdx];
+    const group = node._triggerGroupData[node._dragTrig.gIdx];
     if (!group || !group.triggers || group.triggers.length === 0) return;
 
     const regions = node.layout?.regions;
@@ -495,7 +516,7 @@ export function triggerWall_itemDragEnd(node, e, data) {
     if (!drag) return;
 
     if (finalTarget !== undefined && finalTarget !== drag.tIdx) {
-        const group = node.properties.triggerGroups[drag.gIdx];
+        const group = node._triggerGroupData[drag.gIdx];
         const [moved] = group.triggers.splice(drag.tIdx, 1);
         group.triggers.splice(finalTarget, 0, moved);
         refreshAndSync(node, true, false);
@@ -560,7 +581,7 @@ export function triggerWall_renameGroup(node, group, gIdx) {
 }
 
 export function triggerWall_changeGroupTemplate(node, group, v) {
-    const library = node._cachedPresetData?.triggerGroups || node.properties.triggerGroups || [];
+    const library = node._cachedPresetData?.triggerGroups || node._triggerGroupData || [];
     const template = library.find(tg => tg.title === v);
     if (template) {
         const cleanData = JSON.parse(JSON.stringify(template));
@@ -579,20 +600,22 @@ export function triggerWall_addGroupTemplate(node, v) {
     if (!template) return;
 
     const cleanData = JSON.parse(JSON.stringify(template));
-    if (!Array.isArray(node.properties.triggerGroups)) node.properties.triggerGroups = [];
-    node.properties.triggerGroups.push(cleanData);
+    ensureTriggerGroupData(node);
+    node._triggerGroupData.push(cleanData);
     node._layoutMapHash = null;
     refreshAndSync(node, true, true);
 }
 
 export function triggerWall_removeGroup(node, gIdx) {
-    const group = node.properties.triggerGroups[gIdx];
+    ensureTriggerGroupData(node);
+    const group = node._triggerGroupData[gIdx];
     if (group) group.hidden = true;
     refreshAndSync(node, true, false, { forceAutoHeight: true });
 }
 
 export function triggerWall_confirmRemoveGroup(node, gIdx) {
-    const group = node.properties.triggerGroups?.[gIdx];
+    ensureTriggerGroupData(node);
+    const group = node._triggerGroupData?.[gIdx];
     if (!group) return;
     const groupTitle = String(group.title || `Trigger Group ${gIdx + 1}`);
     const removeMessage = `Remove '${groupTitle}' from the wall?`;
@@ -654,7 +677,7 @@ export function triggerWall_toggleAddAlways(node) {
 }
 
 export function triggerWall_isGroupDuplicate(node) {
-    const groups = node.properties.triggerGroups || [];
+    const groups = node._triggerGroupData || [];
     const selectedIdx = groups.findIndex((g, i) => !g.hidden && node._selectedRegions?.[`triggerRegion_${i}`]);
     if (selectedIdx === -1) return true;
     const selectedGroup = groups[selectedIdx];
@@ -686,7 +709,7 @@ export async function triggerWall_addSelectedGroupToProfile(node) {
     const presetName = node.properties?.lastSavedPreset;
     if (!presetName) return;
 
-    const groups = node.properties.triggerGroups || [];
+    const groups = node._triggerGroupData || [];
     const selectedIdx = groups.findIndex((g, i) => !g.hidden && node._selectedRegions?.[`triggerRegion_${i}`]);
     if (selectedIdx === -1) return;
 

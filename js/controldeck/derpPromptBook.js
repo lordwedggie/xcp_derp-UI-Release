@@ -53,7 +53,7 @@ app.registerExtension({
             const [mW, mH, sW, sH, oX, oY, pW, pH] = [
                 vars.mW, vars.mH, vars.sW, vars.sH, vars.oX, vars.oY, vars.pW, vars.pH
             ].map(v => Number(v.toFixed(2)));
-            this.properties.footerHeight = oY + pH;
+            this.properties.footerHeight = 6 + mH;
 
             const book = this.properties.derpBook || (typeof createDefaultDerpBook === "function" ? createDefaultDerpBook() : []);
             const currentIndex = this.properties.currentPageIndex || 0;
