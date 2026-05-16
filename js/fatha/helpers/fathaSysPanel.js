@@ -250,7 +250,7 @@ export function drawDerpSysPanelGlobal(ctx) {
                     originalName: node._currentProfileName,
                     fileList: node._sysProfileCache || [],
                     onConfirm: async (newName) => {
-                        if (node._sysProfileData && node._sysProfileData[newName] && newName !== node._currentProfileName && !confirm(`Profile "${newName}" already exists. Overwrite?`)) return;
+                        // overwrite allowed without confirm
                         if (node._sysProfileData && node._sysProfileData[node._currentProfileName]) {
                             node._sysProfileData[newName] = node._sysProfileData[node._currentProfileName];
                             if (node._currentProfileName !== newName) delete node._sysProfileData[node._currentProfileName];
@@ -287,7 +287,7 @@ export function drawDerpSysPanelGlobal(ctx) {
                     originalName: node._currentProfileName,
                     fileList: node._sysProfileCache || [],
                     onConfirm: async (newName) => {
-                        if (node._sysProfileData && node._sysProfileData[newName] && !confirm(`Profile "${newName}" already exists. Overwrite?`)) return;
+                        // overwrite allowed without confirm
                         if (node._sysProfileData && node._sysProfileData[node._currentProfileName]) {
                             node._sysProfileData[newName] = JSON.parse(JSON.stringify(node._sysProfileData[node._currentProfileName]));
                             node._currentProfileName = newName;
@@ -323,7 +323,7 @@ export function drawDerpSysPanelGlobal(ctx) {
                         originalName: "Profile_01",
                         fileList: node._sysProfileCache || [],
                         onConfirm: async (newName) => {
-                            if (node._sysProfileData && node._sysProfileData[newName] && !confirm(`Profile "${newName}" already exists. Overwrite?`)) return;
+                            // overwrite allowed without confirm
                             const fileName = node._sysProfileFile;
                             const category = node._sysProfileFolder === "nodeSettings" ? "settings" : node._sysProfileFolder;
 
@@ -362,7 +362,7 @@ export function drawDerpSysPanelGlobal(ctx) {
                     originalName: node._currentProfileName,
                     fileList: node._sysProfileCache || [],
                     onConfirm: async (newName) => {
-                        if (node._sysProfileData && node._sysProfileData[newName] && !confirm(`Profile "${newName}" already exists. Overwrite?`)) return;
+                        // overwrite allowed without confirm
                         const fileName = node._sysProfileFile;
                         const category = node._sysProfileFolder === "nodeSettings" ? "settings" : node._sysProfileFolder;
                         if (node.exportDerpProfile) {

@@ -678,7 +678,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                                 if (loadRes.ok) { try { loadData = await loadRes.json(); } catch (e) {} }
                                 const profiles = loadData.data || {};
 
-                                if (profiles[newName] && !confirm(`Profile "${newName}" already exists. Overwrite?`)) return;
+                                // overwrite allowed without confirm
 
                                 if (profiles[profileName]) {
                                     profiles[newName] = profiles[profileName];
@@ -730,7 +730,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                                 if (loadRes.ok) { try { loadData = await loadRes.json(); } catch (e) {} }
                                 const profiles = loadData.data || {};
 
-                                if (profiles[newName] && !confirm(`Profile "${newName}" already exists. Overwrite?`)) return;
+                                // overwrite allowed without confirm
 
                                 if (profiles[profileName]) {
                                     profiles[newName] = JSON.parse(JSON.stringify(profiles[profileName]));
@@ -785,7 +785,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                                     if (loadRes.ok) { try { loadData = await loadRes.json(); } catch(e) {} }
                                     const profiles = loadData.data || {};
 
-                                    if (profiles[profileName] && !confirm(`Profile "${profileName}" already exists. Overwrite?`)) return;
+                                    // overwrite allowed without confirm
 
                                     profiles[profileName] = profileData;
 

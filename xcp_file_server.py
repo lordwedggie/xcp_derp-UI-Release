@@ -66,7 +66,7 @@ CATEGORIES = {
     "models": folder_paths.get_folder_paths("checkpoints")[0],
     "vaes": folder_paths.get_folder_paths("vae")[0],
     "triggerWall": TRIGGER_WALL_DIR,
-    "triggerWallDeck": TRIGGER_WALL_DECK_DIR,
+    "triggerWallDeck": SETTINGS_DIR,
 }
 
 def get_category_dir(category):

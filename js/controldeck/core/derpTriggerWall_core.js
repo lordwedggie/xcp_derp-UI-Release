@@ -627,6 +627,7 @@ export function triggerWall_renameGroup(node, group, gIdx) {
         onConfirm: async (newName) => {
             group.title = newName;
             refreshAndSync(node, true, false);
+            triggerWall_autosave(node);
         }
     });
 }
@@ -643,6 +644,7 @@ export function triggerWall_changeGroupTemplate(node, group, v) {
     }
     node._layoutMapHash = null;
     refreshAndSync(node, true, true);
+    triggerWall_autosave(node);
 }
 
 export function triggerWall_addGroupTemplate(node, v) {
@@ -655,6 +657,7 @@ export function triggerWall_addGroupTemplate(node, v) {
     node._triggerGroupData.push(cleanData);
     node._layoutMapHash = null;
     refreshAndSync(node, true, true);
+    triggerWall_autosave(node);
 }
 
 export function triggerWall_removeGroup(node, gIdx) {
@@ -662,6 +665,7 @@ export function triggerWall_removeGroup(node, gIdx) {
     const group = node._triggerGroupData[gIdx];
     if (group) group.hidden = true;
     refreshAndSync(node, true, false, { forceAutoHeight: true });
+    triggerWall_autosave(node);
 }
 
 export function triggerWall_confirmRemoveGroup(node, gIdx) {
@@ -757,7 +761,7 @@ export function triggerWall_hasGroupTextChanges(node, group) {
 }
 
 export async function triggerWall_addSelectedGroupToProfile(node) {
-    const presetName = node.properties?.lastSavedPreset;
+    const presetName = node.properties?.lastSavedPreset || _triggerWall_autosaveKey(node);
     if (!presetName) return;
 
     const groups = node._triggerGroupData || [];
@@ -791,7 +795,7 @@ export async function triggerWall_addSelectedGroupToProfile(node) {
     presetData.triggerGroups.push(cleanGroup);
 
     try {
-        const response = await fetch("/xcp/save/triggerWall", {
+        const response = await fetch("/xcp/save/triggerWallDeck", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ name: presetName, data: presetData })
@@ -856,7 +860,7 @@ export async function triggerWall_saveGroupToProfile(node, group, targetRegion =
 }
 
 export async function triggerWall_saveCurrentProfile(node, targetRegion = "btnSaveTriggerGroup") {
-    const presetName = node.properties?.lastSavedPreset;
+    const presetName = node.properties?.lastSavedPreset || _triggerWall_autosaveKey(node);
     if (!presetName) return;
 
     const presetData = cloneTriggerPresetData(node._cachedPresetData) || {
@@ -890,7 +894,7 @@ export async function triggerWall_saveCurrentProfile(node, targetRegion = "btnSa
     presetData.timestamp = Date.now();
 
     try {
-        const response = await fetch("/xcp/save/triggerWall", {
+        const response = await fetch("/xcp/save/triggerWallDeck", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ name: presetName, data: presetData }),
@@ -1000,7 +1004,7 @@ export async function triggerWall_autoload(node) {
 export function triggerWall_onDerpSysPanelOpen(node, panel) {
     node._derpPanel = panel;
     if (panel.showProfiles) {
-        panel.showProfiles("triggerWallDeck", "triggerWallDeck");
+        panel.showProfiles("derpTriggerWall", "triggerWallDeck");
     }
     if (node.sysLayoutMap) panel.setLayoutMap(node.sysLayoutMap);
 }

@@ -297,8 +297,6 @@ app.registerExtension({
         }
 
         // --- PROFILE LOGIC (sys panel dropdown) ---
-        nodeType.prototype.applyDerpProfile = function(profileName) {
-        // --- PROFILE EXPORT (sys panel save button) ---
         nodeType.prototype.exportDerpProfile = function() {
             const groups = this._triggerGroupData || [];
             return {
@@ -310,9 +308,18 @@ app.registerExtension({
                 }))
             };
         };
+
+        nodeType.prototype.applyDerpProfile = function(profileName) {
             if (!profileName || profileName === "(No Profiles Found)") return;
-            if (typeof triggerWall_onLoadDeckProfile === "function") {
-                triggerWall_onLoadDeckProfile(this, profileName);
+            const data = this._sysProfileData?.[profileName];
+            if (data && data.triggerGroups) {
+                ensureTriggerGroupData(this);
+                this._triggerGroupData = data.triggerGroups.map(g => ({...g}));
+                this._layoutMapHash = null;
+                this.refreshNodeLayoutMap();
+                if (this.refreshDerpTriggerWallSysMap) this.refreshDerpTriggerWallSysMap();
+                this.requestDerpSync();
+                if (this.syncDerpOutputs) this.syncDerpOutputs();
             }
         };
 
@@ -610,7 +617,7 @@ app.registerExtension({
                             type: this.UI_TYPES.ICONBUTTON, icon: "rename", themeKey: "button, t_textsystem",
                             alpha: isPreviewGhost ? 0 : 1,
                             width: "match", height: "fill", margin: [-sW, mH], spacing: [sW * 2, 0],
-                            onPress: headerPressEnabled ? (() => triggerWall_renameGroup(this, group, gIdx)) : undefined
+                            onPress: () => triggerWall_renameGroup(this, group, gIdx)
                         },
                         [`${childKeyPrefix}btnSave_${gIdx}`]: {
                             type: this.UI_TYPES.ICONBUTTON, icon: "save", themeKey: "button, t_textsystem",
@@ -618,7 +625,7 @@ app.registerExtension({
                             width: "match", height: "fill", margin: [0, mH, 0, mH], spacing: [sW, 0],
                             hidden: !triggerWall_hasProfileGroup(this, group),
                             state: isBypassed ? "DIS" : (triggerWall_hasGroupTextChanges(this, group) ? "OFF" : "DIS"),
-                            onPress: headerPressEnabled ? (() => triggerWall_saveGroupToProfile(this, group, `${childKeyPrefix}btnSave_${gIdx}`)) : undefined
+                            onPress: () => triggerWall_saveGroupToProfile(this, group, `${childKeyPrefix}btnSave_${gIdx}`)
                         },
                         [`${childKeyPrefix}dropdownTriggerGroup_${gIdx}`]: {
                             type: this.UI_TYPES.DROPDOWN, themeKey: "button, t_textsmall", skipBackground: false,
@@ -631,7 +638,7 @@ app.registerExtension({
                                 .filter(g => !activeTitles.includes(g.title) || g.title === group.title)
                                 .sort((a, b) => (a.title || "").localeCompare(b.title || ""))
                                 .map(g => g.title || "Trigger Group"),
-                            onChange: headerPressEnabled ? ((v) => triggerWall_changeGroupTemplate(this, group, v)) : undefined
+                            onChange: (v) => triggerWall_changeGroupTemplate(this, group, v)
                         },
                         [`${childKeyPrefix}btnAddTriggerToProfile_${gIdx}`]: {
                             type: this.UI_TYPES.BUTTON, themeKey: "button, t_textSmall",
@@ -639,14 +646,14 @@ app.registerExtension({
                             text: "Add to Profile", width: "auto", height: "auto", padding: [pW, pH], spacing: [sW, 0],
                             hidden: triggerWall_isGroupDuplicate(this),
                             state: isBypassed ? "DIS" : "OFF",
-                            onPress: headerPressEnabled ? (() => triggerWall_addSelectedGroupToProfile(this)) : undefined
+                            onPress: () => triggerWall_addSelectedGroupToProfile(this)
                         },
                         [`${childKeyPrefix}btnRemoveGroup_${gIdx}`]: {
                             type: this.UI_TYPES.ICONBUTTON, themeKey: "button, t_textsystem",
                             alpha: isPreviewGhost ? 0 : 1,
                             icon: "close", width: "match", height: "fill", margin: [0, mH, 0, mH],
                             hidden: this._triggerGroupData.length <= 1,
-                            onPress: headerPressEnabled ? (() => triggerWall_confirmRemoveGroup(this, gIdx)) : undefined
+                            onPress: () => triggerWall_confirmRemoveGroup(this, gIdx)
                         }
                     },
                     [`${childKeyPrefix}lineBreak_${gIdx}`]: {
