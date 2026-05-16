@@ -14,6 +14,10 @@ import {
 } from "../utils/widgetsUtils.js";
 import { animateWidgetColors } from "../masterAnimator.js";
 
+const BTN_LR_RATIO = 0.75;
+const BTN_LR_FONTSIZE = 8;
+const BTN_LR_MARGIN = 2;
+
 /**
  * HTML-based Slider Painter
  */
@@ -73,14 +77,21 @@ export function syncDerpSliderHTML(el, node, app, config) {
             (resolvePaintData(node, fillKey, fillSuffix, config.btnColor) || paintData)
     );
 
-    // THE FILL PADDING FIX: Inset the fill bar using absolute positioning and calc-width
     const ins = props.fillPadding || [0, 0, 0, 0];
+    const fillH = Math.max(0, h - ins[0] - ins[2]);
+    // btnLR: button width = 75% of fill bar height
+    const btnW = config.btnLR ? Math.round(fillH * BTN_LR_RATIO * coords.scale) : 0;
+    const btnInset = btnW + BTN_LR_MARGIN * coords.scale;
+    const btnTop = ins[0] * coords.scale;
+    const btnH = fillH * coords.scale;
+
+    // THE FILL PADDING FIX: Inset the fill bar using absolute positioning and calc-width
     const s = coords.scale;
     Object.assign(fill.style, {
         top: `${ins[0] * s}px`,
-        left: `${ins[3] * s}px`,
+        left: `${(ins[3] * s) + btnInset}px`,
         height: `${Math.max(0, h - ins[0] - ins[2]) * s}px`,
-        width: `calc(${percent * 100}% - ${(ins[1] + ins[3]) * percent * s}px)`
+        width: `calc(${percent * 100}% - ${(ins[1] + ins[3]) * percent * s + btnInset * 2 * percent}px)`
     });
 
     if (activeData) applyHTMLTheme(fill, activeData, s);
@@ -111,6 +122,76 @@ export function syncDerpSliderHTML(el, node, app, config) {
             label.style.padding = `${props.padding[1] * coords.scale}px ${props.padding[0] * coords.scale}px`;
         }
     } else if (label) label.remove();
+
+    // 4. btnLR Buttons
+    if (config.btnLR) {
+        const step = config.step ?? 0.05;
+        const corners = activeData?.corners || paintData?.corners || 0;
+        const radius = Array.isArray(corners)
+            ? `${corners[0] * coords.scale}px ${corners[1] * coords.scale}px ${corners[2] * coords.scale}px ${corners[3] * coords.scale}px`
+            : `${corners * coords.scale}px`;
+
+        const createBtn = (side) => {
+            const btn = document.createElement("div");
+            btn.className = `derp-slider-btnlr derp-slider-btnlr-${side}`;
+            btn.innerText = side === "left" ? "-" : "+";
+            Object.assign(btn.style, {
+                position: "absolute",
+                top: `${btnTop + BTN_LR_MARGIN * coords.scale}px`,
+                [side]: `${BTN_LR_MARGIN * coords.scale}px`,
+                width: `${btnW}px`,
+                height: `${btnH - BTN_LR_MARGIN * 2 * coords.scale}px`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                userSelect: "none",
+                fontSize: `${BTN_LR_FONTSIZE * coords.scale}px`,
+                color: iconColor,
+                background: activeData?.fill || paintData?.fill || "rgba(0,0,0,0.3)",
+                borderRadius: radius,
+                zIndex: "2"
+            });
+            btn.onpointerdown = (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                if (stateStr === "DIS") return;
+                const cur = Math.max(min, Math.min(max, config.value || 0));
+                const delta = side === "left" ? -step : step;
+                const newVal = Math.max(min, Math.min(max, cur + delta));
+                config.value = newVal;
+                if (config.onChange) config.onChange(newVal);
+                if (typeof node.setDirtyCanvas === "function") {
+                    node.setDirtyCanvas(true);
+                } else if (node.requestDerpSync) {
+                    node.requestDerpSync();
+                }
+            };
+            return btn;
+        };
+
+        let btnL = el.querySelector(".derp-slider-btnlr-left");
+        let btnR = el.querySelector(".derp-slider-btnlr-right");
+        if (!btnL) {
+            btnL = createBtn("left");
+            el.appendChild(btnL);
+        } else {
+            btnL.style.width = `${btnW}px`;
+            btnL.style.fontSize = `${10 * coords.scale}px`;
+        }
+        if (!btnR) {
+            btnR = createBtn("right");
+            el.appendChild(btnR);
+        } else {
+            btnR.style.width = `${btnW}px`;
+            btnR.style.fontSize = `${10 * coords.scale}px`;
+        }
+    } else {
+        const btnL = el.querySelector(".derp-slider-btnlr-left");
+        const btnR = el.querySelector(".derp-slider-btnlr-right");
+        if (btnL) btnL.remove();
+        if (btnR) btnR.remove();
+    }
 
     const updateValue = (e) => {
         if (stateStr === "DIS") return;

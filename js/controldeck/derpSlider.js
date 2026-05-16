@@ -48,7 +48,7 @@ app.registerExtension({
             ].map(v => Number(v.toFixed(2)));
 
             const sliderData = this.properties.sliderContainer || [];
-            const structureHash = `${sliderData.length}_${this.properties.nameDisplay}_${sliderData.map(s => `${s.name}:${s.value}`).join("|")}_${window._xcpDerpSession}_${mW}_${mH}_${(this.size?.[0] || 0).toFixed(2)}`;
+            const structureHash = `${sliderData.length}_${this.properties.nameDisplay}_${sliderData.map(s => `${s.name}:${s.value}:${s.btnLR||false}`).join("|")}_${window._xcpDerpSession}_${mW}_${mH}_${(this.size?.[0] || 0).toFixed(2)}`;
 
             if (this._lastMapStructure === structureHash && this.layoutMap) {
                 return;
@@ -77,7 +77,7 @@ app.registerExtension({
 
             this.layoutMap = {
                 sysContentRegion: {
-                    anchor: { target: "headerRegion", axis: "y", offset: oY },
+                    anchor: { target: "headerRegion", axis: "y"},
                     width: "full", height: "auto",
                     dir: "col",
                     padding: [0, 0],
@@ -126,6 +126,8 @@ app.registerExtension({
                                 min: parseFloat(this.properties.sliderContainer?.[i]?.min ?? 0),
                                 max: parseFloat(this.properties.sliderContainer?.[i]?.max ?? 1),
                                 spacing: [sW, 0],
+                                btnLR: this.properties.sliderContainer?.[i]?.btnLR ?? false,
+                                step: parseFloat(this.properties.sliderContainer?.[i]?.step ?? 0.05),
                             },
                             [`dynamicSliderValue_${i}`]: {
                                 type: this.UI_TYPES.EDITOR, canvasShield: true,
@@ -159,7 +161,7 @@ app.registerExtension({
             this.sysLayoutMap = {
                 sysContentRegion: {
                     dir: "col",
-                    anchor: { target: "sysDefaultControlsRegion", axis: "y", offset: oY },
+                    anchor: { target: "sysDefaultControlsRegion", axis: "y"},
                     margin: [mW, 0], width: "full", height: "auto",
                     lblTitle: {
                         type: this.UI_TYPES.TEXT,
@@ -202,7 +204,7 @@ app.registerExtension({
                             type: this.UI_TYPES.DROPDOWN_DERP,
                             themeKey: "dialog, t_textSystem",
                             canvasShield: true,
-                            labelAlign: ["center", "middle"],
+                            labelAlign: ["center", "middle"], padding: [pW, pH],
                             width: "auto", measureText: "Slider",
                             items: ["Slider", "Top", "Left", "None"],
                             value: this.properties.nameDisplay || "Top",
@@ -216,13 +218,13 @@ app.registerExtension({
                     },
                     sliderSettingsLabels: {
                         dir: "row", width: "full", height: "auto",
-                        padding: [pW, pH],
+                        padding: [pW, pH], hidden: false,
                         lblSliderName: {
                             type: this.UI_TYPES.TEXT,
                             themeKey: "dialog, t_textSystem, 4", state: "DIS", skipBackground: true,
                             labelAlign: ["center", "middle"],
                             text: "NAME", minWidth: 50,
-                            width: "full", padding: [pW, 0], spacing: [sW, 0],
+                            width: "fit", padding: [pW, 0], spacing: [sW, 0],
                         },
                         lblSliderMin: {
                             type: this.UI_TYPES.TEXT,
@@ -259,17 +261,24 @@ app.registerExtension({
                             text: "DECIMAL",
                             width: sysWidthInput, padding: [pW, 0], spacing: [sW, 0],
                         },
+                        lblSliderBtnLR: {
+                            type: this.UI_TYPES.TEXT,
+                            themeKey: "dialog, t_textSystem, 4", state: "DIS", skipBackground: true,
+                            labelAlign: ["center", "middle"],
+                            text: "BTN",
+                            width: sysWidthInput, padding: [pW, 0], spacing: [sW, 0],
+                        },
                     },
                     sliderSettings: {
                         dir: "col", width: "full", height: "auto",
-                        padding: [0, 0],
+                        padding: [0, 0], spacing: [0, sH],
                         ...Object.fromEntries((this.properties.sliderContainer || []).flatMap((item, i) => [
                             [`sliderRow_${i}`, {
                                 dir: "row", width: "full", height: "auto",
                                 padding: [pW, 2], spacing: [0, 0],
                                 [`editorSliderName_${i}`]: {
                                     type: this.UI_TYPES.EDITOR, canvasShield: true, themeKey: "dialog, t_textsystem",
-                                    labelAlign: ["left", "middle"], text: item.name || "", minWidth: 50, width: "full", padding: [pW, 0], spacing: [sW, 0],
+                                    labelAlign: ["center", "middle"], text: item.name || "", minWidth: 50, width: "fit", padding: [pW, 0], spacing: [sW, 0],
                                     onBlur: (v) => { this.properties.sliderContainer[i].name = v; if (this.syncDerpOutputs) this.syncDerpOutputs(); }
                                 },
                                 [`editorSliderMin_${i}`]: {
@@ -298,6 +307,19 @@ app.registerExtension({
                                     onBlur: (v) => {
                                         this.properties.sliderContainer[i].decimal = parseInt(v) || 0;
                                         if (this.syncDerpOutputs) this.syncDerpOutputs();
+                                    }
+                                },
+                                [`toggleBtnLR_${i}`]: {
+                                    type: this.UI_TYPES.TOGGLE_V2, themeKey: "dialog, button, t_textSystem",
+                                    isTextOnly: true, mouseOver: false, icon: "ring",
+                                    label: "btnLR",
+                                    width: "auto", height: "auto", padding: [pW, 0], spacing: [sW, 0],
+                                    value: item.btnLR ?? false,
+                                    onPress: () => {
+                                        this.properties.sliderContainer[i].btnLR = !this.properties.sliderContainer[i].btnLR;
+                                        if (this.syncDerpOutputs) this.syncDerpOutputs();
+                                        this.refreshNodeLayoutMap();
+                                        this.requestDerpSync();
                                     }
                                 }
                             }]

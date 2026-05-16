@@ -14,6 +14,10 @@ import { animateWidgetColors } from "../masterAnimator.js";
 // Import the HTML painter logic for the compatibility proxy
 import { syncDerpSliderHTML as syncHTML } from "./widget_SliderHTML.js";
 
+const BTN_LR_RATIO = 0.75;
+const BTN_LR_FONTSIZE = 6;
+const BTN_LR_MARGIN = 1;
+
 /**
  * Default properties for the Slider widget.
  */
@@ -90,6 +94,11 @@ export function syncDerpSliderCanvas(ctx, node, config) {
     const max = config.max ?? 1;
     const percent = Math.max(0, Math.min(1, (value - min) / (max - min)));
 
+    const ins = props.fillPadding || [0, 0, 0, 0];
+    const fillH = Math.max(0, h - ins[0] - ins[2]);
+    // btnLR: button width = 75% of fill bar height
+    const btnInset = config.btnLR ? Math.round(fillH * BTN_LR_RATIO) + BTN_LR_MARGIN : 0;
+
     // THE FILL STRENGTH FIX: If active, interpolate between states based on value.
     const fillKey = props.fillKey || props.bodyKey;
     const fillSuffix = props.fillKey ? "_OFF" : "_ON";
@@ -101,14 +110,11 @@ export function syncDerpSliderCanvas(ctx, node, config) {
     );
 
     if (activeData && percent > 0) {
-        // THE FILL PADDING FIX: Calculate fill rect using scaled insets
-        const ins = props.fillPadding || [0, 0, 0, 0];
-        const fillW = Math.max(0, w - ins[1] - ins[3]);
-        const fillH = Math.max(0, h - ins[0] - ins[2]);
+        const fillW = Math.max(0, w - ins[1] - ins[3] - btnInset * 2);
         const progressW = fillW * percent;
 
         masterPainter(ctx, {
-            posX: x + ins[3],
+            posX: x + ins[3] + btnInset,
             posY: y + ins[0],
             width: progressW,
             height: fillH,
@@ -131,6 +137,41 @@ export function syncDerpSliderCanvas(ctx, node, config) {
             text: sliderLabel,
             paintData: { ...finalPaint, fill: iconColor },
             align: alignX, baseline: alignY
+        });
+    }
+    // 4. Draw btnLR Buttons
+    if (config.btnLR) {
+        const btnW = Math.round(fillH * BTN_LR_RATIO);
+        const btnY = y + ins[0];
+        const btnH = fillH;
+        const btnFill = activeData?.fill || paintData?.fill || config.btnColor || "#555";
+        const btnPaint = { ...(activeData || paintData) };
+        const btnTextPaint = { ...(labelData || {}), fill: iconColor, fontSize: BTN_LR_FONTSIZE };
+
+        // Left button (-)
+        masterPainter(ctx, {
+            posX: x + BTN_LR_MARGIN, posY: btnY,
+            width: btnW, height: btnH,
+            paintData: btnPaint, color: btnFill
+        });
+        masterPainterText(ctx, {
+            x: x + BTN_LR_MARGIN + btnW / 2, y: btnY + btnH / 2,
+            text: "-",
+            paintData: btnTextPaint,
+            align: "center", baseline: "middle"
+        });
+
+        // Right button (+)
+        masterPainter(ctx, {
+            posX: x + w - btnW - BTN_LR_MARGIN, posY: btnY,
+            width: btnW, height: btnH,
+            paintData: btnPaint, color: btnFill
+        });
+        masterPainterText(ctx, {
+            x: x + w - btnW / 2 - BTN_LR_MARGIN, y: btnY + btnH / 2,
+            text: "+",
+            paintData: btnTextPaint,
+            align: "center", baseline: "middle"
         });
     }
     ctx.restore();

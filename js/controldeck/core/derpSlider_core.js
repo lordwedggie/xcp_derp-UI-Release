@@ -4,6 +4,10 @@
  */
 import { transmitDerpSignal } from "../../fatha/core/masterSignalEngine.js";
 
+const BTN_LR_RATIO = 0.75;
+const BTN_LR_FONTSIZE = 8;
+const BTN_LR_MARGIN = 2;
+
 export function setupDerpSliderCore(nodeType) {
     if (!nodeType.prototype.transmitDerpSignal) {
         nodeType.prototype.transmitDerpSignal = transmitDerpSignal;
@@ -117,7 +121,7 @@ export function setupDerpSliderCore(nodeType) {
         while (data.length < count) {
             data.push({
                 name: `Slider_${(data.length + 1).toString().padStart(2, '0')}`,
-                min: 0, max: 1, step: 0.05, default: 0.5, decimal: 2, value: 0.5
+                min: 0, max: 1, step: 0.05, default: 0.5, decimal: 2, value: 0.5, btnLR: false
             });
             dataChanged = true;
         }
@@ -186,7 +190,7 @@ export function setupDerpSliderCore(nodeType) {
     nodeType.prototype.onNodeCreated = function() {
         if (!this.properties) this.properties = {};
         this.properties.sliderContainer = [{
-            name: "Slider_01", min: 0, max: 1, step: 0.05, default: 0.5, decimal: 2, value: 0.5,
+            name: "Slider_01", min: 0, max: 1, step: 0.05, default: 0.5, decimal: 2, value: 0.5, btnLR: false
         }];
         this.properties.sliderCount = this.properties.sliderContainer.length;
 
@@ -250,8 +254,9 @@ export function setupDerpSliderCore(nodeType) {
 
             if (regions && typeof localX === 'number' && typeof localY === 'number') {
                 for (const key of Object.keys(regions).reverse()) {
-                    if (key.startsWith("dynamicSlider_") && this.layout.hitTest([localX, localY], regions[key])) {
-                        foundIdx = parseInt(key.split("_")[1]);
+                    const idx = parseInt(key.split("_")[1]);
+                    if (key.startsWith("dynamicSlider_") && !isNaN(idx) && this.layout.hitTest([localX, localY], regions[key])) {
+                        foundIdx = idx;
                         break;
                     }
                 }
@@ -260,6 +265,63 @@ export function setupDerpSliderCore(nodeType) {
             if (type === "dragStart" || type === "click" || type === "dblclick") { this._activeSliderIndex = foundIdx; }
             const targetIdx = this._activeSliderIndex !== null ? this._activeSliderIndex : foundIdx;
 
+            // btnLR: intercept on dragStart/click before position-based handling
+            if ((type === "dragStart" || type === "click" || type === "dblclick") && targetIdx !== null && !isNaN(targetIdx)) {
+                const dataArr = this.properties.sliderContainer;
+                const cfg = dataArr[targetIdx];
+                // Skip click if already handled on dragStart (prevents double-step)
+                if (type === "click" && this._btnLRHandledIdx === targetIdx) {
+                    this._btnLRHandledIdx = null;
+                    return true;
+                }
+                if (cfg?.btnLR) {
+                    const btnReg = regions[`dynamicSlider_${targetIdx}`];
+                    if (btnReg) {
+                        const btnW = Math.round((btnReg.h || 14) * BTN_LR_RATIO);
+                        const mrg = BTN_LR_MARGIN;
+                        // Double-click on a btnLR button: absorb and mark handled
+                        if (type === "dblclick") {
+                            if (localX >= btnReg.x + mrg && localX <= btnReg.x + mrg + btnW) {
+                                this._btnLRHandledIdx = targetIdx;
+                                return true;
+                            }
+                            if (localX >= btnReg.x + btnReg.w - btnW - mrg && localX <= btnReg.x + btnReg.w - mrg) {
+                                this._btnLRHandledIdx = targetIdx;
+                                return true;
+                            }
+                            // dblclick on track area: fall through to normal dblclick reset
+                        }
+                        const step = parseFloat(cfg.step ?? 0.05);
+                        const dec = parseInt(cfg.decimal ?? cfg.decimals ?? 2);
+                        let val = parseFloat(cfg.value ?? 0.5);
+                        const cMin = parseFloat(cfg.min ?? 0);
+                        const cMax = parseFloat(cfg.max ?? 1);
+
+                        if (localX >= btnReg.x + mrg && localX <= btnReg.x + mrg + btnW) {
+                            // Left button: decrement
+                            val = Math.max(cMin, val - step);
+                        } else if (localX >= btnReg.x + btnReg.w - btnW - mrg && localX <= btnReg.x + btnReg.w - mrg) {
+                            // Right button: increment
+                            val = Math.min(cMax, val + step);
+                        } else {
+                            // Not a button click, fall through to normal handling
+                            val = null;
+                        }
+
+                        if (val !== null) {
+                            cfg.value = parseFloat(val.toFixed(dec));
+                            this.properties.sliderContainer = dataArr;
+                            if (this.updateDerpSliderVisualValue) this.updateDerpSliderVisualValue(targetIdx, cfg.value);
+                            if (this.broadcastWirelessSignal) this.broadcastWirelessSignal(dataArr);
+                            if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
+                            this._shouldSync = true;
+                            this.setDirtyCanvas(true);
+                            if (type === "dragStart") this._btnLRHandledIdx = targetIdx;
+                            return true;
+                        }
+                    }
+                }
+            }
             if (targetIdx !== null && !isNaN(targetIdx) && (type === "drag" || type === "dragStart" || type === "click" || type === "dblclick")) {
                 const reg = regions[`dynamicSlider_${targetIdx}`];
                 if (reg && reg.state !== "DIS") {
@@ -274,7 +336,30 @@ export function setupDerpSliderCore(nodeType) {
                         const cDec = parseInt(config.decimal ?? config.decimals ?? 2);
 
                         let newVal;
-                        if (type === "dblclick") newVal = cDef;
+                        if (type === "dblclick") {
+                            newVal = cDef;
+                        } else if (config?.btnLR) {
+                            // btnLR mode: track inset with margin, click restricted to fill bar
+                            const btnW = Math.round((reg.h || 14) * BTN_LR_RATIO);
+                            const mrg = BTN_LR_MARGIN;
+                            const trackX = reg.x + mrg + btnW;
+                            const trackW = Math.max(0, reg.w - (btnW + mrg) * 2);
+
+                            // Only restrict click (not drag/dragStart) to fill bar area
+                            if (type === "click") {
+                                const curVal = parseFloat(config.value ?? 0.5);
+                                const fillPercent = Math.max(0, Math.min(1, (curVal - cMin) / (cMax - cMin)));
+                                const fillRight = trackX + fillPercent * trackW;
+                                if (localX < trackX || localX > fillRight) {
+                                    return true;
+                                }
+                            }
+
+                            const percent = Math.max(0, Math.min(1, (localX - trackX) / trackW));
+                            const rawVal = cMin + (percent * (cMax - cMin));
+                            newVal = Math.round(rawVal / cStep) * cStep;
+                            newVal = Math.max(cMin, Math.min(cMax, newVal));
+                        }
                         else {
                             const percent = Math.max(0, Math.min(1, (localX - reg.x) / reg.w));
                             const rawVal = cMin + (percent * (cMax - cMin));

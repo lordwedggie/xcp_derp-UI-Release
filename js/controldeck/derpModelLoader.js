@@ -65,11 +65,13 @@ app.registerExtension({
             deckItems.forEach((item, displayIdx) => {
                 const { m, idx } = item;
                 const rowKey = `modelRow_${idx}`;
+                const rowMarginBottom = displayIdx < (deckItems.length - 1) ? sH : 0;
                 const isPickedUp = !!(this._dragTrig && this._dragThresholdMet && this._dragTrig.index === idx && !item.isPreviewGhost);
                 deckRegions[rowKey] = {
                     type: this.UI_TYPES.REGION,
                     dir: "row", width: "full", height: "auto",
                     spacing: [0, sH],
+                    margin: [0, 0, 0, rowMarginBottom],
                     // THE GHOST STYLING: Make the placeholder semi-transparent and non-interactive
                     state: item.isPreviewGhost ? "DIS" : ((isPickedUp || m.active) ? "ON" : "OFF"),
                     alpha: item.isPreviewGhost ? 0 : 1.0,
@@ -195,7 +197,7 @@ app.registerExtension({
 
             this.layoutMap = {
                 sysContentRegion: {
-                    anchor: { target: "headerRegion", axis: "y", offset: oY },
+                    anchor: { target: "headerRegion", axis: "y" },
                     width: "full", height: "auto", dir: "col",
                     margin: [mW, mH, mW, mH],
                     regionModelDeck: {
