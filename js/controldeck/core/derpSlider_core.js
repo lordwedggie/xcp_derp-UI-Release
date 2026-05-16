@@ -5,8 +5,8 @@
 import { transmitDerpSignal } from "../../fatha/core/masterSignalEngine.js";
 
 const BTN_LR_RATIO = 0.75;
-const BTN_LR_FONTSIZE = 8;
-const BTN_LR_MARGIN = 2;
+const BTN_LR_FONTSIZE = 6;
+const BTN_LR_MARGIN = 1;
 
 export function setupDerpSliderCore(nodeType) {
     if (!nodeType.prototype.transmitDerpSignal) {
@@ -304,6 +304,13 @@ export function setupDerpSliderCore(nodeType) {
                             // Right button: increment
                             val = Math.min(cMax, val + step);
                         } else {
+                            // Absorb clicks in margin/gap area (outside track)
+                            const trackStart = btnReg.x + mrg + btnW;
+                            const trackEnd = btnReg.x + btnReg.w - mrg - btnW;
+                            if (localX < trackStart || localX > trackEnd) {
+                                if (type === "dragStart") this._btnLRHandledIdx = targetIdx;
+                                return true;
+                            }
                             // Not a button click, fall through to normal handling
                             val = null;
                         }

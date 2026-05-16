@@ -12,6 +12,9 @@ import { startStackDrag, updateStackDrag, endStackDrag } from "../../fatha/helpe
 import { COMPONENT_BLUEPRINTS } from "../../fatha/core/masterLayoutTypes.js";
 
 const LORA_DETAIL_BASTA_ID = "basta_lora_detail_global_unique_id";
+const BTN_LR_RATIO = 0.75;
+const BTN_LR_MARGIN = 1;
+const handleDerpSliderBtnLR = (...a) => window.handleDerpSliderBtnLR?.(...a) || { handled: false };
 
 function closeLoraDetailForHost(host) {
     if (!host) return false;
@@ -910,6 +913,30 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                                     // Keep slider hit zones out of row drag arming.
                                     // Sliders should own dragStart/click/drag so the row DnD path never activates underneath them.
                                     if (stackData[idx] && (sType === "sldModel" || sType === "sldClip") && (type === "dragStart" || type === "click" || type === "dblclick" || type === "drag")) {
+                                        if (type === "click" && this._btnLRHandledKey === targetKey) { this._btnLRHandledKey = null; return true; }
+                                        if (type === "dragStart") this._btnLRHandledKey = null;
+                                        const sliderConfig = regions[targetKey];
+                                        if ((type === "dragStart" || type === "click" || type === "dblclick") && sliderConfig) {
+                                            const btnResult = handleDerpSliderBtnLR(this, reg, targetKey, type, localX, sliderConfig);
+                                            if (btnResult.handled) {
+                                                if (type === "dragStart") this._btnLRHandledKey = targetKey;
+                                                if (btnResult.newVal !== undefined) {
+                                                    const fv = btnResult.newVal.toFixed(2);
+                                                    regions[targetKey] && (regions[targetKey].value = btnResult.newVal);
+                                                    this._compDataCache?.[targetKey] && (this._compDataCache[targetKey].value = btnResult.newVal);
+                                                    const valKey = targetKey.replace("sld", "val");
+                                                    regions[valKey] && (regions[valKey].value = fv, regions[valKey].text = fv);
+                                                    this._compDataCache?.[valKey] && (this._compDataCache[valKey].value = fv, this._compDataCache[valKey].text = fv);
+                                                    sType === "sldModel" ? stackData[idx][1] = btnResult.newVal : stackData[idx][2] = btnResult.newVal;
+                                                    this.properties.stackData = stackData;
+                                                    this.syncDerpOutputs?.();
+                                                    this.refreshNodeLayoutMap?.();
+                                                    this.setDirtyCanvas(true);
+                                                }
+                                                if (type === "dragStart") endStackDrag(this, "stackData");
+                                                return true;
+                                            }
+                                        }
                                         if (type === "dragStart") {
                                             endStackDrag(this, "stackData");
                                             return true;
@@ -926,11 +953,16 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                                         let newVal;
                                         if (type === "dblclick") newVal = cDef;
                                         else {
-                                            const percent = Math.max(0, Math.min(1, (localX - reg.x) / reg.w));
+                                            const cfgBtnLR = sliderConfig?.btnLR ?? false;
+                                            const mrg = cfgBtnLR ? BTN_LR_MARGIN : 0;
+                                            const btnW = cfgBtnLR ? Math.round((reg.h || 14) * BTN_LR_RATIO) : 0;
+                                            const trackX = reg.x + mrg + btnW;
+                                            const trackW = Math.max(1, reg.w - (btnW + mrg) * 2);
+                                            const percent = Math.max(0, Math.min(1, (localX - trackX) / trackW));
                                             const rawVal = cMin + (percent * (cMax - cMin));
                                             newVal = Math.round(rawVal / cStep) * cStep;
-                                            newVal = Math.max(cMin, Math.min(cMax, newVal));
                                         }
+                                        newVal = Math.max(cMin, Math.min(cMax, newVal));
 
                                         const finalValStr = newVal.toFixed(2);
                                         if (regions[targetKey]) regions[targetKey].value = newVal;

@@ -176,3 +176,43 @@ export function syncDerpSliderCanvas(ctx, node, config) {
     }
     ctx.restore();
 }
+
+window.handleDerpSliderBtnLR = function(node, reg, targetKey, type, localX, config) {
+    const btnLR = config?.btnLR;
+    if (!btnLR) return { handled: false };
+    const btnW = Math.round((reg.h || 14) * BTN_LR_RATIO);
+    const mrg = BTN_LR_MARGIN;
+    if (type === "dblclick") {
+        if (localX >= reg.x + mrg && localX <= reg.x + mrg + btnW) return { handled: true };
+        if (localX >= reg.x + reg.w - btnW - mrg && localX <= reg.x + reg.w - mrg) return { handled: true };
+        return { handled: false };
+    }
+    if (type === "dragStart" || type === "click") {
+        const step = parseFloat(config.step ?? 0.05);
+        const cMin = parseFloat(config.min ?? 0);
+        const cMax = parseFloat(config.max ?? 1);
+        const curVal = parseFloat(config.value ?? cMin);
+        if (localX >= reg.x + mrg && localX <= reg.x + mrg + btnW) return { handled: true, newVal: Math.max(cMin, curVal - step) };
+        if (localX >= reg.x + reg.w - btnW - mrg && localX <= reg.x + reg.w - mrg) return { handled: true, newVal: Math.min(cMax, curVal + step) };
+    }
+    if (type === "dragStart" || type === "click") {
+        const trackStart = reg.x + mrg + btnW;
+        const trackEnd = reg.x + reg.w - mrg - btnW;
+        if (localX < trackStart || localX > trackEnd) return { handled: true };
+    }
+    if (type === "click") {
+        const cMin = parseFloat(config.min ?? 0);
+        const cMax = parseFloat(config.max ?? 1);
+        const curVal = parseFloat(config.value ?? cMin);
+        const fillPercent = Math.max(0, Math.min(1, (curVal - cMin) / (cMax - cMin)));
+        const trackX = reg.x + mrg + btnW;
+        const trackW = Math.max(0, reg.w - (btnW + mrg) * 2);
+        const fillRight = trackX + fillPercent * trackW;
+        if (localX < trackX || localX > fillRight) return { handled: true };
+        const cStep = parseFloat(config.step ?? 0.05);
+        const percent = Math.max(0, Math.min(1, (localX - trackX) / trackW));
+        const rawVal = cMin + (percent * (cMax - cMin));
+        return { handled: true, newVal: Math.max(cMin, Math.min(cMax, Math.round(rawVal / cStep) * cStep)) };
+    }
+    return { handled: false };
+}
