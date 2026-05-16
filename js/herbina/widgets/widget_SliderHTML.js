@@ -14,9 +14,9 @@ import {
 } from "../utils/widgetsUtils.js";
 import { animateWidgetColors } from "../masterAnimator.js";
 
-const BTN_LR_RATIO = 0.75;
-const BTN_LR_FONTSIZE = 8;
-const BTN_LR_MARGIN = 2;
+var BTN_LR_RATIO = 0.75;
+var BTN_LR_FONTSIZE = 6;
+var BTN_LR_MARGIN = 1;
 
 /**
  * HTML-based Slider Painter

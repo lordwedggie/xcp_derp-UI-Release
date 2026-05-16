@@ -12,8 +12,8 @@ import { startStackDrag, updateStackDrag, endStackDrag } from "../../fatha/helpe
 import { COMPONENT_BLUEPRINTS } from "../../fatha/core/masterLayoutTypes.js";
 
 const LORA_DETAIL_BASTA_ID = "basta_lora_detail_global_unique_id";
-const BTN_LR_RATIO = 0.75;
-const BTN_LR_MARGIN = 1;
+const BTN_LR_RATIO_LS = 0.75;
+const BTN_LR_MARGIN_LS = 1;
 const handleDerpSliderBtnLR = (...a) => window.handleDerpSliderBtnLR?.(...a) || { handled: false };
 
 function closeLoraDetailForHost(host) {
@@ -954,8 +954,8 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                                         if (type === "dblclick") newVal = cDef;
                                         else {
                                             const cfgBtnLR = sliderConfig?.btnLR ?? false;
-                                            const mrg = cfgBtnLR ? BTN_LR_MARGIN : 0;
-                                            const btnW = cfgBtnLR ? Math.round((reg.h || 14) * BTN_LR_RATIO) : 0;
+                                            const mrg = cfgBtnLR ? BTN_LR_MARGIN_LS : 0;
+                                            const btnW = cfgBtnLR ? Math.round((reg.h || 14) * BTN_LR_RATIO_LS) : 0;
                                             const trackX = reg.x + mrg + btnW;
                                             const trackW = Math.max(1, reg.w - (btnW + mrg) * 2);
                                             const percent = Math.max(0, Math.min(1, (localX - trackX) / trackW));

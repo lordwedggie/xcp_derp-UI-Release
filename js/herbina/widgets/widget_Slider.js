@@ -14,9 +14,9 @@ import { animateWidgetColors } from "../masterAnimator.js";
 // Import the HTML painter logic for the compatibility proxy
 import { syncDerpSliderHTML as syncHTML } from "./widget_SliderHTML.js";
 
-const BTN_LR_RATIO = 0.75;
-const BTN_LR_FONTSIZE = 6;
-const BTN_LR_MARGIN = 1;
+var BTN_LR_RATIO = 0.75;
+var BTN_LR_FONTSIZE = 6;
+var BTN_LR_MARGIN = 1;
 
 /**
  * Default properties for the Slider widget.

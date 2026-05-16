@@ -4,9 +4,9 @@
  */
 import { transmitDerpSignal } from "../../fatha/core/masterSignalEngine.js";
 
-const BTN_LR_RATIO = 0.75;
-const BTN_LR_FONTSIZE = 6;
-const BTN_LR_MARGIN = 1;
+var BTN_LR_RATIO = 0.75;
+var BTN_LR_FONTSIZE = 6;
+var BTN_LR_MARGIN = 1;
 
 export function setupDerpSliderCore(nodeType) {
     if (!nodeType.prototype.transmitDerpSignal) {
