@@ -145,7 +145,7 @@ app.registerExtension({
 
             this.layoutMap = {
                 sysContentRegion: {
-                    anchor: { target: "headerRegion", axis: "y", offset: oY },
+                    anchor: { target: "headerRegion", axis: "y"},
                     width: "full", height: "auto", dir: "row",
                     padding: [0, 0],
                     margin: this.properties?.drawHeader !== false ? [mW, mH] : [mW, 0],

@@ -200,7 +200,7 @@ app.registerExtension({
 
             this.layoutMap = {
                 sysContentRegion: {
-                    anchor: { target: "headerRegion", axis: "y", offset: oY },
+                    anchor: { target: "headerRegion", axis: "y" },
                     width: "full", height: "auto", dir: "col",
                     margin: [mW, mH, mW, mH],
                     regionSamplerDeck: {
