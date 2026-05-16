@@ -540,7 +540,8 @@ export function syncDerpEditor(context, node, app, config) {
         if (alignY === "middle") {
             const nudge = props.numberOnly ? (fontSize * 0.12) : 0;
             if (isFlex) {
-                var baseRelativeStartY = nudge;
+                const physCenterY = (physicalHeight / 2) - (totalPhysicalTextHeight / 2);
+                var baseRelativeStartY = (physCenterY / ds.scale) + nudge;
             } else {
                 const physCenterY = (physicalHeight / 2) - (totalPhysicalTextHeight / 2);
                 var baseRelativeStartY = (physCenterY / ds.scale) + nudge;
