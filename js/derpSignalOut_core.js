@@ -4,6 +4,7 @@
  */
 import { app } from "../../../scripts/app.js";
 import { uncle } from "./fatha/uncle.js";
+import { updateStackDrag, endStackDrag } from "./fatha/helpers/fathaDragDrop.js";
 import { handleInitDerpGlobalListener } from "./fatha/core/fathaHandler.js";
 
 if (!window._xcp_derpSignalOut_Core_Loaded) {
@@ -124,6 +125,25 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                 nodeType.prototype.handleShieldInteraction = function(type, data) {
                     if (type === "click" && this._suppressClickAfterDrag) {
                         this._suppressClickAfterDrag = false;
+                        return true;
+                    }
+                    // Signal reorder drag tracking
+                    if (type === "drag" && this._dragTrig) {
+                        updateStackDrag(this, data, "outputsRegion_display_", (this.activeOutputs || this.outputs || []).length);
+                        if (this._dragThresholdMet) return true;
+                    }
+                    // Complete reorder on dragEnd or click after drag threshold met
+                    if (type === "dragEnd" || (type === "click" && this._dragThresholdMet)) {
+                        const fromIdx = this._dragTrig?.index;
+                        const toIdx = this._dropPreviewIdx;
+                        if (fromIdx !== undefined && toIdx !== undefined && fromIdx !== toIdx && typeof this.reorderDerpOutputs === 'function') {
+                            try { this.reorderDerpOutputs(fromIdx, toIdx); } catch (e) {}
+                        }
+                        if (this._dragThresholdMet && window.DERP_GLOBAL_SETTINGS?.playSound && SOUND_INDEX?.dropdown) {
+                            SOUND_INDEX.dropdown();
+                        }
+                        endStackDrag(this, "activeOutputs");
+                        this._suppressClickAfterDrag = true;
                         return true;
                     }
                     return baseHandleInteraction.call(this, type, data);

@@ -97,7 +97,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                     const trigHash = stack.map(l => (this._loraTriggerArrayCache?.[l[0]] || []).length).join('|');
 
                     const dragIdxHash = (this._dragTrig) ? `drag_${this._dragTrig.index}_${this._dragThresholdMet}_${this._dropPreviewIdx}` : "no-drag";
-                    const structureHash = `${stack.length}_${stack.map(l => `${l[0]}_${l[5]}`).join('|')}_${trigHash}_${this.properties.nameDisplay}_${this.properties.showCLIP}_${this.properties.attentionMode}_${window._xcpDerpSession}_${activeSlot}_${mW}_${mH}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}_${dragIdxHash}`;
+                    const structureHash = `${stack.length}_${stack.map(l => `${l[0]}_${l[5]}`).join('|')}_${trigHash}_${this.properties.nameDisplay}_${this.properties.showCLIP}_${this.properties.attentionMode}_${this.properties.toggleLR}_${window._xcpDerpSession}_${activeSlot}_${mW}_${mH}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}_${dragIdxHash}`;
 
                     // ZERO-INFERENCE VALUE GATE: Block redundant property hydration on idle nodes
                     const valueHash = stack.map(l => `${l[1]}_${l[2]}_${l[3]}_${l[4]}_${l[5]}_${l[6]}`).join('|') + `_${this.mode}_${this._hoveredRegionKey}`;
@@ -428,6 +428,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                         min: this._loraSetup?.[lora[0]]?.sliderStrength?.[0] ?? this.properties.sliderMin ?? -2.0,
                                         max: this._loraSetup?.[lora[0]]?.sliderStrength?.[1] ?? this.properties.sliderMax ?? 2.0,
                                         step: this._loraSetup?.[lora[0]]?.sliderStrength?.[2] ?? this.properties.sliderStep ?? 0.05,
+                                        btnLR: this.properties.toggleLR ?? false,
                                         state: isBypassed ? "DIS" : "OFF",
                                         allowDragWhenDisabled: isBypassed,
                                         dragProxyKey: `loraRow_${i}`,
@@ -488,6 +489,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                         min: this._loraSetup?.[lora[0]]?.sliderStrength?.[0] ?? this.properties.clipMin ?? -2.0,
                                         max: this._loraSetup?.[lora[0]]?.sliderStrength?.[1] ?? this.properties.clipMax ?? 2.0,
                                         step: this._loraSetup?.[lora[0]]?.sliderStrength?.[2] ?? this.properties.clipStep ?? 0.05,
+                                        btnLR: this.properties.toggleLR ?? false,
                                         state: isBypassed ? "DIS" : "OFF",
                                         allowDragWhenDisabled: isBypassed,
                                         dragProxyKey: `loraRow_${i}`,
@@ -742,6 +744,19 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                     measureText: "0.00",
                                     onBlur: (v) => { this.properties.sliderDefault = parseFloat(v); this.refreshNodeLayoutMap(); this.refreshDerpLoraStackSysMap(); this.syncDerpOutputs(); }
                                 },
+                                toggleLR: {
+                                    type: this.UI_TYPES.TOGGLE_V2, themeKey: "dialog, button, t_textSystem",
+                                    isTextOnly: true, mouseOver: false, icon: "ring",
+                                    label: "LR button",
+                                    width: "auto", height: "auto", padding: [pW, pH], spacing: [sW, 0],
+                                    value: this.properties.toggleLR ?? false,
+                                    onPress: () => {
+                                        this.properties.toggleLR = !this.properties.toggleLR;
+                                        this.refreshNodeLayoutMap();
+                                        this.refreshDerpLoraStackSysMap();
+                                        this.requestDerpSync();
+                                    }
+                                },
                             },
                             sysRow_3: {
                                 hidden: this.properties.attentionMode === "Joint-Attention" || this.properties.showCLIP === false,
@@ -757,7 +772,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                     text: "Min:", width: "auto", spacing: [sW, 0],
                                 },
                                 editorCLIPMin: {
-                                    type: this.UI_TYPES.EDITOR, themeKey: "dialog, t_textSystem", labelAlign: ["center", "middle"],
+                                    type: this.UI_TYPES.EDITOR, themeKey: "dialog, t_textSystem", labelAlign: ["center", "middle"], height: "fill",
                                     text: String(this.properties.clipMin ?? -2.0), width: "auto", padding: [pW, pH], spacing: [sW, 0],
                                     measureText: "00",
                                     onBlur: (v) => { this.properties.clipMin = parseFloat(v); this.refreshNodeLayoutMap(); this.refreshDerpLoraStackSysMap(); this.syncDerpOutputs(); }
@@ -767,7 +782,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                     text: "Max:", width: "auto", spacing: [sW, 0],
                                 },
                                 editorCLIPMax: {
-                                    type: this.UI_TYPES.EDITOR, themeKey: "dialog, t_textSystem", labelAlign: ["center", "middle"],
+                                    type: this.UI_TYPES.EDITOR, themeKey: "dialog, t_textSystem", labelAlign: ["center", "middle"], height: "fill",
                                     text: String(this.properties.clipMax ?? 2.0), width: "auto", padding: [pW, pH], spacing: [sW, 0],
                                     measureText: "00",
                                     onBlur: (v) => { this.properties.clipMax = parseFloat(v); this.refreshNodeLayoutMap(); this.refreshDerpLoraStackSysMap(); this.syncDerpOutputs(); }
@@ -777,7 +792,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                     text: "Step:", width: "auto", spacing: [sW, 0],
                                 },
                                 editorCLIPStep: {
-                                    type: this.UI_TYPES.EDITOR, themeKey: "dialog, t_textSystem", labelAlign: ["center", "middle"],
+                                    type: this.UI_TYPES.EDITOR, themeKey: "dialog, t_textSystem", labelAlign: ["center", "middle"], height: "fill",
                                     text: String(this.properties.clipStep ?? 0.05), width: "auto", padding: [pW, pH], spacing: [sW, 0],
                                     measureText: "0.00",
                                     onBlur: (v) => { this.properties.clipStep = parseFloat(v); this.refreshNodeLayoutMap(); this.refreshDerpLoraStackSysMap(); this.syncDerpOutputs(); }
@@ -787,7 +802,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                     text: "Default:", width: "auto", spacing: [sW, 0],
                                 },
                                 editorCLIPDefault: {
-                                    type: this.UI_TYPES.EDITOR, themeKey: "dialog, t_textSystem", labelAlign: ["center", "middle"],
+                                    type: this.UI_TYPES.EDITOR, themeKey: "dialog, t_textSystem", labelAlign: ["center", "middle"], height: "fill",
                                     text: String(this.properties.clipDefault ?? 1.0), width: "auto", padding: [pW, pH], spacing: [sW, 0],
                                     measureText: "0.00",
                                     onBlur: (v) => { this.properties.clipDefault = parseFloat(v); this.refreshNodeLayoutMap(); this.refreshDerpLoraStackSysMap(); this.syncDerpOutputs(); }
