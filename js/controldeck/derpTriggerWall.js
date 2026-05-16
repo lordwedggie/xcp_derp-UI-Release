@@ -14,9 +14,7 @@ import {
     triggerWall_onConfigure,
     triggerWall_onDrawForeground,
     triggerWall_onDeselected,
-    triggerWall_updateDeckPresetList,
     triggerWall_onLoadDeckProfile,
-    triggerWall_saveDeckProfile,
     triggerWall_onLoadPreset,
     triggerWall_updatePresetList,
     triggerWall_onThemeUpdate,
@@ -667,11 +665,6 @@ app.registerExtension({
                 this._sortedPresetItemsKey = presetSortKey;
                 this._sortedPresetItems = [...presetItems].sort((a, b) => String(a).localeCompare(String(b)));
             }
-            const deckPresetItems = this._deckPresetItems || [];
-            if (this._sortedDeckPresetItemsKey !== deckPresetItems.join("\u0001")) {
-                this._sortedDeckPresetItemsKey = deckPresetItems.join("\u0001");
-                this._sortedDeckPresetItems = [...deckPresetItems].sort((a, b) => String(a).localeCompare(String(b)));
-            }
 
             const layoutMap = {
                 contentRegion: {
@@ -709,25 +702,6 @@ app.registerExtension({
                     rootName: "Presets",
                     onChange: (val) => {
                         if (typeof triggerWall_onLoadPreset === "function") triggerWall_onLoadPreset(this, val);
-                    }
-                },
-                btnSaveDeckProfile: {
-                    type: this.UI_TYPES.ICONBUTTON, themeKey: "button, t_textnormal",
-                    icon: "save", width: "match", height: "fill", margin: [sW, 0, 0, 0],
-                    state: "OFF",
-                    onPress: () => triggerWall_saveDeckProfile(this)
-                },
-                filebrowserDeck: {
-                    type: this.UI_TYPES.FILEBROWSER, themeKey: "button, t_textsmall", canvasShield: true,
-                    text: this.properties.lastSavedDeckPreset || "Load Deck Profile", mouseOver: false,
-                    icon: this.properties.lastSavedDeckPreset ? "file" : "folder",
-                    width: "full", height: "fill", padding: [pW, pH], margin: [sW, 0, 0, 0],
-                    items: this._sortedDeckPresetItems || [],
-                    indicator: true,
-                    rootName: "Deck Profiles",
-                    fileType: "triggerWallDeck",
-                    onChange: (val) => {
-                        if (typeof triggerWall_onLoadDeckProfile === "function") triggerWall_onLoadDeckProfile(this, val);
                     }
                 },
             };

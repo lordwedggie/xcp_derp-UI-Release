@@ -16,7 +16,7 @@ function syncTriggerGroupToProperties(node) {
     const full = node._triggerGroupData || [];
     node.properties.triggerGroups = full
         .filter(g => !g.hidden)
-        .map(g => ({ id: g.id, title: g.title, isExclusive: !!g.isExclusive, triggers: (g.triggers || []).filter(t => !t.hidden).map(t => ({ id: t.id, label: t.label })) }));
+        .map(g => ({ id: g.id, title: g.title, isExclusive: !!g.isExclusive, triggers: (g.triggers || []).filter(t => !t.hidden).map(t => ({ id: t.id, label: t.label, weight: t.weight, active: !!t.active })) }));
 }
 
 // Ensure runtime cache exists, seeded from properties if needed
@@ -43,12 +43,6 @@ function applyDeckProfileToData(node, deckGroups) {
 }
 
 function refreshAndSync(node, syncOutputs = true, dirtyFull = false, settleOptions = {}) {
-    // Auto-persist current state so groups survive page refresh
-    try {
-        triggerWall_autosave(node);
-    } catch (e) {
-        // best-effort; don't block the UI
-    }
     syncTriggerGroupToProperties(node);
     node.refreshNodeLayoutMap();
     if (typeof settleDerpSizeBeforeDraw === "function") settleDerpSizeBeforeDraw(node, settleOptions);
@@ -212,20 +206,10 @@ export function triggerWall_onConfigure(node, info, originalCallback) {
         node._lastDerpW = null; // Force frame-one rebuild in onDrawForeground
         node._lastSyncedContent = null;
         ensureTriggerGroupData(node, true); // force re-seed from deserialized properties
-        // Restore from autosave (survives page refresh even without workflow save)
-        triggerWall_autoload(node).then(groups => {
-            if (groups) { node._triggerGroupData = groups; node.refreshNodeLayoutMap(); }
-        });
         // Load deck profile to restore weights/active states
-        if (node.properties.lastSavedPreset) {
-            triggerWall_loadDeckProfile(node).then(deckGroups => {
-                if (deckGroups) { applyDeckProfileToData(node, deckGroups); node.refreshNodeLayoutMap(); }
-            });
-        }
         node._cachedPresetData = cloneTriggerPresetData(node.properties.loadedTriggerPreset);
         node.refreshNodeLayoutMap();
         node.refreshDerpTriggerWallSysMap();
-        triggerWall_updateDeckPresetList(node);
         if (!node._cachedPresetData && node.properties.lastSavedPreset) {
             fetch(`/xcp/load/triggerWall?name=${encodeURIComponent(node.properties.lastSavedPreset)}`)
                 .then(r => { if (!r.ok) return null; return r.json(); })
