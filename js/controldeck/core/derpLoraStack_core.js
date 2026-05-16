@@ -10,11 +10,10 @@ import { showBastaMessage } from "../../fatha/bastas/bastaMessage.js";
 import { fetchLoraTriggers, fetchLoraRating, syncRatingColorsCache, fetchLoraData, regionBelongsToRow } from "../helpers/loraComponents.js";
 import { startStackDrag, updateStackDrag, endStackDrag } from "../../fatha/helpers/fathaDragDrop.js";
 import { COMPONENT_BLUEPRINTS } from "../../fatha/core/masterLayoutTypes.js";
+import { settleDerpSizeBeforeDraw, shouldPreserveHorizontalDeckHeight, syncHorizontalDeckHeight } from "../../fatha/core/fathaHandler.js";
+import { getDeckMembers } from "../../fatha/core/masterDockEngine.js";
 
 const LORA_DETAIL_BASTA_ID = "basta_lora_detail_global_unique_id";
-const BTN_LR_RATIO_LS = 0.75;
-const BTN_LR_MARGIN_LS = 1;
-const handleDerpSliderBtnLR = (...a) => window.handleDerpSliderBtnLR?.(...a) || { handled: false };
 
 function closeLoraDetailForHost(host) {
     if (!host) return false;
@@ -57,6 +56,35 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                 };
                 nodeType.prototype.syncDerpSignalManual = function() {
                     if (this.syncDerpOutputs) this.syncDerpOutputs();
+                };
+
+                nodeType.prototype.syncLoraStackStructureHeight = function() {
+                    const remeasureNode = (target) => {
+                        if (!target || typeof settleDerpSizeBeforeDraw !== "function") return 0;
+                        settleDerpSizeBeforeDraw(target, {
+                            forceAutoHeight: true,
+                            suppressRequestSync: true,
+                        });
+                        return Number(target.properties?.nodeSize?.[1] ?? target.size?.[1]) || 0;
+                    };
+
+                    let targetHeight = remeasureNode(this);
+
+                    if (typeof shouldPreserveHorizontalDeckHeight === "function" &&
+                        typeof syncHorizontalDeckHeight === "function" &&
+                        shouldPreserveHorizontalDeckHeight(this)) {
+                        const graph = app.graph || this.graph || null;
+                        const members = graph ? getDeckMembers(this, graph) : [];
+                        if (Array.isArray(members) && members.length > 1) {
+                            targetHeight = members.reduce((maxHeight, member) => {
+                                return Math.max(maxHeight, remeasureNode(member));
+                            }, 0);
+                        }
+                        if (targetHeight > 0) syncHorizontalDeckHeight(this, targetHeight);
+                    }
+
+                    if (this.requestDerpSync) this.requestDerpSync();
+                    if (this.setDirtyCanvas) this.setDirtyCanvas(true, true);
                 };
 
                 nodeType.prototype.applyPalette = function() {
@@ -278,6 +306,7 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                             if (p.settings) Object.assign(this.properties, p.settings);
                             if (this.syncDerpOutputs) this.syncDerpOutputs();
                             if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
+                            if (this.syncLoraStackStructureHeight) this.syncLoraStackStructureHeight();
 
                             if (this.refreshDerpLoraStackSysMap) this.refreshDerpLoraStackSysMap();
                             if (this._derpPanel) this._derpPanel._layoutDirty = true;
@@ -913,30 +942,6 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                                     // Keep slider hit zones out of row drag arming.
                                     // Sliders should own dragStart/click/drag so the row DnD path never activates underneath them.
                                     if (stackData[idx] && (sType === "sldModel" || sType === "sldClip") && (type === "dragStart" || type === "click" || type === "dblclick" || type === "drag")) {
-                                        if (type === "click" && this._btnLRHandledKey === targetKey) { this._btnLRHandledKey = null; return true; }
-                                        if (type === "dragStart") this._btnLRHandledKey = null;
-                                        const sliderConfig = regions[targetKey];
-                                        if ((type === "dragStart" || type === "click" || type === "dblclick") && sliderConfig) {
-                                            const btnResult = handleDerpSliderBtnLR(this, reg, targetKey, type, localX, sliderConfig);
-                                            if (btnResult.handled) {
-                                                if (type === "dragStart") this._btnLRHandledKey = targetKey;
-                                                if (btnResult.newVal !== undefined) {
-                                                    const fv = btnResult.newVal.toFixed(2);
-                                                    regions[targetKey] && (regions[targetKey].value = btnResult.newVal);
-                                                    this._compDataCache?.[targetKey] && (this._compDataCache[targetKey].value = btnResult.newVal);
-                                                    const valKey = targetKey.replace("sld", "val");
-                                                    regions[valKey] && (regions[valKey].value = fv, regions[valKey].text = fv);
-                                                    this._compDataCache?.[valKey] && (this._compDataCache[valKey].value = fv, this._compDataCache[valKey].text = fv);
-                                                    sType === "sldModel" ? stackData[idx][1] = btnResult.newVal : stackData[idx][2] = btnResult.newVal;
-                                                    this.properties.stackData = stackData;
-                                                    this.syncDerpOutputs?.();
-                                                    this.refreshNodeLayoutMap?.();
-                                                    this.setDirtyCanvas(true);
-                                                }
-                                                if (type === "dragStart") endStackDrag(this, "stackData");
-                                                return true;
-                                            }
-                                        }
                                         if (type === "dragStart") {
                                             endStackDrag(this, "stackData");
                                             return true;
@@ -953,16 +958,11 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                                         let newVal;
                                         if (type === "dblclick") newVal = cDef;
                                         else {
-                                            const cfgBtnLR = sliderConfig?.btnLR ?? false;
-                                            const mrg = cfgBtnLR ? BTN_LR_MARGIN_LS : 0;
-                                            const btnW = cfgBtnLR ? Math.round((reg.h || 14) * BTN_LR_RATIO_LS) : 0;
-                                            const trackX = reg.x + mrg + btnW;
-                                            const trackW = Math.max(1, reg.w - (btnW + mrg) * 2);
-                                            const percent = Math.max(0, Math.min(1, (localX - trackX) / trackW));
+                                            const percent = Math.max(0, Math.min(1, (localX - reg.x) / reg.w));
                                             const rawVal = cMin + (percent * (cMax - cMin));
                                             newVal = Math.round(rawVal / cStep) * cStep;
+                                            newVal = Math.max(cMin, Math.min(cMax, newVal));
                                         }
-                                        newVal = Math.max(cMin, Math.min(cMax, newVal));
 
                                         const finalValStr = newVal.toFixed(2);
                                         if (regions[targetKey]) regions[targetKey].value = newVal;
@@ -1051,7 +1051,7 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
 
                         if (this.syncDerpOutputs) this.syncDerpOutputs();
                         if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
-                        this.requestDerpSync();
+                        if (this.syncLoraStackStructureHeight) this.syncLoraStackStructureHeight();
                     }
                 };
 
