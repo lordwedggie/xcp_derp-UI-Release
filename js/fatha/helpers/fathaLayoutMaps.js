@@ -14,6 +14,7 @@ import { clearBypassSignalDebouncers, transmitBypassedDerpSignals } from "../cor
 import { ensureNodeVisibleInViewport } from "../core/fathaWarp.js";
 import { warpToPoint } from "../core/fathaWarp.js";
 import { handleDerpCollapse } from "../core/fathaHandler.js";
+import { findHeaderPaletteEntry } from "./headerPaletteIdentity.js";
 
 const DEBUG_OPTIONS = ["None", "Layout", "Hitbox", "Widgets Hitbox"];
 const TITLE_LABEL_DEFAULT = "Derp Nodes";
@@ -33,24 +34,8 @@ function paletteColorToCss(color) {
     return `rgba(${r}, ${g}, ${b}, ${Number.isFinite(a) ? a : 1})`;
 }
 
-function findHeaderPaletteEntry(node) {
-    const palettes = window.xcpActivePalette?.palettes;
-    if (!Array.isArray(palettes)) return null;
-    const names = [
-        node?.type,
-        node?.constructor?.type,
-        node?.comfyClass,
-        (node?.titleLabel || "").replace(/\s+/g, "")
-    ].filter(Boolean);
-    for (const name of names) {
-        const entry = palettes.find((item) => item?.name === `header_${name}`);
-        if (entry) return entry;
-    }
-    return null;
-}
-
 function resolveHeaderPaletteFill(node) {
-    const main = findHeaderPaletteEntry(node)?.entries?.main;
+    const main = findHeaderPaletteEntry(window.xcpActivePalette?.palettes, node, false)?.entries?.main;
     return paletteColorToCss(main?._OFF || main?._ON || main?._DIS || null);
 }
 

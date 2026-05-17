@@ -16,6 +16,7 @@ import { masterDockEngine, getDeckMembers, getDeckCornerOverride, isLinearDeckGr
 import { getVirtualNodeLayoutMap } from "../helpers/fathaLayoutMaps.js";
 import { getDockGroupAxisFromMembers, resolveRuntimeDockSize, shouldPreserveDockHeight, shouldPreserveDockWidth } from "./dockDimensions.js";
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
+import { findHeaderPaletteEntry, getHeaderPaletteCandidateNames } from "../helpers/headerPaletteIdentity.js";
 
 function getDeckEngine() {
     if (!window.xcpMasterDeckEngine) {
@@ -80,24 +81,17 @@ function getNodePaletteData(entity) {
 }
 
 function getNodeHeaderPaletteNames(entity) {
-    return [
-        entity?.type,
-        entity?.constructor?.type,
-        entity?.comfyClass,
-        (entity?.titleLabel || "").replace(/\s+/g, ""),
-        entity?._sysProfileFile,
-    ].filter(Boolean);
+    return getHeaderPaletteCandidateNames(entity, true);
 }
 
 function resolveNodeHeaderPaletteEntry(entity) {
-    const candidates = getNodeHeaderPaletteNames(entity).flatMap((name) => [`header_${name}`, `Header_${name}`]);
-    return candidates.map((name) => findNodePaletteEntry(entity, name)).find(Boolean) || null;
+    const paletteData = getNodePaletteData(entity);
+    return findHeaderPaletteEntry(paletteData?.palettes, entity, true);
 }
 
 function resolveNodeHeaderPaletteMatch(entity) {
     const paletteData = getNodePaletteData(entity);
-    const candidates = getNodeHeaderPaletteNames(entity).flatMap((name) => [`header_${name}`, `Header_${name}`]);
-    const entry = candidates.map((name) => findPaletteEntry(paletteData, name)).find(Boolean) || null;
+    const entry = findHeaderPaletteEntry(paletteData?.palettes, entity, true);
     return entry ? { entry, paletteData } : null;
 }
 
