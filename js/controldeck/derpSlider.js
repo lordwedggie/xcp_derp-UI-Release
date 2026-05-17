@@ -167,7 +167,7 @@ app.registerExtension({
                         type: this.UI_TYPES.TEXT, mouseOver: false,
                         themeKey: "t_textsystem",
                         labelAlign: ["left", "middle"],
-                        text: "Custom node properties:",
+                        text: "Derp Slider properties:",
                         width: "full", padding: [pW, pH],
                     },
                     optionsRowOne: {

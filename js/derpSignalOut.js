@@ -332,12 +332,13 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                     this.sysLayoutMap = {
                         sysCustomRegion: {
                             anchor: { target: "sysDefaultControlsRegion", axis: "y" },
-                            width: "full", height: "auto", margin: [mW, 0],
-                            lblInfo: {
-                                // THE CONSTANT FIX: Access UI_TYPES directly instead of via the node instance
-                                type: UI_TYPES.TEXT, themeKey: "t_textsystem", mouseOver: false,
-                                text: "SignalOut node settings:", width: "auto", height: "auto",
-                                padding: [pW, pH]
+                            width: "full", height: "auto", margin: [mW, mH],
+                            lblTitle: {
+                                type: this.UI_TYPES.TEXT, mouseOver: false,
+                                themeKey: "t_textSystem",
+                                labelAlign: ["left", "middle"],
+                                text: "Derp SignalOut properties:",
+                                width: "full", padding: [pW, pH],
                             },
                             regionCustom_1: {
                                 dir: "row", width: "full", height: "auto",
