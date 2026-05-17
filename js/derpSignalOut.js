@@ -196,7 +196,7 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                         type: UI_TYPES.DROPDOWN_DERP, themeKey: "panel, t_textNormal",
                                         wrap: false, // THE TYPO FIX: Changed 'warp' to 'wrap'
                                         minWidth: 100,
-                                        canvasShield: true, labelAlign: ["left", "middle"],
+                                        canvasShield: true, onDragStart: () => { this._pressedRegionKey = null; return true; }, labelAlign: ["left", "middle"],
                                         indicator: "on",
                                         openOnPress: false,
                                         domPointerEvents: false,
@@ -287,7 +287,7 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                 dropdownSignalSelect: {
                                     type: UI_TYPES.DROPDOWN_DERP, themeKey: "dialog, t_textNormal",
                                     wrap: false, // THE CUTOFF FIX: Explicitly disable wrapping to prevent row overlaps
-                                    canvasShield: true, labelAlign: ["left", "middle"],
+                                    canvasShield: true, onDragStart: () => { this._pressedRegionKey = null; return true; }, labelAlign: ["left", "middle"],
                                     width: "full", height: "auto", padding: [pW, pH], spacing: [sW, 0],
                                     indicator: "on",
                                     items: signalItems,

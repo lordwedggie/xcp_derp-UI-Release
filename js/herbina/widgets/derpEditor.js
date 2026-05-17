@@ -35,6 +35,48 @@ import { animateWidgetColors } from "../masterAnimator.js";
 
 const BYPASS_BRIGHTNESS = 0.6;
 
+function resolveDerpEditorImageSrc(src) {
+    const rawSrc = String(src || "").trim();
+    if (!rawSrc) return "";
+    if (rawSrc.startsWith("data:image") || rawSrc.startsWith("http") || rawSrc.startsWith("/")) {
+        return rawSrc;
+    }
+    return window.location.origin + `/xcp/get_prompt_book_image?name=${encodeURIComponent(rawSrc)}`;
+}
+
+function getDerpEditorContentHeight(node, safeConfig, lines) {
+    const uiLineHeight = getDerpTextLineHeight(safeConfig.geometry?.fontSize || 10);
+    const drawW = Math.max(0, (safeConfig.geometry?.w || 0) - ((safeConfig.padding?.[0] || 4) * 2));
+    let totalHeight = 0;
+
+    lines.forEach(item => {
+        if (typeof item === "string") {
+            totalHeight += uiLineHeight;
+            return;
+        }
+        if (item?.type === "img") {
+            const imgObj = node._derpImgCache?.[resolveDerpEditorImageSrc(item.src)];
+            if (imgObj && imgObj.complete && imgObj.naturalWidth > 0) {
+                totalHeight += (drawW * (imgObj.naturalHeight / imgObj.naturalWidth)) + 10;
+            } else {
+                totalHeight += uiLineHeight;
+            }
+        }
+    });
+
+    return totalHeight;
+}
+
+function clampDerpEditorScroll(node, safeConfig) {
+    if (!node?._derpScrollOffsets || !safeConfig?.key) return 0;
+    const lines = node._editorLineCache?.[safeConfig.key]?.lines || [];
+    const totalHeight = getDerpEditorContentHeight(node, safeConfig, lines);
+    const viewHeight = safeConfig.geometry?.h || 0;
+    const maxScroll = Math.max(0, totalHeight - viewHeight + 20);
+    node._derpScrollOffsets[safeConfig.key] = Math.max(0, Math.min(node._derpScrollOffsets[safeConfig.key] || 0, maxScroll));
+    return maxScroll;
+}
+
 /**
  * Creates the HTML portion of the Hybrid Editor.
  */
@@ -217,33 +259,7 @@ export function syncDerpEditor(context, node, app, config) {
                 e.stopPropagation();
 
                 node._derpScrollOffsets[safeConfig.key] += e.deltaY;
-                node._derpScrollOffsets[safeConfig.key] = Math.max(0, node._derpScrollOffsets[safeConfig.key]);
-
-                // Clamp max scroll to prevent scrolling into infinite void
-                const uiLineHeight = getDerpTextLineHeight(safeConfig.geometry?.fontSize || 10);
-
-                // THE FIX: Calculate total scroll height by summing interleaved lines and images.
-                const lines = node._editorLineCache?.[safeConfig.key]?.lines || [];
-                const drawW = (safeConfig.geometry?.w || 0) - ((safeConfig.padding?.[0] || 4) * 2);
-                let totalHeight = 0; // THE FIX: Variable now declared only once.
-
-                lines.forEach(item => {
-                    if (typeof item === 'string') {
-                        totalHeight += uiLineHeight;
-                    } else if (item?.type === 'img') {
-                        const imgObj = node._derpImgCache?.[item.src];
-                        if (imgObj && imgObj.complete && imgObj.naturalWidth > 0) {
-                            totalHeight += (drawW * (imgObj.naturalHeight / imgObj.naturalWidth)) + 10;
-                        } else {
-                            totalHeight += uiLineHeight; // Placeholder height
-                        }
-                    }
-                });
-
-                const viewHeight = safeConfig.geometry?.h || 0;
-                const maxScroll = Math.max(0, totalHeight - viewHeight + 20); // 20px bottom buffer
-
-                node._derpScrollOffsets[safeConfig.key] = Math.min(node._derpScrollOffsets[safeConfig.key], maxScroll);
+                clampDerpEditorScroll(node, safeConfig);
 
                 node._derpAwakeFrames = 5;
                 if (node.requestDerpSync) node.requestDerpSync();
@@ -412,6 +428,7 @@ export function syncDerpEditor(context, node, app, config) {
     const cacheW = Math.round(availableWidth * 10) / 10;
     const cacheKey = `${valToSync}_${cacheW}_${fontSize}_${font}_${fontWeight}`;
     if (!node._editorLineCache) node._editorLineCache = {};
+    if (!node._derpScrollConfigs) node._derpScrollConfigs = {};
     let lines = node._editorLineCache[safeConfig.key]?.key === cacheKey ? node._editorLineCache[safeConfig.key].lines : null;
 
     if (!lines) {
@@ -508,6 +525,14 @@ export function syncDerpEditor(context, node, app, config) {
         node._editorLineCache[safeConfig.key] = { key: cacheKey, lines };
     }
 
+    if (isMultiline) {
+        safeConfig._clampScroll = () => clampDerpEditorScroll(node, safeConfig);
+        node._derpScrollConfigs[safeConfig.key] = safeConfig;
+        clampDerpEditorScroll(node, safeConfig);
+    } else if (node._derpScrollConfigs[safeConfig.key]) {
+        delete node._derpScrollConfigs[safeConfig.key];
+    }
+
 // THE VERTICAL STABILITY FIX: Ensure Canvas and HTML use identical start offsets
     const [alignX, alignY] = props.labelAlign || ["left", "middle"];
     // Removed duplicate 'ds' and 'rect' declarations since they are now initialized in Phase 1
@@ -525,7 +550,7 @@ export function syncDerpEditor(context, node, app, config) {
             if (typeof item === 'string') {
                 totalPhysicalTextHeight += uiLineHeight_calc;
             } else if (item.type === 'img') {
-                const imgObj = node._derpImgCache?.[item.src];
+                const imgObj = node._derpImgCache?.[resolveDerpEditorImageSrc(item.src)];
                 if (imgObj && imgObj.complete && imgObj.naturalWidth > 0) {
                     totalPhysicalTextHeight += (drawW_calc * (imgObj.naturalHeight / imgObj.naturalWidth)) + (10 * ds.scale);
                 } else {
@@ -629,10 +654,7 @@ export function syncDerpEditor(context, node, app, config) {
                     } else if (item.type === 'img') {
                         // THE FIX: Interleave image drawing based on their logical paragraph order.
                         if (!node._derpImgCache) node._derpImgCache = {};
-                        let imgSrc = item.src;
-                        if (!imgSrc.startsWith("data:image") && !imgSrc.startsWith("http") && !imgSrc.startsWith("/")) {
-                            imgSrc = window.location.origin + `/xcp/get_prompt_book_image?name=${encodeURIComponent(imgSrc)}`;
-                        }
+                        const imgSrc = resolveDerpEditorImageSrc(item.src);
 
                         if (!node._derpImgCache[imgSrc]) {
                             const img = new Image();

@@ -462,10 +462,15 @@ export function createDerpShield(node) {
         if (node._hoveredRegionKey && node._derpScrollOffsets?.[node._hoveredRegionKey] !== undefined) {
             e.preventDefault();
             e.stopPropagation();
-            node._derpScrollOffsets[node._hoveredRegionKey] += e.deltaY;
+            const regionKey = node._hoveredRegionKey;
+            node._derpScrollOffsets[regionKey] += e.deltaY;
 
-            // Clamp scroll so it doesn't go into negative numbers
-            node._derpScrollOffsets[node._hoveredRegionKey] = Math.max(0, node._derpScrollOffsets[node._hoveredRegionKey]);
+            const scrollConfig = node._derpScrollConfigs?.[regionKey];
+            if (scrollConfig && typeof scrollConfig._clampScroll === "function") {
+                scrollConfig._clampScroll();
+            } else {
+                node._derpScrollOffsets[regionKey] = Math.max(0, node._derpScrollOffsets[regionKey]);
+            }
             node.setDirtyCanvas(true);
             return;
         }
