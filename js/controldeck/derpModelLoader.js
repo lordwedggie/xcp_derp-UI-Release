@@ -276,23 +276,23 @@ app.registerExtension({
         nodeType.prototype.refreshDerpTemplateSysMap = function() {
             // ZERO-INFERENCE OPTIMIZATION: Precision Jitter Lock (toFixed 2)
             const vars = this.getDerpVars(this);
-            const [mW, mH, oY, pW, pH, sW] = [
+            const [mW, mH, oY, pW, pH, sW, sH] = [
                 vars.mW, vars.mH, vars.oY, vars.pW, vars.pH, vars.sW
             ].map(v => Number(v.toFixed(2)));
             this.sysLayoutMap = {
                 sysContentRegion: {
                     dir: "col",
-                    anchor: { target: "sysDefaultControlsRegion", axis: "y", offset: oY },
-                    width: "full", height: "auto", margin: [mW, 0, mW, mH],
+                    anchor: { target: "sysDefaultControlsRegion", axis: "y"},
+                    width: "full", height: "auto", margin: [mW, mH, mW, 0],
                     lblTitle: {
-                        type: this.UI_TYPES.TEXT,
+                        type: this.UI_TYPES.TEXT, mouseOver: false,
                         themeKey: "t_textSystem",
                         labelAlign: ["left", "middle"],
                         text: "Custom node properties:",
                         width: "full", padding: [pW, pH],
                     },
                     "regionSetting-1": {
-                        anchor: { target: "lblTitle", axis: "y", offset: oY },
+                        anchor: { target: "lblTitle", axis: "y" },
                         dir: "row", width: "full", height: "auto", spacing: [sW, 0],
                         toggleShowFolder: {
                             type: this.UI_TYPES.TOGGLE_V2, isTextOnly: true, themeKey: "button, t_textSystem",

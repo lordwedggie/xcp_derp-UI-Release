@@ -227,10 +227,10 @@ app.registerExtension({
 
             this.sysLayoutMap = {
                 sysCustomRegion: {
-                    anchor: { target: "sysDefaultControlsRegion", axis: "y", offset: oY },
-                    dir: "col", width: "full", height: "auto", margin: [mW, mH], spacing: [0, sH],
+                    anchor: { target: "sysDefaultControlsRegion", axis: "y" },
+                    dir: "col", width: "full", height: "auto", margin: [mW, sH], spacing: [0, sH],
                     lblSysMapTitle: {
-                        type: this.UI_TYPES.TEXT_HTML, themeKey: "t_textSystem",
+                        type: this.UI_TYPES.TEXT, themeKey: "t_textSystem", mouseOver: false,
                         text: "Prompt Book Settings",
                         width: "auto", height: "auto", padding: [pW, pH],
                         objectAlign: ["left", "middle"]
@@ -238,9 +238,9 @@ app.registerExtension({
                     togglesRow: {
                         dir: "row", width: "full", height: "auto", spacing: [sW, 0],
                         btnCover: {
-                            type: this.UI_TYPES.BUTTON_HTML, text: "Cover Page", themeKey: "systemButton, t_textSystem",
+                            type: this.UI_TYPES.BUTTON, text: "Cover Page", themeKey: "systemButton, t_textSystem",
                             state: this.properties.coverPage !== false,
-                            width: "auto", height: "auto", padding: [pW, pH],
+                            width: "auto", height: "auto", padding: [pW, pH], spacing: [sW, 0],
                             onPress: () => {
                                 this.properties.coverPage = this.properties.coverPage === false;
                                 this.refreshNodeLayoutMap();
@@ -248,7 +248,7 @@ app.registerExtension({
                             }
                         },
                         btnTotal: {
-                            type: this.UI_TYPES.BUTTON_HTML, text: "Show Total", themeKey: "systemButton, t_textSystem",
+                            type: this.UI_TYPES.BUTTON, text: "Show Total", themeKey: "systemButton, t_textSystem",
                             state: this.properties.showTotalPage !== false,
                             width: "auto", height: "auto", padding: [pW, pH],
                             onPress: () => {

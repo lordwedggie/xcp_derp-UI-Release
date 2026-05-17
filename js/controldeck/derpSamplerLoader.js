@@ -284,23 +284,23 @@ app.registerExtension({
         // --- SYSTEM PANEL LAYOUT ---
         nodeType.prototype.refreshDerpTemplateSysMap = function() {
             const vars = this.getDerpVars(this);
-            const [mW, mH, oY, pW, pH] = [
+            const [mW, mH, oY, pW, pH, sH] = [
                 vars.mW, vars.mH, vars.oY, vars.pW, vars.pH
             ].map(v => Number(v.toFixed(2)));
 
             this.sysLayoutMap = {
                 sysContentRegion: {
                     dir: "col",
-                    anchor: { target: "sysDefaultControlsRegion", axis: "y", offset: oY },
-                    width: "full", height: "auto", margin: [mW, 0, mW, mH],
+                    anchor: { target: "sysDefaultControlsRegion", axis: "y"},
+                    width: "full", height: "auto", margin: [mW, sH],
                     lblTitle: {
-                        type: this.UI_TYPES.TEXT,
+                        type: this.UI_TYPES.TEXT, mouseOver: false, hidden: true,
                         themeKey: "t_textSystem",
                         labelAlign: ["left", "middle"],
-                        text: "Custom node properties:",
+                        text: "Derp Sampler Loader properties:",
                         width: "full", padding: [pW, pH],
                     },
-                    layoutSpacer: { anchor: { target: "lblTitle", axis: "y", offset: oY } }
+                    layoutSpacer: { anchor: { target: "lblTitle", axis: "y" } }
                 }
             };
         };

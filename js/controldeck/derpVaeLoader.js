@@ -284,17 +284,17 @@ app.registerExtension({
             this.sysLayoutMap = {
                 sysContentRegion: {
                     dir: "col",
-                    anchor: { target: "sysDefaultControlsRegion", axis: "y", offset: oY },
-                    width: "full", height: "auto", margin: [mW, 0, mW, mH],
+                    anchor: { target: "sysDefaultControlsRegion", axis: "y"},
+                    width: "full", height: "auto", margin: [mW, sH],
                     lblTitle: {
-                        type: this.UI_TYPES.TEXT,
+                        type: this.UI_TYPES.TEXT, mouseOver: false,
                         themeKey: "t_textSystem",
                         labelAlign: ["left", "middle"],
                         text: "Custom node properties:",
                         width: "full", padding: [pW, pH],
                     },
                     regionSetting1: {
-                        anchor: { target: "lblTitle", axis: "y", offset: oY },
+                        anchor: { target: "lblTitle", axis: "y" },
                         dir: "row", width: "full", height: "auto", spacing: [sW, 0],
                         toggleShowFolder: {
                             type: this.UI_TYPES.TOGGLE_V2, isTextOnly: true, themeKey: "button, t_textSystem",

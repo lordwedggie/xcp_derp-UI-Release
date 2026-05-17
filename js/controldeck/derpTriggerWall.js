@@ -840,12 +840,19 @@ app.registerExtension({
 
         // --- SYSTEM PANEL LAYOUT ---
         nodeType.prototype.refreshDerpTriggerWallSysMap = function() {
-            const { mH, sH, pW, pH } = this.getDerpVars(this);
+            const { mW, mH, sH, pW, pH } = this.getDerpVars(this);
             this.sysLayoutMap = {
                 sysContentRegion: {
                     dir: "col",
-                    anchor: { target: "sysDefaultControlsRegion", axis: "y" }, margin: [0, mH], spacing: [0, sH],
+                    anchor: { target: "sysDefaultControlsRegion", axis: "y" }, margin: [mW, sH], spacing: [0, sH],
                     width: "full", height: "auto",
+                    lblTitle: {
+                        type: this.UI_TYPES.TEXT, hidden: false, mouseOver: false,
+                        themeKey: "t_textSystem",
+                        labelAlign: ["left", "middle"],
+                        text: "Derp Triger Wall properties:",
+                        width: "full", padding: [pW, pH],
+                    },
                     regionOption1: {
                         dir: "row", width: "full", height: "auto",
                         toggleShowWeight: {

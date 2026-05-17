@@ -423,8 +423,8 @@ export function getPanelBaseMap(hostNode, app, sysState) {
     return {
         sysHeaderRegion: {
             width: "full", height: "auto", dir: "row",
-            margin: [mW, mH, mW, mH],
-            padding: [0, 0],
+            margin: [mW, mH, mW, 0],
+            padding: [0, 0], spacing: [0, sH],
             lblTheme: {
                 type: UI_TYPES.TEXT,
                 themeKey: "t_textSystem",
@@ -432,7 +432,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                 width: "auto", height: "auto",
                 objectAlign: ["left", "middle"],
                 padding: [pW, pH],
-                spacing: [sW, 0],
+                spacing: [sW, sH],
             },
             dropdownThemes: {
                 type: UI_TYPES.DROPDOWN_DERP,
@@ -509,10 +509,11 @@ export function getPanelBaseMap(hostNode, app, sysState) {
         },
         regionWarp: {
             hidden: !showWarpRegion,
-            anchor: { target: "sysHeaderRegion", axis: "y", offset: sH },
+            anchor: { target: "sysHeaderRegion", axis: "y"},
             dir: "row",
+            spacing: [sW, sH],
             width: "full", height: "auto",
-            margin: [mW, 0, mW, 0],
+            margin: [mW, sH, mW, 0],
             lblShortcut: {
                 type: UI_TYPES.TEXT,
                 themeKey: "t_textSystem",
@@ -586,14 +587,14 @@ export function getPanelBaseMap(hostNode, app, sysState) {
             },
         },
         sysDefaultControlsRegion: {
-            anchor: { target: showWarpRegion ? "regionWarp" : "sysHeaderRegion", axis: "y", offset: sH },
-            dir: "row",
+            anchor: { target: showWarpRegion ? "regionWarp" : "sysHeaderRegion", axis: "y" },
+            dir: "row", margin: [mW, sH, mW, sH],
             padding: [0, 0],
             width: "full", height: "auto",
             btnAutoWidth: {
-                type: UI_TYPES.TOGGLE,
+                type: UI_TYPES.TOGGLE_V2,
                 textThemeKey: "t_textSystem",
-                icon: "radio",
+                spacing: [sW, 0],
                 value: hostNode.properties?.autoWidth !== false,
                 state: isDocked ? "DIS" : "OFF",
                 objectAlign: ["left", "top"],
@@ -609,9 +610,9 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                 }
             },
             btnAutoHeight: {
-                type: UI_TYPES.TOGGLE,
+                type: UI_TYPES.TOGGLE_V2,
                 textThemeKey: "t_textSystem",
-                icon: "radio",
+                spacing: [sW, 0],
                 value: hostNode.properties?.autoHeight !== false,
                 state: isDocked ? "DIS" : "OFF",
                 objectAlign: ["left", "top"],
@@ -626,15 +627,15 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                 }
             },
             btnHideTitle: {
-                type: UI_TYPES.TOGGLE,
+                type: UI_TYPES.TOGGLE_V2,
                 textThemeKey: "t_textSystem",
-                icon: "radio",
+                spacing: [sW, 0],
                 value: isVerticalDocked || hostNode.properties?.drawHeader !== false,
                 state: isVerticalDocked ? "DIS" : "OFF",
                 objectAlign: ["left", "top"], labelAlign: ["left", "middle"],
                 label: "$system.title",
                 width: "auto", height: "fill",
-                padding: [pW, pH], spacing: [sW,0],
+                padding: [pW, pH], 
                 onPress: () => {
                     if (isVerticalDocked) return;
                     hostNode.properties.drawHeader = (hostNode.properties.drawHeader !== false) ? false : true;
@@ -642,9 +643,8 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                 }
             },
             toggleUseAnimation: {
-                type: UI_TYPES.TOGGLE,
+                type: UI_TYPES.TOGGLE_V2,
                 textThemeKey: "t_textSystem",
-                icon: "radio",
                 value: hostNode.properties?.useAnimations !== false,
                 objectAlign: ["left", "top"], labelAlign: ["left", "middle"],
                 label: "$system.animation",
@@ -681,9 +681,10 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                 }
             },
         },
+        lineBreak: { type: UI_TYPES.LINEBREAK, anchor: { target: "sysDefaultControlsRegion", axis: "y" } }, 
         sysProfileRegion: {
             hidden: !hostNode._sysProfileActive,
-            anchor: { target: lastSysRegion, axis: "y", offset: oY },
+            anchor: { target: lastSysRegion, axis: "y"},
             dir: "row", height: "auto", width: "full", margin: [mW, mH, mW, mH],
             themeKey: "panel",
             settingsLabel: {

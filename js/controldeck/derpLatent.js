@@ -232,8 +232,8 @@ app.registerExtension({
             this.sysLayoutMap = {
                 sysContentRegion: {
                     dir: "col",
-                    anchor: { target: "sysDefaultControlsRegion", axis: "y", offset: oY },
-                    width: "full", height: "auto", margin: [mW, 0, mW, mH],
+                    anchor: { target: "sysDefaultControlsRegion", axis: "y"},
+                    width: "full", height: "auto", margin: [mW, sH, mW, mH],
                     lblTitle: {
                         type: this.UI_TYPES.TEXT, mouseOver: false,
                         themeKey: "t_textsystem",

@@ -162,9 +162,9 @@ app.registerExtension({
                 sysContentRegion: {
                     dir: "col",
                     anchor: { target: "sysDefaultControlsRegion", axis: "y"},
-                    margin: [mW, 0], width: "full", height: "auto",
+                    margin: [mW, sH], width: "full", height: "auto",
                     lblTitle: {
-                        type: this.UI_TYPES.TEXT,
+                        type: this.UI_TYPES.TEXT, mouseOver: false,
                         themeKey: "t_textsystem",
                         labelAlign: ["left", "middle"],
                         text: "Custom node properties:",

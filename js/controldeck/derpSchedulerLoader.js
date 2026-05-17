@@ -281,17 +281,17 @@ app.registerExtension({
 
         nodeType.prototype.refreshDerpTemplateSysMap = function() {
             const vars = this.getDerpVars(this);
-            const [mW, mH, oY, pW, pH] = [
+            const [mW, mH, oY, pW, pH, sH] = [
                 vars.mW, vars.mH, vars.oY, vars.pW, vars.pH
             ].map(v => Number(v.toFixed(2)));
 
             this.sysLayoutMap = {
                 sysContentRegion: {
                     dir: "col",
-                    anchor: { target: "sysDefaultControlsRegion", axis: "y", offset: oY },
-                    width: "full", height: "auto", margin: [mW, 0, mW, mH],
+                    anchor: { target: "sysDefaultControlsRegion", axis: "y" },
+                    width: "full", height: "auto", margin: [mW, sH],
                     lblTitle: {
-                        type: this.UI_TYPES.TEXT,
+                        type: this.UI_TYPES.TEXT, hidden: true, mouseOver: false,
                         themeKey: "t_textSystem",
                         labelAlign: ["left", "middle"],
                         text: "Custom node properties:",
