@@ -574,7 +574,8 @@ function findHitRegion(layout, localMouse, options = {}) {
         if (!isInteractive) continue;
 
         const isDisabled = reg.state === "DIS";
-        if (isDisabled && !(allowDisabledDrag && reg.allowDragWhenDisabled)) continue;
+        const allowDisabledInteraction = reg.allowOpenWhenDisabled === true;
+        if (isDisabled && !allowDisabledInteraction && !(allowDisabledDrag && reg.allowDragWhenDisabled)) continue;
         if (!(reg.hitTest ? reg.hitTest(localMouse) : layout.hitTest(localMouse, reg))) continue;
 
         if (isDisabled && allowDisabledDrag && reg.dragProxyKey) {

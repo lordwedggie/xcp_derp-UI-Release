@@ -359,8 +359,8 @@ export function syncDropdownDerp(context, node, app, config) {
             if (!liveReg.onPress && !liveReg.onClick) {
                 liveReg.onPress = (e) => {
                     if (e && e.stopPropagation) e.stopPropagation();
-                    if (liveReg.state === "DIS") return;
                     if (liveReg.canOpenPicker === false) return;
+                    if (liveReg.state === "DIS" && liveReg.allowOpenWhenDisabled !== true) return;
 
                     executeShieldedInteraction(node, app, effectiveGeometry.x, effectiveGeometry.y, effectiveGeometry.w, effectiveGeometry.h, () => {
                         node._derpAwakeFrames = 10;
@@ -559,8 +559,8 @@ export function syncDropdownDerp(context, node, app, config) {
         el._node = node;
 
         el.onclick = (e) => {
-            if (stateStr === "DIS") return;
             if (safeConfig.canOpenPicker === false) return;
+            if (stateStr === "DIS" && safeConfig.allowOpenWhenDisabled !== true) return;
             if (node._pressedRegionKey === safeConfig.key) return;
 
             executeShieldedInteraction(node, app, x, y, w, h, () => {

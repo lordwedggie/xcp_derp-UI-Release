@@ -111,8 +111,7 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
 
                     const activeHash = activeOuts.map((sig, idx) => `${idx}:${sig?.nodeId || ""}:${sig?.type || ""}:${sig?.nodeName || ""}:${!!sig?.isOrphaned}`).join("|");
                     const signalHash = (this.receivedSignals || []).map((sig) => `${sig?.nodeId || ""}:${sig?.type || ""}:${sig?.nodeName || ""}`).join("|");
-                    const slotLinkHash = (this.outputs || []).map(o => o?.links?.length || 0).join(",");
-                    const structureHash = `${activeHash}_${signalHash}_${slotLinkHash}_${this.properties.settingActive}_${this.properties.showSignalIds}_${this.properties.showSlotNames}_${this.properties.showSlotTypes}_${this.properties.showVirtualLinks}_${this.properties.signalSortMode}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}_${mW}_${mH}_${this._dropPreviewIdx}_${this._dragTrig?.index}_${this._dragThresholdMet}_${this._dragMouse?.join(",")}_${this.mode}`;
+                    const structureHash = `${activeHash}_${signalHash}_${this.properties.settingActive}_${this.properties.showSignalIds}_${this.properties.showSlotNames}_${this.properties.showSlotTypes}_${this.properties.showVirtualLinks}_${this.properties.signalSortMode}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}_${mW}_${mH}_${this._dropPreviewIdx}_${this._dragTrig?.index}_${this._dragThresholdMet}_${this._dragMouse?.join(",")}_${this.mode}`;
 
                     if (this._layoutMapHash === structureHash && this.layoutMap) {
                         this.requestDerpSync();
@@ -225,25 +224,21 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                         value: formatSignalLabel(sig),
                                         width: "full", padding: [pW, pH], spacing: [sW, 0],
                                         state: isPickedUp ? "ON" : ((isBypassed || !isConnected) ? "DIS" : "OFF"),
+                                        allowOpenWhenDisabled: true,
+                                        canOpenPicker: sortSignals((this.receivedSignals || [])
+                                            .filter(s => {
+                                                const sType = normalizeSignalType(s.type);
+                                                if (sType !== normalizeSignalType(sig.type)) return false;
+                                                const sigIdStr = String(s.nodeId);
+                                                const sigBaseId = sigIdStr.split(":")[0];
+                                                const isAlreadyActive = activeIds.has(sigIdStr);
+                                                const isOwnSignal = sigBaseId === callerId;
+                                                const isWrapperSignal = isPlainWrapperSignalId(sigIdStr);
+                                                const isSignalOutSignal = s.nodeType === "xcpDerpSignalOut";
+                                                const isDownstream = downstreamIds.has(sigBaseId) || (Array.isArray(s.upstreamIds) && s.upstreamIds.some(id => String(id) === callerId));
+                                                return (sigIdStr === String(sig.nodeId)) || (!isWrapperSignal && !isSignalOutSignal && !isAlreadyActive && !isOwnSignal && !isDownstream);
+                                            })).length > 0,
                                         alpha: rowAlpha,
-                                        onDragStart: (e, data) => startStackDrag(this, data, idx, rowKey),
-                                        onDrag: (e, data) => { updateStackDrag(this, data, "outputsRegion_display_", activeOuts.length); this.refreshNodeLayoutMap(); },
-                                        onDragEnd: () => {
-                                            const fromIdx = this._dragTrig?.index;
-                                            const toIdx = this._dropPreviewIdx;
-                                            endStackDrag(this, "_derpSignalOutDragProxy");
-                                            this._signalOutFloatingSnapshot = null;
-                                            if (fromIdx !== undefined && toIdx !== undefined && fromIdx !== toIdx && this.reorderDerpOutputs) {
-                                                this.reorderDerpOutputs(fromIdx, toIdx);
-                                            }
-                                        },
-                                        onPress: () => {
-                                            if (this._dragThresholdMet) return;
-                                            const dropdownReg = this.layout?.regions?.[`lblOutputInfo_${idx}`];
-                                            if (dropdownReg) dropdownReg.isPressed = true;
-                                            this._derpAwakeFrames = Math.max(this._derpAwakeFrames || 0, 10);
-                                            this.setDirtyCanvas?.(true, true);
-                                        },
                                         onChange: (val) => {
                                             const newSigId = resolveSignalIdFromLabel(val);
                                             if (newSigId) {
@@ -263,18 +258,11 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                         hidden: shouldGhostHideChildren,
                                         icon: "trash", width: "match", height: "fill", spacing: [sW, 0],
                                         alpha: rowAlpha,
-                                        onDragStart: (e, data) => startStackDrag(this, data, idx, rowKey),
-                                        onDrag: (e, data) => { updateStackDrag(this, data, "outputsRegion_display_", activeOuts.length); this.refreshNodeLayoutMap(); },
-                                        onDragEnd: () => {
-                                            const fromIdx = this._dragTrig?.index;
-                                            const toIdx = this._dropPreviewIdx;
+                                        onPress: () => {
                                             endStackDrag(this, "_derpSignalOutDragProxy");
                                             this._signalOutFloatingSnapshot = null;
-                                            if (fromIdx !== undefined && toIdx !== undefined && fromIdx !== toIdx && this.reorderDerpOutputs) {
-                                                this.reorderDerpOutputs(fromIdx, toIdx);
-                                            }
-                                        },
-                                        onPress: () => this.removeDerpOutput(idx)
+                                            this.removeDerpOutput(idx);
+                                        }
                                     },
 
                                 };
