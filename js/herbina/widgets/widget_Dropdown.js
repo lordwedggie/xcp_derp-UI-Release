@@ -446,7 +446,7 @@ export function syncDropdownDerp(context, node, app, config) {
     if (isCanvas) {
         if (alpha <= 0) return;
 
-        if (safeConfig.isPressed && !isAwake) {
+        if (safeConfig.openOnPress !== false && safeConfig.isPressed && !isAwake) {
             executeShieldedInteraction(node, app, x, y, w, h, () => {
                 node._derpAwakeFrames = 10;
                 openPicker(el, safeConfig, node, safeConfig);
@@ -673,7 +673,7 @@ export function syncDropdownDerp(context, node, app, config) {
     } else {
         el.style.display = (isAwake || (isCanvas && useCanvasShield)) ? "none" : "block";
         el.style.visibility = "visible";
-        el.style.pointerEvents = "auto";
+        el.style.pointerEvents = safeConfig.domPointerEvents === false ? "none" : "auto";
     }
 
     if (el._isAnimating && node) node._derpAwakeFrames = 5;

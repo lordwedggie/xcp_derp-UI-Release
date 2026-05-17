@@ -197,6 +197,8 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                         minWidth: 100,
                                         canvasShield: true, labelAlign: ["left", "middle"],
                                         indicator: "on",
+                                        openOnPress: false,
+                                        domPointerEvents: false,
                                         items: sortSignals((this.receivedSignals || [])
                                             .filter(s => {
                                                 const sType = normalizeSignalType(s.type);
@@ -223,6 +225,24 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                         width: "full", padding: [pW, pH], spacing: [sW, 0],
                                         state: isPickedUp ? "ON" : ((isBypassed || !isConnected) ? "DIS" : "OFF"),
                                         alpha: rowAlpha,
+                                        onDragStart: (e, data) => startStackDrag(this, data, idx, rowKey),
+                                        onDrag: (e, data) => { updateStackDrag(this, data, "outputsRegion_display_", activeOuts.length); this.refreshNodeLayoutMap(); },
+                                        onDragEnd: () => {
+                                            const fromIdx = this._dragTrig?.index;
+                                            const toIdx = this._dropPreviewIdx;
+                                            endStackDrag(this, "_derpSignalOutDragProxy");
+                                            this._signalOutFloatingSnapshot = null;
+                                            if (fromIdx !== undefined && toIdx !== undefined && fromIdx !== toIdx && this.reorderDerpOutputs) {
+                                                this.reorderDerpOutputs(fromIdx, toIdx);
+                                            }
+                                        },
+                                        onPress: () => {
+                                            if (this._dragThresholdMet) return;
+                                            const dropdownReg = this.layout?.regions?.[`lblOutputInfo_${idx}`];
+                                            if (dropdownReg) dropdownReg.isPressed = true;
+                                            this._derpAwakeFrames = Math.max(this._derpAwakeFrames || 0, 10);
+                                            this.setDirtyCanvas?.(true, true);
+                                        },
                                         onChange: (val) => {
                                             const newSigId = resolveSignalIdFromLabel(val);
                                             if (newSigId) {
@@ -242,6 +262,17 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                         hidden: shouldGhostHideChildren,
                                         icon: "trash", width: "match", height: "fill", spacing: [sW, 0],
                                         alpha: rowAlpha,
+                                        onDragStart: (e, data) => startStackDrag(this, data, idx, rowKey),
+                                        onDrag: (e, data) => { updateStackDrag(this, data, "outputsRegion_display_", activeOuts.length); this.refreshNodeLayoutMap(); },
+                                        onDragEnd: () => {
+                                            const fromIdx = this._dragTrig?.index;
+                                            const toIdx = this._dropPreviewIdx;
+                                            endStackDrag(this, "_derpSignalOutDragProxy");
+                                            this._signalOutFloatingSnapshot = null;
+                                            if (fromIdx !== undefined && toIdx !== undefined && fromIdx !== toIdx && this.reorderDerpOutputs) {
+                                                this.reorderDerpOutputs(fromIdx, toIdx);
+                                            }
+                                        },
                                         onPress: () => this.removeDerpOutput(idx)
                                     },
 

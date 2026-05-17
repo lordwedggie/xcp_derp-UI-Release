@@ -29,6 +29,7 @@ export function startStackDrag(node, data, index, regionKey) {
     node._dragHoldTimer = setTimeout(() => {
         if (node._dragTrig) {
             node._dragThresholdMet = true;
+            if (regionKey) node._pressedRegionKey = regionKey;
             if (window.DERP_GLOBAL_SETTINGS?.playSound && SOUND_INDEX.pickup) SOUND_INDEX.pickup();
             if (node.refreshNodeLayoutMap) node.refreshNodeLayoutMap();
             if (node.requestDerpSync) node.requestDerpSync();

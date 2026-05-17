@@ -414,6 +414,7 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                     this.reconnectDerpOutputLinks(cachedLinks, indexMap);
 
                     this.syncDerpOutputLinkCache();
+                    if (typeof this.syncUncleSlots === "function") this.syncUncleSlots();
                     this._layoutMapHash = null;
 
                     this.updateReceivedSignals();
@@ -766,7 +767,7 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                                     const ghostPlate = {
                                         ...rowCfg,
                                         key: `${rowKey}_ghostPlate`,
-                                        geometry: { x: baseReg.x, y: baseReg.y, w: baseReg.w, h: baseReg.h },
+                                        geometry: { x: baseReg.x - 1, y: baseReg.y - 1, w: baseReg.w + 2, h: baseReg.h + 2 },
                                         themeKey: rowCfg?.themeKey || "canvas",
                                         state: rowCfg?.state || "OFF",
                                         alpha: 1.0,
