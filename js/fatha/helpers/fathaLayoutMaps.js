@@ -148,13 +148,14 @@ if (!window._xcpDerpWarpShortcutBound) {
                 const targetX = nx + ((Number.isFinite(nw) ? nw : 0) * 0.5);
                 const targetY = ny + ((Number.isFinite(nh) ? nh : 0) * 0.5);
 
+                const warpZoom = Number(node?.properties?._warpZoom) || DEFAULT_WARP_SHORTCUT_ZOOM;
                 warpToPoint({
                     worldX: targetX,
                     worldY: targetY,
-                    zoom: DEFAULT_WARP_SHORTCUT_ZOOM,
+                    zoom: warpZoom,
                 }, {
                     zoomMode: "absolute",
-                    targetZoom: DEFAULT_WARP_SHORTCUT_ZOOM,
+                    targetZoom: warpZoom,
                     durationMs: 260,
                     easing: "easeOutQuad",
                 });
@@ -385,7 +386,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
 
     const parsedCurrent = parseWarpShortcutCombo(hostNode.properties?.warpShortcut);
     const isCtrlOn = hostNode.properties?.warpShortcutCtrl === true || parsedCurrent.ctrl;
-    const currentBaseKey = parsedCurrent.key || String(hostNode.properties?.warpShortcutBase || "").trim().toLowerCase() || "1";
+    const currentBaseKey = parsedCurrent.key || (hostNode.properties?.warpShortcutBase != null ? String(hostNode.properties.warpShortcutBase).trim().toLowerCase() : "");
 
     hostNode.properties.warpShortcutCtrl = isCtrlOn;
     hostNode.properties.warpShortcutShift = false;
@@ -396,17 +397,17 @@ export function getPanelBaseMap(hostNode, app, sysState) {
     const usedByOthers = new Set(
         graphNodes
             .filter((n) => n && n !== hostNode && n.properties?._showWarpRegion === true)
+            .filter((n) => n.properties?.warpShortcut)
             .map((n) => String(n.properties?.warpShortcut ?? "").trim())
             .filter(Boolean)
     );
 
     let selectedShortcut = buildWarpShortcutCombo(isCtrlOn, currentBaseKey);
-    let availableShortcutItems = comboItems.filter((k) => !usedByOthers.has(k) || k === selectedShortcut);
+    let availableShortcutItems = comboItems.filter((k) => !usedByOthers.has(k));
     if (!selectedShortcut) {
-        selectedShortcut = availableShortcutItems[0] || comboItems[0] || "1";
-        hostNode.properties.warpShortcut = selectedShortcut;
+        selectedShortcut = "";
     }
-    if (!availableShortcutItems.includes(selectedShortcut)) {
+    if (selectedShortcut && !availableShortcutItems.includes(selectedShortcut)) {
         availableShortcutItems = [selectedShortcut, ...availableShortcutItems];
     }
 
@@ -473,13 +474,34 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                 objectAlign: ["right", "middle"],
                 labelAlign: ["center", "middle"],
                 width: "auto", height: "fill",
+                spacing: [sW, 0],
                 padding: [pW, pH],
                 hidden: showWarpRegion,
                 onPress: () => {
                     hostNode.properties._showWarpRegion = true;
+                    hostNode.properties._warpZoom = Number(app?.canvas?.ds?.scale) || null;
                     if (hostNode.properties.warpShortcut === undefined || hostNode.properties.warpShortcut === null || hostNode.properties.warpShortcut === "") {
-                        hostNode.properties.warpShortcut = availableShortcutItems[0] || comboItems[0] || "1";
+                        hostNode.properties.warpShortcut = availableShortcutItems[0] || "";
                     }
+                    if (typeof hostNode.requestDerpSync === "function") hostNode.requestDerpSync();
+                    else if (typeof hostNode.setDirtyCanvas === "function") hostNode.setDirtyCanvas(true, true);
+                },
+            },
+            btnWarpDelete: {
+                type: UI_TYPES.BUTTON,
+                themeKey: "button, t_textSystem",
+                text: "Delete WarpPoint",
+                objectAlign: ["right", "middle"],
+                labelAlign: ["center", "middle"],
+                width: "auto", height: "fill",
+                spacing: [sW, 0],
+                padding: [pW, pH],
+                hidden: !showWarpRegion,
+                onPress: () => {
+                    hostNode.properties._showWarpRegion = false;
+                    hostNode.properties.warpShortcut = null;
+                    hostNode.properties.warpShortcutBase = null;
+                    hostNode.properties.warpShortcutCtrl = false;
                     if (typeof hostNode.requestDerpSync === "function") hostNode.requestDerpSync();
                     else if (typeof hostNode.setDirtyCanvas === "function") hostNode.setDirtyCanvas(true, true);
                 },
@@ -527,11 +549,37 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                 width: "auto", height: "auto",
                 labelAlign: ["center", "middle"],
                 padding: [pW, pH],
+                spacing: [sW, 0],
                 onChange: (val) => {
                     const nextCombo = String(val ?? "").trim();
                     const parsed = parseWarpShortcutCombo(nextCombo);
                     hostNode.properties.warpShortcut = nextCombo;
                     hostNode.properties.warpShortcutBase = parsed.key || hostNode.properties.warpShortcutBase || "1";
+                    if (typeof hostNode.requestDerpSync === "function") hostNode.requestDerpSync();
+                    else if (typeof hostNode.setDirtyCanvas === "function") hostNode.setDirtyCanvas(true, true);
+                },
+            },
+            lblZoom: {
+                type: UI_TYPES.TEXT,
+                themeKey: "t_textSystem",
+                text: "Zoom:",
+                width: "auto", height: "auto",
+                objectAlign: ["left", "middle"],
+                padding: [pW, pH],
+                spacing: [sW, 0],
+            },
+            editorZoom: {
+                type: UI_TYPES.EDITOR,
+                themeKey: "dialog, t_textSystem",
+                text: String(Number(hostNode.properties?._warpZoom || DEFAULT_WARP_SHORTCUT_ZOOM).toFixed(2)),
+                width: "auto", height: "auto",
+                labelAlign: ["center", "middle"],
+                padding: [pW, pH],
+                spacing: [sW, 0],
+                measureText: "1.00",
+                onBlur: (v) => {
+                    const z = Math.max(1.0, Math.min(2.0, parseFloat(v) || DEFAULT_WARP_SHORTCUT_ZOOM));
+                    hostNode.properties._warpZoom = z;
                     if (typeof hostNode.requestDerpSync === "function") hostNode.requestDerpSync();
                     else if (typeof hostNode.setDirtyCanvas === "function") hostNode.setDirtyCanvas(true, true);
                 },
