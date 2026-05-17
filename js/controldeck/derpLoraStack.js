@@ -651,8 +651,15 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                     this.sysLayoutMap = {
                         sysContentRegion: {
                             dir: "col",
-                            anchor: { target: "sysDefaultControlsRegion", axis: "y", }, margin: [mW, 0],
+                            anchor: { target: "sysDefaultControlsRegion", axis: "y", }, margin: [mW, sH, mW, 0],
                             width: "full", height: "auto",
+                            lblTitle: {
+                                type: this.UI_TYPES.TEXT, mouseOver: false,
+                                themeKey: "t_textSystem",
+                                labelAlign: ["left", "middle"],
+                                text: "Derp Lora Stack properties:",
+                                width: "full", padding: [pW, pH],
+                            },
                             sysRow_1: {
                                 dir: "row", width: "full", height: "auto", spacing: [sW, 0],
                                 btnToggleMode: {

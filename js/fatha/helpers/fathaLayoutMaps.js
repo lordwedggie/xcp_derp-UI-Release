@@ -593,7 +593,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
             width: "full", height: "auto",
             btnAutoWidth: {
                 type: UI_TYPES.TOGGLE_V2,
-                textThemeKey: "t_textSystem",
+                textThemeKey: "dialog, button, t_textSystem", skipBackground: true,
                 spacing: [sW, 0],
                 value: hostNode.properties?.autoWidth !== false,
                 state: isDocked ? "DIS" : "OFF",
@@ -611,7 +611,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
             },
             btnAutoHeight: {
                 type: UI_TYPES.TOGGLE_V2,
-                textThemeKey: "t_textSystem",
+                textThemeKey: "dialog, button, t_textSystem", skipBackground: true,
                 spacing: [sW, 0],
                 value: hostNode.properties?.autoHeight !== false,
                 state: isDocked ? "DIS" : "OFF",
@@ -628,7 +628,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
             },
             btnHideTitle: {
                 type: UI_TYPES.TOGGLE_V2,
-                textThemeKey: "t_textSystem",
+                textThemeKey: "dialog, button, t_textSystem", skipBackground: true,
                 spacing: [sW, 0],
                 value: isVerticalDocked || hostNode.properties?.drawHeader !== false,
                 state: isVerticalDocked ? "DIS" : "OFF",
@@ -644,7 +644,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
             },
             toggleUseAnimation: {
                 type: UI_TYPES.TOGGLE_V2,
-                textThemeKey: "t_textSystem",
+                textThemeKey: "dialog, button, t_textSystem", skipBackground: true,
                 value: hostNode.properties?.useAnimations !== false,
                 objectAlign: ["left", "top"], labelAlign: ["left", "middle"],
                 label: "$system.animation",

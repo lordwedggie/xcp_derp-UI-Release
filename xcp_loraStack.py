@@ -93,7 +93,7 @@ async def handle_list_derpLoraStack(request):
 async def handle_save_derpLoraStack(request):
     try:
         body = await request.json()
-        filename, data = body.get("filename"), body.get("data")
+        filename, data = body.get("filename") or body.get("name"), body.get("data")
         if not filename: return web.Response(status=400)
         if not filename.endswith(".json"): filename += ".json"
         derp_root = os.path.join(folder_paths.get_user_directory(), "derpNodes")
