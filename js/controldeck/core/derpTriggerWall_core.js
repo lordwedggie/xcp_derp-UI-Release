@@ -20,7 +20,7 @@ function syncTriggerGroupToProperties(node) {
 }
 
 // Ensure runtime cache exists, seeded from properties if needed
-function ensureTriggerGroupData(node, force = false) {
+export function ensureTriggerGroupData(node, force = false) {
     if (force || !Array.isArray(node._triggerGroupData)) {
         node._triggerGroupData = (node.properties.triggerGroups || []).map(g => ({ ...g, triggers: (g.triggers || []).map(t => ({ ...t, active: t.active !== false, weight: t.weight ?? 1.0 })) }));
     }

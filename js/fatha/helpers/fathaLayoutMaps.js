@@ -480,9 +480,9 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                 onPress: () => {
                     hostNode.properties._showWarpRegion = true;
                     hostNode.properties._warpZoom = Number(app?.canvas?.ds?.scale) || null;
-                    if (hostNode.properties.warpShortcut === undefined || hostNode.properties.warpShortcut === null || hostNode.properties.warpShortcut === "") {
-                        hostNode.properties.warpShortcut = availableShortcutItems[0] || "";
-                    }
+                    hostNode.properties.warpShortcutBase = null;
+                    hostNode.properties.warpShortcutCtrl = false;
+                    hostNode.properties.warpShortcut = availableShortcutItems[0] || "";
                     if (typeof hostNode.requestDerpSync === "function") hostNode.requestDerpSync();
                     else if (typeof hostNode.setDirtyCanvas === "function") hostNode.setDirtyCanvas(true, true);
                 },
@@ -578,7 +578,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                 spacing: [sW, 0],
                 measureText: "1.00",
                 onBlur: (v) => {
-                    const z = Math.max(1.0, Math.min(2.0, parseFloat(v) || DEFAULT_WARP_SHORTCUT_ZOOM));
+                    const z = Math.max(1.0, Math.min(3.0, parseFloat(v) || DEFAULT_WARP_SHORTCUT_ZOOM));
                     hostNode.properties._warpZoom = z;
                     if (typeof hostNode.requestDerpSync === "function") hostNode.requestDerpSync();
                     else if (typeof hostNode.setDirtyCanvas === "function") hostNode.setDirtyCanvas(true, true);

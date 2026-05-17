@@ -15,6 +15,7 @@ import {
     triggerWall_onDrawForeground,
     triggerWall_onDeselected,
     triggerWall_onLoadDeckProfile,
+    ensureTriggerGroupData,
     triggerWall_onLoadPreset,
     triggerWall_updatePresetList,
     triggerWall_onThemeUpdate,
