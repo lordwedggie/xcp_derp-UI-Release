@@ -36,7 +36,7 @@ export function initDerpVaeLoaderCore(nodeType) {
     function ensureVaeIdentity(node) {
         node._sysProfileFile = "derpVaeLoader";
         node._sysProfileFolder = "nodeSettings";
-        node.titleLabel = node.properties.titleLabel || node.titleLabel || "Derp Vae Loader";
+        node.titleLabel = "Derp Vae Loader";
         node.properties.titleLabel = node.titleLabel;
     }
 

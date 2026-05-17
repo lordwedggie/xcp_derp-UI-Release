@@ -40,7 +40,7 @@ export function initDerpModelLoaderCore(nodeType) {
     function ensureModelIdentity(node) {
         node._sysProfileFile = "derpModelLoader";
         node._sysProfileFolder = "nodeSettings";
-        node.titleLabel = node.properties.titleLabel || node.titleLabel || "Derp Model Loader";
+        node.titleLabel = "Derp Model Loader";
         node.properties.titleLabel = node.titleLabel;
     }
 
