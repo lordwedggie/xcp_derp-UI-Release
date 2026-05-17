@@ -8,7 +8,7 @@ import { resolveDockTarget } from "./dockTargetPicking.js";
 import { syncDerpShield } from "./fathaDOMshield.js";
 import { handleNodeResize } from "./fathaNodeResize.js";
 import { getVirtualNodeLayoutMap } from "../helpers/fathaLayoutMaps.js";
-import { getDockNodeMinHeight, getDockNodeMinWidth, resolveDockAttachDimensions } from "./dockDimensions.js";
+import { getDockNodeMinHeight, getDockNodeMinWidth, resolveDockAttachDimensions, resolveRuntimeDockSize } from "./dockDimensions.js";
 
 const DEFAULT_DECK_SNAP = 10;
 const DEFAULT_DECK_RADIUS = 48;
@@ -292,11 +292,16 @@ function fitSizesToTotal(nodes, axis = "width", targetTotal = 0, snap = DEFAULT_
 function applyColumnLayout(nodes, x, y, width, heights) {
     let cursorY = y;
     nodes.forEach((node, index) => {
-        syncDeckNodeSize(node, width, heights[index]);
+        const contentH = resolveRuntimeDockSize(node, null,
+            { totalHeight: node.layout?.totalHeight, contentMinHeight: node.layout?.contentMinHeight },
+            { autoHeight: false, SNAP: 1 }
+        );
+        const resolvedH = contentH?.height || heights[index];
+        syncDeckNodeSize(node, width, resolvedH);
         node.pos[0] = x;
         node.pos[1] = cursorY;
         if (typeof node.syncUncleSlots === "function") node.syncUncleSlots();
-        cursorY += heights[index];
+        cursorY += resolvedH;
     });
 }
 
