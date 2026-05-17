@@ -419,6 +419,8 @@ export async function saveLoraRating(node, basta, loraName, rating) {
         if (data.success) {
             playKaChing();
             if (node._loraRatings) node._loraRatings[loraName] = rating;
+            if (node._loraRatings) node._loraRatings[loraName.replace(/\\/g, '/')] = rating;
+            if (node._layoutMapHash) node._layoutMapHash = null;
             if (basta) {
                 basta._forceSync = true;
                 if (basta.requestDerpSync) basta.requestDerpSync();
