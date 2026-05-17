@@ -304,6 +304,7 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                             if (p.stackData) this.properties.stackData = JSON.parse(JSON.stringify(p.stackData));
                             if (p.attentionMode) this.properties.attentionMode = p.attentionMode;
                             this.properties.showCLIP = p.showCLIP ?? false;
+                            this.properties.toggleLR = p.toggleLR ?? false;
                             this.properties.nameDisplay = p.nameDisplay || "Top";
 
                             this._currentProfileName = profileName;
@@ -324,6 +325,7 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                         // Explicitly excludes framework keys: minWidth, nodeSize, drawHeader, drawSignalBtn, contentCollapsed, isWirelessTransmitter.
                         attentionMode: this.properties.attentionMode,
                         showCLIP: this.properties.showCLIP,
+                        toggleLR: this.properties.toggleLR ?? false,
                         nameDisplay: this.properties.nameDisplay,
                         settings: {
                             sliderMin: this.properties.sliderMin, sliderMax: this.properties.sliderMax,
