@@ -309,8 +309,16 @@ export const getVirtualNodeLayoutMap = (node) => {
                             ...(node.signalFilters?.types || []),
                             ...(node.signalFilters?.additionalTypes || []),
                         ];
-                        const selections = node.properties?.multiSignalLabels || {};
-                        const hasMissing = reqTypes.length > 0 && reqTypes.some((_, i) => !selections[i] || selections[i].includes("Select") || selections[i].includes("No "));
+                        const selectedIds = node.properties?.multiSignalIds || {};
+                        const globalSignals = window.xcpDerpSignals || {};
+                        const hasMissing = reqTypes.length > 0 && reqTypes.some((_, i) => {
+                            const rawId = selectedIds[i] || selectedIds[String(i)] || null;
+                            if (!rawId) return true;
+                            const directId = String(rawId);
+                            if (globalSignals[directId]) return false;
+                            const baseId = directId.split(":")[0];
+                            return !globalSignals[baseId];
+                        });
                         return !isBastaOpen && hasMissing;
                     })(),
                     onPress: () => showBastaSignalReceiver(node, "btnSignal", node.signalFilters || {}),

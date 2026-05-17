@@ -760,6 +760,7 @@ export function spawnBasta(id, config = {}) {
         const oldHost = existing.hostNode;
         if (config.host) existing.hostNode = config.host;
         if (config.titleLabel) existing.titleLabel = config.titleLabel;
+        if (config.layoutMap) existing.layoutMap = config.layoutMap;
 
         // THE PROPERTY SYNC FIX: Update the singleton instance with the fresh configuration properties.
         if (config.properties) {

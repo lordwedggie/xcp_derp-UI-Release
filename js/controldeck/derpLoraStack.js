@@ -65,6 +65,20 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                     const { t_textNormal_size, t_textSmall_size } = vars;
 
                     const stack = this.properties.stackData || [];
+                    const signalIds = this.properties.multiSignalIds || {};
+                    const globalSignals = window.xcpDerpSignals || {};
+                    const resolveActiveSignalId = (rawId) => {
+                        if (!rawId) return null;
+                        const directId = String(rawId);
+                        if (globalSignals[directId]) return directId;
+                        const baseId = directId.split(":")[0];
+                        if (globalSignals[baseId]) return baseId;
+                        return null;
+                    };
+                    const modelSignalId = resolveActiveSignalId(signalIds[0] || signalIds["0"] || null);
+                    const clipSignalId = resolveActiveSignalId(signalIds[1] || signalIds["1"] || null);
+                    const isJointAttention = this.properties.attentionMode === "Joint-Attention";
+                    const hasRequiredSignals = isJointAttention ? !!modelSignalId : (!!modelSignalId && !!clipSignalId);
                     if (this._dragTrig && this._dragThresholdMet && Number.isInteger(this._dragTrig.index) && this.layout?.regions) {
                         const dragRowKey = `loraRow_${this._dragTrig.index}`;
                         if (!this._loraFloatingSnapshot || this._loraFloatingSnapshot.rowKey !== dragRowKey) {
@@ -95,12 +109,13 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                         showBastaLoraDetail(this, targetKey, buildLoraDetailPayload(this, loraEntry, slotIdx));
                     };
                     const trigHash = stack.map(l => (this._loraTriggerArrayCache?.[l[0]] || []).length).join('|');
+                    const signalSelectionHash = `${modelSignalId || ""}_${clipSignalId || ""}`;
 
                     const dragIdxHash = (this._dragTrig) ? `drag_${this._dragTrig.index}_${this._dragThresholdMet}_${this._dropPreviewIdx}` : "no-drag";
-                    const structureHash = `${stack.length}_${stack.map(l => `${l[0]}_${l[5]}`).join('|')}_${trigHash}_${this.properties.nameDisplay}_${this.properties.showCLIP}_${this.properties.attentionMode}_${this.properties.toggleLR}_${window._xcpDerpSession}_${activeSlot}_${mW}_${mH}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}_${dragIdxHash}`;
+                    const structureHash = `${stack.length}_${stack.map(l => `${l[0]}_${l[5]}`).join('|')}_${trigHash}_${this.properties.nameDisplay}_${this.properties.showCLIP}_${this.properties.attentionMode}_${this.properties.toggleLR}_${signalSelectionHash}_${window._xcpDerpSession}_${activeSlot}_${mW}_${mH}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}_${dragIdxHash}`;
 
                     // ZERO-INFERENCE VALUE GATE: Block redundant property hydration on idle nodes
-                    const valueHash = stack.map(l => `${l[1]}_${l[2]}_${l[3]}_${l[4]}_${l[5]}_${l[6]}`).join('|') + `_${this.mode}_${this._hoveredRegionKey}`;
+                    const valueHash = stack.map(l => `${l[1]}_${l[2]}_${l[3]}_${l[4]}_${l[5]}_${l[6]}`).join('|') + `_${this.mode}_${this._hoveredRegionKey}_${signalSelectionHash}`;
 
                     // SYNCHRONIZED CACHE CHECK
                     if (this._layoutMapHash === structureHash && this.layoutMap) {
@@ -599,6 +614,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                     axis: "y",
                                     offset: sH
                                 },
+                                hidden: !hasRequiredSignals,
                                 dir: "row", width: "full", height: "auto", spacing: [sW, 0],
                                 margin: [0, mH, 0, mH],
                                 loraSelector: {
@@ -636,6 +652,38 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                         showBastaMessage(this, "Refreshing Metadata...", 2000, { width: this.size[0] }, null, false, "info", "microwave");
                                     }
                                 }
+                            },
+                            regionWarning: {
+                                anchor: {
+                                    target: hasTailDropPreview
+                                        ? "loraDropPreview_tail"
+                                        : (stack.length > 0 ? `loraRow_${stack.length - 1}` : null),
+                                    axis: "y",
+                                    offset: sH
+                                },
+                                hidden: hasRequiredSignals,
+                                dir: "col",
+                                width: "full",
+                                height: "auto",
+                                margin: [0, mH, 0, mH],
+                                lblWarningCrossAttention: {
+                                    type: this.UI_TYPES.TEXT,
+                                    themeKey: "t_textSystem",
+                                    text: "MODEL and CLIP signals required, click the wireless button in the header.",
+                                    hidden: hasRequiredSignals || isJointAttention,
+                                    width: "full",
+                                    padding: [pW, pH],
+                                    labelAlign: ["left", "middle"],
+                                },
+                                lblWarningJointAttention: {
+                                    type: this.UI_TYPES.TEXT,
+                                    themeKey: "t_textSystem",
+                                    text: "MODEL signal required, click the wireless button in the header.",
+                                    hidden: hasRequiredSignals || !isJointAttention,
+                                    width: "full",
+                                    padding: [pW, pH],
+                                    labelAlign: ["left", "middle"],
+                                }
                             }
                         },
                     };
@@ -651,15 +699,8 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                     this.sysLayoutMap = {
                         sysContentRegion: {
                             dir: "col",
-                            anchor: { target: "sysDefaultControlsRegion", axis: "y", }, margin: [mW, sH, mW, 0],
+                            anchor: { target: "sysDefaultControlsRegion", axis: "y", }, margin: [mW, 0],
                             width: "full", height: "auto",
-                            lblTitle: {
-                                type: this.UI_TYPES.TEXT, mouseOver: false,
-                                themeKey: "t_textSystem",
-                                labelAlign: ["left", "middle"],
-                                text: "Derp Lora Stack properties:",
-                                width: "full", padding: [pW, pH],
-                            },
                             sysRow_1: {
                                 dir: "row", width: "full", height: "auto", spacing: [sW, 0],
                                 btnToggleMode: {

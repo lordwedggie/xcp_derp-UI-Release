@@ -41,6 +41,24 @@ if (!window.xcpDerpBrightenHex) {
     };
 }
 
+function refreshWirelessSignalConsumers() {
+    if (!window.app || !window.app.graph) return;
+    window.app.graph._nodes.forEach((n) => {
+        if (n.type === "xcpDerpSignalOut" && n.updateReceivedSignals) {
+            n.updateReceivedSignals();
+            if (n.manageDerpOutputs) n.manageDerpOutputs();
+            if (n.refreshNodeLayoutMap) n.refreshNodeLayoutMap();
+            if (n.refreshDerpSignalOutSysMap) n.refreshDerpSignalOutSysMap();
+            if (n.requestDerpSync) n.requestDerpSync();
+            return;
+        }
+
+        if (!n?.properties?.multiSignalIds) return;
+        if (n.refreshNodeLayoutMap) n.refreshNodeLayoutMap();
+        if (n.requestDerpSync) n.requestDerpSync();
+    });
+}
+
 export function transmitDerpSignal(node, value, options = {}) {
     if (!node || node.id === undefined) return;
     if (node.mode === 4 || node.mode === 2) return; // THE ENGINE-LEVEL BYPASS FIX
@@ -128,17 +146,7 @@ export function transmitDerpSignal(node, value, options = {}) {
     });
 
     // Force any open SignalOut nodes to refresh their received signals
-    if (hasChanged && window.app && window.app.graph) {
-        window.app.graph._nodes.forEach(n => {
-            if (n.type === "xcpDerpSignalOut" && n.updateReceivedSignals) {
-                n.updateReceivedSignals();
-                if (n.manageDerpOutputs) n.manageDerpOutputs();
-                if (n.refreshNodeLayoutMap) n.refreshNodeLayoutMap();
-                if (n.refreshDerpSignalOutSysMap) n.refreshDerpSignalOutSysMap();
-                if (n.requestDerpSync) n.requestDerpSync();
-            }
-        });
-    }
+    if (hasChanged) refreshWirelessSignalConsumers();
 }
 
 function normalizeOutputType(rawType) {
@@ -226,17 +234,7 @@ export function transmitBypassedDerpSignals(node, options = {}) {
         }
     });
 
-    if (hasChanged && window.app && window.app.graph) {
-        window.app.graph._nodes.forEach(n => {
-            if (n.type === "xcpDerpSignalOut" && n.updateReceivedSignals) {
-                n.updateReceivedSignals();
-                if (n.manageDerpOutputs) n.manageDerpOutputs();
-                if (n.refreshNodeLayoutMap) n.refreshNodeLayoutMap();
-                if (n.refreshDerpSignalOutSysMap) n.refreshDerpSignalOutSysMap();
-                if (n.requestDerpSync) n.requestDerpSync();
-            }
-        });
-    }
+    if (hasChanged) refreshWirelessSignalConsumers();
 }
 
 /**
@@ -343,12 +341,11 @@ export function purgeDerpSignal(nodeId) {
             window.app.graph._nodes.forEach(n => {
                 if (n.type === "xcpDerpMasterSwitch" && n.updateMasterSwitchSignals) {
                     n.updateMasterSwitchSignals();
-                } else if (n.type === "xcpDerpSignalOut" && n.updateReceivedSignals) {
-                    n.updateReceivedSignals();
                 } else if (n.syncDerpOutputs && n.properties?.multiSignalIds) {
                     n.syncDerpOutputs();
                 }
             });
+            refreshWirelessSignalConsumers();
             window.app.canvas.setDirty(true, true);
         }
     }

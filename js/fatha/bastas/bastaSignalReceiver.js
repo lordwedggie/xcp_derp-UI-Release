@@ -148,6 +148,13 @@ export function showBastaSignalReceiver(host, targetRegion = null, params = {}) 
                             const match = val.match(/\[([\d:]+)\]/);
                             if (match) basta.hostNode.properties.multiSignalIds[idx] = match[1];
 
+                            const currentReg = basta.layout?.regions?.[`dropdownSignalSelect_${idx}`];
+                            if (currentReg) {
+                                currentReg.value = val;
+                                currentReg.text = val;
+                                currentReg.items = items;
+                            }
+
                             if (basta.hostNode.setDerpSelectedSignal) {
                                 basta.hostNode.setDerpSelectedSignal(val, idx);
                             }
@@ -155,6 +162,8 @@ export function showBastaSignalReceiver(host, targetRegion = null, params = {}) 
                             if (basta.hostNode.refreshNodeLayoutMap) basta.hostNode.refreshNodeLayoutMap();
                             if (basta.hostNode.requestDerpSync) basta.hostNode.requestDerpSync();
                             basta.hostNode._derpAwakeFrames = 5;
+                            basta._layoutDirty = true;
+                            basta._forceSync = true;
                             basta.requestDerpSync();
                         }
                     }
