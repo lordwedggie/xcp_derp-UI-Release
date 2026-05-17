@@ -1,0 +1,282 @@
+{
+    "fileType": "xcp_derp_trigger_autosave",
+    "version": "1.0.0",
+    "timestamp": 1779008638460,
+    "triggerGroups": [
+        {
+            "id": "grp_1777544132339_2d1396",
+            "title": "Makeup",
+            "isExclusive": false,
+            "triggers": [
+                {
+                    "id": "trig_2fcceb",
+                    "label": "Light Makeup",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_9bc3db",
+                    "label": "Pink Lipstick",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_bcf055",
+                    "label": "Red Lipstick",
+                    "weight": 1,
+                    "active": true
+                },
+                {
+                    "id": "trig_f31aa2",
+                    "label": "Eyeliner",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_b530d5",
+                    "label": "Pale Skin",
+                    "weight": 1,
+                    "active": true
+                }
+            ]
+        },
+        {
+            "id": "grp_1777554509520_b2c19b",
+            "title": "Facial Expressions",
+            "isExclusive": false,
+            "triggers": [
+                {
+                    "id": "trig_f9d0ba",
+                    "label": "Happy",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_f52cbf",
+                    "label": "Smile",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_348883",
+                    "label": "Angry",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_da9d14",
+                    "label": "Embarrassed\u00a0",
+                    "weight": 1,
+                    "active": true
+                },
+                {
+                    "id": "trig_133450",
+                    "label": "Sad",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_ac1a1f",
+                    "label": "Blushing",
+                    "weight": 1,
+                    "active": true
+                },
+                {
+                    "id": "trig_e5ecd5",
+                    "label": "Crying",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_e603e5",
+                    "label": "Clenched Teeth",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_2750a1",
+                    "label": "Open Mouth",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_ae7f00",
+                    "label": "Screaming",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_6e2867",
+                    "label": "Scared",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_181beb",
+                    "label": "Distressed",
+                    "weight": 1,
+                    "active": false
+                }
+            ]
+        },
+        {
+            "id": "grp_1778084185978_0f44c3",
+            "title": "NSFW-1",
+            "isExclusive": false,
+            "triggers": [
+                {
+                    "id": "trig_0c42d3",
+                    "label": "Pubic Hair Peek",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_a87a36",
+                    "label": "Shitting",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_7a5ce4",
+                    "label": "Shit Stains",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_b03dad",
+                    "label": "Pee",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_7d6f9e",
+                    "label": "Piss Puddle",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_656684",
+                    "label": "Long Hanging Turd",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_9d22fc",
+                    "label": "Pussy",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_ea3fcb",
+                    "label": "Anus",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_0ebe43",
+                    "label": "Perky Breasts",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_1e7cb3",
+                    "label": "Armpit Hair",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_d1d119",
+                    "label": "Long Dark Hanging Poop",
+                    "weight": 1,
+                    "active": false
+                }
+            ]
+        },
+        {
+            "id": "grp_1778083570647_69833c",
+            "title": "Poses",
+            "isExclusive": false,
+            "triggers": [
+                {
+                    "id": "trig_5c5808",
+                    "label": "Dynamic Pose",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_1cf645",
+                    "label": "Crawling",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_a88362",
+                    "label": "Sitting",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_b6337a",
+                    "label": "Legs Up",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_89c03d",
+                    "label": "Squatting",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_deef92",
+                    "label": "Legs Apart",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_949350",
+                    "label": "Arms Up",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_944043",
+                    "label": "",
+                    "weight": 1,
+                    "active": false
+                }
+            ]
+        },
+        {
+            "id": "grp_1777534539026_5e758d",
+            "title": "Camera Focus",
+            "isExclusive": false,
+            "triggers": [
+                {
+                    "id": "trig_a100cf",
+                    "label": "Upper Body",
+                    "weight": 1,
+                    "active": true
+                },
+                {
+                    "id": "trig_1541d4",
+                    "label": "Kneeling",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_263036",
+                    "label": "Crawling",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_7f146b",
+                    "label": "Sitting",
+                    "weight": 1,
+                    "active": false
+                }
+            ]
+        }
+    ]
+}

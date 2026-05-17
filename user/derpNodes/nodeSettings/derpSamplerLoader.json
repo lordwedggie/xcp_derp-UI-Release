@@ -1,0 +1,10 @@
+{
+    "PONY_faviortes": {
+        "samplers": [
+            "euler_ancestral",
+            "heun",
+            "dpm_2",
+            "dpmpp_sde"
+        ]
+    }
+}

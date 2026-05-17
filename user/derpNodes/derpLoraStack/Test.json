@@ -1,0 +1,109 @@
+{
+    "titleLabel": "Derp Lora Stack",
+    "cnr_id": "comfyui-flux-continuum",
+    "ver": "d44b8cba2565b2c150fa07aff46d991ff2db2fa3",
+    "Node name for S&R": "DerpLoraStackNode",
+    "minWidth": 200,
+    "nodeSize": [
+        260,
+        590
+    ],
+    "drawHeader": true,
+    "drawSignalBtn": true,
+    "contentCollapsed": false,
+    "stickyDrag": true,
+    "attentionMode": "Cross-Attention",
+    "showCLIP": true,
+    "nameDisplay": "Top",
+    "isWirelessTransmitter": true,
+    "stackData": [
+        [
+            "Pony\\Styles\\#Essential\\pony-realism-22-nsfw-photo.safetensors",
+            1,
+            1,
+            "#trigger.txt",
+            "nsfwupscaler,",
+            true
+        ],
+        [
+            "Pony\\Styles\\#Unsorted\\Dynamic Poses.safetensors",
+            0.8,
+            1,
+            "tag_01",
+            "dynamic pose,",
+            true
+        ],
+        [
+            "Illustrious\\Styles\\Dark_v1.safetensors",
+            0.2,
+            1,
+            "tag_01",
+            "dark, dim lighting, dark background,",
+            false
+        ],
+        [
+            "Illustrious\\People\\Female\\AF_OblivionBolt.safetensors",
+            0.8,
+            1,
+            "tag_01",
+            "Asian, AF_OblivionBolt,",
+            false
+        ],
+        [
+            "Illustrious\\Clothing\\#Dress\\shortdress08-illustrious.safetensors",
+            0.8,
+            1,
+            "tag_01",
+            "strapless dress,",
+            false
+        ],
+        [
+            "Illustrious\\#Anatomy\\#Anus\\anus_enhancer_v2.safetensors",
+            0.8,
+            1,
+            "tag_02",
+            "anusenhancerILL, anus focus, anus,",
+            false
+        ],
+        [
+            "Illustrious\\Action\\SHAME_Anilingus_v1.safetensors",
+            0.6,
+            1,
+            "tag_01",
+            "AniFemIL, anilingus, hetero, lying on side, 1boy, ugly old man, female anus, ",
+            true
+        ]
+    ],
+    "autoWidth": false,
+    "autoHeight": true,
+    "multiSignalLabels": {
+        "0": "[4:0] \ud83d\udef0\ufe0f Load Checkpoint [MODEL] [MODEL]",
+        "1": "[4:1] \ud83d\udef0\ufe0f Load Checkpoint [CLIP] [CLIP]"
+    },
+    "multiSignalIds": {
+        "0": "4:0",
+        "1": "4:1"
+    },
+    "bastaOffset_basta_lora_detail_global_unique_id": [
+        0,
+        470
+    ],
+    "selectedTheme": "Derp_Dark_v02_HD_normalFont",
+    "bastaSize_basta_lora_detail_global_unique_id": [
+        260,
+        383
+    ],
+    "sliderMin": 0,
+    "sliderStep": 0.01,
+    "sliderDefault": 0.8,
+    "sliderMax": 1.5,
+    "useAnimations": false,
+    "bastaSize_basta_file_handler_global_singleton": [
+        250,
+        103
+    ],
+    "bastaOffset_basta_file_handler_global_singleton": [
+        100,
+        560
+    ]
+}

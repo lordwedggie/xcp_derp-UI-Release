@@ -1,0 +1,61 @@
+{
+    "stackData": [
+        [
+            "Pony\\Styles\\#Essential\\pony-realism-22-nsfw-photo.safetensors",
+            1,
+            1,
+            "#trigger.txt",
+            "nsfwupscaler,",
+            true
+        ],
+        [
+            "Pony\\Styles\\#Unsorted\\Dynamic Poses.safetensors",
+            0.8,
+            1,
+            "tag_01",
+            "dynamic pose,",
+            true
+        ],
+        [
+            "Illustrious\\Styles\\Dark_v1.safetensors",
+            0.2,
+            1,
+            "tag_01",
+            "dark, dim lighting, dark background,",
+            false
+        ],
+        [
+            "Illustrious\\People\\Female\\AF_ScarletEphemera.safetensors",
+            0.8,
+            1,
+            "tag_01",
+            "Scarlet Ephemera, black hair, ",
+            false
+        ],
+        [
+            "Illustrious\\#Anatomy\\Pussy\\Real_Pussy.safetensors",
+            0.8,
+            1,
+            "tag_01",
+            "PUSSY, ANUS, ",
+            false
+        ],
+        [
+            "Illustrious\\#Anatomy\\Pubic\\Excessive_Pubic_Hair_Peek_v1.01.safetensors",
+            1,
+            1,
+            "tag_01",
+            "pubic hair peek,",
+            true
+        ]
+    ],
+    "attentionMode": "Cross-Attention",
+    "showCLIP": false,
+    "nameDisplay": "Top",
+    "settings": {
+        "sliderMin": 0,
+        "sliderMax": 1.5,
+        "sliderStep": 0.01,
+        "sliderDefault": 0.8
+    }
+}

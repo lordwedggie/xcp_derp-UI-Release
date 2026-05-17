@@ -1,0 +1,462 @@
+{
+    "fileType": "xcp_derp_trigger_preset",
+    "version": "1.0.0",
+    "timestamp": 1777662900979,
+    "triggerGroups": [
+        {
+            "id": "grp_1777534539026_37e183",
+            "title": "Camera Direction",
+            "isExclusive": false,
+            "triggers": [
+                {
+                    "id": "trig_3e3529",
+                    "label": "From Front",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_72759a",
+                    "label": "From Side",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_e065ad",
+                    "label": "From Behind",
+                    "weight": 1,
+                    "active": true
+                },
+                {
+                    "id": "trig_606b6b",
+                    "label": "From above",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_8464e6",
+                    "label": "From Below",
+                    "weight": 1,
+                    "active": false
+                }
+            ]
+        },
+        {
+            "id": "grp_1777534539026_5e758d",
+            "title": "Camera Focus",
+            "isExclusive": true,
+            "triggers": [
+                {
+                    "id": "trig_a100cf",
+                    "label": "Upper Body",
+                    "weight": 1,
+                    "active": true
+                },
+                {
+                    "id": "trig_1541d4",
+                    "label": "Kneeling",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_263036",
+                    "label": "Crawling",
+                    "weight": 1.3610836166444777,
+                    "active": false
+                },
+                {
+                    "id": "trig_7f146b",
+                    "label": "Sitting",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_432ad0",
+                    "label": "Squatting",
+                    "weight": 1,
+                    "active": false
+                }
+            ]
+        },
+        {
+            "id": "grp_1777534539026_ee36ba",
+            "title": "Head direction",
+            "isExclusive": false,
+            "triggers": [
+                {
+                    "id": "trig_29ce18",
+                    "label": "Looking at viewer",
+                    "weight": 1,
+                    "active": true
+                },
+                {
+                    "id": "trig_f4ed4e",
+                    "label": "Looking Up",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_hd_001",
+                    "label": "Looking Down",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_hd_003",
+                    "label": "Looking Back",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_hd_002",
+                    "label": "Looking Away",
+                    "weight": 1.557800759469219,
+                    "active": false
+                },
+                {
+                    "id": "trig_hd_004",
+                    "label": "Head Tilt",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_hd_006",
+                    "label": "Closed Eyes",
+                    "weight": 0.5730382868036553,
+                    "active": false
+                }
+            ]
+        },
+        {
+            "id": "grp_1777544132339_2d1396",
+            "title": "Makeup",
+            "isExclusive": false,
+            "triggers": [
+                {
+                    "id": "trig_2fcceb",
+                    "label": "Light Makeup",
+                    "weight": 0.5022533523499656,
+                    "active": true
+                },
+                {
+                    "id": "trig_9bc3db",
+                    "label": "Pink Lipstick",
+                    "weight": 0.24383701626968893,
+                    "active": true
+                },
+                {
+                    "id": "trig_bcf055",
+                    "label": "Red Lipstick",
+                    "weight": 0.8537671193152938,
+                    "active": false
+                },
+                {
+                    "id": "trig_f31aa2",
+                    "label": "Eyeliner",
+                    "weight": 1.212269233100469,
+                    "active": false
+                },
+                {
+                    "id": "trig_b530d5",
+                    "label": "Pale Skin",
+                    "weight": 1,
+                    "active": false
+                }
+            ]
+        },
+        {
+            "id": "grp_1777551899194_df924a",
+            "title": "Hair Color",
+            "isExclusive": true,
+            "triggers": [
+                {
+                    "id": "trig_abbafc",
+                    "label": "Black Hair",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_fedf98",
+                    "label": "Brown Hair",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_0f1758",
+                    "label": "Ginger Hair",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_e2f3f6",
+                    "label": "Blond Hair",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_6b9331",
+                    "label": "Red Hair",
+                    "weight": 1,
+                    "active": false
+                }
+            ]
+        },
+        {
+            "id": "grp_1777554509520_b2c19b",
+            "title": "Facial Expressions",
+            "isExclusive": false,
+            "triggers": [
+                {
+                    "id": "trig_f9d0ba",
+                    "label": "Happy",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_f52cbf",
+                    "label": "Smile",
+                    "weight": 0.4778393260727989,
+                    "active": false
+                },
+                {
+                    "id": "trig_348883",
+                    "label": "Laughing",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_da9d14",
+                    "label": "Embarrassed\u00a0",
+                    "weight": 0.8614649967830158,
+                    "active": false
+                },
+                {
+                    "id": "trig_133450",
+                    "label": "Sad",
+                    "weight": 0.5033185415400417,
+                    "active": false
+                }
+            ]
+        },
+        {
+            "id": "grp_1777568236006_1b99f6",
+            "title": "Race",
+            "isExclusive": true,
+            "triggers": [
+                {
+                    "id": "trig_fd187a",
+                    "label": "Asian",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_282dfc",
+                    "label": "Caucasian\u00a0",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_79742f",
+                    "label": "Brunette",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_cfd5b0",
+                    "label": "African",
+                    "weight": 1,
+                    "active": false
+                }
+            ]
+        },
+        {
+            "id": "grp_1777568699774_89ad78",
+            "title": "Eye colors: Asian",
+            "isExclusive": true,
+            "triggers": [
+                {
+                    "id": "trig_eee938",
+                    "label": "Brown Eyes",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_9a4dc3",
+                    "label": "Light Brown Eyes",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_b10fb9",
+                    "label": "Dark Brown Eyes",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_e4854f",
+                    "label": "Sable Eyes",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_3f1e36",
+                    "label": "Pale Blue Eyes",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_2af60a",
+                    "label": "Blue Eyes",
+                    "weight": 1,
+                    "active": false
+                }
+            ]
+        },
+        {
+            "id": "grp_1777574445783_e4f8d8",
+            "title": "Hair Styles - Tied",
+            "isExclusive": true,
+            "triggers": [
+                {
+                    "id": "trig_3e3529",
+                    "label": "Ponytail",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_72759a",
+                    "label": "High Ponytail",
+                    "weight": 1,
+                    "active": false
+                }
+            ]
+        },
+        {
+            "id": "grp_1777590648006_e89999",
+            "title": "Trigger Group 10",
+            "isExclusive": false,
+            "triggers": [
+                {
+                    "id": "trig_16061d",
+                    "label": "Arm Up",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_d72afa",
+                    "label": "Armpit Hair",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_20f9c9",
+                    "label": "Biting Lips,",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_591507",
+                    "label": "Pubic Hair Peek",
+                    "weight": 1,
+                    "active": false
+                }
+            ]
+        },
+        {
+            "id": "grp_1777632055991_573c1f",
+            "title": "Hair Length",
+            "isExclusive": true,
+            "triggers": [
+                {
+                    "id": "trig_8f6f3d",
+                    "label": "Bald",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_de8f1f",
+                    "label": "Buzz Cut",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_78336a",
+                    "label": "Very Short Hair",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_9773b8",
+                    "label": "Short Hair",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_771774",
+                    "label": "Pixie Cut",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_353198",
+                    "label": "Sidelocks",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_1d0e0f",
+                    "label": "Medium Hair",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_e8dc56",
+                    "label": "Shoulder-Length Hair",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_8d067b",
+                    "label": "Bob Cut",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_7c435a",
+                    "label": "Long Hair",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_9cd869",
+                    "label": "Very Long Hair",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_a29ad8",
+                    "label": "Absurdly Long Hair",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_dfb2d1",
+                    "label": "Floor-Length Hair",
+                    "weight": 1,
+                    "active": false
+                }
+            ]
+        },
+        {
+            "id": "grp_1777662880642_1585a1",
+            "title": "Trigger Group 13 - Test",
+            "isExclusive": false,
+            "triggers": [
+                {
+                    "id": "trig_2ee14a",
+                    "weight": 1,
+                    "active": true
+                }
+            ]
+        }
+    ]
+}

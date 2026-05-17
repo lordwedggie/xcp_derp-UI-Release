@@ -1,0 +1,27 @@
+[
+    {
+        "title": "\u5ba4\u5185\u6696\u5149",
+        "content": "indoor lighting, lamp light, warm lighting, soft shadows, cozy atmosphere,"
+    },
+    {
+        "title": "\u5f3a\u620f\u5267\u611f",
+        "content": "dramatic lighting, chiaroscuro, strong rim light, deep shadows, cinematic composition,\n"
+    },
+    {
+        "title": "\u6708\u5149\u6c1b\u56f4",
+        "content": "moonlight, backlighting, cool lighting, soft haze, atmospheric shadows, "
+    },
+    {
+        "title": "\u591c\u666f\u9713\u8679",
+        "content": "night scene, neon glow, cinematic lighting, moody lighting, blue and purple light, reflections, "
+    },
+    {
+        "title": "\u767d\u5929\u81ea\u7136\u5149",
+        "content": "natural lighting, soft sunlight, diffused light, gentle shadows, outdoor daylight, "
+    },
+    {
+        "title": "\u9ec4\u660f\u7535\u5f71\u611f",
+        "content": "golden hour, cinematic lighting, warm glow, rim lighting, long shadows, ",
+        "images": []
+    }
+]

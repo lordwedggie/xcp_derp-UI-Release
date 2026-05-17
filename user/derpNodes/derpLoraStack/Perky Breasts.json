@@ -1,0 +1,40 @@
+{
+    "attentionMode": "Cross-Attention",
+    "showCLIP": false,
+    "nameDisplay": "Top",
+    "settings": {},
+    "stackData": [
+        [
+            "ILL\\Sliders\\#Anatomy\\Age_Slider_Illustrious_v1.safetensors",
+            1.5,
+            1,
+            "None",
+            "",
+            false
+        ],
+        [
+            "ILL\\Styles\\Fixers\\BSS_Eyes_v1.safetensors",
+            0.75,
+            1,
+            "None",
+            "",
+            true
+        ],
+        [
+            "ILL\\Sliders\\#Anatomy\\Breasts_Gravity.safetensors",
+            -0.35000000000000003,
+            1,
+            "None",
+            "",
+            false
+        ],
+        [
+            "ILL\\Sliders\\#Anatomy\\puffy_breasts.safetensors",
+            0.45,
+            1,
+            "tag_01",
+            "",
+            false
+        ]
+    ]
+}

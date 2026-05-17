@@ -486,8 +486,10 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
 
                 nodeType.prototype.onDerpSysPanelOpen = function(panel) {
                     this._derpPanel = panel;
+                    this._sysProfileFile = "derpLoraStack";
+                    this._sysProfileFolder = "derpLoraStack";
                     if (panel.showProfiles) {
-                        panel.showProfiles("derpLoraStack", "nodeSettings");
+                        panel.showProfiles("derpLoraStack", "derpLoraStack");
                     }
                     if (this.sysLayoutMap) panel.setLayoutMap(this.sysLayoutMap);
                 };

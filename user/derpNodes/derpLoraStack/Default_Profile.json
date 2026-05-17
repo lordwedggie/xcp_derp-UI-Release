@@ -1,0 +1,11 @@
+{
+    "attentionMode": "Cross-Attention",
+    "showCLIP": false,
+    "nameDisplay": "Top",
+    "settings": {
+        "sliderMin": 0,
+        "sliderMax": 1.5,
+        "sliderStep": 0.01,
+        "sliderDefault": 0.8
+    }
+}

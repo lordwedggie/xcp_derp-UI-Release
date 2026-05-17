@@ -1,0 +1,382 @@
+{
+    "fileType": "xcp_derp_trigger_preset",
+    "version": "1.0.0",
+    "timestamp": 1777578534817,
+    "triggerGroups": [
+        {
+            "id": "grp_1777534539026_37e183",
+            "title": "Camera Direction",
+            "isExclusive": false,
+            "triggers": [
+                {
+                    "id": "trig_3e3529",
+                    "label": "From Front",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_72759a",
+                    "label": "From Side",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_e065ad",
+                    "label": "From Behind",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_606b6b",
+                    "label": "From above",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_8464e6",
+                    "label": "From Below",
+                    "weight": 1,
+                    "active": true
+                }
+            ]
+        },
+        {
+            "id": "grp_1777534539026_5e758d",
+            "title": "Camera Focus",
+            "isExclusive": false,
+            "triggers": [
+                {
+                    "id": "trig_a100cf",
+                    "label": "Upper Body",
+                    "weight": 1,
+                    "active": true
+                },
+                {
+                    "id": "trig_1541d4",
+                    "label": "Kneeling",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_263036",
+                    "label": "Crawling",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_7f146b",
+                    "label": "Sitting",
+                    "weight": 1,
+                    "active": true
+                }
+            ]
+        },
+        {
+            "id": "grp_1777534539026_ee36ba",
+            "title": "Head direction",
+            "isExclusive": true,
+            "triggers": [
+                {
+                    "id": "trig_29ce18",
+                    "label": "Looking at viewer",
+                    "weight": 1,
+                    "active": true
+                },
+                {
+                    "id": "trig_f4ed4e",
+                    "label": "Looking Up",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_hd_001",
+                    "label": "Looking Down",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_hd_003",
+                    "label": "Looking Back",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_hd_002",
+                    "label": "Looking Away",
+                    "weight": 1.557800759469219,
+                    "active": false
+                },
+                {
+                    "id": "trig_hd_004",
+                    "label": "Head Tilt",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_hd_006",
+                    "label": "Closed Eyes",
+                    "weight": 1,
+                    "active": false
+                }
+            ]
+        },
+        {
+            "id": "grp_1777544132339_2d1396",
+            "title": "Makeup",
+            "isExclusive": false,
+            "triggers": [
+                {
+                    "id": "trig_2fcceb",
+                    "label": "Light Makeup",
+                    "weight": 0.5022533523499656,
+                    "active": true
+                },
+                {
+                    "id": "trig_9bc3db",
+                    "label": "Pink Lipstick",
+                    "weight": 0.588034265663497,
+                    "active": false
+                },
+                {
+                    "id": "trig_bcf055",
+                    "label": "Red Lipstick",
+                    "weight": 0.4970252395619813,
+                    "active": true
+                },
+                {
+                    "id": "trig_f31aa2",
+                    "label": "Eyeliner",
+                    "weight": 0.6033946148119811,
+                    "active": true
+                },
+                {
+                    "id": "trig_b530d5",
+                    "label": "Pale Skin",
+                    "weight": 1.1768771762065928,
+                    "active": true
+                }
+            ]
+        },
+        {
+            "id": "grp_1777551899194_df924a",
+            "title": "Hair Color",
+            "isExclusive": true,
+            "triggers": [
+                {
+                    "id": "trig_abbafc",
+                    "label": "Black Hair",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_fedf98",
+                    "label": "Brown Hair",
+                    "weight": 1,
+                    "active": true
+                },
+                {
+                    "id": "trig_0f1758",
+                    "label": "Ginger Hair",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_e2f3f6",
+                    "label": "Blond Hair",
+                    "weight": 1,
+                    "active": false
+                }
+            ]
+        },
+        {
+            "id": "grp_1777554509520_b2c19b",
+            "title": "Facial Expressions",
+            "isExclusive": false,
+            "triggers": [
+                {
+                    "id": "trig_f52cbf",
+                    "label": "Smile",
+                    "weight": 0.4778393260727989,
+                    "active": true
+                },
+                {
+                    "id": "trig_f9d0ba",
+                    "label": "Happy",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_348883",
+                    "label": "Laughing",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_da9d14",
+                    "label": "Embarrassed\u00a0",
+                    "weight": 1,
+                    "active": false
+                }
+            ]
+        },
+        {
+            "id": "grp_1777568236006_1b99f6",
+            "title": "Race",
+            "isExclusive": true,
+            "triggers": [
+                {
+                    "id": "trig_fd187a",
+                    "label": "Asian",
+                    "weight": 1,
+                    "active": true
+                },
+                {
+                    "id": "trig_282dfc",
+                    "label": "Caucasian\u00a0",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_79742f",
+                    "label": "Brunette",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_cfd5b0",
+                    "label": "African",
+                    "weight": 1,
+                    "active": false
+                }
+            ]
+        },
+        {
+            "id": "grp_1777568699774_89ad78",
+            "title": "Eye colors",
+            "isExclusive": true,
+            "triggers": [
+                {
+                    "id": "trig_3ccf87",
+                    "label": "Brown eyes",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_2841a2",
+                    "label": "Light brown eyes",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_f47005",
+                    "label": "Dark brown eyes",
+                    "weight": 1,
+                    "active": true
+                },
+                {
+                    "id": "trig_088a51",
+                    "label": "Hazel eyes",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_d4d554",
+                    "label": "Deep blue eyes",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_4d9835",
+                    "label": "Aqua eyes",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_886962",
+                    "label": "Blue eyes",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_70740f",
+                    "label": "Light blue eyes",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_583a8a",
+                    "label": "Green eyes",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_d71fca",
+                    "label": "Emerald green eyes",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_5d2c5f",
+                    "label": "Grey eyes",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_c256d1",
+                    "label": "Silver eyes",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_691287",
+                    "label": "Amber eyes",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_92ee0d",
+                    "label": "Golden eyes",
+                    "weight": 1,
+                    "active": false
+                }
+            ]
+        },
+        {
+            "id": "grp_1777574445783_e4f8d8",
+            "title": "Hair Styles - Tied",
+            "isExclusive": false,
+            "triggers": [
+                {
+                    "id": "trig_3e3529",
+                    "label": "From Front",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_72759a",
+                    "label": "From Side",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_e065ad",
+                    "label": "From Behind",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_606b6b",
+                    "label": "From above",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_8464e6",
+                    "label": "From Below",
+                    "weight": 1,
+                    "active": false
+                }
+            ]
+        }
+    ]
+}

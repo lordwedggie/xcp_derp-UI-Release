@@ -1,0 +1,69 @@
+{
+    "stackData": [
+        [
+            "Pony\\Styles\\#Essential\\pony-realism-22-nsfw-photo.safetensors",
+            1,
+            1,
+            "#trigger.txt",
+            "nsfwupscaler,",
+            true
+        ],
+        [
+            "Pony\\Styles\\#Unsorted\\Dynamic Poses.safetensors",
+            0.8,
+            1,
+            "tag_01",
+            "dynamic pose,",
+            true
+        ],
+        [
+            "Illustrious\\Styles\\Dark_v1.safetensors",
+            0.2,
+            1,
+            "tag_01",
+            "dark, dim lighting, dark background,",
+            false
+        ],
+        [
+            "Illustrious\\People\\Female\\AF_AngelLegion_GentleHealerFiona.safetensors",
+            0.8,
+            1,
+            "tag_01",
+            "Asian, AF_AngelLegion_GentleHealerFiona, mole, black hair, long hair, pale skin,",
+            false
+        ],
+        [
+            "Pony\\Action\\SHAME_Biting_ASS.safetensors",
+            1.1,
+            1,
+            "tag_01",
+            "ass_biting, biting ass, 1boy, ugly old man, ",
+            true
+        ],
+        [
+            "Illustrious\\Clothing\\#Bandaid\\Pussy_Patch.safetensors",
+            1.2,
+            1,
+            "tag_01",
+            "pussy patch, covered pussy, taped pussy, ",
+            true
+        ],
+        [
+            "Illustrious\\Action\\SHAME_Pussy_Clamps.safetensors",
+            0.3,
+            1,
+            "tag_01",
+            "pussy spread clamps, ",
+            false
+        ]
+    ],
+    "attentionMode": "Cross-Attention",
+    "showCLIP": true,
+    "nameDisplay": "Top",
+    "settings": {
+        "sliderMin": 0,
+        "sliderMax": 3,
+        "sliderStep": 0.01,
+        "sliderDefault": 0.8
+    }
+}
