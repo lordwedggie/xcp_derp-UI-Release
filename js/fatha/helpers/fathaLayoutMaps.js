@@ -423,8 +423,8 @@ export function getPanelBaseMap(hostNode, app, sysState) {
     return {
         sysHeaderRegion: {
             width: "full", height: "auto", dir: "row",
-            margin: [mW, mH, mW, mH],
-            padding: [0, 0],
+            margin: [mW, mH, mW, 0],
+            padding: [0, 0], spacing: [0, sH],
             lblTheme: {
                 type: UI_TYPES.TEXT,
                 themeKey: "t_textSystem",
@@ -432,7 +432,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                 width: "auto", height: "auto",
                 objectAlign: ["left", "middle"],
                 padding: [pW, pH],
-                spacing: [sW, 0],
+                spacing: [sW, sH],
             },
             dropdownThemes: {
                 type: UI_TYPES.DROPDOWN_DERP,
@@ -480,9 +480,9 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                 onPress: () => {
                     hostNode.properties._showWarpRegion = true;
                     hostNode.properties._warpZoom = Number(app?.canvas?.ds?.scale) || null;
-                    if (hostNode.properties.warpShortcut === undefined || hostNode.properties.warpShortcut === null || hostNode.properties.warpShortcut === "") {
-                        hostNode.properties.warpShortcut = availableShortcutItems[0] || "";
-                    }
+                    hostNode.properties.warpShortcutBase = null;
+                    hostNode.properties.warpShortcutCtrl = false;
+                    hostNode.properties.warpShortcut = availableShortcutItems[0] || "";
                     if (typeof hostNode.requestDerpSync === "function") hostNode.requestDerpSync();
                     else if (typeof hostNode.setDirtyCanvas === "function") hostNode.setDirtyCanvas(true, true);
                 },
@@ -509,10 +509,11 @@ export function getPanelBaseMap(hostNode, app, sysState) {
         },
         regionWarp: {
             hidden: !showWarpRegion,
-            anchor: { target: "sysHeaderRegion", axis: "y", offset: sH },
+            anchor: { target: "sysHeaderRegion", axis: "y"},
             dir: "row",
+            spacing: [sW, sH],
             width: "full", height: "auto",
-            margin: [mW, 0, mW, 0],
+            margin: [mW, sH, mW, 0],
             lblShortcut: {
                 type: UI_TYPES.TEXT,
                 themeKey: "t_textSystem",
@@ -578,7 +579,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                 spacing: [sW, 0],
                 measureText: "1.00",
                 onBlur: (v) => {
-                    const z = Math.max(1.0, Math.min(2.0, parseFloat(v) || DEFAULT_WARP_SHORTCUT_ZOOM));
+                    const z = Math.max(1.0, Math.min(3.0, parseFloat(v) || DEFAULT_WARP_SHORTCUT_ZOOM));
                     hostNode.properties._warpZoom = z;
                     if (typeof hostNode.requestDerpSync === "function") hostNode.requestDerpSync();
                     else if (typeof hostNode.setDirtyCanvas === "function") hostNode.setDirtyCanvas(true, true);
@@ -586,22 +587,20 @@ export function getPanelBaseMap(hostNode, app, sysState) {
             },
         },
         sysDefaultControlsRegion: {
-            anchor: { target: showWarpRegion ? "regionWarp" : "sysHeaderRegion", axis: "y", offset: sH },
-            dir: "row",
+            anchor: { target: showWarpRegion ? "regionWarp" : "sysHeaderRegion", axis: "y" },
+            dir: "row", margin: [mW, sH, mW, sH],
             padding: [0, 0],
             width: "full", height: "auto",
             btnAutoWidth: {
-                type: UI_TYPES.TOGGLE,
-                textThemeKey: "t_textSystem",
-                icon: "radio",
+                type: UI_TYPES.TOGGLE_V2,
+                textThemeKey: "dialog, button, t_textSystem", skipBackground: true,
+                spacing: [sW, 0],
                 value: hostNode.properties?.autoWidth !== false,
                 state: isDocked ? "DIS" : "OFF",
-                objectAlign: ["left", "top"],
-                labelAlign: ["left", "middle"],
+                objectAlign: ["left", "top"], labelAlign: ["left", "middle"],
                 label: "$system.auto_width",
                 width: "auto", height: "fill",
                 padding: [pW, pH],
-
                 onPress: () => {
                     if (isDocked) return;
                     hostNode.properties.autoWidth = (hostNode.properties.autoWidth !== false) ? false : true;
@@ -609,13 +608,12 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                 }
             },
             btnAutoHeight: {
-                type: UI_TYPES.TOGGLE,
-                textThemeKey: "t_textSystem",
-                icon: "radio",
+                type: UI_TYPES.TOGGLE_V2,
+                textThemeKey: "dialog, button, t_textSystem", skipBackground: true,
+                spacing: [sW, 0],
                 value: hostNode.properties?.autoHeight !== false,
                 state: isDocked ? "DIS" : "OFF",
-                objectAlign: ["left", "top"],
-                labelAlign: ["left", "middle"],
+                objectAlign: ["left", "top"], labelAlign: ["left", "middle"],
                 label: "$system.auto_height",
                 width: "auto", height: "fill",
                 padding: [pW, pH],
@@ -626,15 +624,15 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                 }
             },
             btnHideTitle: {
-                type: UI_TYPES.TOGGLE,
-                textThemeKey: "t_textSystem",
-                icon: "radio",
+                type: UI_TYPES.TOGGLE_V2,
+                textThemeKey: "dialog, button, t_textSystem", skipBackground: true,
+                spacing: [sW, 0],
                 value: isVerticalDocked || hostNode.properties?.drawHeader !== false,
                 state: isVerticalDocked ? "DIS" : "OFF",
                 objectAlign: ["left", "top"], labelAlign: ["left", "middle"],
                 label: "$system.title",
                 width: "auto", height: "fill",
-                padding: [pW, pH], spacing: [sW,0],
+                padding: [pW, pH], 
                 onPress: () => {
                     if (isVerticalDocked) return;
                     hostNode.properties.drawHeader = (hostNode.properties.drawHeader !== false) ? false : true;
@@ -642,9 +640,8 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                 }
             },
             toggleUseAnimation: {
-                type: UI_TYPES.TOGGLE,
-                textThemeKey: "t_textSystem",
-                icon: "radio",
+                type: UI_TYPES.TOGGLE_V2,
+                textThemeKey: "dialog, button, t_textSystem", skipBackground: true,
                 value: hostNode.properties?.useAnimations !== false,
                 objectAlign: ["left", "top"], labelAlign: ["left", "middle"],
                 label: "$system.animation",
@@ -681,9 +678,10 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                 }
             },
         },
+        lineBreak: { type: UI_TYPES.LINEBREAK, anchor: { target: "sysDefaultControlsRegion", axis: "y" } }, 
         sysProfileRegion: {
             hidden: !hostNode._sysProfileActive,
-            anchor: { target: lastSysRegion, axis: "y", offset: oY },
+            anchor: { target: lastSysRegion, axis: "y"},
             dir: "row", height: "auto", width: "full", margin: [mW, mH, mW, mH],
             themeKey: "panel",
             settingsLabel: {
@@ -808,6 +806,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                 type: UI_TYPES.ICONBUTTON, icon: "save", width: "match", height: "fill", themeKey: "systemButton, t_textSystem", spacing: [sW, 0], labelAlign: ["center", "middle"],
                 state: (hostNode._currentProfileName && hostNode._currentProfileName !== "(No Profiles Found)") ? "OFF" : "DIS",
                 get onPress() {
+                    if (typeof this._overrideOnPress === "function") return this._overrideOnPress;
                     return () => {
                         if (hostNode.onDerpSavePress) return hostNode.onDerpSavePress();
 
@@ -857,7 +856,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                         });
                     };
                 },
-                set onPress(v) { /* THE IMMUNITY HACK */ }
+                set onPress(v) { this._overrideOnPress = v; }
             },
             btnDelete: {
                 type: UI_TYPES.ICONBUTTON,

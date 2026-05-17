@@ -15,6 +15,17 @@ import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
  */
 export const getHandlerId = () => `basta_file_handler_global_singleton`;
 
+function logLoraStackFileHandlerAnchor(host, label, payload) {
+    if (!host || String(host.type || "").toLowerCase().includes("derplorastack") !== true) return;
+    globalThis.DERP_LS_PROFILE_LOGS = globalThis.DERP_LS_PROFILE_LOGS || [];
+    const entry = { label, payload, ts: Date.now() };
+    globalThis.DERP_LS_PROFILE_LOGS.push(entry);
+    if (globalThis.DERP_LS_PROFILE_LOGS.length > 200) globalThis.DERP_LS_PROFILE_LOGS.shift();
+    if (globalThis.DERP_LS_PROFILE_CONSOLE === true) {
+        console.log(`[LSProfile:${label}] ${JSON.stringify(payload)}`);
+    }
+}
+
 /**
  * showBastaFileHandler: The entry point to spawn or refresh the handler.
  * @param {Object} host - The Fatha/Uncle node triggering this popup.
@@ -304,6 +315,21 @@ export function showBastaFileHandler(host, category = "settings", targetRegion =
     };
 
     const existing = activeBastas.get(id);
+    logLoraStackFileHandlerAnchor(host, "showFileHandler", {
+        targetRegion,
+        mode,
+        category,
+        hasExisting: !!existing,
+        hasTarget: !!host?.layout?.regions?.[targetRegion],
+        target: host?.layout?.regions?.[targetRegion]
+            ? {
+                x: host.layout.regions[targetRegion].x,
+                y: host.layout.regions[targetRegion].y,
+                w: host.layout.regions[targetRegion].w,
+                h: host.layout.regions[targetRegion].h,
+            }
+            : null,
+    });
     if (existing) {
         existing.hostNode = host;
         existing.targetRegion = targetRegion;
@@ -325,6 +351,15 @@ export function showBastaFileHandler(host, category = "settings", targetRegion =
     }
 
     const bastaInstance = spawnBasta(id, config);
+    logLoraStackFileHandlerAnchor(host, "afterSpawnFileHandler", {
+        targetRegion,
+        mode,
+        category,
+        bastaPos: bastaInstance?.pos ? [bastaInstance.pos[0], bastaInstance.pos[1]] : null,
+        bastaOffset: bastaInstance?.offset ? [bastaInstance.offset[0], bastaInstance.offset[1]] : null,
+        bastaSize: bastaInstance?.targetSize ? [bastaInstance.targetSize[0], bastaInstance.targetSize[1]] : null,
+        hasTarget: !!host?.layout?.regions?.[targetRegion],
+    });
 
     // THE DATA FETCH: Hydrate the file list for the specified category
     const refreshFileList = (instance) => {

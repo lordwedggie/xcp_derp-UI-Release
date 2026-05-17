@@ -21,6 +21,17 @@ const PANEL_SLIDE_SPEED = 0.5;
 const PANEL_FADE_SPEED = 0.3;
 const SYS_PANEL_CLOSE_ON_OUTSIDE_CLICK = false;
 
+function logLoraStackProfileAnchor(node, label, payload) {
+    if (!node || String(node.type || "").toLowerCase().includes("derplorastack") !== true) return;
+    globalThis.DERP_LS_PROFILE_LOGS = globalThis.DERP_LS_PROFILE_LOGS || [];
+    const entry = { label, payload, ts: Date.now() };
+    globalThis.DERP_LS_PROFILE_LOGS.push(entry);
+    if (globalThis.DERP_LS_PROFILE_LOGS.length > 200) globalThis.DERP_LS_PROFILE_LOGS.shift();
+    if (globalThis.DERP_LS_PROFILE_CONSOLE === true) {
+        console.log(`[LSProfile:${label}] ${JSON.stringify(payload)}`);
+    }
+}
+
 /**
  * The System Panel State Controller
  * Acts strictly as a "Virtual Node" proxy to satisfy fathaDOMshield and the Layout Engine.
@@ -240,12 +251,27 @@ export function drawDerpSysPanelGlobal(ctx) {
             const resetFileHandlerAnchor = () => {
                 if (node?.properties) delete node.properties[`bastaOffset_${getHandlerId()}`];
             };
+            const captureAnchorState = (key) => {
+                const sysReg = sysPanel.layout?.regions?.[key] || null;
+                const hostReg = node.layout?.regions?.[`sys_${key}`] || null;
+                return {
+                    key,
+                    hasSysReg: !!sysReg,
+                    hasHostReg: !!hostReg,
+                    sysReg: sysReg ? { x: sysReg.x, y: sysReg.y, w: sysReg.w, h: sysReg.h } : null,
+                    hostReg: hostReg ? { x: hostReg.x, y: hostReg.y, w: hostReg.w, h: hostReg.h } : null,
+                    nodePos: node.pos ? [node.pos[0], node.pos[1]] : null,
+                    nodeSize: node.size ? [node.size[0], node.size[1]] : null,
+                    panelPos: [sysPanel.pos[0], sysPanel.pos[1]],
+                };
+            };
 
             sysProfileRegion.btnSave.state = "OFF";
 
             sysProfileRegion.btnRename.onPress = () => {
                 if (!hasProfile) return;
                 resetFileHandlerAnchor();
+                logLoraStackProfileAnchor(node, "beforeRename", captureAnchorState("btnRename"));
                 showBastaFileHandler(node, "none", "sys_btnRename", {
                     title: `Rename Profile: ${node._currentProfileName}`,
                     message: "Enter new name for profile:",
@@ -284,6 +310,7 @@ export function drawDerpSysPanelGlobal(ctx) {
             sysProfileRegion.btnCopy.onPress = () => {
                 if (!hasProfile) return;
                 resetFileHandlerAnchor();
+                logLoraStackProfileAnchor(node, "beforeCopy", captureAnchorState("btnCopy"));
                 showBastaFileHandler(node, "none", "sys_btnCopy", {
                     title: `Duplicate Profile: ${node._currentProfileName}`,
                     message: "Enter name for new profile copy:",
@@ -322,6 +349,7 @@ export function drawDerpSysPanelGlobal(ctx) {
             sysProfileRegion.btnSave.onPress = () => {
                 if (!hasProfile) {
                     resetFileHandlerAnchor();
+                    logLoraStackProfileAnchor(node, "beforeSaveCreate", captureAnchorState("btnSave"));
                     showBastaFileHandler(node, "none", "sys_btnSave", {
                         title: "Create New Profile",
                         message: "Enter name for new profile:",
@@ -364,6 +392,7 @@ export function drawDerpSysPanelGlobal(ctx) {
                 }
 
                 resetFileHandlerAnchor();
+                logLoraStackProfileAnchor(node, "beforeSaveExisting", captureAnchorState("btnSave"));
                 showBastaFileHandler(node, "none", "sys_btnSave", {
                     title: `Save Profile: ${node._currentProfileName}`,
                     message: `Save changes to current profile?`,
@@ -402,6 +431,7 @@ export function drawDerpSysPanelGlobal(ctx) {
             sysProfileRegion.btnDelete.onPress = () => {
                 if (!hasProfile) return;
                 resetFileHandlerAnchor();
+                logLoraStackProfileAnchor(node, "beforeDelete", captureAnchorState("btnDelete"));
                 showBastaFileHandler(node, "none", "sys_btnDelete", {
                     title: `Delete Profile: ${node._currentProfileName}`,
                     message: `Permanently delete profile: ${node._currentProfileName}?`,
