@@ -76,7 +76,7 @@ export function resolveDockResizeAxes(axis, vars = {}) {
     if (axis === "vertical") {
         return {
             allowWidth: !autoWidth,
-            allowHeight: false,
+            allowHeight: !autoHeight,
         };
     }
 
@@ -118,7 +118,7 @@ export function resolveRuntimeDockSize(node, axis, measured, vars = {}) {
 
     const height = shouldPreserveDockHeight(axis)
         ? (autoHeight ? engineFloorH : Math.max(storedH, liveH, 0))
-        : ((autoHeight || isMinState) ? engineFloorH : Math.max(storedH, engineFloorH));
+        : (autoHeight ? engineFloorH : (isMinState ? engineFloorH : storedH));
 
     return { width, height, engineFloorW, engineFloorH };
 }

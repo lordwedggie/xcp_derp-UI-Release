@@ -541,6 +541,8 @@ export function syncDerpShield(node) {
         const edges = node.properties?.deckEdges || {};
         const hasSharedLeftEdge = edges.left !== null && edges.left !== undefined;
         const hasSharedRightEdge = edges.right !== null && edges.right !== undefined;
+        const hasSharedTopEdge = edges.top !== null && edges.top !== undefined;
+        const hasSharedBottomEdge = edges.bottom !== null && edges.bottom !== undefined;
         const sharedEdgeWidth = Math.max(4 * scale, Number(vars.mW || 0) * scale);
         const graph = app.graph || node.graph || null;
         const isVerticalDockStack = !!(graph && isLinearDeckGroup(node, graph, "vertical"));
@@ -557,11 +559,15 @@ export function syncDerpShield(node) {
         handleStyle.right = `-${padR * scale}px`;
 
         if (!isVerticalDockStack && allowBottomResizeCorners && hasSharedRightEdge && canW) {
-            handleStyle.width = `${sharedEdgeWidth}px`;
-            handleStyle.height = `${visualH * scale}px`;
-            handleStyle.cursor = "ew-resize";
+            handleStyle.width = `${sharedEdgeWidth}px`; handleStyle.height = `${visualH * scale}px`; handleStyle.cursor = "ew-resize"; handleStyle.display = "block"; handleStyle.pointerEvents = "auto";
+        }
+        if (isVerticalDockStack && hasSharedBottomEdge && canH) {
+            handleStyle.width = `${visualW * scale}px`;
+            handleStyle.height = `${sharedEdgeWidth}px`;
+            handleStyle.cursor = "ns-resize";
             handleStyle.display = "block";
             handleStyle.pointerEvents = "auto";
+            node.interactionShield._resizeHandle._resizeAnchorOverride = "bottom";
         }
 
         if (node.interactionShield._resizeHandleLeft) {
@@ -575,11 +581,15 @@ export function syncDerpShield(node) {
             leftStyle.left = `-${padL * scale}px`;
 
             if (!isVerticalDockStack && allowBottomResizeCorners && hasSharedLeftEdge && canW) {
-                leftStyle.width = `${sharedEdgeWidth}px`;
-                leftStyle.height = `${visualH * scale}px`;
-                leftStyle.cursor = "ew-resize";
+                leftStyle.width = `${sharedEdgeWidth}px`; leftStyle.height = `${visualH * scale}px`; leftStyle.cursor = "ew-resize"; leftStyle.display = "block"; leftStyle.pointerEvents = "auto";
+            }
+            if (isVerticalDockStack && hasSharedBottomEdge && canH) {
+                leftStyle.width = `${visualW * scale}px`;
+                leftStyle.height = `${sharedEdgeWidth}px`;
+                leftStyle.cursor = "ns-resize";
                 leftStyle.display = "block";
                 leftStyle.pointerEvents = "auto";
+                node.interactionShield._resizeHandleLeft._resizeAnchorOverride = "bottom";
             }
         }
 
@@ -605,6 +615,14 @@ export function syncDerpShield(node) {
             topLeftStyle.display = (showTopCorners && allowTopResizeCorners && !hasSharedLeftEdge) ? "block" : "none";
             topLeftStyle.pointerEvents = (showTopCorners && allowTopResizeCorners && !hasSharedLeftEdge) ? "auto" : "none";
             topLeftStyle.left = `-${padL * scale}px`;
+            if (isVerticalDockStack && hasSharedTopEdge && canH) {
+                topLeftStyle.width = `${visualW * scale}px`;
+                topLeftStyle.height = `${sharedEdgeWidth}px`;
+                topLeftStyle.cursor = "ns-resize";
+                topLeftStyle.display = "block";
+                topLeftStyle.pointerEvents = "auto";
+                node.interactionShield._resizeHandleTopLeft._resizeAnchorOverride = "top";
+            }
             topLeftStyle.cursor = (canW && canH) ? "nwse-resize" : (canW ? "ew-resize" : "ns-resize");
         }
 
@@ -615,6 +633,14 @@ export function syncDerpShield(node) {
             topRightStyle.display = (showTopCorners && allowTopResizeCorners && !hasSharedRightEdge) ? "block" : "none";
             topRightStyle.pointerEvents = (showTopCorners && allowTopResizeCorners && !hasSharedRightEdge) ? "auto" : "none";
             topRightStyle.right = `-${padR * scale}px`;
+            if (isVerticalDockStack && hasSharedTopEdge && canH) {
+                topRightStyle.width = `${visualW * scale}px`;
+                topRightStyle.height = `${sharedEdgeWidth}px`;
+                topRightStyle.cursor = "ns-resize";
+                topRightStyle.display = "block";
+                topRightStyle.pointerEvents = "auto";
+                node.interactionShield._resizeHandleTopRight._resizeAnchorOverride = "top";
+            }
             topRightStyle.cursor = (canW && canH) ? "nesw-resize" : (canW ? "ew-resize" : "ns-resize");
         }
     }

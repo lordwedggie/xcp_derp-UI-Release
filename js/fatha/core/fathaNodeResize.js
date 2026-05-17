@@ -41,6 +41,7 @@ export function handleNodeResize(entity, data, scale) {
 
     const allowWidthResize = resizeAxes.allowWidth;
     const allowHeightResize = resizeAxes.allowHeight;
+    
 
     const rawW = entity._startSize[0] + (deltaX * anchorMode.wSign);
     const newW = allowWidthResize ? Math.max(minW, Math.round(rawW / SNAP) * SNAP) : entity.size[0];
