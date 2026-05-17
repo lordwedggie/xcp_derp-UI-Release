@@ -764,7 +764,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 },
                 dropdownTrigger: {
                     type: UI_TYPES.DROPDOWN_DERP, themeKey: "button, t_textSmall", measureText: "Select Trigger...",
-                    state: (triggerItems && triggerItems.length > 0) ? "OFF" : "DIS",
+                    state: (triggerItems && triggerItems.length > 0) ? "OFF" : "DIS", mouseOver: false,
                     canvasShield: true, width: "full", height: "auto", padding: [pW, pH], spacing: [sW, 0],
                     indicator: "on",
                     bypassHashOptimization: true, // THE LIST SYNC FIX: Force widget to update items array past layout hash
@@ -788,6 +788,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
             },
             loraTriggersEditor: {
                 type: UI_TYPES.EDITOR, multiline: true, canvasShield: true, switchOnEditing: true,
+                mouseOver: false,
                 themeKey: "dialog, t_textSmall",
                 labelAlign: ["left", "top"],
                 width: "full",
@@ -890,7 +891,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
             },
             dropdownLoraRating: {
                 type: UI_TYPES.DROPDOWN_DERP, themeKey: "button, t_textSmall", measureText: "A - Excellent",
-                canvasShield: true, width: "auto", height: "auto", padding: [pW, pH],
+                canvasShield: true, width: "auto", height: "auto", padding: [pW, pH], mouseOver: false,
                 labelAlign: ["center", "middle"],
                 ...ratingProps
             },

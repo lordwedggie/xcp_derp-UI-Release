@@ -5,6 +5,7 @@
 import { app } from "../../../scripts/app.js";
 import { UI_TYPES } from "./fatha/core/masterLayoutTypes.js";
 import { startStackDrag, updateStackDrag, endStackDrag } from "./fatha/helpers/fathaDragDrop.js";
+import { showBastaFileHandler } from "./fatha/bastas/bastaFileHandler.js";
 
 if (!window._xcp_derpSignalOut_Layout_Loaded) {
     window._xcp_derpSignalOut_Layout_Loaded = true;
@@ -261,7 +262,16 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                         onPress: () => {
                                             endStackDrag(this, "_derpSignalOutDragProxy");
                                             this._signalOutFloatingSnapshot = null;
-                                            this.removeDerpOutput(idx);
+                                            showBastaFileHandler(this, "none", `btnOutputDelete_${idx}`, {
+                                                title: "Remove Signal",
+                                                message: `Remove signal ${formatSignalLabel(sig)}?`,
+                                                confirm: "Remove",
+                                                mode: "delete",
+                                                playSound: "delete",
+                                                onConfirm: () => {
+                                                    this.removeDerpOutput(idx);
+                                                }
+                                            });
                                         }
                                     },
 
