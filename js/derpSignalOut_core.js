@@ -698,8 +698,8 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                         }
                     }
 
-                    // VIRTUAL LINK RENDERING: Visualizes the wireless signal flow from source nodes
-                    if (this.properties.showVirtualLinks && !this.flags.collapsed && app.canvas.ds.scale > 0.15) {
+                    // VIRTUAL LINK RENDERING: Now handled globally via drawDerpSignalOutGlobalWires
+                    if (false && this.properties.showVirtualLinks) { // Handled globally via drawDerpSignalOutGlobalWires
                         const typeColors = window.xcpDerpTypeColors || {};
                         ctx.save();
                         (this.activeOutputs || []).forEach((sig, idx) => {
@@ -717,7 +717,7 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
 
                             ctx.beginPath();
                             ctx.setLineDash(this.vLinkDash || [8, 4]);
-                            ctx.strokeStyle = typeColors[sig.type?.toUpperCase()] || this.vLinkColor || "#666";
+                            ctx.strokeStyle = typeColors[String(sig.type || "").toUpperCase()] || this.vLinkColor || "#666";
                             ctx.globalAlpha = this.selected ? (this.vLinkAlpha?.[0] ?? 0.8) : (this.vLinkAlpha?.[1] ?? 0.2);
                             ctx.lineWidth = this.selected ? (this.vLinkThickness?.[0] ?? 3) : (this.vLinkThickness?.[1] ?? 1.5);
 
@@ -844,6 +844,42 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                 };
 
                 nodeType.prototype.onAdded = function() { this.suppressDefaultWidgets(); };
+
+                // Global virtual wire renderer — runs every frame regardless of node viewport culling
+                window.drawDerpSignalOutGlobalWires = function(ctx) {
+                    if (!app.graph || !app.graph._nodes) return;
+                    if (app.canvas.ds.scale <= 0.15) return;
+                    const typeColors = window.xcpDerpTypeColors || {};
+                    app.graph._nodes.forEach(function(node) {
+                        if (node.type !== "xcpDerpSignalOut") return;
+                        if (!node.properties.showVirtualLinks || node.flags.collapsed) return;
+                        const outputs = node.activeOutputs || [];
+                        if (!outputs.length) return;
+                        ctx.save();
+                        ctx.translate(node.pos[0], node.pos[1]);
+                        outputs.forEach(function(sig, idx) {
+                            if (!sig || !sig.nodeId) return;
+                            const sourceNode = app.graph.getNodeById(String(sig.nodeId).split(":")[0]);
+                            if (!sourceNode || sourceNode === node) return;
+                            const portIdx = parseInt(String(sig.nodeId).split(":")[1]) || 0;
+                            const sPos = sourceNode.getConnectionPos(false, portIdx);
+                            const startX = sPos[0] - node.pos[0], startY = sPos[1] - node.pos[1];
+                            const endX = 0;
+                            const reg = node.layout?.regions?.["outputsRegion_" + idx];
+                            const endY = reg ? (reg.y + reg.h / 2) : (node.getConnectionPos ? (node.getConnectionPos(false, idx)[1] - node.pos[1]) : (50 + idx * 25));
+                            ctx.beginPath();
+                            ctx.setLineDash(node.vLinkDash || [8, 4]);
+                            ctx.strokeStyle = typeColors[String(sig.type || "").toUpperCase()] || node.vLinkColor || "#666";
+                            ctx.globalAlpha = node.selected ? (node.vLinkAlpha?.[0] ?? 0.8) : (node.vLinkAlpha?.[1] ?? 0.2);
+                            ctx.lineWidth = node.selected ? (node.vLinkThickness?.[0] ?? 3) : (node.vLinkThickness?.[1] ?? 1.5);
+                            const cp1x = startX + 40, cp2x = endX - 40;
+                            ctx.moveTo(startX, startY);
+                            ctx.bezierCurveTo(cp1x, startY, cp2x, endY, endX, endY);
+                            ctx.stroke();
+                        });
+                        ctx.restore();
+                    });
+                };
             }
         });
     } catch (e) {

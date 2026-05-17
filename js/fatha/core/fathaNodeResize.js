@@ -83,6 +83,15 @@ export function handleNodeResize(entity, data, scale) {
 
     entity.size[0] = appliedW;
     entity.size[1] = appliedH;
+    if (entity.targetSize) {
+        entity.targetSize[0] = appliedW;
+        entity.targetSize[1] = appliedH;
+        entity._layoutDirty = true;
+        entity._forceSync = true;
+        entity._prevBastaState = null;
+        entity._cachedBaseMap = null;
+        if (entity.layout) entity.layout._lastCacheKey = "";
+    }
     if (entity.properties) entity.properties.nodeSize = [appliedW, appliedH];
 
     dockDebug("handle-node-resize-after-apply-size", {

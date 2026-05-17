@@ -459,11 +459,12 @@ class BastaInstance {
         const prevStructureHash = this._lastStructureHash;
         const structureHash = `${window._xcpDerpSession}_${this.hostNode?._layoutMapHash || ""}`;
         const structureChanged = prevStructureHash !== structureHash;
-        const layoutForceReason = !!this._forceSync;
+        const liveResizeReason = !!this._isDerpResizing;
+        const layoutForceReason = !!this._forceSync || liveResizeReason;
         const layoutDirtyReason = !!this._layoutDirty;
         const layoutSizeReason = !!hasLayoutChanged;
         const needsLayoutCompute = layoutForceReason || layoutDirtyReason || layoutSizeReason || structureChanged;
-        const needsSync = this._forceSync || hasVisualChanged || structureChanged;
+        const needsSync = this._forceSync || liveResizeReason || hasVisualChanged || structureChanged;
         this._lastStructureHash = structureHash;
 
         // THE COMP-DATA CACHE: Pre-allocate geometry objects to prevent per-frame garbage collection

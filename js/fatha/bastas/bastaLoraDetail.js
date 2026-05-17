@@ -620,7 +620,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
             externalRow: {
                 type: UI_TYPES.REGION, themeKey: "background", palette: bgPal, regionOffset: [sW, sH, sW, -1],
                 corners: [0, 0, null, null],
-                hidden: !basta._externalReady,
+                hidden: !basta._externalReady && !basta._isDerpResizing,
                 spawnAnim: false,
                 alpha: basta._navAlpha,
                 anchor: { target: "loraPreview", axis: "y", offset: -stableNavH - sH*2 },

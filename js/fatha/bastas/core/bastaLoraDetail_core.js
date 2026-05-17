@@ -952,6 +952,7 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
                     const navH = this.layout?.regions?.imageHandlingRegion?.h || 0;
                     if (navH > 5) {
                         this._externalReady = true;
+                        this._navH = navH;
                         markBLDDirty(this, true);
                         this._layoutDirty = true;
                         this._forceSync = true;
@@ -960,9 +961,22 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
                     }
                 }
 
+                const liveNavH = this.layout?.regions?.imageHandlingRegion?.h || 0;
+                if (liveNavH > 5) {
+                    const prevNavH = this._navH || 0;
+                    if (Math.abs(prevNavH - liveNavH) > 0.5) {
+                        this._navH = liveNavH;
+                        markBLDDirty(this, true);
+                        this._layoutDirty = true;
+                        this._forceSync = true;
+                        this._derpAwakeFrames = Math.max(this._derpAwakeFrames || 0, 4);
+                        if (this.setDirtyCanvas) this.setDirtyCanvas(true, true);
+                    }
+                }
+
                 // THE HOVER FIX: Explicitly check for true to ensure animation triggers/reverses correctly
                 // when the mouse leaves for the empty canvas.
-                const isHoveringNav = !this._isSaving && (this._uiHovered === true) && (
+                const isHoveringNav = this._isDerpResizing || (!this._isSaving && (this._uiHovered === true) && (
                     hKey === "loraPreview" ||
                     hKey === "imageHandlingRegion" ||
                     hKey === "externalRow" ||
@@ -971,7 +985,7 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
                         hKey.startsWith("btnImage") || hKey === "btnSetCover" || hKey === "btnSetTrigger" || hKey === "btnDeleteImage" ||
                         hKey.startsWith("btnCiv") || hKey === "btnOpenFolder"
                     ))
-                );
+                ));
 
                 const targetAlpha = isHoveringNav ? 1.0 : 0.0;
                 if (this._navAlpha === undefined) this._navAlpha = 0;

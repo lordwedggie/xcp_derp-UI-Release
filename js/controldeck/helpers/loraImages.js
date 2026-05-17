@@ -244,8 +244,9 @@ export function resizeImage(dataUrl, targetLongSide, quality, callback) {
  */
 export function calculatePreviewDisplayHeight(basta, aspectRatio, marginW) {
     if (!aspectRatio) return basta.layout?.regions?.loraPreview?.h || 180;
-    // THE PREVIEW SIZE FIX: Width fallback doubled to 440 to maintain aspect ratio for the 100% wider image
-    const w = basta.targetSize ? basta.targetSize[0] : (basta.size ? basta.size[0] : 440);
+    // Use the live resized width first so Basta-dependent regions reflow while dragging.
+    const liveWidth = basta?.properties?.nodeSize?.[0] || basta?.size?.[0] || basta?.targetSize?.[0] || 440;
+    const w = liveWidth;
     return (w - (marginW * 2)) / aspectRatio;
 }
 
