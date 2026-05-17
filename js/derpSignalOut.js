@@ -121,8 +121,13 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
 
                     const outputItems = activeOuts.map((sig, idx) => ({ sig, idx }));
                     let floatingItem = null;
+                    const dragSnapshot = this._signalOutFloatingSnapshot || null;
+                    const dragPlaceholderHeight = Math.max(1, Number(dragSnapshot?.baseReg?.h) || 30);
+                    const dragIndex = this._dragTrig?.index;
+                    const hasDragPickup = this._dragTrig && this._dragThresholdMet && dragIndex !== undefined;
+                    const hasDropPreview = hasDragPickup && this._dropPreviewIdx !== undefined;
 
-                    if (this._dragTrig && this._dragThresholdMet && this._dragTrig.index !== undefined) {
+                    if (hasDropPreview) {
                         const drag = this._dragTrig;
                         const previewIdx = (this._dropPreviewIdx !== undefined) ? this._dropPreviewIdx : drag.index;
                         [floatingItem] = outputItems.splice(drag.index, 1);
@@ -160,25 +165,31 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                 const isConnected = hasSlotLinks || hasGraphLinks;
                                 const isBypassed = this.mode === 4 || this.mode === 2 || this._derpSpoofedBypass;
                                 const isPickedUp = !!(this._dragTrig && this._dragThresholdMet && this._dragTrig.index === idx && !item.isPreviewGhost);
+                                const isHiddenGhost = item.isPreviewGhost === true;
+                                const isPickupOriginRow = !!(hasDragPickup && !hasDropPreview && dragIndex === idx && !item.isPreviewGhost);
+                                const shouldGhostHideChildren = isHiddenGhost;
+                                const rowAlpha = (isHiddenGhost || isPickupOriginRow) ? 0 : 1.0;
 
                                 acc[rowKey] = {
                                     anchor: { target: prev, axis: "y", offset: displayIdx === 0 ? 0 : sH },
-                                    dir: "row", width: "full", height: item.isPreviewGhost ? 30 : "auto",
+                                    dir: "row", width: "full", height: item.isPreviewGhost ? dragPlaceholderHeight : "auto",
                                     outSlotIdx: idx, // GENERIC SLOT TAG: Allows uncleSlotHelper to find this region
                                     state: item.isPreviewGhost ? "DIS" : (isPickedUp ? "ON" : "OFF"),
-                                    alpha: item.isPreviewGhost ? 0 : 1.0,
+                                    alpha: rowAlpha,
                                     onDragStart: (e, data) => startStackDrag(this, data, idx, rowKey),
                                     onDrag: (e, data) => { updateStackDrag(this, data, "outputsRegion_display_", activeOuts.length); this.refreshNodeLayoutMap(); },
                                     onDragEnd: () => {
                                         const fromIdx = this._dragTrig?.index;
                                         const toIdx = this._dropPreviewIdx;
                                         endStackDrag(this, "_derpSignalOutDragProxy");
+                                        this._signalOutFloatingSnapshot = null;
                                         if (fromIdx !== undefined && toIdx !== undefined && fromIdx !== toIdx && this.reorderDerpOutputs) {
                                             this.reorderDerpOutputs(fromIdx, toIdx);
                                         }
                                     },
                                     onPress: () => {
                                         endStackDrag(this, "_derpSignalOutDragProxy");
+                                        this._signalOutFloatingSnapshot = null;
                                     },
                                     [`lblOutputInfo_${idx}`]: {
                                         type: UI_TYPES.DROPDOWN_DERP, themeKey: "panel, t_textNormal",
@@ -207,10 +218,11 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                                 this._signalLabelToId.set(label, String(s.nodeId));
                                                 return label;
                                             }),
+                                        hidden: shouldGhostHideChildren,
                                         value: formatSignalLabel(sig),
                                         width: "full", padding: [pW, pH], spacing: [sW, 0],
                                         state: isPickedUp ? "ON" : ((isBypassed || !isConnected) ? "DIS" : "OFF"),
-                                        alpha: item.isPreviewGhost ? 0 : 1.0,
+                                        alpha: rowAlpha,
                                         onChange: (val) => {
                                             const newSigId = resolveSignalIdFromLabel(val);
                                             if (newSigId) {
@@ -227,8 +239,9 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                     },
                                     [`btnOutputDelete_${idx}`]: {
                                         type: UI_TYPES.ICONBUTTON, themeKey: "buttonNode, t_textSystem",
+                                        hidden: shouldGhostHideChildren,
                                         icon: "trash", width: "match", height: "fill", spacing: [sW, 0],
-                                        alpha: item.isPreviewGhost ? 0 : 1.0,
+                                        alpha: rowAlpha,
                                         onPress: () => this.removeDerpOutput(idx)
                                     },
 
@@ -278,52 +291,6 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                             }
                         },
                     };
-
-                    if (floatingItem && this._dragThresholdMet && this._dragMouse && this._dragOffset) {
-                        const { sig } = floatingItem;
-                        const dragX = this._dragMouse[0] - this._dragOffset[0];
-                        const dragY = this._dragMouse[1] - this._dragOffset[1];
-
-                        this.layoutMap.contentRegion.floatingOutputRow = {
-                            type: UI_TYPES.REGION,
-                            themeKey: "region",
-                            dir: "row",
-                            width: this.size[0] - (mW * 4),
-                            height: "auto",
-                            ignoreLayout: true,
-                            x: dragX,
-                            y: dragY,
-                            zIndex: 100,
-                            state: "ON",
-                            pulseStates: true,
-                            pulseFromState: "_DIS",
-                            pulseToState: "_ON",
-                            pulseSpeed: 0.005,
-                            regionOffset: [0, 0],
-                            floatingLabel: {
-                                type: UI_TYPES.DROPDOWN_DERP,
-                                themeKey: "panel, t_textNormal",
-                                wrap: false,
-                                minWidth: 100,
-                                canvasShield: true,
-                                indicator: "on",
-                                items: [],
-                                value: formatSignalLabel(sig),
-                                width: "full",
-                                padding: [pW, pH],
-                                spacing: [sW, 0],
-                                mouseOver: false,
-                            },
-                            floatingDelete: {
-                                type: UI_TYPES.ICONBUTTON,
-                                themeKey: "buttonNode, t_textSystem",
-                                icon: "trash",
-                                width: "match",
-                                height: "fill",
-                                spacing: [sW, 0],
-                            }
-                        };
-                    }
 
                     if (this.layout) this.layout._lastCacheKey = "";
                     this.requestDerpSync();
