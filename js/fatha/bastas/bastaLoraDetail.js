@@ -618,12 +618,12 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 }
             },
             externalRow: {
-                type: UI_TYPES.REGION, themeKey: "background", palette: bgPal, regionOffset: [sW, sH, sW, 0.5],
+                type: UI_TYPES.REGION, themeKey: "background", palette: bgPal, regionOffset: [sW, sH, sW, -1],
                 corners: [0, 0, null, null],
                 hidden: !basta._externalReady,
                 spawnAnim: false,
                 alpha: basta._navAlpha,
-                anchor: { target: "loraPreview", axis: "y", offset: -stableNavH -sH },
+                anchor: { target: "loraPreview", axis: "y", offset: -stableNavH - sH*2 },
                 dir: "row", width: "full", height: "auto", margin: [sW, mH, sW, mH],
                 btnCivit: {
                     type: UI_TYPES.BUTTON, labelAlign: ["center", "middle"], padding: [pW, pH],

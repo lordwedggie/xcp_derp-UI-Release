@@ -629,8 +629,10 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                     themeKey: "dialog, t_textNormal", canvasShield: true, spacing: [sW, 0], padding: [pW, pH],
                                     onChange: (val) => {
                                         if (!this.properties.stackData) this.properties.stackData = [];
-                                        const defVal = this._loraSetup?.[val]?.sliderStrength?.[3] ?? this.properties.sliderDefault ?? 1.0;
-                                        const defClip = this.properties.clipDefault ?? 1.0;
+                                        const sliderDefault = parseFloat(this.properties.sliderDefault);
+                                        const clipDefault = parseFloat(this.properties.clipDefault);
+                                        const defVal = Number.isFinite(sliderDefault) ? sliderDefault : 1.0;
+                                        const defClip = Number.isFinite(clipDefault) ? clipDefault : 1.0;
                                         this.properties.stackData.push([val, defVal, defClip, "None", "", false]);
                                         if (this.fetchDerpLoraTriggers) this.fetchDerpLoraTriggers(val, this.properties.stackData.length - 1);
                                         if (this.syncDerpOutputs) this.syncDerpOutputs();

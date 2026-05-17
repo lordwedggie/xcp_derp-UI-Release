@@ -18,6 +18,11 @@ import { getDeckMembers } from "../../fatha/core/masterDockEngine.js";
 
 const LORA_DETAIL_BASTA_ID = "basta_lora_detail_global_unique_id";
 
+const LORA_STACK_NUMERIC_SETTING_KEYS = [
+    "sliderMin", "sliderMax", "sliderStep", "sliderDefault",
+    "clipMin", "clipMax", "clipStep", "clipDefault"
+];
+
 function closeLoraDetailForHost(host) {
     if (!host) return false;
     const b = activeBastas?.get(LORA_DETAIL_BASTA_ID);
@@ -304,7 +309,14 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                         this.properties.toggleLR = p.toggleLR ?? false;
 
                         this._currentProfileName = profileName;
-                        if (p.settings) Object.assign(this.properties, p.settings);
+                        if (p.settings) {
+                            Object.assign(this.properties, p.settings);
+                            LORA_STACK_NUMERIC_SETTING_KEYS.forEach((key) => {
+                                if (this.properties[key] === undefined || this.properties[key] === null) return;
+                                const parsed = parseFloat(this.properties[key]);
+                                if (Number.isFinite(parsed)) this.properties[key] = parsed;
+                            });
+                        }
                         if (this.syncDerpOutputs) this.syncDerpOutputs();
                         if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
                         if (this.syncLoraStackStructureHeight) this.syncLoraStackStructureHeight();
@@ -325,6 +337,13 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                             this._sysProfileData = profiles;
                             applyProfileData(profiles[profileName]);
                         });
+                };
+
+                nodeType.prototype.applyDefaultDerpProfileOnCreate = function() {
+                    if (this._didAttemptInitialDefaultProfile) return;
+                    this._didAttemptInitialDefaultProfile = true;
+                    if ((this.properties.stackData || []).length > 0) return;
+                    if (this.applyDerpProfile) this.applyDerpProfile("_Default");
                 };
 
                 nodeType.prototype.exportDerpProfile = function() {
@@ -387,6 +406,8 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
 
                     if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
                     if (this.refreshDerpLoraStackSysMap) this.refreshDerpLoraStackSysMap();
+
+                    this.applyDefaultDerpProfileOnCreate();
 
                     setTimeout(() => {
                         if (typeof this.syncDerpOutputs === "function" && this.id !== -1) {
