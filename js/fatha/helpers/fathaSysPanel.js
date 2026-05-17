@@ -12,7 +12,7 @@ import { getPanelBaseMap } from "./fathaLayoutMaps.js";
 import { animatePanelSlide, animateAlpha } from "../../herbina/masterAnimator.js";
 import { resolvePaintData } from "../../herbina/utils/widgetsUtils.js";
 import { loadDerpLocale, handleDerpRequestSync } from "../core/fathaHandler.js";
-import { showBastaFileHandler } from "../bastas/bastaFileHandler.js";
+import { showBastaFileHandler, getHandlerId } from "../bastas/bastaFileHandler.js";
 import { showBastaMessage } from "../bastas/bastaMessage.js";
 import { playKaChing, playKaboom } from "../../herbina/masterSoundEffects.js";
 import { ensureScreenRectVisible, isWarping } from "../core/fathaWarp.js";
@@ -237,11 +237,15 @@ export function drawDerpSysPanelGlobal(ctx) {
 
         if (sysProfileRegion) {
             const hasProfile = node._currentProfileName && node._currentProfileName !== "(No Profiles Found)";
+            const resetFileHandlerAnchor = () => {
+                if (node?.properties) delete node.properties[`bastaOffset_${getHandlerId()}`];
+            };
 
             sysProfileRegion.btnSave.state = "OFF";
 
             sysProfileRegion.btnRename.onPress = () => {
                 if (!hasProfile) return;
+                resetFileHandlerAnchor();
                 showBastaFileHandler(node, "none", "sys_btnRename", {
                     title: `Rename Profile: ${node._currentProfileName}`,
                     message: "Enter new name for profile:",
@@ -249,6 +253,7 @@ export function drawDerpSysPanelGlobal(ctx) {
                     warning: "Profile name already exists!",
                     originalName: node._currentProfileName,
                     fileList: node._sysProfileCache || [],
+                    properties: { bastaMovalbe: false },
                     onConfirm: async (newName) => {
                         // overwrite allowed without confirm
                         if (node._sysProfileData && node._sysProfileData[node._currentProfileName]) {
@@ -278,6 +283,7 @@ export function drawDerpSysPanelGlobal(ctx) {
 
             sysProfileRegion.btnCopy.onPress = () => {
                 if (!hasProfile) return;
+                resetFileHandlerAnchor();
                 showBastaFileHandler(node, "none", "sys_btnCopy", {
                     title: `Duplicate Profile: ${node._currentProfileName}`,
                     message: "Enter name for new profile copy:",
@@ -286,6 +292,7 @@ export function drawDerpSysPanelGlobal(ctx) {
                     mode: "duplicate",
                     originalName: node._currentProfileName,
                     fileList: node._sysProfileCache || [],
+                    properties: { bastaMovalbe: false },
                     onConfirm: async (newName) => {
                         // overwrite allowed without confirm
                         if (node._sysProfileData && node._sysProfileData[node._currentProfileName]) {
@@ -314,6 +321,7 @@ export function drawDerpSysPanelGlobal(ctx) {
 
             sysProfileRegion.btnSave.onPress = () => {
                 if (!hasProfile) {
+                    resetFileHandlerAnchor();
                     showBastaFileHandler(node, "none", "sys_btnSave", {
                         title: "Create New Profile",
                         message: "Enter name for new profile:",
@@ -322,6 +330,7 @@ export function drawDerpSysPanelGlobal(ctx) {
                         mode: "newTrigger",
                         originalName: "Profile_01",
                         fileList: node._sysProfileCache || [],
+                        properties: { bastaMovalbe: false },
                         onConfirm: async (newName) => {
                             // overwrite allowed without confirm
                             const fileName = node._sysProfileFile;
@@ -354,6 +363,7 @@ export function drawDerpSysPanelGlobal(ctx) {
                     return;
                 }
 
+                resetFileHandlerAnchor();
                 showBastaFileHandler(node, "none", "sys_btnSave", {
                     title: `Save Profile: ${node._currentProfileName}`,
                     message: `Save changes to current profile?`,
@@ -361,6 +371,7 @@ export function drawDerpSysPanelGlobal(ctx) {
                     mode: "save",
                     originalName: node._currentProfileName,
                     fileList: node._sysProfileCache || [],
+                    properties: { bastaMovalbe: false },
                     onConfirm: async (newName) => {
                         // overwrite allowed without confirm
                         const fileName = node._sysProfileFile;
@@ -390,12 +401,14 @@ export function drawDerpSysPanelGlobal(ctx) {
 
             sysProfileRegion.btnDelete.onPress = () => {
                 if (!hasProfile) return;
+                resetFileHandlerAnchor();
                 showBastaFileHandler(node, "none", "sys_btnDelete", {
                     title: `Delete Profile: ${node._currentProfileName}`,
                     message: `Permanently delete profile: ${node._currentProfileName}?`,
                     confirm: "Delete",
                     mode: "delete",
                     originalName: node._currentProfileName,
+                    properties: { bastaMovalbe: false },
                     onConfirm: async () => {
                         if (node._sysProfileData && node._sysProfileData[node._currentProfileName]) {
                             delete node._sysProfileData[node._currentProfileName];
@@ -688,7 +701,7 @@ export async function toggleDerpSysPanel(hostNode) {
 
                 if (!hostNode._sysProfileCache) {
                     // INDIVIDUAL FILE NODES (Requires /xcp/list)
-                    const isIndividual = (fileName === "derpLoraStack" || fileName === "derpPromptBook" || fileName === "triggerWallDeck");
+                    const isIndividual = (fileName === "derpPromptBook" || fileName === "triggerWallDeck");
                     if (isIndividual) {
                         fetch(`/xcp/list/${fileName}`)
                             .then(res => res.json())

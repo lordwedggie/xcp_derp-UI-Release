@@ -312,6 +312,14 @@ export function showBastaFileHandler(host, category = "settings", targetRegion =
         existing.properties = { ...existing.properties, ...config.properties };
         existing.targetSize = [...config.initialSize];
         existing.size = [...config.initialSize];
+        if (targetRegion && host?.layout?.regions?.[targetRegion] && !host?.properties?.[`bastaOffset_${id}`]) {
+            const { oY } = existing.getDerpVars();
+            const target = host.layout.regions[targetRegion];
+            existing.offset = [
+                Math.round(target.x + (target.w / 2) - (existing.targetSize[0] / 2)),
+                Math.round(target.y - existing.targetSize[1] - oY)
+            ];
+        }
         existing._layoutMapHash = undefined;
         existing._forceSync = true;
     }

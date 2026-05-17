@@ -5,7 +5,6 @@
 import { app } from "../../../../scripts/app.js";
 import { fatha, initDerpGlobalListener } from "../../fatha/fatha.js";
 import { activeBastas } from "../../fatha/basta.js";
-import { showBastaFileHandler, getHandlerId } from "../../fatha/bastas/bastaFileHandler.js";
 import { showBastaMessage } from "../../fatha/bastas/bastaMessage.js";
 import { fetchLoraTriggers, fetchLoraRating, syncRatingColorsCache, fetchLoraData, regionBelongsToRow } from "../helpers/loraComponents.js";
 import { startStackDrag, updateStackDrag, endStackDrag } from "../../fatha/helpers/fathaDragDrop.js";
@@ -296,26 +295,35 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                 nodeType.prototype.applyDerpProfile = function(profileName) {
                     if (profileName === "(No Profiles Found)") return;
 
-                    // INDIVIDUAL FILE LOADING: Fetch the specific JSON file from the derpLoraStack folder
-                    fetch(`/xcp/load/derpLoraStack?name=${profileName}`)
+                    const applyProfileData = (profileData) => {
+                        const p = profileData || {};
+                        if (p.stackData) this.properties.stackData = JSON.parse(JSON.stringify(p.stackData));
+                        if (p.attentionMode) this.properties.attentionMode = p.attentionMode;
+                        this.properties.showCLIP = p.showCLIP ?? false;
+                        this.properties.nameDisplay = p.nameDisplay || "Top";
+                        this.properties.toggleLR = p.toggleLR ?? false;
+
+                        this._currentProfileName = profileName;
+                        if (p.settings) Object.assign(this.properties, p.settings);
+                        if (this.syncDerpOutputs) this.syncDerpOutputs();
+                        if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
+                        if (this.syncLoraStackStructureHeight) this.syncLoraStackStructureHeight();
+                        if (this.refreshDerpLoraStackSysMap) this.refreshDerpLoraStackSysMap();
+                        if (this._derpPanel) this._derpPanel._layoutDirty = true;
+                        this.setDirtyCanvas(true, true);
+                    };
+
+                    if (this._sysProfileData?.[profileName]) {
+                        applyProfileData(this._sysProfileData[profileName]);
+                        return;
+                    }
+
+                    fetch("/xcp/load/settings?name=derpLoraStack.json")
                         .then(res => res.json())
                         .then(res => {
-                            const p = res.data || {};
-                            if (p.stackData) this.properties.stackData = JSON.parse(JSON.stringify(p.stackData));
-                            if (p.attentionMode) this.properties.attentionMode = p.attentionMode;
-                            this.properties.showCLIP = p.showCLIP ?? false;
-                            this.properties.toggleLR = p.toggleLR ?? false;
-                            this.properties.nameDisplay = p.nameDisplay || "Top";
-
-                            this._currentProfileName = profileName;
-                            if (p.settings) Object.assign(this.properties, p.settings);
-                            if (this.syncDerpOutputs) this.syncDerpOutputs();
-                            if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
-                            if (this.syncLoraStackStructureHeight) this.syncLoraStackStructureHeight();
-
-                            if (this.refreshDerpLoraStackSysMap) this.refreshDerpLoraStackSysMap();
-                            if (this._derpPanel) this._derpPanel._layoutDirty = true;
-                            this.setDirtyCanvas(true, true);
+                            const profiles = res.data || {};
+                            this._sysProfileData = profiles;
+                            applyProfileData(profiles[profileName]);
                         });
                 };
 
@@ -325,8 +333,8 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                         // Explicitly excludes framework keys: minWidth, nodeSize, drawHeader, drawSignalBtn, contentCollapsed, isWirelessTransmitter.
                         attentionMode: this.properties.attentionMode,
                         showCLIP: this.properties.showCLIP,
-                        toggleLR: this.properties.toggleLR ?? false,
                         nameDisplay: this.properties.nameDisplay,
+                        toggleLR: this.properties.toggleLR ?? false,
                         settings: {
                             sliderMin: this.properties.sliderMin, sliderMax: this.properties.sliderMax,
                             sliderStep: this.properties.sliderStep, sliderDefault: this.properties.sliderDefault,
@@ -336,160 +344,10 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                     };
                 };
 
-                nodeType.prototype.onDerpSavePress = function() {
-                    showBastaFileHandler(this, "derpLoraStack", "btnSave", {
-                        title: "Save profile as",
-                        message: "Enter filename for profile:",
-                        confirm: "Save",
-                        mode: "save",
-                        initialSize: [250, 150],
-                        // THE DATA FIX: Remove local fileList override so Basta fetches the full folder structure from the backend.
-                        properties: {
-                            showOptions: true,
-                            // THE OVERRIDE: Force visibility for LoRA profile saving
-                            showFolderBrowser: true,
-                            toggleLabel_1: "Include LoRA Stack data",
-                            toggleOption_1: true,
-                            dropdownFolderMode: "folder",
-                            selectedFolder: "/"
-                        },
-                        onConfirm: async (filename) => {
-                            const basta = activeBastas.get(getHandlerId());
-                            // THE STATE FIX: Explicitly check the toggle state from the singleton handler instance.
-                            const includeStack = basta ? basta.properties.toggleOption_1 : true;
-
-                            // THE CONDITIONAL SAVE FIX: Build profile with normal settings, then add stackData only if toggled.
-                            const profileData = this.exportDerpProfile();
-                            if (includeStack) {
-                                profileData.stackData = JSON.parse(JSON.stringify(this.properties.stackData || []));
-                            }
-
-                            try {
-                                const res = await fetch("/xcp/save/derpLoraStack", {
-                                    method: "POST",
-                                    headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({ filename: filename, data: profileData })
-                                });
-
-                                if (res.ok) {
-                                    playKaChing();
-                                    showBastaMessage(this, "Profile Saved!");
-                                    this._sysProfileCache = null;
-                                    this._currentProfileName = filename;
-                                    // THE REFLOW FIX: Force update the system map and panel visibility to show the new profile.
-                                    if (this.refreshDerpLoraStackSysMap) this.refreshDerpLoraStackSysMap();
-                                    if (this._derpPanel?.showProfiles) this._derpPanel.showProfiles("derpLoraStack", "nodeSettings");
-                                    if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
-                                    this.setDirtyCanvas(true, true);
-                                }
-                            } catch (e) { console.error("[Save Error]:", e); }
-                        }
-                    });
-                };
-
-                nodeType.prototype.onDerpCopyPress = function() {
-                    const profileName = this._currentProfileName;
-                    if (!profileName || profileName === "(No Profiles Found)") return;
-
-                    showBastaFileHandler(this, "derpLoraStack", "sys_btnCopy", {
-                        title: `Duplicate Profile: ${profileName}`,
-                        message: "Enter name for new profile copy:",
-                        confirm: "Duplicate",
-                        mode: "duplicate",
-                        originalName: profileName,
-                        // THE DATA FIX: Remove local fileList override so Basta fetches the full folder structure from the backend.
-                        properties: {
-                            // THE OVERRIDE: Force visibility for LoRA profile duplication
-                            showFolderBrowser: true,
-                            dropdownFolderMode: "folder",
-                            selectedFolder: "/"
-                        },
-                        onConfirm: async (newName) => {
-                            const basta = activeBastas.get(getHandlerId());
-                            try {
-                                const loadRes = await fetch(`/xcp/load/derpLoraStack?name=${profileName}`);
-                                let loadData = {data: {}};
-                                if (loadRes.ok) { try { loadData = await loadRes.json(); } catch (e) {} }
-                                const p = loadData.data || {};
-
-                                const res = await fetch("/xcp/save/derpLoraStack", {
-                                    method: "POST",
-                                    headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({ filename: newName, data: p })
-                                });
-
-                                if (res.ok) {
-                                    playKaChing();
-                                    showBastaMessage(this, "Profile Duplicated!");
-                                    this._sysProfileCache = null;
-                                    this._currentProfileName = newName;
-                                    // THE REFLOW FIX: Rebuild system definitions after duplication.
-                                    if (this.refreshDerpLoraStackSysMap) this.refreshDerpLoraStackSysMap();
-                                    if (this._derpPanel?.showProfiles) this._derpPanel.showProfiles("derpLoraStack", "nodeSettings");
-                                    if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
-                                    this.setDirtyCanvas(true, true);
-                                }
-                            } catch (e) { console.error("[Copy Error]:", e); }
-                        }
-                    });
-                };
-
-                nodeType.prototype.onDerpRenamePress = function() {
-                    const profileName = this._currentProfileName;
-                    if (!profileName || profileName === "(No Profiles Found)") return;
-                    showBastaFileHandler(this, "derpLoraStack", "sys_btnRename", {
-                        title: "Rename Profile", mode: "rename", originalName: profileName,
-                        onConfirm: async (newName) => {
-                            try {
-                                const res = await fetch("/xcp/rename/derpLoraStack", {
-                                    method: "POST", headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({ oldName: profileName, newName: newName })
-                                });
-                                if (res.ok) {
-                                    playKaChing();
-                                    showBastaMessage(this, "Profile Renamed!");
-                                    this._currentProfileName = newName;
-                                    this._sysProfileCache = null;
-                                    // THE REFLOW FIX: Refresh the system map and force a canvas update.
-                                    if (this.refreshDerpLoraStackSysMap) this.refreshDerpLoraStackSysMap();
-                                    if (this._derpPanel?.showProfiles) this._derpPanel.showProfiles("derpLoraStack", "nodeSettings");
-                                    this.setDirtyCanvas(true, true);
-                                }
-                            } catch (e) { console.error(e); }
-                        }
-                    });
-                };
-
-                nodeType.prototype.onDerpDeletePress = function() {
-                    const profileName = this._currentProfileName;
-                    if (!profileName || profileName === "(No Profiles Found)") return;
-                    showBastaFileHandler(this, "derpLoraStack", "sys_btnDelete", {
-                        title: "Delete Profile", mode: "delete", originalName: profileName,
-                        confirm: "Delete Forever",
-                        onConfirm: async () => {
-                            try {
-                                const res = await fetch(`/xcp/delete/derpLoraStack?name=${profileName}`, { method: "DELETE" });
-                                if (res.ok) {
-                                    playKaboom();
-                                    showBastaMessage(this, "Profile Deleted!");
-                                    this._sysProfileCache = null;
-                                    this._currentProfileName = null;
-                                    // THE REFLOW FIX: Ensure the panel and map are purged of the deleted profile key.
-                                    if (this.refreshDerpLoraStackSysMap) this.refreshDerpLoraStackSysMap();
-                                    if (this._derpPanel?.showProfiles) this._derpPanel.showProfiles("derpLoraStack", "nodeSettings");
-                                    this.setDirtyCanvas(true, true);
-                                }
-                            } catch (e) { console.error(e); }
-                        }
-                    });
-                };
-
                 nodeType.prototype.onDerpSysPanelOpen = function(panel) {
                     this._derpPanel = panel;
-                    this._sysProfileFile = "derpLoraStack";
-                    this._sysProfileFolder = "derpLoraStack";
                     if (panel.showProfiles) {
-                        panel.showProfiles("derpLoraStack", "derpLoraStack");
+                        panel.showProfiles("derpLoraStack.json", "nodeSettings");
                     }
                     if (this.sysLayoutMap) panel.setLayoutMap(this.sysLayoutMap);
                 };

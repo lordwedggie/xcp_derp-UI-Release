@@ -36,6 +36,16 @@ os.makedirs(PALETTE_DIR, exist_ok=True)
 SETTINGS_DIR = os.path.join(DERP_ROOT, "nodeSettings")
 os.makedirs(SETTINGS_DIR, exist_ok=True)
 
+DEFAULT_SETTINGS_FILES = {
+    "derpLoraStack.json": {},
+}
+
+for file_name, default_data in DEFAULT_SETTINGS_FILES.items():
+    target_path = os.path.join(SETTINGS_DIR, file_name)
+    if not os.path.exists(target_path):
+        with open(target_path, "w", encoding="utf-8") as f:
+            json.dump(default_data, f, indent=2)
+
 PROMPT_BOOK_DIR = os.path.join(DERP_ROOT, "derpPromptBook")
 os.makedirs(PROMPT_BOOK_DIR, exist_ok=True)
 

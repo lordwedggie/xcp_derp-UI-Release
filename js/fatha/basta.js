@@ -371,7 +371,7 @@ class BastaInstance {
         let handled = handleShieldInteraction(this, type, data);
         const absorbed = type === "click" && !handled && this.properties.bastaSelectable === false;
 
-        if (type === "dragStart") this._isDraggingBasta = !this._pressedRegionKey;
+        if (type === "dragStart") this._isDraggingBasta = !!this.properties.bastaMovalbe && !this._pressedRegionKey;
         if (type === "dragEnd") {
             this._isDraggingBasta = false;
             if (this.hostNode && (!this.properties.autoWidth || !this.properties.autoHeight)) {
