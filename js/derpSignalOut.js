@@ -331,22 +331,23 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                     const { mW, mH, sW, sH, oX, oY, pW, pH } = this.getDerpVars(this);
                     this.sysLayoutMap = {
                         sysCustomRegion: {
-                            anchor: { target: "sysDefaultControlsRegion", axis: "y", offset: oY },
-                            width: "full", height: "auto", margin: [mW, mH],
+                            anchor: { target: "sysDefaultControlsRegion", axis: "y" },
+                            width: "full", height: "auto", margin: [mW, 0],
                             lblInfo: {
                                 // THE CONSTANT FIX: Access UI_TYPES directly instead of via the node instance
-                                type: UI_TYPES.TEXT_HTML, themeKey: "t_textsystem", mouseOver: false,
+                                type: UI_TYPES.TEXT, themeKey: "t_textsystem", mouseOver: false,
                                 text: "SignalOut node settings:", width: "auto", height: "auto",
                                 padding: [pW, pH]
                             },
                             regionCustom_1: {
                                 dir: "row", width: "full", height: "auto",
+                                spacing: [sW, 0],
                                 toggleID: {
-                                    type: UI_TYPES.TOGGLE_V2,
-                                    themeKey: "buttonNode, t_textsystem",
+                                    type: UI_TYPES.TOGGLE, icon: "radio",
+                                    themeKey: "buttonNode, t_textsystem", 
                                     text: "Signal ID",
                                     width: "auto", height: "full",
-                                    padding: [pW, pH],
+                                    padding: [pW, pH], spacing: [sW, 0],
                                     value: this.properties.showSignalIds !== false,
                                     onPress: () => {
                                         this.properties.showSignalIds = this.properties.showSignalIds === false;
@@ -357,11 +358,11 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                     }
                                 },
                                 toggleSlotName: {
-                                    type: UI_TYPES.TOGGLE_V2,
+                                    type: UI_TYPES.TOGGLE, icon: "radio",
                                     themeKey: "buttonNode, t_textsystem",
                                     text: "Signal Name",
                                     width: "auto", height: "full",
-                                    padding: [pW, pH],
+                                    padding: [pW, pH], spacing: [sW, 0],
                                     value: !!this.properties.showSlotNames,
                                     onPress: () => {
                                         this.properties.showSlotNames = !this.properties.showSlotNames;
@@ -372,7 +373,7 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                     }
                                 },
                                 toggleSlotType: {
-                                    type: UI_TYPES.TOGGLE_V2,
+                                    type: UI_TYPES.TOGGLE, icon: "radio",
                                     themeKey: "buttonNode, t_textsystem",
                                     text: "Signal Type",
                                     width: "auto", height: "full",
@@ -388,9 +389,11 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                 },
                             },
                             regionCustom_2: {
+                                anchor: { target: "regionCustom_1", axis: "y", offset: sH },
                                 dir: "row", width: "full", height: "auto",
+                                spacing: [sW, 0,], margin: [0, 0, 0, mH],
                                 toggleVirtualWires: {
-                                    type: UI_TYPES.TOGGLE_V2,
+                                    type: UI_TYPES.TOGGLE, icon: "radio",
                                     themeKey: "buttonNode, t_textsystem",
                                     text: "Show input wires",
                                     width: "full", height: "auto",
