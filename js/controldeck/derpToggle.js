@@ -25,6 +25,17 @@ function ensureToggleItems(node) {
     return node.properties.toggleItems;
 }
 
+function buildToggleLayoutHash(node, vars, toggleItems) {
+    const deckHash = toggleItems
+        .map((item, index) => `${index}:${item?.label || ""}:${item?.value !== false}`)
+        .join("|");
+    const width = (Number(node?.size?.[0]) || 0).toFixed(2);
+    const mW = Number(vars.mW || 0).toFixed(2);
+    const mH = Number(vars.mH || 0).toFixed(2);
+    const oY = Number(vars.oY || 0).toFixed(2);
+    return `${deckHash}_${window._xcpDerpSession}_${node.titleLabel || ""}_${width}_${mW}_${mH}_${oY}_${node.properties?.drawHeader !== false}`;
+}
+
 app.registerExtension({
     name: "xcp.derpToggle_Extension",
     async setup() {
@@ -42,19 +53,30 @@ app.registerExtension({
 
         nodeType.prototype.onThemeUpdate = function(config) {
             this.handleThemeUpdate(config);
+            this._layoutMapHash = null;
             this.refreshNodeLayoutMap();
             this.refreshDerpToggleSysMap();
         };
 
         nodeType.prototype.applyPalette = function() {
             if (window.xcpDerpThemeConfig) this.handleThemeUpdate(window.xcpDerpThemeConfig);
+            this._layoutMapHash = null;
             this.refreshNodeLayoutMap();
             this.refreshDerpToggleSysMap();
         };
 
         nodeType.prototype.refreshNodeLayoutMap = function() {
+            if (this.flags?.collapsed || this.size[0] <= 0) return;
             const { mW, mH, sW, sH, oY, pW, pH } = this.getDerpVars(this);
             const toggleItems = ensureToggleItems(this);
+            const structureHash = buildToggleLayoutHash(this, { mW, mH, oY }, toggleItems);
+
+            if (this._layoutMapHash === structureHash && this.layoutMap) {
+                this.requestDerpSync();
+                return;
+            }
+
+            this._layoutMapHash = structureHash;
             this.layoutMap = {
                 sysContentRegion: {
                     anchor: { target: "headerRegion", axis: "y", offset: oY },
@@ -90,7 +112,6 @@ app.registerExtension({
                     })),
                 },
             };
-            this._layoutMapHash = undefined;
             if (this.layout) this.layout._lastCacheKey = "";
             this.requestDerpSync();
         };
@@ -125,7 +146,7 @@ app.registerExtension({
                     }
                 }
             };
-            this._layoutMapHash = undefined;
+            if (this._derpPanel?.setLayoutMap) this._derpPanel.setLayoutMap(this.sysLayoutMap);
         };
 
         nodeType.prototype.broadcastWirelessSignal = function() {
@@ -134,8 +155,12 @@ app.registerExtension({
             const toggleItems = ensureToggleItems(this);
             const isBypassed = this.mode === 4 || this.mode === 2 || this._derpSpoofedBypass;
             const nodeName = this.titleLabel || this.title || "Derp Toggle";
+            const fingerprint = `${isBypassed ? "bypass" : "live"}_${nodeName}_${this.id}_${toggleItems.map((item, index) => `${index}:${item?.label || ""}:${item?.value !== false}`).join("|")}`;
+            if (this._lastSignalFingerprint === fingerprint) return;
+            this._lastSignalFingerprint = fingerprint;
 
             if (!window.xcpDerpSignals) window.xcpDerpSignals = {};
+            let hasChanged = false;
 
             toggleItems.forEach((item, index) => {
                 const signalId = `${this.id}:${index}`;
@@ -143,6 +168,7 @@ app.registerExtension({
                 const displayName = `${nodeName} [${item.label || `Toggle ${index + 1}`}]`;
                 const existing = window.xcpDerpSignals[signalId];
                 if (!existing || existing.value !== finalValue || existing.nodeName !== displayName || existing.type !== "bool") {
+                    hasChanged = true;
                     window.xcpDerpSignals[signalId] = {
                         nodeId: signalId,
                         nodeName: displayName,
@@ -164,7 +190,7 @@ app.registerExtension({
                 }
             });
 
-            refreshWirelessSignalConsumers();
+            if (hasChanged) refreshWirelessSignalConsumers();
         };
 
         nodeType.prototype.syncDerpOutputs = function() {
@@ -192,6 +218,7 @@ app.registerExtension({
         };
 
         nodeType.prototype.onDerpSysPanelOpen = function(panel) {
+            this._derpPanel = panel;
             if (this.sysLayoutMap) panel.setLayoutMap(this.sysLayoutMap);
         };
 
@@ -241,10 +268,11 @@ app.registerExtension({
                 this.outputs = [];
             }
 
-            if (info.properties) {
-                this.refreshDerpToggleSysMap();
-            }
+            this._layoutMapHash = null;
+            this.refreshNodeLayoutMap();
+            this.refreshDerpToggleSysMap();
             if (this.syncDerpOutputs) this.syncDerpOutputs();
+            this.requestDerpSync();
         };
 
         const onDrawForeground = nodeType.prototype.onDrawForeground;
@@ -257,7 +285,14 @@ app.registerExtension({
                 this._lastBypassState = isBypassed;
                 if (this.syncDerpOutputs) this.syncDerpOutputs();
                 this.refreshNodeLayoutMap();
+                this.refreshDerpToggleSysMap();
                 this.requestDerpSync();
+            }
+
+            const currentW = Math.round(this.size[0]);
+            if (this._lastDerpW !== currentW) {
+                this._lastDerpW = currentW;
+                this.refreshNodeLayoutMap();
             }
 
             if (this._lastTitleLabel !== this.titleLabel) {

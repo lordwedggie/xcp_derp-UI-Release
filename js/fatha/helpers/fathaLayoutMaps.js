@@ -62,6 +62,13 @@ function isVerticalDockedGroup(node) {
     return isLinearDeckGroup(node, graph, "vertical");
 }
 
+function isHorizontalDockedGroup(node) {
+    const graph = node?.graph || window.app?.graph || null;
+    if (!node || !graph) return false;
+    if (!isNodeDocked(node, graph)) return false;
+    return isLinearDeckGroup(node, graph, "horizontal");
+}
+
 function setVerticalStackPin(node) {
     const graph = node?.graph || window.app?.graph || null;
     if (!node || !graph) return;
@@ -168,13 +175,17 @@ export const getPanelVars = (node) => {
 export const getVirtualNodeLayoutMap = (node) => {
     const p = node.properties || {};
     const { mW, mH, sW, sH, oX, oY, pW, pH } = getPanelVars(node);
-    const footerGapHeight = Number.isFinite(Number(p.footerGapHeight)) ? Number(p.footerGapHeight) : oY;
     const collapseIcon = p.contentCollapsed ? "add" : "subtract";
     const customKeys = Object.keys(node.layoutMap || {});
     const lastCustomRegion = (p.contentCollapsed || customKeys.length === 0) ? "headerRegion" : customKeys[customKeys.length - 1];
     const headerPaletteFill = resolveHeaderPaletteFill(node);
 
     const isVerticalDocked = isVerticalDockedGroup(node);
+    const isHorizontalDocked = isHorizontalDockedGroup(node);
+    const suppressHiddenHeaderDockGap = p.drawHeader === false && isHorizontalDocked && !p.contentCollapsed;
+    const footerGapHeight = Number.isFinite(Number(p.footerGapHeight))
+        ? Number(p.footerGapHeight)
+        : (suppressHiddenHeaderDockGap ? 0 : oY);
     const titleVisible = isVerticalDocked || p.contentCollapsed || p.drawHeader !== false;
     return {
         headerRegion: {
@@ -350,7 +361,7 @@ export const getVirtualNodeLayoutMap = (node) => {
         footerRegion: {
             hidden: !!p.contentCollapsed,
             anchor: { target: lastCustomRegion, axis: "y", offset: 0},
-            dir: "col", width: "full", height: "fill", minHeight: oY + 6,
+            dir: "col", width: "full", height: "fill", minHeight: suppressHiddenHeaderDockGap ? 6 : (oY + 6),
             footerGap: { height: footerGapHeight },
             systemBtn: {
                 type: UI_TYPES.ICONBUTTON, noHover: false,

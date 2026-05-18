@@ -5,6 +5,15 @@
 import { app } from "../../../scripts/app.js";
 import { fatha, initDerpGlobalListener } from "./fatha/fatha.js";
 
+function buildTemplateLayoutHash(node, vars) {
+    const width = (Number(node?.size?.[0]) || 0).toFixed(2);
+    const textValue = String(node?.properties?.textValue || "");
+    const mW = Number(vars.mW || 0).toFixed(2);
+    const mH = Number(vars.mH || 0).toFixed(2);
+    const oY = Number(vars.oY || 0).toFixed(2);
+    return `${textValue}_${window._xcpDerpSession}_${node.titleLabel || ""}_${width}_${mW}_${mH}_${oY}_${node.properties?.drawHeader !== false}`;
+}
+
 app.registerExtension({
     name: "xcp.derpTemplateV2_Extension",
     async setup() {
@@ -22,19 +31,30 @@ app.registerExtension({
         // --- THEME & LAYOUT REFRESH ---
         nodeType.prototype.onThemeUpdate = function(config) {
             this.handleThemeUpdate(config);
+            this._layoutMapHash = null;
             this.refreshNodeLayoutMap();
             this.refreshDerpTemplateSysMap();
         };
 
         nodeType.prototype.applyPalette = function() {
             if (window.xcpDerpThemeConfig) this.handleThemeUpdate(window.xcpDerpThemeConfig);
+            this._layoutMapHash = null;
             this.refreshNodeLayoutMap();
             this.refreshDerpTemplateSysMap();
         };
 
         // --- MAIN UI LAYOUT ---
         nodeType.prototype.refreshNodeLayoutMap = function() {
+            if (this.flags?.collapsed || this.size[0] <= 0) return;
             const { mW, mH, sW, sH, oX, oY, pW, pH } = this.getDerpVars(this);
+            const structureHash = buildTemplateLayoutHash(this, { mW, mH, oY });
+
+            if (this._layoutMapHash === structureHash && this.layoutMap) {
+                this.requestDerpSync();
+                return;
+            }
+
+            this._layoutMapHash = structureHash;
             this.layoutMap = {
                 sysContentRegion: {
                     anchor: { target: "headerRegion", axis: "y", offset: oY },
@@ -58,7 +78,6 @@ app.registerExtension({
                     },
                 },
             };
-            this._layoutMapHash = undefined;
             if (this.layout) this.layout._lastCacheKey = "";
             this.requestDerpSync();
         };
@@ -83,7 +102,7 @@ app.registerExtension({
                     }
                 }
             };
-            this._layoutMapHash = undefined;
+            if (this._derpPanel?.setLayoutMap) this._derpPanel.setLayoutMap(this.sysLayoutMap);
         };
 
         /**
@@ -99,11 +118,12 @@ app.registerExtension({
             }
 
             if (this.transmitDerpSignal && this.id !== -1) {
-                this.transmitDerpSignal(this, this.properties.textValue);
+                this.transmitDerpSignal(this.properties.textValue);
             }
         };
 
         nodeType.prototype.onDerpSysPanelOpen = function(panel) {
+            this._derpPanel = panel;
             if (this.sysLayoutMap) panel.setLayoutMap(this.sysLayoutMap);
         };
 
@@ -114,6 +134,9 @@ app.registerExtension({
 
             // THE ANTI-PRUNING FIX: Forces the engine to run this node even with 0 outputs.
             this.properties.isWirelessTransmitter = true;
+            this.properties.skipGenericWirelessHeartbeat = true;
+            this.isPureVirtual = true;
+            this.properties.isPureVirtual = true;
 
             // THE OUTPUT FIX: Explicitly remove Fatha's auto-injected virtual output
             this.outputs = [];
@@ -141,16 +164,22 @@ app.registerExtension({
         nodeType.prototype.onConfigure = function(info) {
             if (onConfigure) onConfigure.apply(this, arguments);
 
+            this.properties.isWirelessTransmitter = true;
+            this.properties.skipGenericWirelessHeartbeat = true;
+            this.isPureVirtual = true;
+            this.properties.isPureVirtual = true;
+
             // THE PURE VIRTUAL ENFORCER: Purge physical slots immediately on load
             if (this.outputs && this.outputs.length > 0) {
                 this.outputs.forEach(o => { if (o.links) o.links = null; });
                 this.outputs = [];
             }
 
-            if (info.properties) {
-                this.refreshDerpTemplateSysMap();
-            }
+            this._layoutMapHash = null;
+            this.refreshNodeLayoutMap();
+            this.refreshDerpTemplateSysMap();
             if (this.syncDerpOutputs) this.syncDerpOutputs();
+            this.requestDerpSync();
         };
 
         const onDrawForeground = nodeType.prototype.onDrawForeground;
@@ -158,6 +187,21 @@ app.registerExtension({
             if (onDrawForeground) onDrawForeground.apply(this, arguments);
 
             if (this.flags?.collapsed) return;
+
+            const isBypassed = this.mode === 4 || this.mode === 2 || this._derpSpoofedBypass;
+            if (this._lastBypassState !== isBypassed) {
+                this._lastBypassState = isBypassed;
+                if (this.syncDerpOutputs) this.syncDerpOutputs();
+                this.refreshNodeLayoutMap();
+                this.refreshDerpTemplateSysMap();
+                this.requestDerpSync();
+            }
+
+            const currentW = Math.round(this.size[0]);
+            if (this._lastDerpW !== currentW) {
+                this._lastDerpW = currentW;
+                this.refreshNodeLayoutMap();
+            }
 
             // THE TITLE REFRESH FIX: Update wireless registry if the title label changed
             if (this._lastTitleLabel !== this.titleLabel) {

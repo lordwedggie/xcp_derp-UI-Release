@@ -7,6 +7,16 @@ import { app } from "../../../scripts/app.js";
 import { uncle, initDerpGlobalListener } from "./fatha/uncle.js";
 import { UI_TYPES } from "./fatha/core/masterLayoutTypes.js";
 
+function buildTemplateLayoutHash(node, vars) {
+    const width = (Number(node?.size?.[0]) || 0).toFixed(2);
+    const mW = Number(vars.mW || 0).toFixed(2);
+    const mH = Number(vars.mH || 0).toFixed(2);
+    const oY = Number(vars.oY || 0).toFixed(2);
+    const title = String(node?.titleLabel || "");
+    const outputName = String(node?.properties?.outputName || "TEXT_OUT");
+    return `${title}_${outputName}_${window._xcpDerpSession}_${width}_${mW}_${mH}_${oY}_${node?.properties?.drawHeader !== false}_${node?.mode || 0}`;
+}
+
 app.registerExtension({
     name: "xcp.derpTemplate_Extension",
     async setup() { initDerpGlobalListener(); },
@@ -20,6 +30,14 @@ app.registerExtension({
 
         nodeType.prototype.onThemeUpdate = function(config) {
             this.handleThemeUpdate(config);
+            this._layoutMapHash = null;
+            this.refreshNodeLayoutMap();
+            this.refreshDerpTemplateSysMap();
+        };
+
+        nodeType.prototype.applyPalette = function() {
+            if (window.xcpDerpThemeConfig) this.handleThemeUpdate(window.xcpDerpThemeConfig);
+            this._layoutMapHash = null;
             this.refreshNodeLayoutMap();
             this.refreshDerpTemplateSysMap();
         };
@@ -36,23 +54,37 @@ app.registerExtension({
             // THE PERSISTENCE FIX: Explicitly restore the titleLabel after page refresh
             if (this.properties.titleLabel) this.titleLabel = this.properties.titleLabel;
 
-            if (info.properties) {
-                this.refreshNodeLayoutMap();
-                this.refreshDerpTemplateSysMap();
+             this._layoutMapHash = null;
 
-                // THE SIGNAL TYPE FIX: Restore physical name and type during configuration
-                if (this.outputs && this.outputs[0]) {
-                    this.outputs[0].name = this.properties.outputName || "TEXT_OUT";
-                    this.outputs[0].type = "STRING";
-                }
-                this.requestDerpSync();
+            this.refreshNodeLayoutMap();
+            this.refreshDerpTemplateSysMap();
+
+            // THE SIGNAL TYPE FIX: Restore physical name and type during configuration
+            if (this.outputs && this.outputs[0]) {
+                this.outputs[0].name = this.properties.outputName || "TEXT_OUT";
+                this.outputs[0].type = "STRING";
             }
+            this.requestDerpSync();
         };
 
         const onDrawForeground = nodeType.prototype.onDrawForeground;
         nodeType.prototype.onDrawForeground = function(ctx) {
             if (onDrawForeground) onDrawForeground.apply(this, arguments);
             if (this.flags?.collapsed) return;
+
+            const currentW = Math.round(this.size?.[0] || 0);
+            if (this._lastDerpW !== currentW) {
+                this._lastDerpW = currentW;
+                this.refreshNodeLayoutMap();
+            }
+
+            if (this._lastMode !== this.mode) {
+                this._lastMode = this.mode;
+                this._layoutMapHash = null;
+                this.refreshNodeLayoutMap();
+                this.refreshDerpTemplateSysMap();
+                this.requestDerpSync();
+            }
 
             // THE TITLE REFRESH FIX: Update wireless registry if the title label changed (e.g. after rename)
             if (this._lastTitleLabel !== this.titleLabel) {
@@ -64,7 +96,16 @@ app.registerExtension({
 
         // --- 3. LAYOUT MAPS ---
         nodeType.prototype.refreshNodeLayoutMap = function() {
+            if (this.flags?.collapsed || this.size?.[0] <= 0) return;
             const { mW, mH, pW, pH, oY } = this.getDerpVars(this);
+            const structureHash = buildTemplateLayoutHash(this, { mW, mH, oY });
+
+            if (this._layoutMapHash === structureHash && this.layoutMap) {
+                this.requestDerpSync();
+                return;
+            }
+
+            this._layoutMapHash = structureHash;
             this.layoutMap = {
                 contentRegion: {
                     anchor: { target: "headerRegion", axis: "y", offset: oY },
@@ -79,7 +120,6 @@ app.registerExtension({
                     }
                 },
             };
-            this._layoutMapHash = undefined;
             if (this.layout) this.layout._lastCacheKey = "";
             this.requestDerpSync();
         };
@@ -97,7 +137,6 @@ app.registerExtension({
                     }
                 },
             };
-            this._layoutMapHash = undefined;
             if (this._derpPanel) this._derpPanel.setLayoutMap(this.sysLayoutMap);
         };
 
