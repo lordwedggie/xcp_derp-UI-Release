@@ -167,7 +167,10 @@ export function syncHorizontalDeckHeight(node, graph = app.graph || node?.graph 
     const members = getDeckMembers(node, graph);
     if (!Array.isArray(members) || members.length <= 1) return false;
 
-    const resolvedHeight = Math.max(getSharedDockHeight(members, targetHeight), Number(targetHeight) || 0);
+    const explicitTargetHeight = Number(targetHeight) || 0;
+    const resolvedHeight = explicitTargetHeight > 0
+        ? explicitTargetHeight
+        : getSharedDockHeight(members, targetHeight);
     if (resolvedHeight <= 0) return false;
 
     const topY = members.reduce((minY, member) => {

@@ -334,7 +334,9 @@ export function settleDerpSizeBeforeDraw(entity, options = {}) {
 }
 
 function settleCollapseSizeBeforeDraw(entity) {
-    settleDerpSizeBeforeDraw(entity);
+    settleDerpSizeBeforeDraw(entity, {
+        forceAutoHeight: entity?.properties?.contentCollapsed !== true && entity?.properties?.autoHeight !== false,
+    });
 }
 
 export function animateDerpSize(node, targetW, targetH, useAnim, options = {}) {
@@ -535,11 +537,10 @@ export function handleDerpCollapse(entity, force) {
         const sharedHeight = collapseTargets.reduce((maxHeight, target) => {
             const expandedHeight = nextState === false
                 ? Math.max(
-                    Number(target._preCollapseHeight || 0),
-                    Number(target.size?.[1] || 0),
-                    Number(target.properties?.nodeSize?.[1] || 0),
                     Number(target.layout?.contentMinHeight || 0),
-                    Number(target.layout?.totalHeight || 0)
+                    Number(target.layout?.totalHeight || 0),
+                    Number(target.size?.[1] || 0),
+                    Number(target.properties?.nodeSize?.[1] || 0)
                 )
                 : Math.max(
                     Number(target.size?.[1] || 0),

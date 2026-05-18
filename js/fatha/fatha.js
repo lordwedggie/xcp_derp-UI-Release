@@ -294,7 +294,6 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
         const liveTargetW = this._isDerpResizing && !autoWidth ? this.size[0] : targetW;
         const liveTargetH = this._isDerpResizing && !autoHeight ? this.size[1] : targetH;
         animateDerpSize(this, liveTargetW, liveTargetH, useAnim);
-        if (preserveHorizontalDeckHeight) syncHorizontalDeckHeight(this, liveTargetH);
 
         const bounds = { x: 0, y: 0, w: this.size[0], h: this.size[1] };
 
@@ -305,9 +304,24 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
             isVirtual: true
         }, needsLayoutCompute);
 
+        if (preserveHorizontalDeckHeight) {
+            const postLayoutSize = resolveDerpRuntimeSize(this, {
+                contentMinWidth: this.layout?.contentMinWidth || 0,
+                contentMinHeight: this.layout?.contentMinHeight || 0,
+                totalHeight: this.layout?.totalHeight || 0,
+            }, { SNAP, autoWidth, autoHeight });
+            const postLayoutHeight = postLayoutSize.height;
+            if (Number(postLayoutHeight) > 0 && this.size[1] !== postLayoutHeight) {
+                animateDerpSize(this, this.size[0], postLayoutHeight, useAnim);
+            }
+            if (Number(postLayoutHeight) > 0) syncHorizontalDeckHeight(this, postLayoutHeight);
+        }
+
         if (this.properties.nodeSize && !isMinState) {
             if (autoWidth) this.properties.nodeSize[0] = targetW;
-            if (autoHeight) this.properties.nodeSize[1] = targetH;
+            if (autoHeight) this.properties.nodeSize[1] = preserveHorizontalDeckHeight
+                ? (Number(this.size?.[1]) || targetH)
+                : targetH;
         }
 
         // THE FOOTER SYNC: Anchor footer to the final physical bottom of the node
