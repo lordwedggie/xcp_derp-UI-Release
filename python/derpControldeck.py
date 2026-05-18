@@ -65,6 +65,21 @@ class DerpSliderNode:
         # THE PURE VIRTUAL FIX: Return None to force wireless signal handling
         return (None,)
 
+# THE NEW FATHA CHILD: Pure virtual bool toggle shell
+class DerpToggleNode:
+    @classmethod
+    def INPUT_TYPES(s):
+        return {"required": {}}
+
+    RETURN_TYPES = ("BOOLEAN",)
+    RETURN_NAMES = ("value",)
+    FUNCTION = "do_nothing"
+    CATEGORY = "🔞 derpNodes/ControlDeck"
+
+    def do_nothing(self):
+        # THE PURE VIRTUAL FIX: Return None to force wireless signal handling
+        return (None,)
+
 class DerpPromptBookNode:
     @classmethod
     def INPUT_TYPES(s):
@@ -242,6 +257,7 @@ NODE_CLASS_MAPPINGS = {
     "DerpTemplateV2Node": DerpTemplateV2Node,
     "DerpLoraStackNode": DerpLoraStackNode,
     "DerpSliderNode": DerpSliderNode,
+    "DerpToggleNode": DerpToggleNode,
     "DerpPromptBookNode": DerpPromptBookNode,
     "DerpLatentNode": DerpLatentNode,
     "DerpModelLoaderNode": DerpModelLoaderNode,
@@ -256,6 +272,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "DerpTemplateV2Node": "Derp Template V2",
     "DerpLoraStackNode": "Derp Lora Stack",
     "DerpSliderNode": "Derp Slider",
+    "DerpToggleNode": "Derp Toggle",
     "DerpPromptBookNode": "Derp Prompt Book",
     "DerpLatentNode": "Derp Latent",
     "DerpModelLoaderNode": "Derp Model Loader",

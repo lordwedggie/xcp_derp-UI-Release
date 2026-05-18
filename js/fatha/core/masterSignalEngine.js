@@ -53,6 +53,11 @@ function refreshWirelessSignalConsumers() {
             return;
         }
 
+        if (n.properties?.derpRemoteBypass?.signalId && typeof n.applyRemoteBypassSignal === "function") {
+            n.applyRemoteBypassSignal();
+            return;
+        }
+
         if (!n?.properties?.multiSignalIds) return;
         if (n.refreshNodeLayoutMap) n.refreshNodeLayoutMap();
         if (n.requestDerpSync) n.requestDerpSync();

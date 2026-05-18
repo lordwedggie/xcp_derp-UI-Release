@@ -42,6 +42,10 @@ if "DerpImageDeckNode" in CONTROLDECK_NODES:
     NODE_CLASS_MAPPINGS["DerpImageDeckNode"] = CONTROLDECK_NODES["DerpImageDeckNode"]
     NODE_DISPLAY_NAME_MAPPINGS["DerpImageDeckNode"] = CONTROLDECK_DISPLAY.get("DerpImageDeckNode", "Derp Image Deck")
 
+if "DerpToggleNode" in CONTROLDECK_NODES:
+    NODE_CLASS_MAPPINGS["DerpToggleNode"] = CONTROLDECK_NODES["DerpToggleNode"]
+    NODE_DISPLAY_NAME_MAPPINGS["DerpToggleNode"] = CONTROLDECK_DISPLAY.get("DerpToggleNode", "Derp Toggle")
+
 # Point to your JS folder
 WEB_DIRECTORY = "./js"
 
