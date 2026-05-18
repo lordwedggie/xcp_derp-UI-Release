@@ -83,7 +83,7 @@ app.registerExtension({
                     width: "full", height: "auto",
                     dir: "col",
                     padding: [0, 0],
-                    margin: this.properties?.drawHeader === true ? [mW, mH] : [0, 0],
+                    margin: this.properties?.drawHeader === true ? [mW, mH] : [mW, 0, mW, 0],
                     ...Object.fromEntries(toggleItems.map((item, index) => {
                         const regionKey = `btnToggle_${index}`;
                         return [regionKey, {
