@@ -1,5 +1,6 @@
 import { spawnBasta, activeBastas } from "../basta.js";
 import { UI_TYPES } from "../core/masterLayoutTypes.js";
+import { showBastaFileHandler } from "./bastaFileHandler.js";
 
 export const getToggleBastaId = () => `basta_toggle_global_unique_id`;
 
@@ -56,15 +57,27 @@ export function showBastaToggle(host, targetRegion = null) {
         if (host.setDirtyCanvas) host.setDirtyCanvas(true, true);
     };
 
-    const addNewToggle = () => {
+    const addNewToggle = (value) => {
+        const nextValue = String(value || "").trim() || "Bypass Toggle";
         if (!Array.isArray(host.properties.toggleItems) || host.properties.toggleItems.length === 0) {
             host.properties.toggleItems = [{ label: host.properties?.signalName || "Bypass Toggle", value: host.properties?.toggleState !== false }];
         }
-        const nextIndex = host.properties.toggleItems.length + 1;
         host.properties.toggleItems.push({
-            label: `Bypass Toggle ${nextIndex}`,
+            label: nextValue,
             value: true
         });
+        host.properties.signalName = host.properties.toggleItems[0]?.label || "Bypass Toggle";
+        host.properties.toggleState = host.properties.toggleItems[0]?.value !== false;
+        if (host.refreshNodeLayoutMap) host.refreshNodeLayoutMap();
+        if (host.refreshDerpToggleSysMap) host.refreshDerpToggleSysMap();
+        if (host.syncDerpOutputs) host.syncDerpOutputs();
+        if (host.requestDerpSync) host.requestDerpSync();
+        if (host.setDirtyCanvas) host.setDirtyCanvas(true, true);
+    };
+
+    const removeToggle = () => {
+        if (!Array.isArray(host.properties.toggleItems) || host.properties.toggleItems.length <= 1) return;
+        host.properties.toggleItems.splice(toggleIndex, 1);
         host.properties.signalName = host.properties.toggleItems[0]?.label || "Bypass Toggle";
         host.properties.toggleState = host.properties.toggleItems[0]?.value !== false;
         if (host.refreshNodeLayoutMap) host.refreshNodeLayoutMap();
@@ -100,28 +113,56 @@ export function showBastaToggle(host, targetRegion = null) {
                 width: "full",
                 height: "auto",
                 margin: [mW, mH],
-                editorToggleLabel: {
-                    type: UI_TYPES.EDITOR,
-                    themeKey: "dialog, t_textnormal",
-                    text: initialLabel,
-                    value: initialLabel,
-                    spellCheck: true,
-                    width: "full",
-                    height: "auto",
-                    padding: [pW, pH],
-                    onBlur: (v) => {
-                        config._tempLabel = v;
-                        config.layoutMap.contentRegion.editorToggleLabel.text = v;
-                        config.layoutMap.contentRegion.editorToggleLabel.value = v;
-                        syncBasta();
-                    },
-                    onKeyDown: (e, v) => {
-                        if (e.key === "Enter") {
-                            e.preventDefault();
+                regionEditor: {
+                    dir: "row", width: "full", height: "auto", spacing: [sW, 0],
+                    editorToggleLabel: {
+                        type: UI_TYPES.EDITOR,
+                        themeKey: "dialog, t_textnormal",
+                        text: initialLabel,
+                        value: initialLabel,
+                        spellCheck: true,
+                        width: "full",
+                        height: "auto",
+                        padding: [pW, pH],
+                        onBlur: (v) => {
                             config._tempLabel = v;
-                            applyLabel(v);
-                            const b = activeBastas.get(id);
-                            if (b) b.close();
+                            config.layoutMap.contentRegion.regionEditor.editorToggleLabel.text = v;
+                            config.layoutMap.contentRegion.regionEditor.editorToggleLabel.value = v;
+                            syncBasta();
+                        },
+                        onKeyDown: (e, v) => {
+                            if (e.key === "Enter") {
+                                e.preventDefault();
+                                config._tempLabel = v;
+                                if (config._addAsNewToggle) addNewToggle(v);
+                                else applyLabel(v);
+                                const b = activeBastas.get(id);
+                                if (b) b.close();
+                            }
+                        }
+                    },
+                    btnRemove: {
+                        type: UI_TYPES.ICONBUTTON,
+                        themeKey: "button, t_textSystem",
+                        icon: "delete",
+                        width: "match",
+                        height: "auto",
+                        margin: [0, 0],
+                        state: toggleItems.length <= 1 ? "DIS" : "OFF",
+                        onPress: () => {
+                            if (toggleItems.length <= 1) return;
+                            showBastaFileHandler(host, "none", "btnRemove", {
+                                title: "Remove Toggle",
+                                message: `Remove toggle ${initialLabel}?`,
+                                confirm: "Remove",
+                                mode: "delete",
+                                playSound: "delete",
+                                onConfirm: () => {
+                                    removeToggle();
+                                    const b = activeBastas.get(id);
+                                    if (b) b.close();
+                                }
+                            });
                         }
                     }
                 }
@@ -175,8 +216,8 @@ export function showBastaToggle(host, targetRegion = null) {
                     labelAlign: ["center", "middle"],
                     width: "fit",
                     onPress: () => {
-                        applyLabel(config._tempLabel);
-                        if (config._addAsNewToggle) addNewToggle();
+                        if (config._addAsNewToggle) addNewToggle(config._tempLabel);
+                        else applyLabel(config._tempLabel);
                         const b = activeBastas.get(id);
                         if (b) b.close();
                     }

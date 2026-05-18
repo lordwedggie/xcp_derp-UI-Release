@@ -169,6 +169,15 @@ app.registerExtension({
 
         nodeType.prototype.syncDerpOutputs = function() {
             const toggleItems = ensureToggleItems(this);
+            const activeSignalIds = new Set(toggleItems.map((_, index) => `${this.id}:${index}`));
+
+            if (window.xcpDerpSignals) {
+                Object.keys(window.xcpDerpSignals).forEach((key) => {
+                    if (!key.startsWith(`${this.id}:`)) return;
+                    if (!activeSignalIds.has(key)) delete window.xcpDerpSignals[key];
+                });
+            }
+
             if (this.outputs && this.outputs.length > 0) {
                 this.outputs.forEach((o) => { if (o.links) o.links = null; });
                 this.outputs = [];

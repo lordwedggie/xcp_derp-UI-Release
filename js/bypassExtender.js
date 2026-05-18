@@ -69,6 +69,16 @@ function applyRemoteBypass(node) {
     const sig = getSignalById(state.signalId);
 
     if (!sig || !isBoolSignal(sig)) {
+        if (state.missing !== true) {
+            setRemoteBypassState(node, { ...state, missing: true });
+            markNodeDirty(node);
+            return;
+        }
+
+        const sourceBaseId = String(state.signalId).split(":")[0];
+        const sourceNodeExists = !!app?.graph?.getNodeById?.(parseInt(sourceBaseId, 10));
+        if (sourceNodeExists) return;
+
         const didModeChange = node.mode !== 0;
         if (didModeChange) node.mode = 0;
         setRemoteBypassState(node, null);
