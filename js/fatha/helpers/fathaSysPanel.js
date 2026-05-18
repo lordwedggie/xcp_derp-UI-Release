@@ -19,7 +19,6 @@ import { ensureScreenRectVisible, isWarping } from "../core/fathaWarp.js";
 
 const PANEL_SLIDE_SPEED = 0.5;
 const PANEL_FADE_SPEED = 0.3;
-const SYS_PANEL_CLOSE_ON_OUTSIDE_CLICK = false;
 
 function logLoraStackProfileAnchor(node, label, payload) {
     if (!node || String(node.type || "").toLowerCase().includes("derplorastack") !== true) return;
@@ -680,7 +679,7 @@ export async function toggleDerpSysPanel(hostNode) {
         window.removeEventListener("pointerdown", sysPanel._outsidePointerHandler, true);
     }
     sysPanel._outsidePointerHandler = (e) => {
-        if (!SYS_PANEL_CLOSE_ON_OUTSIDE_CLICK) return;
+        if (window.DERP_GLOBAL_SETTINGS?.closeSysPanelOnOutsideClick === false) return;
         if (!sysPanel.isVisible || !sysPanel.layout?.regions?.panelBackground) return;
         if (window.__xcpHasActiveDropdown || window.__xcpHasActiveFileBrowser) return;
         if (sysPanel.interactionShield?.contains(e.target)) return;

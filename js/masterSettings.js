@@ -203,6 +203,20 @@ app.registerExtension({
         });
 
         app.ui.settings.addSetting({
+            id: "Derp.CloseSysPanelOnOutsideClick",
+            name: "Derp Nodes: Close System Panel On Outside Click",
+            category: DERP_GROUPS.general("Close System Panel On Outside Click"),
+            sortOrder: DERP_GROUP_SORT_ORDER.general,
+            type: "boolean",
+            default: true,
+            onChange: (v) => {
+                window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
+                window.DERP_GLOBAL_SETTINGS.closeSysPanelOnOutsideClick = normalizeBooleanSetting(v, true);
+                if (app.canvas) app.canvas.setDirty(true, true);
+            }
+        });
+
+        app.ui.settings.addSetting({
             id: "Derp.VerticalDockHeaderCollapse",
             name: "Header Collapse: Clicking on node header to toggle collapsing state of the node.",
             category: DERP_GROUPS.docking("Header Collapse Toggle"),
@@ -288,6 +302,7 @@ app.registerExtension({
         window.DERP_GLOBAL_SETTINGS = {
             playSound: app.ui.settings.getSettingValue("Derp.PlaySound", true),
             useAnimation: app.ui.settings.getSettingValue("Derp.UseAnimation", true),
+            closeSysPanelOnOutsideClick: normalizeBooleanSetting(app.ui.settings.getSettingValue("Derp.CloseSysPanelOnOutsideClick", true), true),
             verticalDockHeaderCollapse: normalizeBooleanSetting(app.ui.settings.getSettingValue("Derp.VerticalDockHeaderCollapse", true), true),
             syncedCollapse: normalizeBooleanSetting(app.ui.settings.getSettingValue("Derp.SyncedCollapse", true), true),
             perfOverlayHotkey: normalizeHotkeyString(app.ui.settings.getSettingValue("Derp.PerfOverlayHotkey", "Alt+Shift+P"), "Alt+Shift+P"),
