@@ -337,6 +337,7 @@ app.registerExtension({
         nodeType.prototype.onNodeCreated = function() {
             if (onCreated) onCreated.apply(this, arguments);
 
+            this._ignoreHeaderWidthFloor = true;
             this.properties.isWirelessTransmitter = true;
             this.properties.skipGenericWirelessHeartbeat = true;
             this.isPureVirtual = true;
@@ -351,8 +352,8 @@ app.registerExtension({
             this.properties.toggleItems = [{ label: "Bypass Toggle", value: true, signalIndex: 0 }];
             this.properties.autoWidth = false;
             this.properties.autoHeight = true;
-            this.properties.nodeSize = [50, 50];
-            this.size = [50, 50];
+            this.properties.nodeSize = [150, 50];
+            this.size = [150, 50];
 
             this.refreshNodeLayoutMap();
             this.refreshDerpToggleSysMap();
@@ -368,6 +369,7 @@ app.registerExtension({
         nodeType.prototype.onConfigure = function(info) {
             if (onConfigure) onConfigure.apply(this, arguments);
 
+            this._ignoreHeaderWidthFloor = true;
             this.properties.isWirelessTransmitter = true;
             this.properties.skipGenericWirelessHeartbeat = true;
             this.isPureVirtual = true;

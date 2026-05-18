@@ -27,6 +27,15 @@ export const t = (key) => {
 const MIN_WIDGET_WIDTH = 10; // Systemic minimum floor to prevent negative width rendering
 const SQUISH_WIDTH = 10;     // Arbitrary tiny width used during the rigid floor measurement pass
 
+function isHeaderRegionDescendant(region, regionMap) {
+    let current = region;
+    while (current) {
+        if (current.key === "headerRegion") return true;
+        current = current.parentKey ? regionMap[current.parentKey] : null;
+    }
+    return false;
+}
+
 function toBox4(v) {
     if (!Array.isArray(v)) return [0, 0, 0, 0];
     if (v.length === 4) {
@@ -432,8 +441,12 @@ export class masterLayoutEngine {
         const allRegions = Object.values(this.regions).filter(r => r.key !== "panelBackground" && !r.ignoreLayout);
         this._layoutCache_all = allRegions;
         const propMinW = this.owner?.properties?.minWidth || 0;
-        if (allRegions.length > 0) {
-            const contentRequired = Math.max(...allRegions.map(r => r.x + r.w + (r.margin?.length === 4 ? r.margin[2] : (r.margin?.[0] || 0)))) - bounds.x;
+        const shouldIgnoreHeaderWidthFloor = this.owner?._ignoreHeaderWidthFloor === true || this.owner?.properties?.drawHeader === false;
+        const widthRegions = shouldIgnoreHeaderWidthFloor
+            ? allRegions.filter((region) => !isHeaderRegionDescendant(region, this.regions))
+            : allRegions;
+        if (widthRegions.length > 0) {
+            const contentRequired = Math.max(...widthRegions.map(r => r.x + r.w + (r.margin?.length === 4 ? r.margin[2] : (r.margin?.[0] || 0)))) - bounds.x;
             this.contentMinWidth = Math.max(propMinW, contentRequired);
         } else {
             this.contentMinWidth = propMinW;
