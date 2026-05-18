@@ -7,6 +7,7 @@ import { playMicrowaveDing, playKeyStroke } from "../../herbina/masterSoundEffec
 import { animateAlpha } from "../../herbina/masterAnimator.js";
 // THE BASTA TEST: Import the message handler for visual redundancy warnings
 import { showBastaMessage } from "../../fatha/bastas/bastaMessage.js";
+import { refreshWirelessSignalConsumers } from "../../fatha/core/masterSignalEngine.js";
 
 export const SEED_FADE_SPEED = 0.6;
 export const SEED_FADE_DELAY_FRAMES = 5;
@@ -502,6 +503,10 @@ export async function handleExecutePress(node, skipSeedUpdate = false) {
                 if (n.updateReceivedSignals) n.updateReceivedSignals();
             });
 
+            // THE EXECUTION SYNC FIX: Apply the shared wireless-consumer refresh immediately before
+            // serialization so remote bypass targets settle to the latest toggle-driven state.
+            refreshWirelessSignalConsumers();
+
             const p = await app.graphToPrompt();
 
             // THE SURGICAL TIMESTAMP FIX: We keep signal_data to detect real wireless value changes,
@@ -532,15 +537,35 @@ export async function handleExecutePress(node, skipSeedUpdate = false) {
                 return acc;
             }, {});
 
-            // THE VIRTUAL STATE INJECTION: Since pure virtual nodes like derpLoraStack are omitted from
-            // the standard ComfyUI prompt, we must manually append their state to the hash to detect wireless changes.
-            const vNodes = (app.graph?._nodes || []).filter(n => n.type?.toLowerCase().includes("derplorastack"));
-            const vState = vNodes.map(n => ({
-                id: n.id,
-                stack: n.properties?.stackData,
-                mode: n.properties?.attentionMode,
-                nodeBypassed: n.mode === 2 || n.mode === 4 || n.properties?.isBypassed || (n.widgets && n.widgets[0]?.value === "bypass")
-            }));
+            // THE VIRTUAL STATE INJECTION: Since some pure virtual wireless nodes are omitted from
+            // the standard ComfyUI prompt, we must manually append their state to the hash.
+            const vNodes = app.graph?._nodes || [];
+            const vState = vNodes.flatMap(n => {
+                const typeName = String(n.type || "").toLowerCase();
+
+                if (typeName.includes("derplorastack")) {
+                    return [{
+                        kind: "derpLoraStack",
+                        id: n.id,
+                        stack: n.properties?.stackData,
+                        mode: n.properties?.attentionMode,
+                        nodeBypassed: n.mode === 2 || n.mode === 4 || n.properties?.isBypassed || (n.widgets && n.widgets[0]?.value === "bypass")
+                    }];
+                }
+
+                if (typeName.includes("derptoggle") || typeName.includes("togglenode")) {
+                    return [{
+                        kind: "derpToggle",
+                        id: n.id,
+                        title: n.titleLabel || n.title || "Derp Toggle",
+                        signalName: n.properties?.signalName || "Bypass Toggle",
+                        toggleState: n.properties?.toggleState !== false,
+                        nodeBypassed: n.mode === 2 || n.mode === 4 || !!n._derpSpoofedBypass
+                    }];
+                }
+
+                return [];
+            });
 
             const promptString = JSON.stringify(sortedOutput) + JSON.stringify(vState);
 

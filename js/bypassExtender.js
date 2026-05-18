@@ -32,6 +32,17 @@ function getBoolSignals() {
         .sort((a, b) => String(a.nodeName || "").localeCompare(String(b.nodeName || ""), undefined, { numeric: true, sensitivity: "base" }));
 }
 
+function formatBypassSignalLabel(sig) {
+    const rawName = String(sig?.nodeName || sig?.nodeId || "");
+    const match = rawName.match(/^(.*)\s\[([^\]]+)\]$/);
+    if (!match) return rawName;
+
+    const nodeName = match[1].trim();
+    const signalName = match[2].trim();
+    if (!signalName || signalName === "BOOL_OUT") return nodeName;
+    return `${nodeName}: ${signalName}`;
+}
+
 function getRemoteBypassState(node) {
     return node?.properties?.[REMOTE_BYPASS_META] || null;
 }
@@ -58,16 +69,16 @@ function applyRemoteBypass(node) {
     const sig = getSignalById(state.signalId);
 
     if (!sig || !isBoolSignal(sig)) {
-        if (state.missing !== true) {
-            setRemoteBypassState(node, { ...state, missing: true });
-            markNodeDirty(node);
-        }
+        const didModeChange = node.mode !== 0;
+        if (didModeChange) node.mode = 0;
+        setRemoteBypassState(node, null);
+        markNodeDirty(node);
         return;
     }
 
     const desiredMode = sig.value === true ? 0 : 4;
     const missing = false;
-    const nextLabel = sig.nodeName || state.signalLabel || state.signalId;
+    const nextLabel = formatBypassSignalLabel(sig) || state.signalLabel || state.signalId;
     const nextState = {
         signalId: String(sig.nodeId),
         signalLabel: nextLabel,
@@ -89,16 +100,14 @@ function applyRemoteBypass(node) {
 function buildSignalOptions(node) {
     const current = getRemoteBypassState(node);
     const boolSignals = getBoolSignals();
-    const byId = new Map();
     const options = [];
 
     boolSignals.forEach((sig) => {
-        const label = `${sig.nodeName || sig.nodeId}`;
-        byId.set(label, String(sig.nodeId));
+        const label = formatBypassSignalLabel(sig) || `${sig.nodeName || sig.nodeId}`;
         options.push({ content: label, callback: () => {
             setRemoteBypassState(node, {
                 signalId: String(sig.nodeId),
-                signalLabel: sig.nodeName || sig.nodeId,
+                signalLabel: label,
                 missing: false,
             });
             applyRemoteBypass(node);
@@ -121,6 +130,17 @@ function buildSignalOptions(node) {
 
 app.registerExtension({
     name: "xcp.RemoteBypassExtender",
+    async setup() {
+        if (!app?.graph) return;
+
+        const originalOnNodeAdded = app.graph.onNodeAdded;
+        app.graph.onNodeAdded = function(node) {
+            if (originalOnNodeAdded) originalOnNodeAdded.apply(this, arguments);
+            if (node?.properties?.[REMOTE_BYPASS_META]?.signalId && typeof node.applyRemoteBypassSignal === "function") {
+                node.applyRemoteBypassSignal();
+            }
+        };
+    },
     async beforeRegisterNodeDef(nodeType) {
         const getExtraMenuOptions = nodeType.prototype.getExtraMenuOptions;
         nodeType.prototype.getExtraMenuOptions = function(canvas, options) {
@@ -154,7 +174,6 @@ app.registerExtension({
             if (onDrawForeground) onDrawForeground.apply(this, arguments);
             const state = getRemoteBypassState(this);
             if (!state?.signalId) return;
-            applyRemoteBypass(this);
 
             const tag = state.missing ? "RB?" : "RB";
             ctx.save();
@@ -168,6 +187,22 @@ app.registerExtension({
 
         nodeType.prototype.applyRemoteBypassSignal = function() {
             applyRemoteBypass(this);
+        };
+
+        const onConfigure = nodeType.prototype.onConfigure;
+        nodeType.prototype.onConfigure = function(info) {
+            if (onConfigure) onConfigure.apply(this, arguments);
+            if (getRemoteBypassState(this)?.signalId) {
+                applyRemoteBypass(this);
+            }
+        };
+
+        const onAdded = nodeType.prototype.onAdded;
+        nodeType.prototype.onAdded = function() {
+            if (onAdded) onAdded.apply(this, arguments);
+            if (getRemoteBypassState(this)?.signalId) {
+                applyRemoteBypass(this);
+            }
         };
 
         const onRemoved = nodeType.prototype.onRemoved;

@@ -41,7 +41,7 @@ if (!window.xcpDerpBrightenHex) {
     };
 }
 
-function refreshWirelessSignalConsumers() {
+export function refreshWirelessSignalConsumers() {
     if (!window.app || !window.app.graph) return;
     window.app.graph._nodes.forEach((n) => {
         if (n.type === "xcpDerpSignalOut" && n.updateReceivedSignals) {
