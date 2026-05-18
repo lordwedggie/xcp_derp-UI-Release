@@ -13,7 +13,7 @@ import { isNodeDocked, undockNodeEdges, isLinearDeckGroup, getDeckMembers } from
 import { clearBypassSignalDebouncers, transmitBypassedDerpSignals } from "../core/masterSignalEngine.js";
 import { ensureNodeVisibleInViewport } from "../core/fathaWarp.js";
 import { warpToPoint } from "../core/fathaWarp.js";
-import { handleDerpCollapse } from "../core/fathaHandler.js";
+import { handleDerpCollapse, handleHorizontalDeckTitleToggle } from "../core/fathaHandler.js";
 import { findHeaderPaletteEntry } from "./headerPaletteIdentity.js";
 
 const DEBUG_OPTIONS = ["None", "Layout", "Hitbox", "Widgets Hitbox"];
@@ -640,7 +640,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                 onPress: () => {
                     if (isVerticalDocked) return;
                     hostNode.properties.drawHeader = (hostNode.properties.drawHeader !== false) ? false : true;
-                    hostNode.requestDerpSync();
+                    handleHorizontalDeckTitleToggle(hostNode);
                 }
             },
             toggleUseAnimation: {

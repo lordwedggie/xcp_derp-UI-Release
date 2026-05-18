@@ -414,6 +414,37 @@ export function resolveDerpRuntimeSize(node, measured, vars = {}) {
     return resolveRuntimeDockSize(node, axis, measured, vars);
 }
 
+export function resolveHorizontalDeckSharedHeight(node) {
+    const graph = app.graph || node?.graph || null;
+    if (!graph || !node) return 0;
+
+    const members = getDeckMembers(node, graph);
+    if (!Array.isArray(members) || members.length === 0) return 0;
+
+    return members.reduce((maxHeight, member) => {
+        const memberVars = typeof member?.getDerpVars === "function"
+            ? member.getDerpVars(member)
+            : getDerpVars(member);
+        const measured = {
+            contentMinWidth: member?.layout?.contentMinWidth || 0,
+            contentMinHeight: member?.layout?.contentMinHeight || 0,
+            totalHeight: member?.layout?.totalHeight || 0,
+        };
+        const resolved = resolveRuntimeDockSize(member, "horizontal", measured, {
+            ...memberVars,
+            // Horizontal deck groups own member height collectively. When a node is docked,
+            // autoHeight may be intentionally locked off to prevent manual resize conflicts,
+            // but shared-height recompute still needs the member's real content demand.
+            autoHeight: true,
+        });
+        const memberHeight = Number(resolved?.height)
+            || Number(member?.size?.[1])
+            || Number(member?.properties?.nodeSize?.[1])
+            || 0;
+        return Math.max(maxHeight, memberHeight);
+    }, 0);
+}
+
 export function syncHorizontalDeckHeight(node, targetHeight = 0) {
     const graph = app.graph || node?.graph || null;
     return syncHorizontalDeckHeightForGraph(node, graph, targetHeight);
@@ -534,27 +565,58 @@ export function handleDerpCollapse(entity, force) {
     orderedCollapseTargets.forEach(applyCollapseState);
 
     if (syncedCollapseEnabled && isHorizontalDeckGroup) {
-        const sharedHeight = collapseTargets.reduce((maxHeight, target) => {
-            const expandedHeight = nextState === false
-                ? Math.max(
-                    Number(target.layout?.contentMinHeight || 0),
-                    Number(target.layout?.totalHeight || 0),
-                    Number(target.size?.[1] || 0),
-                    Number(target.properties?.nodeSize?.[1] || 0)
-                )
-                : Math.max(
-                    Number(target.size?.[1] || 0),
-                    Number(target.properties?.nodeSize?.[1] || 0),
-                    Number(target.layout?.contentMinHeight || 0),
-                    Number(target.layout?.totalHeight || 0)
-                );
-            return Math.max(maxHeight, expandedHeight);
-        }, 0);
+        const sharedHeight = resolveHorizontalDeckSharedHeight(entity);
 
         if (sharedHeight > 0) {
             syncHorizontalDeckHeight(entity, sharedHeight);
         }
     }
+
+    if (app.graph && app.graph.change) app.graph.change();
+}
+
+export function handleHorizontalDeckTitleToggle(entity) {
+    const graph = app.graph || entity?.graph || null;
+    if (!graph || !entity || !isLinearDeckGroup(entity, graph, "horizontal")) {
+        if (entity?.requestDerpSync) entity.requestDerpSync();
+        else if (entity) handleDerpRequestSync(entity);
+        return;
+    }
+
+    const members = getDeckMembers(entity, graph);
+    if (!Array.isArray(members) || members.length <= 1) {
+        if (entity?.requestDerpSync) entity.requestDerpSync();
+        else if (entity) handleDerpRequestSync(entity);
+        return;
+    }
+
+    const orderedMembers = [...members].sort((a, b) => {
+        const ax = Number(a?.pos?.[0]) || 0;
+        const bx = Number(b?.pos?.[0]) || 0;
+        if (ax !== bx) return bx - ax;
+        return (Number(b?.id) || 0) - (Number(a?.id) || 0);
+    });
+
+    orderedMembers.forEach((member) => {
+        if (!member?.properties) member.properties = {};
+        if (member.layout) member.layout._lastCacheKey = "";
+        member._layoutMapHash = null;
+        settleDerpSizeBeforeDraw(member, {
+            forceAutoHeight: member.properties?.autoHeight !== false,
+            suppressRequestSync: true,
+        });
+        if (member.syncUncleSlots) member.syncUncleSlots();
+    });
+
+    const sharedHeight = resolveHorizontalDeckSharedHeight(entity);
+    if (sharedHeight > 0) {
+        syncHorizontalDeckHeight(entity, sharedHeight);
+    }
+
+    orderedMembers.forEach((member) => {
+        if (member.requestDerpSync) member.requestDerpSync();
+        else handleDerpRequestSync(member);
+    });
 
     if (app.graph && app.graph.change) app.graph.change();
 }

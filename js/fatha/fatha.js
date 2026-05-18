@@ -6,7 +6,7 @@
 import { app } from "../../../scripts/app.js";
 import { createDerpShield, syncDerpShield, removeDerpShield } from "./core/fathaDOMshield.js";
 import { masterLayoutEngine } from "./core/masterLayoutEngine.js";
-import { handleShieldInteraction, handleDrawCTX, handleThemeUpdate, handleInitDerpGlobalListener, getDerpVars, handleDerpRequestSync, handleDerpComputeSize, handleDerpCollapse, animateDerpSize, drawDeckPreviewGlobal, shouldPreserveHorizontalDeckHeight, syncHorizontalDeckHeight, resolveDerpRuntimeSize } from "./core/fathaHandler.js";
+import { handleShieldInteraction, handleDrawCTX, handleThemeUpdate, handleInitDerpGlobalListener, getDerpVars, handleDerpRequestSync, handleDerpComputeSize, handleDerpCollapse, animateDerpSize, drawDeckPreviewGlobal, shouldPreserveHorizontalDeckHeight, syncHorizontalDeckHeight, resolveDerpRuntimeSize, resolveHorizontalDeckSharedHeight } from "./core/fathaHandler.js";
 export { getDerpVars };
 import { drawDerpSysPanelGlobal, isHostActive, closeDerpSysPanel, sysPanel } from "./helpers/fathaSysPanel.js";
 import { drawBastaLayer } from "./basta.js";
@@ -305,12 +305,7 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
         }, needsLayoutCompute);
 
         if (preserveHorizontalDeckHeight) {
-            const postLayoutSize = resolveDerpRuntimeSize(this, {
-                contentMinWidth: this.layout?.contentMinWidth || 0,
-                contentMinHeight: this.layout?.contentMinHeight || 0,
-                totalHeight: this.layout?.totalHeight || 0,
-            }, { SNAP, autoWidth, autoHeight });
-            const postLayoutHeight = postLayoutSize.height;
+            const postLayoutHeight = resolveHorizontalDeckSharedHeight(this);
             if (Number(postLayoutHeight) > 0 && this.size[1] !== postLayoutHeight) {
                 animateDerpSize(this, this.size[0], postLayoutHeight, useAnim);
             }
