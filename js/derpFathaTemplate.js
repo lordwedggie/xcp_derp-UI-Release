@@ -68,8 +68,8 @@ app.registerExtension({
             const { mW, mH, sW, sH, oX, oY, pW, pH } = this.getDerpVars(this);
             this.sysLayoutMap = {
                 sysContentRegion: {
-                    dir: "col", margin: [mW, 0, mW, mH],
-                    anchor: { target: "sysDefaultControlsRegion", axis: "y", offset: oY },
+                    dir: "col", margin: [mW, sH, mW, mH],
+                    anchor: { target: "sysDefaultControlsRegion", axis: "y"},
                     width: "full", height: "auto",
                     lblTitle: {
                         type: this.UI_TYPES.TEXT, mouseOver: false,
