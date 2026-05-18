@@ -7,6 +7,7 @@ import { app } from "../../../scripts/app.js";
 import { fatha, initDerpGlobalListener } from "../fatha/fatha.js";
 import { refreshWirelessSignalConsumers, transmitDerpSignal } from "../fatha/core/masterSignalEngine.js";
 import { showBastaToggle } from "../fatha/bastas/bastaToggle.js";
+import { startStackDrag, updateStackDrag, endStackDrag } from "../fatha/helpers/fathaDragDrop.js";
 
 function ensureToggleItems(node) {
     if (!node.properties) node.properties = {};
@@ -16,24 +17,41 @@ function ensureToggleItems(node) {
         const fallbackState = node.properties.toggleState !== false;
         node.properties.toggleItems = [{
             label: fallbackLabel,
-            value: fallbackState
+            value: fallbackState,
+            signalIndex: 0,
         }];
     }
 
-    node.properties.signalName = node.properties.toggleItems[0]?.label || "Bypass Toggle";
-    node.properties.toggleState = node.properties.toggleItems[0]?.value !== false;
+    let nextSignalIndex = 0;
+    node.properties.toggleItems = node.properties.toggleItems.map((item) => {
+        const existingIndex = Number(item?.signalIndex);
+        if (Number.isInteger(existingIndex) && existingIndex >= 0) {
+            nextSignalIndex = Math.max(nextSignalIndex, existingIndex + 1);
+            return item;
+        }
+        const nextItem = { ...item, signalIndex: nextSignalIndex };
+        nextSignalIndex += 1;
+        return nextItem;
+    });
+
+    const firstSignalItem = [...node.properties.toggleItems]
+        .sort((a, b) => (Number(a?.signalIndex) || 0) - (Number(b?.signalIndex) || 0))[0];
+    node.properties.signalName = firstSignalItem?.label || "Bypass Toggle";
+    node.properties.toggleState = firstSignalItem?.value !== false;
     return node.properties.toggleItems;
 }
 
 function buildToggleLayoutHash(node, vars, toggleItems) {
     const deckHash = toggleItems
-        .map((item, index) => `${index}:${item?.label || ""}:${item?.value !== false}`)
+        .map((item, index) => `${index}:${item?.signalIndex}:${item?.label || ""}:${item?.value !== false}`)
         .join("|");
     const width = (Number(node?.size?.[0]) || 0).toFixed(2);
     const mW = Number(vars.mW || 0).toFixed(2);
     const mH = Number(vars.mH || 0).toFixed(2);
     const oY = Number(vars.oY || 0).toFixed(2);
-    return `${deckHash}_${window._xcpDerpSession}_${node.titleLabel || ""}_${width}_${mW}_${mH}_${oY}_${node.properties?.drawHeader !== false}`;
+    const dragIndex = node?._dragTrig?.index;
+    const dragMouse = Array.isArray(node?._dragMouse) ? node._dragMouse.join(",") : "";
+    return `${deckHash}_${window._xcpDerpSession}_${node.titleLabel || ""}_${width}_${mW}_${mH}_${oY}_${node.properties?.drawHeader !== false}_${node._dropPreviewIdx}_${dragIndex}_${node._dragThresholdMet}_${dragMouse}`;
 }
 
 app.registerExtension({
@@ -45,7 +63,7 @@ app.registerExtension({
     async beforeRegisterNodeDef(nodeType, nodeData) {
         if (!nodeData.name.toLowerCase().includes("togglenode")) return;
 
-        fatha(nodeType, nodeData, 120);
+        fatha(nodeType, nodeData, 50);
 
         if (!nodeType.prototype.transmitDerpSignal) {
             nodeType.prototype.transmitDerpSignal = transmitDerpSignal;
@@ -77,6 +95,118 @@ app.registerExtension({
             }
 
             this._layoutMapHash = structureHash;
+            const deckRegions = {};
+            const deckItems = toggleItems.map((item, idx) => ({ item, idx }));
+            let floatingItem = null;
+
+            if (this._dragTrig && this._dragThresholdMet && this._dragTrig.index !== undefined) {
+                const d = this._dragTrig;
+                const pIdx = (this._dropPreviewIdx !== undefined) ? this._dropPreviewIdx : d.index;
+                [floatingItem] = deckItems.splice(d.index, 1);
+                const ghost = { ...floatingItem, isPreviewGhost: true };
+                deckItems.splice(pIdx, 0, ghost);
+            }
+
+            deckItems.forEach((entry, displayIdx) => {
+                const { item, idx } = entry;
+                const rowKey = `toggleRow_${idx}`;
+                const isPickedUp = !!(this._dragTrig && this._dragThresholdMet && this._dragTrig.index === idx && !entry.isPreviewGhost);
+                const rowMarginBottom = displayIdx < (deckItems.length - 1) ? sH : 0;
+
+                deckRegions[rowKey] = {
+                    type: this.UI_TYPES.REGION,
+                    dir: "row", width: "full", height: "auto",
+                    spacing: [0, sH],
+                    margin: [0, 0, 0, rowMarginBottom],
+                    state: entry.isPreviewGhost ? "DIS" : ((isPickedUp || item.value !== false) ? "ON" : "OFF"),
+                    alpha: entry.isPreviewGhost ? 0 : 1.0,
+                    onDragStart: (e, data) => startStackDrag(this, data, idx, rowKey),
+                    onDrag: (e, data) => { updateStackDrag(this, data, "toggleRow_", toggleItems.length); this.refreshNodeLayoutMap(); },
+                    onDragEnd: () => endStackDrag(this, "toggleItems"),
+                    onPress: () => {
+                        endStackDrag(this, "toggleItems");
+                        const items = ensureToggleItems(this);
+                        items[idx].value = !(items[idx].value !== false);
+                        const firstSignalItem = [...items]
+                            .sort((a, b) => (Number(a?.signalIndex) || 0) - (Number(b?.signalIndex) || 0))[0];
+                        this.properties.signalName = firstSignalItem?.label || "Bypass Toggle";
+                        this.properties.toggleState = firstSignalItem?.value !== false;
+                        if (this.syncDerpOutputs) this.syncDerpOutputs();
+                        this.refreshNodeLayoutMap();
+                    },
+                    regionOffset: [0, 0],
+                    [`btnToggle_${idx}`]: {
+                        type: this.UI_TYPES.BUTTON,
+                        themeKey: "button, t_textNormal", mouseOver: false,
+                        text: item.label || `Toggle ${idx + 1}`,
+                        state: item.value !== false ? "ON" : "OFF",
+                        alpha: entry.isPreviewGhost ? 0 : 1.0,
+                        width: "full",
+                        height: "auto",
+                        padding: [pW, pH],
+                        spacing: [0, sH],
+                        labelAlign: ["center", "middle"],
+                        noShrink: false,
+                        onDragStart: (e, data) => startStackDrag(this, data, idx, rowKey),
+                        onDrag: (e, data) => { updateStackDrag(this, data, "toggleRow_", toggleItems.length); this.refreshNodeLayoutMap(); },
+                        onDragEnd: () => endStackDrag(this, "toggleItems"),
+                        onPress: () => {
+                            endStackDrag(this, "toggleItems");
+                            const items = ensureToggleItems(this);
+                            items[idx].value = !(items[idx].value !== false);
+                            const firstSignalItem = [...items]
+                                .sort((a, b) => (Number(a?.signalIndex) || 0) - (Number(b?.signalIndex) || 0))[0];
+                            this.properties.signalName = firstSignalItem?.label || "Bypass Toggle";
+                            this.properties.toggleState = firstSignalItem?.value !== false;
+                            if (this.syncDerpOutputs) this.syncDerpOutputs();
+                            this.refreshNodeLayoutMap();
+                        },
+                        onContextMenu: () => {
+                            showBastaToggle(this, `btnToggle_${idx}`);
+                            return false;
+                        }
+                    }
+                };
+            });
+
+            if (floatingItem && this._dragThresholdMet && this._dragMouse && this._dragOffset) {
+                const { item, idx } = floatingItem;
+                const dragX = this._dragMouse[0] - this._dragOffset[0];
+                const dragY = this._dragMouse[1] - this._dragOffset[1];
+                const sourceRow = this.layout?.regions?.[`toggleRow_${idx}`];
+                const floatingRowWidth = sourceRow?.w || (this.size[0] - (mW * 2));
+                const floatingRowHeight = sourceRow?.h || "auto";
+
+                deckRegions.floatingToggleRow = {
+                    type: this.UI_TYPES.REGION,
+                    themeKey: "region",
+                    dir: "row",
+                    width: floatingRowWidth,
+                    height: floatingRowHeight,
+                    ignoreLayout: true,
+                    x: dragX,
+                    y: dragY,
+                    zIndex: 100,
+                    state: item.value !== false ? "ON" : "OFF",
+                    spacing: [0, sH],
+                    ignoreNodeBoundsClamp: true,
+                    corners: sourceRow?.corners,
+                    regionOffset: [0, 0],
+                    floatingToggle: {
+                        type: this.UI_TYPES.BUTTON,
+                        themeKey: "button, t_textNormal",
+                        text: item.label || `Toggle ${idx + 1}`,
+                        state: item.value !== false ? "ON" : "OFF",
+                        width: "full",
+                        height: "auto",
+                        padding: [pW, pH],
+                        spacing: [0, sH],
+                        labelAlign: ["center", "middle"],
+                        noShrink: false,
+                    }
+                };
+            }
+
             this.layoutMap = {
                 sysContentRegion: {
                     anchor: { target: "headerRegion", axis: "y", offset: oY },
@@ -84,32 +214,7 @@ app.registerExtension({
                     dir: "col",
                     padding: [0, 0],
                     margin: this.properties?.drawHeader === true ? [mW, mH] : [mW, 0, mW, 0],
-                    ...Object.fromEntries(toggleItems.map((item, index) => {
-                        const regionKey = `btnToggle_${index}`;
-                        return [regionKey, {
-                            type: this.UI_TYPES.BUTTON,
-                            themeKey: "button, t_textNormal", mouseOver: false,
-                            text: item.label || `Toggle ${index + 1}`,
-                            state: item.value !== false ? "ON" : "OFF",
-                            width: "full",
-                            height: "auto",
-                            padding: [pW, pH],
-                            spacing: [0, sH],
-                            labelAlign: ["center", "middle"],
-                            onPress: () => {
-                                const items = ensureToggleItems(this);
-                                items[index].value = !(items[index].value !== false);
-                                this.properties.signalName = items[0]?.label || "Bypass Toggle";
-                                this.properties.toggleState = items[0]?.value !== false;
-                                if (this.syncDerpOutputs) this.syncDerpOutputs();
-                                this.refreshNodeLayoutMap();
-                            },
-                            onContextMenu: () => {
-                                showBastaToggle(this, regionKey);
-                                return false;
-                            }
-                        }];
-                    })),
+                    ...deckRegions,
                 },
             };
             if (this.layout) this.layout._lastCacheKey = "";
@@ -155,17 +260,20 @@ app.registerExtension({
             const toggleItems = ensureToggleItems(this);
             const isBypassed = this.mode === 4 || this.mode === 2 || this._derpSpoofedBypass;
             const nodeName = this.titleLabel || this.title || "Derp Toggle";
-            const fingerprint = `${isBypassed ? "bypass" : "live"}_${nodeName}_${this.id}_${toggleItems.map((item, index) => `${index}:${item?.label || ""}:${item?.value !== false}`).join("|")}`;
+            const signalItems = [...toggleItems]
+                .sort((a, b) => (Number(a?.signalIndex) || 0) - (Number(b?.signalIndex) || 0));
+            const fingerprint = `${isBypassed ? "bypass" : "live"}_${nodeName}_${this.id}_${signalItems.map((item) => `${item?.signalIndex}:${item?.label || ""}:${item?.value !== false}`).join("|")}`;
             if (this._lastSignalFingerprint === fingerprint) return;
             this._lastSignalFingerprint = fingerprint;
 
             if (!window.xcpDerpSignals) window.xcpDerpSignals = {};
             let hasChanged = false;
 
-            toggleItems.forEach((item, index) => {
-                const signalId = `${this.id}:${index}`;
+            signalItems.forEach((item) => {
+                const signalIndex = Number(item?.signalIndex) || 0;
+                const signalId = `${this.id}:${signalIndex}`;
                 const finalValue = isBypassed ? null : (item.value !== false);
-                const displayName = `${nodeName} [${item.label || `Toggle ${index + 1}`}]`;
+                const displayName = `${nodeName} [${item.label || `Toggle ${signalIndex + 1}`}]`;
                 const existing = window.xcpDerpSignals[signalId];
                 if (!existing || existing.value !== finalValue || existing.nodeName !== displayName || existing.type !== "bool") {
                     hasChanged = true;
@@ -195,7 +303,9 @@ app.registerExtension({
 
         nodeType.prototype.syncDerpOutputs = function() {
             const toggleItems = ensureToggleItems(this);
-            const activeSignalIds = new Set(toggleItems.map((_, index) => `${this.id}:${index}`));
+            const signalItems = [...toggleItems]
+                .sort((a, b) => (Number(a?.signalIndex) || 0) - (Number(b?.signalIndex) || 0));
+            const activeSignalIds = new Set(signalItems.map((item) => `${this.id}:${Number(item?.signalIndex) || 0}`));
 
             if (window.xcpDerpSignals) {
                 Object.keys(window.xcpDerpSignals).forEach((key) => {
@@ -211,8 +321,9 @@ app.registerExtension({
                 this.outputs = [];
             }
 
-            this.properties.signalName = toggleItems[0]?.label || "Bypass Toggle";
-            this.properties.toggleState = toggleItems[0]?.value !== false;
+            const firstSignalItem = signalItems[0];
+            this.properties.signalName = firstSignalItem?.label || "Bypass Toggle";
+            this.properties.toggleState = firstSignalItem?.value !== false;
 
             if (this.broadcastWirelessSignal) this.broadcastWirelessSignal();
         };
@@ -237,11 +348,11 @@ app.registerExtension({
             this.properties.toggleState = true;
             this.properties.outputName = "BOOL_OUT";
             this.properties.signalName = "Bypass Toggle";
-            this.properties.toggleItems = [{ label: "Bypass Toggle", value: true }];
+            this.properties.toggleItems = [{ label: "Bypass Toggle", value: true, signalIndex: 0 }];
             this.properties.autoWidth = false;
             this.properties.autoHeight = true;
-            this.properties.nodeSize = [100, 50];
-            this.size = [100, 50];
+            this.properties.nodeSize = [50, 50];
+            this.size = [50, 50];
 
             this.refreshNodeLayoutMap();
             this.refreshDerpToggleSysMap();

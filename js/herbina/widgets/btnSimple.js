@@ -4,7 +4,7 @@
  */
 import { masterPainter, masterPainterText, compileThemeData } from "../masterPainter.js";
 import { applyHTMLTheme } from "../masterPainterHTML.js";
-import { resolveWidgetEnv, parseThemeKey, resolvePaletteEntry, resolvePaintData, compileAnimatedPaint } from "../utils/widgetsUtils.js";
+import { resolveWidgetEnv, parseThemeKey, resolvePaletteEntry, resolvePaintData, compileAnimatedPaint, measureTextWidth } from "../utils/widgetsUtils.js";
 import { animateWidgetColors } from "../masterAnimator.js";
 
 // --- CHECKERBOARD FINETUNING VARIABLES ---
@@ -125,6 +125,13 @@ export function syncBtnSimple(ctx, node, config) {
     if (btnText && labelData) {
         const pW = props.padding?.[0] || 0;
         const [alignX] = props.labelAlign || ["left", "middle"];
+        let fontSize = props.fontSize || labelData.fontSize || 10;
+        if (config.noShrink !== true && btnText.length > 0) {
+            const limit = w - (pW * 2);
+            while (measureTextWidth(btnText, fontSize, labelData?.font || "arial", props.fontWeight) > limit && fontSize > 4) {
+                fontSize -= 0.5;
+            }
+        }
 
         // THE FIX: Starting X and Width calculations based on pW logic
         let textX = x + pW;
@@ -135,7 +142,7 @@ export function syncBtnSimple(ctx, node, config) {
         ctx.beginPath(); ctx.rect(x + pW, y, w - (pW * 2), h); ctx.clip();
         masterPainterText(ctx, {
             x: textX, y: textAnchor.y, width: w, height: h, text: btnText,
-            paintData: { ...labelData, fill: iconColor, fontSize: props.fontSize || labelData.fontSize, fontWeight: props.fontWeight },
+            paintData: { ...labelData, fill: iconColor, fontSize: fontSize, fontWeight: props.fontWeight },
             align: alignX, baseline: props.labelAlign?.[1] || "middle"
         });
         ctx.restore();
@@ -220,8 +227,15 @@ export function syncBtnSimpleHTML(element, node, app, config) {
 
         // 3. Render Static Text Styles
         if (labelData) {
+            let fontSize = props.fontSize || labelData.fontSize || 10;
+            if (config.noShrink !== true && displayText.length > 0) {
+                const limit = geo.w - ((props.padding?.[0] || 0) * 2);
+                while (measureTextWidth(displayText, fontSize, labelData?.font || "arial", props.fontWeight) > limit && fontSize > 4) {
+                    fontSize -= 0.5;
+                }
+            }
             element.style.fontFamily = labelData.font || "Arial";
-            element.style.fontSize = `${(props.fontSize || labelData.fontSize || 12) * scale}px`;
+            element.style.fontSize = `${fontSize * scale}px`;
             element.style.fontWeight = (props.fontWeight === "bold" || props.fontWeight === "both") ? "bold" : "normal";
             element.style.fontStyle = (props.fontWeight === "italic" || props.fontWeight === "both") ? "italic" : "normal";
         }

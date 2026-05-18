@@ -498,11 +498,15 @@ export function interpretLayoutProps(config, context = {}) {
             const safeFs = Math.max(1, fs);
             let resolvedText = contentString;
             const isAutoW = String(config.width).toLowerCase() === "auto";
+            const typeLower = String(config.type || "").toLowerCase();
+            const allowWidgetShrink = typeLower.includes("simplebtn") && config.noShrink !== true;
 
 
             if (innerW > 0 && !isWrapping && !isAutoW && (context.originalWidth > 20)) {
                 const targetW = isCutoff ? Math.max(0, clampW) : Math.max(0, innerW);
-                resolvedText = clampText(contentString, targetW, safeFs, font, resolvedWeight, useEllipsis);
+                resolvedText = allowWidgetShrink
+                    ? contentString
+                    : clampText(contentString, targetW, safeFs, font, resolvedWeight, useEllipsis);
             }
 
             measuredContentW = ((isCutoff || isWrapping) && !isAutoW) ? indicatorBuffer : Math.ceil(measureTextWidth(measureString, Math.max(1, mFs), mFont, mWeight) + indicatorBuffer);
