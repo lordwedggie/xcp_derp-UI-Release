@@ -4,7 +4,7 @@
  * STATUS: PROTOCOL COMPLIANT | REFACTORED
  */
 import { masterPainter, masterPainterText } from "../masterPainter.js";
-import { colorPulse2 } from "../masterAnimator.js";
+import { getPulsedColor } from "../masterAnimator.js";
 import { cdState } from "../../fatha/bastas/bastaColorDesigner.js";
 import { resolvePaintData, resolveWidgetState, interpretLayoutProps, resolveWidgetEnv } from "../utils/widgetsUtils.js";
 const CHECKER_COLOR_A = "rgba(100, 100, 100, 0.5)";
@@ -87,7 +87,7 @@ export function syncColorKeyEdit(ctx, node, config) {
     }
 
     // --- ANIMATION ENGINE ---
-    const currentStrokeColor = colorPulse2(STROKE_COLOR_A, STROKE_COLOR_B, ANIM_SPEED);
+    const currentStrokeColor = getPulsedColor(STROKE_COLOR_A, STROKE_COLOR_B, ANIM_SPEED);
 
     requestAnimationFrame(() => {
         if (node) node.setDirtyCanvas(true, true);

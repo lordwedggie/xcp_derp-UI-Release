@@ -4,7 +4,7 @@
  */
 import { app } from "../../../../../scripts/app.js";
 import { spawnBasta } from "../../basta.js";
-import { animateAlpha, colorPulse2 } from "../../../herbina/masterAnimator.js";
+import { animateAlpha, getPulsedColor } from "../../../herbina/masterAnimator.js";
 
 const IMAGE_NAV_ALPHA_SPEED = 0.15;
 import { showBastaMessage } from "../bastaMessage.js";
@@ -249,7 +249,8 @@ export const getNotesEditorProps = (host, basta, loraData, vars) => {
                 markBLDDirty(basta, true);
                 basta._layoutDirty = true;
                 basta._forceSync = true;
-                basta.setDirtyCanvas(true);
+                if (typeof basta.requestDerpSync === "function") basta.requestDerpSync();
+                else if (typeof basta.setDirtyCanvas === "function") basta.setDirtyCanvas(true, true);
             }
         }
     };
@@ -276,7 +277,8 @@ export async function openCivitAI(basta, loraData) {
 
                 if (basta) {
                     basta._forceSync = true;
-                    if (typeof basta.setDirtyCanvas === "function") basta.setDirtyCanvas(true, true);
+                    if (typeof basta.requestDerpSync === "function") basta.requestDerpSync();
+                    else if (typeof basta.setDirtyCanvas === "function") basta.setDirtyCanvas(true, true);
                 }
 
                 window.open(currentData.civitaiUrl, "_blank");
@@ -316,7 +318,8 @@ export async function openCivArchive(basta, loraData) {
 
                 if (basta) {
                     basta._forceSync = true;
-                    if (typeof basta.setDirtyCanvas === "function") basta.setDirtyCanvas(true, true);
+                    if (typeof basta.requestDerpSync === "function") basta.requestDerpSync();
+                    else if (typeof basta.setDirtyCanvas === "function") basta.setDirtyCanvas(true, true);
                 }
             }
         } catch (e) {
@@ -408,8 +411,10 @@ export const getEditorProps = (host, basta, loraData, initialTr, vars) => {
                     basta.layout.regions.btnSaveTrigger.state = (val.trim() !== originalContent.trim()) ? "OFF" : "DIS";
                 }
 
-                host.setDirtyCanvas(true);
-                if (basta.setDirtyCanvas) basta.setDirtyCanvas(true);
+                if (typeof host.requestDerpSync === "function") host.requestDerpSync();
+                else host.setDirtyCanvas(true);
+                if (basta.requestDerpSync) basta.requestDerpSync();
+                else if (basta.setDirtyCanvas) basta.setDirtyCanvas(true);
 
                 if (el) {
                     const paint = profileResolvePaint(basta, "t_textSmall", "OFF");
@@ -471,7 +476,8 @@ export const getLoraNotesEditorPropsWrapped = (host, basta, loraData, currentPat
             markBLDDirty(basta, true);
             basta._layoutDirty = true;
             basta._forceSync = true;
-            basta.setDirtyCanvas(true);
+            if (typeof basta.requestDerpSync === "function") basta.requestDerpSync();
+            else basta.setDirtyCanvas(true);
         }
     };
 
@@ -502,7 +508,8 @@ export const getLoraTriggerEditorProps = (host, basta, loraData, currentPath, va
                 basta.layout.regions.btnSaveTrigger.state = (val.trim() !== originalContent.trim()) ? "OFF" : "DIS";
             }
             markBLDDirty(basta, false);
-            host.setDirtyCanvas(true);
+            if (typeof host.requestDerpSync === "function") host.requestDerpSync();
+            else host.setDirtyCanvas(true);
         }
         if (baseInput) baseInput(val, el, config);
     };
@@ -579,13 +586,15 @@ export const getLoraTriggerDropdownProps = (host, basta, loraData, triggerItems,
                     calculatePreviewAspectRatio(basta, loraData, () => {
                         markBLDDirty(basta, false);
                         basta._forceSync = true;
-                        if (typeof basta.setDirtyCanvas === "function") basta.setDirtyCanvas(true);
+                        if (typeof basta.requestDerpSync === "function") basta.requestDerpSync();
+                        else if (typeof basta.setDirtyCanvas === "function") basta.setDirtyCanvas(true);
                     });
 
                     if (host.syncDerpOutputs) host.syncDerpOutputs();
                     if (host.refreshNodeLayoutMap) host.refreshNodeLayoutMap();
                     if (host.refreshDerpLoraStackSysMap) host.refreshDerpLoraStackSysMap();
-                    host.setDirtyCanvas(true);
+                    if (typeof host.requestDerpSync === "function") host.requestDerpSync();
+                    else host.setDirtyCanvas(true);
                 }
             }
             bumpBLDPerf(basta, "syncReq");
@@ -699,7 +708,8 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
                     b.titleLabel = ratingBadge + (loraData.name || "LoRA Detail").replace(/\.safetensors$/i, "");
                     markBLDDirty(b, false);
                     b._forceSync = true;
-                    b.setDirtyCanvas(true);
+                    if (typeof b.requestDerpSync === "function") b.requestDerpSync();
+                    else if (typeof b.setDirtyCanvas === "function") b.setDirtyCanvas(true, true);
                 }
 
                 const applyDirectLink = (modelId, versionId, modelName) => {
@@ -720,7 +730,8 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
                         markBLDDirty(b, false);
                         b._forceSync = true;
                         b._skipAnimOnce = true;
-                        b.setDirtyCanvas(true);
+                        if (typeof b.requestDerpSync === "function") b.requestDerpSync();
+                        else if (typeof b.setDirtyCanvas === "function") b.setDirtyCanvas(true, true);
                     }
                 };
 
@@ -767,7 +778,8 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
                 markBLDDirty(b, false);
                 b._forceSync = true;
                 b._skipAnimOnce = true;
-                b.setDirtyCanvas(true);
+                if (typeof b.requestDerpSync === "function") b.requestDerpSync();
+                else if (typeof b.setDirtyCanvas === "function") b.setDirtyCanvas(true, true);
             }
         });
     }
@@ -848,7 +860,8 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
                     markBLDDirty(b, true);
                     b._layoutDirty = true;
                     b._forceSync = true;
-                    b.setDirtyCanvas(true);
+                    if (typeof b.requestDerpSync === "function") b.requestDerpSync();
+                    else if (typeof b.setDirtyCanvas === "function") b.setDirtyCanvas(true, true);
                 }
                 return res;
             };
@@ -920,6 +933,8 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
             const orgUpdate = instance.update;
             instance.update = function() {
                 const bldUpdateStart = window.DERP_BLD_PROFILE ? performance.now() : 0;
+                let needsVisualDirty = false;
+                let needsFullDirty = false;
                 const liveStack = host.properties?.stackData || [];
                 const slotIdx = this._loraData?.slotIndex ?? loraData.slotIndex;
                 const path = liveStack[slotIdx]?.[0] || "";
@@ -932,7 +947,7 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
                         this._layoutDirty = true;
                         this._forceSync = true;
                         this._derpAwakeFrames = 30;
-                        if (this.setDirtyCanvas) this.setDirtyCanvas(true, true);
+                        needsFullDirty = true;
                     }
                 }
 
@@ -941,7 +956,7 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
                     this._lastUiHovered = this._uiHovered;
                     // THE HOVER SPAM FIX: Region hover states only need a canvas redraw, not a full structural layout sync
                     this._derpAwakeFrames = 10;
-                    if (this.setDirtyCanvas) this.setDirtyCanvas(true);
+                    needsVisualDirty = true;
                 }
                 const hKey = this._hoveredRegionKey;
                 const hasImages = (loraData.images ? loraData.images.length : (loraData.imageCount || 0)) >= 1;
@@ -957,7 +972,7 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
                         this._layoutDirty = true;
                         this._forceSync = true;
                         this._derpAwakeFrames = Math.max(this._derpAwakeFrames || 0, 8);
-                        if (this.setDirtyCanvas) this.setDirtyCanvas(true, true);
+                        needsFullDirty = true;
                     }
                 }
 
@@ -970,7 +985,7 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
                         this._layoutDirty = true;
                         this._forceSync = true;
                         this._derpAwakeFrames = Math.max(this._derpAwakeFrames || 0, 4);
-                        if (this.setDirtyCanvas) this.setDirtyCanvas(true, true);
+                        needsFullDirty = true;
                     }
                 }
 
@@ -1007,22 +1022,29 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
                     ["imageHandlingRegion", "btnImagePrevious", "btnSetCover", "btnSetTrigger", "btnDeleteImage", "btnImageNext",
                         "labelRegion", "labelImageName", "labelCount",
                         "externalRow", "btnCivit", "btnCivArchive", "btnOpenFolder"].forEach(updateAlpha);
-                    if (this.setDirtyCanvas) this.setDirtyCanvas(true);
+                    needsVisualDirty = true;
                 }
 
                 // THE PERF FIX: Move high-frequency pulse math out of the layout factory
                 if (!this._isSaving && this._savePulseColors && this.layout?.regions?.btnSaveTrigger && this.layout.regions.btnSaveTrigger.state !== "DIS") {
-                    const pulsedColor = colorPulse2(this._savePulseColors.a, this._savePulseColors.b, 0.005);
+                    const pulsedColor = getPulsedColor(this._savePulseColors.a, this._savePulseColors.b, 0.005);
                     this.layout.regions.btnSaveTrigger.btnColor = pulsedColor;
                     if (this._compDataCache?.btnSaveTrigger) this._compDataCache.btnSaveTrigger.btnColor = pulsedColor;
                     this._derpAwakeFrames = 2;
                     isPulsing = true;
-                    if (this.setDirtyCanvas) this.setDirtyCanvas(true);
+                    needsVisualDirty = true;
                 }
 
                 if (this._previewSelected && (window.xcpDerpSettings?.useAnimations !== false)) {
                     this._derpAwakeFrames = 2;
                     isPulsing = true;
+                    needsVisualDirty = true;
+                }
+
+                if (needsFullDirty) {
+                    if (this.requestDerpSync) this.requestDerpSync();
+                    else if (this.setDirtyCanvas) this.setDirtyCanvas(true, true);
+                } else if (needsVisualDirty) {
                     if (this.setDirtyCanvas) this.setDirtyCanvas(true);
                 }
 
@@ -1047,7 +1069,8 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
                     instance._loraData.images = [];
                 }
                 if (typeof host.refreshNodeLayoutMap === "function") host.refreshNodeLayoutMap();
-                if (typeof host.setDirtyCanvas === "function") host.setDirtyCanvas(true, true);
+                if (typeof host.requestDerpSync === "function") host.requestDerpSync();
+                else if (typeof host.setDirtyCanvas === "function") host.setDirtyCanvas(true, true);
             };
 
             const originalHandler = instance.handleShieldInteraction;
@@ -1099,12 +1122,14 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
         instance._navAlpha = Math.max(instance._navAlpha || 0, 0.02);
         instance._layoutDirty = true;
         instance._derpAwakeFrames = Math.max(instance._derpAwakeFrames || 0, 12);
-        if (typeof instance.setDirtyCanvas === "function") instance.setDirtyCanvas(true, true);
+        if (typeof instance.requestDerpSync === "function") instance.requestDerpSync();
+        else if (typeof instance.setDirtyCanvas === "function") instance.setDirtyCanvas(true, true);
         if (typeof requestAnimationFrame === "function") {
             requestAnimationFrame(() => {
                 instance._forceSync = true;
                 instance._layoutDirty = true;
-                if (typeof instance.setDirtyCanvas === "function") instance.setDirtyCanvas(true, true);
+                if (typeof instance.requestDerpSync === "function") instance.requestDerpSync();
+                else if (typeof instance.setDirtyCanvas === "function") instance.setDirtyCanvas(true, true);
             });
         }
     }

@@ -9,7 +9,7 @@ import { UI_TYPES } from "../core/masterLayoutTypes.js";
 import { showBastaColorDesigner } from "./bastaColorDesigner.js";
 import { showBastaMessage } from "./bastaMessage.js";
 import { showBastaFileHandler } from "./bastaFileHandler.js";
-import { colorPulse2, parseColor } from "../../herbina/masterAnimator.js";
+import { getPulsedColor, parseColor } from "../../herbina/masterAnimator.js";
 import { resolvePaintData } from "../../herbina/utils/widgetsUtils.js";
 
 // THE DEFAULT EFFECT KEYS: Fallback values if the loaded JSON is missing effect data
@@ -211,7 +211,7 @@ export function showBastaPalette(host, targetRegion = null) {
                     const paintON = resolvePaintData(basta, "button", "_ON");
                     basta._savePulseColors = { a: parseColor(paintDIS?.fill), b: parseColor(paintON?.fill) };
                 }
-                pulsedSaveColor = colorPulse2(basta._savePulseColors.a, basta._savePulseColors.b, 0.005);
+                pulsedSaveColor = getPulsedColor(basta._savePulseColors.a, basta._savePulseColors.b, 0.005);
                 basta._derpAwakeFrames = 2;
             }
             const openDesigner = (targetTheme, keyName, exactKey, persistentKey) => {

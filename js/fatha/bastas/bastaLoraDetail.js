@@ -148,12 +148,14 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 syncLoraSetupCache(host, loraData, currentPath, loraData.setup);
                 if (host.refreshNodeLayoutMap) host.refreshNodeLayoutMap();
 
-                basta._layoutDirty = true;
-                basta.setDirtyCanvas(true);
+                basta._forceSync = true;
+                if (typeof basta.requestDerpSync === "function") basta.requestDerpSync();
+                else if (typeof basta.setDirtyCanvas === "function") basta.setDirtyCanvas(true, true);
             }).catch(() => {
             loraData._setupFetched = true;
-            basta._layoutDirty = true;
-            basta.setDirtyCanvas(true);
+            basta._forceSync = true;
+            if (typeof basta.requestDerpSync === "function") basta.requestDerpSync();
+            else if (typeof basta.setDirtyCanvas === "function") basta.setDirtyCanvas(true, true);
         });
     }
 

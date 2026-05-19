@@ -6,7 +6,7 @@
 import { spawnBasta, activeBastas } from "../basta.js";
 import { UI_TYPES } from "../core/masterLayoutTypes.js";
 import { showBastaMessage } from "./bastaMessage.js";
-import { colorPulse2, parseColor } from "../../herbina/masterAnimator.js";
+import { getPulsedColor, parseColor } from "../../herbina/masterAnimator.js";
 import { resolvePaintData, measureTextWidth } from "../../herbina/utils/widgetsUtils.js";
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
 
@@ -210,7 +210,7 @@ export function showBastaFileHandler(host, category = "settings", targetRegion =
                             type: UI_TYPES.TEXT,
                             themeKey: basta.properties.messageThemeKey || "t_textNormal",
                             text: basta.properties.customMessage || "Custom message here",
-                            labelColor: isDelete ? colorPulse2(colA, colB, 0.005) : null,
+                            labelColor: isDelete ? getPulsedColor(colA, colB, 0.005) : null,
                             width: basta.properties.messageWidth || "auto",
                             labelAlign: basta.properties.messageAlign || ["left", "middle"],
                             wrap: basta.properties.messageWrap || false,
@@ -242,7 +242,6 @@ export function showBastaFileHandler(host, category = "settings", targetRegion =
                                     editorReg.value = v;
                                 }
                                 if (basta._compDataCache) delete basta._compDataCache.editorNewName;
-                                basta._layoutDirty = true;
                                 basta._forceSync = true;
                                 basta.requestDerpSync();
                             },
@@ -254,7 +253,6 @@ export function showBastaFileHandler(host, category = "settings", targetRegion =
                                     editorReg.value = v;
                                 }
                                 if (basta._compDataCache) delete basta._compDataCache.editorNewName;
-                                basta._layoutDirty = true;
                                 basta._forceSync = true;
                                 basta.requestDerpSync();
                             }
