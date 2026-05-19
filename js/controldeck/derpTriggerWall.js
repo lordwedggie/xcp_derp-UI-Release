@@ -533,6 +533,9 @@ app.registerExtension({
                                 const isModalActive = this._triggerWallModalOpen === true && this._activeModalItemKey === `triggerItem_${gIdx}_${item.idx}`;
                                 const triggerEnabled = !isBypassed && item.trig.disabled !== true;
                                 const triggerActive = item.trig.active && triggerEnabled;
+                                const triggerSuffix = (isBypassed || item.trig.disabled === true)
+                                    ? "_DIS"
+                                    : ((isModalActive || triggerActive) ? "_ON" : "_OFF");
                                 const triggerItemKey = rowAnchorPrefix === "triggerRow" ? `triggerItem_${gIdx}_${item.idx}` : `${rowAnchorPrefix}Item_${gIdx}_${item.idx}`;
                                 return [triggerItemKey, {
                                     type: this.UI_TYPES.COMPOSITE_TRIGGER, themeKey: "panel, button, t_textsmall",
@@ -541,11 +544,12 @@ app.registerExtension({
                                     showWeight: this.properties.showWeight, weight: item.trig.weight ?? 1.0,
                                     alpha: groupWidgetAlpha,
                                     value: item.trig.active,
+                                    suffix: triggerSuffix,
                                     state: isModalActive ? "ON" : ((isBypassed || item.trig.disabled === true) ? "DIS" : "OFF"),
                                     disabled: item.trig.disabled === true,
-                                    bodyPaint: item.isTriggerPreviewGhost ? this._buttonPaintData_DIS : (isModalActive ? this._panelPaintData_ON : (triggerActive ? this._panelPaintData : this._panelPaintData_DIS)),
-                                    slotPaint: isModalActive ? this._buttonPaintData_ON : (triggerActive ? this._buttonPaintData : this._buttonPaintData_DIS),
-                                    labelPaint: isModalActive ? this._t_textSmallPaintData_ON : (triggerActive ? this._t_textSmallPaintData : this._t_textSmallPaintData_DIS),
+                                    bodyPaint: item.isTriggerPreviewGhost ? this._buttonPaintData_DIS : ((isBypassed || item.trig.disabled === true) ? this._panelPaintData_DIS : (isModalActive || triggerActive ? this._panelPaintData_ON : this._panelPaintData_OFF)),
+                                    slotPaint: (isBypassed || item.trig.disabled === true) ? this._buttonPaintData_DIS : (isModalActive || triggerActive ? this._buttonPaintData_ON : this._buttonPaintData_OFF),
+                                    labelPaint: (isBypassed || item.trig.disabled === true) ? this._t_textSmallPaintData_DIS : (isModalActive || triggerActive ? this._t_textSmallPaintData_ON : this._t_textSmallPaintData_OFF),
                                     onDragStart: itemDragEnabled ? ((e, data) => triggerWall_itemDragStart(this, e, data, gIdx, item.idx)) : undefined,
                                     onDrag: itemDragEnabled ? ((e, data) => triggerWall_itemDrag(this, e, data)) : undefined,
                                     onDragEnd: itemDragEnabled ? ((e, data) => triggerWall_itemDragEnd(this, e, data)) : undefined,

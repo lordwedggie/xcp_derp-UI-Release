@@ -136,7 +136,10 @@ export function syncDerpTrigger(ctx, node, app, config) {
     const keyIcon = isThree ? parts[1] : (parts.length > 1 ? parts[0] : (parts[0] === "" ? null : "button"));
     const keyText = isThree ? parts[2] : (parts.length === 1 ? parts[0] : (parts[1] || (parts[0] === "" ? null : "t_textsmall")));
 
-    const triggerSuffix = suffix === "_ON" ? "_ON" : (suffix === "_DIS" ? "_DIS" : (isActive ? "_OFF" : "_DIS"));
+    const requestedSuffix = config.suffix;
+    const triggerSuffix = requestedSuffix === "_ON" || requestedSuffix === "_OFF" || requestedSuffix === "_DIS"
+        ? requestedSuffix
+        : (suffix === "_ON" ? "_ON" : (suffix === "_DIS" ? "_DIS" : (isActive ? "_OFF" : "_DIS")));
 
     const styleRaw = config.style || "default";
     const style = Array.isArray(styleRaw) ? styleRaw[0] : styleRaw;
@@ -177,9 +180,9 @@ export function syncDerpTrigger(ctx, node, app, config) {
     if (staticCache && staticCache.key === staticKey) {
         ({ bodyPaintOut, slotPaintOut, labelPaintOut, themeFontSize, themeFont } = staticCache);
     } else {
-        const bodyPaintRaw = keyBody ? resolvePaintData(node, keyBody, triggerSuffix) : (config.bodyPaint || bodyPaint);
-        const slotPaintRaw = keyIcon ? resolvePaintData(node, keyIcon, triggerSuffix) : config.slotPaint;
-        const textPaintRaw = keyText ? resolvePaintData(node, keyText, triggerSuffix) : config.labelPaint;
+        const bodyPaintRaw = config.bodyPaint || (keyBody ? resolvePaintData(node, keyBody, triggerSuffix) : bodyPaint);
+        const slotPaintRaw = config.slotPaint || (keyIcon ? resolvePaintData(node, keyIcon, triggerSuffix) : null);
+        const textPaintRaw = config.labelPaint || (keyText ? resolvePaintData(node, keyText, triggerSuffix) : null);
         const finalBodyPaint = animatePaintData(node, `_trig_body_${config.key}`, bodyPaintRaw, effectiveUseAnim, TRIGGER_COLOR_SPEED);
         const slotPaint = animatePaintData(node, `_trig_slot_${config.key}`, slotPaintRaw, effectiveUseAnim, TRIGGER_COLOR_SPEED);
         const textPaint = animatePaintData(node, `_trig_text_${config.key}`, textPaintRaw, effectiveUseAnim, TRIGGER_COLOR_SPEED);
