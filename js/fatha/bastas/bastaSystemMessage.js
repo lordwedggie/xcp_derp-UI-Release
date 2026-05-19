@@ -47,23 +47,30 @@ function getSystemMessageVars(fallbackHost = null) {
 function getSystemMessagePaints(themeNode) {
     return {
         bodyPaint: resolvePaintData(themeNode, "canvas", "_OFF") || themeNode._canvasPaintData || themeNode._panelPaintData_OFF || { fill: "rgba(20,20,20,0.92)", corners: [8, 8, 8, 8] },
-        labelPaint: resolvePaintData(themeNode, "t_textNormal", "_OFF") || themeNode._t_textnormalPaintData || themeNode._t_textNormalPaintData || { textColor: "rgba(255,255,255,1)", font: "Arial", fontSize: 12 }
+        labelPaint: resolvePaintData(themeNode, "t_textNormal", "_OFF") || themeNode._t_textnormalPaintData || themeNode._t_textNormalPaintData || { textColor: "rgba(255,255,255,1)", font: "Arial", fontSize: 12 },
+        accentPaint: resolvePaintData(themeNode, "t_textAccent", "_OFF") || resolvePaintData(themeNode, "t_textAccent") || null,
     };
 }
 
 function applySystemMessageThemeToRecord(record, themeNode) {
     if (!record || !themeNode || !record.el || !record.bgEl || !record.label) return;
 
-    const { bodyPaint, labelPaint } = getSystemMessagePaints(themeNode);
+    const { bodyPaint, labelPaint, accentPaint } = getSystemMessagePaints(themeNode);
     const fontName = (labelPaint.font || record.fontName || "Arial").replace(/[0-9]+px/ig, "").trim() || "Arial";
     const fontSize = parseFloat(labelPaint.fontSize) || record.fontSize || 12;
+    const accentFontName = (accentPaint?.font || labelPaint.font || fontName || "Arial").replace(/[0-9]+px/ig, "").trim() || "Arial";
+    const accentFontSize = parseFloat(accentPaint?.fontSize) || fontSize;
+    const accentFontWeight = accentPaint?.fontWeight || record.fontWeight || "normal";
 
     record.fontName = fontName;
     record.fontSize = fontSize;
     record.width = record.fixedW > 0
         ? record.fixedW
-        : Math.ceil(measureTextWidth(String(record.text || ""), fontSize, fontName, record.fontWeight || "normal")) + (record.pW * 2) + 10;
-    record.height = fontSize + (record.pH * 2) + 8;
+        : Math.ceil(
+            measureTextWidth(String(record.text || ""), fontSize, fontName, record.fontWeight || "normal")
+            + measureTextWidth(String(record.accentText || ""), accentFontSize, accentFontName, accentFontWeight)
+        ) + (record.pW * 2) + 10;
+    record.height = Math.max(fontSize, accentFontSize) + (record.pH * 2) + 8;
 
     record.el.style.width = `${record.width}px`;
     record.el.style.height = `${record.height}px`;
@@ -87,6 +94,14 @@ function applySystemMessageThemeToRecord(record, themeNode) {
     record.label.style.setProperty("font-size", `${fontSize}px`, "important");
     record.label.style.setProperty("font-weight", record.fontWeight || "normal", "important");
     record.label.style.setProperty("color", labelPaint.textColor || labelPaint.fill || "rgba(255,255,255,1)", "important");
+    record.label.style.height = `${record.height}px`;
+
+    if (record.accentEl) {
+        record.accentEl.style.setProperty("font-family", accentPaint?.font || accentFontName, "important");
+        record.accentEl.style.setProperty("font-size", `${accentFontSize}px`, "important");
+        record.accentEl.style.setProperty("font-weight", accentFontWeight, "important");
+        record.accentEl.style.setProperty("color", accentPaint?.textColor || accentPaint?.fill || labelPaint.textColor || labelPaint.fill || "rgba(255,255,255,1)", "important");
+    }
 
 }
 
@@ -156,7 +171,7 @@ function updateSystemMessageSlots() {
     }
 }
 
-export function showBastaSystemMessage(host, text, duration = 3000, animations = {}, targetRegion = null, mode = "info", playSound = null) {
+export function showBastaSystemMessage(host, text, duration = 3000, animations = {}, targetRegion = null, mode = "info", playSound = null, accentText = "") {
     const id = buildSystemMessageId(host, targetRegion);
     ensureSystemMessageThemeLoaded(true);
     const themeNode = systemMessageThemeReady ? systemMessageThemeHost : host;
@@ -166,15 +181,20 @@ export function showBastaSystemMessage(host, text, duration = 3000, animations =
     const pH = Number(vars.pH || 4);
     const fixedW = Number(animations?.width || 0);
 
-    const { bodyPaint, labelPaint } = getSystemMessagePaints(themeNode);
+    const { bodyPaint, labelPaint, accentPaint } = getSystemMessagePaints(themeNode);
     const fontData = labelPaint || { fontSize: 12, font: "Arial" };
     const fontSize = parseFloat(fontData.fontSize) || 12;
     const fontName = (fontData.font || "Arial").replace(/[0-9]+px/ig, "").trim() || "Arial";
     const fontWeight = fontData.fontWeight || "normal";
+    const accentFontName = (accentPaint?.font || labelPaint.font || fontName || "Arial").replace(/[0-9]+px/ig, "").trim() || "Arial";
+    const accentFontSize = parseFloat(accentPaint?.fontSize) || fontSize;
     const width = fixedW > 0
         ? fixedW
-        : Math.ceil(measureTextWidth(String(text || ""), fontSize, fontName, fontWeight)) + (pW * 2) + 10;
-    const height = fontSize + (pH * 2) + 8;
+        : Math.ceil(
+            measureTextWidth(String(text || ""), fontSize, fontName, fontWeight)
+            + measureTextWidth(String(accentText || ""), accentFontSize, accentFontName, accentPaint?.fontWeight || fontWeight)
+        ) + (pW * 2) + 10;
+    const height = Math.max(fontSize, accentFontSize) + (pH * 2) + 8;
 
     const positions = getSystemMessagePositions(width, height);
     if (!positions) return null;
@@ -189,6 +209,12 @@ export function showBastaSystemMessage(host, text, duration = 3000, animations =
     const el = document.createElement("div");
     const bgEl = document.createElement("div");
     const label = document.createElement("div");
+    const prefixEl = document.createElement("span");
+    const accentEl = document.createElement("span");
+    prefixEl.innerText = String(text || "");
+    accentEl.innerText = String(accentText || "");
+    label.appendChild(prefixEl);
+    if (accentText) label.appendChild(accentEl);
     bgEl.appendChild(label);
     el.appendChild(bgEl);
     el.className = "derp-system-message";
@@ -230,12 +256,12 @@ export function showBastaSystemMessage(host, text, duration = 3000, animations =
     bgEl.style.setProperty("background", bodyPaint.fill || "rgba(20,20,20,0.92)", "important");
     bgEl.style.setProperty("background-color", bodyPaint.fill || "rgba(20,20,20,0.92)", "important");
 
-    label.innerText = String(text || "");
     label.style.width = "100%";
     label.style.height = `${height}px`;
     label.style.display = "flex";
     label.style.alignItems = "center";
     label.style.justifyContent = "center";
+    label.style.gap = "0";
     label.style.boxSizing = "border-box";
     label.style.position = "relative";
     label.style.zIndex = "1";
@@ -249,12 +275,17 @@ export function showBastaSystemMessage(host, text, duration = 3000, animations =
     label.style.textShadow = "none";
     label.style.background = "transparent";
 
+    prefixEl.style.whiteSpace = "pre";
+    accentEl.style.whiteSpace = "pre";
+    accentEl.style.background = "transparent";
+
     const record = {
         id,
         alpha: 1,
         isClosing: false,
         isRemoved: false,
         text: String(text || ""),
+        accentText: String(accentText || ""),
         fixedW,
         pW,
         pH,
@@ -271,6 +302,8 @@ export function showBastaSystemMessage(host, text, duration = 3000, animations =
         el,
         bgEl,
         label,
+        prefixEl,
+        accentEl,
         update: () => {
             const nextPositions = getSystemMessagePositions(record.width, record.height);
             if (!nextPositions) return false;

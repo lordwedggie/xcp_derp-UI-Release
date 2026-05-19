@@ -136,7 +136,8 @@ async function saveImageDeckCurrentImage(node) {
         return;
     }
 
-    showBastaSystemMessage(node, `Saved: ${data.filename}`, 2200, { fade: true, grow: true }, "btnSaveImage", "success");
+    const savedName = String(data.filename || "").split(/[\\/]/).pop() || String(data.filename || "");
+    showBastaSystemMessage(node, "Saved: ", 2200, { fade: true, grow: true }, "btnSaveImage", "success", null, savedName);
 }
 
 function openImageDeckFolderSelector(node, items = []) {
