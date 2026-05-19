@@ -167,6 +167,7 @@ function openFilePicker(sourceEl, config, node, callbacks) {
     const ds = comfyApp.canvas.ds;
     const scale = ds.scale;
     const items = config.items || [];
+    const itemsHash = JSON.stringify(items);
     const { oY, sH, sW, mH } = getDerpVars(node);
     const hasIndicator = shouldShowFileBrowserIndicator(config);
 
@@ -462,6 +463,8 @@ function openFilePicker(sourceEl, config, node, callbacks) {
     }
 
     renderRows(startDir);
+    picker._configItemsHash = itemsHash;
+    picker._renderRows = renderRows;
 
     picker.onmouseleave = () => {
         if (picker._previewBox) picker._previewBox.style.display = "none";
@@ -535,7 +538,8 @@ export function syncFileBrowser(context, node, app, config) {
     // THE FAST-HASH GATING: Prevent expensive theme resolution and environment lookups if the UI state is static
     const isPressed = node._pressedRegionKey === safeConfig.key || (el.dataset && el.dataset.isPressed === "true");
     const isHovered = (safeConfig.mouseOver !== false && (node._hoveredRegionKey === safeConfig.key || (el.dataset && el.dataset.isHovered === "true")));
-    const stateHash = `${isPressed}_${isHovered}_${node.mode}_${window._xcpDerpSession}_${safeConfig.value}_${(safeConfig.items || []).length}_${isAwake}`;
+    const itemsHash = JSON.stringify(safeConfig.items || []);
+    const stateHash = `${isPressed}_${isHovered}_${node.mode}_${window._xcpDerpSession}_${safeConfig.value}_${itemsHash}_${isAwake}`;
 
     const cache = node._fileBrowserCache || (node._fileBrowserCache = {});
     const itemCache = cache[safeConfig.key] || (cache[safeConfig.key] = {});
@@ -685,6 +689,10 @@ export function syncFileBrowser(context, node, app, config) {
     el.style.display = (isAwake || (isCanvas && useCanvasShield)) ? "none" : "block";
 
     if (activeFilePicker && activeFilePicker._sourceEl === el) {
+        if (activeFilePicker._configItemsHash !== itemsHash && typeof activeFilePicker._renderRows === "function") {
+            activeFilePicker._configItemsHash = itemsHash;
+            activeFilePicker._renderRows(activeFilePicker._currentDir || "");
+        }
         const ds = app.canvas.ds;
 
         const liveAnchorRect = resolveScreenAnchorRect(el, node, app, safeConfig.geometry);

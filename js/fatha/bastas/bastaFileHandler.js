@@ -15,6 +15,15 @@ import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
  */
 export const getHandlerId = () => `basta_file_handler_global_singleton`;
 
+function resolveFileHandlerTargetRegion(host, targetRegion) {
+    const key = String(targetRegion || "").trim();
+    if (!key || !host?.layout?.regions) return targetRegion;
+    if (host.layout.regions[key]) return key;
+    const sysKey = `sys_${key}`;
+    if (host.layout.regions[sysKey]) return sysKey;
+    return targetRegion;
+}
+
 function logLoraStackFileHandlerAnchor(host, label, payload) {
     if (!host || String(host.type || "").toLowerCase().includes("derplorastack") !== true) return;
     globalThis.DERP_LS_PROFILE_LOGS = globalThis.DERP_LS_PROFILE_LOGS || [];
@@ -34,8 +43,44 @@ function logLoraStackFileHandlerAnchor(host, label, payload) {
  */
 export function showBastaFileHandler(host, category = "settings", targetRegion = null, { title = null, message = null, confirm = null, warning = null, mode = "rename", onConfirm = null, fileList = null, originalName = null, initialSize = [250, 100], properties = {}, playSound = null } = {}) {
     const id = getHandlerId();
+    const resolvedTargetRegion = resolveFileHandlerTargetRegion(host, targetRegion);
+    const shouldResetAnchor = resolvedTargetRegion && properties.reuseSavedOffset !== true;
+    if (shouldResetAnchor && host?.properties) {
+        delete host.properties[`bastaOffset_${id}`];
+    }
     const vars = host.getDerpVars ? host.getDerpVars(host) : { mW: 4 }; // THE FIX: Get mW for width calculation
     const { mW } = vars;
+
+    const refreshFileList = (instance, forceServer = false, showFeedback = false) => {
+        // THE STATIC LIST FIX: Use provided fileList if available (e.g., for key entry names)
+        // THE CATEGORY GUARD: Skip server fetch if category is "none" to prevent 400 errors
+        if (!forceServer && (fileList || category === "none")) {
+            instance._fileList = fileList || [];
+            if (instance._compDataCache) delete instance._compDataCache.dropdownFolder;
+            if (instance._fileBrowserCache) delete instance._fileBrowserCache.dropdownFolder;
+            instance.requestDerpSync();
+            return;
+        }
+        fetch(`/xcp/list/${category}`)
+            .then(r => r.json())
+            .then(data => {
+                instance._fileList = data.items || [];
+                if (instance._compDataCache) delete instance._compDataCache.dropdownFolder;
+                if (instance._fileBrowserCache) delete instance._fileBrowserCache.dropdownFolder;
+                instance._layoutDirty = true;
+                instance._forceSync = true;
+                instance.requestDerpSync();
+                if (showFeedback) {
+                    showBastaMessage(host, "Folder list refreshed", 1400, { width: 220 }, resolvedTargetRegion, false, "success");
+                }
+            })
+            .catch((e) => {
+                console.error("[File Handler] Refresh list failed:", e);
+                if (showFeedback) {
+                    showBastaMessage(host, "Refresh failed", 2400, { width: 220 }, resolvedTargetRegion, false, "error");
+                }
+            });
+    };
 
     let finalWidth = initialSize[0];
     if (mode === "delete" && message) {
@@ -59,10 +104,11 @@ export function showBastaFileHandler(host, category = "settings", targetRegion =
         host: host,
         titleLabel: title || `File Manager: ${category.toUpperCase()}`,
         autoSize: true,
-        targetRegion: targetRegion,
+        targetRegion: resolvedTargetRegion,
         properties: {
             category: category,
             mode: mode,
+            showFolderBrowser: mode === "folder",
             customMessage: message,
             confirmMessage: confirm,
             warningMessage: warning,
@@ -88,15 +134,16 @@ export function showBastaFileHandler(host, category = "settings", targetRegion =
             const currentCategory = basta.properties.category;
             const mode = basta.properties.mode || "rename";
             const currentName = basta.properties.pendingName || "";
+            const isFolderMode = mode === "folder";
             // THE PATH-AWARE DUPLICATE CHECK: If folder browser is active, check against the target directory
             const selectedDir = (basta.properties.showFolderBrowser && basta.properties.selectedFolder !== "/") ? basta.properties.selectedFolder : "";
             const fullCheckPath = selectedDir ? `${selectedDir}/${currentName}` : currentName;
 
-            const isDuplicate = (basta._fileList || []).some(f => {
+            const isDuplicate = isFolderMode ? false : (basta._fileList || []).some(f => {
                 const fPath = (typeof f === "string" ? f : (f.name || f.path)).replace(/\\/g, "/");
                 return fPath === fullCheckPath;
             });
-            const isSame = fullCheckPath === (basta.properties.originalName || "").replace(/\\/g, "/");
+            const isSame = isFolderMode ? false : (fullCheckPath === (basta.properties.originalName || "").replace(/\\/g, "/"));
 
             const isDelete = mode === "delete";
             const isSave = mode === "save";
@@ -105,7 +152,9 @@ export function showBastaFileHandler(host, category = "settings", targetRegion =
             // THE COMMIT FIX: Only valid (non-empty) names allowed. Duplicates trigger Overwrite mode.
             const isInvalid = currentName.trim() === "";
 
-            const btnState = isDelete ? "OFF" : (isInvalid ? "DIS" : "OFF");
+            const btnState = isFolderMode
+                ? (selectedDir ? "OFF" : "DIS")
+                : (isDelete ? "OFF" : (isInvalid ? "DIS" : "OFF"));
             // THE DETECTION FIX: Clashes trigger 'Overwrite' even if identical to source. Save/Duplicate/New now correctly detect collisions.
             const showWarning = !isDelete && isDuplicate && (mode === "rename" ? !isSame : true);
             const warningText = basta.properties.warningMessage || "Duplicate found!";
@@ -139,9 +188,22 @@ export function showBastaFileHandler(host, category = "settings", targetRegion =
                                 basta.properties.selectedFolder = v;
                                 basta.requestDerpSync();
                             }
+                        },
+                        btnRefreshFolder: {
+                            type: UI_TYPES.ICONBUTTON,
+                            themeKey: "buttonNode, t_textSystem",
+                            icon: "revert",
+                            width: "match",
+                            height: 20,
+                            padding: [pW, pH],
+                            spacing: [sW, sH],
+                            mouseOver: true,
+                            state: "OFF",
+                            onPress: () => refreshFileList(basta, true, true)
                         }
                     },
                     infoRegion: {
+                        hidden: isFolderMode,
                         dir: "col", width: "full",
                         anchor: { target: "regionFolder", axis: "y", offset: mH },
                         labelMain: {
@@ -163,7 +225,7 @@ export function showBastaFileHandler(host, category = "settings", targetRegion =
                         }
                     },
                     editorRegion: {
-                        hidden: isDelete,
+                        hidden: isDelete || isFolderMode,
                         anchor: { target: "infoRegion", axis: "y", offset: oY },
                         dir: "col",
                         editorNewName: {
@@ -243,7 +305,7 @@ export function showBastaFileHandler(host, category = "settings", targetRegion =
                         },
                         btnConfirm: {
                             type: UI_TYPES.BUTTON, themeKey: "buttonNode, t_textSystem",
-                            text: showWarning ? "Overwrite" : (basta.properties.confirmMessage || (isDelete ? "Delete" : (isSave ? "Save" : (isNew ? "Create" : "Apply")))),
+                            text: isFolderMode ? "Select" : (showWarning ? "Overwrite" : (basta.properties.confirmMessage || (isDelete ? "Delete" : (isSave ? "Save" : (isNew ? "Create" : "Apply"))))),
                             width: "auto", height: "auto",
                             state: btnState, mouseOver: true,
                             objectAlign: ["right", "middle"], labelAlign: ["center", "middle"],
@@ -259,7 +321,7 @@ export function showBastaFileHandler(host, category = "settings", targetRegion =
                                 const mode = basta.properties.mode || "rename";
                                 const isDelete = mode === "delete";
                                 if (basta.properties.onConfirm) {
-                                    await basta.properties.onConfirm(isDelete ? oldName : newName);
+                                    await basta.properties.onConfirm(mode === "folder" ? selectedDir : (isDelete ? oldName : newName));
                                     basta.close();
                                     return;
                                 }
@@ -271,7 +333,7 @@ export function showBastaFileHandler(host, category = "settings", targetRegion =
                                         body: JSON.stringify({ oldName, newName })
                                     });
                                     if (res.ok) {
-                                        showBastaMessage(host, `${mode.charAt(0).toUpperCase() + mode.slice(1)} Success`, 2000, { width: 250 }, targetRegion, false, "success");
+                                        showBastaMessage(host, `${mode.charAt(0).toUpperCase() + mode.slice(1)} Success`, 2000, { width: 250 }, resolvedTargetRegion, false, "success");
                                         if (mode !== "duplicate") {
                                             if (host.properties.activePaletteName !== undefined) host.properties.activePaletteName = newName;
                                             else host.properties.activeFileName = newName;
@@ -280,11 +342,11 @@ export function showBastaFileHandler(host, category = "settings", targetRegion =
                                         else if (host.onRenameSuccess) host.onRenameSuccess(newName);
                                         basta.close();
                                     } else {
-                                        showBastaMessage(host, `${mode.charAt(0).toUpperCase() + mode.slice(1)} Failed`, 3000, { width: 250 }, targetRegion, false, "error");
+                                        showBastaMessage(host, `${mode.charAt(0).toUpperCase() + mode.slice(1)} Failed`, 3000, { width: 250 }, resolvedTargetRegion, false, "error");
                                     }
                                 } catch (e) {
                                     console.error(`[File Handler] ${mode} Error:`, e);
-                                    showBastaMessage(host, "Server Error", 3000, { width: 250 }, targetRegion, false, "error");
+                                    showBastaMessage(host, "Server Error", 3000, { width: 250 }, resolvedTargetRegion, false, "error");
                                 }
                             }
                         }
@@ -317,30 +379,39 @@ export function showBastaFileHandler(host, category = "settings", targetRegion =
     const existing = activeBastas.get(id);
     logLoraStackFileHandlerAnchor(host, "showFileHandler", {
         targetRegion,
+        resolvedTargetRegion,
         mode,
         category,
         hasExisting: !!existing,
-        hasTarget: !!host?.layout?.regions?.[targetRegion],
-        target: host?.layout?.regions?.[targetRegion]
+        hasTarget: !!host?.layout?.regions?.[resolvedTargetRegion],
+        target: host?.layout?.regions?.[resolvedTargetRegion]
             ? {
-                x: host.layout.regions[targetRegion].x,
-                y: host.layout.regions[targetRegion].y,
-                w: host.layout.regions[targetRegion].w,
-                h: host.layout.regions[targetRegion].h,
+                x: host.layout.regions[resolvedTargetRegion].x,
+                y: host.layout.regions[resolvedTargetRegion].y,
+                w: host.layout.regions[resolvedTargetRegion].w,
+                h: host.layout.regions[resolvedTargetRegion].h,
             }
             : null,
     });
     if (existing) {
+        if (typeof window._xcpCloseActiveFileBrowser === "function") window._xcpCloseActiveFileBrowser();
         existing.hostNode = host;
-        existing.targetRegion = targetRegion;
+        existing.targetRegion = resolvedTargetRegion;
         existing.titleLabel = config.titleLabel;
         existing.layoutMap = config.layoutMap;
         existing.properties = { ...existing.properties, ...config.properties };
+        existing.properties.mode = mode;
+        existing.properties.category = category;
+        existing.properties.showFolderBrowser = mode === "folder";
         existing.targetSize = [...config.initialSize];
         existing.size = [...config.initialSize];
-        if (targetRegion && host?.layout?.regions?.[targetRegion] && !host?.properties?.[`bastaOffset_${id}`]) {
+        existing._fileList = [];
+        existing._compDataCache = {};
+        existing._fileBrowserCache = {};
+        existing._layoutDirty = true;
+        if (resolvedTargetRegion && host?.layout?.regions?.[resolvedTargetRegion] && !host?.properties?.[`bastaOffset_${id}`]) {
             const { oY } = existing.getDerpVars();
-            const target = host.layout.regions[targetRegion];
+            const target = host.layout.regions[resolvedTargetRegion];
             existing.offset = [
                 Math.round(target.x + (target.w / 2) - (existing.targetSize[0] / 2)),
                 Math.round(target.y - existing.targetSize[1] - oY)
@@ -353,30 +424,14 @@ export function showBastaFileHandler(host, category = "settings", targetRegion =
     const bastaInstance = spawnBasta(id, config);
     logLoraStackFileHandlerAnchor(host, "afterSpawnFileHandler", {
         targetRegion,
+        resolvedTargetRegion,
         mode,
         category,
         bastaPos: bastaInstance?.pos ? [bastaInstance.pos[0], bastaInstance.pos[1]] : null,
         bastaOffset: bastaInstance?.offset ? [bastaInstance.offset[0], bastaInstance.offset[1]] : null,
         bastaSize: bastaInstance?.targetSize ? [bastaInstance.targetSize[0], bastaInstance.targetSize[1]] : null,
-        hasTarget: !!host?.layout?.regions?.[targetRegion],
+        hasTarget: !!host?.layout?.regions?.[resolvedTargetRegion],
     });
-
-    // THE DATA FETCH: Hydrate the file list for the specified category
-    const refreshFileList = (instance) => {
-        // THE STATIC LIST FIX: Use provided fileList if available (e.g., for key entry names)
-        // THE CATEGORY GUARD: Skip server fetch if category is "none" to prevent 400 errors
-        if (fileList || category === "none") {
-            instance._fileList = fileList || [];
-            instance.requestDerpSync();
-            return;
-        }
-        fetch(`/xcp/list/${category}`)
-            .then(r => r.json())
-            .then(data => {
-                instance._fileList = data.items || [];
-                instance.requestDerpSync();
-            });
-    };
 
     refreshFileList(bastaInstance);
 

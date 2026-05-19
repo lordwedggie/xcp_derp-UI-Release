@@ -8,6 +8,7 @@ import shutil
 import sys
 import subprocess
 import re
+from PIL import Image
 from .xcp_tagHandling import handle_import_lora_tags, handle_manage_lora_tag
 from .xcp_loraStack import (handle_save_lora_rating, handle_save_lora_notes, handle_get_loras, handle_check_lora_files, handle_get_lora_preview,
                             handle_get_lora_triggers, handle_get_lora_info, handle_open_folder, handle_delete_lora_preview, handle_upload_lora_preview, get_lora_stack_profiles_dir,
@@ -75,6 +76,7 @@ CATEGORIES = {
     "locales": LOCALE_DIR,
     "models": folder_paths.get_folder_paths("checkpoints")[0],
     "vaes": folder_paths.get_folder_paths("vae")[0],
+    "output": folder_paths.get_output_directory(),
     "triggerWall": TRIGGER_WALL_DIR,
     "triggerWallDeck": SETTINGS_DIR,
 }
@@ -116,10 +118,20 @@ async def list_files(request):
     if not target_dir: return web.json_response({"error": "Invalid category"}, status=400)
     try:
         items = []
+        seen = set()
         # THE SYMLINK FIX: followlinks=True ensures symlinked folders (common in ComfyUI) are traversed
         for root, dirs, files in os.walk(target_dir, followlinks=True):
             # Ignore internal image preview folders
             dirs[:] = [d for d in dirs if not d.endswith("_IMG")]
+
+            # THE FOLDER PICKER FIX: The output folder browser needs explicit directory entries.
+            # Add subfolders with trailing slashes so FILEBROWSER mode "folder" can navigate them.
+            if category == "output":
+                for d in dirs:
+                    rel_dir = os.path.relpath(os.path.join(root, d), target_dir).replace("\\", "/") + "/"
+                    if rel_dir not in seen:
+                        seen.add(rel_dir)
+                        items.append(rel_dir)
 
             for f in files:
                 # THE EXTENSION FILTER FIX: Allow model files (.safetensors, .ckpt, .pt) for the 'models' and 'vaes' categories
@@ -128,10 +140,13 @@ async def list_files(request):
                     rel_path = os.path.relpath(os.path.join(root, f), target_dir)
 
                     if category in ["models", "vaes"]:
-                        items.append(rel_path.replace("\\", "/"))
+                        clean_item = rel_path.replace("\\", "/")
                     else:
-                        clean_path = os.path.splitext(rel_path)[0].replace("\\", "/")
-                        items.append(clean_path)
+                        clean_item = os.path.splitext(rel_path)[0].replace("\\", "/")
+
+                    if clean_item not in seen:
+                        seen.add(clean_item)
+                        items.append(clean_item)
         return web.json_response({"items": items})
     except Exception as e:
         return web.json_response({"items": [], "error": str(e)}, status=500)
@@ -258,13 +273,49 @@ def _sanitize_save_name(name, fallback_name):
     return raw or "saved_image"
 
 
+def _sanitize_subfolder_path(path):
+    raw = str(path or "").replace("\\", "/").strip()
+    if not raw:
+        return ""
+
+    parts = []
+    for part in raw.split("/"):
+        part = part.strip()
+        if not part or part == ".":
+            continue
+        if part == "..":
+            raise ValueError("Invalid subfolder path")
+        part = part.replace("\x00", "")
+        part = re.sub(r"[\r\n\t]", " ", part).strip()
+        if part:
+            parts.append(part)
+    return "/".join(parts)
+
+
+def _normalize_image_save_format(raw_format):
+    fmt = str(raw_format or "PNG").strip().upper()
+    if fmt == "JPG":
+        fmt = "JPEG"
+    return fmt if fmt in {"PNG", "JPEG", "WEBP"} else "PNG"
+
+
+def _extension_for_image_format(image_format):
+    return {
+        "PNG": ".png",
+        "JPEG": ".jpg",
+        "WEBP": ".webp",
+    }.get(image_format, ".png")
+
+
 async def save_current_image_from_deck(request):
     try:
         body = await request.json()
         filename = str(body.get("filename") or "").strip()
         image_type = str(body.get("type") or "output").strip().lower()
-        subfolder = str(body.get("subfolder") or "").strip()
+        subfolder = _sanitize_subfolder_path(body.get("subfolder") or "")
+        target_subfolder = _sanitize_subfolder_path(body.get("target_subfolder") or body.get("subfolder") or "")
         save_name = body.get("save_name")
+        save_format = _normalize_image_save_format(body.get("save_format"))
 
         if not filename:
             return web.json_response({"success": False, "error": "Missing filename"}, status=400)
@@ -279,25 +330,44 @@ async def save_current_image_from_deck(request):
             return web.json_response({"success": False, "error": "Source image not found"}, status=404)
 
         output_dir = folder_paths.get_output_directory()
-        os.makedirs(output_dir, exist_ok=True)
+        target_dir = os.path.normpath(os.path.join(output_dir, target_subfolder)) if target_subfolder else output_dir
+        if not target_dir.startswith(os.path.normpath(output_dir)):
+            return web.json_response({"success": False, "error": "Invalid target path"}, status=400)
+        os.makedirs(target_dir, exist_ok=True)
 
-        original_ext = os.path.splitext(filename)[1] or ".png"
         sanitized_name = _sanitize_save_name(save_name, os.path.splitext(filename)[0])
-        if not os.path.splitext(sanitized_name)[1]:
-            sanitized_name = f"{sanitized_name}{original_ext}"
+        forced_ext = _extension_for_image_format(save_format)
+        sanitized_name = f"{os.path.splitext(sanitized_name)[0]}{forced_ext}"
 
         base_name, ext = os.path.splitext(sanitized_name)
         target_name = f"{base_name}{ext}"
-        target_path = os.path.join(output_dir, target_name)
+        target_path = os.path.join(target_dir, target_name)
 
         index = 1
         while os.path.exists(target_path):
             target_name = f"{base_name}_{index:03d}{ext}"
-            target_path = os.path.join(output_dir, target_name)
+            target_path = os.path.join(target_dir, target_name)
             index += 1
 
-        shutil.copy2(src_path, target_path)
-        return web.json_response({"success": True, "filename": target_name})
+        if save_format == "PNG":
+            shutil.copy2(src_path, target_path)
+        else:
+            with Image.open(src_path) as img:
+                if save_format == "JPEG":
+                    if img.mode not in ("RGB", "L"):
+                        bg = Image.new("RGB", img.size, (255, 255, 255))
+                        alpha = img.getchannel("A") if "A" in img.getbands() else None
+                        bg.paste(img.convert("RGBA"), mask=alpha)
+                        img = bg
+                    else:
+                        img = img.convert("RGB")
+                    img.save(target_path, "JPEG", quality=95)
+                elif save_format == "WEBP":
+                    img.save(target_path, "WEBP", quality=95)
+                else:
+                    img.save(target_path, "PNG", compress_level=4)
+        result_name = f"{target_subfolder}/{target_name}" if target_subfolder else target_name
+        return web.json_response({"success": True, "filename": result_name})
     except Exception as e:
         return web.json_response({"success": False, "error": str(e)}, status=500)
 

@@ -148,7 +148,7 @@ export function showTriggerWall(host, targetRegion = null) {
                         }
                     },
                     sliderWeight: {
-                        type: UI_TYPES.SLIDER, themeKey: "panel, button, t_textSmall",
+                        type: UI_TYPES.SLIDER, themeKey: "panel, button, t_textSmall", mouseOver: false,
                         label: "Trigger Weight", labelAlign: ["center", "middle"],
                         value: initialWeight, min: TRIGGER_WEIGHT_MIN, max: TRIGGER_WEIGHT_MAX, step: 0.01,
                         width: "full", height: "full", spacing: [sW, 0],

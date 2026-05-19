@@ -229,6 +229,13 @@ export function initDerpImageDeckCore(nodeType) {
         img.onerror = () => {
             if (this._derpImageDeckPendingLoadId !== requestId) return;
             this._derpImageDeckPendingLoadId = null;
+            this._derpImageDeckDisplayUrl = null;
+            this._derpImageDeckPrevDisplayUrl = null;
+            this._derpImageDeckCrossfading = false;
+            this._derpImageDeckCrossfadeFrom = 1;
+            this._layoutMapHash = null;
+            if (typeof this.refreshNodeLayoutMap === "function") this.refreshNodeLayoutMap();
+            if (typeof this.requestDerpSync === "function") this.requestDerpSync();
         };
         img.src = url;
     };

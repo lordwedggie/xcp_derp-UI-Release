@@ -206,7 +206,12 @@ export function syncImageHTML(ctx, node, app, config, overlayPass = false) {
                 ctx.fillText("No Image", x + w / 2, y + h / 2);
                 ctx.restore();
             }
-            // THE CACHE CLEANUP: If no image URL is present, purge any existing cache for this key
+            // THE CACHE CLEANUP: If no image URL is present, purge any existing image state for this key
+            // so stale previous/current URLs cannot keep triggering failed image requests.
+            if (node._imageInstanceCache) {
+                delete node._imageInstanceCache[config.key];
+                delete node._imageInstanceCache[config.key + "_previous"];
+            }
             if (node._derpImgCache && node._derpImgCache[config.key]) {
                 delete node._derpImgCache[config.key];
             }

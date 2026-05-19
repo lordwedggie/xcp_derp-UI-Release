@@ -44,6 +44,29 @@ function getImageDeckCustomPrefix(raw) {
     return prefix && prefix !== "Image Prefix" ? prefix : "";
 }
 
+function normalizeImageDeckFolderPath(raw) {
+    return String(raw || "").replace(/\\/g, "/").trim().replace(/^\/+|\/+$/g, "");
+}
+
+function buildImageDeckBaseName(node, fileNameOnly = "") {
+    const modelPrefix = node.getImageDeckModelNamePrefix ? node.getImageDeckModelNamePrefix() : "";
+    const samplerPrefix = node.getImageDeckSamplerNamePrefix ? node.getImageDeckSamplerNamePrefix(fileNameOnly) : "";
+    const schedulerPrefix = node.getImageDeckSchedulerNamePrefix ? node.getImageDeckSchedulerNamePrefix(fileNameOnly) : "";
+    const customPrefix = node.getImageDeckFilenamePrefix ? node.getImageDeckFilenamePrefix() : "";
+    const parsedName = [modelPrefix, samplerPrefix, schedulerPrefix].map(normalizeImageDeckToken).filter(Boolean).join("-");
+    return customPrefix && parsedName ? `${customPrefix}_${parsedName}` : (customPrefix || parsedName || normalizeImageDeckFilenameToken(fileNameOnly));
+}
+
+function formatImageDeckTimestamp(date = new Date()) {
+    const yy = String(date.getFullYear()).slice(-2);
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    const dd = String(date.getDate()).padStart(2, "0");
+    const hh = String(date.getHours()).padStart(2, "0");
+    const min = String(date.getMinutes()).padStart(2, "0");
+    const sec = String(date.getSeconds()).padStart(2, "0");
+    return `${yy}${mm}${dd}-${hh}${min}${sec}`;
+}
+
 function getImageDeckBottomY(node) {
     const y = Number(node?.pos?.[1]) || 0;
     const h = Number(node?.size?.[1] ?? node?.properties?.nodeSize?.[1]) || 0;
@@ -88,12 +111,16 @@ async function saveImageDeckCurrentImage(node) {
         return;
     }
 
-    const editorName = node.getImageDeckFilenameText ? node.getImageDeckFilenameText() : "";
+    const fileNameOnly = String(image.filename || "").split(/[\\/]/).pop();
+    const saveBaseName = buildImageDeckBaseName(node, fileNameOnly);
+    const stampedSaveName = `${saveBaseName}_${formatImageDeckTimestamp()}`;
     const payload = {
         filename: image.filename,
         type: image.type || "output",
-        subfolder: node.properties.imageDeckCustomFolder || image.subfolder || "",
-        save_name: String(editorName || "").trim()
+        subfolder: image.subfolder || "",
+        target_subfolder: node.properties.imageDeckCustomFolder || "",
+        save_format: String(node.properties.imageDeckSaveFormat || "PNG").trim(),
+        save_name: String(stampedSaveName || "").trim()
     };
 
     const res = await fetch("/xcp/derp_image_deck/save_current_image", {
@@ -109,6 +136,28 @@ async function saveImageDeckCurrentImage(node) {
     }
 
     showBastaMessage(node, `Saved: ${data.filename}`, 2200, { fade: true, grow: true }, "btnSaveImage", false, "success");
+}
+
+function openImageDeckFolderSelector(node, items = []) {
+    showBastaFileHandler(node, "output", "btnFolderSelector", {
+        title: "Select Folder",
+        confirm: "Select",
+        mode: "folder",
+        fileList: items,
+        initialSize: [260, 260],
+        properties: {
+            bastaMovalbe: false,
+            showFolderBrowser: true,
+            selectedFolder: node.properties.imageDeckCustomFolder || "/",
+            pendingName: "",
+            originalName: ""
+        },
+        onConfirm: async (selectedFolder) => {
+            node.properties.imageDeckCustomFolder = normalizeImageDeckFolderPath(selectedFolder);
+            if (node.refreshNodeLayoutMap) node.refreshNodeLayoutMap();
+            if (node.requestDerpSync) node.requestDerpSync();
+        }
+    });
 }
 
 app.registerExtension({
@@ -344,15 +393,12 @@ app.registerExtension({
                 ? (image.filename || image.image || (typeof image === "string" ? image : ""))
                 : "";
             const fileNameOnly = String(rawFile || "").split(/[\\/]/).pop();
-
-            const modelPrefix = this.getImageDeckModelNamePrefix ? this.getImageDeckModelNamePrefix() : "";
-            const samplerPrefix = this.getImageDeckSamplerNamePrefix ? this.getImageDeckSamplerNamePrefix(fileNameOnly) : "";
-            const schedulerPrefix = this.getImageDeckSchedulerNamePrefix ? this.getImageDeckSchedulerNamePrefix(fileNameOnly) : "";
-            const customPrefix = this.getImageDeckFilenamePrefix ? this.getImageDeckFilenamePrefix() : "";
-            const parsedName = [modelPrefix, samplerPrefix, schedulerPrefix].map(normalizeImageDeckToken).filter(Boolean).join("-");
-            if (customPrefix && parsedName) return `${customPrefix}_${parsedName}`;
-            if (customPrefix) return customPrefix;
-            return parsedName;
+            const baseName = buildImageDeckBaseName(this, fileNameOnly);
+            const extension = (String(fileNameOnly || "").match(/(\.[^.\\/]+)$/) || [""])[0];
+            const displayName = `${baseName}${extension}`;
+            const customFolder = normalizeImageDeckFolderPath(this.properties.imageDeckCustomFolder || "");
+            if (!customFolder) return displayName;
+            return `\\${customFolder.replace(/\//g, "\\")}\\${displayName}`;
         };
 
         nodeType.prototype.applyPalette = function() {
@@ -374,6 +420,12 @@ app.registerExtension({
             this.properties.imageDeckFilenamePrefix = typeof this.properties.imageDeckFilenamePrefix === "string"
                 ? this.properties.imageDeckFilenamePrefix
                 : "Image Prefix";
+            this.properties.imageDeckSaveFormat = typeof this.properties.imageDeckSaveFormat === "string"
+                ? this.properties.imageDeckSaveFormat
+                : "PNG";
+            this.properties.imageDeckCustomFolder = typeof this.properties.imageDeckCustomFolder === "string"
+                ? normalizeImageDeckFolderPath(this.properties.imageDeckCustomFolder)
+                : "";
             this.updateImageDeckSignalFilters();
             this.properties.multiSignalIds = this.properties.multiSignalIds || {};
             this.properties.multiSignalLabels = this.properties.multiSignalLabels || {};
@@ -633,35 +685,34 @@ app.registerExtension({
                             spacing: [sW, 0],
                             mouseOver: true,
                             state: "OFF",
-                            onPress: async () => {
-                                const res = await fetch("/xcp/list_files?category=output&folder=/");
-                                const rawItems = res.ok ? (await res.json()).items || [] : [];
-                                // Extract unique top-level folder names
-                                const seen = new Set();
-                                const folders = [];
-                                for (const item of rawItems) {
-                                    const s = item.indexOf("/");
-                                    if (s > 0) {
-                                        const name = item.substring(0, s);
-                                        if (!seen.has(name)) { seen.add(name); folders.push(name); }
-                                    }
-                                }
-                                showBastaFileHandler(this, "output", "btnFolderSelector", {
-                                    title: "Select Folder",
-                                    confirm: "Select",
-                                    mode: "open",
-                                    initialSize: [260, 260],
-                                    fileList: folders,
-                                    properties: { showFolderBrowser: true, pendingName: "/" },
-                                    onConfirm: async (result) => {
-                                        const sel = Array.isArray(result) ? result[0] : result;
-                                        const folderName = typeof sel === "object" ? sel?.name || sel?.originalName || "" : sel;
-                                        this.properties.imageDeckCustomFolder = folderName || "";
-                                        if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
-                                        if (this.requestDerpSync) this.requestDerpSync();
-                                    }
-                                });
-                            },               },
+                            onPress: () => {
+                                fetch("/xcp/list/output")
+                                    .then(async (r) => {
+                                        const data = await r.json().catch(() => ({}));
+                                        return { ok: r.ok, status: r.status, data };
+                                    })
+                                    .then(({ ok, status, data }) => {
+                                        const items = Array.isArray(data?.items) ? data.items : [];
+                                        const folderItems = items.filter(item => typeof item === "string" && item.endsWith("/"));
+
+                                        if (!ok) {
+                                            const msg = data?.error ? `Folder list failed: ${data.error}` : `Folder list failed (${status})`;
+                                            showBastaMessage(this, msg, 2800, { fade: true }, "btnFolderSelector", false, "error");
+                                            return;
+                                        }
+
+                                        if (folderItems.length === 0) {
+                                            showBastaMessage(this, "No output subfolders found", 2400, { fade: true }, "btnFolderSelector", false, "info");
+                                        }
+
+                                        openImageDeckFolderSelector(this, items);
+                                    })
+                                    .catch((e) => {
+                                        console.warn("[DerpImageDeck] Failed to load output folders:", e);
+                                        showBastaMessage(this, "Folder list request failed", 2800, { fade: true }, "btnFolderSelector", false, "error");
+                                    });
+                            }
+                        },
                         edtiorFilenamePrefix: {
                             type: this.UI_TYPES.EDITOR,
                             themeKey: "dialog, t_textSystem",
@@ -799,6 +850,42 @@ app.registerExtension({
                                 this.refreshOpenImageDeckSignalReceiver();
                                 this.refreshDerpImageDeckSysMap();
                                 this.refreshNodeLayoutMap();
+                                this.requestDerpSync();
+                            }
+                        }
+                    },
+                    regionOption2: {
+                        anchor: { target: "regionOption1", axis: "y", offset: oY },
+                        dir: "row",
+                        width: "full",
+                        height: "auto",
+                        spacing: [sW, 0],
+                        lblImageFormat: {
+                            type: this.UI_TYPES.TEXT,
+                            mouseOver: false,
+                            themeKey: "t_textsystem",
+                            labelAlign: ["left", "middle"],
+                            text: "Image format:",
+                            width: "auto",
+                            height: "auto",
+                            padding: [pW, pH],
+                        },
+                        dropdownImageFormat: {
+                            type: this.UI_TYPES.DROPDOWN,
+                            themeKey: "dialog, t_textSmall",
+                            canvasShield: true,
+                            indicator: true,
+                            width: "fit",
+                            minWidth: 90,
+                            height: "auto",
+                            padding: [pW, pH],
+                            spacing: [sW, 0],
+                            items: ["PNG", "JPEG", "WebP"],
+                            value: this.properties.imageDeckSaveFormat || "PNG",
+                            text: this.properties.imageDeckSaveFormat || "PNG",
+                            onChange: (v) => {
+                                this.properties.imageDeckSaveFormat = String(v || "PNG").trim() || "PNG";
+                                this.refreshDerpImageDeckSysMap();
                                 this.requestDerpSync();
                             }
                         }
