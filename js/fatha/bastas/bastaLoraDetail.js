@@ -643,13 +643,13 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 spawnAnim: false,
                 alpha: basta._navAlpha,
                 anchor: { target: "loraPreview", axis: "y", offset: -stableNavH - sH },
-                dir: "row", width: "full", height: "auto", margin: [sW, mH, sW, mH + sH],
+                dir: "row", width: "full", height: "auto", margin: [sW, mH, sW, mH],
                 btnCivit: {
                     type: UI_TYPES.BUTTON, labelAlign: ["center", "middle"], padding: [pW, pH],
                     themeKey: "button, t_textSmall", palette: civitPal,
                     alpha: basta._navAlpha,
                     text: "CivitAI",
-                    width: "auto", height: "auto", spacing: [sW, 0],
+                    width: "auto", spacing: [sW, 0],
                     objectAlign: ["left", "middle"],
                     onPress: async () => {
                         if (basta._navAlpha < 0.5) return;
@@ -661,7 +661,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                     themeKey: "button, t_textSmall", palette: civArchivePal,
                     alpha: basta._navAlpha,
                     text: "CivArchive",
-                    width: "auto", height: "auto", spacing: [sW, 0],
+                    width: "auto", spacing: [sW, 0],
                     onPress: async () => {
                         if (basta._navAlpha < 0.5) return;
                         openCivArchive(basta, loraData);
@@ -673,7 +673,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                     themeKey: "button, t_textSmall", palette: folderPal,
                     alpha: basta._navAlpha,
                     text: "Open LoRA folder",
-                    width: "auto", height: "auto", spacing: [sW, 0],
+                    width: "auto", spacing: [sW, 0],
                     onPress: (e) => {
                         if (basta._navAlpha < 0.5) return;
                         const liveStack = host.properties?.stackData || [];
