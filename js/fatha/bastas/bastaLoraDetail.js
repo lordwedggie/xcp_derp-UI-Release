@@ -642,7 +642,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 hidden: !basta._externalReady && !basta._isDerpResizing,
                 spawnAnim: false,
                 alpha: basta._navAlpha,
-                anchor: { target: "loraPreview", axis: "y", offset: -stableNavH - sH*2 },
+                anchor: { target: "loraPreview", axis: "y", offset: -stableNavH - sH },
                 dir: "row", width: "full", height: "auto", margin: [sW, mH, sW, mH],
                 btnCivit: {
                     type: UI_TYPES.BUTTON, labelAlign: ["center", "middle"], padding: [pW, pH],
