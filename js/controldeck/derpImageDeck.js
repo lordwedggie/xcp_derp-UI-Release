@@ -38,6 +38,11 @@ function normalizeImageDeckFilenameToken(raw) {
         .replace(/\.(png|jpg|jpeg|webp|gif|bmp)$/i, "");
 }
 
+function getImageDeckCustomPrefix(raw) {
+    const prefix = normalizeImageDeckToken(raw);
+    return prefix && prefix !== "Image Prefix" ? prefix : "";
+}
+
 function getImageDeckBottomY(node) {
     const y = Number(node?.pos?.[1]) || 0;
     const h = Number(node?.size?.[1] ?? node?.properties?.nodeSize?.[1]) || 0;
@@ -325,6 +330,10 @@ app.registerExtension({
             return this.getImageDeckSignalValueByKind("SCHEDULER") || this.parseImageDeckNameToken(fileNameOnly, names);
         };
 
+        nodeType.prototype.getImageDeckFilenamePrefix = function() {
+            return getImageDeckCustomPrefix(this.properties.imageDeckFilenamePrefix);
+        };
+
         nodeType.prototype.getImageDeckFilenameText = function() {
             const list = Array.isArray(this._derpImageDeckList) ? this._derpImageDeckList : [];
             const idx = Number.isInteger(this._derpImageDeckIndex) ? this._derpImageDeckIndex : (list.length - 1);
@@ -338,8 +347,11 @@ app.registerExtension({
             const modelPrefix = this.getImageDeckModelNamePrefix ? this.getImageDeckModelNamePrefix() : "";
             const samplerPrefix = this.getImageDeckSamplerNamePrefix ? this.getImageDeckSamplerNamePrefix(fileNameOnly) : "";
             const schedulerPrefix = this.getImageDeckSchedulerNamePrefix ? this.getImageDeckSchedulerNamePrefix(fileNameOnly) : "";
-            const parts = [modelPrefix, samplerPrefix, schedulerPrefix].map(normalizeImageDeckToken).filter(Boolean);
-            return parts.join("-");
+            const customPrefix = this.getImageDeckFilenamePrefix ? this.getImageDeckFilenamePrefix() : "";
+            const parsedName = [modelPrefix, samplerPrefix, schedulerPrefix].map(normalizeImageDeckToken).filter(Boolean).join("-");
+            if (customPrefix && parsedName) return `${customPrefix}_${parsedName}`;
+            if (customPrefix) return customPrefix;
+            return parsedName;
         };
 
         nodeType.prototype.applyPalette = function() {
@@ -358,6 +370,9 @@ app.registerExtension({
             this.properties.toggleSchedulerInfo = this.properties.toggleSchedulerInfo !== false;
             this.properties.imageDeckSamplerNames = Array.isArray(this.properties.imageDeckSamplerNames) ? this.properties.imageDeckSamplerNames : [];
             this.properties.imageDeckSchedulerNames = Array.isArray(this.properties.imageDeckSchedulerNames) ? this.properties.imageDeckSchedulerNames : [];
+            this.properties.imageDeckFilenamePrefix = typeof this.properties.imageDeckFilenamePrefix === "string"
+                ? this.properties.imageDeckFilenamePrefix
+                : "Image Prefix";
             this.updateImageDeckSignalFilters();
             this.properties.multiSignalIds = this.properties.multiSignalIds || {};
             this.properties.multiSignalLabels = this.properties.multiSignalLabels || {};
@@ -607,39 +622,60 @@ app.registerExtension({
                         dir: "row",
                         width: "full",
                         height: "auto",
-                        spacing: [sW, 0],
-                        editorImageFilename: {
+                        spacing: [0, sH],
+                        edtiorFilenamePrefix: {
                             type: this.UI_TYPES.EDITOR,
                             themeKey: "dialog, t_textSystem",
-                            width: "full",
+                            width: "fit",
                             height: "auto",
                             padding: [pW, pH], spacing: [sH, 0],
                             labelAlign: ["left", "middle"],
-                            text: filenameText,
-                            value: filenameText,
-                            onBlur: () => {
+                            text: this.properties.imageDeckFilenamePrefix || "Image Prefix",
+                            value: this.properties.imageDeckFilenamePrefix || "Image Prefix",
+                            onBlur: (v) => {
+                                this.properties.imageDeckFilenamePrefix = String(v || "").trim() || "Image Prefix";
                                 if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
                                 if (this.requestDerpSync) this.requestDerpSync();
                             }
                         },
-                        btnSaveImage: {
-                            type: this.UI_TYPES.ICONBUTTON,
-                            icon: "save",
-                            themeKey: "button, t_textSystem",
-                            width: "match",
+                        regionImageHandling1Row: {
+                            dir: "row",
+                            width: "full",
                             height: "auto",
                             spacing: [sW, 0],
-                            mouseOver: true,
-                            state: "OFF",
-                            onPress: async () => {
-                                try {
-                                    await saveImageDeckCurrentImage(this);
-                                } catch (e) {
-                                    showBastaMessage(this, "Save failed", 2200, { fade: true }, "btnSaveImage", false, "error");
+                            editorImageFilename: {
+                                type: this.UI_TYPES.EDITOR,
+                                themeKey: "dialog, t_textSystem",
+                                width: "full",
+                                height: "auto",
+                                padding: [pW, pH], spacing: [sH, 0],
+                                labelAlign: ["left", "middle"],
+                                text: filenameText,
+                                value: filenameText,
+                                onBlur: () => {
+                                    if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
+                                    if (this.requestDerpSync) this.requestDerpSync();
+                                }
+                            },
+                            btnSaveImage: {
+                                type: this.UI_TYPES.ICONBUTTON,
+                                icon: "save",
+                                themeKey: "button, t_textSystem",
+                                width: "match",
+                                height: "auto",
+                                spacing: [sW, 0],
+                                mouseOver: true,
+                                state: "OFF",
+                                onPress: async () => {
+                                    try {
+                                        await saveImageDeckCurrentImage(this);
+                                    } catch (e) {
+                                        showBastaMessage(this, "Save failed", 2200, { fade: true }, "btnSaveImage", false, "error");
+                                    }
                                 }
                             }
                         }
-                    }
+                    },
                 }
             };
 
