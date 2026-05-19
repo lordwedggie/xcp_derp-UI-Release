@@ -7,6 +7,7 @@ import { fatha, initDerpGlobalListener } from "../fatha/fatha.js";
 import { initDerpImageDeckCore } from "./core/derpImageDeck_core.js";
 import { runWirelessHeartbeat } from "../fatha/core/masterSignalEngine.js";
 import { showBastaMessage } from "../fatha/bastas/bastaMessage.js";
+import { showBastaFileHandler } from "../fatha/bastas/bastaFileHandler.js";
 import { activeBastas } from "../fatha/basta.js";
 import { getSignalReceiverId } from "../fatha/bastas/bastaSignalReceiver.js";
 import { getPinnedVerticalDeckAnchor, restorePinnedVerticalDeckAnchor } from "../fatha/core/dockResize.js";
@@ -91,7 +92,7 @@ async function saveImageDeckCurrentImage(node) {
     const payload = {
         filename: image.filename,
         type: image.type || "output",
-        subfolder: image.subfolder || "",
+        subfolder: node.properties.imageDeckCustomFolder || image.subfolder || "",
         save_name: String(editorName || "").trim()
     };
 
@@ -623,6 +624,44 @@ app.registerExtension({
                         width: "full",
                         height: "auto",
                         spacing: [0, sH],
+                        btnFolderSelector: {
+                            type: this.UI_TYPES.ICONBUTTON,
+                            icon: "file",
+                            themeKey: "button, t_textSystem",
+                            width: "match",
+                            height: "auto",
+                            spacing: [sW, 0],
+                            mouseOver: true,
+                            state: "OFF",
+                            onPress: async () => {
+                                const res = await fetch("/xcp/list_files?category=output&folder=/");
+                                const rawItems = res.ok ? (await res.json()).items || [] : [];
+                                // Extract unique top-level folder names
+                                const seen = new Set();
+                                const folders = [];
+                                for (const item of rawItems) {
+                                    const s = item.indexOf("/");
+                                    if (s > 0) {
+                                        const name = item.substring(0, s);
+                                        if (!seen.has(name)) { seen.add(name); folders.push(name); }
+                                    }
+                                }
+                                showBastaFileHandler(this, "output", "btnFolderSelector", {
+                                    title: "Select Folder",
+                                    confirm: "Select",
+                                    mode: "open",
+                                    initialSize: [260, 260],
+                                    fileList: folders,
+                                    properties: { showFolderBrowser: true, pendingName: "/" },
+                                    onConfirm: async (result) => {
+                                        const sel = Array.isArray(result) ? result[0] : result;
+                                        const folderName = typeof sel === "object" ? sel?.name || sel?.originalName || "" : sel;
+                                        this.properties.imageDeckCustomFolder = folderName || "";
+                                        if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
+                                        if (this.requestDerpSync) this.requestDerpSync();
+                                    }
+                                });
+                            },               },
                         edtiorFilenamePrefix: {
                             type: this.UI_TYPES.EDITOR,
                             themeKey: "dialog, t_textSystem",
