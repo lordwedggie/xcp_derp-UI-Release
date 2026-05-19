@@ -199,6 +199,7 @@ export function initDerpImageDeckCore(nodeType) {
         const img = new Image();
         img.onload = () => {
             if (this._derpImageDeckPendingLoadId !== requestId) return;
+            this._derpImageDeckFailedUrl = null;
             const useAnim = window.xcpDerpSettings?.useAnimations !== false;
             const hadPrevious = typeof this._derpImageDeckDisplayUrl === "string" && this._derpImageDeckDisplayUrl.length > 0;
             if (useAnim && hadPrevious && this._derpImageDeckDisplayUrl !== url) {
@@ -229,6 +230,7 @@ export function initDerpImageDeckCore(nodeType) {
         img.onerror = () => {
             if (this._derpImageDeckPendingLoadId !== requestId) return;
             this._derpImageDeckPendingLoadId = null;
+            this._derpImageDeckFailedUrl = url;
             this._derpImageDeckDisplayUrl = null;
             this._derpImageDeckPrevDisplayUrl = null;
             this._derpImageDeckCrossfading = false;
@@ -247,6 +249,7 @@ export function initDerpImageDeckCore(nodeType) {
         const targetUrl = buildComfyImageUrl(current);
 
         if (!targetUrl) {
+            this._derpImageDeckFailedUrl = null;
             this._derpImageDeckDisplayUrl = null;
             this._derpImageDeckPrevDisplayUrl = null;
             this._derpImageDeckCrossfading = false;
@@ -256,6 +259,7 @@ export function initDerpImageDeckCore(nodeType) {
         }
 
         if (this._derpImageDeckDisplayUrl === targetUrl) return;
+        if (this._derpImageDeckFailedUrl === targetUrl) return;
 
         const requestId = `${Date.now()}_${Math.random()}`;
         this._derpImageDeckPendingLoadId = requestId;
@@ -268,6 +272,7 @@ export function initDerpImageDeckCore(nodeType) {
         if (this._lastWirelessImageHash === nextHash) return;
 
         this._lastWirelessImageHash = nextHash;
+        this._derpImageDeckFailedUrl = null;
         this._derpImageDeckList = list;
         this._derpImageDeckIndex = list.length - 1;
         this.syncDerpImageDeckDisplayUrl();
