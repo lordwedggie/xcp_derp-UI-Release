@@ -168,7 +168,10 @@ export function syncHorizontalDeckHeight(node, graph = app.graph || node?.graph 
     if (!Array.isArray(members) || members.length <= 1) return false;
 
     const explicitTargetHeight = Number(targetHeight) || 0;
-    const hasActiveStackDrag = members.some((member) => member?._dragTrig && member?._dragThresholdMet);
+    const now = Date.now();
+    const hasActiveStackDrag = members.some((member) =>
+        (member?._dragTrig && member?._dragThresholdMet) || (Number(member?._stackDragReleaseLockUntil) || 0) > now
+    );
     const resolvedHeight = explicitTargetHeight > 0
         ? (hasActiveStackDrag ? Math.max(getSharedDockHeight(members, targetHeight), explicitTargetHeight) : explicitTargetHeight)
         : getSharedDockHeight(members, targetHeight);

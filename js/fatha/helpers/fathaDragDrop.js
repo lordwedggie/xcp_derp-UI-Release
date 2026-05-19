@@ -4,9 +4,52 @@
  * Logic generalized from derpTriggerWall_core.js.
  */
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
+import { app } from "../../../../scripts/app.js";
+import { settleDerpSizeBeforeDraw, shouldPreserveHorizontalDeckHeight, syncHorizontalDeckHeight } from "../core/fathaHandler.js";
+import { getDeckMembers } from "../core/masterDockEngine.js";
 
 const STACK_DRAG_HOLD_BOX_PX = 5;
 const STACK_DRAG_HOLD_BOX_HALF = STACK_DRAG_HOLD_BOX_PX / 2;
+const STACK_DRAG_RELEASE_LOCK_MS = 120;
+
+function finalizeHorizontalStackStructure(node) {
+    if (!node || typeof shouldPreserveHorizontalDeckHeight !== "function" || !shouldPreserveHorizontalDeckHeight(node)) return;
+    const graph = app.graph || node.graph || null;
+    const members = graph ? getDeckMembers(node, graph) : [];
+    if (!Array.isArray(members) || members.length <= 1) return;
+
+    const remeasureNode = (target) => {
+        if (!target || typeof settleDerpSizeBeforeDraw !== "function") return 0;
+        settleDerpSizeBeforeDraw(target, {
+            forceAutoHeight: true,
+            suppressRequestSync: true,
+        });
+        return Number(target.properties?.nodeSize?.[1] ?? target.size?.[1]) || 0;
+    };
+
+    const targetHeight = members.reduce((maxHeight, member) => {
+        return Math.max(maxHeight, remeasureNode(member));
+    }, 0);
+
+    if (targetHeight > 0 && typeof syncHorizontalDeckHeight === "function") {
+        syncHorizontalDeckHeight(node, targetHeight);
+    }
+
+    members.forEach((member) => {
+        if (member.requestDerpSync) member.requestDerpSync();
+        if (member.setDirtyCanvas) member.setDirtyCanvas(true, true);
+    });
+}
+
+function markHorizontalStackReleaseLock(node) {
+    const graph = app.graph || node?.graph || null;
+    const members = graph ? getDeckMembers(node, graph) : [];
+    if (!Array.isArray(members) || members.length <= 1) return;
+    const releaseLockUntil = Date.now() + STACK_DRAG_RELEASE_LOCK_MS;
+    members.forEach((member) => {
+        member._stackDragReleaseLockUntil = releaseLockUntil;
+    });
+}
 
 /**
  * Initializes the drag state for an item in a stack.
@@ -124,6 +167,10 @@ export function endStackDrag(node, arrayKey) {
         SOUND_INDEX.dropdown();
     }
 
+    if (thresholdMet) {
+        markHorizontalStackReleaseLock(node);
+    }
+
     node._dragTrig = null;
     node._dragMouse = null;
     node._dragOffset = null;
@@ -140,6 +187,12 @@ export function endStackDrag(node, arrayKey) {
 
             if (node.syncDerpOutputs) node.syncDerpOutputs();
         }
+    }
+
+    if (typeof node.syncLoraStackStructureHeight === "function") {
+        node.syncLoraStackStructureHeight();
+    } else {
+        finalizeHorizontalStackStructure(node);
     }
 
     node.refreshNodeLayoutMap();

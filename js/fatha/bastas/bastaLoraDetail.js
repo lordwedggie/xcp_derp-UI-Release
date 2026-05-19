@@ -85,6 +85,29 @@ function getTriggerItemsForPath(host, loraPath) {
     return cache[loraPath] || cache[normalized] || cache[windowsStyle] || [];
 }
 
+function syncLoraSetupCache(host, loraData, currentPath, setup) {
+    if (!host) return;
+    if (!host._loraSetup) host._loraSetup = {};
+
+    const stackName = host.properties?.stackData?.[loraData?.slotIndex]?.[0] || "";
+    const keys = new Set([
+        currentPath || "",
+        loraData?.loraPath || "",
+        loraData?.rawFileName || "",
+        loraData?.name || "",
+        stackName || ""
+    ].filter(Boolean));
+
+    for (const key of [...keys]) {
+        keys.add(key.replace(/\\/g, "/"));
+        keys.add(key.replace(/\//g, "\\"));
+    }
+
+    for (const key of keys) {
+        host._loraSetup[key] = setup;
+    }
+}
+
 export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (basta, vars) => {
     bumpBLDPerf(basta, "layoutBuild");
     flushBLDPerf(basta);
@@ -122,8 +145,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 loraData.loraPath = info.loraPath || currentPath;
 
                 // THE SYNC FIX: Push fetched setup data to the host node cache
-                if (!host._loraSetup) host._loraSetup = {};
-                host._loraSetup[currentPath] = loraData.setup;
+                syncLoraSetupCache(host, loraData, currentPath, loraData.setup);
                 if (host.refreshNodeLayoutMap) host.refreshNodeLayoutMap();
 
                 basta._layoutDirty = true;
@@ -318,8 +340,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                                     loraData.setup = info.setup || {};
 
                                     // THE SYNC FIX: Push fetched setup data to the host node cache
-                                    if (!host._loraSetup) host._loraSetup = {};
-                                    host._loraSetup[currentPath] = loraData.setup;
+                                    syncLoraSetupCache(host, loraData, currentPath, loraData.setup);
                                     if (host.refreshNodeLayoutMap) host.refreshNodeLayoutMap();
 
                                     basta._layoutDirty = true;
@@ -355,8 +376,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                         loraData.setup.sliderStrength[0] = val;
 
                         // THE SYNC FIX: Update host cache and refresh node face
-                        if (!host._loraSetup) host._loraSetup = {};
-                        host._loraSetup[currentPath] = loraData.setup;
+                        syncLoraSetupCache(host, loraData, currentPath, loraData.setup);
                         if (host.refreshNodeLayoutMap) host.refreshNodeLayoutMap();
 
                         fetch("/xcp/manage_lora_tag", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: currentPath, action: "update_setup", setup_data: { sliderStrength: loraData.setup.sliderStrength } })});
@@ -377,8 +397,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                         if (loraData.setup.sliderStrength[1] === val) return;
                         loraData.setup.sliderStrength[1] = val;
 
-                        if (!host._loraSetup) host._loraSetup = {};
-                        host._loraSetup[currentPath] = loraData.setup;
+                        syncLoraSetupCache(host, loraData, currentPath, loraData.setup);
                         if (host.refreshNodeLayoutMap) host.refreshNodeLayoutMap();
 
                         fetch("/xcp/manage_lora_tag", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: currentPath, action: "update_setup", setup_data: { sliderStrength: loraData.setup.sliderStrength } })});
@@ -399,8 +418,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                         if (loraData.setup.sliderStrength[2] === val) return;
                         loraData.setup.sliderStrength[2] = val;
 
-                        if (!host._loraSetup) host._loraSetup = {};
-                        host._loraSetup[currentPath] = loraData.setup;
+                        syncLoraSetupCache(host, loraData, currentPath, loraData.setup);
                         if (host.refreshNodeLayoutMap) host.refreshNodeLayoutMap();
 
                         fetch("/xcp/manage_lora_tag", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: currentPath, action: "update_setup", setup_data: { sliderStrength: loraData.setup.sliderStrength } })});
@@ -421,8 +439,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                         if (loraData.setup.sliderStrength[3] === val) return;
                         loraData.setup.sliderStrength[3] = val;
 
-                        if (!host._loraSetup) host._loraSetup = {};
-                        host._loraSetup[currentPath] = loraData.setup;
+                        syncLoraSetupCache(host, loraData, currentPath, loraData.setup);
                         if (host.refreshNodeLayoutMap) host.refreshNodeLayoutMap();
 
                         fetch("/xcp/manage_lora_tag", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: currentPath, action: "update_setup", setup_data: { sliderStrength: loraData.setup.sliderStrength } })});
