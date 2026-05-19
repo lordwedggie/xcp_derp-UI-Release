@@ -236,6 +236,28 @@ app.registerExtension({
             };
         };
 
+        nodeType.prototype.hasRequiredWirelessSignals = function() {
+            const ids = this.properties?.multiSignalIds || {};
+            const signalId = ids[0] || ids["0"] || null;
+            if (!signalId) return false;
+
+            const signals = window.xcpDerpSignals || {};
+            const directId = String(signalId);
+            if (signals[directId]) return true;
+
+            const baseId = directId.split(":")[0];
+            if (signals[baseId]) return true;
+            if (Object.values(signals).some(sig => String(sig?.nodeId || "").startsWith(`${baseId}:`))) return true;
+
+            const numericBaseId = parseInt(baseId, 10);
+            if (Number.isNaN(numericBaseId) || !app.graph) return false;
+
+            const sourceNode = app.graph.getNodeById(numericBaseId);
+            if (!sourceNode?.properties?.isWirelessTransmitter) return false;
+            const outputs = Array.isArray(sourceNode.outputs) ? sourceNode.outputs : [];
+            return outputs.some(output => String(output?.type || "").toUpperCase().includes("IMAGE"));
+        };
+
         nodeType.prototype.refreshOpenImageDeckSignalReceiver = function() {
             const receiver = activeBastas.get(getSignalReceiverId());
             if (!receiver || receiver.hostNode !== this || receiver.isClosing) return;
@@ -681,10 +703,10 @@ app.registerExtension({
                         btnFolderSelector: {
                             type: this.UI_TYPES.ICONBUTTON,
                             icon: "file",
-                            themeKey: "button, t_textSystem",
+                            themeKey: "button, t_textNormal",
                             width: "match",
                             height: "auto",
-                            spacing: [sW, 0],
+                            spacing: [sW, 0], padding: [pW, pH],
                             mouseOver: true,
                             state: "OFF",
                             onPress: () => {
@@ -717,7 +739,7 @@ app.registerExtension({
                         },
                         edtiorFilenamePrefix: {
                             type: this.UI_TYPES.EDITOR,
-                            themeKey: "dialog, t_textSystem",
+                            themeKey: "dialog, t_textNormal",
                             width: "fit",
                             height: "auto",
                             padding: [pW, pH], spacing: [sH, 0],
@@ -737,7 +759,7 @@ app.registerExtension({
                             spacing: [sW, 0],
                             editorImageFilename: {
                                 type: this.UI_TYPES.EDITOR,
-                                themeKey: "dialog, t_textSystem",
+                                themeKey: "dialog, t_textNormal",
                                 width: "full",
                                 height: "auto",
                                 padding: [pW, pH], spacing: [sH, 0],
@@ -752,10 +774,10 @@ app.registerExtension({
                             btnSaveImage: {
                                 type: this.UI_TYPES.ICONBUTTON,
                                 icon: "save",
-                                themeKey: "button, t_textSystem",
+                                themeKey: "button, t_textNormal", 
                                 width: "match",
                                 height: "auto",
-                                spacing: [sW, 0],
+                                spacing: [sW, 0], padding: [pW, pH],
                                 mouseOver: true,
                                 state: "OFF",
                                 onPress: async () => {

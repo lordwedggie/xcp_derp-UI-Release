@@ -301,21 +301,23 @@ export const getVirtualNodeLayoutMap = (node) => {
                     state: activeBastas.get(getSignalReceiverId())?.hostNode === node && !activeBastas.get(getSignalReceiverId())?.isClosing ? "ON" : "OFF",
                     pulse: (() => {
                         const isBastaOpen = activeBastas.get(getSignalReceiverId())?.hostNode === node && !activeBastas.get(getSignalReceiverId())?.isClosing;
-                        const reqTypes = [
-                            ...(node.signalFilters?.types || []),
-                            ...(node.signalFilters?.additionalTypes || []),
-                        ];
-                        const selectedIds = node.properties?.multiSignalIds || {};
-                        const globalSignals = window.xcpDerpSignals || {};
-                        const hasMissing = reqTypes.length > 0 && reqTypes.some((_, i) => {
-                            const rawId = selectedIds[i] || selectedIds[String(i)] || null;
-                            if (!rawId) return true;
-                            const directId = String(rawId);
-                            if (globalSignals[directId]) return false;
-                            const baseId = directId.split(":")[0];
-                            return !globalSignals[baseId];
-                        });
-                        return !isBastaOpen && hasMissing;
+                        const hasRequiredSignals = typeof node.hasRequiredWirelessSignals === "function"
+                            ? node.hasRequiredWirelessSignals()
+                            : (() => {
+                                const reqTypes = Array.isArray(node.signalFilters?.types) ? node.signalFilters.types : [];
+                                const selectedIds = node.properties?.multiSignalIds || {};
+                                const globalSignals = window.xcpDerpSignals || {};
+                                return reqTypes.length === 0 || reqTypes.every((_, i) => {
+                                    const rawId = selectedIds[i] || selectedIds[String(i)] || null;
+                                    if (!rawId) return false;
+                                    const directId = String(rawId);
+                                    if (globalSignals[directId]) return true;
+                                    const baseId = directId.split(":")[0];
+                                    if (globalSignals[baseId]) return true;
+                                    return Object.values(globalSignals).some(sig => String(sig?.nodeId || "").startsWith(`${baseId}:`));
+                                });
+                            })();
+                        return !isBastaOpen && !hasRequiredSignals;
                     })(),
                     onPress: () => showBastaSignalReceiver(node, "btnSignal", node.signalFilters || {}),
                 },

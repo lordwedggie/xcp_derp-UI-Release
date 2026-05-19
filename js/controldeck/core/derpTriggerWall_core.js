@@ -6,6 +6,7 @@
 import { showTriggerWall } from "../../fatha/bastas/bastaTriggerWall.js";
 import { showBastaFileHandler } from "../../fatha/bastas/bastaFileHandler.js";
 import { showBastaMessage } from "../../fatha/bastas/bastaMessage.js";
+import { showBastaSystemMessage } from "../../fatha/bastas/bastaSystemMessage.js";
 import { endStackDrag } from "../../fatha/helpers/fathaDragDrop.js";
 import { settleDerpSizeBeforeDraw } from "../../fatha/core/fathaHandler.js";
 import { isLinearDeckGroup, isNodeDocked } from "../../fatha/core/masterDockEngine.js";
@@ -906,7 +907,8 @@ export async function triggerWall_saveCurrentProfile(node, targetRegion = "btnSa
         setLoadedTriggerPreset(node, presetName, presetData);
         node._layoutMapHash = null;
         refreshAndSync(node, false, true);
-        showBastaMessage(node, "Profile Saved!", 3000, { fade: true, grow: true }, targetRegion, false, "success");
+        const savedName = String(presetName || "").split(/[\\/]/).pop() || String(presetName || "");
+        showBastaSystemMessage(node, "Profile Saved: ", 3000, { fade: true, grow: true }, targetRegion, "success", null, savedName);
     } catch (e) {
         console.error("[xcpDerp] Failed to save current profile:", e);
         showBastaMessage(node, "Save Failed", 3000, { fade: true, grow: true }, targetRegion, false, "error");

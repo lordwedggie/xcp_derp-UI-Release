@@ -354,8 +354,8 @@ export function syncImageHTML(ctx, node, app, config, overlayPass = false) {
         // THE DOM SYNC GATING: Prevent layout thrashing by strictly relying on physical coordinate changes.
         // Removed node._shouldSync bypass which forced continuous DOM reflows during UI interaction loops.
         const domHash = `${node._lastDerpX}_${node._lastDerpY}_${app.canvas.ds.scale}_${w}_${h}_${node.interactionShield?.style.display}`;
-        dropZone._onPreviewClick = config.onPress;
-        if (app && app.canvas && (dropZone._lastHash !== domHash)) {
+        dropZone._onPreviewClick = typeof config.onPress === "function" ? config.onPress : null;
+        if (app?.canvas && dropZone._lastHash !== domHash) {
             const coords = calculateScreenCoords(node, app, x, y, w, h);
 
             if (coords) {

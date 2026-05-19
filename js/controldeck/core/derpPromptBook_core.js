@@ -5,12 +5,18 @@
 import { setupPromptBookImageSupport, stripImageBase64FromContent } from "../helpers/derpPromptBook_imageHandler.js";
 import { showBastaFileHandler } from "../../fatha/bastas/bastaFileHandler.js";
 import { showBastaMessage } from "../../fatha/bastas/bastaMessage.js";
+import { showBastaSystemMessage } from "../../fatha/bastas/bastaSystemMessage.js";
 import { playKaChing, playKaboom } from "../../herbina/masterSoundEffects.js";
 
 const defaultDerpBookPages = 3;
 
 function normalizePromptBookName(name) {
     return String(name || "Untitled Book").replace(/\.json$/i, "").trim() || "Untitled Book";
+}
+
+function showPromptBookSystemSaveMessage(node, prefix, bookName, targetRegion = null) {
+    const cleanName = normalizePromptBookName(bookName);
+    showBastaSystemMessage(node, prefix, 3000, { fade: true, grow: true }, targetRegion, "success", null, cleanName);
 }
 
 async function savePromptBookFile(node, fileName, bookData) {
@@ -133,10 +139,9 @@ export function bindPromptBookHooks(nodeType) {
                     });
 
                     if (res.ok) {
-                        playKaChing();
                         this.properties.bookName = filename;
                         this._lastSavedBookName = filename;
-                        showBastaMessage(this, "Book Saved!");
+                        showPromptBookSystemSaveMessage(this, "Book Saved: ", filename, "btnSave");
                         this._sysProfileCache = null;
                         if (this._derpPanel?.showProfiles) this._derpPanel.showProfiles("derpPromptBook", "nodeSettings");
                         if (this.fetchRemoteBooks) await this.fetchRemoteBooks();
@@ -464,7 +469,6 @@ export async function handleSaveBook(node) {
 
                 if (response.ok) {
                     const cleanName = filename.replace(".json", "").trim();
-                    playKaChing();
                     node.properties.bookName = cleanName;
                     node._lastSavedBookName = cleanName;
                     const reloadResp = await fetch(`/xcp/load/derpPromptBook?name=${encodeURIComponent(cleanName)}`);
@@ -476,7 +480,7 @@ export async function handleSaveBook(node) {
                     if (node.refreshNodeLayoutMap) node.refreshNodeLayoutMap();
                     if (node.refreshDerpPromptBookSysMap) node.refreshDerpPromptBookSysMap();
                     node.updateDerpPromptBookUI();
-                    showBastaMessage(node, "Book Saved!");
+                    showPromptBookSystemSaveMessage(node, "Book Saved: ", cleanName, "btnSaveBook");
                 }
             } catch (e) {
                 console.error("[Save Error]:", e);
@@ -499,9 +503,8 @@ export function handleNewBook(node) {
                 const cleanName = await savePromptBookFile(node, filename, nextBook);
                 node.properties.currentPageIndex = 0;
                 node.properties.prompt = "";
-                playKaChing();
                 await refreshPromptBookState(node, cleanName, nextBook);
-                showBastaMessage(node, "Book Created!");
+                showPromptBookSystemSaveMessage(node, "Book Created: ", cleanName, "btnNewBook");
             } catch (e) {
                 console.error("[New Book Error]:", e);
                 showBastaMessage(node, "Book create failed", 2400, { fade: true }, "btnNewBook", false, "error");
@@ -536,9 +539,8 @@ export function handleRenameBook(node) {
                     await savePromptBookFile(node, cleanName, node.properties.derpBook || createDefaultDerpBook());
                 }
 
-                playKaChing();
                 await refreshPromptBookState(node, cleanName, node.properties.derpBook || createDefaultDerpBook());
-                showBastaMessage(node, "Book Renamed!");
+                showPromptBookSystemSaveMessage(node, "Book Renamed: ", cleanName, "btnRenameBook");
             } catch (e) {
                 console.error("[Rename Book Error]:", e);
                 showBastaMessage(node, "Book rename failed", 2400, { fade: true }, "btnRenameBook", false, "error");
@@ -560,9 +562,8 @@ export function handleCopyBook(node) {
             try {
                 const currentBook = JSON.parse(JSON.stringify(node.properties.derpBook || createDefaultDerpBook()));
                 const cleanName = await savePromptBookFile(node, newName, currentBook);
-                playKaChing();
                 await refreshPromptBookState(node, cleanName, currentBook);
-                showBastaMessage(node, "Book Duplicated!");
+                showPromptBookSystemSaveMessage(node, "Book Duplicated: ", cleanName, "btnCopyBook");
             } catch (e) {
                 console.error("[Duplicate Book Error]:", e);
                 showBastaMessage(node, "Book duplicate failed", 2400, { fade: true }, "btnCopyBook", false, "error");
