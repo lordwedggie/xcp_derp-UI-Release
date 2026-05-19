@@ -15,6 +15,58 @@ import { ensureScreenRectVisible, isWarping } from "./core/fathaWarp.js";
 
 const BASTA_FADE_SPEED = 0.4;
 const BLD_ID = "basta_lora_detail_global_unique_id";
+const BASTA_OVERLAY_WINDOW_MS = 4000;
+
+function ensureBastaOverlayPerf(basta) {
+    if (!basta) return null;
+    if (!basta._overlayPerf) {
+        basta._overlayPerf = {
+            samples: [],
+            totalMs: 0,
+            updateMs: 0,
+            drawMs: 0,
+            awakeFrames: 0,
+        };
+    }
+    return basta._overlayPerf;
+}
+
+function trimBastaOverlayPerf(perf, now) {
+    if (!perf?.samples) return;
+    const cutoff = now - BASTA_OVERLAY_WINDOW_MS;
+    while (perf.samples.length && perf.samples[0].ts < cutoff) {
+        const sample = perf.samples.shift();
+        perf.totalMs -= sample.totalMs || 0;
+        perf.updateMs -= sample.updateMs || 0;
+        perf.drawMs -= sample.drawMs || 0;
+        perf.awakeFrames -= sample.awake ? 1 : 0;
+    }
+    if (perf.samples.length === 0) {
+        perf.totalMs = 0;
+        perf.updateMs = 0;
+        perf.drawMs = 0;
+        perf.awakeFrames = 0;
+    }
+}
+
+function recordBastaOverlayPerf(basta, updateMs, drawMs, awake) {
+    const perf = ensureBastaOverlayPerf(basta);
+    if (!perf) return;
+    const ts = performance.now();
+    const sample = {
+        ts,
+        updateMs: Math.max(0, updateMs || 0),
+        drawMs: Math.max(0, drawMs || 0),
+        totalMs: Math.max(0, (updateMs || 0) + (drawMs || 0)),
+        awake: !!awake,
+    };
+    perf.samples.push(sample);
+    perf.totalMs += sample.totalMs;
+    perf.updateMs += sample.updateMs;
+    perf.drawMs += sample.drawMs;
+    if (sample.awake) perf.awakeFrames += 1;
+    trimBastaOverlayPerf(perf, ts);
+}
 
 function getBLDPerf(basta) {
     if (!basta || basta.id !== BLD_ID || !window.DERP_BLD_PROFILE) return null;
@@ -835,7 +887,9 @@ export function drawBastaLayer(ctx) {
     if (activeBastas.size === 0) return;
 
     for (const basta of activeBastas.values()) {
+        const updateStart = performance.now();
         const isAlive = basta.update();
+        const updateMs = performance.now() - updateStart;
 
         // THE AWAKE CONSUMPTION: Allow Bastas to request canvas dirtying for local animations
         let isAwake = false;
@@ -845,8 +899,13 @@ export function drawBastaLayer(ctx) {
         }
 
         if (isAlive || isAwake || (basta.alpha > 0)) {
+            const drawStart = performance.now();
             basta.draw(ctx);
+            const drawMs = performance.now() - drawStart;
+            recordBastaOverlayPerf(basta, updateMs, drawMs, isAwake || isAlive);
             if (isAlive || isAwake) app.canvas.setDirty(true, true);
+        } else {
+            recordBastaOverlayPerf(basta, updateMs, 0, false);
         }
     }
 }

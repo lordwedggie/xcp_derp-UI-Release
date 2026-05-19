@@ -18,6 +18,52 @@ import { animateRecoil } from "../herbina/masterAnimator.js";
 
 // THE SQUEEZE CONFIG: Centralized padding values for Uncle link-dots
 const UNCLE_LINK_PAD = { LEFT: 15, RIGHT: 15 };
+const UNCLE_OVERLAY_WINDOW_MS = 4000;
+
+function ensureUncleOverlayPerf(node) {
+    if (!node) return null;
+    if (!node._overlayPerf) {
+        node._overlayPerf = {
+            samples: [],
+            totalMs: 0,
+            updateMs: 0,
+            drawMs: 0,
+        };
+    }
+    return node._overlayPerf;
+}
+
+function trimUncleOverlayPerf(perf, now) {
+    if (!perf?.samples) return;
+    const cutoff = now - UNCLE_OVERLAY_WINDOW_MS;
+    while (perf.samples.length && perf.samples[0].ts < cutoff) {
+        const sample = perf.samples.shift();
+        perf.totalMs -= sample.totalMs || 0;
+        perf.updateMs -= sample.updateMs || 0;
+        perf.drawMs -= sample.drawMs || 0;
+    }
+    if (perf.samples.length === 0) {
+        perf.totalMs = 0;
+        perf.updateMs = 0;
+        perf.drawMs = 0;
+    }
+}
+
+function recordUncleOverlayPerf(node, drawMs) {
+    const perf = ensureUncleOverlayPerf(node);
+    if (!perf) return;
+    const ts = performance.now();
+    const sample = {
+        ts,
+        updateMs: 0,
+        drawMs: Math.max(0, drawMs || 0),
+        totalMs: Math.max(0, drawMs || 0),
+    };
+    perf.samples.push(sample);
+    perf.totalMs += sample.totalMs;
+    perf.drawMs += sample.drawMs;
+    trimUncleOverlayPerf(perf, ts);
+}
 
 // Uncle heist now lives in fatha.js unified drawNode wrapper
 window._xcpUncleGhostSlotsHijack = true;
@@ -94,6 +140,7 @@ export function uncle(nodeType, nodeData, minWidth = 100) {
     };
 
     nodeType.prototype.onDrawForeground = function(ctx) {
+        const uncleDrawStart = performance.now();
         // THE ENGINE-LEVEL BYPASS FIX: Catch mode flips at the start of the frame to purge signals globally
         if (this._lastMode !== this.mode) {
             const isBypassed = this.mode === 4 || this.mode === 2 || this._derpSpoofedBypass;
@@ -308,6 +355,8 @@ export function uncle(nodeType, nodeData, minWidth = 100) {
             }
         }
         syncDerpShield(this);
+
+        recordUncleOverlayPerf(this, performance.now() - uncleDrawStart);
 
         if (this._shouldSync) {
             this._prevDerpState = {

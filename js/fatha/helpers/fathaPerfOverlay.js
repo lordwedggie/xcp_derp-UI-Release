@@ -2,6 +2,7 @@ import { app } from "../../../../scripts/app.js";
 
 const WINDOW_MS = 4000;
 const OVERLAY_ID = "xcp-derp-perf-overlay";
+const TOP_LIMIT = 6;
 
 function isEnabled() {
     return localStorage.getItem("xcp_perf_overlay") === "1" || window.DERP_PERF_OVERLAY === true;
@@ -61,6 +62,26 @@ function formatFps(v) {
     return v.toFixed(1);
 }
 
+function getPerfRowColor(score) {
+    if (!Number.isFinite(score) || score <= 0) return "#d7e3ff";
+    if (score > 500) return "#ff6b57";
+    if (score > 300) return "#ffb347";
+    return "#d7e3ff";
+}
+
+function getFpsColor(fps) {
+    if (!Number.isFinite(fps) || fps <= 0) return "#ff6b57";
+    if (fps < 30) return "#ff6b57";
+    if (fps < 40) return "#ffb347";
+    return "#d7e3ff";
+}
+
+function getOverlayFontSize() {
+    const n = Number(window.DERP_GLOBAL_SETTINGS?.perfOverlayFontSize);
+    if (!Number.isFinite(n)) return 12;
+    return Math.max(9, Math.min(24, Math.floor(n)));
+}
+
 function collectStats(samples) {
     if (!samples.length) {
         return {
@@ -92,6 +113,132 @@ function collectStats(samples) {
     };
 }
 
+function getCanvasFrame() {
+    return app?.canvas?.frame ?? 0;
+}
+
+function getNodeLabel(node) {
+    return node?.titleLabel || node?.title || node?.type || node?.id || "unknown";
+}
+
+function getNodeKind(node) {
+    if (!node) return "node";
+    if (window.xcpActiveBastas?.has?.(node.id)) return "basta";
+    if (node.isFathaNode) return "fatha";
+    if (node.isUncleNode) return "uncle";
+    if (node._twPerf) return "triggerwall";
+    if (node._overlayPerf || node._bldPerf) return "basta";
+    return String(node.type || node.title || "node").toLowerCase();
+}
+
+function getPerfScore(node) {
+    if (!node) return 0;
+    const bld = node._bldPerf;
+    const tw = node._twPerf;
+    let score = 0;
+
+    if (bld) {
+        score += Number(bld.drawMs || 0);
+        score += Number(bld.updateMs || 0);
+        score += Number(bld.layoutMs || 0);
+        score += Number(bld.bgMs || 0);
+        score += Number(bld.overlayBgMs || 0);
+        score += Number(bld.componentLoopMs || 0);
+        score += Number(bld.componentMs || 0);
+        score += Number(bld.shieldMs || 0);
+    }
+
+    if (tw) {
+        score += Number(tw.drawMs || 0);
+        score += Number(tw.triggerWidgetMs || 0);
+        score += Number(tw.measureCount || 0) * 0.1;
+    }
+
+    return score;
+}
+
+function getPerfSummary(node) {
+    if (!node) return null;
+    const kind = getNodeKind(node);
+    const title = getNodeLabel(node);
+    const overlayPerf = node._overlayPerf || null;
+    const bld = node._bldPerf || null;
+    const tw = node._twPerf || null;
+
+    const drawMs = Number(overlayPerf?.drawMs || bld?.drawMs || tw?.drawMs || 0);
+    const updateMs = Number(overlayPerf?.updateMs || bld?.updateMs || 0);
+    const layoutMs = Number(bld?.layoutMs || 0);
+    const loopMs = Number(bld?.componentLoopMs || 0);
+    const componentMs = Number(bld?.componentMs || 0);
+    const shieldMs = Number(bld?.shieldMs || 0);
+    const triggerMs = Number(tw?.triggerWidgetMs || 0);
+    const fpsLoad = drawMs + updateMs + layoutMs + loopMs + componentMs + shieldMs + triggerMs;
+
+    return {
+        kind,
+        title,
+        score: fpsLoad,
+        drawMs,
+        updateMs,
+        layoutMs,
+        loopMs,
+        componentMs,
+        shieldMs,
+        triggerMs,
+        dirty: Number(bld?.dirty || tw?.dirtyCount || 0),
+        sync: Number(bld?.syncReq || tw?.syncReqCount || 0),
+        samples: Number(overlayPerf?.samples?.length || 0),
+    };
+}
+
+function collectTopPerfNodes() {
+    const rows = [];
+    const seen = new Set();
+
+    for (const basta of (window.xcpActiveBastas?.values?.() || [])) {
+        const row = getPerfSummary(basta);
+        if (row) {
+            rows.push(row);
+            seen.add(`${row.kind}:${row.title}`);
+        }
+    }
+
+    const graphNodes = app?.graph?._nodes || app?.graph?.nodes || [];
+    for (const node of graphNodes) {
+        const row = getPerfSummary(node);
+        if (row) {
+            rows.push(row);
+            seen.add(`${row.kind}:${row.title}`);
+            continue;
+        }
+
+        const kind = getNodeKind(node);
+        const title = getNodeLabel(node);
+        const key = `${kind}:${title}`;
+        if (!seen.has(key) && (node?.isFathaNode || node?.isUncleNode || node?._twPerf || node?._bldPerf)) {
+            rows.push({
+                kind,
+                title,
+                score: 0,
+                drawMs: 0,
+                updateMs: 0,
+                layoutMs: 0,
+                loopMs: 0,
+                componentMs: 0,
+                shieldMs: 0,
+                triggerMs: 0,
+                dirty: 0,
+                sync: 0,
+            });
+            seen.add(key);
+        }
+    }
+
+    return rows
+        .sort((a, b) => b.score - a.score)
+        .slice(0, TOP_LIMIT);
+}
+
 function trimSamples(state, now) {
     const cutoff = now - WINDOW_MS;
     while (state.samples.length && state.samples[0].ts < cutoff) {
@@ -114,7 +261,7 @@ function ensureOverlay(state) {
     el.style.background = "rgba(10, 12, 18, 0.82)";
     el.style.border = "1px solid rgba(255,255,255,0.14)";
     el.style.color = "#d7e3ff";
-    el.style.font = "12px/1.45 monospace";
+    el.style.font = `${getOverlayFontSize()}px/1.45 monospace`;
     el.style.whiteSpace = "pre";
     el.style.boxShadow = "0 8px 24px rgba(0,0,0,0.35)";
     document.body.appendChild(el);
@@ -137,14 +284,25 @@ function updateOverlayText(state) {
     }
 
     const overlay = ensureOverlay(state);
+    overlay.style.font = `${getOverlayFontSize()}px/1.45 monospace`;
     const s = state.stats || collectStats([]);
     const canvas = app?.canvas;
     const scale = canvas?.ds?.scale ?? 0;
-    const frame = canvas?.frame ?? 0;
+    const frame = getCanvasFrame();
     const selected = app?.canvas?.selected_nodes ? Object.keys(app.canvas.selected_nodes).length : 0;
-    const text = [
+    const topNodes = collectTopPerfNodes();
+    const showRanking = window.DERP_GLOBAL_SETTINGS?.perfOverlayShowRanking !== false;
+    const rankingBlock = showRanking ? [
+        "",
+        "Top performance impact:",
+        ...(topNodes.length ? topNodes.map((row, idx) => ({
+            text: `${idx + 1}. ${row.kind} ${row.title} ${formatMs(row.score)} n:${row.samples || 0}`.slice(0, 80),
+            color: getPerfRowColor(row.score),
+        })) : [{ text: "(none)", color: "#d7e3ff" }]),
+    ] : [];
+    const lines = [
         "Derp Perf",
-        `FPS     ${formatFps(s.fps)}`,
+        { text: `FPS     ${formatFps(s.fps)}`, color: getFpsColor(s.fps) },
         `1% Low  ${formatFps(s.low1Fps)}`,
         `Avg     ${formatMs(s.avgMs)}`,
         `P95     ${formatMs(s.p95Ms)}`,
@@ -153,9 +311,30 @@ function updateOverlayText(state) {
         `Zoom    ${scale.toFixed(2)}`,
         `Canvas  ${frame}`,
         `Sel     ${selected}`,
-    ].join("\n");
+        ...rankingBlock,
+    ];
 
+    const text = lines.map(line => typeof line === "string" ? line : line.text).join("\n");
     if (overlay.textContent !== text) overlay.textContent = text;
+
+    const spans = overlay.querySelectorAll("span[data-perf-row]");
+    if (spans.length === 0) {
+        overlay.innerHTML = lines.map(line => {
+            if (typeof line === "string") return `<div>${line}</div>`;
+            const safe = String(line.text || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            return `<div><span data-perf-row="1" style="color:${line.color};">${safe}</span></div>`;
+        }).join("");
+    } else {
+        const rowEls = overlay.querySelectorAll("span[data-perf-row]");
+        let rowIndex = 0;
+        for (const line of lines) {
+            if (typeof line === "string") continue;
+            const el = rowEls[rowIndex++];
+            if (!el) continue;
+            if (el.textContent !== line.text) el.textContent = line.text;
+            if (el.style.color !== line.color) el.style.color = line.color;
+        }
+    }
 }
 
 function sampleLoop(ts) {
@@ -182,10 +361,8 @@ function sampleLoop(ts) {
 
     state.lastTs = ts;
 
-    if (state.dirty) {
-        updateOverlayText(state);
-        state.dirty = false;
-    }
+    updateOverlayText(state);
+    state.dirty = false;
 
     state.rafId = requestAnimationFrame(sampleLoop);
 }

@@ -13,12 +13,14 @@ const DERP_GROUPS = {
     general: (leaf) => makeDerpCategory("General", leaf),
     docking: (leaf) => makeDerpCategory("Docking", leaf),
     sound: (leaf) => makeDerpCategory("Sound", leaf),
+    debugging: (leaf) => makeDerpCategory("Debugging", leaf),
     hotkeys: (leaf) => makeDerpCategory("Hotkeys", leaf)
 };
 const DERP_GROUP_SORT_ORDER = {
     general: 400,
     docking: 300,
     sound: 200,
+    debugging: 150,
     hotkeys: 100,
 };
 
@@ -298,6 +300,36 @@ app.registerExtension({
             }
         });
 
+        app.ui.settings.addSetting({
+            id: "Derp.PerfOverlayFontSize",
+            name: "Perf Overlay: Font Size",
+            category: DERP_GROUPS.debugging("Perf Overlay Font Size"),
+            sortOrder: DERP_GROUP_SORT_ORDER.debugging,
+            type: "number",
+            default: 12,
+            attrs: { min: 9, max: 24, step: 1 },
+            onChange: (v) => {
+                window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
+                const n = Number(v);
+                window.DERP_GLOBAL_SETTINGS.perfOverlayFontSize = Number.isFinite(n) ? Math.max(9, Math.min(24, Math.floor(n))) : 12;
+                if (app.canvas) app.canvas.setDirty(true, true);
+            }
+        });
+
+        app.ui.settings.addSetting({
+            id: "Derp.PerfOverlayShowRanking",
+            name: "Perf Overlay: Show Ranking",
+            category: DERP_GROUPS.debugging("Perf Overlay Ranking"),
+            sortOrder: DERP_GROUP_SORT_ORDER.debugging,
+            type: "boolean",
+            default: true,
+            onChange: (v) => {
+                window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
+                window.DERP_GLOBAL_SETTINGS.perfOverlayShowRanking = normalizeBooleanSetting(v, true);
+                if (app.canvas) app.canvas.setDirty(true, true);
+            }
+        });
+
         // Initialize global object for immediate access by nodes
         window.DERP_GLOBAL_SETTINGS = {
             playSound: app.ui.settings.getSettingValue("Derp.PlaySound", true),
@@ -308,7 +340,9 @@ app.registerExtension({
             perfOverlayHotkey: normalizeHotkeyString(app.ui.settings.getSettingValue("Derp.PerfOverlayHotkey", "Alt+Shift+P"), "Alt+Shift+P"),
             systemBypassSoundIndex: normalizeVariantIndex(app.ui.settings.getSettingValue("Derp.SystemBypassSoundIndex", 0), 0),
             systemCollapseSoundIndex: normalizeVariantIndex(app.ui.settings.getSettingValue("Derp.SystemCollapseSoundIndex", 0), 0),
-            systemDockSoundIndex: normalizeVariantIndex(app.ui.settings.getSettingValue("Derp.SystemDockSoundIndex", 0), 0)
+            systemDockSoundIndex: normalizeVariantIndex(app.ui.settings.getSettingValue("Derp.SystemDockSoundIndex", 0), 0),
+            perfOverlayFontSize: Number(app.ui.settings.getSettingValue("Derp.PerfOverlayFontSize", 12)) || 12,
+            perfOverlayShowRanking: normalizeBooleanSetting(app.ui.settings.getSettingValue("Derp.PerfOverlayShowRanking", true), true)
         };
     }
 });

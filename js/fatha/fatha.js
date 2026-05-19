@@ -16,6 +16,53 @@ import { transmitBypassedDerpSignals, transmitDerpSignal, purgeDerpSignal } from
 import { animateRecoil } from "../herbina/masterAnimator.js";
 import { initPerfOverlay, togglePerfOverlay } from "./helpers/fathaPerfOverlay.js";
 
+const FATHA_OVERLAY_WINDOW_MS = 4000;
+
+function ensureFathaOverlayPerf(node) {
+    if (!node) return null;
+    if (!node._overlayPerf) {
+        node._overlayPerf = {
+            samples: [],
+            totalMs: 0,
+            updateMs: 0,
+            drawMs: 0,
+        };
+    }
+    return node._overlayPerf;
+}
+
+function trimFathaOverlayPerf(perf, now) {
+    if (!perf?.samples) return;
+    const cutoff = now - FATHA_OVERLAY_WINDOW_MS;
+    while (perf.samples.length && perf.samples[0].ts < cutoff) {
+        const sample = perf.samples.shift();
+        perf.totalMs -= sample.totalMs || 0;
+        perf.updateMs -= sample.updateMs || 0;
+        perf.drawMs -= sample.drawMs || 0;
+    }
+    if (perf.samples.length === 0) {
+        perf.totalMs = 0;
+        perf.updateMs = 0;
+        perf.drawMs = 0;
+    }
+}
+
+function recordFathaOverlayPerf(node, drawMs) {
+    const perf = ensureFathaOverlayPerf(node);
+    if (!perf) return;
+    const ts = performance.now();
+    const sample = {
+        ts,
+        updateMs: 0,
+        drawMs: Math.max(0, drawMs || 0),
+        totalMs: Math.max(0, drawMs || 0),
+    };
+    perf.samples.push(sample);
+    perf.totalMs += sample.totalMs;
+    perf.drawMs += sample.drawMs;
+    trimFathaOverlayPerf(perf, ts);
+}
+
 // --- THE PERFECT HEIST (Ghost Slots & Selection Killer) ---
 // By caching states and temporarily lying to LiteGraph during its render pass,
 // we wipe out the native UI (dots & selection box) while keeping 100% functionality.
@@ -45,6 +92,7 @@ if (!window._xcpFathaGlobalHijack) {
         }
 
         if (node.isFathaNode) {
+            const drawStart = performance.now();
             // 1. Global Cull Sweeper Rescue (Restores DOM visibility when scrolled into view)
             node._lastDerpFrame = app.canvas?.frame;
             if (node._isDerpCulled) {
@@ -91,6 +139,7 @@ if (!window._xcpFathaGlobalHijack) {
             node.outputs = node._xcpTrueOutputs;
             if (node._xcpTrueSelected) node.selected = true;
             if (node._xcpTrueInMap) app.canvas.selected_nodes[node.id] = node;
+            recordFathaOverlayPerf(node, performance.now() - drawStart);
         } else if (node.isUncleNode) {
             // UNCLE HEIST: Cache state and ghost slots (shared pattern with Fatha)
             node._xcpTrueSelected = node.selected;
