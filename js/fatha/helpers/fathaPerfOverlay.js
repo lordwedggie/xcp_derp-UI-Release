@@ -3,6 +3,8 @@ import { app } from "../../../../scripts/app.js";
 const WINDOW_MS = 4000;
 const OVERLAY_ID = "xcp-derp-perf-overlay";
 const TOP_LIMIT = 6;
+const OVERLAY_SECTION_COLOR = "rgba(255,255,255,0.7)";
+const OVERLAY_BG_COLOR = "rgba(0,0,0,0.5)";
 
 function isEnabled() {
     return localStorage.getItem("xcp_perf_overlay") === "1" || window.DERP_PERF_OVERLAY === true;
@@ -66,6 +68,7 @@ function getPerfRowColor(score) {
     if (!Number.isFinite(score) || score <= 0) return "#d7e3ff";
     if (score > 500) return "#ff6b57";
     if (score > 300) return "#ffb347";
+    if (score < 200) return "#7CFF6B";
     return "#d7e3ff";
 }
 
@@ -73,7 +76,24 @@ function getFpsColor(fps) {
     if (!Number.isFinite(fps) || fps <= 0) return "#ff6b57";
     if (fps < 30) return "#ff6b57";
     if (fps < 40) return "#ffb347";
+    if (fps > 50) return "#7CFF6B";
     return "#d7e3ff";
+}
+
+function getMsColor(ms) {
+    if (!Number.isFinite(ms) || ms <= 0) return "#d7e3ff";
+    if (ms > 100) return "#ff6b57";
+    if (ms > 50) return "#ffb347";
+    if (ms <= 25) return "#7CFF6B";
+    return "#d7e3ff";
+}
+
+function getFramesColor(count) {
+    if (!Number.isFinite(count) || count <= 0) return "#d7e3ff";
+    if (count < 120) return "#7CFF6B";
+    if (count < 240) return "#d7e3ff";
+    if (count < 360) return "#ffb347";
+    return "#ff6b57";
 }
 
 function getOverlayFontSize() {
@@ -82,11 +102,16 @@ function getOverlayFontSize() {
     return Math.max(9, Math.min(24, Math.floor(n)));
 }
 
+function formatMetricLine(label, value) {
+    return `${String(label).padEnd(11, " ")} ${value}`;
+}
+
 function collectStats(samples) {
     if (!samples.length) {
         return {
             fps: 0,
             avgMs: 0,
+            medianFps: 0,
             p95Ms: 0,
             low1Fps: 0,
             maxMs: 0,
@@ -98,6 +123,8 @@ function collectStats(samples) {
     const totalMs = frameTimes.reduce((sum, dt) => sum + dt, 0);
     const avgMs = totalMs / frameTimes.length;
     const fps = avgMs > 0 ? (1000 / avgMs) : 0;
+    const medianMs = frameTimes[Math.floor(frameTimes.length / 2)] || 0;
+    const medianFps = medianMs > 0 ? (1000 / medianMs) : 0;
     const p95Ms = percentile(frameTimes, 0.95);
     const p99Ms = percentile(frameTimes, 0.99);
     const low1Fps = p99Ms > 0 ? (1000 / p99Ms) : 0;
@@ -106,6 +133,7 @@ function collectStats(samples) {
     return {
         fps,
         avgMs,
+        medianFps,
         p95Ms,
         low1Fps,
         maxMs,
@@ -258,7 +286,7 @@ function ensureOverlay(state) {
     el.style.pointerEvents = "none";
     el.style.padding = "8px 10px";
     el.style.borderRadius = "8px";
-    el.style.background = "rgba(10, 12, 18, 0.82)";
+    el.style.background = OVERLAY_BG_COLOR;
     el.style.border = "1px solid rgba(255,255,255,0.14)";
     el.style.color = "#d7e3ff";
     el.style.font = `${getOverlayFontSize()}px/1.45 monospace`;
@@ -294,23 +322,23 @@ function updateOverlayText(state) {
     const showRanking = window.DERP_GLOBAL_SETTINGS?.perfOverlayShowRanking !== false;
     const rankingBlock = showRanking ? [
         "",
-        "Top performance impact:",
+        "",
+        "",
+        "",
+        { text: "Top performance impact:", color: OVERLAY_SECTION_COLOR },
         ...(topNodes.length ? topNodes.map((row, idx) => ({
             text: `${idx + 1}. ${row.kind} ${row.title} ${formatMs(row.score)} n:${row.samples || 0}`.slice(0, 80),
             color: getPerfRowColor(row.score),
         })) : [{ text: "(none)", color: "#d7e3ff" }]),
     ] : [];
     const lines = [
-        "Derp Perf",
-        { text: `FPS     ${formatFps(s.fps)}`, color: getFpsColor(s.fps) },
-        `1% Low  ${formatFps(s.low1Fps)}`,
-        `Avg     ${formatMs(s.avgMs)}`,
-        `P95     ${formatMs(s.p95Ms)}`,
-        `Max     ${formatMs(s.maxMs)}`,
-        `Frames  ${s.sampleCount}`,
-        `Zoom    ${scale.toFixed(2)}`,
-        `Canvas  ${frame}`,
-        `Sel     ${selected}`,
+        { text: "Derp perfrmance tracker:", color: OVERLAY_SECTION_COLOR },
+        { text: formatMetricLine("FPS", formatFps(s.fps)), color: getFpsColor(s.fps) },
+        { text: formatMetricLine("Median FPS", formatFps(s.medianFps)), color: getFpsColor(s.medianFps) },
+        formatMetricLine("1% Low", formatFps(s.low1Fps)),
+        { text: formatMetricLine("P95", formatMs(s.p95Ms)), color: getMsColor(s.p95Ms) },
+        { text: formatMetricLine("Max", formatMs(s.maxMs)), color: getMsColor(s.maxMs) },
+        formatMetricLine("Zoom", scale.toFixed(2)),
         ...rankingBlock,
     ];
 
