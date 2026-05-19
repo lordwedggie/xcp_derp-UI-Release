@@ -9,6 +9,35 @@ import { playKaChing, playKaboom } from "../../herbina/masterSoundEffects.js";
 
 const defaultDerpBookPages = 3;
 
+function normalizePromptBookName(name) {
+    return String(name || "Untitled Book").replace(/\.json$/i, "").trim() || "Untitled Book";
+}
+
+async function savePromptBookFile(node, fileName, bookData) {
+    const cleanName = normalizePromptBookName(fileName);
+    const response = await fetch("/xcp/save/derpPromptBook", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: cleanName, data: bookData })
+    });
+    if (!response.ok) throw new Error(`Save failed (${response.status})`);
+    return cleanName;
+}
+
+async function refreshPromptBookState(node, bookName, bookData = null) {
+    const cleanName = normalizePromptBookName(bookName);
+    node.properties.bookName = cleanName;
+    node._lastSavedBookName = cleanName;
+    if (Array.isArray(bookData)) {
+        node.properties.derpBook = JSON.parse(JSON.stringify(bookData));
+    }
+    if (node.fetchRemoteBooks) await node.fetchRemoteBooks();
+    if (node.refreshNodeLayoutMap) node.refreshNodeLayoutMap();
+    if (node.refreshDerpPromptBookSysMap) node.refreshDerpPromptBookSysMap();
+    if (node.updateDerpPromptBookUI) node.updateDerpPromptBookUI();
+    if (node.syncDerpOutputs) node.syncDerpOutputs();
+}
+
 export const createDefaultDerpBook = () => {
     return Array.from({ length: defaultDerpBookPages }, (_, i) => ({
         title: "untitled",
@@ -457,14 +486,28 @@ export async function handleSaveBook(node) {
 }
 
 export function handleNewBook(node) {
-    node.properties.derpBook = createDefaultDerpBook();
-    node.properties.currentPageIndex = 0;
-    node.properties.bookName = "Untitled Book";
-    node._lastSavedBookName = "Untitled Book";
-    node.properties.prompt = "";
-    if (node.refreshNodeLayoutMap) node.refreshNodeLayoutMap();
-    node.updateDerpPromptBookUI();
-    if (node.syncDerpOutputs) node.syncDerpOutputs();
+    showBastaFileHandler(node, "derpPromptBook", "btnNewBook", {
+        title: "New Book",
+        message: "Enter filename for new prompt book:",
+        confirm: "Create",
+        mode: "create",
+        originalName: "Untitled Book",
+        initialSize: [250, 130],
+        onConfirm: async (filename) => {
+            try {
+                const nextBook = createDefaultDerpBook();
+                const cleanName = await savePromptBookFile(node, filename, nextBook);
+                node.properties.currentPageIndex = 0;
+                node.properties.prompt = "";
+                playKaChing();
+                await refreshPromptBookState(node, cleanName, nextBook);
+                showBastaMessage(node, "Book Created!");
+            } catch (e) {
+                console.error("[New Book Error]:", e);
+                showBastaMessage(node, "Book create failed", 2400, { fade: true }, "btnNewBook", false, "error");
+            }
+        }
+    });
 }
 
 export function handleRenameBook(node) {
@@ -476,24 +519,56 @@ export function handleRenameBook(node) {
         mode: "rename",
         originalName: currentName,
         initialSize: [250, 130],
-        onConfirm: (newName) => {
-            if (!newName) return;
-            node.properties.bookName = newName;
-            node._lastSavedBookName = newName;
-            if (node.refreshNodeLayoutMap) node.refreshNodeLayoutMap();
-            node.updateDerpPromptBookUI();
+        onConfirm: async (newName) => {
+            const oldName = normalizePromptBookName(currentName);
+            const cleanName = normalizePromptBookName(newName);
+            if (!cleanName) return;
+            try {
+                const renameRes = await fetch("/xcp/rename/derpPromptBook", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ oldName, newName: cleanName })
+                });
+
+                if (!renameRes.ok) {
+                    await savePromptBookFile(node, cleanName, node.properties.derpBook || createDefaultDerpBook());
+                } else {
+                    await savePromptBookFile(node, cleanName, node.properties.derpBook || createDefaultDerpBook());
+                }
+
+                playKaChing();
+                await refreshPromptBookState(node, cleanName, node.properties.derpBook || createDefaultDerpBook());
+                showBastaMessage(node, "Book Renamed!");
+            } catch (e) {
+                console.error("[Rename Book Error]:", e);
+                showBastaMessage(node, "Book rename failed", 2400, { fade: true }, "btnRenameBook", false, "error");
+            }
         }
     });
 }
 
 export function handleCopyBook(node) {
-    const currentBook = JSON.parse(JSON.stringify(node.properties.derpBook || createDefaultDerpBook()));
     const currentName = node.properties.bookName || "Untitled Book";
-    node.properties.derpBook = currentBook;
-    node.properties.bookName = `${currentName} Copy`;
-    node._lastSavedBookName = node.properties.bookName;
-    if (node.refreshNodeLayoutMap) node.refreshNodeLayoutMap();
-    node.updateDerpPromptBookUI();
+    showBastaFileHandler(node, "derpPromptBook", "btnCopyBook", {
+        title: "Duplicate Book",
+        message: "Enter filename for duplicated prompt book:",
+        confirm: "Duplicate",
+        mode: "duplicate",
+        originalName: `${normalizePromptBookName(currentName)} Copy`,
+        initialSize: [250, 130],
+        onConfirm: async (newName) => {
+            try {
+                const currentBook = JSON.parse(JSON.stringify(node.properties.derpBook || createDefaultDerpBook()));
+                const cleanName = await savePromptBookFile(node, newName, currentBook);
+                playKaChing();
+                await refreshPromptBookState(node, cleanName, currentBook);
+                showBastaMessage(node, "Book Duplicated!");
+            } catch (e) {
+                console.error("[Duplicate Book Error]:", e);
+                showBastaMessage(node, "Book duplicate failed", 2400, { fade: true }, "btnCopyBook", false, "error");
+            }
+        }
+    });
 }
 
 export function getPageLabel(node, idx, title) {

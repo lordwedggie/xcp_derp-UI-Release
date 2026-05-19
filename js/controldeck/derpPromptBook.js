@@ -125,7 +125,7 @@ app.registerExtension({
                             type: this.UI_TYPES.FILEBROWSER, canvasShield: true, skipBackground: false, themeKey: "button, t_textBig",
                             indicator: "on",
                             items: this._availableBooks || [], value: this.properties.bookName || "Untitled Book",
-                            mode: "file", rootName: "Prompt Books", fileType: "promptBook", displayText: "Select Book...",
+                            mode: "file", fileType: "promptBook", displayText: "Select Book...",
                             minWidth: 200, width: "full", height: "auto", padding: [pW, pH], spacing: [sW, 0],
                             onChange: (val) => handleBookChange(this, val)
                         },
@@ -149,7 +149,7 @@ app.registerExtension({
                     minHeight: 100,
                     editorMain: {
                         type: this.UI_TYPES.EDITOR, multiline: true, noHover: true, canvasShield: true, switchOnEditing: true,
-                        themeKey: "dialog, t_textNormal",
+                        themeKey: "dialog, t_textNormal", mouseOver: false, 
                         labelAlign: ["left", "top"], measureText: "MEASURE_RESERVE_FLOOR",
                         width: "full", height: "fill", padding: [pW, pH],
                         value: (activePage.content || "").replace(/\[\[IMG:(?!data:|http|\/|.*_IMG\/)([^\]]+)\]\]/g, (m, file) => {

@@ -7,6 +7,7 @@ import { fatha, initDerpGlobalListener } from "../fatha/fatha.js";
 import { initDerpImageDeckCore } from "./core/derpImageDeck_core.js";
 import { runWirelessHeartbeat } from "../fatha/core/masterSignalEngine.js";
 import { showBastaMessage } from "../fatha/bastas/bastaMessage.js";
+import { showBastaSystemMessage } from "../fatha/bastas/bastaSystemMessage.js";
 import { showBastaFileHandler } from "../fatha/bastas/bastaFileHandler.js";
 import { activeBastas } from "../fatha/basta.js";
 import { getSignalReceiverId } from "../fatha/bastas/bastaSignalReceiver.js";
@@ -135,7 +136,7 @@ async function saveImageDeckCurrentImage(node) {
         return;
     }
 
-    showBastaMessage(node, `Saved: ${data.filename}`, 2200, { fade: true, grow: true }, "btnSaveImage", false, "success");
+    showBastaSystemMessage(node, `Saved: ${data.filename}`, 2200, { fade: true, grow: true }, "btnSaveImage", "success");
 }
 
 function openImageDeckFolderSelector(node, items = []) {
