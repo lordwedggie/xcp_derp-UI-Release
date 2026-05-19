@@ -6,7 +6,7 @@
 import { masterPainter, masterPainterText } from "../masterPainter.js";
 import {
     animateWidgetColors,
-    colorPulse2,
+    getPulsedColor,
     parseColor
 } from "../masterAnimator.js";
 import {
@@ -81,8 +81,8 @@ export function syncDerpToggle(ctx, node, app, config) {
         const cIcOn = parseColor(lblOn?.textColor || lblOn?.fill) || [255, 255, 255, 1];
         const cIcOff = parseColor(lblOff?.textColor || lblOff?.fill) || [150, 150, 150, 1];
 
-        rawBg = colorPulse2(cBgOff, cBgOn, 0.005);
-        rawIc = colorPulse2(cIcOff, cIcOn, 0.005);
+        rawBg = getPulsedColor(cBgOff, cBgOn, 0.005);
+        rawIc = getPulsedColor(cIcOff, cIcOn, 0.005);
         node._derpAwakeFrames = 2;
         if (node.setDirtyCanvas) node.setDirtyCanvas(true, true);
     }

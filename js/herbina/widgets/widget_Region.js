@@ -1,6 +1,6 @@
 import { masterPainter, compileThemeData } from "../masterPainter.js";
 import { resolvePaintData, resolvePaletteEntry, compileAnimatedPaint } from "../utils/widgetsUtils.js";
-import { animateWidgetColors, colorPulse2, parseColor } from "../masterAnimator.js";
+import { animateWidgetColors, getPulsedColor, parseColor } from "../masterAnimator.js";
 
 export function createDerpRegion(config = {}) {
     return {
@@ -94,7 +94,7 @@ export function syncDerpRegion(ctx, node, config) {
             const toPaint = resolvePaintData(node, config.themeKey || "region", toState, config.btnColor) || paintData;
             const fromBorder = parseColor(fromPaint?.border?.color || "transparent");
             const toBorder = parseColor(toPaint?.border?.color || "transparent");
-            const pulsedBorder = colorPulse2(fromBorder, toBorder, config.pulseSpeed || 0.005);
+            const pulsedBorder = getPulsedColor(fromBorder, toBorder, config.pulseSpeed || 0.005);
             animatedPaint.border = {
                 ...(animatedPaint.border || paintData.border || {}),
                 color: pulsedBorder

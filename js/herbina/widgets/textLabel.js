@@ -6,7 +6,7 @@ import { masterPainter, masterPainterText } from "../masterPainter.js";
 import { applyHTMLTheme } from "../masterPainterHTML.js";
 import { toRGBA } from "../utils/colorMath.js";
 import { resolveWidgetEnv, measureTextWidth, resolvePaintData } from "../utils/widgetsUtils.js";
-import { animateWidgetColors, colorPulse2, parseColor } from "../masterAnimator.js";
+import { animateWidgetColors, getPulsedColor, parseColor } from "../masterAnimator.js";
 
 export function createTextLabel(callbacks = {}) {
     return {
@@ -70,14 +70,14 @@ export function syncTextLabel(ctx, node, config) {
 
         const offIc = parseColor(offLabel?.textColor || offLabel?.fill || rawIc);
         const onIc = parseColor(onLabel?.textColor || onLabel?.fill || rawIc);
-        targetIc = colorPulse2(offIc, onIc, config.pulseSpeed || 0.005);
+        targetIc = getPulsedColor(offIc, onIc, config.pulseSpeed || 0.005);
 
         if (baseBodyKey) {
             const offBody = resolvePaintData(node, baseBodyKey, fromState) || envBodyPaint;
             const onBody = resolvePaintData(node, baseBodyKey, toState) || envBodyPaint;
             const offBg = parseColor(offBody?.fill || rawBg);
             const onBg = parseColor(onBody?.fill || rawBg);
-            targetBg = colorPulse2(offBg, onBg, config.pulseSpeed || 0.005);
+            targetBg = getPulsedColor(offBg, onBg, config.pulseSpeed || 0.005);
         }
     }
 
@@ -227,14 +227,14 @@ export function syncTextLabelHTML(element, node, app, config) {
 
         const offIc = parseColor(offLabel?.textColor || offLabel?.fill || rawIc);
         const onIc = parseColor(onLabel?.textColor || onLabel?.fill || rawIc);
-        targetIc = colorPulse2(offIc, onIc, config.pulseSpeed || 0.005);
+        targetIc = getPulsedColor(offIc, onIc, config.pulseSpeed || 0.005);
 
         if (baseBodyKey) {
             const offBody = resolvePaintData(node, baseBodyKey, fromState) || envBodyPaint;
             const onBody = resolvePaintData(node, baseBodyKey, toState) || envBodyPaint;
             const offBg = parseColor(offBody?.fill || rawBg);
             const onBg = parseColor(onBody?.fill || rawBg);
-            targetBg = colorPulse2(offBg, onBg, config.pulseSpeed || 0.005);
+            targetBg = getPulsedColor(offBg, onBg, config.pulseSpeed || 0.005);
         }
     }
 

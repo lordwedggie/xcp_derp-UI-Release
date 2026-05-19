@@ -4,6 +4,7 @@
  */
 import { masterPainter } from "../masterPainter.js";
 import { resolveWidgetEnv, resolvePaintData, calculateScreenCoords } from "../utils/widgetsUtils.js";
+import { getPulsedColor } from "../masterAnimator.js";
 
 const NORMAL_STROKE_WEIGHT = 1;
 const SELECTION_STROKE_WEIGHT = 2;
@@ -221,13 +222,8 @@ export function syncImageHTML(ctx, node, app, config, overlayPass = false) {
     if ((!!overlayPass === strokeOnOverlay) && (drawMode === "both" || drawMode === "stroke")) {
         let activePulseColor = null;
         if (config.isSelected && config.pulseColorA && config.pulseColorB) {
-            const t = (Math.sin(Date.now() * (config.pulseFreq || 0.003)) + 1) / 2;
             const cA = config.pulseColorA, cB = config.pulseColorB;
-            const r = Math.round(cA[0] + (cB[0] - cA[0]) * t);
-            const g = Math.round(cA[1] + (cB[1] - cA[1]) * t);
-            const b = Math.round(cA[2] + (cB[2] - cA[2]) * t);
-            const a = (cA[3] + (cB[3] - cA[3]) * t).toFixed(2);
-            activePulseColor = `rgba(${r}, ${g}, ${b}, ${a})`;
+            activePulseColor = getPulsedColor(cA, cB, config.pulseFreq || 0.003);
             if (node.setDirtyCanvas) node._derpAwakeFrames = 2;
         }
         if (config.isSelected && config.showPasteOverlay && Array.isArray(config.overlayText)) {
@@ -247,20 +243,26 @@ export function syncImageHTML(ctx, node, app, config, overlayPass = false) {
 
                 const preferredSize = item.fontSize || pData.fontSize || 10;
                 const minSize = Math.max(6, item.minFontSize ?? 6);
-                let fittedSize = Math.max(minSize, preferredSize);
                 const fontWeight = pData.fontWeight || "";
                 const fontFamily = pData.font || "Arial";
+                const overlayCache = node._imageHtmlOverlayCache || (node._imageHtmlOverlayCache = {});
+                const overlayKey = `${config.key}|${String(item.text || "")}|${maxTextW}|${maxTextH}|${preferredSize}|${minSize}|${fontWeight}|${fontFamily}`;
+                let fittedSize = overlayCache[overlayKey];
 
-                // Shrink text until it fits width/height budget.
-                for (let fs = preferredSize; fs >= minSize; fs -= 1) {
-                    ctx.font = `${fontWeight} ${fs}px ${fontFamily}`;
-                    const metrics = ctx.measureText(String(item.text || ""));
-                    const textW = metrics.width || 0;
-                    const textH = (metrics.actualBoundingBoxAscent || fs * 0.8) + (metrics.actualBoundingBoxDescent || fs * 0.2);
-                    if (textW <= maxTextW && textH <= maxTextH) {
-                        fittedSize = fs;
-                        break;
+                if (!fittedSize) {
+                    fittedSize = Math.max(minSize, preferredSize);
+                    // Shrink text until it fits width/height budget.
+                    for (let fs = preferredSize; fs >= minSize; fs -= 1) {
+                        ctx.font = `${fontWeight} ${fs}px ${fontFamily}`;
+                        const metrics = ctx.measureText(String(item.text || ""));
+                        const textW = metrics.width || 0;
+                        const textH = (metrics.actualBoundingBoxAscent || fs * 0.8) + (metrics.actualBoundingBoxDescent || fs * 0.2);
+                        if (textW <= maxTextW && textH <= maxTextH) {
+                            fittedSize = fs;
+                            break;
+                        }
                     }
+                    overlayCache[overlayKey] = fittedSize;
                 }
 
                 ctx.font = `${fontWeight} ${fittedSize}px ${fontFamily}`;

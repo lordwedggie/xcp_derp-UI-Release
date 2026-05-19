@@ -17,6 +17,7 @@ import { getVirtualNodeLayoutMap } from "../helpers/fathaLayoutMaps.js";
 import { getDockGroupAxisFromMembers, resolveRuntimeDockSize, shouldPreserveDockHeight, shouldPreserveDockWidth } from "./dockDimensions.js";
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
 import { findHeaderPaletteEntry, getHeaderPaletteCandidateNames } from "../helpers/headerPaletteIdentity.js";
+import { getPulseAlpha } from "../../herbina/masterAnimator.js";
 
 function getDeckEngine() {
     if (!window.xcpMasterDeckEngine) {
@@ -888,7 +889,7 @@ export function handleDrawCTX(entity, ctx, overlayPass = false) {
                 }
             }
             if (paintON) {
-                const pulseAlpha = (Math.sin(Date.now() * 0.003) + 1) / 2;
+                const pulseAlpha = getPulseAlpha(0.003);
                 ctx.save();
                 ctx.globalAlpha = pulseAlpha;
                 if (header) {

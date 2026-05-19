@@ -22,7 +22,7 @@
  */
 import { applyHTMLTheme } from "../masterPainterHTML.js";
 import { masterPainter, masterPainterText, compileThemeData } from "../masterPainter.js";
-import { animateRecoil, RECOIL_SHRINK, RECOIL_SHIFT, animateWidgetColors, colorPulse2, parseColor } from "../masterAnimator.js";
+import { animateRecoil, RECOIL_SHRINK, RECOIL_SHIFT, animateWidgetColors, getPulsedColor, parseColor } from "../masterAnimator.js";
 import { SOUND_INDEX } from "../masterSoundEffects.js";
 import {
     resolveWidgetEnv,
@@ -250,8 +250,8 @@ export function syncBtnIconHTML(el, node, app, config) {
             const cIcOn = parseColor(bodyOn?.textColor || lblOn?.textColor || lblOn?.fill) || [255, 255, 255, 1];
             const cIcOff = parseColor(bodyOff?.textColor || lblOff?.textColor || lblOff?.fill) || [150, 150, 150, 1];
 
-            rawBg = colorPulse2(cBgOff, cBgOn, 0.005);
-            rawIc = colorPulse2(cIcOff, cIcOn, 0.005);
+            rawBg = getPulsedColor(cBgOff, cBgOn, 0.005);
+            rawIc = getPulsedColor(cIcOff, cIcOn, 0.005);
             node._derpAwakeFrames = 2; // Keep Fatha awake
             if (node.setDirtyCanvas) node.setDirtyCanvas(true, true);
         }
@@ -363,8 +363,8 @@ export function syncBtnIcon(ctx, node, config) {
         const cIcOn = parseColor(bodyOn?.textColor || lblOn?.textColor || lblOn?.fill) || [255, 255, 255, 1];
         const cIcOff = parseColor(bodyOff?.textColor || lblOff?.textColor || lblOff?.fill) || [150, 150, 150, 1];
 
-        rawBg = colorPulse2(cBgOff, cBgOn, 0.005);
-        rawIc = colorPulse2(cIcOff, cIcOn, 0.005);
+            rawBg = getPulsedColor(cBgOff, cBgOn, 0.005);
+            rawIc = getPulsedColor(cIcOff, cIcOn, 0.005);
         node._derpAwakeFrames = 2; // Keep Fatha awake
         if (node.setDirtyCanvas) node.setDirtyCanvas(true, true);
     }

@@ -95,6 +95,39 @@ export function colorPulse2(colorA, colorB, speed) {
     return `rgba(${r}, ${g}, ${b}, ${a})`;
 }
 
+const PULSE_FRAME_BUCKET_MS = 50;
+const _pulseColorCache = new Map();
+
+export function getPulseMix(speed = 0.005, bucketMs = PULSE_FRAME_BUCKET_MS) {
+    const quantizedTime = Math.floor(Date.now() / bucketMs) * bucketMs;
+    return (Math.sin(quantizedTime * speed) + 1) / 2;
+}
+
+export function getPulseAlpha(speed = 0.005, bucketMs = PULSE_FRAME_BUCKET_MS) {
+    return getPulseMix(speed, bucketMs);
+}
+
+export function getPulsedColor(colorA, colorB, speed = 0.005, bucketMs = PULSE_FRAME_BUCKET_MS) {
+    const quantizedTime = Math.floor(Date.now() / bucketMs) * bucketMs;
+    const key = `${quantizedTime}|${speed}|${bucketMs}|${colorA.join(",")}|${colorB.join(",")}`;
+    const cached = _pulseColorCache.get(key);
+    if (cached) return cached;
+
+    const mix = (Math.sin(quantizedTime * speed) + 1) / 2;
+    const r = Math.round(colorA[0] + (colorB[0] - colorA[0]) * mix);
+    const g = Math.round(colorA[1] + (colorB[1] - colorA[1]) * mix);
+    const b = Math.round(colorA[2] + (colorB[2] - colorA[2]) * mix);
+    const a = (colorA[3] + (colorB[3] - colorA[3]) * mix).toFixed(3);
+    const value = `rgba(${r}, ${g}, ${b}, ${a})`;
+
+    _pulseColorCache.set(key, value);
+    if (_pulseColorCache.size > 256) {
+        const firstKey = _pulseColorCache.keys().next().value;
+        if (firstKey !== undefined) _pulseColorCache.delete(firstKey);
+    }
+    return value;
+}
+
 /**
  * Universal Color Decoder for lerp-friendly arrays
  */
