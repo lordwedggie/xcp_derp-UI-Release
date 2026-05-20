@@ -8,7 +8,7 @@ export function handleNodeResize(entity, data, scale) {
     const { SNAP, autoWidth, autoHeight } = entity.getDerpVars ? entity.getDerpVars(entity) : getDerpVars(entity);
     const graph = entity.graph || globalThis?.app?.graph || null;
     const axis = graph ? getDockGroupAxisFromMembers(getDeckMembers(entity, graph)) : null;
-    const resizeAxes = resolveDockResizeAxes(axis, { autoWidth, autoHeight });
+    const resizeAxes = resolveDockResizeAxes(axis, { autoWidth, autoHeight }, entity);
     dockDebug("handle-node-resize-start", {
         entity: snapshotDockNode(entity),
         data,

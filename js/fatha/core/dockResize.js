@@ -397,6 +397,18 @@ export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH,
 
         const topNode = side === "top" ? docked : leader;
         const bottomNode = side === "top" ? leader : docked;
+
+        const topCollapsed = topNode?.properties?.contentCollapsed === true;
+        const bottomCollapsed = bottomNode?.properties?.contentCollapsed === true;
+        if (topCollapsed && bottomCollapsed) {
+            result.handledHeight = true;
+            result.handledAll = true;
+            result.appliedHeight = getDockNodeHeight(entity);
+            addCounterpart(topNode);
+            addCounterpart(bottomNode);
+            return result;
+        }
+
         const draggedHeight = Math.min(totalHeight - minH, Math.max(minH, newH));
         const counterpartHeight = Math.max(minH, totalHeight - draggedHeight);
         const adjustedTopH = topNode.id === entity.id ? draggedHeight : counterpartHeight;
