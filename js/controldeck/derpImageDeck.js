@@ -663,7 +663,6 @@ app.registerExtension({
                     dir: "col",
                     margin: [mW, mH, mW, mH],
                     spacing: [0, sH],
-
                     imageRegion: {
                         type: this.UI_TYPES.IMAGE_HTML,
                         key: "imageDeckPreview",
@@ -699,7 +698,7 @@ app.registerExtension({
                         dir: "row",
                         width: "full",
                         height: "auto",
-                        spacing: [0, sH],
+                        spacing: [0, sH], margin: [0, mH],
                         btnFolderSelector: {
                             type: this.UI_TYPES.ICONBUTTON,
                             icon: "file",

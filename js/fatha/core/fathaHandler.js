@@ -539,6 +539,13 @@ export function handleDerpCollapse(entity, force) {
             if (sysPanel.isVisible && sysPanel.hostNode?.id === target.id) {
                 closeDerpSysPanel();
             }
+            if (target.properties.autoHeight === false) {
+                const storedManualHeight = Number(target.properties?.nodeSize?.[1] || 0);
+                const liveHeight = Number(target.size?.[1] || 0);
+                target.properties._savedExpandedHeight = storedManualHeight > 0
+                    ? storedManualHeight
+                    : liveHeight;
+            }
             target._preCollapseHeight = Math.max(
                 Number(target._preCollapseHeight || 0),
                 Number(target.size?.[1] || 0),
@@ -549,6 +556,22 @@ export function handleDerpCollapse(entity, force) {
         }
 
         target.properties.contentCollapsed = nextState;
+        if (nextState === false && target.properties.autoHeight === false) {
+            const savedExpandedHeight = Number(target.properties._savedExpandedHeight || 0);
+            if (savedExpandedHeight > 0) {
+                if (!Array.isArray(target.properties.nodeSize)) {
+                    target.properties.nodeSize = [
+                        Number(target.size?.[0] || 0),
+                        savedExpandedHeight,
+                    ];
+                } else {
+                    target.properties.nodeSize[1] = savedExpandedHeight;
+                }
+                if (Array.isArray(target.size) && savedExpandedHeight > 0) {
+                    target.size[1] = savedExpandedHeight;
+                }
+            }
+        }
         if (!target.flags) target.flags = {};
         target.flags.collapsed = false;
         target._allowDockCollapseShift = true;
