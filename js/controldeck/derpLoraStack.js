@@ -26,10 +26,6 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
             async beforeRegisterNodeDef(nodeType, nodeData) {
                 if (!nodeData.name.toLowerCase().includes("derplorastack")) return;
 
-                nodeType.prototype.onDerpSettingsPress = function() {
-                    this.refreshNodeLayoutMap();
-                };
-
                 nodeType.prototype.onResize = function(size) {
                     this.properties.nodeSize = [size[0], size[1]];
                     if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
@@ -38,7 +34,6 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                 const onNodeCreated = nodeType.prototype.onNodeCreated;
                 nodeType.prototype.onNodeCreated = function () {
                     if (onNodeCreated) onNodeCreated.apply(this, arguments);
-                    this.properties.drawSettingBtn = true;
                 };
 
                 nodeType.prototype.toggleLoraEntryBypass = function(index) {

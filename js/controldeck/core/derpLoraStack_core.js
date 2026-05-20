@@ -59,9 +59,6 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                     if (isDraggingStack || isGhostDrawing) { this.inputs = oldIn; this.outputs = oldOut; }
                 };
 
-                nodeType.prototype.onDerpSettingsPress = function() {
-                    this.refreshNodeLayoutMap();
-                };
                 nodeType.prototype.syncDerpSignalManual = function() {
                     if (this.syncDerpOutputs) this.syncDerpOutputs();
                 };
@@ -385,7 +382,6 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                     this.isPureVirtual = true;
                     this.properties.isPureVirtual = true;
                     this.properties.drawSignalBtn = true;
-                    this.properties.drawSettingBtn = true;
                     // Critical: pure virtual nodes must have empty outputs
                     this.outputs = [];
 
