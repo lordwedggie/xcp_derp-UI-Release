@@ -123,7 +123,7 @@ app.registerExtension({
                         },
                         dropdownBooks: {
                             type: this.UI_TYPES.FILEBROWSER, canvasShield: true, skipBackground: false, themeKey: "button, t_textBig",
-                            indicator: "on",
+                            indicator: "on", mouseOver: false,
                             items: this._availableBooks || [], value: this.properties.bookName || "Untitled Book",
                             mode: "file", fileType: "promptBook", displayText: "Select Book...",
                             minWidth: 200, width: "full", height: "auto", padding: [pW, pH], spacing: [sW, 0],
@@ -196,7 +196,7 @@ app.registerExtension({
                     dropdownPages: {
                         type: this.UI_TYPES.DROPDOWN_DERP, canvasShield: true, multiline: false, themeKey: "dialog, t_textBig",
                         items: book.map((page, idx) => getPageLabel(this, idx, page.title)),
-                        indicator: "on",
+                        indicator: "on", mouseOver: false,
                         width: "full", height: "auto", padding: [pW, pH], spacing: [sW, 0],
                         value: getPageLabel(this, safeIndex, activePage.title),
                         onChange: (val) => handlePageChange(this, val)
