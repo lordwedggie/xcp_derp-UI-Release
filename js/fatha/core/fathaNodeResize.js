@@ -58,7 +58,7 @@ export function handleNodeResize(entity, data, scale) {
     const rawH = entity._startSize[1] + (deltaY * anchorMode.hSign);
     const newH = allowHeightResize ? Math.max(minH, Math.round(rawH / SNAP) * SNAP) : entity.size[1];
 
-    const dockResizeResult = syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH, SNAP, rawH);
+    const dockResizeResult = syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH, SNAP);
     dockDebug("handle-node-resize-after-dock-pair", {
         entity: snapshotDockNode(entity),
         resizeAnchor,

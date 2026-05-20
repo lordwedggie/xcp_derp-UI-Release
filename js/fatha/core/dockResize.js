@@ -14,7 +14,6 @@ import {
     getDockNodeHeight,
     getDockNodeWidth,
     getDockNodeMinWidth,
-    getDockNodeMinHeight,
     getSharedDockHeight,
     resolveDockResizeDimensions,
     shouldPreserveDockHeight,
@@ -217,7 +216,7 @@ function normalizeHorizontalMemberPositions(anchorNode, graph) {
     });
 }
 
-export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH, snap = 10, rawH = null) {
+export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH, snap = 10) {
     const graph = app.graph || entity.graph || null;
     if (!graph) return { handledWidth: false, handledHeight: false, handledAll: false, appliedWidth: null, appliedHeight: null, counterparts: [] };
 
@@ -411,58 +410,25 @@ export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH,
             return result;
         }
 
-        const topStartH = side === "top" ? session.dockedStartH : session.leaderStartH;
-        const bottomStartH = side === "top" ? session.leaderStartH : session.dockedStartH;
-        const topMinH = getDockNodeMinHeight(topNode, 0, snap);
-        const bottomMinH = getDockNodeMinHeight(bottomNode, 0, snap);
+        const isPureEdge = resizeAnchor === "top" || resizeAnchor === "bottom";
 
-        let adjustedTopH, adjustedBottomH, edgeY;
-
-        if (topCollapsed) {
-            adjustedTopH = topStartH;
-
-            if (entity.id === topNode.id) {
-                const startY = topNode._startPos?.[1] ?? topNode.pos[1];
-                const rawEdgeY = startY + (rawH != null ? rawH : newH);
-                const bottomEdge = (bottomNode._startPos?.[1] ?? bottomNode.pos[1])
-                    + (bottomNode._startSize?.[1] ?? bottomStartH);
-                edgeY = Math.min(rawEdgeY, bottomEdge - bottomMinH);
-                adjustedBottomH = Math.max(bottomMinH, bottomEdge - edgeY);
-            } else {
-                adjustedBottomH = Math.max(bottomMinH, newH);
-                edgeY = (entity._startPos?.[1] != null)
-                    ? entity._startPos[1] + (entity._startSize[1] - adjustedBottomH)
-                    : topNode.pos[1] + adjustedTopH;
-            }
-            topNode.pos[1] = edgeY - adjustedTopH;
-        } else if (bottomCollapsed) {
-            adjustedBottomH = bottomStartH;
-
-            if (entity.id === bottomNode.id) {
-                const startY = bottomNode._startPos?.[1] ?? bottomNode.pos[1];
-                const startSize = bottomNode._startSize?.[1] ?? bottomStartH;
-                const bottomEdge = startY + startSize;
-                const rawEdgeY = bottomEdge - (rawH != null ? rawH : newH);
-                edgeY = Math.max(rawEdgeY, topNode.pos[1] + topMinH);
-                adjustedTopH = Math.max(topMinH, edgeY - topNode.pos[1]);
-            } else {
-                adjustedTopH = Math.max(topMinH, newH);
-                edgeY = topNode.pos[1] + adjustedTopH;
-            }
-        } else {
-            if (topNode.id === entity.id) {
-                adjustedTopH = Math.min(totalHeight - bottomMinH, Math.max(topMinH, newH));
-                adjustedBottomH = Math.max(bottomMinH, totalHeight - adjustedTopH);
-            } else {
-                adjustedBottomH = Math.min(totalHeight - topMinH, Math.max(bottomMinH, newH));
-                adjustedTopH = Math.max(topMinH, totalHeight - adjustedBottomH);
-            }
-            edgeY = topNode.pos[1] + adjustedTopH;
+        if (isPureEdge && (topCollapsed || bottomCollapsed)) {
+            result.handledHeight = true;
+            result.handledAll = true;
+            result.appliedHeight = getDockNodeHeight(entity);
+            addCounterpart(topNode);
+            addCounterpart(bottomNode);
+            return result;
         }
+
+        const draggedHeight = Math.min(totalHeight - minH, Math.max(minH, newH));
+        const counterpartHeight = Math.max(minH, totalHeight - draggedHeight);
+        const adjustedTopH = topNode.id === entity.id ? draggedHeight : counterpartHeight;
+        const adjustedBottomH = bottomNode.id === entity.id ? draggedHeight : counterpartHeight;
 
         syncDeckNodeSize(topNode, getDockNodeWidth(topNode), adjustedTopH);
         syncDeckNodeSize(bottomNode, getDockNodeWidth(bottomNode), adjustedBottomH);
-        bottomNode.pos[1] = edgeY;
+        bottomNode.pos[1] = topNode.pos[1] + adjustedTopH;
         if (typeof topNode.syncUncleSlots === "function") topNode.syncUncleSlots();
         if (typeof bottomNode.syncUncleSlots === "function") bottomNode.syncUncleSlots();
         result.handledHeight = true;
