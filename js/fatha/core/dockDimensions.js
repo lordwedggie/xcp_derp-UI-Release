@@ -69,15 +69,14 @@ export function shouldPreserveDockHeight(axis) {
     return axis === "horizontal";
 }
 
-export function resolveDockResizeAxes(axis, vars = {}, node = null) {
+export function resolveDockResizeAxes(axis, vars = {}) {
     const autoWidth = vars.autoWidth === true;
     const autoHeight = vars.autoHeight === true;
 
     if (axis === "vertical") {
-        const isCollapsed = node?.properties?.contentCollapsed === true;
         return {
             allowWidth: !autoWidth,
-            allowHeight: isCollapsed ? false : !autoHeight,
+            allowHeight: !autoHeight,
         };
     }
 

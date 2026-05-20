@@ -8,7 +8,16 @@ export function handleNodeResize(entity, data, scale) {
     const { SNAP, autoWidth, autoHeight } = entity.getDerpVars ? entity.getDerpVars(entity) : getDerpVars(entity);
     const graph = entity.graph || globalThis?.app?.graph || null;
     const axis = graph ? getDockGroupAxisFromMembers(getDeckMembers(entity, graph)) : null;
-    const resizeAxes = resolveDockResizeAxes(axis, { autoWidth, autoHeight }, entity);
+    const resizeAxes = resolveDockResizeAxes(axis, { autoWidth, autoHeight });
+
+    // Block height resize on corners for collapsed nodes in vertical stacks
+    const collapsedInVertical = axis === "vertical" && entity?.properties?.contentCollapsed === true;
+    if (collapsedInVertical) {
+        const isCorner = data.resizeAnchor === "top-left" || data.resizeAnchor === "top-right" ||
+                         data.resizeAnchor === "bottom-left" || data.resizeAnchor === "bottom-right";
+        if (isCorner) resizeAxes.allowHeight = false;
+    }
+
     dockDebug("handle-node-resize-start", {
         entity: snapshotDockNode(entity),
         data,
