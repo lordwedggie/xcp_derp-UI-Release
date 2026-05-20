@@ -738,7 +738,7 @@ app.registerExtension({
                         },
                         edtiorFilenamePrefix: {
                             type: this.UI_TYPES.EDITOR,
-                            themeKey: "dialog, t_textNormal",
+                            themeKey: "dialog, t_textNormal", mouseOver: false,
                             width: "fit",
                             height: "auto",
                             padding: [pW, pH], spacing: [sH, 0],
@@ -758,7 +758,7 @@ app.registerExtension({
                             spacing: [sW, 0],
                             editorImageFilename: {
                                 type: this.UI_TYPES.EDITOR,
-                                themeKey: "dialog, t_textNormal",
+                                themeKey: "dialog, t_textNormal", mouseOver: false,
                                 width: "full",
                                 height: "auto",
                                 padding: [pW, pH], spacing: [sH, 0],

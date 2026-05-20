@@ -99,7 +99,7 @@ app.registerExtension({
                             }
                         }],
                         [`dynamicSliderRegion_${i}`, {
-                            dir: "row", width: "full", height: "auto",
+                            dir: "row", width: "full", height: "auto", 
                             padding: [0, 0], spacing: [0, sH],
                             [`dynamicTitle_${i}`]: {
                                 type: this.UI_TYPES.EDITOR, canvasShield: true,
@@ -118,7 +118,7 @@ app.registerExtension({
                             },
                             [`dynamicSlider_${i}`]: {
                                 type: this.UI_TYPES.SLIDER,
-                                themeKey: "panel, button, t_textSmall", labelAlign: ["center", "middle"],
+                                themeKey: "panel, button, t_textSmall", labelAlign: ["center", "middle"], mouseOver: false,
                                 width: "full", height: "auto", minWidth: 100, padding: [pW, pH],
                                 fillPadding: [1, 1],
                                 text: (this.properties.nameDisplay === "Slider") ? (this.properties.sliderContainer?.[i]?.name || `Slider_${i + 1}`) : "",

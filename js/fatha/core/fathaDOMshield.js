@@ -498,7 +498,9 @@ export function syncDerpShield(node) {
     // THE REFLOW FIX: Prevent getBoundingClientRect() from thrashing the browser's Main Thread
     // 60 times a second during idle animations (like Fatha's selection pulse).
     const canvasEl = app.canvas.canvas;
-    const stateHash = `${node.pos[0]},${node.pos[1]}_${visualW},${visualH}_${scale}_${ds.offset[0]},${ds.offset[1]}_${node.flags?.collapsed}_${node.properties?.debugMode}_${canvasEl.clientWidth}`;
+    const edgeState = node.properties?.deckEdges || {};
+    const varsForHash = node.getDerpVars ? node.getDerpVars(node) : { autoWidth: true, autoHeight: true };
+    const stateHash = `${node.pos[0]},${node.pos[1]}_${visualW},${visualH}_${scale}_${ds.offset[0]},${ds.offset[1]}_${node.flags?.collapsed}_${node.properties?.contentCollapsed}_${node.properties?.debugMode}_${canvasEl.clientWidth},${canvasEl.clientHeight}_${edgeState.left ?? "n"},${edgeState.right ?? "n"},${edgeState.top ?? "n"},${edgeState.bottom ?? "n"}_${varsForHash.autoWidth}_${varsForHash.autoHeight}`;
     if (node.interactionShield._lastStateHash === stateHash && !node._forceSync) return;
     node.interactionShield._lastStateHash = stateHash;
 
@@ -548,7 +550,7 @@ export function syncDerpShield(node) {
         const hasSharedRightEdge = edges.right !== null && edges.right !== undefined;
         const hasSharedTopEdge = edges.top !== null && edges.top !== undefined;
         const hasSharedBottomEdge = edges.bottom !== null && edges.bottom !== undefined;
-        const sharedEdgeWidth = Math.max(4 * scale, Number(vars.mW || 0) * scale);
+        const sharedEdgeWidth = Math.max(10, Number(vars.mW || 0) * scale);
         const graph = app.graph || node.graph || null;
         const isVerticalDockStack = !!(graph && isLinearDeckGroup(node, graph, "vertical"));
         const isCollapsed = node.properties?.contentCollapsed === true;
