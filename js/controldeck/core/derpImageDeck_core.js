@@ -31,6 +31,11 @@ function restoreImageDeckPinnedAnchor(anchor) {
     restorePinnedVerticalDeckAnchor(anchor);
 }
 
+function snapImageDeckHeight(node, height) {
+    const snap = Number(node?.getDerpVars?.(node)?.SNAP) || 10;
+    return Math.max(snap, Math.ceil((Number(height) || 1) / snap) * snap);
+}
+
 function toArray(value) {
     if (Array.isArray(value)) return value;
     return value ? [value] : [];
@@ -159,9 +164,7 @@ function resizeNodeToImageAspect(node, img) {
     const currentNodeH = Number(node.size?.[1] || node.properties?.nodeSize?.[1] || 0);
     if (!(currentNodeW > 0) || !(currentNodeH > 0)) return;
 
-    // Match the real incoming image aspect exactly. Do not snap the preview height,
-    // otherwise the fill-based IMAGE_HTML region becomes slightly taller than the image.
-    const nextNodeH = Math.max(1, currentNodeH + (nextImageH - currentImageH));
+    const nextNodeH = snapImageDeckHeight(node, currentNodeH + (nextImageH - currentImageH));
     if (Math.abs(nextNodeH - currentNodeH) < 1) return;
 
     const bottomY = getNodeBottomY(node);

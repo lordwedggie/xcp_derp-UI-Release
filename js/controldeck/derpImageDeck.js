@@ -579,6 +579,7 @@ app.registerExtension({
             this.fetchImageDeckKSamplerInfo();
             if (typeof this.syncDerpOutputs === "function") this.syncDerpOutputs();
             restoreImageDeckRefreshAnchor(getImageDeckRefreshAnchor(this));
+            this._imageDeckConfiguredBottomY = null;
         };
 
         nodeType.prototype.onResize = function(size) {
