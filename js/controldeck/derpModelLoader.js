@@ -90,7 +90,7 @@ app.registerExtension({
                     },
                     regionOffset: [0, 0],
                     [`modelToggle_${idx}`]: {
-                        type: this.UI_TYPES.TOGGLE_V2, isTextOnly: true, mouseOver: true, cutoff: true,
+                        type: this.UI_TYPES.TOGGLE_V2, iconAlign: "left", isTextOnly: true, mouseOver: true, cutoff: true,
                         key: `modelToggle_${idx}`,
                         text: this.properties.showFolderNames ? m.name.replace(/\.safetensors$/i, "") : m.name.split(/[\\/]/).pop().replace(/\.safetensors$/i, ""),
                         value: m.active,
@@ -172,6 +172,7 @@ app.registerExtension({
                     regionOffset: [0, 0],
                     [`floatingToggle`]: {
                         type: this.UI_TYPES.TOGGLE_V2,
+                        iconAlign: "left",
                         isTextOnly: true,
                         mouseOver: true,
                         cutoff: true,

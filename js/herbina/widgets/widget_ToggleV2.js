@@ -17,6 +17,7 @@ export function syncDerpToggleV2(ctx, node, app, config) {
 
     const isTextOnly = config.isTextOnly === true || config.skipBackground === true;
     const isActive = !!config.value;
+    const iconAlign = String(config.iconAlign || "right").toLowerCase() === "left" ? "left" : "right";
 
     const lastValKey = `_tgl2_last_${config.key}`;
     if (node[lastValKey] !== undefined && node[lastValKey] !== isActive) {
@@ -76,7 +77,7 @@ export function syncDerpToggleV2(ctx, node, app, config) {
     if (style === "default") {
         const pW = props.padding ? props.padding[0] : 4;
         const gap = config.gap ?? 4; // THE GAP PARAMETER: Explicit spacing between glyph and text
-        const labelText = t(content.text || "");
+        const labelText = t(props.displayText || content.text || "");
         const themeFontSize = props.fontSize || finalLabelPaint.fontSize || 10;
         // THE FONT SYNC FIX: Apply the same fallback font logic to the context state
         const themeFont = finalLabelPaint.font || (window.xcpDerpThemeConfig ? "DengXian Light" : "Arial");
@@ -95,7 +96,8 @@ export function syncDerpToggleV2(ctx, node, app, config) {
         if (alignX === "center") startX = x + (w / 2) - (contentAreaW / 2);
         else if (alignX === "right") startX = x + w - pW - contentAreaW;
 
-        const tX = startX;
+        const indicatorX = iconAlign === "right" ? (startX + labelW + gap) : startX;
+        const labelX = iconAlign === "right" ? startX : (startX + indicatorBuffer);
         const tY = y + (h - tH) / 2;
 
         // Fallback color protocol: Uses current behavior colors if specific theme keys fail
@@ -104,14 +106,14 @@ export function syncDerpToggleV2(ctx, node, app, config) {
         // 1. Draw Toggle Slot
         const slotColor = slotPaint?.fill || (isActive ? fallbackColor : "rgba(0,0,0,0.2)");
         masterPainter(ctx, {
-            posX: tX, posY: tY, width: tW, height: tH,
+            posX: indicatorX, posY: tY, width: tW, height: tH,
             color: slotColor,
             paintData: { ...(slotPaint || {}), corners: [tH / 2, tH / 2, tH / 2, tH / 2] }
         });
 
         // 2. Draw Toggle Dot
         const kR = (tH * 0.8) / 2;
-        const kX = tX + kR + (tH * 0.1) + (tW - tH) * node[animKey];
+        const kX = indicatorX + kR + (tH * 0.1) + (tW - tH) * node[animKey];
         const kY = tY + tH / 2;
         const dotColor = dotPaint?.fill || fallbackColor;
 
@@ -123,14 +125,14 @@ export function syncDerpToggleV2(ctx, node, app, config) {
 
         // 3. Draw Label
         if (labelText.length > 0) {
-            const availW = Math.max(0, w - (startX - x) - indicatorBuffer - pW);
+            const availW = Math.max(0, labelW || (w - (startX - x) - indicatorBuffer - pW));
             // THE DROPDOWN CUTOFF FIX: Apply manual context clipping to prevent text overflow
             ctx.save();
             ctx.beginPath();
-            ctx.rect(startX + indicatorBuffer, y, availW, h);
+            ctx.rect(labelX, y, availW, h);
             ctx.clip();
             masterPainterText(ctx, {
-                x: startX + indicatorBuffer,
+                x: labelX,
                 y: textAnchor?.y || (y + h / 2),
                 width: availW,
                 height: h,
@@ -145,7 +147,7 @@ export function syncDerpToggleV2(ctx, node, app, config) {
     } else if (style === "rect") {
         const pW = props.padding ? props.padding[0] : 4;
         const gap = config.gap ?? 4; // THE GAP PARAMETER: Explicit spacing between glyph and text
-        const labelText = t(content.text || "");
+        const labelText = t(props.displayText || content.text || "");
         const themeFontSize = props.fontSize || finalLabelPaint.fontSize || 10;
         const themeFont = finalLabelPaint.font || (window.xcpDerpThemeConfig ? "DengXian Light" : "Arial");
         ctx.font = `${props.fontWeight || "normal"} ${themeFontSize}px ${themeFont}`;
@@ -162,14 +164,15 @@ export function syncDerpToggleV2(ctx, node, app, config) {
         if (alignX === "center") startX = x + (w / 2) - (contentAreaW / 2);
         else if (alignX === "right") startX = x + w - pW - contentAreaW;
 
-        const tX = startX;
+        const indicatorX = iconAlign === "right" ? (startX + labelW + gap) : startX;
+        const labelX = iconAlign === "right" ? startX : (startX + indicatorBuffer);
         const tY = y + (h - tH) / 2;
         const fallbackColor = config.iconColor || finalLabelPaint.textColor || finalLabelPaint.fill || "white";
 
         // 1. Draw Toggle Slot (Rect)
         const slotColor = slotPaint?.fill || (isActive ? fallbackColor : "rgba(0,0,0,0.2)");
         masterPainter(ctx, {
-            posX: tX, posY: tY, width: tW, height: tH,
+            posX: indicatorX, posY: tY, width: tW, height: tH,
             color: slotColor,
             paintData: { ...(slotPaint || {}) }
         });
@@ -177,7 +180,7 @@ export function syncDerpToggleV2(ctx, node, app, config) {
         // 2. Draw Toggle Dot (Rect)
         const dotH = tH;
         const dotW = tW * 0.5;
-        const kX = tX + (tW - dotW) * node[animKey];
+        const kX = indicatorX + (tW - dotW) * node[animKey];
         const kY = tY;
         const dotColor = dotPaint?.fill || fallbackColor;
 
@@ -189,14 +192,14 @@ export function syncDerpToggleV2(ctx, node, app, config) {
 
         // 3. Draw Label
         if (labelText.length > 0) {
-            const availW = Math.max(0, w - (startX - x) - indicatorBuffer - pW);
+            const availW = Math.max(0, labelW || (w - (startX - x) - indicatorBuffer - pW));
             // THE DROPDOWN CUTOFF FIX: Apply manual context clipping to prevent text overflow
             ctx.save();
             ctx.beginPath();
-            ctx.rect(startX + indicatorBuffer, y, availW, h);
+            ctx.rect(labelX, y, availW, h);
             ctx.clip();
             masterPainterText(ctx, {
-                x: startX + indicatorBuffer,
+                x: labelX,
                 y: textAnchor?.y || (y + h / 2),
                 width: availW,
                 height: h,

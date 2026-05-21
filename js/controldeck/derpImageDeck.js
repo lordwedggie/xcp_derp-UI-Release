@@ -439,6 +439,7 @@ app.registerExtension({
             this.properties.toggleModelInfo = this.properties.toggleModelInfo !== false;
             this.properties.toggleSamplerInfo = this.properties.toggleSamplerInfo !== false;
             this.properties.toggleSchedulerInfo = this.properties.toggleSchedulerInfo !== false;
+            this.properties.toggleAutoFit = this.properties.toggleAutoFit !== false;
             this.properties.imageDeckSamplerNames = Array.isArray(this.properties.imageDeckSamplerNames) ? this.properties.imageDeckSamplerNames : [];
             this.properties.imageDeckSchedulerNames = Array.isArray(this.properties.imageDeckSchedulerNames) ? this.properties.imageDeckSchedulerNames : [];
             this.properties.imageDeckFilenamePrefix = typeof this.properties.imageDeckFilenamePrefix === "string"
@@ -565,6 +566,7 @@ app.registerExtension({
             this.properties.toggleModelInfo = this.properties.toggleModelInfo !== false;
             this.properties.toggleSamplerInfo = this.properties.toggleSamplerInfo !== false;
             this.properties.toggleSchedulerInfo = this.properties.toggleSchedulerInfo !== false;
+            this.properties.toggleAutoFit = this.properties.toggleAutoFit !== false;
             this.properties.imageDeckSamplerNames = Array.isArray(this.properties.imageDeckSamplerNames) ? this.properties.imageDeckSamplerNames : [];
             this.properties.imageDeckSchedulerNames = Array.isArray(this.properties.imageDeckSchedulerNames) ? this.properties.imageDeckSchedulerNames : [];
             this.updateImageDeckSignalFilters();
@@ -877,6 +879,27 @@ app.registerExtension({
                         width: "full",
                         height: "auto",
                         spacing: [sW, 0],
+                        toggleAutoFit: {
+                            type: this.UI_TYPES.TOGGLE_V2,
+                            themeKey: "dialog, button, t_textSystem",
+                            isTextOnly: true,
+                            mouseOver: false,
+                            iconAlign: "right",
+                            icon: "ring",
+                            label: "Auto adjust node height",
+                            value: this.properties.toggleAutoFit !== false,
+                            width: "auto",
+                            height: "auto",
+                            padding: [pW, pH],
+                            spacing: [sW, 0],
+                            onPress: () => {
+                                this.properties.toggleAutoFit = this.properties.toggleAutoFit === false;
+                                if (this.refreshDerpImageDeckSysMap) this.refreshDerpImageDeckSysMap();
+                                if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
+                                if (typeof this.syncDerpImageDeckDisplayUrl === "function") this.syncDerpImageDeckDisplayUrl();
+                                if (this.requestDerpSync) this.requestDerpSync();
+                            }
+                        },
                         lblImageFormat: {
                             type: this.UI_TYPES.TEXT,
                             mouseOver: false,
@@ -893,7 +916,7 @@ app.registerExtension({
                             canvasShield: true,
                             indicator: true,
                             width: "fit", height: "auto", measureText: "webP",
-                            padding: [pW, pH],
+                            padding: [pW, 1],
                             spacing: [sW, 0],
                             items: ["PNG", "JPEG", "WebP"],
                             value: this.properties.imageDeckSaveFormat || "PNG",

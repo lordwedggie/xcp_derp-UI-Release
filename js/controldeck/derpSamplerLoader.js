@@ -87,6 +87,7 @@ app.registerExtension({
                     regionOffset: [0, 0],
                     [`samplerToggle_${idx}`]: {
                         type: this.UI_TYPES.TOGGLE_V2,
+                        iconAlign: "left",
                         isTextOnly: true,
                         mouseOver: true,
                         cutoff: true,
@@ -175,6 +176,7 @@ app.registerExtension({
                     regionOffset: [0, 0],
                     floatingToggle: {
                         type: this.UI_TYPES.TOGGLE_V2,
+                        iconAlign: "left",
                         isTextOnly: true,
                         mouseOver: true,
                         cutoff: true,

@@ -88,7 +88,7 @@ app.registerExtension({
                     },
                     regionOffset: [0, 0],
                     [`vaeToggle_${idx}`]: {
-                        type: this.UI_TYPES.TOGGLE_V2, isTextOnly: true, mouseOver: true, cutoff: true,
+                        type: this.UI_TYPES.TOGGLE_V2, iconAlign: "left", isTextOnly: true, mouseOver: true, cutoff: true,
                         key: `vaeToggle_${idx}`,
                         text: (this.properties.showFolderNames ? m.name : m.name.split(/[\\/]/).pop()).replace(/\.(safetensors|pt|ckpt)$/i, ""),
                         value: m.active,
@@ -170,6 +170,7 @@ app.registerExtension({
                     regionOffset: [0, 0],
                     [`floatingToggle`]: {
                         type: this.UI_TYPES.TOGGLE_V2,
+                        iconAlign: "left",
                         isTextOnly: true,
                         mouseOver: true,
                         cutoff: true,
