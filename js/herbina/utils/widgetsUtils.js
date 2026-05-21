@@ -4,12 +4,32 @@
 
 import { toRGBA, lerpColor } from "./colorMath.js";
 import { parseColor } from "../masterAnimator.js";
+import { showBastaSystemMessage } from "../../fatha/bastas/bastaSystemMessage.js";
 
 const _measureCanvas = document.createElement("canvas");
 const _measureCtx = _measureCanvas.getContext("2d");
 
 // --- UNIFIED PALETTE HUB ---
 const _paletteCache = {};
+
+function getPaletteWarningHost(preferredNode = null) {
+    return preferredNode || window.app?.graph?._nodes?.find?.(node => node?.isFathaNode || node?.isUncleNode) || {
+        id: "xcp_palette_warning_host",
+        properties: {},
+        setDirtyCanvas() {},
+    };
+}
+
+function showPaletteWarning(node, path, status) {
+    const warningKey = `${String(path || "").toLowerCase()}::${status}`;
+    window._xcpWidgetPaletteWarnings = window._xcpWidgetPaletteWarnings || {};
+    if (window._xcpWidgetPaletteWarnings[warningKey]) return;
+    window._xcpWidgetPaletteWarnings[warningKey] = true;
+    const prefix = status === "fallback"
+        ? "Palette fallback found: "
+        : "Palette missing, no fallback: ";
+    showBastaSystemMessage(getPaletteWarningHost(node), prefix, 3200, { fade: true, grow: true }, null, status === "fallback" ? "info" : "error", null, path || "");
+}
 
 /**
  * THE CENTRALIZED ALPHA & ANIMATION FIX:
@@ -73,7 +93,15 @@ export function resolvePaletteEntry(node, path, entryName) {
         // THE CACHE BUSTER FIX: Force the browser to fetch the updated JSON without physics arrays.
         // Without this, the browser permanently caches the corrupt legacy file.
         fetch(`/xcp/load/palettes?name=${encodeURIComponent(path)}&t=${Date.now()}`)
-            .then(r => r.json())
+            .then(r => {
+                const usingFallback = r?.headers?.get?.("X-Xcp-Using-Fallback") === "1";
+                if (!r.ok) {
+                    showPaletteWarning(node, path, "missing");
+                    throw new Error(`Palette ${path} not found.`);
+                }
+                if (usingFallback) showPaletteWarning(node, path, "fallback");
+                return r.json();
+            })
             .then(json => {
                 const palettes = json.data?.palettes || [];
                 const targetName = String(entryName || "").toLowerCase();

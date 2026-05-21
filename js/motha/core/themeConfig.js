@@ -132,15 +132,20 @@ export const api = {
             if (!r.ok) return {};
             const listData = await r.json();
             const themesObj = {};
+            const themeSources = {};
             if (listData.items) {
                 // THE 404 FIX: Filter out directories (ending in /) from the load queue
                 const themeFiles = listData.items.filter(item => typeof item === "string" && !item.endsWith("/"));
 
                 await Promise.all(themeFiles.map(async (tName) => {
                     const tr = await fetch(`/xcp/load/themes?name=${encodeURIComponent(tName)}`);
+                    const usingFallback = tr?.headers?.get?.("X-Xcp-Using-Fallback") === "1";
                     if (tr.ok) {
                         const tData = await tr.json();
-                        if (tData.data) themesObj[tName] = tData.data;
+                        if (tData.data) {
+                            themesObj[tName] = tData.data;
+                            themeSources[tName] = usingFallback ? "fallback" : "primary";
+                        }
                     }
                 }));
             }
@@ -150,7 +155,7 @@ export const api = {
                 const pData = await pr.json();
                 if (pData.data) palettes = pData.data;
             }
-            return { customThemes: themesObj, palettes: palettes };
+            return { customThemes: themesObj, palettes: palettes, themeSources };
         } catch { return {}; }
     },
     /** Saves the theme configuration to the server. */
@@ -207,12 +212,15 @@ export function initThemeConfig() {
 
             if (d.palettes) this.palettes = d.palettes;
             this.themes = d.customThemes || {};
+            this.themeSources = d.themeSources || {};
+            this._isReady = true;
 
             // THE DEFAULT TEMPLATE AUTHORITY: Ensure the system anchor exists in memory
             const defaultPath = "_Templates/DerpTheme_Default";
             if (!this.themes[defaultPath]) {
                 console.warn(`%c[xcpDerp] System Default Template not found on disk at: ${defaultPath}.json. Seeding memory from internal fallback.`, "color: #ffa500; font-weight: bold;");
                 this.themes[defaultPath] = JSON.parse(JSON.stringify(FALLBACK_THEME));
+                this.themeSources[defaultPath] = "hardcoded";
             }
 
             const themeNames = Object.keys(this.themes);
@@ -422,32 +430,6 @@ export function initThemeConfig() {
         register(n) {
             if (!n) return;
             this.subscribers.add(n);
-
-            const defaultTheme = "_Templates/DerpTheme_Default";
-
-            // THE SPAWN & FALLBACK LOGIC:
-            // 1. If the node has no theme (newly spawned), force it to the system default template.
-            // 2. If the node has a theme but it's missing from disk (workflow load), log error and fallback.
-            let target = n.properties?.selectedTheme;
-
-            if (!target) {
-                // New spawn: No property exists yet
-                target = defaultTheme;
-                if (n.properties) n.properties.selectedTheme = target;
-            }
-
-            if (!this.themes[target]) {
-                console.error(`%c[xcpDerp] THEME ERROR: File "${target}" not found!`, "color: #ff5555; font-weight: bold;");
-                console.warn(`%c[xcpDerp] Attempting fallback to System Default: ${defaultTheme}`, "color: #ffa500;");
-
-                target = defaultTheme;
-                if (n.properties) n.properties.selectedTheme = target;
-
-                // Emergency: If even the default file is missing from memory (safety gate)
-                if (!this.themes[target]) {
-                    this.themes[target] = JSON.parse(JSON.stringify(FALLBACK_THEME));
-                }
-            }
             if (n.onThemeUpdate) n.onThemeUpdate(this);
         },
         unregister(n) { this.subscribers.delete(n); },

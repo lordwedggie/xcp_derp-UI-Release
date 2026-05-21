@@ -148,6 +148,12 @@ def get_theme_search_dirs():
         os.path.join(FALLBACK_ROOT, "themes"),
     ]
 
+def get_palette_search_dirs():
+    return [
+        os.path.join(PRIMARY_ROOT, "Palettes"),
+        os.path.join(FALLBACK_ROOT, "palettes"),
+    ]
+
 # SAFETY UTILITY: Prevents duplicate route registration crashes
 def safe_post(path, handler):
     for route in server.PromptServer.instance.routes:
@@ -183,34 +189,38 @@ async def list_files(request):
     try:
         items = []
         seen = set()
+        search_roots = get_theme_search_dirs() if category == "themes" else get_palette_search_dirs() if category == "palettes" else [target_dir]
         # THE SYMLINK FIX: followlinks=True ensures symlinked folders (common in ComfyUI) are traversed
-        for root, dirs, files in os.walk(target_dir, followlinks=True):
-            # Ignore internal image preview folders
-            dirs[:] = [d for d in dirs if not d.endswith("_IMG")]
+        for search_root in search_roots:
+            if not search_root or not os.path.exists(search_root):
+                continue
+            for root, dirs, files in os.walk(search_root, followlinks=True):
+                # Ignore internal image preview folders
+                dirs[:] = [d for d in dirs if not d.endswith("_IMG")]
 
-            # THE FOLDER PICKER FIX: The output folder browser needs explicit directory entries.
-            # Add subfolders with trailing slashes so FILEBROWSER mode "folder" can navigate them.
-            if category == "output":
-                for d in dirs:
-                    rel_dir = os.path.relpath(os.path.join(root, d), target_dir).replace("\\", "/") + "/"
-                    if rel_dir not in seen:
-                        seen.add(rel_dir)
-                        items.append(rel_dir)
+                # THE FOLDER PICKER FIX: The output folder browser needs explicit directory entries.
+                # Add subfolders with trailing slashes so FILEBROWSER mode "folder" can navigate them.
+                if category == "output":
+                    for d in dirs:
+                        rel_dir = os.path.relpath(os.path.join(root, d), search_root).replace("\\", "/") + "/"
+                        if rel_dir not in seen:
+                            seen.add(rel_dir)
+                            items.append(rel_dir)
 
-            for f in files:
-                # THE EXTENSION FILTER FIX: Allow model files (.safetensors, .ckpt, .pt) for the 'models' and 'vaes' categories
-                valid_exts = (".safetensors", ".ckpt", ".pt") if category in ["models", "vaes"] else (".txt" if category == "lora_triggers" else ".json")
-                if f.lower().endswith(valid_exts):
-                    rel_path = os.path.relpath(os.path.join(root, f), target_dir)
+                for f in files:
+                    # THE EXTENSION FILTER FIX: Allow model files (.safetensors, .ckpt, .pt) for the 'models' and 'vaes' categories
+                    valid_exts = (".safetensors", ".ckpt", ".pt") if category in ["models", "vaes"] else (".txt" if category == "lora_triggers" else ".json")
+                    if f.lower().endswith(valid_exts):
+                        rel_path = os.path.relpath(os.path.join(root, f), search_root)
 
-                    if category in ["models", "vaes"]:
-                        clean_item = rel_path.replace("\\", "/")
-                    else:
-                        clean_item = os.path.splitext(rel_path)[0].replace("\\", "/")
+                        if category in ["models", "vaes"]:
+                            clean_item = rel_path.replace("\\", "/")
+                        else:
+                            clean_item = os.path.splitext(rel_path)[0].replace("\\", "/")
 
-                    if clean_item not in seen:
-                        seen.add(clean_item)
-                        items.append(clean_item)
+                        if clean_item not in seen:
+                            seen.add(clean_item)
+                            items.append(clean_item)
         return attach_fallback_header(web.json_response({"items": items}))
     except Exception as e:
         return attach_fallback_header(web.json_response({"items": [], "error": str(e)}, status=500))
@@ -247,6 +257,17 @@ async def load_file(request):
         if category == "themes":
             target_path = None
             search_dirs = get_theme_search_dirs()
+            for index, search_dir in enumerate(search_dirs):
+                candidate_path = resolve_case_insensitive_path(search_dir, file_name)
+                if candidate_path and os.path.exists(candidate_path):
+                    target_path = candidate_path
+                    used_fallback = index > 0
+                    break
+            if target_path is None:
+                target_path = resolve_case_insensitive_path(search_dirs[0], file_name)
+        elif category == "palettes":
+            target_path = None
+            search_dirs = get_palette_search_dirs()
             for index, search_dir in enumerate(search_dirs):
                 candidate_path = resolve_case_insensitive_path(search_dir, file_name)
                 if candidate_path and os.path.exists(candidate_path):

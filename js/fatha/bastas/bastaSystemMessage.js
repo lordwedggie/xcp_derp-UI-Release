@@ -161,7 +161,10 @@ function ensureSystemMessageThemeLoaded(forceRefresh = false) {
             updateSystemMessageSlots();
             return systemMessageThemeHost;
         })
-        .catch(() => systemMessageThemeHost)
+        .catch((error) => {
+            console.error("[xcpDerp] System message theme load failed:", error);
+            return systemMessageThemeHost;
+        })
         .finally(() => {
             systemMessageThemePromise = null;
         });

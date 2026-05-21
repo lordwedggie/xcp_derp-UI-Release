@@ -28,6 +28,52 @@ function getDeckEngine() {
     return window.xcpMasterDeckEngine;
 }
 
+function getSystemMessageHost(preferredNode = null, fallbackId = "xcp_system_message_host") {
+    return preferredNode || app?.graph?._nodes?.find?.(node => node?.isFathaNode || node?.isUncleNode) || {
+        id: fallbackId,
+        properties: {},
+        setDirtyCanvas() {},
+    };
+}
+
+function showFallbackStatusMessage(host, kind, name, status) {
+    const safeHost = getSystemMessageHost(host, `xcp_${kind}_status_host`);
+    const normalizedKind = kind === "theme" ? "Theme" : "Palette";
+    const prefix = status === "fallback"
+        ? `${normalizedKind} fallback found: `
+        : `${normalizedKind} missing, no fallback: `;
+    showBastaSystemMessage(safeHost, prefix, 3200, { fade: true, grow: true }, null, status === "fallback" ? "info" : "error", null, name || "");
+}
+
+function getThemeWarningNodeName(node) {
+    return node?.titleLabel || node?.title || node?.type || `Node ${node?.id ?? "unknown"}`;
+}
+
+function showPerNodeThemeStatusMessage(node, status, requestedTheme, resolvedTheme = "") {
+    if (!node || !requestedTheme) return;
+    window._xcpPerNodeThemeWarnings = window._xcpPerNodeThemeWarnings || {};
+    const accent = status === "fallback-loaded"
+        ? resolvedTheme
+        : status === "fallback-switched"
+            ? `${requestedTheme} -> ${resolvedTheme}`
+            : status === "hardcoded-switched"
+                ? `${requestedTheme} -> ${resolvedTheme}`
+            : requestedTheme;
+    const warningKey = `${node.id || getThemeWarningNodeName(node)}::${status}::${accent}`;
+    if (window._xcpPerNodeThemeWarnings[warningKey]) return;
+    window._xcpPerNodeThemeWarnings[warningKey] = true;
+
+    const prefix = status === "fallback-loaded"
+        ? `${getThemeWarningNodeName(node)} loaded fallback theme: `
+        : status === "fallback-switched"
+            ? `${getThemeWarningNodeName(node)} switched to fallback theme: `
+            : status === "hardcoded-switched"
+                ? `${getThemeWarningNodeName(node)} switched to hardcoded fallback theme: `
+            : `${getThemeWarningNodeName(node)} missing theme, no fallback: `;
+    const mode = status === "missing" ? "error" : "info";
+    showBastaSystemMessage(node, prefix, 3600, { fade: true, grow: true }, null, mode, null, accent);
+}
+
 function paletteColorToCss(color) {
     if (!Array.isArray(color) || color.length < 3) return null;
     const r = Math.round(Number(color[0]) || 0);
@@ -249,6 +295,7 @@ export async function loadDerpPalette(paletteName = "Derp_Default_v01") {
     window.xcpActivePalettePendingName = normalizedName;
     try {
         const response = await fetch(`/xcp/load/palettes?name=${encodeURIComponent(normalizedName)}`);
+        const usingFallback = response?.headers?.get?.("X-Xcp-Using-Fallback") === "1";
         if (!response.ok) throw new Error(`Palette ${normalizedName} not found.`);
 
         const result = await response.json();
@@ -256,6 +303,11 @@ export async function loadDerpPalette(paletteName = "Derp_Default_v01") {
             rememberPaletteData(normalizedName, result.data);
             window.xcpActivePalette = result.data;
             window.xcpActivePaletteName = normalizedName;
+            if (usingFallback && window._xcpPaletteFallbackWarnings?.[normalizedName] !== true) {
+                window._xcpPaletteFallbackWarnings = window._xcpPaletteFallbackWarnings || {};
+                window._xcpPaletteFallbackWarnings[normalizedName] = true;
+                showFallbackStatusMessage(null, "palette", normalizedName, "fallback");
+            }
 
             // Fire event for paletteExtender.js
             window.dispatchEvent(new CustomEvent("xcp_palette_changed", { detail: result.data }));
@@ -280,6 +332,11 @@ export async function loadDerpPalette(paletteName = "Derp_Default_v01") {
             if (app.canvas) app.canvas.setDirty(true, true);
         }
     } catch (e) {
+        if (window._xcpPaletteMissingWarnings?.[normalizedName] !== true) {
+            window._xcpPaletteMissingWarnings = window._xcpPaletteMissingWarnings || {};
+            window._xcpPaletteMissingWarnings[normalizedName] = true;
+            showFallbackStatusMessage(null, "palette", normalizedName, "missing");
+        }
         console.error(`❌ [xcpDerp] Palette Load Error:`, e);
     } finally {
         if (window.xcpActivePalettePendingName === normalizedName) window.xcpActivePalettePendingName = "";
@@ -998,7 +1055,33 @@ export function handleThemeUpdate(node, config) {
     if (!config || !config.themes) return;
     const themeName = node.properties?.selectedTheme || node.properties?.selectedThemeName || node._selectedThemeName || config.activeTheme || "Template_Standard_v02";
     const resolvedThemeKey = findCaseInsensitiveKey(config.themes, themeName) || themeName;
-    const theme = config.themes[resolvedThemeKey];
+    let theme = config.themes[resolvedThemeKey];
+    const defaultTheme = "_Templates/DerpTheme_Default";
+
+    if (themeName && themeName !== config.activeTheme) {
+        if (theme && config.themeSources?.[resolvedThemeKey] === "fallback") {
+            showPerNodeThemeStatusMessage(node, "fallback-loaded", themeName, resolvedThemeKey);
+        } else if (!theme) {
+            const resolvedDefaultTheme = findCaseInsensitiveKey(config.themes, defaultTheme) || defaultTheme;
+            const fallbackTheme = config.themes[resolvedDefaultTheme];
+            const fallbackSource = config.themeSources?.[resolvedDefaultTheme] || "unknown";
+            if (fallbackTheme) {
+                showPerNodeThemeStatusMessage(
+                    node,
+                    fallbackSource === "hardcoded" ? "hardcoded-switched" : "fallback-switched",
+                    themeName,
+                    resolvedDefaultTheme
+                );
+                theme = fallbackTheme;
+                if (node.properties?.selectedTheme !== undefined) node.properties.selectedTheme = resolvedDefaultTheme;
+                if (node.properties?.selectedThemeName !== undefined) node.properties.selectedThemeName = resolvedDefaultTheme;
+                if (node._selectedThemeName !== undefined) node._selectedThemeName = resolvedDefaultTheme;
+            } else {
+                showPerNodeThemeStatusMessage(node, "missing", themeName, "");
+            }
+        }
+    }
+
     if (theme) {
         if (node.properties?.selectedTheme !== undefined) node.properties.selectedTheme = resolvedThemeKey;
         if (node.properties?.selectedThemeName !== undefined) node.properties.selectedThemeName = resolvedThemeKey;
@@ -1051,32 +1134,6 @@ export function handleThemeUpdate(node, config) {
 
 export function handleInitDerpGlobalListener(app) {
     if (window._xcpDerpGlobalActive) return;
-
-    if (!window._xcpFallbackFetchWrapped && typeof window.fetch === "function") {
-        const originalFetch = window.fetch.bind(window);
-        window.fetch = async (...args) => {
-            const response = await originalFetch(...args);
-            try {
-                const url = typeof args[0] === "string"
-                    ? args[0]
-                    : (args[0]?.url || "");
-                const usingFallback = response?.headers?.get?.("X-Xcp-Using-Fallback") === "1";
-                if (usingFallback && typeof url === "string" && url.startsWith("/xcp/") && window._xcpFallbackSystemMessageShown !== true) {
-                    window._xcpFallbackSystemMessageShown = true;
-                    const host = app?.graph?._nodes?.find?.(node => node?.isFathaNode || node?.isUncleNode) || {
-                        id: "xcp_global_fallback_host",
-                        properties: {},
-                        setDirtyCanvas() {},
-                    };
-                    showBastaSystemMessage(host, "Using fallback", 3200, { fade: true, grow: true }, null, "info", null, "");
-                }
-            } catch (e) {
-                console.error("[xcpDerp] Fallback fetch notifier error:", e);
-            }
-            return response;
-        };
-        window._xcpFallbackFetchWrapped = true;
-    }
 
     // THE STARTUP HYDRATION: Ensure nodes are localized on boot even without the panel
     const initialLocale = app.ui.settings.getSettingValue("Comfy.Locale") || "en-US";
