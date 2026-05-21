@@ -394,11 +394,12 @@ app.registerExtension({
             bumpTWPerfCounter(this, "hashMiss");
             this._layoutMapHash = currentHash;
 
-            const triggerPadW = 1, triggerPadH = 1;
             const vars = this.getDerpVars(this);
             const [mW, mH, sW, sH, pW, pH] = [
                 vars.mW, vars.mH, vars.sW, vars.sH, vars.pW, vars.pH
             ].map(v => Number(v.toFixed(2)));
+            const triggerPadW = pW;
+            const triggerPadH = pH;
             const isBypassed = this.mode === 4 || this.mode === 2 || this._derpSpoofedBypass;
 
             if (!this._triggerGroupData || this._triggerGroupData.filter(g => !g.hidden).length === 0) {

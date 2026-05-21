@@ -205,7 +205,10 @@ export function syncDerpTrigger(ctx, node, app, config) {
     const isWeightVisible = allowWeightDisplay && Math.abs(safeWeight - 1.0) > WEIGHT_EPSILON;
     const weightText = safeWeight.toFixed(2);
 
-    let tW = iconWidthOverride || config.toggleWidth || tH;
+    let tW = 0;
+    if (isWeightVisible) {
+        tW = iconWidthOverride || config.toggleWidth || tH;
+    }
     if (isWeightVisible && !config.toggleWidth) {
         ctx.save();
         ctx.font = `${props.fontWeight || labelPaintOut.fontWeight || "normal"} ${weightFontSize}px ${themeFont}`;
@@ -214,7 +217,7 @@ export function syncDerpTrigger(ctx, node, app, config) {
         tW = Math.max(tW, weightW + (WEIGHT_ICON_PAD * 2));
     }
 
-    const indicatorBuffer = tW + gap;
+    const indicatorBuffer = isWeightVisible ? (tW + gap) : 0;
     const labelW = labelText ? measureTriggerText(ctx, node, `${config.key}:label`, ctx.font, labelText) : 0;
     const finalW = Math.max(1, Math.round(w));
     const finalH = Math.max(1, Math.round(h));
@@ -229,21 +232,25 @@ export function syncDerpTrigger(ctx, node, app, config) {
     const alignX = props.labelAlign?.[0] || "left";
     let startX = baseX + padL;
     const contentWNoPad = indicatorBuffer + labelW;
-    if (alignX === "center") startX = baseX + (finalW / 2) - (contentWNoPad / 2);
-    else if (alignX === "right") startX = baseX + finalW - padR - contentWNoPad;
+    if (isWeightVisible) {
+        if (alignX === "center") startX = baseX + (finalW / 2) - (contentWNoPad / 2);
+        else if (alignX === "right") startX = baseX + finalW - padR - contentWNoPad;
+    }
 
     startX = Math.round(startX);
 
     const tX = startX;
     const tY = Math.round(baseY + padT + (finalH - padT - padB - tH) / 2);
-    if (guardNoFx) {
-        drawFastBox(ctx, tX, tY, tW, tH, slotPaintOut, slotPaintOut?.fill);
-    } else {
-        masterPainter(ctx, {
-            posX: tX, posY: tY, width: tW, height: tH,
-            color: slotPaintOut?.fill,
-            paintData: slotPaintOut
-        });
+    if (isWeightVisible) {
+        if (guardNoFx) {
+            drawFastBox(ctx, tX, tY, tW, tH, slotPaintOut, slotPaintOut?.fill);
+        } else {
+            masterPainter(ctx, {
+                posX: tX, posY: tY, width: tW, height: tH,
+                color: slotPaintOut?.fill,
+                paintData: slotPaintOut
+            });
+        }
     }
 
     if (isWeightVisible) {
@@ -268,14 +275,15 @@ export function syncDerpTrigger(ctx, node, app, config) {
         }
     }
 
-    const availW = Math.max(0, finalW - (startX - baseX) - indicatorBuffer - padR);
+    const textStartX = Math.round(baseX + padL + indicatorBuffer);
+    const availW = Math.max(0, finalW - padL - indicatorBuffer - padR);
     if (labelText.length > 0) {
         ctx.save();
         ctx.beginPath();
-        ctx.rect(Math.round(startX + indicatorBuffer), baseY, Math.round(availW), finalH);
+        ctx.rect(textStartX, baseY, Math.round(availW), finalH);
         ctx.clip();
         if (guardNoFx) {
-            drawFastText(ctx, labelText, Math.round(startX + indicatorBuffer), textAnchor?.y ? Math.round(textAnchor.y) : Math.round(baseY + finalH / 2), labelPaintOut, {
+            drawFastText(ctx, labelText, textStartX, textAnchor?.y ? Math.round(textAnchor.y) : Math.round(baseY + finalH / 2), labelPaintOut, {
                 fontSize: themeFontSize,
                 fontWeight: props.fontWeight,
                 align: "left",
@@ -283,7 +291,7 @@ export function syncDerpTrigger(ctx, node, app, config) {
             });
         } else {
             masterPainterText(ctx, {
-                x: Math.round(startX + indicatorBuffer),
+                x: textStartX,
                 y: (!isDragging && textAnchor?.y) ? Math.round(textAnchor.y) : Math.round(baseY + finalH / 2),
                 width: availW,
                 height: finalH,

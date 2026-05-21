@@ -469,8 +469,9 @@ export function interpretLayoutProps(config, context = {}) {
             // THE AUTO-INDICATOR FIX: Automatically reserve space for dropdown arrows or toggles
             const typeStr = String(config.type).toLowerCase();
             const isDropdown = typeStr.includes("dropdown") || typeStr.includes("filebrowser");
-            const isToggle = typeStr.includes("toggle") || typeStr.includes("trigger");
-            const hasIndicator = config.indicator === true || config.indicator === "on" || isDropdown || isToggle;
+            const isTrigger = typeStr.includes("trigger");
+            const isToggle = typeStr.includes("toggle") || isTrigger;
+            const explicitIndicator = config.indicator === true || config.indicator === "on";
 
             // THE TOGGLE-WIDTH FIX: Support style: ["rect", 20] and prioritize icon width
             const styleRaw = config.style;
@@ -478,13 +479,15 @@ export function interpretLayoutProps(config, context = {}) {
             const styleIconW = Array.isArray(styleRaw) ? styleRaw[1] : null;
 
             const toggleFactor = typeStr.includes("trigger") ? 1.0 : (isToggle ? (styleName === "rect" ? 2.2 : 1.8) : 1.5);
-            // THE INDICATOR GAP FIX: Explicitly account for the gap between glyph and text
-            const widgetGap = hasIndicator ? (config.gap ?? (isToggle ? 4 : 0)) : 0;
-            let baseIndicatorW = styleIconW || config.toggleWidth || (hasIndicator ? ((fs || 10) * toggleFactor) : 0);
             const triggerWeight = Number(config.weight);
             const allowTriggerWeight = config.showWeight !== false;
             const showTriggerWeight = allowTriggerWeight && Number.isFinite(triggerWeight) && Math.abs(triggerWeight - 1.0) > 1e-6;
-            if (typeStr.includes("trigger") && showTriggerWeight && !config.toggleWidth) {
+            const triggerNeedsIndicator = isTrigger && (showTriggerWeight || !!styleIconW || !!config.toggleWidth);
+            const hasIndicator = explicitIndicator || isDropdown || (!isTrigger && isToggle) || triggerNeedsIndicator;
+            // THE INDICATOR GAP FIX: Explicitly account for the gap between glyph and text
+            const widgetGap = hasIndicator ? (config.gap ?? (isToggle ? 4 : 0)) : 0;
+            let baseIndicatorW = styleIconW || config.toggleWidth || (hasIndicator ? ((fs || 10) * toggleFactor) : 0);
+            if (isTrigger && showTriggerWeight && !config.toggleWidth) {
                 const weightFs = config.weightFontSize || Math.min((fs || 10), 5);
                 const weightW = measureTextWidth(triggerWeight.toFixed(2), weightFs, font, config.fontWeight || "normal");
                 baseIndicatorW = Math.max(baseIndicatorW, weightW + 6); // 6 = WEIGHT_ICON_PAD * 2
