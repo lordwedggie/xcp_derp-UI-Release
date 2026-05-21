@@ -105,7 +105,7 @@ function restoreImageDeckRefreshAnchor(anchor) {
     node.pos[1] = anchor.bottom - h;
 }
 
-async function saveImageDeckCurrentImage(node) {
+async function saveImageDeckCurrentImage(node, isAutoSave = false) {
     const image = getImageDeckCurrentImage(node);
     if (!image || !image.filename) {
         showBastaMessage(node, "No image to save", 1800, { fade: true }, "btnSaveImage", false, "error");
@@ -137,7 +137,7 @@ async function saveImageDeckCurrentImage(node) {
     }
 
     const savedName = String(data.filename || "").split(/[\\/]/).pop() || String(data.filename || "");
-    showBastaSystemMessage(node, "Saved: ", 2200, { fade: true, grow: true }, "btnSaveImage", "success", null, savedName);
+    showBastaSystemMessage(node, isAutoSave ? "Auto-saved: " : "Saved: ", 2200, { fade: true, grow: true }, "btnSaveImage", "success", null, savedName);
 }
 
 function openImageDeckFolderSelector(node, items = []) {
@@ -209,6 +209,15 @@ app.registerExtension({
 
         fatha(nodeType, nodeData, 220);
         initDerpImageDeckCore(nodeType);
+
+        const _baseApplyList = nodeType.prototype.applyDerpImageDeckList;
+        nodeType.prototype.applyDerpImageDeckList = function(list, source) {
+            _baseApplyList.call(this, list, source);
+            if (this.properties && this.properties.toggleAutoSave === true) {
+                saveImageDeckCurrentImage(this, true);
+            }
+        };
+
         nodeType.prototype._isDerpImageDeckNode = true;
 
         nodeType.prototype.onThemeUpdate = function(config) {
@@ -440,6 +449,7 @@ app.registerExtension({
             this.properties.toggleSamplerInfo = this.properties.toggleSamplerInfo !== false;
             this.properties.toggleSchedulerInfo = this.properties.toggleSchedulerInfo !== false;
             this.properties.toggleAutoFit = this.properties.toggleAutoFit !== false;
+            this.properties.toggleAutoSave = this.properties.toggleAutoSave === true;
             this.properties.imageDeckSamplerNames = Array.isArray(this.properties.imageDeckSamplerNames) ? this.properties.imageDeckSamplerNames : [];
             this.properties.imageDeckSchedulerNames = Array.isArray(this.properties.imageDeckSchedulerNames) ? this.properties.imageDeckSchedulerNames : [];
             this.properties.imageDeckFilenamePrefix = typeof this.properties.imageDeckFilenamePrefix === "string"
@@ -567,6 +577,7 @@ app.registerExtension({
             this.properties.toggleSamplerInfo = this.properties.toggleSamplerInfo !== false;
             this.properties.toggleSchedulerInfo = this.properties.toggleSchedulerInfo !== false;
             this.properties.toggleAutoFit = this.properties.toggleAutoFit !== false;
+            this.properties.toggleAutoSave = this.properties.toggleAutoSave === true;
             this.properties.imageDeckSamplerNames = Array.isArray(this.properties.imageDeckSamplerNames) ? this.properties.imageDeckSamplerNames : [];
             this.properties.imageDeckSchedulerNames = Array.isArray(this.properties.imageDeckSchedulerNames) ? this.properties.imageDeckSchedulerNames : [];
             this.updateImageDeckSignalFilters();
@@ -593,6 +604,9 @@ app.registerExtension({
             if (!data.properties) data.properties = {};
             data.size = Array.isArray(this.size) ? [...this.size] : data.size;
             data.properties.nodeSize = Array.isArray(this.size) ? [...this.size] : this.properties.nodeSize;
+            data.properties.imageDeckCustomFolder = this.properties.imageDeckCustomFolder || "";
+            data.properties.imageDeckFilenamePrefix = this.properties.imageDeckFilenamePrefix || "Image Prefix";
+            data.properties.toggleAutoSave = this.properties.toggleAutoSave === true;
             data.properties.imageDeckState = {
                 images: Array.isArray(this._derpImageDeckList) ? this._derpImageDeckList : [],
                 index: Number.isInteger(this._derpImageDeckIndex) ? this._derpImageDeckIndex : 0
@@ -898,6 +912,25 @@ app.registerExtension({
                                 if (this.refreshDerpImageDeckSysMap) this.refreshDerpImageDeckSysMap();
                                 if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
                                 if (typeof this.syncDerpImageDeckDisplayUrl === "function") this.syncDerpImageDeckDisplayUrl();
+                                if (this.requestDerpSync) this.requestDerpSync();
+                            }
+                        },
+                        toggleAutoSave: {
+                            type: this.UI_TYPES.TOGGLE_V2,
+                            themeKey: "dialog, button, t_textSystem",
+                            isTextOnly: true,
+                            mouseOver: false,
+                            iconAlign: "right",
+                            icon: "ring",
+                            label: "Auto save new images",
+                            value: this.properties.toggleAutoSave === true,
+                            width: "auto",
+                            height: "auto",
+                            padding: [pW, pH],
+                            spacing: [sW, 0],
+                            onPress: () => {
+                                this.properties.toggleAutoSave = this.properties.toggleAutoSave !== true;
+                                if (this.refreshDerpImageDeckSysMap) this.refreshDerpImageDeckSysMap();
                                 if (this.requestDerpSync) this.requestDerpSync();
                             }
                         },

@@ -441,7 +441,11 @@ export function animateDerpSize(node, targetW, targetH, useAnim, options = {}) {
         if (!skipCollapseShift && deltaH !== 0 && shiftDirection !== 0) {
             node.pos[1] = (Number(node.pos?.[1]) || 0) + (deltaH * shiftDirection);
         }
-        if (graph && allowCollapseShift) {
+        const isVerticalDeck = graph && isLinearDeckGroup(node, graph, "vertical");
+        const heightChanged = deltaH !== 0;
+        const shouldReflow = allowCollapseShift || (isVerticalDeck && heightChanged);
+
+        if (graph && shouldReflow) {
             const moved = getDeckEngine().reflowChildren(node);
             dockDebug("animate-size-reflow", {
                 node: snapshotDockNode(node),
