@@ -645,6 +645,7 @@ app.registerExtension({
             const [mW, mH, sW, sH, oY, pW, pH] = [
                 vars.mW, vars.mH, vars.sW, vars.sH, vars.oY, vars.pW, vars.pH
             ].map(v => Number(v.toFixed(2)));
+            this.properties.footerAnchorGap = Math.max(Number(this.properties.footerAnchorGap) || 0, mH);
 
             const count = Array.isArray(this._derpImageDeckList) ? this._derpImageDeckList.length : 0;
             const imageUrl = this.getDerpImageDeckCurrentUrl ? this.getDerpImageDeckCurrentUrl() : null;
@@ -656,14 +657,14 @@ app.registerExtension({
             this._layoutMapHash = structureHash;
 
             this.layoutMap = {
-                contentRegion: {
-                    anchor: { target: "headerRegion", axis: "y", offset: oY },
-                    width: "full",
-                    height: "fill",
-                    dir: "col",
-                    margin: [mW, mH, mW, mH],
+                    contentRegion: {
+                        anchor: { target: "headerRegion", axis: "y" },
+                        width: "full",
+                        height: "fill",
+                        dir: "col",
+                        margin: [mW, mH, mW, mH],
                     spacing: [0, sH],
-                    imageRegion: {
+                    imageRegion: {                        
                         type: this.UI_TYPES.IMAGE_HTML,
                         key: "imageDeckPreview",
                         width: "full",
@@ -695,6 +696,7 @@ app.registerExtension({
                         }
                     },
                     regionImageHandling1: {
+                        anchor: { target: "imageRegion", axis: "y" },
                         dir: "row",
                         width: "full",
                         height: "auto",
@@ -703,8 +705,7 @@ app.registerExtension({
                             type: this.UI_TYPES.ICONBUTTON,
                             icon: "file",
                             themeKey: "button, t_textNormal",
-                            width: "match",
-                            height: "auto",
+                            width: "match", height: "fill",
                             spacing: [sW, 0], padding: [pW, pH],
                             mouseOver: true,
                             state: "OFF",
@@ -738,7 +739,7 @@ app.registerExtension({
                         },
                         edtiorFilenamePrefix: {
                             type: this.UI_TYPES.EDITOR,
-                            themeKey: "dialog, t_textNormal", mouseOver: false,
+                            themeKey: "dialog, t_textNormal",
                             width: "fit",
                             height: "auto",
                             padding: [pW, pH], spacing: [sH, 0],
@@ -751,40 +752,33 @@ app.registerExtension({
                                 if (this.requestDerpSync) this.requestDerpSync();
                             }
                         },
-                        regionImageHandling1Row: {
-                            dir: "row",
+                        editorImageFilename: {
+                            type: this.UI_TYPES.EDITOR, mouseOver: false,
+                            themeKey: "dialog, t_textNormal",
                             width: "full",
                             height: "auto",
-                            spacing: [sW, 0],
-                            editorImageFilename: {
-                                type: this.UI_TYPES.EDITOR,
-                                themeKey: "dialog, t_textNormal", mouseOver: false,
-                                width: "full",
-                                height: "auto",
-                                padding: [pW, pH], spacing: [sH, 0],
-                                labelAlign: ["left", "middle"],
-                                text: filenameText,
-                                value: filenameText,
-                                onBlur: () => {
-                                    if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
-                                    if (this.requestDerpSync) this.requestDerpSync();
-                                }
-                            },
-                            btnSaveImage: {
-                                type: this.UI_TYPES.ICONBUTTON,
-                                icon: "save",
-                                themeKey: "button, t_textNormal", 
-                                width: "match",
-                                height: "auto",
-                                spacing: [sW, 0], padding: [pW, pH],
-                                mouseOver: true,
-                                state: "OFF",
-                                onPress: async () => {
-                                    try {
-                                        await saveImageDeckCurrentImage(this);
-                                    } catch (e) {
-                                        showBastaMessage(this, "Save failed", 2200, { fade: true }, "btnSaveImage", false, "error");
-                                    }
+                            padding: [pW, pH], spacing: [sH, 0],
+                            labelAlign: ["left", "middle"],
+                            text: filenameText,
+                            value: filenameText,
+                            onBlur: () => {
+                                if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
+                                if (this.requestDerpSync) this.requestDerpSync();
+                            }
+                        },
+                        btnSaveImage: {
+                            type: this.UI_TYPES.ICONBUTTON,
+                            icon: "save",
+                            themeKey: "button, t_textNormal", 
+                            width: "match", height: "fill",
+                            spacing: [sW, 0], padding: [pW, pH],
+                            mouseOver: true,
+                            state: "OFF",
+                            onPress: async () => {
+                                try {
+                                    await saveImageDeckCurrentImage(this);
+                                } catch (e) {
+                                    showBastaMessage(this, "Save failed", 2200, { fade: true }, "btnSaveImage", false, "error");
                                 }
                             }
                         }
