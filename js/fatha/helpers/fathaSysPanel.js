@@ -14,6 +14,7 @@ import { resolvePaintData } from "../../herbina/utils/widgetsUtils.js";
 import { loadDerpLocale, handleDerpRequestSync } from "../core/fathaHandler.js";
 import { showBastaFileHandler, getHandlerId } from "../bastas/bastaFileHandler.js";
 import { showBastaMessage } from "../bastas/bastaMessage.js";
+import { showBastaSystemMessage } from "../bastas/bastaSystemMessage.js";
 import { playKaChing, playKaboom } from "../../herbina/masterSoundEffects.js";
 import { ensureScreenRectVisible, isWarping } from "../core/fathaWarp.js";
 
@@ -724,6 +725,10 @@ export async function toggleDerpSysPanel(hostNode) {
         hostNode.onDerpSysPanelOpen({
             setLayoutMap: (map) => { hostNode.sysLayoutMap = map; },
             showProfiles: (fileName, subFolder) => {
+                const reportMissingProfiles = () => {
+                    showBastaSystemMessage(hostNode, "Profile File Missing", 3200, { fade: true, grow: true }, null, "error", null, fileName);
+                };
+
                 hostNode._sysProfileActive = true;
                 hostNode._sysProfileFile = fileName;
                 hostNode._sysProfileFolder = subFolder;
@@ -733,9 +738,22 @@ export async function toggleDerpSysPanel(hostNode) {
                     const isIndividual = (fileName === "derpPromptBook" || fileName === "triggerWallDeck");
                     if (isIndividual) {
                         fetch(`/xcp/list/${fileName}`)
-                            .then(res => res.json())
+                            .then(res => {
+                                if (!res.ok) {
+                                    reportMissingProfiles();
+                                    throw new Error(`Profile list ${fileName} not found.`);
+                                }
+                                return res.json();
+                            })
                             .then(res => {
                                 hostNode._sysProfileCache = (res.items && res.items.length > 0) ? res.items.sort() : ["(No Profiles Found)"];
+                                hostNode._currentProfileName = hostNode._sysProfileCache[0];
+                                sysPanel._layoutDirty = true;
+                                hostNode.setDirtyCanvas(true, true);
+                            })
+                            .catch((e) => {
+                                console.error(e);
+                                hostNode._sysProfileCache = ["(No Profiles Found)"];
                                 hostNode._currentProfileName = hostNode._sysProfileCache[0];
                                 sysPanel._layoutDirty = true;
                                 hostNode.setDirtyCanvas(true, true);
@@ -744,7 +762,13 @@ export async function toggleDerpSysPanel(hostNode) {
                         // SINGLE JSON ENTRY NODES (Requires /xcp/load keys)
                         const category = subFolder === "nodeSettings" ? "settings" : subFolder;
                         fetch(`/xcp/load/${category}?name=${fileName}`)
-                            .then(res => res.json())
+                            .then(res => {
+                                if (!res.ok) {
+                                    reportMissingProfiles();
+                                    throw new Error(`Profile file ${fileName} not found.`);
+                                }
+                                return res.json();
+                            })
                             .then(res => {
                                 const data = res.data || {};
                                 hostNode._sysProfileData = data;
@@ -753,6 +777,14 @@ export async function toggleDerpSysPanel(hostNode) {
                                 if (!hostNode._currentProfileName || !hostNode._sysProfileCache.includes(hostNode._currentProfileName)) {
                                     hostNode._currentProfileName = hostNode._sysProfileCache[0];
                                 }
+                                sysPanel._layoutDirty = true;
+                                hostNode.setDirtyCanvas(true, true);
+                            })
+                            .catch((e) => {
+                                console.error(e);
+                                hostNode._sysProfileData = {};
+                                hostNode._sysProfileCache = ["(No Profiles Found)"];
+                                hostNode._currentProfileName = hostNode._sysProfileCache[0];
                                 sysPanel._layoutDirty = true;
                                 hostNode.setDirtyCanvas(true, true);
                             });

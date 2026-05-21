@@ -19,6 +19,11 @@ function showPromptBookSystemSaveMessage(node, prefix, bookName, targetRegion = 
     showBastaSystemMessage(node, prefix, 3000, { fade: true, grow: true }, targetRegion, "success", null, cleanName);
 }
 
+function showPromptBookMissingBookMessage(node, bookName, targetRegion = null) {
+    const cleanName = normalizePromptBookName(bookName);
+    showBastaSystemMessage(node, "Book File Missing: ", 3200, { fade: true, grow: true }, targetRegion, "error", null, cleanName);
+}
+
 async function savePromptBookFile(node, fileName, bookData) {
     const cleanName = normalizePromptBookName(fileName);
     const response = await fetch("/xcp/save/derpPromptBook", {
@@ -42,6 +47,38 @@ async function refreshPromptBookState(node, bookName, bookData = null) {
     if (node.refreshDerpPromptBookSysMap) node.refreshDerpPromptBookSysMap();
     if (node.updateDerpPromptBookUI) node.updateDerpPromptBookUI();
     if (node.syncDerpOutputs) node.syncDerpOutputs();
+}
+
+async function validateActivePromptBook(node) {
+    const activeBookName = normalizePromptBookName(node?.properties?.bookName);
+    if (!node || !activeBookName) return;
+    if (node._promptBookValidationPending === activeBookName) return;
+    node._promptBookValidationPending = activeBookName;
+    try {
+        if (node.fetchRemoteBooks) await node.fetchRemoteBooks();
+        const availableBooks = Array.isArray(node._availableBooks) ? node._availableBooks : [];
+        if (availableBooks.includes(activeBookName)) return;
+
+        showPromptBookMissingBookMessage(node, activeBookName);
+        node.properties.bookName = availableBooks[0] || "Untitled Book";
+        node._lastSavedBookName = node.properties.bookName;
+        node.properties.currentPageIndex = 0;
+        node.properties.derpBook = createDefaultDerpBook();
+        node.properties.prompt = node.properties.derpBook[0]?.content || "";
+
+        const w = node.widgets?.find(x => x.name === "prompt");
+        if (w) w.value = node.properties.prompt;
+
+        if (node.refreshNodeLayoutMap) node.refreshNodeLayoutMap();
+        if (node.refreshDerpPromptBookSysMap) node.refreshDerpPromptBookSysMap();
+        if (node.updateDerpPromptBookUI) node.updateDerpPromptBookUI();
+        if (node.syncDerpOutputs) node.syncDerpOutputs();
+        if (node.setDirtyCanvas) node.setDirtyCanvas(true, true);
+    } catch (e) {
+        console.error("Prompt Book Validation Error:", e);
+    } finally {
+        if (node._promptBookValidationPending === activeBookName) node._promptBookValidationPending = "";
+    }
 }
 
 export const createDefaultDerpBook = () => {
@@ -109,7 +146,13 @@ export function bindPromptBookHooks(nodeType) {
         if (profileName === "(No Profiles Found)") return;
 
         fetch(`/xcp/load/derpPromptBook?name=${profileName}`)
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) {
+                    showPromptBookMissingBookMessage(this, profileName);
+                    throw new Error(`Prompt book ${profileName} not found.`);
+                }
+                return res.json();
+            })
             .then(res => {
                 const p = res.data || {};
                 if (p.derpBook) this.properties.derpBook = JSON.parse(JSON.stringify(p.derpBook));
@@ -118,6 +161,9 @@ export function bindPromptBookHooks(nodeType) {
                 if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
                 if (this.updateDerpPromptBookUI) this.updateDerpPromptBookUI();
                 this.setDirtyCanvas(true, true);
+            })
+            .catch((e) => {
+                console.error("[Prompt Book Profile Load Error]:", e);
             });
     };
 
@@ -283,6 +329,11 @@ export function bindPromptBookHooks(nodeType) {
     nodeType.prototype.onDrawForeground = function(ctx) {
         if (onDrawForeground) onDrawForeground.apply(this, arguments);
 
+        if (!this._promptBookValidationDone) {
+            this._promptBookValidationDone = true;
+            validateActivePromptBook(this);
+        }
+
         const isBypassed = this.mode === 4 || this.mode === 2 || this._derpSpoofedBypass;
         if (this._lastBypassState !== isBypassed) {
             this._lastSyncedContent = null;
@@ -318,25 +369,31 @@ export function bindPromptBookHooks(nodeType) {
 
 export async function handleBookChange(node, val) {
     try {
-        const response = await fetch(`/xcp/load/derpPromptBook?name=${encodeURIComponent(val)}`);
-        if (response.ok) {
-            const result = await response.json();
-            const data = result.data || [];
-            node.properties.derpBook = data;
-            node.properties.bookName = val;
-            node._lastSavedBookName = val;
-            node.properties.currentPageIndex = 0;
-            node.properties.prompt = data[0]?.content || "";
-
-            const w = node.widgets?.find(x => x.name === "prompt");
-            if (w) w.value = node.properties.prompt;
-
-            if (node.syncDerpOutputs) node.syncDerpOutputs();
-
-            if (node.refreshNodeLayoutMap) node.refreshNodeLayoutMap();
-            if (node.refreshDerpPromptBookSysMap) node.refreshDerpPromptBookSysMap();
-            node.updateDerpPromptBookUI();
+        if (node._availableBooks && !node._availableBooks.includes(val)) {
+            showPromptBookMissingBookMessage(node, val, "dropdownBooks");
+            throw new Error(`Prompt book ${val} missing from remote list.`);
         }
+        const response = await fetch(`/xcp/load/derpPromptBook?name=${encodeURIComponent(val)}`);
+        if (!response.ok) {
+            showPromptBookMissingBookMessage(node, val, "dropdownBooks");
+            throw new Error(`Prompt book ${val} not found.`);
+        }
+        const result = await response.json();
+        const data = result.data || [];
+        node.properties.derpBook = data;
+        node.properties.bookName = val;
+        node._lastSavedBookName = val;
+        node.properties.currentPageIndex = 0;
+        node.properties.prompt = data[0]?.content || "";
+
+        const w = node.widgets?.find(x => x.name === "prompt");
+        if (w) w.value = node.properties.prompt;
+
+        if (node.syncDerpOutputs) node.syncDerpOutputs();
+
+        if (node.refreshNodeLayoutMap) node.refreshNodeLayoutMap();
+        if (node.refreshDerpPromptBookSysMap) node.refreshDerpPromptBookSysMap();
+        node.updateDerpPromptBookUI();
     } catch (e) { console.error("Prompt Book Load Error:", e); }
 }
 

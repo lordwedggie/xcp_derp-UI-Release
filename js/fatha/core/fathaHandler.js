@@ -18,6 +18,7 @@ import { getDockGroupAxisFromMembers, resolveRuntimeDockSize, shouldPreserveDock
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
 import { findHeaderPaletteEntry, getHeaderPaletteCandidateNames } from "../helpers/headerPaletteIdentity.js";
 import { getPulseAlpha } from "../../herbina/masterAnimator.js";
+import { showBastaSystemMessage } from "../bastas/bastaSystemMessage.js";
 
 function getDeckEngine() {
     if (!window.xcpMasterDeckEngine) {
@@ -57,6 +58,12 @@ function findPaletteEntry(paletteData, entryName) {
 
 function normalizePaletteName(name) {
     return String(name || "").replace(/\\/g, "/").trim();
+}
+
+function findCaseInsensitiveKey(source, target) {
+    if (!source || !target) return null;
+    const normalizedTarget = String(target).toLowerCase();
+    return Object.keys(source).find((key) => String(key).toLowerCase() === normalizedTarget) || null;
 }
 
 function getPaletteCache() {
@@ -230,7 +237,14 @@ export async function loadDerpPalette(paletteName = "Derp_Default_v01") {
     if (!paletteName) return;
     const normalizedName = normalizePaletteName(paletteName);
     if (!normalizedName) return;
-    if (window.xcpActivePaletteName === normalizedName && getPaletteCache()[normalizedName]) return;
+    const paletteCache = getPaletteCache();
+    const cachedKey = findCaseInsensitiveKey(paletteCache, normalizedName);
+    if (window.xcpActivePaletteName === normalizedName && paletteCache[normalizedName]) return;
+    if (cachedKey && paletteCache[cachedKey]) {
+        window.xcpActivePalette = paletteCache[cachedKey];
+        window.xcpActivePaletteName = cachedKey;
+        return;
+    }
     if (window.xcpActivePalettePendingName === normalizedName) return;
     window.xcpActivePalettePendingName = normalizedName;
     try {
@@ -983,8 +997,12 @@ export function handleDrawCTX(entity, ctx, overlayPass = false) {
 export function handleThemeUpdate(node, config) {
     if (!config || !config.themes) return;
     const themeName = node.properties?.selectedTheme || node.properties?.selectedThemeName || node._selectedThemeName || config.activeTheme || "Template_Standard_v02";
-    const theme = config.themes[themeName];
+    const resolvedThemeKey = findCaseInsensitiveKey(config.themes, themeName) || themeName;
+    const theme = config.themes[resolvedThemeKey];
     if (theme) {
+        if (node.properties?.selectedTheme !== undefined) node.properties.selectedTheme = resolvedThemeKey;
+        if (node.properties?.selectedThemeName !== undefined) node.properties.selectedThemeName = resolvedThemeKey;
+        if (node._selectedThemeName !== undefined) node._selectedThemeName = resolvedThemeKey;
         Object.entries(theme).forEach(([key, val]) => {
             if (key.startsWith("_") || typeof val !== 'object' || Array.isArray(val)) return;
             invalidateCompiledThemeCache(val);
@@ -1033,6 +1051,32 @@ export function handleThemeUpdate(node, config) {
 
 export function handleInitDerpGlobalListener(app) {
     if (window._xcpDerpGlobalActive) return;
+
+    if (!window._xcpFallbackFetchWrapped && typeof window.fetch === "function") {
+        const originalFetch = window.fetch.bind(window);
+        window.fetch = async (...args) => {
+            const response = await originalFetch(...args);
+            try {
+                const url = typeof args[0] === "string"
+                    ? args[0]
+                    : (args[0]?.url || "");
+                const usingFallback = response?.headers?.get?.("X-Xcp-Using-Fallback") === "1";
+                if (usingFallback && typeof url === "string" && url.startsWith("/xcp/") && window._xcpFallbackSystemMessageShown !== true) {
+                    window._xcpFallbackSystemMessageShown = true;
+                    const host = app?.graph?._nodes?.find?.(node => node?.isFathaNode || node?.isUncleNode) || {
+                        id: "xcp_global_fallback_host",
+                        properties: {},
+                        setDirtyCanvas() {},
+                    };
+                    showBastaSystemMessage(host, "Using fallback", 3200, { fade: true, grow: true }, null, "info", null, "");
+                }
+            } catch (e) {
+                console.error("[xcpDerp] Fallback fetch notifier error:", e);
+            }
+            return response;
+        };
+        window._xcpFallbackFetchWrapped = true;
+    }
 
     // THE STARTUP HYDRATION: Ensure nodes are localized on boot even without the panel
     const initialLocale = app.ui.settings.getSettingValue("Comfy.Locale") || "en-US";

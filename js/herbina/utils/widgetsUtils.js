@@ -64,7 +64,9 @@ export function compileAnimatedPaint(paintData, config, sysAlpha = 1, animColors
  */
 export function resolvePaletteEntry(node, path, entryName) {
     if (!path || !entryName) return null;
-    const cacheKey = `${path}::${entryName}`;
+    const normalizedPath = String(path || "").toLowerCase();
+    const normalizedEntryName = String(entryName || "").toLowerCase();
+    const cacheKey = `${normalizedPath}::${normalizedEntryName}`;
 
     if (!_paletteCache[cacheKey]) {
         _paletteCache[cacheKey] = "LOADING";
@@ -74,7 +76,8 @@ export function resolvePaletteEntry(node, path, entryName) {
             .then(r => r.json())
             .then(json => {
                 const palettes = json.data?.palettes || [];
-                const entry = palettes.find(p => p.name === entryName);
+                const targetName = String(entryName || "").toLowerCase();
+                const entry = palettes.find(p => String(p?.name || "").toLowerCase() === targetName);
                 _paletteCache[cacheKey] = entry || "NOT_FOUND";
 
                 // Force a redraw once data arrives

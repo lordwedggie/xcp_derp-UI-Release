@@ -15,6 +15,7 @@ import { ensureNodeVisibleInViewport } from "../core/fathaWarp.js";
 import { warpToPoint } from "../core/fathaWarp.js";
 import { handleDerpCollapse, handleHorizontalDeckTitleToggle } from "../core/fathaHandler.js";
 import { findHeaderPaletteEntry } from "./headerPaletteIdentity.js";
+import { showBastaSystemMessage } from "../bastas/bastaSystemMessage.js";
 
 const DEBUG_OPTIONS = ["None", "Layout", "Hitbox", "Widgets Hitbox"];
 const TITLE_LABEL_DEFAULT = "Derp Nodes";
@@ -424,7 +425,17 @@ export function getPanelBaseMap(hostNode, app, sysState) {
     const cfg = window.xcpDerpThemeConfig;
     const allThemes = cfg?.themes || {};
     const availableThemes = Object.keys(allThemes);
-    const activeTheme = hostNode.properties?.selectedTheme || cfg?.activeTheme || (availableThemes.length > 0 ? availableThemes[0] : "Default");
+    const requestedTheme = hostNode.properties?.selectedTheme || cfg?.activeTheme || (availableThemes.length > 0 ? availableThemes[0] : "Default");
+    const fallbackTheme = cfg?.activeTheme || (availableThemes.includes("Template_Standard_v02") ? "Template_Standard_v02" : (availableThemes[0] || "Default"));
+    const activeTheme = availableThemes.includes(requestedTheme) ? requestedTheme : fallbackTheme;
+
+    if (requestedTheme && requestedTheme !== activeTheme && hostNode._lastMissingThemeDropdownWarning !== requestedTheme) {
+        hostNode._lastMissingThemeDropdownWarning = requestedTheme;
+        showBastaSystemMessage(hostNode, "Theme File Missing", 3200, { fade: true, grow: true }, null, "error", null, requestedTheme);
+        hostNode.properties.selectedTheme = activeTheme;
+    } else if (requestedTheme === activeTheme && hostNode._lastMissingThemeDropdownWarning === requestedTheme) {
+        hostNode._lastMissingThemeDropdownWarning = "";
+    }
 
     return {
         sysHeaderRegion: {

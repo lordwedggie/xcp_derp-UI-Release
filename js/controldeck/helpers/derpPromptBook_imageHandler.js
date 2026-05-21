@@ -4,6 +4,8 @@
  * PURPOSE: Binary Disk-Streaming, Inside Selection Stroke, and Exact Canvas/HTML Parity.
  */
 
+import { showBastaSystemMessage } from "../../fatha/bastas/bastaSystemMessage.js";
+
 const imageResizeWidth = 512;
 
 async function uploadBinaryToServer(file, node) {
@@ -56,6 +58,14 @@ async function resizeImage(file, maxWidth) {
         };
         reader.readAsDataURL(file);
     });
+}
+
+function reportMissingPromptBookImage(node, imageName) {
+    if (!node || !imageName) return;
+    node._missingPromptBookImages = node._missingPromptBookImages || new Set();
+    if (node._missingPromptBookImages.has(imageName)) return;
+    node._missingPromptBookImages.add(imageName);
+    showBastaSystemMessage(node, "Page Image Missing", 3200, { fade: true, grow: true }, null, "error", null, imageName);
 }
 
 export function setupPromptBookImageSupport(el, node) {
@@ -153,6 +163,9 @@ export function setupPromptBookImageSupport(el, node) {
                         e.dataTransfer.setData("text/plain", `[[IMG:${imgName}]]`);
                         e.dataTransfer.effectAllowed = "move";
                     });
+                    img.onerror = () => {
+                        reportMissingPromptBookImage(node, imgName);
+                    };
                     img.onload = () => { node.setDirtyCanvas(true); };
                     this.appendChild(img);
                 } else if (part) {

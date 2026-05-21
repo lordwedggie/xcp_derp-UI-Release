@@ -15,27 +15,89 @@ from .xcp_loraStack import (handle_save_lora_rating, handle_save_lora_notes, han
                             handle_list_derpLoraStack, handle_save_derpLoraStack, handle_load_derpLoraStack, handle_list_lora_images, handle_get_lora_image, handle_set_lora_cover, handle_delete_lora_image)
 
 # --- PATH SETUP ---
+EXT_ROOT = os.path.dirname(os.path.abspath(__file__))
 PRIMARY_ROOT = os.path.join(folder_paths.get_user_directory(), "derpNodes")
+FALLBACK_ROOT = os.path.join(EXT_ROOT, "user", "derpNodes")
+USING_FALLBACK_ROOT = False
 
-try:
-    if not os.path.exists(PRIMARY_ROOT):
-        os.makedirs(PRIMARY_ROOT, exist_ok=True)
-    DERP_ROOT = PRIMARY_ROOT
-except Exception:
-    DERP_ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "user", "derpNodes")
-    print(f"⚠️ [xcpDerp] Falling back to internal extension storage: '{DERP_ROOT}'")
+def resolve_derp_root():
+    global USING_FALLBACK_ROOT
+    if os.path.exists(PRIMARY_ROOT):
+        USING_FALLBACK_ROOT = False
+        return PRIMARY_ROOT
+    os.makedirs(FALLBACK_ROOT, exist_ok=True)
+    USING_FALLBACK_ROOT = True
+    print(f"⚠️ [xcpDerp] Using fallback extension storage: '{FALLBACK_ROOT}'")
+    return FALLBACK_ROOT
 
-THEME_DIR = os.path.join(DERP_ROOT, "themes")
-os.makedirs(THEME_DIR, exist_ok=True)
+def attach_fallback_header(response, used_fallback=False):
+    if response is not None and (USING_FALLBACK_ROOT or used_fallback):
+        response.headers["X-Xcp-Using-Fallback"] = "1"
+    return response
 
-PALETTE_DIR = os.path.join(DERP_ROOT, "Palettes")
-if not os.path.exists(PALETTE_DIR):
-    legacy_palette_dir = os.path.join(DERP_ROOT, "palettes")
-    PALETTE_DIR = legacy_palette_dir if os.path.exists(legacy_palette_dir) else PALETTE_DIR
-os.makedirs(PALETTE_DIR, exist_ok=True)
+def _split_rel_path(path):
+    normalized = str(path or "").replace("\\", "/").strip("/")
+    return [part for part in normalized.split("/") if part]
 
-SETTINGS_DIR = os.path.join(DERP_ROOT, "nodeSettings")
-os.makedirs(SETTINGS_DIR, exist_ok=True)
+def resolve_case_insensitive_path(base_dir, relative_path, create_parent=False):
+    if not base_dir:
+        return None
+    if not os.path.exists(base_dir):
+        if create_parent:
+            return os.path.join(base_dir, relative_path)
+        return None
+    current = base_dir
+    parts = _split_rel_path(relative_path)
+    if not parts:
+        return current
+
+    for index, part in enumerate(parts):
+        is_last = index == len(parts) - 1
+        try:
+            entries = os.listdir(current)
+        except Exception:
+            entries = []
+
+        match = next((entry for entry in entries if entry.lower() == part.lower()), None)
+        if match is not None:
+            current = os.path.join(current, match)
+            continue
+
+        if create_parent or is_last:
+            current = os.path.join(current, part)
+            continue
+
+        return None
+
+    return current
+
+def resolve_case_insensitive_dir(base_dir, folder_name):
+    path = resolve_case_insensitive_path(base_dir, folder_name)
+    if path and os.path.isdir(path):
+        return path
+    return os.path.join(base_dir, folder_name)
+
+def resolve_derp_subdir_for_root(root_dir, preferred_name, *legacy_names, create=False):
+    candidates = [preferred_name, *legacy_names]
+    for name in candidates:
+        path = os.path.join(root_dir, name)
+        if os.path.exists(path):
+            return path
+    path = os.path.join(root_dir, preferred_name)
+    if create:
+        os.makedirs(path, exist_ok=True)
+    return path
+
+DERP_ROOT = resolve_derp_root()
+
+def resolve_derp_subdir(preferred_name, *legacy_names):
+    return resolve_derp_subdir_for_root(DERP_ROOT, preferred_name, *legacy_names, create=True)
+
+THEME_DIR = resolve_derp_subdir("Themes", "themes")
+
+PALETTE_DIR = resolve_derp_subdir("Palettes", "palettes")
+
+SETTINGS_DIR = resolve_derp_subdir("nodeSettings")
 
 DEFAULT_SETTINGS_FILES = {
     "derpLoraStack.json": {},
@@ -47,16 +109,12 @@ for file_name, default_data in DEFAULT_SETTINGS_FILES.items():
         with open(target_path, "w", encoding="utf-8") as f:
             json.dump(default_data, f, indent=2)
 
-PROMPT_BOOK_DIR = os.path.join(DERP_ROOT, "derpPromptBook")
-os.makedirs(PROMPT_BOOK_DIR, exist_ok=True)
+PROMPT_BOOK_DIR = resolve_derp_subdir("derpPromptBook")
 
-TRIGGER_WALL_DIR = os.path.join(DERP_ROOT, "derpTriggerWall")
-os.makedirs(TRIGGER_WALL_DIR, exist_ok=True)
+TRIGGER_WALL_DIR = resolve_derp_subdir("derpTriggerWall")
 
-TRIGGER_WALL_DECK_DIR = os.path.join(DERP_ROOT, "derpTriggerWallDeck")
-os.makedirs(TRIGGER_WALL_DECK_DIR, exist_ok=True)
+TRIGGER_WALL_DECK_DIR = resolve_derp_subdir("derpTriggerWallDeck")
 
-EXT_ROOT = os.path.dirname(os.path.abspath(__file__))
 LOCALE_DIR = os.path.join(EXT_ROOT, "locales")
 os.makedirs(LOCALE_DIR, exist_ok=True)
 
@@ -83,6 +141,12 @@ CATEGORIES = {
 
 def get_category_dir(category):
     return CATEGORIES.get(category)
+
+def get_theme_search_dirs():
+    return [
+        os.path.join(PRIMARY_ROOT, "Themes"),
+        os.path.join(FALLBACK_ROOT, "themes"),
+    ]
 
 # SAFETY UTILITY: Prevents duplicate route registration crashes
 def safe_post(path, handler):
@@ -147,9 +211,9 @@ async def list_files(request):
                     if clean_item not in seen:
                         seen.add(clean_item)
                         items.append(clean_item)
-        return web.json_response({"items": items})
+        return attach_fallback_header(web.json_response({"items": items}))
     except Exception as e:
-        return web.json_response({"items": [], "error": str(e)}, status=500)
+        return attach_fallback_header(web.json_response({"items": [], "error": str(e)}, status=500))
 safe_get("/xcp/list/{category}", list_files)
 
 async def open_prompt_book_folder(request):
@@ -164,26 +228,41 @@ async def open_prompt_book_folder(request):
         else:
             subprocess.Popen(['xdg-open', target_dir])
 
-        return web.json_response({"success": True})
+        return attach_fallback_header(web.json_response({"success": True}))
     except Exception as e:
-        return web.json_response({"error": str(e)}, status=500)
+        return attach_fallback_header(web.json_response({"error": str(e)}, status=500))
 safe_get("/xcp/open_prompt_book_folder", open_prompt_book_folder)
 
 async def load_file(request):
     category = request.match_info.get("category")
     target_dir = get_category_dir(category)
-    if not target_dir: return web.json_response({"error": "Invalid category"}, status=400)
+    if category != "themes" and not target_dir:
+        return attach_fallback_header(web.json_response({"error": "Invalid category"}, status=400))
     try:
         file_name = request.query.get("name")
-        if not file_name: return web.json_response({"error": "No name provided"}, status=400)
+        if not file_name: return attach_fallback_header(web.json_response({"error": "No name provided"}, status=400))
         if not file_name.endswith(".json"): file_name += ".json"
-        target_path = os.path.join(target_dir, file_name)
-        if not os.path.exists(target_path): return web.json_response({"error": "File not found"}, status=404)
+        used_fallback = False
+
+        if category == "themes":
+            target_path = None
+            search_dirs = get_theme_search_dirs()
+            for index, search_dir in enumerate(search_dirs):
+                candidate_path = resolve_case_insensitive_path(search_dir, file_name)
+                if candidate_path and os.path.exists(candidate_path):
+                    target_path = candidate_path
+                    used_fallback = index > 0
+                    break
+            if target_path is None:
+                target_path = resolve_case_insensitive_path(search_dirs[0], file_name)
+        else:
+            target_path = resolve_case_insensitive_path(target_dir, file_name)
+        if not target_path or not os.path.exists(target_path): return attach_fallback_header(web.json_response({"error": "File not found"}, status=404), used_fallback=used_fallback)
         with open(target_path, "r", encoding="utf-8") as f:
             data = json.load(f)
-        return web.json_response({"data": data})
+        return attach_fallback_header(web.json_response({"data": data}), used_fallback=used_fallback)
     except Exception as e:
-        return web.json_response({"error": str(e)}, status=500)
+        return attach_fallback_header(web.json_response({"error": str(e)}, status=500))
 safe_get("/xcp/load/{category}", load_file)
 
 async def save_file(request):
@@ -200,12 +279,12 @@ async def save_file(request):
                 full_path = folder_paths.get_full_path("loras", name.replace("\\", "/"))
                 if full_path: target_dir = os.path.splitext(full_path)[0]
 
-        if not target_dir: return web.json_response({"error": "Invalid category"}, status=400)
-        if not file_name or data is None: return web.json_response({"error": "Missing name or data"}, status=400)
+        if not target_dir: return attach_fallback_header(web.json_response({"error": "Invalid category"}, status=400))
+        if not file_name or data is None: return attach_fallback_header(web.json_response({"error": "Missing name or data"}, status=400))
 
         ext = ".txt" if category == "lora_triggers" else ".json"
         clean_name = file_name.replace(ext, "").strip() + ext
-        target_path = os.path.normpath(os.path.join(target_dir, clean_name))
+        target_path = os.path.normpath(resolve_case_insensitive_path(target_dir, clean_name, create_parent=True))
 
         os.makedirs(os.path.dirname(target_path), exist_ok=True)
         with open(target_path, "w", encoding="utf-8") as f:
@@ -213,9 +292,9 @@ async def save_file(request):
                 f.write(str(data))
             else:
                 json.dump(data, f, indent=4)
-        return web.json_response({"success": True})
+        return attach_fallback_header(web.json_response({"success": True}))
     except Exception as e:
-        return web.json_response({"success": False, "error": str(e)}, status=500)
+        return attach_fallback_header(web.json_response({"success": False, "error": str(e)}, status=500))
 safe_post("/xcp/save/{category}", save_file)
 
 async def delete_file(request):
@@ -226,15 +305,15 @@ async def delete_file(request):
         if name:
             full_path = folder_paths.get_full_path("loras", name.replace("\\", "/"))
             if full_path: target_dir = os.path.splitext(full_path)[0]
-    if not target_dir: return web.json_response({"error": "Invalid category"}, status=400)
+    if not target_dir: return attach_fallback_header(web.json_response({"error": "Invalid category"}, status=400))
     try:
         body = await request.json()
         file_name = body.get("name")
-        if not file_name: return web.json_response({"error": "No name provided"}, status=400)
+        if not file_name: return attach_fallback_header(web.json_response({"error": "No name provided"}, status=400))
         ext = ".txt" if category == "lora_triggers" else ".json"
         raw_name = file_name.replace(ext, "")
         if not file_name.endswith(ext): file_name += ext
-        target_path = os.path.join(target_dir, file_name)
+        target_path = resolve_case_insensitive_path(target_dir, file_name)
         if os.path.exists(target_path): os.remove(target_path)
 
         # THE SIDECAR JSON FALLBACK: Remove tag entries from _info.json
@@ -246,11 +325,11 @@ async def delete_file(request):
                 for k in keys_to_del: data.pop(k, None)
                 with open(info_path, "w", encoding="utf-8") as f: json.dump(data, f, indent=4)
 
-        img_folder = os.path.join(target_dir, f"{raw_name}_IMG")
+        img_folder = resolve_case_insensitive_dir(target_dir, f"{raw_name}_IMG")
         if os.path.exists(img_folder): shutil.rmtree(img_folder)
-        return web.json_response({"success": True})
+        return attach_fallback_header(web.json_response({"success": True}))
     except Exception as e:
-        return web.json_response({"success": False, "error": str(e)}, status=500)
+        return attach_fallback_header(web.json_response({"success": False, "error": str(e)}, status=500))
 safe_post("/xcp/delete/{category}", delete_file)
 
 
@@ -392,14 +471,15 @@ async def rename_file(request):
         if not old_name.endswith(ext): old_name += ext
         if not new_name.endswith(ext): new_name += ext
 
-        old_path = os.path.join(target_dir, old_name)
-        new_path = os.path.join(target_dir, new_name)
+        old_path = resolve_case_insensitive_path(target_dir, old_name)
+        new_path = resolve_case_insensitive_path(target_dir, new_name, create_parent=True)
 
         if os.path.exists(old_path):
             # THE RENAME FIX: Use move to rename the physical file and cleanup the old one
             shutil.move(old_path, new_path)
             old_raw, new_raw = old_name.replace(ext, ""), new_name.replace(ext, "")
-            old_img, new_img = os.path.join(target_dir, f"{old_raw}_IMG"), os.path.join(target_dir, f"{new_raw}_IMG")
+            old_img = resolve_case_insensitive_dir(target_dir, f"{old_raw}_IMG")
+            new_img = resolve_case_insensitive_path(target_dir, f"{new_raw}_IMG", create_parent=True)
             if os.path.exists(old_img): shutil.move(old_img, new_img)
             return web.json_response({"success": True})
 
@@ -445,12 +525,13 @@ async def duplicate_file(request):
         ext = ".txt" if category == "lora_triggers" else ".json"
         if not old_name.endswith(ext): old_name += ext
         if not new_name.endswith(ext): new_name += ext
-        old_path = os.path.join(target_dir, old_name)
-        new_path = os.path.join(target_dir, new_name)
+        old_path = resolve_case_insensitive_path(target_dir, old_name)
+        new_path = resolve_case_insensitive_path(target_dir, new_name, create_parent=True)
         if os.path.exists(old_path):
             shutil.copy2(old_path, new_path)
             old_raw, new_raw = old_name.replace(ext, ""), new_name.replace(ext, "")
-            old_img, new_img = os.path.join(target_dir, f"{old_raw}_IMG"), os.path.join(target_dir, f"{new_raw}_IMG")
+            old_img = resolve_case_insensitive_dir(target_dir, f"{old_raw}_IMG")
+            new_img = resolve_case_insensitive_path(target_dir, f"{new_raw}_IMG", create_parent=True)
             if os.path.exists(old_img): shutil.copytree(old_img, new_img)
             return web.json_response({"success": True})
 
@@ -488,15 +569,15 @@ async def rename_prompt_book(request):
         target_dir = CATEGORIES.get("derpPromptBook")
         if not target_dir: return web.Response(status=500)
 
-        old_json = os.path.join(target_dir, f"{old_name}.json")
-        new_json = os.path.join(target_dir, f"{new_name}.json")
+        old_json = resolve_case_insensitive_path(target_dir, f"{old_name}.json")
+        new_json = resolve_case_insensitive_path(target_dir, f"{new_name}.json", create_parent=True)
         if os.path.exists(old_json): os.rename(old_json, new_json)
 
         old_clean = old_name.replace(".json", "").strip()
         new_clean = new_name.replace(".json", "").strip()
 
-        old_img = os.path.join(target_dir, f"{old_clean}_IMG")
-        new_img = os.path.join(target_dir, f"{new_clean}_IMG")
+        old_img = resolve_case_insensitive_dir(target_dir, f"{old_clean}_IMG")
+        new_img = resolve_case_insensitive_path(target_dir, f"{new_clean}_IMG", create_parent=True)
         if os.path.exists(old_img): os.rename(old_img, new_img)
 
         return web.json_response({"success": True})
@@ -524,7 +605,7 @@ async def upload_asset(request):
                 file_data = await field.read()
         if file_data:
             # Ensure the directory name is consistent with the cleaned book name
-            img_dir = os.path.join(target_dir, f"{book_name}_IMG")
+            img_dir = resolve_case_insensitive_dir(target_dir, f"{book_name}_IMG")
             os.makedirs(img_dir, exist_ok=True)
             filename = f"asset_{uuid.uuid4().hex[:8]}.png"
             file_path = os.path.join(img_dir, filename)
@@ -548,14 +629,15 @@ async def get_asset(request):
         # THE ASSET RESOLUTION FIX: Sanitize book names and handle extension-less file lookups
         if book_name:
             book_name_clean = book_name.replace(".json", "").strip()
-            primary_path = os.path.join(target_dir, f"{book_name_clean}_IMG", file_name)
+            primary_dir = resolve_case_insensitive_dir(target_dir, f"{book_name_clean}_IMG")
+            primary_path = resolve_case_insensitive_path(primary_dir, file_name)
             if os.path.exists(primary_path): return web.FileResponse(primary_path)
 
         # THE SEARCH FIX: Deep-scan all asset subfolders for the file if the primary path fails (handles renamed books)
         if os.path.exists(target_dir):
             for item in os.listdir(target_dir):
-                if item.endswith("_IMG"):
-                    potential_path = os.path.join(target_dir, item, file_name)
+                if item.lower().endswith("_img"):
+                    potential_path = resolve_case_insensitive_path(os.path.join(target_dir, item), file_name)
                     if os.path.exists(potential_path): return web.FileResponse(potential_path)
 
         return web.Response(status=404)
@@ -571,7 +653,8 @@ async def delete_asset(request):
         body = await request.json()
         file_name, book_name = body.get("name"), body.get("bookName")
         if not file_name or not book_name: return web.json_response({"error": "Missing params"}, status=400)
-        img_path = os.path.join(target_dir, f"{book_name}_IMG", file_name)
+        img_dir = resolve_case_insensitive_dir(target_dir, f"{book_name}_IMG")
+        img_path = resolve_case_insensitive_path(img_dir, file_name)
         if os.path.exists(img_path): os.remove(img_path)
         return web.json_response({"success": True})
     except Exception as e:
@@ -640,7 +723,7 @@ async def load_settings_redirect(request):
     try:
         if not name: return web.json_response({"error": "No name provided"}, status=400)
         if not name.endswith(".json"): name += ".json"
-        target_path = os.path.join(target_dir, name)
+        target_path = resolve_case_insensitive_path(target_dir, name)
         if not os.path.exists(target_path): return web.json_response({"error": "File not found"}, status=404)
         with open(target_path, "r", encoding="utf-8") as f:
             data = json.load(f)
