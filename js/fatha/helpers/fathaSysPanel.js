@@ -21,6 +21,20 @@ import { ensureScreenRectVisible, isWarping } from "../core/fathaWarp.js";
 const PANEL_SLIDE_SPEED = 0.5;
 const PANEL_FADE_SPEED = 0.3;
 
+function resolveSavedProfileName(list, savedName) {
+    if (!Array.isArray(list) || list.length === 0) return "(No Profiles Found)";
+    if (!savedName) return list[0];
+    if (list.includes(savedName)) return savedName;
+    const lowered = String(savedName).toLowerCase();
+    return list.find((name) => String(name).toLowerCase() === lowered) || list[0];
+}
+
+function syncCurrentProfileName(node, profileName) {
+    if (!node) return;
+    node._currentProfileName = profileName;
+    if (node.properties) node.properties.selectedProfileName = profileName === "(No Profiles Found)" ? "" : profileName;
+}
+
 function logLoraStackProfileAnchor(node, label, payload) {
     if (!node || String(node.type || "").toLowerCase().includes("derplorastack") !== true) return;
     globalThis.DERP_LS_PROFILE_LOGS = globalThis.DERP_LS_PROFILE_LOGS || [];
@@ -747,14 +761,14 @@ export async function toggleDerpSysPanel(hostNode) {
                             })
                             .then(res => {
                                 hostNode._sysProfileCache = (res.items && res.items.length > 0) ? res.items.sort() : ["(No Profiles Found)"];
-                                hostNode._currentProfileName = hostNode._sysProfileCache[0];
+                                syncCurrentProfileName(hostNode, resolveSavedProfileName(hostNode._sysProfileCache, hostNode.properties?.selectedProfileName || hostNode._currentProfileName));
                                 sysPanel._layoutDirty = true;
                                 hostNode.setDirtyCanvas(true, true);
                             })
                             .catch((e) => {
                                 console.error(e);
                                 hostNode._sysProfileCache = ["(No Profiles Found)"];
-                                hostNode._currentProfileName = hostNode._sysProfileCache[0];
+                                syncCurrentProfileName(hostNode, hostNode._sysProfileCache[0]);
                                 sysPanel._layoutDirty = true;
                                 hostNode.setDirtyCanvas(true, true);
                             });
@@ -774,9 +788,7 @@ export async function toggleDerpSysPanel(hostNode) {
                                 hostNode._sysProfileData = data;
                                 hostNode._sysProfileCache = Object.keys(data).sort();
                                 if (hostNode._sysProfileCache.length === 0) hostNode._sysProfileCache = ["(No Profiles Found)"];
-                                if (!hostNode._currentProfileName || !hostNode._sysProfileCache.includes(hostNode._currentProfileName)) {
-                                    hostNode._currentProfileName = hostNode._sysProfileCache[0];
-                                }
+                                syncCurrentProfileName(hostNode, resolveSavedProfileName(hostNode._sysProfileCache, hostNode.properties?.selectedProfileName || hostNode._currentProfileName));
                                 sysPanel._layoutDirty = true;
                                 hostNode.setDirtyCanvas(true, true);
                             })
@@ -784,7 +796,7 @@ export async function toggleDerpSysPanel(hostNode) {
                                 console.error(e);
                                 hostNode._sysProfileData = {};
                                 hostNode._sysProfileCache = ["(No Profiles Found)"];
-                                hostNode._currentProfileName = hostNode._sysProfileCache[0];
+                                syncCurrentProfileName(hostNode, hostNode._sysProfileCache[0]);
                                 sysPanel._layoutDirty = true;
                                 hostNode.setDirtyCanvas(true, true);
                             });

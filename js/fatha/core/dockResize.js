@@ -41,9 +41,8 @@ export function resolveCollapseShiftDirection(node, graph) {
     if (!pinned) return 0;
 
     if (pinned.id === node.id) {
-        // Explicit collapse/expand of the pinned member should keep the pinned
-        // node itself stationary and let dock reflow move the surrounding nodes.
-        return 0;
+        const collapseUpward = window.DERP_GLOBAL_SETTINGS?.verticalPinnedCollapseUpward ?? true;
+        return collapseUpward ? -1 : 0;
     }
 
     const nodeY = Number(node.pos?.[1]) || 0;

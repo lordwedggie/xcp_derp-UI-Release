@@ -713,6 +713,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                 spacing: [sW, 0], padding: [pW, pH],
                 onChange: (val) => {
                     hostNode._currentProfileName = val;
+                    if (hostNode.properties) hostNode.properties.selectedProfileName = val === "(No Profiles Found)" ? "" : val;
                     if (hostNode.applyDerpProfile) hostNode.applyDerpProfile(val);
                 }
             },
@@ -758,6 +759,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                                         hostNode._sysProfileData = profiles;
                                         hostNode._sysProfileCache = Object.keys(profiles).sort();
                                         hostNode._currentProfileName = newName;
+                                        if (hostNode.properties) hostNode.properties.selectedProfileName = newName;
                                         if (hostNode._derpPanel) hostNode._derpPanel._layoutDirty = true;
                                         hostNode.setDirtyCanvas(true, true);
                                     }
@@ -809,6 +811,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                                         hostNode._sysProfileData = profiles;
                                         hostNode._sysProfileCache = Object.keys(profiles).sort();
                                         hostNode._currentProfileName = newName;
+                                        if (hostNode.properties) hostNode.properties.selectedProfileName = newName;
                                         if (hostNode._derpPanel) hostNode._derpPanel._layoutDirty = true;
                                         hostNode.setDirtyCanvas(true, true);
                                     }
@@ -864,6 +867,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                                         hostNode._sysProfileData = profiles;
                                         hostNode._sysProfileCache = Object.keys(profiles).sort();
                                         hostNode._currentProfileName = profileName;
+                                        if (hostNode.properties) hostNode.properties.selectedProfileName = profileName;
                                         if (hostNode._derpPanel) hostNode._derpPanel._layoutDirty = true;
                                         hostNode.setDirtyCanvas(true, true);
                                     }
@@ -920,6 +924,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                                     hostNode._sysProfileCache = Object.keys(profiles).sort();
                                     if (hostNode._sysProfileCache.length === 0) hostNode._sysProfileCache = ["(No Profiles Found)"];
                                     hostNode._currentProfileName = hostNode._sysProfileCache[0];
+                                    if (hostNode.properties) hostNode.properties.selectedProfileName = hostNode._currentProfileName === "(No Profiles Found)" ? "" : hostNode._currentProfileName;
                                     if (hostNode._derpPanel) hostNode._derpPanel._layoutDirty = true;
                                     hostNode.setDirtyCanvas(true, true);
                                 }

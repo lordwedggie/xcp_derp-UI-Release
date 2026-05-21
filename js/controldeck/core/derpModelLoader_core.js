@@ -43,6 +43,10 @@ export function initDerpModelLoaderCore(nodeType) {
         node._sysProfileFolder = "nodeSettings";
         node.titleLabel = "Derp Model Loader";
         node.properties.titleLabel = node.titleLabel;
+        if (typeof node.properties.selectedProfileName !== "string") node.properties.selectedProfileName = "";
+        if (typeof node._currentProfileName !== "string" || !node._currentProfileName) {
+            node._currentProfileName = node.properties.selectedProfileName || "";
+        }
     }
 
     function queueModelRelinkMessages(node, items) {
@@ -216,6 +220,8 @@ export function initDerpModelLoaderCore(nodeType) {
     // THE PROFILE PROTOCOL: Single JSON map in settings, same storage pattern as DerpSlider/DerpLatent
     proto.applyDerpProfile = function(profileName) {
         if (!this._sysProfileData || !this._sysProfileData[profileName] || profileName === "(No Profiles Found)") return;
+        this._currentProfileName = profileName;
+        if (this.properties) this.properties.selectedProfileName = profileName;
 
         const profileObj = this._sysProfileData[profileName];
         const rawModels = Array.isArray(profileObj)

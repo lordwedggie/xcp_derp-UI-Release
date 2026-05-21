@@ -246,6 +246,20 @@ app.registerExtension({
             }
         });
 
+        app.ui.settings.addSetting({
+            id: "Derp.VerticalPinnedCollapseUpward",
+            name: "Anchored node in a vertically docked stack collapses upwards",
+            category: DERP_GROUPS.docking("Anchored Vertical Collapse Direction"),
+            sortOrder: DERP_GROUP_SORT_ORDER.docking,
+            type: "boolean",
+            default: true,
+            onChange: (v) => {
+                window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
+                window.DERP_GLOBAL_SETTINGS.verticalPinnedCollapseUpward = normalizeBooleanSetting(v, true);
+                if (app.canvas) app.canvas.setDirty(true, true);
+            }
+        });
+
         registerHotkeySetting({
             id: "Derp.PerfOverlayHotkey",
             name: "Derp Nodes: Perf Overlay Hotkey",
