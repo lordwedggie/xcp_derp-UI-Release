@@ -5,7 +5,7 @@
 import { app } from "../../../../scripts/app.js";
 import { fatha, initDerpGlobalListener } from "../../fatha/fatha.js";
 import { activeBastas } from "../../fatha/basta.js";
-import { showBastaMessage } from "../../fatha/bastas/bastaMessage.js";
+import { showBastaSystemMessage } from "../../fatha/bastas/bastaSystemMessage.js";
 import { fetchLoraTriggers, fetchLoraRating, syncRatingColorsCache, fetchLoraData, regionBelongsToRow } from "../helpers/loraComponents.js";
 import { startStackDrag, updateStackDrag, endStackDrag } from "../../fatha/helpers/fathaDragDrop.js";
 import { COMPONENT_BLUEPRINTS } from "../../fatha/core/masterLayoutTypes.js";
@@ -22,6 +22,12 @@ const LORA_STACK_NUMERIC_SETTING_KEYS = [
     "sliderMin", "sliderMax", "sliderStep", "sliderDefault",
     "clipMin", "clipMax", "clipStep", "clipDefault"
 ];
+
+function queueMissingLoraMessages(node, items) {
+    items.forEach((item) => {
+        showBastaSystemMessage(node, "Removed non-existing LoRA: ", 5000, { fade: true, grow: true }, null, "error", false, item);
+    });
+}
 
 function closeLoraDetailForHost(host) {
     if (!host) return false;
@@ -956,10 +962,10 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                     if (removed.length > 0) {
                         this.properties.stackData = newStack;
 
-                        const names = removed.map(n => n.split(/[\\/]/).pop()).join(", ");
-                        const msg = `Removed non-existing LoRAs: ${names}`;
-
-                        showBastaMessage(this, msg, 5000, { width: 400 }, null, false, "error", "error");
+                        const missingDisplayNames = removed.map((name) => {
+                            return String(name || "").split(/[\\/]/).pop() || "Unknown LoRA";
+                        });
+                        queueMissingLoraMessages(this, missingDisplayNames);
 
                         if (this.syncDerpOutputs) this.syncDerpOutputs();
                         if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();

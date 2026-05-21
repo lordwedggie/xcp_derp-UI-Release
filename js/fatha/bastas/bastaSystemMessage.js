@@ -14,11 +14,13 @@ const SYSTEM_MESSAGE_ENTRY_OFFSET_Y = 90;
 const SYSTEM_MESSAGE_TARGET_OFFSET_X = 10;
 const SYSTEM_MESSAGE_TARGET_OFFSET_Y = 90;
 const SYSTEM_MESSAGE_STACK_GAP = 12;
-const SYSTEM_MESSAGE_HOLD_MS = 8000;
+export const SYSTEM_MESSAGE_STAGGER_DELAY_MS = 1000;
+const SYSTEM_MESSAGE_HOLD_MS = 5000;
 const SYSTEM_MESSAGE_POSITION_LERP = 0.5;
 const SYSTEM_MESSAGE_FADE_SPEED = 0.07;
 
 const activeSystemMessages = [];
+const queuedSystemMessages = [];
 const systemMessageThemeHost = {
     properties: { selectedThemeName: SYSTEM_MESSAGE_THEME_NAME },
     setDirtyCanvas() {},
@@ -32,6 +34,8 @@ let systemMessageSlotsDirty = false;
 let systemMessageThemeReady = false;
 let systemMessageThemePromise = null;
 let systemMessageThemeData = null;
+let systemMessageDispatchTimer = null;
+let systemMessageNextDispatchAt = 0;
 
 function getSystemMessageVars(fallbackHost = null) {
     const layout = systemMessageThemeData?._layout;
@@ -202,12 +206,19 @@ function buildSystemMessageId(host, targetRegion = null) {
 
 function updateSystemMessageSlots() {
     let nextTop = null;
+    let topRecordAssigned = false;
     for (const record of activeSystemMessages) {
         if (!record || record.isRemoved) continue;
         if (nextTop === null) {
             nextTop = record.baseTargetTop;
         }
         record.targetTop = nextTop;
+        if (!topRecordAssigned) {
+            if (record.holdStartAt === null || record.holdStartAt === undefined) {
+                record.holdStartAt = performance.now();
+            }
+            topRecordAssigned = true;
+        }
         nextTop += record.height + SYSTEM_MESSAGE_STACK_GAP;
     }
     systemMessageSlotsDirty = false;
@@ -236,10 +247,16 @@ function setStyleIfChanged(el, prop, value) {
     el.style[prop] = value;
 }
 
-export function showBastaSystemMessage(host, text, duration = 3000, animations = {}, targetRegion = null, mode = "info", playSound = null, accentText = "") {
+function spawnBastaSystemMessage(host, text, duration = 3000, animations = {}, targetRegion = null, mode = "info", playSound = null, accentText = "") {
+    if (!systemMessageThemeReady) {
+        ensureSystemMessageThemeLoaded().then(() => {
+            spawnBastaSystemMessage(host, text, duration, animations, targetRegion, mode, playSound, accentText);
+        });
+        return null;
+    }
+
     const id = buildSystemMessageId(host, targetRegion);
-    ensureSystemMessageThemeLoaded();
-    const themeNode = systemMessageThemeReady ? systemMessageThemeHost : host;
+    const themeNode = systemMessageThemeHost;
 
     const vars = getSystemMessageVars(host);
     const pW = Number(vars.pW || 6);
@@ -255,7 +272,7 @@ export function showBastaSystemMessage(host, text, duration = 3000, animations =
 
     const globalPlaySound = window.DERP_GLOBAL_SETTINGS?.playSound !== false;
     if (globalPlaySound) {
-        const soundKey = playSound || mode;
+        const soundKey = playSound === false ? null : (playSound || mode);
         if (SOUND_INDEX[soundKey]) SOUND_INDEX[soundKey]();
     }
 
@@ -352,6 +369,7 @@ export function showBastaSystemMessage(host, text, duration = 3000, animations =
         currentLeft: positions.startLeft,
         currentTop: positions.targetTop,
         createdAt: performance.now(),
+        holdStartAt: null,
         el,
         bgEl,
         label,
@@ -362,7 +380,7 @@ export function showBastaSystemMessage(host, text, duration = 3000, animations =
             if (!nextPositions) return false;
             record.baseTargetTop = nextPositions.targetTop;
 
-            if (!record.isClosing && (performance.now() - record.createdAt) >= holdMs) {
+            if (!record.isClosing && record.holdStartAt !== null && (performance.now() - record.holdStartAt) >= holdMs) {
                 record.close();
             }
 
@@ -413,4 +431,27 @@ export function showBastaSystemMessage(host, text, duration = 3000, animations =
     activeBastas.set(id, record);
 
     return record;
+}
+
+function scheduleQueuedSystemMessageDispatch() {
+    if (systemMessageDispatchTimer || queuedSystemMessages.length === 0) return;
+    const delay = Math.max(0, systemMessageNextDispatchAt - Date.now());
+    systemMessageDispatchTimer = setTimeout(() => {
+        systemMessageDispatchTimer = null;
+        const nextMessage = queuedSystemMessages.shift();
+        if (nextMessage) {
+            spawnBastaSystemMessage(...nextMessage);
+            systemMessageNextDispatchAt = Date.now() + SYSTEM_MESSAGE_STAGGER_DELAY_MS;
+        }
+        scheduleQueuedSystemMessageDispatch();
+    }, delay);
+}
+
+export function showBastaSystemMessage(host, text, duration = 3000, animations = {}, targetRegion = null, mode = "info", playSound = null, accentText = "") {
+    queuedSystemMessages.push([host, text, duration, animations, targetRegion, mode, playSound, accentText]);
+    if (systemMessageNextDispatchAt <= Date.now()) {
+        systemMessageNextDispatchAt = Date.now();
+    }
+    scheduleQueuedSystemMessageDispatch();
+    return null;
 }

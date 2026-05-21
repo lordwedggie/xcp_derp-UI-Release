@@ -3,6 +3,7 @@
  * ROLE: Logic Controller for the Derp Vae Loader.
  */
 import { showBastaMessage } from "../../fatha/bastas/bastaMessage.js";
+import { showBastaSystemMessage } from "../../fatha/bastas/bastaSystemMessage.js";
 import { playMicrowaveDing } from "../../herbina/masterSoundEffects.js";
 
 export function initDerpVaeLoaderCore(nodeType) {
@@ -38,6 +39,12 @@ export function initDerpVaeLoaderCore(nodeType) {
         node._sysProfileFolder = "nodeSettings";
         node.titleLabel = "Derp Vae Loader";
         node.properties.titleLabel = node.titleLabel;
+    }
+
+    function queueVaeRelinkMessages(node, items) {
+        items.forEach((item) => {
+            showBastaSystemMessage(node, "VAEs Re-linked: ", 3000, { fade: true, grow: true }, null, "success", false, item);
+        });
     }
 
     proto.onThemeUpdate = function(config) {
@@ -114,7 +121,10 @@ export function initDerpVaeLoaderCore(nodeType) {
                         mode = "info";
                     }
 
-                    if (typeof showBastaMessage === "function") {
+                    if (healed.length > 0 && missing.length === 0 && typeof showBastaSystemMessage === "function") {
+                        queueVaeRelinkMessages(this, healed);
+                    } else if (typeof showBastaMessage === "function") {
+                        if (typeof playMicrowaveDing === "function") playMicrowaveDing();
                         const duration = (missing.length > 0 || healed.length > 0) ? 6000 : 3000;
                         showBastaMessage(this, msg, duration, { fade: true, grow: true }, "btnRefreshVaes", false, mode);
                     }

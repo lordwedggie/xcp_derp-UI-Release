@@ -3,6 +3,7 @@
  * ROLE: Logic Controller for the Derp Model Loader.
  */
 import { showBastaMessage } from "../../fatha/bastas/bastaMessage.js";
+import { showBastaSystemMessage } from "../../fatha/bastas/bastaSystemMessage.js";
 import { playMicrowaveDing } from "../../herbina/masterSoundEffects.js";
 import { transmitDerpSignal } from "../../fatha/core/masterSignalEngine.js";
 
@@ -42,6 +43,12 @@ export function initDerpModelLoaderCore(nodeType) {
         node._sysProfileFolder = "nodeSettings";
         node.titleLabel = "Derp Model Loader";
         node.properties.titleLabel = node.titleLabel;
+    }
+
+    function queueModelRelinkMessages(node, items) {
+        items.forEach((item) => {
+            showBastaSystemMessage(node, "Models Re-linked: ", 3000, { fade: true, grow: true }, null, "success", false, item);
+        });
     }
 
     proto.onThemeUpdate = function(config) {
@@ -114,7 +121,10 @@ export function initDerpModelLoaderCore(nodeType) {
                         mode = "info";
                     }
 
-                    if (typeof showBastaMessage === "function") {
+                    if (healed.length > 0 && missing.length === 0 && typeof showBastaSystemMessage === "function") {
+                        queueModelRelinkMessages(this, healed);
+                    } else if (typeof showBastaMessage === "function") {
+                        if (typeof playMicrowaveDing === "function") playMicrowaveDing();
                         const duration = (missing.length > 0 || healed.length > 0) ? 6000 : 3000;
                         showBastaMessage(this, msg, duration, { fade: true, grow: true }, "btnRefreshModels", false, mode);
                     }
