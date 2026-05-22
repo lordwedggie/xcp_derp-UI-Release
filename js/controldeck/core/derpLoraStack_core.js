@@ -828,9 +828,17 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                                     const idx = parseInt(parts[1]);
                                     const stackData = this.properties.stackData || [];
 
-                                    // Keep slider hit zones out of row drag arming.
-                                    // Sliders should own dragStart/click/drag so the row DnD path never activates underneath them.
+                                    // Keep slider hit zones out of row drag arming and mark the
+                                    // slider as actively pressed here, because this custom path
+                                    // can return before the base Fatha handler records it.
                                     if (stackData[idx] && (sType === "sldModel" || sType === "sldClip") && (type === "dragStart" || type === "click" || type === "dblclick" || type === "drag")) {
+                                        if (type === "dragStart" || type === "click" || type === "dblclick") {
+                                            this._pressedRegionKey = targetKey;
+                                            this._passiveWholeWallCacheSuspendUntil = Math.max(
+                                                Number(this._passiveWholeWallCacheSuspendUntil || 0),
+                                                performance.now() + 220
+                                            );
+                                        }
                                         if (type === "click" && this._btnLRHandledKey === targetKey) { this._btnLRHandledKey = null; return true; }
                                         if (type === "dragStart") this._btnLRHandledKey = null;
                                         const sliderConfig = regions[targetKey];

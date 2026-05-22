@@ -110,7 +110,10 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                     const structureHash = `${stack.length}_${stack.map(l => `${l[0]}_${l[5]}`).join('|')}_${trigHash}_${this.properties.nameDisplay}_${this.properties.showCLIP}_${this.properties.attentionMode}_${this.properties.toggleLR}_${signalSelectionHash}_${window._xcpDerpSession}_${activeSlot}_${mW}_${mH}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}_${dragIdxHash}`;
 
                     // ZERO-INFERENCE VALUE GATE: Block redundant property hydration on idle nodes
-                    const valueHash = stack.map(l => `${l[1]}_${l[2]}_${l[3]}_${l[4]}_${l[5]}_${l[6]}`).join('|') + `_${this.mode}_${this._hoveredRegionKey}_${signalSelectionHash}`;
+                    // Hover already has a dedicated visual invalidation path in Fatha.
+                    // Keeping it out of the stack value hash prevents idle hover-key jitter
+                    // from re-triggering value hydration and passive whole-wall cache churn.
+                    const valueHash = stack.map(l => `${l[1]}_${l[2]}_${l[3]}_${l[4]}_${l[5]}_${l[6]}`).join('|') + `_${this.mode}_${signalSelectionHash}`;
 
                     // SYNCHRONIZED CACHE CHECK
                     if (this._layoutMapHash === structureHash && this.layoutMap) {

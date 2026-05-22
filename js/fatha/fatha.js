@@ -66,7 +66,15 @@ function recordFathaOverlayPerf(node, drawMs) {
 
 function isPassiveWholeWallCacheNode(node) {
     const typeName = String(node?.type || "").toLowerCase();
-    return typeName.includes("triggerwall");
+    return typeName.includes("triggerwall") || typeName.includes("derplorastack");
+}
+
+function suspendPassiveWholeWallCache(node, durationMs = 220) {
+    if (!node) return;
+    node._passiveWholeWallCacheSuspendUntil = Math.max(
+        Number(node._passiveWholeWallCacheSuspendUntil || 0),
+        performance.now() + durationMs
+    );
 }
 
 function buildPassiveWholeWallCacheState(node, passiveCacheScale) {
@@ -162,17 +170,23 @@ function ensurePassiveCacheInteractionBindings(node, app) {
             continue;
         }
         if (reg.type === UI_TYPES.SLIDER) {
-            if (!reg.onDragStart) {
-                reg.onDragStart = () => {
-                    node._passiveWholeWallCacheSuspendUntil = Math.max(Number(node._passiveWholeWallCacheSuspendUntil || 0), performance.now() + 220);
+            if (!reg._xcpPassiveCacheWrappedDragStart) {
+                const originalOnDragStart = reg.onDragStart;
+                reg.onDragStart = (...args) => {
+                    suspendPassiveWholeWallCache(node);
+                    if (typeof originalOnDragStart === "function") return originalOnDragStart(...args);
                     return false;
                 };
+                reg._xcpPassiveCacheWrappedDragStart = true;
             }
-            if (!reg.onPress) {
-                reg.onPress = () => {
-                    node._passiveWholeWallCacheSuspendUntil = Math.max(Number(node._passiveWholeWallCacheSuspendUntil || 0), performance.now() + 220);
+            if (!reg._xcpPassiveCacheWrappedPress) {
+                const originalOnPress = reg.onPress;
+                reg.onPress = (...args) => {
+                    suspendPassiveWholeWallCache(node);
+                    if (typeof originalOnPress === "function") return originalOnPress(...args);
                     return false;
                 };
+                reg._xcpPassiveCacheWrappedPress = true;
             }
         }
     }
