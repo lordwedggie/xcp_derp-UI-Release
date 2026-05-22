@@ -15,6 +15,7 @@ import { getVirtualNodeLayoutMap } from "./helpers/fathaLayoutMaps.js";
 import { transmitBypassedDerpSignals, transmitDerpSignal, purgeDerpSignal } from "./core/masterSignalEngine.js";
 import { animateRecoil } from "../herbina/masterAnimator.js";
 import { initPerfOverlay, togglePerfOverlay } from "./helpers/fathaPerfOverlay.js";
+import { ensureDropdownDerpBinding } from "../herbina/widgets/widget_Dropdown.js";
 
 const FATHA_OVERLAY_WINDOW_MS = 4000;
 
@@ -61,6 +62,120 @@ function recordFathaOverlayPerf(node, drawMs) {
     perf.totalMs += sample.totalMs;
     perf.drawMs += sample.drawMs;
     trimFathaOverlayPerf(perf, ts);
+}
+
+function isPassiveWholeWallCacheNode(node) {
+    const typeName = String(node?.type || "").toLowerCase();
+    return typeName.includes("triggerwall");
+}
+
+function buildPassiveWholeWallCacheState(node, passiveCacheScale) {
+    const typeName = String(node?.type || "").toLowerCase();
+    if (typeName.includes("triggerwall")) {
+        const cacheReg = node.layout?.regions?.panelBackground;
+        const suspendUntil = Number(node._triggerWallCacheSuspendUntil || 0);
+        const hasOpenPicker = !!(window.__xcpHasActiveDropdown || window.__xcpHasActiveFileBrowser);
+        const canUse = !!(
+            cacheReg &&
+            !node._forceSync &&
+            !node._layoutDirty &&
+            performance.now() >= suspendUntil &&
+            !hasOpenPicker &&
+            !node._dragTrig &&
+            !node._dragThresholdMet &&
+            !node._floatingPreviewSnapshot &&
+            !node._activeModalItemKey &&
+            !node._triggerWallModalOpen
+        );
+        const key = canUse ? [
+            Math.max(1, Math.round(cacheReg?.w || node.size?.[0] || 1)),
+            Math.max(1, Math.round(cacheReg?.h || node.size?.[1] || 1)),
+            node._layoutMapHash || "",
+            node._currentThemeName || "",
+            node.mode || 0,
+            node.properties?.contentCollapsed === true ? 1 : 0,
+            node.properties?.settingActive === true ? 1 : 0,
+            node.properties?.drawHeader === false ? 0 : 1,
+            node._hoveredRegionKey || "",
+            node._pressedRegionKey || "",
+            passiveCacheScale,
+        ].join("|") : null;
+        return { canUse, cacheReg, key, cacheSlot: "_triggerWallPassiveCanvasCache" };
+    }
+
+    if (typeName.includes("derplorastack")) {
+        const cacheReg = node.layout?.regions?.panelBackground;
+        const detailBastaId = "basta_lora_detail_global_unique_id";
+        const isDetailOpen = !!(window.xcpActiveBastas?.get(detailBastaId)?.hostNode === node);
+        const suspendUntil = Number(node._passiveWholeWallCacheSuspendUntil || 0);
+        const valueHash = String(node._lastStackValues || "");
+        const previewHash = Array.isArray(node._loraPreviewList) ? [...node._loraPreviewList].sort().join("|") : "";
+        const activeRegion = node._pressedRegionKey ? node.layout?.regions?.[node._pressedRegionKey] : null;
+        const activeRegionType = String(activeRegion?.type || "");
+        const hasOpenPicker = !!(window.__xcpHasActiveDropdown || window.__xcpHasActiveFileBrowser);
+        const hasLiveControlInteraction = activeRegionType === UI_TYPES.SLIDER ||
+            activeRegionType === UI_TYPES.DROPDOWN_DERP ||
+            activeRegionType === UI_TYPES.DROPDOWN ||
+            activeRegionType === UI_TYPES.EDITOR;
+        const canUse = !!(
+            cacheReg &&
+            !node._forceSync &&
+            !node._layoutDirty &&
+            performance.now() >= suspendUntil &&
+            !node._dragTrig &&
+            !node._dragThresholdMet &&
+            !node._loraFloatingSnapshot &&
+            !hasOpenPicker &&
+            !hasLiveControlInteraction &&
+            !isDetailOpen &&
+            (node._activeDetailSlot == null || node._activeDetailSlot < 0)
+        );
+        const key = canUse ? [
+            Math.max(1, Math.round(cacheReg?.w || node.size?.[0] || 1)),
+            Math.max(1, Math.round(cacheReg?.h || node.size?.[1] || 1)),
+            node._layoutMapHash || "",
+            valueHash,
+            previewHash,
+            node._currentThemeName || "",
+            node.mode || 0,
+            node.properties?.contentCollapsed === true ? 1 : 0,
+            node.properties?.nameDisplay || "",
+            node.properties?.showCLIP === false ? 0 : 1,
+            node.properties?.attentionMode || "",
+            node.properties?.toggleLR ? 1 : 0,
+            node._hoveredRegionKey || "",
+            node._pressedRegionKey || "",
+            passiveCacheScale,
+        ].join("|") : null;
+        return { canUse, cacheReg, key, cacheSlot: "_passiveWholeWallCanvasCache" };
+    }
+
+    return { canUse: false, cacheReg: null, key: null, cacheSlot: null };
+}
+
+function ensurePassiveCacheInteractionBindings(node, app) {
+    if (!node?.layout?.regions) return;
+    for (const [key, reg] of Object.entries(node.layout.regions)) {
+        if (!reg?.type) continue;
+        if (reg.type === UI_TYPES.DROPDOWN_DERP || reg.type === UI_TYPES.DROPDOWN) {
+            ensureDropdownDerpBinding(node, app, { ...reg, key, geometry: { x: reg.x, y: reg.y, w: reg.w, h: reg.h } });
+            continue;
+        }
+        if (reg.type === UI_TYPES.SLIDER) {
+            if (!reg.onDragStart) {
+                reg.onDragStart = () => {
+                    node._passiveWholeWallCacheSuspendUntil = Math.max(Number(node._passiveWholeWallCacheSuspendUntil || 0), performance.now() + 220);
+                    return false;
+                };
+            }
+            if (!reg.onPress) {
+                reg.onPress = () => {
+                    node._passiveWholeWallCacheSuspendUntil = Math.max(Number(node._passiveWholeWallCacheSuspendUntil || 0), performance.now() + 220);
+                    return false;
+                };
+            }
+        }
+    }
 }
 
 // --- THE PERFECT HEIST (Ghost Slots & Selection Killer) ---
@@ -379,7 +494,6 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
 
         handleDrawCTX(this, ctx);
 
-        const isTriggerWall = !!this._twPerf;
         const createPassiveCanvas = (width, height, scaleFactor = 1) => {
             const safeW = Math.max(1, Math.round(width || 1));
             const safeH = Math.max(1, Math.round(height || 1));
@@ -398,44 +512,24 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
         const passiveCacheScale = Math.max(1, Math.min(4, (typeof window !== "undefined" ? (window.devicePixelRatio || 1) : 1) * Math.max(1, curS || 1)));
         const hasStructuralOrInteractionSync = !this._prevDerpState || hasLayoutChanged ||
             this._prevDerpState.hoveredKey !== this._hoveredRegionKey;
-        const triggerWallCacheReg = this.layout?.regions?.panelBackground;
-        const canUsePassiveTriggerWallCache = !!(
-            isTriggerWall &&
-            !hasStructuralOrInteractionSync &&
-            !this._forceSync &&
-            !this._layoutDirty &&
-            performance.now() >= Number(this._triggerWallCacheSuspendUntil || 0) &&
-            !this._dragTrig &&
-            !this._dragThresholdMet &&
-            !this._floatingPreviewSnapshot &&
-            !this._activeModalItemKey &&
-            !this._triggerWallModalOpen &&
-            triggerWallCacheReg
+        const passiveWholeWall = isPassiveWholeWallCacheNode(this)
+            ? buildPassiveWholeWallCacheState(this, passiveCacheScale)
+            : { canUse: false, cacheReg: null, key: null, cacheSlot: null };
+        const canUsePassiveWholeWallCache = !!(
+            passiveWholeWall.canUse &&
+            !hasStructuralOrInteractionSync
         );
-        const triggerWallCacheKey = canUsePassiveTriggerWallCache
-            ? [
-                Math.max(1, Math.round(triggerWallCacheReg?.w || this.size?.[0] || 1)),
-                Math.max(1, Math.round(triggerWallCacheReg?.h || this.size?.[1] || 1)),
-                this._layoutMapHash || "",
-                this._currentThemeName || "",
-                this.mode || 0,
-                this.properties?.contentCollapsed === true ? 1 : 0,
-                this.properties?.settingActive === true ? 1 : 0,
-                this.properties?.drawHeader === false ? 0 : 1,
-                this._hoveredRegionKey || "",
-                this._pressedRegionKey || "",
-                passiveCacheScale,
-            ].join("|")
-            : null;
+        const passiveWholeWallCache = passiveWholeWall.cacheSlot ? this[passiveWholeWall.cacheSlot] : null;
 
-        if (canUsePassiveTriggerWallCache && this._triggerWallPassiveCanvasCache?.key === triggerWallCacheKey && this._triggerWallPassiveCanvasCache?.canvas) {
+        if (canUsePassiveWholeWallCache && passiveWholeWallCache?.key === passiveWholeWall.key && passiveWholeWallCache?.canvas) {
             ctx.drawImage(
-                this._triggerWallPassiveCanvasCache.canvas,
-                Math.round(triggerWallCacheReg.x || 0),
-                Math.round(triggerWallCacheReg.y || 0),
-                Math.max(1, Math.round(triggerWallCacheReg.w || this.size?.[0] || 1)),
-                Math.max(1, Math.round(triggerWallCacheReg.h || this.size?.[1] || 1))
+                passiveWholeWallCache.canvas,
+                Math.round(passiveWholeWall.cacheReg.x || 0),
+                Math.round(passiveWholeWall.cacheReg.y || 0),
+                Math.max(1, Math.round(passiveWholeWall.cacheReg.w || this.size?.[0] || 1)),
+                Math.max(1, Math.round(passiveWholeWall.cacheReg.h || this.size?.[1] || 1))
             );
+            ensurePassiveCacheInteractionBindings(this, app);
             syncDerpShield(this);
             if (this._shouldSync) {
                 this._prevDerpState = {
@@ -453,10 +547,11 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
         }
 
         if (this.layout?.regions) {
+            ensurePassiveCacheInteractionBindings(this, app);
             const usedKeys = new Set();
-            const cacheCanvas = canUsePassiveTriggerWallCache ? createPassiveCanvas(
-                Math.max(1, Math.round(triggerWallCacheReg?.w || this.size?.[0] || 1)),
-                Math.max(1, Math.round(triggerWallCacheReg?.h || this.size?.[1] || 1)),
+            const cacheCanvas = canUsePassiveWholeWallCache ? createPassiveCanvas(
+                Math.max(1, Math.round(passiveWholeWall.cacheReg?.w || this.size?.[0] || 1)),
+                Math.max(1, Math.round(passiveWholeWall.cacheReg?.h || this.size?.[1] || 1)),
                 passiveCacheScale
             ) : null;
             const cacheCtx = cacheCanvas?.getContext?.("2d") || null;
@@ -466,7 +561,7 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
                 cacheCtx.clearRect(0, 0, cacheCanvas.width, cacheCanvas.height);
                 cacheCtx.save();
                 cacheCtx.scale(passiveCacheScale, passiveCacheScale);
-                cacheCtx.translate(-Math.round(triggerWallCacheReg.x || 0), -Math.round(triggerWallCacheReg.y || 0));
+                cacheCtx.translate(-Math.round(passiveWholeWall.cacheReg.x || 0), -Math.round(passiveWholeWall.cacheReg.y || 0));
             }
             for (const [key, reg] of Object.entries(this.layout.regions)) {
                 if (!reg.type || key === "systemBtn") continue;
@@ -530,16 +625,16 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
 
             if (cacheCtx) {
                 cacheCtx.restore();
-                this._triggerWallPassiveCanvasCache = {
-                    key: triggerWallCacheKey,
+                this[passiveWholeWall.cacheSlot] = {
+                    key: passiveWholeWall.key,
                     canvas: cacheCanvas,
                 };
                 ctx.drawImage(
                     cacheCanvas,
-                    Math.round(triggerWallCacheReg.x || 0),
-                    Math.round(triggerWallCacheReg.y || 0),
-                    Math.max(1, Math.round(triggerWallCacheReg.w || this.size?.[0] || 1)),
-                    Math.max(1, Math.round(triggerWallCacheReg.h || this.size?.[1] || 1))
+                    Math.round(passiveWholeWall.cacheReg.x || 0),
+                    Math.round(passiveWholeWall.cacheReg.y || 0),
+                    Math.max(1, Math.round(passiveWholeWall.cacheReg.w || this.size?.[0] || 1)),
+                    Math.max(1, Math.round(passiveWholeWall.cacheReg.h || this.size?.[1] || 1))
                 );
             }
 

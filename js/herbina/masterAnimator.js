@@ -45,6 +45,18 @@ export function animateAlpha(current, target, factor = 0.25, useAnim = true) {
     return { value: Math.max(0, Math.min(1, next)), isAnimating: true };
 }
 
+function extendPassiveCanvasCacheSuspension(node, durationMs = 34) {
+    const typeName = String(node?.type || "").toLowerCase();
+    if (!typeName) return;
+    if (typeName.includes("triggerwall")) {
+        node._triggerWallCacheSuspendUntil = Math.max(Number(node._triggerWallCacheSuspendUntil || 0), performance.now() + durationMs);
+        return;
+    }
+    if (typeName.includes("derplorastack")) {
+        node._passiveWholeWallCacheSuspendUntil = Math.max(Number(node._passiveWholeWallCacheSuspendUntil || 0), performance.now() + durationMs);
+    }
+}
+
 /**
  * Absolute boing boing physics (Hooke's Law but with more wiggle).
  * * WHAT IT DO: Unlike the lazy lerp, this has weight. It overshoots
@@ -186,9 +198,7 @@ export function animateWidgetColors(node, animKey, targetBg, targetIc, sysAlpha 
     }
 
     if (isAnimating && useAnim) {
-        if (node && String(node.type || "").toLowerCase().includes("triggerwall")) {
-            node._triggerWallCacheSuspendUntil = Math.max(Number(node._triggerWallCacheSuspendUntil || 0), performance.now() + 34);
-        }
+        extendPassiveCanvasCacheSuspension(node);
         node._derpAwakeFrames = 5;
 
         // THE PERFORMANCE FIX: Color animations do not alter geometry.
@@ -262,6 +272,7 @@ export function animatePaintData(node, animKey, targetPaint, useAnim = true, spe
     lerpBlock(cur.glow, tGlow);
 
     if (isAnimating && useAnim) {
+        extendPassiveCanvasCacheSuspension(node);
         node._derpAwakeFrames = 5;
 
         // THE PERFORMANCE FIX: Color animations do not alter geometry.

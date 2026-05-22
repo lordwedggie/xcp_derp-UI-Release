@@ -1029,6 +1029,25 @@ app.registerExtension({
             if (type === "click") {
                 this._twLastClickAt = Date.now();
             }
+
+            if ((type === "dragStart" || type === "click") && this.layout?.regions && data && typeof data.localX === "number" && typeof data.localY === "number") {
+                const regions = this.layout.regions;
+                const keys = Object.keys(regions).reverse();
+                for (const key of keys) {
+                    const reg = regions[key];
+                    if (!reg || (reg.type !== this.UI_TYPES.DROPDOWN && reg.type !== this.UI_TYPES.DROPDOWN_DERP)) continue;
+                    if (reg.state === "DIS" && reg.allowOpenWhenDisabled !== true) continue;
+                    if (!this.layout.hitTest([data.localX, data.localY], reg)) continue;
+
+                    this._pressedRegionKey = key;
+                    this._triggerWallCacheSuspendUntil = Math.max(Number(this._triggerWallCacheSuspendUntil || 0), performance.now() + 220);
+                    if (type === "click" && typeof reg.onPress === "function") {
+                        return reg.onPress(data.originalEvent, data) === true;
+                    }
+                    break;
+                }
+            }
+
             if (type === "click" && this._suppressClickAfterDrag) {
                 this._suppressClickAfterDrag = false;
                 return true;

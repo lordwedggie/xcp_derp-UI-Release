@@ -342,39 +342,7 @@ export function syncDropdownDerp(context, node, app, config) {
 
     let el;
     if (isCanvas) {
-        if (!node._derpDomElements) node._derpDomElements = {};
-        el = node._derpDomElements[safeConfig.key];
-        if (!el) {
-            el = createDropdownDerp(safeConfig.callbacks || {});
-            node._derpDomElements[safeConfig.key] = el;
-        }
-
-        let liveReg = node.layout?.regions?.[safeConfig.key];
-        if (isSysPanelDropdown && window.xcpFathaSysState?.layout?.regions) {
-            liveReg = window.xcpFathaSysState.layout.regions[safeConfig.key];
-        }
-        const effectiveGeometry = resolveLiveGeometry(safeConfig, liveReg);
-
-        if (liveReg) {
-            if (!liveReg.onPress && !liveReg.onClick) {
-                liveReg.onPress = (e) => {
-                    if (e && e.stopPropagation) e.stopPropagation();
-                    if (liveReg.canOpenPicker === false) return;
-                    if (liveReg.state === "DIS" && liveReg.allowOpenWhenDisabled !== true) return;
-
-                    executeShieldedInteraction(node, app, effectiveGeometry.x, effectiveGeometry.y, effectiveGeometry.w, effectiveGeometry.h, () => {
-                        node._derpAwakeFrames = 10;
-                        if (activePicker && activePicker._sourceEl === el) {
-                            closePicker();
-                        } else {
-                            openPicker(el, { ...safeConfig, geometry: effectiveGeometry }, node, safeConfig);
-                        }
-                        node.setDirtyCanvas(true, true);
-                    });
-                    return true;
-                };
-            }
-        }
+        el = ensureDropdownDerpBinding(node, app, safeConfig);
     } else {
         el = context;
     }
@@ -815,4 +783,42 @@ export function syncDropdownDerp(context, node, app, config) {
         const canvas = app.canvas.canvas;
         syncSingletonShield(app, -ds.offset[0], -ds.offset[1], canvas.width / scale, canvas.height / scale);
     }
+}
+
+export function ensureDropdownDerpBinding(node, app, config) {
+    if (!node || !config?.key) return null;
+    if (!node._derpDomElements) node._derpDomElements = {};
+
+    let el = node._derpDomElements[config.key];
+    if (!el) {
+        el = createDropdownDerp(config.callbacks || {});
+        node._derpDomElements[config.key] = el;
+    }
+
+    const isSysPanelDropdown = isSystemPanelDropdown(config, node);
+    let liveReg = node.layout?.regions?.[config.key];
+    if (isSysPanelDropdown && window.xcpFathaSysState?.layout?.regions) {
+        liveReg = window.xcpFathaSysState.layout.regions[config.key];
+    }
+    if (!liveReg) return el;
+
+    liveReg.onPress = (e) => {
+        if (e && e.stopPropagation) e.stopPropagation();
+        if (liveReg.canOpenPicker === false) return;
+        if (liveReg.state === "DIS" && liveReg.allowOpenWhenDisabled !== true) return;
+
+        const effectiveGeometry = resolveLiveGeometry(config, liveReg);
+        executeShieldedInteraction(node, app, effectiveGeometry.x, effectiveGeometry.y, effectiveGeometry.w, effectiveGeometry.h, () => {
+            node._derpAwakeFrames = 10;
+            if (activePicker && activePicker._sourceEl === el) {
+                closePicker();
+            } else {
+                openPicker(el, { ...config, geometry: effectiveGeometry }, node, config);
+            }
+            node.setDirtyCanvas(true, true);
+        });
+        return true;
+    };
+
+    return el;
 }
