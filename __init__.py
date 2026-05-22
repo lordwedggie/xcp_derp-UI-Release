@@ -1,6 +1,9 @@
 # Path: ./__init__.py
 import os
+from .bundled_asset_sync import sync_bundled_assets
 from . import xcp_file_server
+
+sync_bundled_assets()
 
 # Ensure these python files are in the 'python' subfolder
 from .python.derpThemeManagerV2 import NODE_CLASS_MAPPINGS as THEME_V2_NODES, NODE_DISPLAY_NAME_MAPPINGS as THEME_V2_DISPLAY

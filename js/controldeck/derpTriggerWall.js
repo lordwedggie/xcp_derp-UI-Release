@@ -61,9 +61,6 @@ function twPerfDebug(label, payload = {}) {
     const entry = { label, payload, time: Date.now() };
     globalThis.DERP_TW_PROFILE_LOGS.push(entry);
     if (globalThis.DERP_TW_PROFILE_LOGS.length > 300) globalThis.DERP_TW_PROFILE_LOGS.shift();
-    if (globalThis.DERP_TW_PROFILE_CONSOLE === true) {
-        console.log(`[TWPerf:${label}] ${JSON.stringify(payload)}`);
-    }
 }
 
 function snapshotDockNode(node) {
@@ -359,13 +356,6 @@ app.registerExtension({
     async beforeRegisterNodeDef(nodeType, nodeData) {
         if (!nodeData.name.toLowerCase().includes("triggerwall")) return;
 
-        if (globalThis.DERP_TW_PROFILE_CONSOLE === true) {
-            console.log(`[Fatha] Intercepting Python Node: ${nodeData.name}`);
-            if (window.DERP_TW_PROFILE) {
-                console.log("[TWPerf] profiler active (set window.DERP_TW_PROFILE = false to disable)");
-            }
-        }
-
         // --- PROFILE LOGIC (sys panel dropdown) ---
         nodeType.prototype.exportDerpProfile = function() {
             const groups = this._triggerGroupData || [];
@@ -461,66 +451,12 @@ app.registerExtension({
                 settingActive: !!this.properties.settingActive,
             });
 
-            if (window.DERP_TW_DEBUG_VERBOSE === true && this._layoutMapHash && this._layoutMapHash === currentHash && this._twLastChangeLogged === true) {
-                this._twLastChangeLogged = false;
-                console.log(`[TW HASH STABLE] ${this.titleLabel || this.title || "TriggerWall"} w=${clampedW.toFixed(2)}`);
-            }
-
             const layoutHashChanged = this._layoutMapHash !== currentHash;
             if (!layoutHashChanged && this.layoutMap) {
                 bumpTWPerfCounter(this, "hashHit");
                 return;
             }
             bumpTWPerfCounter(this, "hashMiss");
-            if (window.DERP_TW_DEBUG_VERBOSE === true && this._layoutMapHash && layoutHashChanged) {
-                const now = Date.now();
-                const diffAt = firstDiffIndex(this._layoutMapHash, currentHash);
-                const prevStr = String(this._layoutMapHash || "");
-                const nextStr = String(currentHash || "");
-                const prevCh = diffAt >= 0 && diffAt < prevStr.length ? prevStr.charCodeAt(diffAt) : null;
-                const nextCh = diffAt >= 0 && diffAt < nextStr.length ? nextStr.charCodeAt(diffAt) : null;
-                const probeChars = [834, 928, 968]
-                    .map((idx) => {
-                        const p = idx < prevStr.length ? prevStr.charCodeAt(idx) : null;
-                        const n = idx < nextStr.length ? nextStr.charCodeAt(idx) : null;
-                        return `${idx}:${p}->${n}`;
-                    })
-                    .join(" | ");
-                const hashDiag = {
-                    prevHash: this._layoutMapHash,
-                    nextHash: currentHash,
-                    prevLen: prevStr.length,
-                    nextLen: nextStr.length,
-                    diffAt,
-                    prevCh,
-                    nextCh,
-                    probeChars,
-                    clampedW: clampedW.toFixed(2),
-                    selectedIdx: selectedIdxForHash,
-                    dropPreviewIdx: this._dropPreviewIdx,
-                    dragTIdx: this._dragTrig?.tIdx,
-                    dragIndex: this._dragTrig?.index,
-                    dragThreshold: this._dragThresholdMet,
-                    showWeight: this.properties.showWeight,
-                    toggleAddAlways: this.properties.toggleAddAlways,
-                    drawHeader: this.properties.drawHeader,
-                    settingActive: this.properties.settingActive,
-                    lastSavedPreset: this.properties.lastSavedPreset || "",
-                    presetCount: (this._presetItems || []).length,
-                };
-
-                const recentClick = Number.isFinite(this._twLastClickAt) && (now - this._twLastClickAt) < 350;
-                const recentDrag = !!(this._dragTrig && this._dragThresholdMet);
-                const hasDragMarkers = this._dropPreviewIdx !== undefined || this._dragTrig?.tIdx !== undefined || this._dragTrig?.index !== undefined;
-                const likelyInteractionChange = recentClick || recentDrag || hasDragMarkers;
-                const shouldLogVerboseChange = !likelyInteractionChange;
-
-                if (shouldLogVerboseChange && (!this._twLastHashDiagAt || now - this._twLastHashDiagAt > 500)) {
-                    this._twLastHashDiagAt = now;
-                    this._twLastChangeLogged = true;
-                    console.log("[TW HASH CHANGE]", hashDiag);
-                }
-            }
             this._layoutMapHash = currentHash;
 
             const vars = this.getDerpVars(this);
