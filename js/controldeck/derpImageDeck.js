@@ -688,7 +688,7 @@ app.registerExtension({
                         height: "fill",
                         minHeight: 60,
                         padding: [0, 0], spacing: [0, sH],
-                        themeKey: "panel, t_textNormal",
+                        themeKey: imageUrl ? "panel, t_textNormal" : "panel, t_textBig",
                         imageUrl,
                         previousImageUrl: prevImageUrl,
                         transitionAlpha: fadeAlpha,
@@ -784,10 +784,10 @@ app.registerExtension({
                             }
                         },
                         btnSaveImage: {
-                            type: this.UI_TYPES.ICONBUTTON,
-                            icon: "save",
-                            themeKey: "button, t_textNormal", 
-                            width: "match", height: "fill",
+                            type: this.UI_TYPES.BUTTON,
+                            text: "SAVE IMAGE",
+                            themeKey: "button, t_textSmall",
+                            width: "auto", height: "fill",
                             spacing: [sW, 0], padding: [pW, pH],
                             mouseOver: true,
                             state: "OFF",

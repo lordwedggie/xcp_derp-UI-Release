@@ -64,6 +64,29 @@ export function syncImageHTML(ctx, node, app, config, overlayPass = false) {
     }
 
     if (alpha <= 0) return;
+
+    const resolvePlaceholderTextPaint = () => {
+        const themeParts = String(config.themeKey || "").split(",").map((p) => p.trim()).filter(Boolean);
+        const explicitTextKey = props?.textKey || themeParts[1] || themeParts[0] || "t_textNormal";
+        return resolvePaintData(node, explicitTextKey, config.state || "OFF") || null;
+    };
+
+    const drawPlaceholderText = (text) => {
+        const textPaint = resolvePlaceholderTextPaint();
+        const fontSize = Number(textPaint?.fontSize || 10);
+        const fontFamily = textPaint?.font || "Arial";
+        const fontWeight = textPaint?.fontWeight || "normal";
+        const textColor = textPaint?.textColor || textPaint?.fill || "rgba(255,255,255,0.4)";
+
+        ctx.save();
+        ctx.fillStyle = textColor;
+        ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(String(text || ""), x + w / 2, y + h / 2);
+        ctx.restore();
+    };
+
     ctx.save();
     if (alpha < 1) ctx.globalAlpha *= alpha;
 
@@ -188,24 +211,12 @@ export function syncImageHTML(ctx, node, app, config, overlayPass = false) {
 
             if (!drew && !config.suppressPlaceholder && !config.isSelected && currentObj && currentObj.complete) {
                 // THE FALLBACK FIX: Display placeholder text if the image asset failed to load
-                ctx.save();
-                ctx.fillStyle = "rgba(255,255,255,0.4)";
-                ctx.font = "6px Arial";
-                ctx.textAlign = "center";
-                ctx.textBaseline = "middle";
-                ctx.fillText("No image found", x + w / 2, y + h / 2);
-                ctx.restore();
+                drawPlaceholderText("No image found");
             }
         } else {
             // THE SUPPRESSION FIX: Do not draw the missing image text when the preview is selected (to keep the paste overlay clean)
             if (!config.suppressPlaceholder && !config.isSelected) {
-                ctx.save();
-                ctx.fillStyle = "rgba(255,255,255,0.4)";
-                ctx.font = "6px Arial";
-                ctx.textAlign = "center";
-                ctx.textBaseline = "middle";
-                ctx.fillText("No Image", x + w / 2, y + h / 2);
-                ctx.restore();
+                drawPlaceholderText("No Image");
             }
             // THE CACHE CLEANUP: If no image URL is present, purge any existing image state for this key
             // so stale previous/current URLs cannot keep triggering failed image requests.
