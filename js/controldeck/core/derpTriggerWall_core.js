@@ -136,7 +136,9 @@ export function triggerWall_syncOutputs(node) {
         window.app.graph._nodes.forEach(n => {
             if (n.type === "xcpDerpSignalOut" && n.updateReceivedSignals) n.updateReceivedSignals();
         });
-        window.app.canvas.setDirty(true, true);
+        // Avoid forcing a full foreground/background redraw on every signal update.
+        // This path can fire frequently during interaction and causes frame-time spikes.
+        window.app.canvas.setDirty(true, false);
     }
 
     // THE HEIST CLEANUP: Purge physical slots after the registry update
@@ -252,8 +254,10 @@ export function triggerWall_onDrawForeground(node, ctx, originalCallback) {
 
     // THE REFLOW FIX: Only rebuild layout map if the physical width actually changed
     const currentW = Math.round(node.size[0]);
-    if (node._lastDerpW !== currentW) {
+    const widthBucket = Math.round(currentW / 10) * 10;
+    if (node._lastDerpWBucket !== widthBucket) {
         node._lastDerpW = currentW;
+        node._lastDerpWBucket = widthBucket;
         const graph = node.graph || window.app?.graph || null;
         const suppressDockedWidthRefreshSync = !!(graph && isNodeDocked(node, graph) && isLinearDeckGroup(node, graph, "vertical"));
         if (suppressDockedWidthRefreshSync) node._suppressDockedWidthRefreshSync = true;
@@ -587,6 +591,7 @@ export function triggerWall_itemPress(node, e, data, gIdx, tIdx, group, isBypass
         return;
     }
     item.trig.active = !item.trig.active;
+    node._triggerWallCacheSuspendUntil = performance.now() + 220;
     if (group.isExclusive && item.trig.active) {
         group.triggers.forEach((t, i) => { if (i !== item.idx) t.active = false; });
     }

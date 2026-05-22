@@ -201,7 +201,6 @@ export function uncle(nodeType, nodeData, minWidth = 100) {
             this._prevDerpState.scale !== curS ||
             this._prevDerpState.offsetX !== curOX || this._prevDerpState.offsetY !== curOY ||
             this._prevDerpState.hoveredKey !== this._hoveredRegionKey;
-
         let isAnimating = false;
 
         if (this._derpAwakeFrames > 0) {

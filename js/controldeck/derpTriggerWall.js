@@ -109,13 +109,13 @@ function ensureTWPerfState(node) {
 }
 
 function flushTWPerfWindow(node, force = false) {
-    if (!node || !window.DERP_TW_PROFILE) return;
+    if (!node) return;
     ensureTWPerfState(node);
     const now = performance.now();
     const elapsed = Math.max(0.001, (now - node._twPerf.windowStart) / 1000);
     if (!force && elapsed < 1) return;
     const perSec = (v) => Math.round(v / elapsed);
-    twPerfDebug("window", {
+    const summary = {
         title: node.titleLabel || node.title || "TriggerWall",
         refreshPerSec: perSec(node._twPerf.refreshCount),
         hashHitPerSec: perSec(node._twPerf.hashHitCount),
@@ -128,7 +128,8 @@ function flushTWPerfWindow(node, force = false) {
         avgDrawMs: Number((node._twPerf.drawCount > 0 ? node._twPerf.drawMs / node._twPerf.drawCount : 0).toFixed(2)),
         triggerWidgetsPerSec: perSec(node._twPerf.triggerWidgetCount),
         avgTriggerMs: Number((node._twPerf.triggerWidgetCount > 0 ? node._twPerf.triggerWidgetMs / node._twPerf.triggerWidgetCount : 0).toFixed(3)),
-    });
+    };
+    twPerfDebug("window", summary);
     node._twPerf.windowStart = now;
     node._twPerf.refreshCount = 0;
     node._twPerf.syncReqCount = 0;
@@ -151,7 +152,6 @@ function getTWPerfNodeSet() {
 function ensureTWPerfHeartbeat() {
     if (window._DERP_TW_PERF_HEARTBEAT_ID) return;
     window._DERP_TW_PERF_HEARTBEAT_ID = window.setInterval(() => {
-        if (!window.DERP_TW_PROFILE) return;
         getTWPerfNodeSet().forEach((node) => {
             if (!node || node.graph == null) return;
             flushTWPerfWindow(node, true);
@@ -173,7 +173,6 @@ function unregisterTWPerfNode(node) {
 
 function bumpTWPerfCounter(node, key) {
     if (!node) return;
-    if (!window.DERP_TW_PROFILE) return;
     ensureTWPerfState(node);
     if (key === "refresh") node._twPerf.refreshCount++;
     if (key === "sync") node._twPerf.syncReqCount++;
@@ -187,13 +186,13 @@ function bumpTWPerfCounter(node, key) {
 }
 
 function bumpTWPerfDraw(node, elapsedMs) {
-    if (!node || !window.DERP_TW_PROFILE) return;
+    if (!node) return;
     bumpTWPerfCounter(node, "draw");
     if (node._twPerf) node._twPerf.drawMs += elapsedMs;
 }
 
 function bumpTWPerfSource(node, key) {
-    if (!node || !window.DERP_TW_PROFILE_SOURCES) return;
+    if (!node) return;
     if (!node._twPerfSources) node._twPerfSources = { windowStart: performance.now(), dirty: new Map(), sync: new Map() };
     const bucket = node._twPerfSources[key];
     if (!bucket) return;
@@ -213,11 +212,12 @@ function bumpTWPerfSource(node, key) {
         .map(([source, count]) => `${count}/s ${source}`);
     const dirtySources = formatTop(node._twPerfSources.dirty);
     const syncSources = formatTop(node._twPerfSources.sync);
-    twPerfDebug("source-window", {
+    const sourceSummary = {
         title: node.titleLabel || node.title || "TriggerWall",
         dirtySources,
         syncSources,
-    });
+    };
+    twPerfDebug("source-window", sourceSummary);
     node._twPerfSources.windowStart = now;
     node._twPerfSources.dirty.clear();
     node._twPerfSources.sync.clear();
@@ -279,6 +279,75 @@ function drawFloatingPreview(node, ctx) {
         if (blueprint.isHybrid) blueprint.sync(ctx, node, app, compData);
         else blueprint.sync(ctx, node, compData);
     }
+}
+
+function firstDiffIndex(a, b) {
+    const s1 = String(a || "");
+    const s2 = String(b || "");
+    const minLen = Math.min(s1.length, s2.length);
+    for (let i = 0; i < minLen; i++) {
+        if (s1[i] !== s2[i]) return i;
+    }
+    return s1.length === s2.length ? -1 : minLen;
+}
+
+function normalizeTriggerLabelForHash(label) {
+    return String(label ?? "").trim();
+}
+
+function normalizeTriggerWeightForHash(weight) {
+    const w = Number(weight);
+    if (!Number.isFinite(w)) return "1.000";
+    return w.toFixed(3);
+}
+
+function buildTriggerWallStructuralHash(node, params) {
+    const {
+        widthBucket,
+        selectedIdx,
+        dropPreviewIdx,
+        dragTIdx,
+        dragIndex,
+        dragThreshold,
+        showWeight,
+        toggleAddAlways,
+        drawHeader,
+        settingActive,
+    } = params;
+
+    const groupsForHash = (node._triggerGroupData || []).filter((g) => !g.hidden);
+    const groupParts = groupsForHash.map((g) => {
+        const trigParts = (g.triggers || [])
+            .filter((t) => !t.hidden)
+            .map((t) => {
+                const tActive = t.active ? 1 : 0;
+                const tDisabled = t.disabled ? 1 : 0;
+                const tWeight = normalizeTriggerWeightForHash(t.weight);
+                const tLabel = normalizeTriggerLabelForHash(t.label);
+                return `${tActive}:${tDisabled}:${tWeight}:${tLabel}`;
+            })
+            .join(",");
+        return `${g.isExclusive ? 1 : 0}:[${trigParts}]`;
+    }).join("|");
+
+    const useDragFields = !!dragThreshold;
+    const hashDropPreviewIdx = useDragFields ? (dropPreviewIdx ?? "u") : "u";
+    const hashDragTIdx = useDragFields ? (dragTIdx ?? "u") : "u";
+    const hashDragIndex = useDragFields ? (dragIndex ?? "u") : "u";
+
+    return [
+        widthBucket,
+        selectedIdx,
+        hashDropPreviewIdx,
+        hashDragTIdx,
+        hashDragIndex,
+        dragThreshold ? 1 : 0,
+        showWeight ? 1 : 0,
+        toggleAddAlways ? 1 : 0,
+        drawHeader ? 1 : 0,
+        settingActive ? 1 : 0,
+        groupParts,
+    ].join("#");
 }
 
 app.registerExtension({
@@ -364,8 +433,10 @@ app.registerExtension({
             const propMinW = Number(this.properties?.minWidth) || 200;
             const padL = this._padL || 0;
             const padR = this._padR || 0;
-            const contentMinW = this.layout?.contentMinWidth || propMinW;
-            const minW = Math.ceil(Math.max(propMinW, contentMinW + padL + padR) / SNAP) * SNAP;
+            // Keep width floor stable. Using live contentMinWidth here creates a feedback
+            // loop (wrap -> min width changes -> node width changes -> wrap changes).
+            // For TriggerWall we only enforce the explicit node minWidth floor.
+            const minW = Math.ceil(Math.max(propMinW, propMinW + padL + padR) / SNAP) * SNAP;
             const rawW = this.size?.[0] || 0;
             const clampedW = Math.max(minW, rawW);
             if (rawW !== clampedW) {
@@ -373,25 +444,83 @@ app.registerExtension({
                 if (this.properties?.nodeSize) this.properties.nodeSize[0] = clampedW;
             }
 
-            // ZERO-INFERENCE GATING: Early return if structure and size haven't changed
-            const groupsForHash = (this._triggerGroupData || []).filter(g => !g.hidden);
-            let currentHash = `${clampedW.toFixed(2)}_${(this._triggerGroupData || []).findIndex((g, gIdx) => !g.hidden && this._selectedRegions?.[`triggerRegion_${gIdx}`])}_${this._dropPreviewIdx}_${this._dragTrig?.tIdx}_${this._dragTrig?.index}_${this._dragThresholdMet}_${this._dragMouse?.join(",")}`;
-            groupsForHash.forEach(g => {
-                currentHash += `|${g.id}_${g.title}_${g.isExclusive}_${g.hidden || false}`;
-                g.triggers.forEach(t => { currentHash += `:${t.id}_${t.active}_${t.weight}_${t.label}_${t.disabled}_${t.hidden || false}`; });
-            });
+            const hashWidthBucket = Math.round(clampedW / 10) * 10;
+            const selectedIdxForHash = (this._triggerGroupData || []).findIndex((g, gIdx) => !g.hidden && this._selectedRegions?.[`triggerRegion_${gIdx}`]);
             const presetItems = this._presetItems || [];
             const presetSortKey = presetItems.join("\u0001");
+            const currentHash = buildTriggerWallStructuralHash(this, {
+                widthBucket: hashWidthBucket,
+                selectedIdx: selectedIdxForHash,
+                dropPreviewIdx: this._dropPreviewIdx,
+                dragTIdx: this._dragTrig?.tIdx,
+                dragIndex: this._dragTrig?.index,
+                dragThreshold: (this._dragThresholdMet || this._dragTrig?.tIdx !== undefined),
+                showWeight: this.properties.showWeight !== false,
+                toggleAddAlways: !!this.properties.toggleAddAlways,
+                drawHeader: !!this.properties.drawHeader,
+                settingActive: !!this.properties.settingActive,
+            });
 
-            // Include preset list state so the file browser rebuilds when async preset data arrives.
-            currentHash += `|${this.properties.showWeight}_${this.properties.toggleAddAlways}_${this.properties.drawHeader}_${this.properties.settingActive}_${this.properties.lastSavedPreset || ""}_${presetSortKey}`;
-            currentHash += `|modal:${this._triggerWallModalOpen === true ? 1 : 0}:${this._activeModalItemKey || ""}`;
+            if (window.DERP_TW_DEBUG_VERBOSE === true && this._layoutMapHash && this._layoutMapHash === currentHash && this._twLastChangeLogged === true) {
+                this._twLastChangeLogged = false;
+                console.log(`[TW HASH STABLE] ${this.titleLabel || this.title || "TriggerWall"} w=${clampedW.toFixed(2)}`);
+            }
 
-            if (this._layoutMapHash === currentHash && this.layoutMap) {
+            const layoutHashChanged = this._layoutMapHash !== currentHash;
+            if (!layoutHashChanged && this.layoutMap) {
                 bumpTWPerfCounter(this, "hashHit");
                 return;
             }
             bumpTWPerfCounter(this, "hashMiss");
+            if (window.DERP_TW_DEBUG_VERBOSE === true && this._layoutMapHash && layoutHashChanged) {
+                const now = Date.now();
+                const diffAt = firstDiffIndex(this._layoutMapHash, currentHash);
+                const prevStr = String(this._layoutMapHash || "");
+                const nextStr = String(currentHash || "");
+                const prevCh = diffAt >= 0 && diffAt < prevStr.length ? prevStr.charCodeAt(diffAt) : null;
+                const nextCh = diffAt >= 0 && diffAt < nextStr.length ? nextStr.charCodeAt(diffAt) : null;
+                const probeChars = [834, 928, 968]
+                    .map((idx) => {
+                        const p = idx < prevStr.length ? prevStr.charCodeAt(idx) : null;
+                        const n = idx < nextStr.length ? nextStr.charCodeAt(idx) : null;
+                        return `${idx}:${p}->${n}`;
+                    })
+                    .join(" | ");
+                const hashDiag = {
+                    prevHash: this._layoutMapHash,
+                    nextHash: currentHash,
+                    prevLen: prevStr.length,
+                    nextLen: nextStr.length,
+                    diffAt,
+                    prevCh,
+                    nextCh,
+                    probeChars,
+                    clampedW: clampedW.toFixed(2),
+                    selectedIdx: selectedIdxForHash,
+                    dropPreviewIdx: this._dropPreviewIdx,
+                    dragTIdx: this._dragTrig?.tIdx,
+                    dragIndex: this._dragTrig?.index,
+                    dragThreshold: this._dragThresholdMet,
+                    showWeight: this.properties.showWeight,
+                    toggleAddAlways: this.properties.toggleAddAlways,
+                    drawHeader: this.properties.drawHeader,
+                    settingActive: this.properties.settingActive,
+                    lastSavedPreset: this.properties.lastSavedPreset || "",
+                    presetCount: (this._presetItems || []).length,
+                };
+
+                const recentClick = Number.isFinite(this._twLastClickAt) && (now - this._twLastClickAt) < 350;
+                const recentDrag = !!(this._dragTrig && this._dragThresholdMet);
+                const hasDragMarkers = this._dropPreviewIdx !== undefined || this._dragTrig?.tIdx !== undefined || this._dragTrig?.index !== undefined;
+                const likelyInteractionChange = recentClick || recentDrag || hasDragMarkers;
+                const shouldLogVerboseChange = !likelyInteractionChange;
+
+                if (shouldLogVerboseChange && (!this._twLastHashDiagAt || now - this._twLastHashDiagAt > 500)) {
+                    this._twLastHashDiagAt = now;
+                    this._twLastChangeLogged = true;
+                    console.log("[TW HASH CHANGE]", hashDiag);
+                }
+            }
             this._layoutMapHash = currentHash;
 
             const vars = this.getDerpVars(this);
@@ -401,6 +530,9 @@ app.registerExtension({
             const triggerPadW = pW;
             const triggerPadH = pH;
             const isBypassed = this.mode === 4 || this.mode === 2 || this._derpSpoofedBypass;
+            if (!this._triggerMeasureCache) this._triggerMeasureCache = new Map();
+            let measureCacheHits = 0;
+            let measureCacheMisses = 0;
 
             if (!this._triggerGroupData || this._triggerGroupData.filter(g => !g.hidden).length === 0) {
                 const legacy = (this.properties.triggers || [{ active: true }]).map(t => ({
@@ -475,23 +607,49 @@ app.registerExtension({
                     items.splice(pIdx, 0, moved);
                 }
 
+                const triggerFontSize = (this._t_textSmallPaintData?.fontSize || this._t_textNormalPaintData?.fontSize || 10);
+                const triggerFont = (this._t_textSmallPaintData?.font || this._t_textNormalPaintData?.font || "Arial");
+                const triggerWeightFont = (this._t_textSmallPaintData?.fontWeight || this._t_textNormalPaintData?.fontWeight || "normal");
+                const measureTextTheme = this._t_textSmallPaintData || this._t_textNormalPaintData;
+                const addVisible = isSelected || this.properties.toggleAddAlways;
+                const addMeasureKey = `add|${triggerPadW}|${triggerPadH}|${triggerFontSize}|${triggerFont}|${triggerWeightFont}`;
+                let cachedAddWidth = this._triggerMeasureCache.get(addMeasureKey);
+                if (!Number.isFinite(cachedAddWidth)) {
+                    measureCacheMisses += 1;
+                    cachedAddWidth = Math.ceil(this.layout.measure({
+                        type: this.UI_TYPES.ICONBUTTON, themeKey: "button, t_textsmall",
+                        icon: "add", width: "auto", height: "match", minHeight: 22, baseHeight: 22, padding: [triggerPadW, triggerPadH, triggerPadW, triggerPadH], margin: [0, 0]
+                    }, { textTheme: measureTextTheme }));
+                    this._triggerMeasureCache.set(addMeasureKey, cachedAddWidth);
+                } else {
+                    measureCacheHits += 1;
+                }
+
                 const trigGroups = items.reduce((acc, item) => {
                     let tw = 0;
                     if (item.type === "trig") {
                         bumpTWPerfCounter(this, "measure");
-                        tw = Math.ceil(this.layout.measure({
-                            type: this.UI_TYPES.COMPOSITE_TRIGGER, themeKey: "panel, button, t_textsmall",
-                            text: item.trig.label || "Trigger Test", width: "auto", height: "auto",
-                            padding: [triggerPadW, triggerPadH, triggerPadW, triggerPadH], margin: [0, 0], spacing: [sW, 0],
-                            showWeight: this.properties.showWeight, weight: item.trig.weight ?? 1.0
-                        }, { textTheme: this._t_textSmallPaintData || this._t_textNormalPaintData }));
+                        const trigWeight = Number(item.trig.weight ?? 1.0);
+                        const showWeight = this.properties.showWeight !== false;
+                        const weightVisible = showWeight && Number.isFinite(trigWeight) && Math.abs(trigWeight - 1.0) > 1e-6;
+                        const trigMeasureKey = `trig|${item.trig.label || "Trigger Test"}|${weightVisible ? trigWeight.toFixed(2) : "1.00"}|${showWeight ? 1 : 0}|${triggerPadW}|${triggerPadH}|${sW}|${triggerFontSize}|${triggerFont}|${triggerWeightFont}`;
+                        const cachedTrigWidth = this._triggerMeasureCache.get(trigMeasureKey);
+                        if (Number.isFinite(cachedTrigWidth)) {
+                            measureCacheHits += 1;
+                            tw = cachedTrigWidth;
+                        } else {
+                            measureCacheMisses += 1;
+                            tw = Math.ceil(this.layout.measure({
+                                type: this.UI_TYPES.COMPOSITE_TRIGGER, themeKey: "panel, button, t_textsmall",
+                                text: item.trig.label || "Trigger Test", width: "auto", height: "auto",
+                                padding: [triggerPadW, triggerPadH, triggerPadW, triggerPadH], margin: [0, 0], spacing: [sW, 0],
+                                showWeight: this.properties.showWeight, weight: trigWeight
+                            }, { textTheme: measureTextTheme }));
+                            this._triggerMeasureCache.set(trigMeasureKey, tw);
+                        }
                     } else {
-                        const showAdd = isSelected || this.properties.toggleAddAlways;
-                        if (showAdd) bumpTWPerfCounter(this, "measure");
-                        tw = showAdd ? Math.ceil(this.layout.measure({
-                            type: this.UI_TYPES.ICONBUTTON, themeKey: "button, t_textsmall",
-                            icon: "add", width: "auto", height: "match", minHeight: 22, baseHeight: 22, padding: [triggerPadW, triggerPadH, triggerPadW, triggerPadH], margin: [0, 0]
-                        }, { textTheme: this._t_textSmallPaintData || this._t_textNormalPaintData })) : 0;
+                        if (addVisible) bumpTWPerfCounter(this, "measure");
+                        tw = addVisible ? cachedAddWidth : 0;
                     }
 
                     item.measuredW = tw;
@@ -815,6 +973,23 @@ app.registerExtension({
             this.layoutMap = layoutMap;
 
             if (this.layout) this.layout._lastCacheKey = "";
+            {
+                const now = Date.now();
+                if (!this._twLastPerfLogAt || (now - this._twLastPerfLogAt) >= 1000) {
+                    this._twLastPerfLogAt = now;
+                    const totalLookups = measureCacheHits + measureCacheMisses;
+                    const hitRate = totalLookups > 0 ? ((measureCacheHits / totalLookups) * 100).toFixed(1) : "0.0";
+                    const cacheSize = this._triggerMeasureCache?.size || 0;
+                    twPerfDebug("measure-cache", {
+                        title: this.titleLabel || this.title || "TriggerWall",
+                        hit: measureCacheHits,
+                        miss: measureCacheMisses,
+                        hitRate,
+                        size: cacheSize,
+                        groups: groups.length,
+                    });
+                }
+            }
             dockDebug("triggerwall-refresh-layout", {
                 node: snapshotDockNode(this),
                 isDerpResizing: this._isDerpResizing === true,
@@ -834,11 +1009,16 @@ app.registerExtension({
                 });
                 this._forceSync = true;
                 this._layoutDirty = true;
+            } else if (this._dragTrig && this._dragThresholdMet) {
+                this._forceSync = true;
+                this._layoutDirty = true;
+                // Trigger drag ghost/preview relies on full foreground refresh while dragging.
+                if (typeof this.setDirtyCanvas === "function") this.setDirtyCanvas(true, true);
             } else if (suppressDockedVerticalSync) {
                 this._forceSync = true;
                 this._layoutDirty = true;
-                if (typeof this.setDirtyCanvas === "function") this.setDirtyCanvas(true, true);
-            } else {
+                if (typeof this.setDirtyCanvas === "function") this.setDirtyCanvas(true, false);
+            } else if (layoutHashChanged) {
                 this.requestDerpSync();
             }
         };
@@ -910,6 +1090,9 @@ app.registerExtension({
 
         const baseHandleInteraction = nodeType.prototype.handleShieldInteraction;
         nodeType.prototype.handleShieldInteraction = function(type, data) {
+            if (type === "click") {
+                this._twLastClickAt = Date.now();
+            }
             if (type === "click" && this._suppressClickAfterDrag) {
                 this._suppressClickAfterDrag = false;
                 return true;
@@ -946,13 +1129,19 @@ app.registerExtension({
         };
         const onDrawForeground = nodeType.prototype.onDrawForeground;
         nodeType.prototype.onDrawForeground = function(ctx) {
-            if (window.DERP_TW_PROFILE) registerTWPerfNode(this);
-            const twDrawStart = window.DERP_TW_PROFILE ? performance.now() : 0;
+            const modalUiHash = `${this._triggerWallModalOpen === true ? 1 : 0}:${this._activeModalItemKey || ""}`;
+            if (this._lastTriggerWallModalUiHash !== modalUiHash) {
+                this._lastTriggerWallModalUiHash = modalUiHash;
+                this._layoutMapHash = null;
+                this.refreshNodeLayoutMap();
+            }
+            registerTWPerfNode(this);
+            const twDrawStart = performance.now();
             triggerWall_onDrawForeground(this, ctx, onDrawForeground);
             if (this._dragThresholdMet && this._floatingPreviewSnapshot) {
                 drawFloatingPreview(this, ctx);
             }
-            if (window.DERP_TW_PROFILE) bumpTWPerfDraw(this, performance.now() - twDrawStart);
+            bumpTWPerfDraw(this, performance.now() - twDrawStart);
         };
     }
 });

@@ -186,6 +186,9 @@ export function animateWidgetColors(node, animKey, targetBg, targetIc, sysAlpha 
     }
 
     if (isAnimating && useAnim) {
+        if (node && String(node.type || "").toLowerCase().includes("triggerwall")) {
+            node._triggerWallCacheSuspendUntil = Math.max(Number(node._triggerWallCacheSuspendUntil || 0), performance.now() + 34);
+        }
         node._derpAwakeFrames = 5;
 
         // THE PERFORMANCE FIX: Color animations do not alter geometry.

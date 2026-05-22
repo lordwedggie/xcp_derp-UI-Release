@@ -177,8 +177,9 @@ function getPerfScore(node) {
     }
 
     if (tw) {
+        // Trigger widget time is a subset of TriggerWall draw time, so summing both
+        // exaggerates the node's score and makes the overlay misleading.
         score += Number(tw.drawMs || 0);
-        score += Number(tw.triggerWidgetMs || 0);
         score += Number(tw.measureCount || 0) * 0.1;
     }
 
@@ -200,7 +201,7 @@ function getPerfSummary(node) {
     const componentMs = Number(bld?.componentMs || 0);
     const shieldMs = Number(bld?.shieldMs || 0);
     const triggerMs = Number(tw?.triggerWidgetMs || 0);
-    const fpsLoad = drawMs + updateMs + layoutMs + loopMs + componentMs + shieldMs + triggerMs;
+    const fpsLoad = drawMs + updateMs + layoutMs + loopMs + componentMs + shieldMs;
 
     return {
         kind,

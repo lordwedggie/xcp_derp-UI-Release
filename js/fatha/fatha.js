@@ -379,8 +379,95 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
 
         handleDrawCTX(this, ctx);
 
+        const isTriggerWall = !!this._twPerf;
+        const createPassiveCanvas = (width, height, scaleFactor = 1) => {
+            const safeW = Math.max(1, Math.round(width || 1));
+            const safeH = Math.max(1, Math.round(height || 1));
+            const safeScale = Math.max(1, Number(scaleFactor) || 1);
+            if (typeof OffscreenCanvas !== "undefined") {
+                return new OffscreenCanvas(Math.max(1, Math.round(safeW * safeScale)), Math.max(1, Math.round(safeH * safeScale)));
+            }
+            if (typeof document !== "undefined" && typeof document.createElement === "function") {
+                const canvas = document.createElement("canvas");
+                canvas.width = Math.max(1, Math.round(safeW * safeScale));
+                canvas.height = Math.max(1, Math.round(safeH * safeScale));
+                return canvas;
+            }
+            return null;
+        };
+        const passiveCacheScale = Math.max(1, Math.min(4, (typeof window !== "undefined" ? (window.devicePixelRatio || 1) : 1) * Math.max(1, curS || 1)));
+        const hasStructuralOrInteractionSync = !this._prevDerpState || hasLayoutChanged ||
+            this._prevDerpState.hoveredKey !== this._hoveredRegionKey;
+        const triggerWallCacheReg = this.layout?.regions?.panelBackground;
+        const canUsePassiveTriggerWallCache = !!(
+            isTriggerWall &&
+            !hasStructuralOrInteractionSync &&
+            !this._forceSync &&
+            !this._layoutDirty &&
+            performance.now() >= Number(this._triggerWallCacheSuspendUntil || 0) &&
+            !this._dragTrig &&
+            !this._dragThresholdMet &&
+            !this._floatingPreviewSnapshot &&
+            !this._activeModalItemKey &&
+            !this._triggerWallModalOpen &&
+            triggerWallCacheReg
+        );
+        const triggerWallCacheKey = canUsePassiveTriggerWallCache
+            ? [
+                Math.max(1, Math.round(triggerWallCacheReg?.w || this.size?.[0] || 1)),
+                Math.max(1, Math.round(triggerWallCacheReg?.h || this.size?.[1] || 1)),
+                this._layoutMapHash || "",
+                this._currentThemeName || "",
+                this.mode || 0,
+                this.properties?.contentCollapsed === true ? 1 : 0,
+                this.properties?.settingActive === true ? 1 : 0,
+                this.properties?.drawHeader === false ? 0 : 1,
+                this._hoveredRegionKey || "",
+                this._pressedRegionKey || "",
+                passiveCacheScale,
+            ].join("|")
+            : null;
+
+        if (canUsePassiveTriggerWallCache && this._triggerWallPassiveCanvasCache?.key === triggerWallCacheKey && this._triggerWallPassiveCanvasCache?.canvas) {
+            ctx.drawImage(
+                this._triggerWallPassiveCanvasCache.canvas,
+                Math.round(triggerWallCacheReg.x || 0),
+                Math.round(triggerWallCacheReg.y || 0),
+                Math.max(1, Math.round(triggerWallCacheReg.w || this.size?.[0] || 1)),
+                Math.max(1, Math.round(triggerWallCacheReg.h || this.size?.[1] || 1))
+            );
+            syncDerpShield(this);
+            if (this._shouldSync) {
+                this._prevDerpState = {
+                    posX: curX, posY: curY,
+                    sizeW: curW, sizeH: curH,
+                    scale: curS,
+                    offsetX: curOX, offsetY: curOY,
+                    selected: isTrueSelected,
+                    mode: this.mode,
+                    hoveredKey: this._hoveredRegionKey
+                };
+            }
+            if (this._forceSync) this._forceSync = false;
+            return;
+        }
+
         if (this.layout?.regions) {
             const usedKeys = new Set();
+            const cacheCanvas = canUsePassiveTriggerWallCache ? createPassiveCanvas(
+                Math.max(1, Math.round(triggerWallCacheReg?.w || this.size?.[0] || 1)),
+                Math.max(1, Math.round(triggerWallCacheReg?.h || this.size?.[1] || 1)),
+                passiveCacheScale
+            ) : null;
+            const cacheCtx = cacheCanvas?.getContext?.("2d") || null;
+            const activeCtx = cacheCtx || ctx;
+
+            if (cacheCtx) {
+                cacheCtx.clearRect(0, 0, cacheCanvas.width, cacheCanvas.height);
+                cacheCtx.save();
+                cacheCtx.scale(passiveCacheScale, passiveCacheScale);
+                cacheCtx.translate(-Math.round(triggerWallCacheReg.x || 0), -Math.round(triggerWallCacheReg.y || 0));
+            }
             for (const [key, reg] of Object.entries(this.layout.regions)) {
                 if (!reg.type || key === "systemBtn") continue;
                 usedKeys.add(key);
@@ -424,21 +511,36 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
                         blueprint.sync(this._derpDomElements[key], this, app, compData);
                     }
                 } else if (blueprint.isHybrid) {
-                    blueprint.sync(ctx, this, app, compData);
+                    blueprint.sync(activeCtx, this, app, compData);
                 } else {
-                    blueprint.sync(ctx, this, compData);
+                    blueprint.sync(activeCtx, this, compData);
                 }
             }
 
-            handleDrawCTX(this, ctx, true);
+            handleDrawCTX(this, activeCtx, true);
 
             for (const [key, reg] of Object.entries(this.layout.regions)) {
                 if (reg.strokeZIndex) {
                     const blueprint = COMPONENT_BLUEPRINTS[reg.type];
                     if (blueprint && blueprint.isHybrid && this._compDataCache[key]) {
-                        blueprint.sync(ctx, this, app, this._compDataCache[key], true);
+                        blueprint.sync(activeCtx, this, app, this._compDataCache[key], true);
                     }
                 }
+            }
+
+            if (cacheCtx) {
+                cacheCtx.restore();
+                this._triggerWallPassiveCanvasCache = {
+                    key: triggerWallCacheKey,
+                    canvas: cacheCanvas,
+                };
+                ctx.drawImage(
+                    cacheCanvas,
+                    Math.round(triggerWallCacheReg.x || 0),
+                    Math.round(triggerWallCacheReg.y || 0),
+                    Math.max(1, Math.round(triggerWallCacheReg.w || this.size?.[0] || 1)),
+                    Math.max(1, Math.round(triggerWallCacheReg.h || this.size?.[1] || 1))
+                );
             }
 
             if (this._derpDomElements) {
