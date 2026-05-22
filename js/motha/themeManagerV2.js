@@ -280,6 +280,7 @@ app.registerExtension({
                     },
                     promptCorners: {
                         type: UI_TYPES.EDITOR, canvasShield:true, themeKey: "panel, t_textSmall",
+                        numberOnly: true,
                         measureText: "9S, 9S, 9S, 9S", width: "auto", height: "auto", labelAlign:["center", "middle"], padding: [pW, pH], minWidth: 40,
                     }
                 },

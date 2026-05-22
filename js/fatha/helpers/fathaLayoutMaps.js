@@ -16,6 +16,7 @@ import { warpToPoint } from "../core/fathaWarp.js";
 import { handleDerpCollapse, handleHorizontalDeckTitleToggle } from "../core/fathaHandler.js";
 import { findHeaderPaletteEntry } from "./headerPaletteIdentity.js";
 import { showBastaSystemMessage } from "../bastas/bastaSystemMessage.js";
+import { getDeckCornerOverride } from "../core/masterDockEngine.js";
 
 const DEBUG_OPTIONS = ["None", "Layout", "Hitbox", "Widgets Hitbox"];
 const TITLE_LABEL_DEFAULT = "Derp Nodes";
@@ -25,6 +26,8 @@ const WARP_SHORTCUT_ITEMS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
 const COLLAPSED_HEADER_HEIGHT = 20;
 const COLLAPSED_HEADER_VERTICAL_MARGIN = 0;
 const HEADER_ICON_SIZE = { width: "match", height: "auto" };
+const HEADER_CORNER_MARGIN_THRESHOLD = 6;
+const HEADER_CORNER_MARGIN_PER_POINT = 0.5;
 
 function paletteColorToCss(color) {
     if (!Array.isArray(color) || color.length < 3) return null;
@@ -38,6 +41,60 @@ function paletteColorToCss(color) {
 function resolveHeaderPaletteFill(node) {
     const main = findHeaderPaletteEntry(window.xcpActivePalette?.palettes, node, false)?.entries?.main;
     return paletteColorToCss(main?._OFF || main?._ON || main?._DIS || null);
+}
+
+function resolveHeaderInsetLayoutState(node) {
+    const graph = node?.graph || window.app?.graph || null;
+    const cornerOverride = getDeckCornerOverride(node, graph);
+    const isSelected = node?._xcpTrueSelected !== undefined
+        ? node._xcpTrueSelected
+        : !!(window.app?.canvas?.selected_nodes && window.app.canvas.selected_nodes[node.id]);
+    const isBypassed = node?.mode === 4 || node?.mode === 2 || node?._derpSpoofedBypass;
+    const stateSuffix = isBypassed ? "_DIS" : (isSelected ? "_ON" : "");
+
+    return { cornerOverride, isSelected, stateSuffix };
+}
+
+function resolveHeaderSideInsetBoost(node) {
+    const { cornerOverride, stateSuffix } = resolveHeaderInsetLayoutState(node);
+    const canvasPaint = resolvePaintData(node, "canvas", stateSuffix)
+        || (stateSuffix === "_ON" ? node?._canvasPaintData_ON : stateSuffix === "_DIS" ? node?._canvasPaintData_DIS : node?._canvasPaintData)
+        || node?._canvasPaintData
+        || null;
+    const corners = Array.isArray(canvasPaint?.corners)
+        ? [...canvasPaint.corners]
+        : [canvasPaint?.corners, canvasPaint?.corners, canvasPaint?.corners, canvasPaint?.corners];
+
+    if (cornerOverride) {
+        for (let i = 0; i < 4; i++) {
+            if (cornerOverride[i] !== null && cornerOverride[i] !== undefined) corners[i] = cornerOverride[i];
+        }
+    }
+
+    const [topLeft = 0, topRight = 0] = corners;
+    const calcBoost = (value) => {
+        const absCorner = Math.abs(Number(value) || 0);
+        return absCorner > HEADER_CORNER_MARGIN_THRESHOLD
+            ? (absCorner - HEADER_CORNER_MARGIN_THRESHOLD) * HEADER_CORNER_MARGIN_PER_POINT
+            : 0;
+    };
+
+    return {
+        left: calcBoost(topLeft),
+        right: calcBoost(topRight),
+    };
+}
+
+function getHeaderInsetLayoutHash(node, insetBoost) {
+    const { cornerOverride, isSelected } = resolveHeaderInsetLayoutState(node);
+
+    return [
+        node._currentThemeName || "",
+        node.properties?.contentCollapsed ? 1 : 0,
+        isSelected ? 1 : 0,
+        cornerOverride ? cornerOverride.map(v => (v ?? "n")).join("_") : "nocorners",
+        `${insetBoost.left},${insetBoost.right}`,
+    ].join("|");
 }
 
 function resolveDockGlyph(node) {
@@ -180,6 +237,8 @@ export const getVirtualNodeLayoutMap = (node) => {
     const customKeys = Object.keys(node.layoutMap || {});
     const lastCustomRegion = (p.contentCollapsed || customKeys.length === 0) ? "headerRegion" : customKeys[customKeys.length - 1];
     const headerPaletteFill = resolveHeaderPaletteFill(node);
+    const headerSideInsetBoost = resolveHeaderSideInsetBoost(node);
+    node._layoutMapHash = getHeaderInsetLayoutHash(node, headerSideInsetBoost);
 
     const isVerticalDocked = isVerticalDockedGroup(node);
     const isHorizontalDocked = isHorizontalDockedGroup(node);
@@ -199,6 +258,7 @@ export const getVirtualNodeLayoutMap = (node) => {
                 dir: "row", width: "full", height: p.contentCollapsed ? COLLAPSED_HEADER_HEIGHT : "auto",
                 btnColor: headerPaletteFill,
                 margin: [2, p.contentCollapsed ? COLLAPSED_HEADER_VERTICAL_MARGIN : 2, 2, p.contentCollapsed ? COLLAPSED_HEADER_VERTICAL_MARGIN : 0],
+                padding: [headerSideInsetBoost.left, 0, headerSideInsetBoost.right, 0],
                 btnCollapse: {
                     type: UI_TYPES.ICONBUTTON,
                     themeKey: "buttonNode, t_textSystem",

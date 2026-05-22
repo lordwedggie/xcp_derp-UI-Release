@@ -517,7 +517,9 @@ export class masterLayoutEngine {
             }
 
             if (fitCount > 0) {
-                const parentPadX = (parent.padding?.[0] || 0) * 2;
+                const parentPadL = parent.padding ? (parent.padding.length === 4 ? (parent.padding[0] || 0) : (parent.padding[0] || 0)) : 0;
+                const parentPadR = parent.padding ? (parent.padding.length === 4 ? (parent.padding[2] || 0) : (parent.padding[0] || 0)) : 0;
+                const parentPadX = parentPadL + parentPadR;
                 const parentMX = (parent.margin?.length === 4) ? (parent.margin[0] + parent.margin[2]) : (parent.margin?.[0] * 2 || 0);
                 const availableW = isChild ? parent.w : (this.originalWidth - parentMX);
                 const leftoverSpace = (availableW - parentPadX) - totalReservedWidth;
@@ -963,7 +965,8 @@ export class masterLayoutEngine {
 
                         if (fullChildren.length > 0) {
                             const maxChildRight = Math.max(...childRegs.map(r => r.x + r.w + (r.margin?.length === 4 ? r.margin[2] : (r.margin?.[0] || 0))));
-                            const actualContainerRight = currentRegion.x + currentRegion.w;
+                            const currentPadR = currentRegion.padding ? (currentRegion.padding.length === 4 ? (currentRegion.padding[2] || 0) : (currentRegion.padding[0] || 0)) : 0;
+                            const actualContainerRight = currentRegion.x + currentRegion.w - currentPadR;
                             const trailingGap = actualContainerRight - maxChildRight;
 
                             if (Math.abs(trailingGap) > 0.5) {

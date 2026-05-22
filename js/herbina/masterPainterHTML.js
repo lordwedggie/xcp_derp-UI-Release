@@ -6,6 +6,47 @@
 
 import { toRGBA } from "./utils/colorMath.js";
 
+function normalizeCornerRadii(corners) {
+    const clamp = (value) => {
+        const num = Number(value);
+        if (!Number.isFinite(num)) return 0;
+        const mag = Math.max(0, Math.abs(num));
+        return num < 0 ? -mag : mag;
+    };
+
+    if (Array.isArray(corners)) {
+        const normalized = corners.slice(0, 4).map(clamp);
+        if (normalized.length === 0) return [0, 0, 0, 0];
+        if (normalized.length === 1) return [normalized[0], normalized[0], normalized[0], normalized[0]];
+        while (normalized.length < 4) normalized.push(normalized[normalized.length - 1]);
+        return normalized;
+    }
+
+    const single = clamp(corners);
+    return [single, single, single, single];
+}
+
+function buildChamferClipPath(corners) {
+    const [tl, tr, br, bl] = corners;
+    const oTL = Math.abs(tl);
+    const oTR = Math.abs(tr);
+    const oBR = Math.abs(br);
+    const oBL = Math.abs(bl);
+
+    const points = [
+        `${oTL}px 0px`,
+        `calc(100% - ${oTR}px) 0px`,
+        `100% ${oTR}px`,
+        `100% calc(100% - ${oBR}px)`,
+        `calc(100% - ${oBR}px) 100%`,
+        `${oBL}px 100%`,
+        `0px calc(100% - ${oBL}px)`,
+        `0px ${oTL}px`,
+    ];
+
+    return `polygon(${points.join(", ")})`;
+}
+
 // Helper to safely multiply the alpha of an already-compiled rgba() string
 function scaleAlpha(colorStr, factor) {
     if (!colorStr) return "transparent";
@@ -34,17 +75,22 @@ export function applyHTMLTheme(el, paintData, scale = 1.0) {
     const DERP_ALPHA_FACTOR  = 0.5; // Scales the opacity of the shadow/glow color.
     const DERP_OFFSET_FACTOR = 0.5; // Scales the physical displacement of the effect.
 
-    const corners = paintData.corners || 0;
+    const corners = normalizeCornerRadii(paintData.corners || 0);
     const glow = paintData.glow;
     const border = paintData.border;
     const shadow = paintData.shadow;
+    const hasChamfer = corners.some((corner) => corner < 0);
 
     // 1. BASE GEOMETRY
-    // Handle corners as a single value or an array [TL, TR, BR, BL]
-    if (Array.isArray(corners)) {
-        el.style.borderRadius = `${corners[0] * scale}px ${corners[1] * scale}px ${corners[2] * scale}px ${corners[3] * scale}px`;
+    el.style.borderRadius = `${Math.max(0, corners[0]) * scale}px ${Math.max(0, corners[1]) * scale}px ${Math.max(0, corners[2]) * scale}px ${Math.max(0, corners[3]) * scale}px`;
+    if (hasChamfer) {
+        const scaledCorners = corners.map((corner) => corner * scale);
+        const clipPath = buildChamferClipPath(scaledCorners);
+        el.style.clipPath = clipPath;
+        el.style.webkitClipPath = clipPath;
     } else {
-        el.style.borderRadius = `${corners * scale}px`;
+        el.style.clipPath = "none";
+        el.style.webkitClipPath = "none";
     }
 
     el.style.backgroundColor = Array.isArray(paintData.fill) ? toRGBA(paintData.fill) : (paintData.fill || "transparent");
