@@ -11,8 +11,9 @@ import re
 from PIL import Image
 from .xcp_tagHandling import handle_import_lora_tags, handle_manage_lora_tag
 from .xcp_loraStack import (handle_save_lora_rating, handle_save_lora_notes, handle_get_loras, handle_check_lora_files, handle_get_lora_preview,
-                            handle_get_lora_triggers, handle_get_lora_info, handle_open_folder, handle_delete_lora_preview, handle_upload_lora_preview, get_lora_stack_profiles_dir,
-                            handle_list_derpLoraStack, handle_save_derpLoraStack, handle_load_derpLoraStack, handle_list_lora_images, handle_get_lora_image, handle_set_lora_cover, handle_delete_lora_image)
+                             handle_get_lora_triggers, handle_get_lora_info, handle_open_folder, handle_delete_lora_preview, handle_upload_lora_preview, get_lora_stack_profiles_dir,
+                             handle_list_derpLoraStack, handle_save_derpLoraStack, handle_load_derpLoraStack, handle_list_lora_images, handle_get_lora_image, handle_set_lora_cover, handle_delete_lora_image,
+                             handle_rename_lora_bundle)
 
 # --- PATH SETUP ---
 EXT_ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -717,6 +718,10 @@ safe_post("/xcp/save_lora_rating", save_lora_rating)
 async def save_lora_notes(request):
     return await handle_save_lora_notes(request)
 safe_post("/xcp/save_lora_notes", save_lora_notes)
+
+async def rename_lora_bundle(request):
+    return await handle_rename_lora_bundle(request)
+safe_post("/xcp/rename_lora_bundle", rename_lora_bundle)
 
 async def delete_lora_preview(request):
     return await handle_delete_lora_preview(request)

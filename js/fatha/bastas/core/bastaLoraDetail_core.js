@@ -13,6 +13,111 @@ import { resolvePaintData, measureTextHeight } from "../../../herbina/utils/widg
 import { initLoraImageHandlers, calculatePreviewAspectRatio, refreshLoraImageList } from "../../../controldeck/helpers/loraImages.js";
 import { getLoraDetailTitle } from "../../../controldeck/helpers/loraComponents.js";
 
+function getNormalizedLoraPath(value) {
+    return String(value || "").replace(/\\/g, "/");
+}
+
+function getLiveLoraPath(host, loraData) {
+    const liveStack = host?.properties?.stackData || [];
+    const slotIdx = loraData?.slotIndex;
+    const livePath = Number.isInteger(slotIdx) ? liveStack[slotIdx]?.[0] : null;
+    return getNormalizedLoraPath(livePath || loraData?.loraPath || loraData?.rawFileName || loraData?.path || loraData?.name || "");
+}
+
+function updateLoraPreviewList(host, oldPath, newPath, hasPreview = false) {
+    if (!host) return;
+    const nextList = Array.isArray(host._loraPreviewList) ? [...host._loraPreviewList] : [];
+    const oldNorm = getNormalizedLoraPath(oldPath);
+    const oldBack = oldNorm.replace(/\//g, "\\");
+    const newNorm = getNormalizedLoraPath(newPath);
+    const newBack = newNorm.replace(/\//g, "\\");
+
+    const filtered = nextList.filter((item) => item !== oldNorm && item !== oldBack);
+    if (hasPreview) {
+        if (!filtered.includes(newNorm)) filtered.push(newNorm);
+        if (newBack !== newNorm && !filtered.includes(newBack)) filtered.push(newBack);
+    }
+    host._loraPreviewList = filtered;
+}
+
+export async function renameLoraBundle(host, basta, loraData, newName) {
+    const oldPath = getLiveLoraPath(host, loraData);
+    const trimmedName = String(newName || "").trim();
+    if (!oldPath || !trimmedName) return false;
+
+    const parentDir = oldPath.includes("/") ? oldPath.split("/").slice(0, -1).join("/") : "";
+    const nextPath = getNormalizedLoraPath(parentDir ? `${parentDir}/${trimmedName}` : trimmedName);
+
+    const res = await fetch("/xcp/rename_lora_bundle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ oldName: oldPath, newName: nextPath })
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.success !== true) {
+        throw new Error(data.error || "Rename failed");
+    }
+
+    const liveStack = host?.properties?.stackData || [];
+    const slotIdx = loraData?.slotIndex;
+    const finalPath = getNormalizedLoraPath(data.newName || nextPath);
+    const finalBaseName = String(data.baseName || trimmedName).trim() || trimmedName;
+    const hasPreview = !!data.hasPreview;
+
+    if (Number.isInteger(slotIdx) && liveStack[slotIdx]) {
+        liveStack[slotIdx][0] = finalPath;
+    }
+
+    loraData.name = finalBaseName;
+    loraData.rawFileName = finalPath;
+    loraData.loraPath = finalPath;
+    loraData.path = finalPath;
+    loraData.hasCover = hasPreview;
+    loraData.coverFilename = hasPreview ? (data.coverFilename || loraData.coverFilename || null) : null;
+    loraData.currentImageIndex = -1;
+    loraData.aspectRatio = null;
+    loraData._previewLoading = false;
+    loraData.previewUrl = hasPreview ? `/xcp/get_lora_preview?name=${encodeURIComponent(finalPath)}&v=${Date.now()}` : null;
+
+    updateLoraPreviewList(host, oldPath, finalPath, hasPreview);
+
+    if (host._loraTriggerCache) {
+        const triggerData = host._loraTriggerCache[oldPath] || host._loraTriggerCache[oldPath.replace(/\//g, "\\")];
+        if (triggerData) {
+            host._loraTriggerCache[finalPath] = triggerData;
+            host._loraTriggerCache[finalPath.replace(/\//g, "\\")] = triggerData;
+        }
+    }
+
+    if (host._loraTriggerArrayCache) {
+        const triggerArray = host._loraTriggerArrayCache[oldPath] || host._loraTriggerArrayCache[oldPath.replace(/\//g, "\\")];
+        if (triggerArray) {
+            host._loraTriggerArrayCache[finalPath] = triggerArray;
+            host._loraTriggerArrayCache[finalPath.replace(/\//g, "\\")] = triggerArray;
+        }
+    }
+
+    if (host.syncDerpOutputs) host.syncDerpOutputs();
+    if (host.refreshNodeLayoutMap) host.refreshNodeLayoutMap();
+    if (host.refreshDerpLoraStackSysMap) host.refreshDerpLoraStackSysMap();
+    if (typeof host.requestDerpSync === "function") host.requestDerpSync();
+    else if (typeof host.setDirtyCanvas === "function") host.setDirtyCanvas(true, true);
+
+    if (basta) {
+        basta.titleLabel = getLoraDetailTitle(finalPath, loraData.rating, hasPreview);
+        basta._loraData = loraData;
+        basta._lastLoraName = finalPath;
+        basta._layoutDirty = true;
+        basta._forceSync = true;
+        refreshLoraImageList(basta, loraData);
+        if (typeof basta.requestDerpSync === "function") basta.requestDerpSync();
+        else if (typeof basta.setDirtyCanvas === "function") basta.setDirtyCanvas(true, true);
+    }
+
+    return true;
+}
+
 function getTriggerItemsForPath(host, loraPath) {
     const cache = host?._loraTriggerArrayCache;
     if (!cache || !loraPath) return [];

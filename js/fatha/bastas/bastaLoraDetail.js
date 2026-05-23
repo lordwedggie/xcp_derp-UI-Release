@@ -6,9 +6,10 @@ import { UI_TYPES } from "../core/masterLayoutTypes.js";
 
 
 import { showBastaMessage } from "./bastaMessage.js";
+import { showBastaSystemMessage } from "./bastaSystemMessage.js";
 import { showBastaFileHandler } from "./bastaFileHandler.js";
 import { getLoraDetailId, handleBastaLoraDetail, cleanTriggerText,
-    openCivitAI, openCivArchive, getLoraTriggerEditorProps,
+    openCivitAI, openCivArchive, getLoraTriggerEditorProps, renameLoraBundle,
     getLoraNotesEditorPropsWrapped, getLoraTriggerDropdownProps } from "./core/bastaLoraDetail_core.js";
 import { manageLoraTrigger, getRatingColor, getLoraRatingDropdownProps, getLoraLoaderProps, processTriggerData } from "../../controldeck/helpers/loraComponents.js";
 import { colorPulse2, parseColor, animateAlpha } from "../../herbina/masterAnimator.js";
@@ -261,8 +262,8 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
             loraLoaderRow: {
                 dir: "row", width: "full", height: "auto", margin: [0, 0, 0, mH],
                 btnAddNote: {
-                    type: UI_TYPES.ICONBUTTON, icon: "rename", themeKey: "button, t_textSmall",
-                    width: "match", height: "full", padding: [pW, pH], spacing: [sW, 0], margin: [0, 0, 0, 0],
+                    type: UI_TYPES.ICONBUTTON, icon: "new", themeKey: "button, t_textSmall",
+                    width: "match", height: "full", spacing: [sW, 0],
                     hidden: !!loraData.notes,
                     onPress: () => {
                         const liveStack = host.properties?.stackData || [];
@@ -286,6 +287,31 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                         }
                         basta._forceSync = true;
                         basta.setDirtyCanvas(true);
+                    }
+                },
+                btnRenameLora: {
+                    type: UI_TYPES.ICONBUTTON, icon: "rename", themeKey: "button, t_textSmall",
+                    width: "match", height: "full", spacing: [sW, 0],
+                    onPress: () => {
+                        const liveStack = host.properties?.stackData || [];
+                        const livePath = (liveStack[loraData.slotIndex]?.[0] || currentPath || "").replace(/\\/g, "/");
+                        const originalName = livePath.split("/").pop() || (loraData.name || "");
+                        showBastaFileHandler(basta, "none", "btnRenameLora", {
+                            title: `Rename LoRA: ${originalName}`,
+                            message: "Rename this LoRA and its linked preview assets.",
+                            mode: "rename",
+                            originalName,
+                            onConfirm: async (nextName) => {
+                                try {
+                                    await renameLoraBundle(host, basta, loraData, nextName);
+                                    showBastaSystemMessage(basta, "LoRA Renamed: ", 2600, { fade: true, grow: true }, "btnRenameLora", "success", null, nextName);
+                                } catch (error) {
+                                    console.error("[xcpDerp] LoRA rename failed:", error);
+                                    showBastaMessage(basta, error?.message || "LoRA Rename Failed", 3200, { fade: true, grow: true, width: 260 }, "btnRenameLora", false, "error");
+                                    throw error;
+                                }
+                            }
+                        });
                     }
                 },
                 loraLoader: {
@@ -498,7 +524,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
             },
             imageHandlingRegion: {
                 themeKey: "background", palette: bgPal,
-                type: UI_TYPES.REGION, regionOffset: [0, 0, 0, 0], corners: [null, null, -1, -1],
+                type: UI_TYPES.REGION, regionOffset: [0, 0, mW + 1, 0], corners: [null, null, -1, -1],
                 hidden: !hasImages,
                 spawnAnim: false,
                 alpha: basta._navAlpha,
@@ -695,7 +721,9 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                     type: UI_TYPES.ICONBUTTON, icon: "new", themeKey: "button, t_textSmall",
                     width: "match", height: "full", spacing: [sW, 0],
                     onPress: () => {
-                        const defaultName = `Trigger_${String(triggerItems.length + 1).padStart(2, '0')}`;
+                        const liveStack = host.properties?.stackData || [];
+                        const livePath = (liveStack[loraData.slotIndex]?.[0] || currentPath || loraData.name || "").replace(/\\/g, "/");
+                        const defaultName = (livePath.split("/").pop() || loraData.name || "").replace(/\.[^/.]+$/, "");
                         showBastaFileHandler(basta, "none", "btnNew", {
                             title: "New Trigger", confirm: "Create", originalName: defaultName, mode: "newTrigger",
                             message: "Enter name for new trigger:",

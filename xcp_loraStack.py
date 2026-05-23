@@ -13,12 +13,33 @@ from PIL.PngImagePlugin import PngInfo
 import folder_paths
 import shutil
 
+
+def get_existing_lora_full_path(name):
+    clean_name = str(name or "").replace("\\", "/")
+    if not clean_name:
+        return None
+
+    full_path = folder_paths.get_full_path("loras", clean_name)
+    if full_path:
+        return full_path
+
+    name_no_ext = os.path.splitext(clean_name)[0]
+    return folder_paths.get_full_path("loras", name_no_ext)
+
+
+def get_lora_bundle_preview_info(base_path_no_ext):
+    for ext in [".png", ".jpg", ".jpeg", ".webp"]:
+        preview_path = base_path_no_ext + ext
+        if os.path.exists(preview_path):
+            return preview_path, ext
+    return None, None
+
 async def handle_list_lora_images(request):
     try:
         lora_name = request.query.get("name")
         if not lora_name: return web.json_response({"error": "Missing name"}, status=400)
 
-        full_path = folder_paths.get_full_path("loras", lora_name.replace("\\", "/"))
+        full_path = get_existing_lora_full_path(lora_name)
         if not full_path: return web.json_response({"error": "LoRA not found"}, status=404)
 
         base_path_no_ext = os.path.splitext(full_path)[0]
@@ -50,7 +71,7 @@ async def handle_get_lora_image(request):
         file_name = request.query.get("file")
         if not lora_name or not file_name: return web.json_response({"error": "Missing parameters"}, status=400)
 
-        full_path = folder_paths.get_full_path("loras", lora_name.replace("\\", "/"))
+        full_path = get_existing_lora_full_path(lora_name)
         if not full_path: return web.json_response({"error": "LoRA not found"}, status=404)
 
         base_path_no_ext = os.path.splitext(full_path)[0]
@@ -120,7 +141,7 @@ async def handle_save_lora_rating(request):
         body = await request.json()
         name, rating = body.get("name"), body.get("rating")
         if not name: return web.Response(status=400)
-        full_path = folder_paths.get_full_path("loras", name.replace("\\", "/"))
+        full_path = get_existing_lora_full_path(name)
         if full_path:
             trigger_dir = os.path.splitext(full_path)[0]
             os.makedirs(trigger_dir, exist_ok=True)
@@ -157,7 +178,7 @@ async def handle_save_lora_notes(request):
         body = await request.json()
         name, notes = body.get("name"), body.get("notes")
         if not name: return web.Response(status=400)
-        full_path = folder_paths.get_full_path("loras", name.replace("\\", "/"))
+        full_path = get_existing_lora_full_path(name)
         if full_path:
             trigger_dir = os.path.splitext(full_path)[0]
             os.makedirs(trigger_dir, exist_ok=True)
@@ -186,7 +207,7 @@ async def handle_get_loras(request):
         has_preview = []
         ratings = {}
         for f in files:
-            full_path = folder_paths.get_full_path("loras", f)
+            full_path = get_existing_lora_full_path(f)
             if full_path:
                 base = os.path.splitext(full_path)[0]
                 if any(os.path.exists(base + ext) for ext in [".png", ".jpg", ".jpeg", ".webp"]):
@@ -220,7 +241,7 @@ async def handle_check_lora_files(request):
                 exists[name] = True
                 continue
 
-            full_path = folder_paths.get_full_path("loras", name.replace("\\", "/"))
+            full_path = get_existing_lora_full_path(name)
             exists[name] = bool(full_path and os.path.exists(full_path))
 
         return web.json_response({"exists": exists})
@@ -236,7 +257,7 @@ async def handle_get_lora_preview(request):
         # THE NORMALIZATION FIX: Keep preview lookup consistent with the rest of the LoRA API.
         # The frontend can send either slash style after bastaLoraDetail swaps models.
         clean_name = name.replace("\\", "/")
-        full_path = folder_paths.get_full_path("loras", clean_name)
+        full_path = get_existing_lora_full_path(clean_name)
         if not full_path: return web.Response(status=404)
 
         base_path = os.path.splitext(full_path)[0]
@@ -244,11 +265,7 @@ async def handle_get_lora_preview(request):
         thumb_path = os.path.join(trigger_dir, "_thumbnail.jpg")
 
         # 2. Locate source preview image
-        src_image = None
-        for ext in [".png", ".jpg", ".jpeg", ".webp"]:
-            if os.path.exists(base_path + ext):
-                src_image = base_path + ext
-                break
+        src_image, _ = get_lora_bundle_preview_info(base_path)
 
         if not src_image: return web.Response(status=404)
 
@@ -297,12 +314,12 @@ async def handle_get_lora_triggers(request):
 
         # THE NORMALIZATION FIX: Normalize slashes and handle extension-less lookups
         clean_name = name.replace("\\", "/")
-        full_path = folder_paths.get_full_path("loras", clean_name)
+        full_path = get_existing_lora_full_path(clean_name)
 
         if not full_path:
             # Fallback: Try without the file extension
             name_no_ext = os.path.splitext(clean_name)[0]
-            full_path = folder_paths.get_full_path("loras", name_no_ext)
+            full_path = get_existing_lora_full_path(name_no_ext)
 
         if not full_path: return web.json_response({"triggers": {}})
 
@@ -340,7 +357,7 @@ async def handle_get_lora_info(request):
         if not name: return web.Response(status=400)
         # THE NORMALIZATION FIX: Handle both slash types sent from the browser
         clean_name = name.replace("\\", "/")
-        full_path = folder_paths.get_full_path("loras", clean_name)
+        full_path = get_existing_lora_full_path(clean_name)
         if not full_path: return web.Response(status=404)
         # THE FAST METADATA PATH: Prioritize reading _info.json before any heavy disk I/O
         rating = 0
@@ -471,10 +488,10 @@ async def handle_open_folder(request):
         # THE NORMALIZATION FIX: Handle both slash types and add extension-stripping fallback
         # to match get_lora_info logic and prevent 404s on explicit extensions.
         clean_name = name.replace("\\", "/")
-        full_path = folder_paths.get_full_path("loras", clean_name)
+        full_path = get_existing_lora_full_path(clean_name)
         if not full_path:
             name_no_ext = os.path.splitext(clean_name)[0]
-            full_path = folder_paths.get_full_path("loras", name_no_ext)
+            full_path = get_existing_lora_full_path(name_no_ext)
 
         if full_path and os.path.exists(full_path):
             # THE BEHAVIOR SWAP FIX: Normal click (subfolder=true) opens metadata dir. Shift click opens parent dir.
@@ -544,7 +561,7 @@ async def handle_set_lora_cover(request):
         no_backup = body.get("no_backup", False) # THE NO-BACKUP FLAG FIX
         if not name or not file_name: return web.json_response({"error": "Missing parameters"}, status=400)
 
-        full_path = folder_paths.get_full_path("loras", name.replace("\\", "/"))
+        full_path = get_existing_lora_full_path(name)
         if not full_path: return web.json_response({"error": "LoRA not found"}, status=404)
 
         base_path_no_ext = os.path.splitext(full_path)[0]
@@ -585,7 +602,7 @@ async def handle_delete_lora_image(request):
         filename = body.get("filename")
         if not name or not filename: return web.json_response({"error": "Missing params"}, status=400)
 
-        full_path = folder_paths.get_full_path("loras", name.replace("\\", "/"))
+        full_path = get_existing_lora_full_path(name)
         if not full_path: return web.json_response({"error": "LoRA not found"}, status=404)
 
         base_path = os.path.splitext(full_path)[0]
@@ -615,7 +632,7 @@ async def handle_upload_lora_preview(request):
         if not lora_id or not image_b64:
             return web.json_response({"error": "Missing parameters"}, status=400)
 
-        full_path = folder_paths.get_full_path("loras", lora_id.replace("\\", "/"))
+        full_path = get_existing_lora_full_path(lora_id)
         if not full_path:
             return web.json_response({"error": "LoRA not found"}, status=404)
 
@@ -684,5 +701,82 @@ async def handle_upload_lora_preview(request):
 
         # THE UPLOAD FIX: Do not create sidecar thumbnails for archived images; these are reserved for the cover image
         return web.json_response({"success": True, "file": target_name})
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=500)
+
+async def handle_rename_lora_bundle(request):
+    try:
+        body = await request.json()
+        old_name = str(body.get("oldName") or "").strip()
+        new_name = str(body.get("newName") or "").strip()
+        if not old_name or not new_name:
+            return web.json_response({"error": "Missing names"}, status=400)
+
+        old_rel = old_name.replace("\\", "/")
+        old_full_path = get_existing_lora_full_path(old_rel)
+        if not old_full_path or not os.path.exists(old_full_path):
+            return web.json_response({"error": "LoRA not found"}, status=404)
+
+        old_dir = os.path.dirname(old_full_path)
+        old_ext = os.path.splitext(old_full_path)[1]
+        old_base_path = os.path.splitext(old_full_path)[0]
+        old_base_name = os.path.splitext(os.path.basename(old_full_path))[0]
+
+        new_rel = new_name.replace("\\", "/")
+        if not os.path.splitext(os.path.basename(new_rel))[1]:
+            new_rel = new_rel + old_ext
+        elif os.path.splitext(new_rel)[1].lower() != old_ext.lower():
+            return web.json_response({"error": f"LoRA extension must remain {old_ext}"}, status=400)
+
+        new_dir_rel = os.path.dirname(new_rel)
+        if new_dir_rel and new_dir_rel != os.path.dirname(old_rel):
+            return web.json_response({"error": "Renaming across folders is not supported"}, status=400)
+
+        new_base_name = os.path.splitext(os.path.basename(new_rel))[0].strip()
+        if not new_base_name:
+            return web.json_response({"error": "Invalid target name"}, status=400)
+        if new_base_name.lower() == old_base_name.lower():
+            return web.json_response({
+                "success": True,
+                "oldName": old_rel,
+                "newName": old_rel,
+                "baseName": old_base_name,
+                "hasPreview": bool(get_lora_bundle_preview_info(old_base_path)[0]),
+                "coverFilename": None,
+            })
+
+        new_full_path = os.path.join(old_dir, new_base_name + old_ext)
+        if os.path.exists(new_full_path):
+            return web.json_response({"error": "Target LoRA already exists"}, status=409)
+
+        new_base_path = os.path.splitext(new_full_path)[0]
+        if os.path.isdir(new_base_path):
+            return web.json_response({"error": "Target metadata folder already exists"}, status=409)
+
+        old_preview_path, old_preview_ext = get_lora_bundle_preview_info(old_base_path)
+        if old_preview_path:
+            target_preview_path = new_base_path + old_preview_ext
+            if os.path.exists(target_preview_path):
+                return web.json_response({"error": "Target preview already exists"}, status=409)
+
+        os.rename(old_full_path, new_full_path)
+
+        if old_preview_path and os.path.exists(old_preview_path):
+            os.rename(old_preview_path, new_base_path + old_preview_ext)
+
+        if os.path.isdir(old_base_path):
+            os.rename(old_base_path, new_base_path)
+
+        final_rel = os.path.relpath(new_full_path, folder_paths.get_folder_paths("loras")[0]).replace("\\", "/")
+        cover_path, cover_ext = get_lora_bundle_preview_info(new_base_path)
+        cover_filename = f"__PRIMARY_PREVIEW__{cover_ext}" if cover_ext else None
+        return web.json_response({
+            "success": True,
+            "oldName": old_rel,
+            "newName": final_rel,
+            "baseName": new_base_name,
+            "hasPreview": bool(cover_path),
+            "coverFilename": cover_filename,
+        })
     except Exception as e:
         return web.json_response({"error": str(e)}, status=500)
