@@ -8,7 +8,7 @@ import { resolveDockTarget } from "./dockTargetPicking.js";
 import { syncDerpShield } from "./fathaDOMshield.js";
 import { handleNodeResize } from "./fathaNodeResize.js";
 import { getVirtualNodeLayoutMap } from "../helpers/fathaLayoutMaps.js";
-import { getDockNodeMinHeight, getDockNodeMinWidth, resolveDockAttachDimensions, resolveRuntimeDockSize } from "./dockDimensions.js";
+import { getDockNodeMinHeight, getDockNodeMinWidth, getSharedDockMinWidth, getSharedDockWidth, resolveDockAttachDimensions, resolveRuntimeDockSize } from "./dockDimensions.js";
 
 const DEFAULT_DECK_SNAP = 10;
 const DEFAULT_DECK_RADIUS = 48;
@@ -360,7 +360,10 @@ function normalizeSharedEdgePair(a, b, side, graph, snap = DEFAULT_DECK_SNAP) {
         const bottomSeed = side === "bottom" ? b : a;
         const column = sortDeckNodesByAxis(collectDeckLine(topSeed, graph, "top", "bottom"), "y");
         if (column.length === 0) return false;
-        const width = getFirstPositiveAxisSize(column, "width", getNodeAxisSize(topSeed, "width") || getNodeAxisSize(bottomSeed, "width"));
+        const width = Math.max(
+            getSharedDockWidth(column, getNodeAxisSize(topSeed, "width") || getNodeAxisSize(bottomSeed, "width")),
+            getSharedDockMinWidth(column, getNodeAxisSize(topSeed, "width") || getNodeAxisSize(bottomSeed, "width"), snap)
+        );
         const heights = column.map((member) => getNodeAxisSize(member, "height"));
         const leftX = getFirstFinitePosition(column, 0);
         const pinnedIndex = column.findIndex((member) => member?.properties?.pinActive === true);

@@ -134,7 +134,12 @@ export function resolveDockAttachDimensions(node, leader, side, members = [], sn
     const leaderH = getDockNodeHeight(leader);
 
     if (side === "top" || side === "bottom") {
-        const stackWidth = getSharedDockWidth(members, leaderW || nodeW);
+        const stackWidth = Math.max(
+            getSharedDockWidth(members, leaderW || nodeW),
+            getSharedDockMinWidth(members, leaderW || nodeW, snap),
+            getDockNodeMinWidth(node, 0, snap),
+            getDockNodeMinWidth(leader, 0, snap)
+        );
         return {
             nodeWidth: stackWidth,
             nodeHeight: nodeH,
@@ -165,7 +170,14 @@ export function getSharedDockWidth(members = [], fallback = 0) {
     const widths = (Array.isArray(members) ? members : [])
         .map(getDockNodeWidth)
         .filter((width) => width > 0);
-    return widths[0] || Number(fallback) || 0;
+    return widths.length ? Math.max(...widths) : (Number(fallback) || 0);
+}
+
+export function getSharedDockMinWidth(members = [], fallback = 0, snap = DEFAULT_SNAP) {
+    const minWidths = (Array.isArray(members) ? members : [])
+        .map((member) => getDockNodeMinWidth(member, 0, snap))
+        .filter((width) => width > 0);
+    return minWidths.length ? Math.max(...minWidths) : (Number(fallback) || 0);
 }
 
 export function getSharedDockHeight(members = [], fallback = 0) {
@@ -194,7 +206,10 @@ export function resolveDockResizeDimensions(axis, members = [], requested = {}, 
             return Math.max(maxMin, getDockNodeMinHeight(node, 0, snap));
         }, Number(fallback.minHeight) || 0);
         return {
-            width: getSharedDockWidth(members, fallback.width),
+            width: Math.max(
+                getSharedDockWidth(members, fallback.width),
+                getSharedDockMinWidth(members, fallback.width, snap)
+            ),
             height: Math.max(requestedH, groupMinH),
         };
     }
