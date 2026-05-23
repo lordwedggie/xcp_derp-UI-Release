@@ -623,7 +623,6 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                     this.properties.showSlotTypes = true;
                     this.properties.signalSortMode = "Type";
                     this.properties.showVirtualLinks = false;
-                    this.properties.drawSettingBtn = true;
                     this.properties.autoHeight = true;
                     this.properties.autoWidth = false;
                     this.properties.nodeSize = [300, 50];

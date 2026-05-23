@@ -20,6 +20,8 @@ import { findHeaderPaletteEntry, getHeaderPaletteCandidateNames } from "../helpe
 import { getPulseAlpha } from "../../herbina/masterAnimator.js";
 import { showBastaSystemMessage } from "../bastas/bastaSystemMessage.js";
 
+const COLLAPSED_NODE_MAX_CORNER = 5;
+
 function getDeckEngine() {
     if (!window.xcpMasterDeckEngine) {
         window.xcpMasterDeckEngine = new masterDockEngine(app.graph || null);
@@ -230,6 +232,20 @@ function applyCornerOverride(corners, override) {
         if (override[i] !== null && override[i] !== undefined) base[i] = override[i];
     }
     return base;
+}
+
+function applyCollapsedCornerCap(paint, isCollapsed) {
+    if (!paint || !isCollapsed) return paint;
+    const capCorner = (value) => {
+        const num = Number(value);
+        if (!Number.isFinite(num)) return 0;
+        const mag = Math.min(Math.abs(num), COLLAPSED_NODE_MAX_CORNER);
+        return num < 0 ? -mag : mag;
+    };
+    const corners = Array.isArray(paint.corners)
+        ? paint.corners.slice(0, 4).map(capCorner)
+        : capCorner(paint.corners ?? 0);
+    return { ...paint, corners };
 }
 
 /**
@@ -933,7 +949,10 @@ export function handleDrawCTX(entity, ctx, overlayPass = false) {
                 const cON = applyCornerOverride((options.cornerPaint || paintON).corners || [8, 8, 8, 8], cornerOverride);
 
                 if (isCollapsed) {
-                    const collapsedPaint = applyNodeHeaderPalette(entity, { ...bodyPaint, corners: [cON[0], cON[1], cOFF[2], cOFF[3]] }, headerPaletteState, headerEffectPaint);
+                    const collapsedPaint = applyCollapsedCornerCap(
+                        applyNodeHeaderPalette(entity, { ...bodyPaint, corners: [cON[0], cON[1], cOFF[2], cOFF[3]] }, headerPaletteState, headerEffectPaint),
+                        isCollapsed
+                    );
                     masterPainter(targetCtx, { posX: 0, posY: 0, width: entity.size[0], height: entity.size[1], color: collapsedPaint.fill, paintData: collapsedPaint });
                 } else {
                     const splitY = header.y + header.h + (header.margin?.length === 4 ? header.margin[3] : (header.margin?.[1] || 0));
@@ -948,7 +967,10 @@ export function handleDrawCTX(entity, ctx, overlayPass = false) {
                     masterPainter(targetCtx, { posX: 0, posY: 0, width: entity.size[0], height: entity.size[1], color: "transparent", paintData: silhouettePaint });
                 }
             } else {
-                const paint = applyNodeCornerOverride(options.bodyPaint || (isSelected ? paintON : paintOFF));
+                const paint = applyCollapsedCornerCap(
+                    applyNodeCornerOverride(options.bodyPaint || (isSelected ? paintON : paintOFF)),
+                    isCollapsed
+                );
                 if (paint) {
                     masterPainter(targetCtx, { posX: 0, posY: 0, width: entity.size[0], height: entity.size[1], color: paint.fill, paintData: paint });
                 }
@@ -973,16 +995,16 @@ export function handleDrawCTX(entity, ctx, overlayPass = false) {
                             cache.ctx.setTransform(1, 0, 0, 1, 0, 0);
                             cache.ctx.clearRect(0, 0, cache.canvas.width, cache.canvas.height);
                             cache.ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-                            const cachedPaintOFF = applyNodeCornerOverride(paintOFF);
+                            const cachedPaintOFF = applyCollapsedCornerCap(applyNodeCornerOverride(paintOFF), isCollapsed);
                             masterPainter(cache.ctx, { posX: pad, posY: pad, width: bw, height: bh, color: cachedPaintOFF.fill, paintData: cachedPaintOFF });
                         }
                         ctx.drawImage(cache.canvas, 0, 0, cache.canvas.width, cache.canvas.height, -pad, -pad, bw + pad * 2, bh + pad * 2);
                     } else {
-                        const directPaintOFF = applyNodeCornerOverride(paintOFF);
+                        const directPaintOFF = applyCollapsedCornerCap(applyNodeCornerOverride(paintOFF), isCollapsed);
                         masterPainter(ctx, { posX: 0, posY: 0, width: entity.size[0], height: entity.size[1], color: directPaintOFF.fill, paintData: directPaintOFF });
                     }
                 } else {
-                    const directPaintOFF = applyNodeCornerOverride(paintOFF);
+                    const directPaintOFF = applyCollapsedCornerCap(applyNodeCornerOverride(paintOFF), isCollapsed);
                     masterPainter(ctx, { posX: 0, posY: 0, width: entity.size[0], height: entity.size[1], color: directPaintOFF.fill, paintData: directPaintOFF });
                 }
             }
@@ -993,7 +1015,7 @@ export function handleDrawCTX(entity, ctx, overlayPass = false) {
                 if (header) {
                     renderBaseBackground(ctx, { bodyPaint: paintON, headerPaletteState: "_ON", headerEffectPaint: paintON, cornerPaint: paintON });
                 } else {
-                    const directPaintON = applyNodeCornerOverride(paintON);
+                    const directPaintON = applyCollapsedCornerCap(applyNodeCornerOverride(paintON), isCollapsed);
                     masterPainter(ctx, { posX: 0, posY: 0, width: entity.size[0], height: entity.size[1], color: directPaintON.fill, paintData: directPaintON });
                 }
                 ctx.restore();

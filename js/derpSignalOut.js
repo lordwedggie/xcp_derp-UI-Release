@@ -109,6 +109,8 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                             this._signalLabelToId.set(label, String(sig.nodeId));
                             return label;
                         });
+                    const signalPromptLabel = "Select signal...";
+                    const signalEmptyLabel = "No signals detected...";
 
                     const activeHash = activeOuts.map((sig, idx) => `${idx}:${sig?.nodeId || ""}:${sig?.type || ""}:${sig?.nodeName || ""}:${!!sig?.isOrphaned}`).join("|");
                     const signalHash = (this.receivedSignals || []).map((sig) => `${sig?.nodeId || ""}:${sig?.type || ""}:${sig?.nodeName || ""}`).join("|");
@@ -289,7 +291,7 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                     width: "full", height: "auto", padding: [pW, pH], spacing: [sW, 0],
                                     indicator: "on",
                                     items: signalItems,
-                                    value: this.properties.selectedSignalLabel || "Select signal...",
+                                    value: signalItems.length === 0 ? signalEmptyLabel : (this.properties.selectedSignalLabel || signalPromptLabel),
                                     state: (this.mode === 4 || this.mode === 2 || !signalItems?.length) ? "DIS" : "OFF",
                                     onChange: (val) => {
                                         const signalId = resolveSignalIdFromLabel(val);
