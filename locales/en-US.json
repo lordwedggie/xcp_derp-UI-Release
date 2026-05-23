@@ -12,7 +12,12 @@
     "close_panel": "Close panel"
   },
   "widgets": {
-    "back": ".. [Back]"
+    "back": ".. [Back]",
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "save": "Save",
+    "close": "Close",
+    "delete": "Delete"
   },
   "fatha_layout": {
     "title_default": "Derp Nodes",
@@ -529,12 +534,5 @@
         "title": "Manage"
       }
     }
-  },
-  "widgets": {
-    "confirm": "Confirm",
-    "cancel": "Cancel",
-    "save": "Save",
-    "close": "Close",
-    "delete": "Delete"
   }
 }

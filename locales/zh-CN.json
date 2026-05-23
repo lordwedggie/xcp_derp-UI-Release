@@ -12,7 +12,12 @@
     "close_panel": "关闭面板"
   },
   "widgets": {
-    "back": ".. [返回]"
+    "back": ".. [返回]",
+    "confirm": "确认",
+    "cancel": "取消",
+    "save": "保存",
+    "close": "关闭",
+    "delete": "删除"
   },
   "fatha_layout": {
     "title_default": "老登节点",
@@ -529,12 +534,5 @@
         "title": "管理"
       }
     }
-  },
-  "widgets": {
-    "confirm": "确认",
-    "cancel": "取消",
-    "save": "保存",
-    "close": "关闭",
-    "delete": "删除"
   }
 }
