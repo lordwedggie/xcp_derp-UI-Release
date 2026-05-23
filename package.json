@@ -1,6 +1,6 @@
 {
-  "name": "xcpDerpNodes",
-  "version": "1.0.21",
+  "name": "derpNodes",
+  "version": "1.0.1",
   "description": "",
   "main": "index.js",
   "scripts": {
