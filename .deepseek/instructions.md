@@ -7,12 +7,12 @@
 
 **Workspaces:**
 - Workspace: `E:\Stable_Diffusion\ComfyUI-Easy-CU130_Developer\ComfyUI\custom_nodes\xcpDerpNodes\` (branch: `daily-development`, remote: `github`)
-- Release repo: `github.com/lordwedggie/xcp_derpNodes-release` (current: v1.0.21)
+- Release repo: `github.com/lordwedggie/derpNodes` (current: v1.0.1)
 
 **Remotes:**
 - `origin` — `https://github.com/lordwedggie/xcp_derpNodes` (dev repo, HTTPS — often unreachable)
 - `github` — `git@github.com:lordwedggie/xcp_derpNodes.git` (dev repo, SSH)
-- `public` — `git@github.com:lordwedggie/xcp_derpNodes-release.git` (release repo, SSH)
+- `public` — `git@github.com:lordwedggie/derpNodes.git` (release repo, SSH)
 
 **Key dirs:**
 - `python/` — backend nodes
@@ -64,6 +64,13 @@ The registry reads metadata from `pyproject.toml` `[project.urls]`:
 - `Repository` — determines where stars and commit timestamps come from in ComfyUI Manager
 - Currently set to release repo so timestamps are clean
 - Trade-off: release repo has 0 GitHub stars (dev repo may have more)
+
+## History: Old Release Repo (DEPRECATED)
+
+- Old release repo: `xcp_derpNodes-release` — deleted 2026-05-24
+- Old registry node: `xcp_derpNodes` — deleted from comfyregistry.org
+- New release repo: `derpNodes` — clean start at v1.0.1
+- New registry node ID: `derpNodes` (from pyproject.toml `name` field)
 
 ## Known Pitfalls
 
