@@ -26,8 +26,8 @@ const WARP_SHORTCUT_ITEMS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
 const COLLAPSED_HEADER_HEIGHT = 20;
 const COLLAPSED_HEADER_VERTICAL_MARGIN = 0;
 const HEADER_ICON_SIZE = { width: "match", height: "auto" };
-const HEADER_CORNER_MARGIN_THRESHOLD = 6;
-const HEADER_CORNER_MARGIN_PER_POINT = 0.5;
+const HEADER_CORNER_MARGIN_THRESHOLD = 5;
+const HEADER_CORNER_MARGIN_PER_POINT = 1;
 
 function paletteColorToCss(color) {
     if (!Array.isArray(color) || color.length < 3) return null;
