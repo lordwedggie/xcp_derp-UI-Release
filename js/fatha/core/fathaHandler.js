@@ -11,7 +11,7 @@ import { UI_TYPES, COMPONENT_BLUEPRINTS } from "./masterLayoutTypes.js";
 import { resolvePaintData } from "../../herbina/utils/widgetsUtils.js";
 import { beginDockDrag, updateDockDrag, endDockDrag } from "./dockDrag.js";
 import { handleNodeResize } from "./fathaNodeResize.js";
-import { getPinnedVerticalDeckAnchor, restorePinnedVerticalDeckAnchor, resolveCollapseShiftDirection, syncHorizontalDeckHeight as syncHorizontalDeckHeightForGraph } from "./dockResize.js";
+import { getPinnedVerticalDeckAnchor, getPinnedVerticalDeckPositionAnchor, restorePinnedVerticalDeckAnchor, restorePinnedVerticalDeckPositionAnchor, resolveCollapseShiftDirection, syncHorizontalDeckHeight as syncHorizontalDeckHeightForGraph } from "./dockResize.js";
 import { masterDockEngine, getDeckMembers, getDeckCornerOverride, isLinearDeckGroup } from "./masterDockEngine.js";
 import { getVirtualNodeLayoutMap } from "../helpers/fathaLayoutMaps.js";
 import { getDockGroupAxisFromMembers, resolveRuntimeDockSize, shouldPreserveDockHeight, shouldPreserveDockWidth } from "./dockDimensions.js";
@@ -600,10 +600,9 @@ export function animateDerpSize(node, targetW, targetH, useAnim, options = {}) {
         const deltaH = (Number(targetH) || 0) - prevH;
         const allowCollapseShift = node._allowDockCollapseShift === true;
         const deckAnchor = (deltaH !== 0)
-            ? getPinnedVerticalDeckAnchor(node, graph)
+            ? getPinnedVerticalDeckPositionAnchor(node, graph)
             : null;
-        const isPassiveCollapsedDeckSize = !!deckAnchor && !allowCollapseShift && node.properties?.contentCollapsed === true;
-        const shouldAnchorAfterReflow = false; // Only restore anchor during explicit collapse/expand, not passive re-measurement
+        const shouldAnchorAfterReflow = !!deckAnchor && !allowCollapseShift;
         dockDebug("animate-size-before", {
             node: snapshotDockNode(node),
             target: { width: targetW, height: targetH },
@@ -635,7 +634,7 @@ export function animateDerpSize(node, targetW, targetH, useAnim, options = {}) {
                 shouldAnchorAfterReflow,
             });
             if (shouldAnchorAfterReflow) {
-                restorePinnedVerticalDeckAnchor(deckAnchor);
+                restorePinnedVerticalDeckPositionAnchor(deckAnchor);
             }
             moved.forEach((child) => {
                 if (typeof child.syncUncleSlots === "function") child.syncUncleSlots();
