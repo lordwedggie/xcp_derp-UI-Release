@@ -6,8 +6,19 @@ import { UI_TYPES } from "../core/masterLayoutTypes.js";
 import { measureTextWidth } from "../../herbina/utils/widgetsUtils.js";
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
 
+export function getBastaMessageId(host, targetRegion = null) {
+    return `basta_msg_${host.id}_${targetRegion || 'node'}`;
+}
+
+export function closeBastaMessage(host, targetRegion = null, reason = "implicit") {
+    const id = getBastaMessageId(host, targetRegion);
+    const basta = activeBastas.get(id);
+    if (!basta) return false;
+    return basta.close(reason);
+}
+
 export function showBastaMessage(host, text, duration = 3000, animations = {}, targetRegion = null, drawHeader = false, mode = "info", playSound = null) {
-    const id = `basta_msg_${host.id}_${targetRegion || 'node'}`;
+    const id = getBastaMessageId(host, targetRegion);
     if (activeBastas.has(id)) return null;
 
     const vars = host.getDerpVars ? host.getDerpVars(host) : { mW: 4, mH: 2, sW: 2, sH: 2, pW: 2, pH: 4, playSound: true };

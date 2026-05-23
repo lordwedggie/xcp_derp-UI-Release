@@ -158,6 +158,7 @@ app.registerExtension({
                         text: mode, measureText: "Landscape ",
                         width: "auto", height: "fill",
                         padding: [pW, pH], spacing: [sW, 0],
+                        toolTip: "Click to switch between portrait and landscape modes",
                         onPress: () => {
                             const oldMode = this.properties.mode || "Landscape";
                             const newMode = oldMode === "Portrait" ? "Landscape" : "Portrait";
@@ -190,6 +191,7 @@ app.registerExtension({
                         value: currentFull,
                         options: dropdownItems.map(i => i.value),
                         items: dropdownItems,
+                        toolTip: "Click to select available resolutions in the profile",
                         onChange: (val) => {
                             this.properties.selectedLatent = val;
                             const found = presets.find(p => getLabel(p, mode) === val);
@@ -210,6 +212,7 @@ app.registerExtension({
                         labelAlign: ["center", "middle"],
                         text: (this.properties.batchSize || 1).toString(),
                         value: (this.properties.batchSize || 1).toString(),
+                        toolTip: "Click to change batch number",
                         onBlur: (val) => {
                             const intVal = parseInt(val);
                             if (!isNaN(intVal) && intVal >= 1) {

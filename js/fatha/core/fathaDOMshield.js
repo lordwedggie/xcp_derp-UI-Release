@@ -19,6 +19,7 @@
 import { app } from "../../../../scripts/app.js";
 import { renderHitboxDebug } from "../helpers/debugPainter.js";
 import { getNodeOnDeckEdge, isLinearDeckGroup } from "./masterDockEngine.js";
+import { clearEntityTooltip } from "./fathaHandler.js";
 
 // DEBUG_MODE is now dynamically handled via node.properties.debugMode
 
@@ -411,6 +412,7 @@ export function createDerpShield(node) {
     };
     shield.onmouseleave = () => {
         const isBasta = node?.properties?.bastaSingleton !== undefined || node?.properties?.bastaMovalbe !== undefined;
+        clearEntityTooltip(node, true);
         node._uiHovered = false;
         node._systemBtnHovered = false;
         node._hoveredRegionKey = null; // --- Clear hover key to allow re-entry detection ---

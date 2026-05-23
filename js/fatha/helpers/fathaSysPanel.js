@@ -11,7 +11,7 @@ import { UI_TYPES, COMPONENT_BLUEPRINTS } from "../core/masterLayoutTypes.js";
 import { getPanelBaseMap } from "./fathaLayoutMaps.js";
 import { animatePanelSlide, animateAlpha } from "../../herbina/masterAnimator.js";
 import { resolvePaintData } from "../../herbina/utils/widgetsUtils.js";
-import { loadDerpLocale, handleDerpRequestSync } from "../core/fathaHandler.js";
+import { loadDerpLocale, handleDerpRequestSync, handleTooltipHover, clearEntityTooltip } from "../core/fathaHandler.js";
 import { showBastaFileHandler, getHandlerId } from "../bastas/bastaFileHandler.js";
 import { showBastaMessage } from "../bastas/bastaMessage.js";
 import { showBastaSystemMessage } from "../bastas/bastaSystemMessage.js";
@@ -118,10 +118,12 @@ export const sysPanel = {
                 this._hoveredRegionKey = hoveredKey;
                 this.setDirtyCanvas(true);
             }
+            handleTooltipHover(this, hoveredKey, localMouse);
             return !!hoveredKey;
         }
 
         if (type === "dragStart") {
+            clearEntityTooltip(this, true);
             const regions = Object.entries(this.layout.regions).reverse();
             for (const [key, reg] of regions) {
                 const isInteractive = reg.onPress || reg.onClick || reg.onDblClick || reg.onChange ||
@@ -142,6 +144,7 @@ export const sysPanel = {
         }
 
         if (type === "click" || type === "pointerup") {
+            clearEntityTooltip(this, true);
             const key = this._pressedRegionKey;
             this._pressedRegionKey = null;
 
@@ -169,6 +172,7 @@ export const sysPanel = {
         }
 
         if (type === "dragEnd") {
+            clearEntityTooltip(this, true);
             this._pressedRegionKey = null;
             return true;
         }

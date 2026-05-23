@@ -18,9 +18,13 @@ import { getDockGroupAxisFromMembers, resolveRuntimeDockSize, shouldPreserveDock
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
 import { findHeaderPaletteEntry, getHeaderPaletteCandidateNames } from "../helpers/headerPaletteIdentity.js";
 import { getPulseAlpha } from "../../herbina/masterAnimator.js";
+import { showBastaMessage, closeBastaMessage } from "../bastas/bastaMessage.js";
 import { showBastaSystemMessage } from "../bastas/bastaSystemMessage.js";
 
 const COLLAPSED_NODE_MAX_CORNER = 5;
+const TOOLTIP_DELAY_MS = 650;
+const TOOLTIP_DURATION_MS = 3000;
+const TOOLTIP_MOVE_THRESHOLD = 5;
 
 function getDeckEngine() {
     if (!window.xcpMasterDeckEngine) {
@@ -36,6 +40,153 @@ function getSystemMessageHost(preferredNode = null, fallbackId = "xcp_system_mes
         properties: {},
         setDirtyCanvas() {},
     };
+}
+
+function getTooltipHost(entity) {
+    return entity?.hostNode || entity;
+}
+
+function getTooltipState(entity) {
+    if (!entity) return null;
+    if (!entity._xcpTooltipState) {
+        entity._xcpTooltipState = {
+            timer: null,
+            pendingKey: null,
+            pendingText: "",
+            activeKey: null,
+            activeText: "",
+            shownSinceMoveToken: null,
+            moveToken: 0,
+            lastLocalPos: null,
+            lastRegionKey: null,
+        };
+    }
+    return entity._xcpTooltipState;
+}
+
+function clearTooltipTimer(state) {
+    if (!state?.timer) return;
+    clearTimeout(state.timer);
+    state.timer = null;
+}
+
+function closeActiveTooltip(entity) {
+    const state = getTooltipState(entity);
+    if (!state?.activeKey) return false;
+    const host = getTooltipHost(entity);
+    const closed = closeBastaMessage(host, state.activeKey, "tooltip");
+    state.activeKey = null;
+    state.activeText = "";
+    return closed;
+}
+
+function cancelTooltip(entity, closeVisible = false) {
+    const state = getTooltipState(entity);
+    if (!state) return;
+    clearTooltipTimer(state);
+    state.pendingKey = null;
+    state.pendingText = "";
+    if (closeVisible) closeActiveTooltip(entity);
+}
+
+function bumpTooltipMoveToken(entity) {
+    const state = getTooltipState(entity);
+    if (!state) return;
+    state.moveToken = (Number(state.moveToken) || 0) + 1;
+    state.shownSinceMoveToken = null;
+}
+
+function scheduleTooltip(entity, regionKey, tooltipText) {
+    const host = getTooltipHost(entity);
+    const state = getTooltipState(entity);
+    if (!host || !state || !regionKey || !tooltipText) return;
+
+    if (state.pendingKey === regionKey && state.pendingText === tooltipText && state.timer) return;
+    if (state.activeKey === regionKey && state.activeText === tooltipText) return;
+    if (state.shownSinceMoveToken === state.moveToken && state.activeKey !== regionKey) return;
+
+    clearTooltipTimer(state);
+    state.pendingKey = regionKey;
+    state.pendingText = tooltipText;
+    const scheduledMoveToken = state.moveToken;
+
+    state.timer = setTimeout(() => {
+        state.timer = null;
+        if (entity._hoveredRegionKey !== regionKey) return;
+        if (state.moveToken !== scheduledMoveToken) return;
+        if (state.activeKey === regionKey && state.activeText === tooltipText) return;
+
+        if (state.activeKey && state.activeKey !== regionKey) {
+            closeActiveTooltip(entity);
+        }
+        closeBastaMessage(host, regionKey, "tooltip-refresh");
+        const basta = showBastaMessage(host, tooltipText, TOOLTIP_DURATION_MS, { fade: true }, regionKey, false, "info", false);
+        if (!basta) return;
+        state.activeKey = regionKey;
+        state.activeText = tooltipText;
+        state.shownSinceMoveToken = scheduledMoveToken;
+        setTimeout(() => {
+            if (state.activeKey === regionKey && state.activeText === tooltipText) {
+                state.activeKey = null;
+                state.activeText = "";
+            }
+        }, TOOLTIP_DURATION_MS + 50);
+    }, TOOLTIP_DELAY_MS);
+}
+
+export function handleTooltipHover(entity, regionKey, localMouse = null) {
+    const state = getTooltipState(entity);
+    if (!state) return;
+
+    if (!localMouse || !Array.isArray(localMouse)) {
+        cancelTooltip(entity, true);
+        state.lastLocalPos = null;
+        return;
+    }
+
+    const prevPos = state.lastLocalPos;
+    state.lastLocalPos = [...localMouse];
+    if (state.lastRegionKey !== regionKey) {
+        state.lastRegionKey = regionKey;
+        bumpTooltipMoveToken(entity);
+        cancelTooltip(entity, false);
+    }
+    if (!prevPos) {
+        bumpTooltipMoveToken(entity);
+    } else {
+        const dx = localMouse[0] - prevPos[0];
+        const dy = localMouse[1] - prevPos[1];
+        if (Math.hypot(dx, dy) > TOOLTIP_MOVE_THRESHOLD) {
+            bumpTooltipMoveToken(entity);
+            cancelTooltip(entity, false);
+        }
+    }
+
+    if (!regionKey) {
+        cancelTooltip(entity, false);
+        return;
+    }
+
+    const reg = entity.layout?.regions?.[regionKey];
+    const tooltipText = String(reg?.toolTip || "").trim();
+    if (!tooltipText) {
+        cancelTooltip(entity, false);
+        return;
+    }
+
+    if (state.pendingKey && state.pendingKey !== regionKey) {
+        cancelTooltip(entity, false);
+    }
+
+    scheduleTooltip(entity, regionKey, tooltipText);
+}
+
+export function clearEntityTooltip(entity, closeVisible = true) {
+    const state = getTooltipState(entity);
+    if (!state) return;
+    state.lastLocalPos = null;
+    bumpTooltipMoveToken(entity);
+    cancelTooltip(entity, closeVisible);
 }
 
 function showFallbackStatusMessage(host, kind, name, status) {
@@ -769,6 +920,7 @@ export function handleShieldInteraction(entity, type, data = {}) {
     const localMouse = [data.localX || 0, data.localY || 0];
     const deckEngine = getDeckEngine();
     if (type === "dragStart") {
+        clearEntityTooltip(entity, true);
         entity._startPos = [...(entity.pos || [0,0])];
         entity._startSize = [...(entity.size || [0,0])];
         entity._deckDragAltActive = !!data.originalEvent?.altKey;
@@ -787,8 +939,10 @@ export function handleShieldInteraction(entity, type, data = {}) {
         }
         beginDockDrag(entity, deckEngine);
     } else if (type === "resize" && !entity.isSystemPanel) {
+        clearEntityTooltip(entity, true);
         handleNodeResize(entity, data, scale);
     } else if (type === "drag" && !entity.isSystemPanel) {
+        clearEntityTooltip(entity, true);
         if (entity._pressedRegionKey) {
             const reg = entity.layout?.regions[entity._pressedRegionKey];
             if (reg && reg.onDrag) reg.onDrag(data.originalEvent, data);
@@ -796,6 +950,7 @@ export function handleShieldInteraction(entity, type, data = {}) {
         }
         updateDockDrag(entity, deckEngine, data, scale);
     } else if (type === "click" || type === "pointerup") {
+        clearEntityTooltip(entity, true);
         const key = entity._pressedRegionKey;
         entity._pressedRegionKey = null;
         if (key === "systemBtn") {
@@ -846,6 +1001,7 @@ export function handleShieldInteraction(entity, type, data = {}) {
             return true;
         }
     } else if (type === "dblclick") {
+        clearEntityTooltip(entity, true);
         const hit = findHitRegion(entity.layout, localMouse);
 
         if (hit && hit.reg.onDblClick) {
@@ -909,7 +1065,9 @@ export function handleShieldInteraction(entity, type, data = {}) {
                 if (window.app && window.app.canvas) window.app.canvas.setDirty(true, true);
             }
         }
+        handleTooltipHover(entity, nextKey, localMouse);
     }else if (type === "dragEnd") {
+        clearEntityTooltip(entity, true);
         endDockDrag(entity, deckEngine, data);
     }
 }
