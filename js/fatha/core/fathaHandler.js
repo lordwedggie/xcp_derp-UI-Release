@@ -20,6 +20,7 @@ import { findHeaderPaletteEntry, getHeaderPaletteCandidateNames } from "../helpe
 import { getPulseAlpha } from "../../herbina/masterAnimator.js";
 import { showBastaMessage, closeBastaMessage } from "../bastas/bastaMessage.js";
 import { showBastaSystemMessage } from "../bastas/bastaSystemMessage.js";
+import { ensureDerpBackgroundParallax, setDerpBackgroundParallaxImage, syncDerpBackgroundParallax } from "../helpers/derpBackgroundParallax.js";
 
 const COLLAPSED_NODE_MAX_CORNER = 5;
 const TOOLTIP_DELAY_MS = 650;
@@ -29,6 +30,7 @@ const DERP_BACKGROUND_SETTING_ID = "Derp.BackgroundImage";
 
 function ensureDerpBackgroundLayer() {
     if (window.__xcpDerpBackgroundLayer && document.body?.contains(window.__xcpDerpBackgroundLayer)) {
+        ensureDerpBackgroundParallax(window.__xcpDerpBackgroundLayer, () => ({ ds: app?.canvas?.ds || null }));
         return window.__xcpDerpBackgroundLayer;
     }
 
@@ -37,12 +39,9 @@ function ensureDerpBackgroundLayer() {
     layer.style.position = "fixed";
     layer.style.inset = "0";
     layer.style.pointerEvents = "none";
+    layer.style.overflow = "hidden";
     layer.style.zIndex = "-1";
-    layer.style.backgroundPosition = "center center";
-    layer.style.backgroundRepeat = "no-repeat";
-    layer.style.backgroundSize = "cover";
     layer.style.opacity = "1";
-    layer.style.transition = "background-image 160ms ease";
     layer.style.display = "none";
     document.documentElement.style.background = "transparent";
     document.body.style.background = "transparent";
@@ -58,6 +57,7 @@ function ensureDerpBackgroundLayer() {
         document.body.appendChild(layer);
     }
     window.__xcpDerpBackgroundLayer = layer;
+    ensureDerpBackgroundParallax(layer, () => ({ ds: app?.canvas?.ds || null }));
     return layer;
 }
 
@@ -84,13 +84,15 @@ export function applyDerpBackgroundImage(backgroundName = "") {
 
     if (!normalized || normalized.toLowerCase() === "none") {
         layer.style.display = "none";
-        layer.style.backgroundImage = "none";
+        setDerpBackgroundParallaxImage(layer, "");
         return;
     }
 
+    const imageUrl = `/xcp/get_background?name=${encodeURIComponent(normalized)}`;
     layer.style.display = "block";
-    layer.style.backgroundImage = `url("/xcp/get_background?name=${encodeURIComponent(normalized)}")`;
+    setDerpBackgroundParallaxImage(layer, imageUrl);
     ensureDerpBackgroundCanvasTransparency();
+    syncDerpBackgroundParallax(layer);
 }
 
 export async function hydrateDerpBackgroundSetting(settingId = DERP_BACKGROUND_SETTING_ID) {
