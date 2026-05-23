@@ -811,6 +811,7 @@ app.registerExtension({
                         editorImageFilename: {
                             type: this.UI_TYPES.EDITOR, mouseOver: false,
                             themeKey: "dialog, t_textNormal",
+                            displayMode: "cutoff",
                             width: "full",
                             height: "auto",
                             padding: [pW, pH], spacing: [sH, 0],

@@ -399,11 +399,13 @@ export function syncDerpEditor(context, node, app, config) {
     // --- 1. SHARED METRICS & ALIGNMENT ---
     const padX = props.padding?.[0] || 0;
     const padY = props.padding?.[1] || 0;
+    const isCutoff = safeConfig.displayMode === "cutoff";
+    const cutoffRightPad = isCutoff ? padX : 0;
 
     const ds = app?.canvas?.ds || { scale: 1, offset: [0, 0] };
     const rect = app?.canvas?.canvas?.getBoundingClientRect() || { left: 0, top: 0 };
 
-    const availableWidth = w - (padX * 2);
+    const availableWidth = Math.max(0, w - (padX * 2) - cutoffRightPad);
     const EPSILON = 0.01; // Tightened buffer now that sub-pixel math is removed
     const rawBg = paintData?.fill || config.btnColor || "transparent";
     // THE THEME FIX: Removed hardcoded DIS alpha override so the _DIS theme key is strictly respected
@@ -633,7 +635,7 @@ export function syncDerpEditor(context, node, app, config) {
 
                 ctx.save();
                 ctx.beginPath();
-                ctx.rect(x, y, w, h);
+                ctx.rect(x, y, Math.max(0, w - cutoffRightPad), h);
                 ctx.clip(); // Horizontal and Vertical Cutoff Fix
 
                 let currentY = localTop + finalPadY - currentScroll;
@@ -753,7 +755,8 @@ export function syncDerpEditor(context, node, app, config) {
     // HTML natively scrolls, so we use the base (unscrolled) padding value!
     const finalPadY = Math.max(0, baseRelativeStartY);
     const htmlPadX = padX;
-    const syncKey = `${ds.scale}-${effectiveState}-${rawIc}-${rawBg}-${valToSync}-${finalPadY}-${htmlPadX}-${scaledFS}-${isMultiline}-${isAwake}-${safeConfig.btnColor}`;
+    const htmlPadRight = htmlPadX + cutoffRightPad;
+    const syncKey = `${ds.scale}-${effectiveState}-${rawIc}-${rawBg}-${valToSync}-${finalPadY}-${htmlPadX}-${htmlPadRight}-${scaledFS}-${isMultiline}-${isAwake}-${safeConfig.btnColor}`;
 
     if (el._lastSyncKey !== syncKey) {
         el._lastSyncKey = syncKey;
@@ -786,7 +789,7 @@ export function syncDerpEditor(context, node, app, config) {
         el.style.outline = "none";
         el.style.boxSizing = "border-box";
         el.style.margin = "0";
-        el.style.padding = `${finalPadY}px ${htmlPadX}px 0px ${htmlPadX}px`;
+        el.style.padding = `${finalPadY}px ${htmlPadRight}px 0px ${htmlPadX}px`;
         el.style.lineHeight = `${uiLineHeight}px`;
         el.style.overflowX = "hidden";
         el.style.overflowY = isMultiline ? "auto" : "hidden";
