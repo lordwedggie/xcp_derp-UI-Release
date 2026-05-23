@@ -723,7 +723,7 @@ app.registerExtension({
                             type: this.UI_TYPES.ICONBUTTON,
                             icon: "file",
                             themeKey: "button, t_textNormal",
-                            width: "match", height: "fill",
+                            width: "match", height: "fill", iconScale: 0.72,
                             spacing: [sW, 0], padding: [pW, pH],
                             mouseOver: true,
                             state: "OFF",

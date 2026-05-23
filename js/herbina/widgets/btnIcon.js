@@ -71,7 +71,6 @@ const ICON_MAP = {
     clean: "⌬", //⏚,
     folder: "📂",
     settings: "⛯", // ⛯, ⛭, ⚙
-    note: "🖺", //🗋, 🖺, 🗩
     ratingglyph: ["", "🆂", "🅰", "🅱", "🅲", "🅳", "🅴", "🅵"] // ☐, ☑, ▢, ▣, ◻, ◼, ☐, ☒, ⭘, ⦿, ⭘, ●,
 };
 
@@ -285,8 +284,15 @@ export function syncBtnIconHTML(el, node, app, config) {
         const padH = (props.padding ? props.padding[1] * 2 : 0);
         const themeFontSize = props.fontSize || labelPaint.fontSize || 12;
         const innerDim = Math.min(w - padW, h - padH);
-        // THE SCALE FIX: Explicitly requested font sizes fill the space, while standard theme icons scale down optically.
-        const fontSize = Math.min(themeFontSize, innerDim * (props.fontSize ? 1.0 : 0.5));
+        const iconScale = Number(config.iconScale);
+        const resolvedIconScale = Number.isFinite(iconScale) ? iconScale : 0.5;
+        // THE SCALE FIX: Explicit font sizes stay authoritative. When iconScale is provided,
+        // allow the glyph to grow with the button instead of being capped by the theme font size.
+        const fontSize = props.fontSize
+            ? Math.min(themeFontSize, innerDim)
+            : (Number.isFinite(iconScale)
+                ? Math.min(innerDim, Math.max(themeFontSize, innerDim * resolvedIconScale))
+                : Math.min(themeFontSize, innerDim * resolvedIconScale));
 
         // Apply text styling LAST so the element keeps the calculated size
         el.style.fontSize = `${fontSize * coords.scale}px`;
@@ -412,8 +418,15 @@ export function syncBtnIcon(ctx, node, config) {
     const padH = (props.padding ? props.padding[1] * 2 : 0);
     const themeFontSize = props.fontSize || labelPaint.fontSize || 12;
     const innerDim = Math.min(w - padW, h - padH);
-    // THE SCALE FIX: Explicitly requested font sizes fill the space, while standard theme icons scale down optically.
-    const fontSize = Math.min(themeFontSize, innerDim * (props.fontSize ? 1.0 : 0.5));
+    const iconScale = Number(config.iconScale);
+    const resolvedIconScale = Number.isFinite(iconScale) ? iconScale : 0.5;
+    // THE SCALE FIX: Explicit font sizes stay authoritative. When iconScale is provided,
+    // allow the glyph to grow with the button instead of being capped by the theme font size.
+    const fontSize = props.fontSize
+        ? Math.min(themeFontSize, innerDim)
+        : (Number.isFinite(iconScale)
+            ? Math.min(innerDim, Math.max(themeFontSize, innerDim * resolvedIconScale))
+            : Math.min(themeFontSize, innerDim * resolvedIconScale));
 
     // THE OPTICAL FIX: Canvas 'middle' baseline often floats slightly high for square icons.
     // THE PARITY FIX: Use proportional nudge (0.125 * h) instead of static 1.5 to maintain alignment when scaled.
