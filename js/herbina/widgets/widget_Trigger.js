@@ -27,8 +27,8 @@ function drawFastBox(ctx, x, y, w, h, paint, fallbackColor) {
     if (!paint && !fallbackColor) return;
     const radiusRaw = paint?.corners ?? 0;
     const radius = Array.isArray(radiusRaw)
-        ? radiusRaw.map((r) => Math.max(0, Math.min(Number(r) || 0, Math.min(w, h) / 2)))
-        : Math.max(0, Math.min(Number(radiusRaw) || 0, Math.min(w, h) / 2));
+        ? radiusRaw.map((r) => Math.max(0, Number(r) || 0))
+        : Math.max(0, Number(radiusRaw) || 0);
     ctx.save();
     ctx.fillStyle = paint?.fill || fallbackColor || "transparent";
     ctx.beginPath();

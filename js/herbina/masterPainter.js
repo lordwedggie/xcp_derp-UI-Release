@@ -120,11 +120,10 @@ function scaleAlpha(colorStr, factor) {
 }
 
 function sanitizeRoundRectRadii(radii, width, height) {
-    const maxRadius = Math.max(0, Math.min(width, height) / 2);
     const clamp = (value) => {
         const num = Number(value);
         if (!Number.isFinite(num)) return 0;
-        const mag = Math.min(Math.abs(num), maxRadius);
+        const mag = Math.abs(num);
         return num < 0 ? -mag : mag;
     };
 
