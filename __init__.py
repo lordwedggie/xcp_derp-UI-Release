@@ -6,7 +6,13 @@ from . import xcp_file_server
 sync_bundled_assets()
 
 # Ensure these python files are in the 'python' subfolder
-from .python.derpThemeManagerV2 import NODE_CLASS_MAPPINGS as THEME_V2_NODES, NODE_DISPLAY_NAME_MAPPINGS as THEME_V2_DISPLAY
+try:
+    from .python.derpThemeManagerV2 import NODE_CLASS_MAPPINGS as THEME_V2_NODES, NODE_DISPLAY_NAME_MAPPINGS as THEME_V2_DISPLAY
+    THEME_V2_NODES.update({})  # ensure dict
+    THEME_V2_DISPLAY.update({})
+except ImportError:
+    THEME_V2_NODES = {}
+    THEME_V2_DISPLAY = {}
 from .python.derpSeedV2 import NODE_CLASS_MAPPINGS as SEED_V2_NODES, NODE_DISPLAY_NAME_MAPPINGS as SEED_V2_DISPLAY
 from .python.derpTemplate import NODE_CLASS_MAPPINGS as TEMPLATE_NODES, NODE_DISPLAY_NAME_MAPPINGS as TEMPLATE_DISPLAY
 from .python.derpControldeck import NODE_CLASS_MAPPINGS as CONTROLDECK_NODES, NODE_DISPLAY_NAME_MAPPINGS as CONTROLDECK_DISPLAY
