@@ -22,9 +22,9 @@
   "fatha_layout": {
     "title_default": "老登节点",
     "theme": "主题：",
-    "add_warp_point": "添加 WarpPoint",
-    "delete_warp_point": "删除 WarpPoint",
-    "warp_shortcut": "Warp 快捷键：",
+    "add_warp_point": "添加传送点",
+    "delete_warp_point": "删除传送点",
+    "warp_shortcut": "传送点快捷键：",
     "ctrl": "Ctrl",
     "zoom": "缩放：",
     "load_settings": "加载设置："
@@ -52,9 +52,9 @@
     }
   },
   "derp_slider": {
-    "title": "老登滑杆",
+    "title": "老登拉条子",
     "system": {
-      "properties": "老登滑杆属性：",
+      "properties": "老登拉条子属性：",
       "sliders": "滑杆数：",
       "name_display": "名称显示："
     },
@@ -372,7 +372,7 @@
     }
   },
   "derp_prompt_book": {
-    "title": "老登提示书",
+    "title": "永登宝典",
     "signal": {
       "book_content": "书页内容"
     },
