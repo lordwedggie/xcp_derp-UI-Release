@@ -1,6 +1,6 @@
 {
     "titleLabel": "Derp Lora Stack",
-    "cnr_id": "comfyui-flux-continuum",
+    "cnr_id": "derpNodes",
     "ver": "d44b8cba2565b2c150fa07aff46d991ff2db2fa3",
     "Node name for S&R": "DerpLoraStackNode",
     "minWidth": 200,

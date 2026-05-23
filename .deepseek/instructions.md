@@ -35,6 +35,8 @@ These must be stripped before pushing to `public`:
    - `.deepseek/instructions.md`
    - `.deepseek/pastes/*.md`
 
+3. **notes.txt** — dev notes, contains fork-base history, never for public
+
 ## Release Process — CRITICAL: Must Sync main First
 
 **RULE: Never do tag-only or side-branch-only publishes. Always sync public/main from daily-development.**
@@ -43,14 +45,14 @@ Correct order (follow exactly):
 
 1. Bump version in `pyproject.toml` and `package.json` to X.Y.Z
 2. **Verify the bump took effect** — read both files back from disk after writing
-3. Strip excluded files: `git rm --cached js/motha/themeManagerV2.js js/motha/themeManagerV2_core.js python/derpThemeManagerV2.py` and `git rm --cached -r .deepseek/`
+3. Strip excluded files: `git rm --cached js/motha/themeManagerV2.js js/motha/themeManagerV2_core.js python/derpThemeManagerV2.py` and `git rm --cached -r .deepseek/` and `git rm --cached notes.txt`
 4. Ensure `.github/workflows/publish_action.yml` is present
 5. Commit with message "release vX.Y.Z"
 6. **Sync main FIRST**: `git push --force-with-lease public daily-development:main`
 7. Create tag: `git tag -a vX.Y.Z -m "vX.Y.Z"`
 8. Push tag: `git push public vX.Y.Z`
 9. Push release branch: `git push public daily-development:refs/heads/release/vX.Y.Z`
-10. Restore excluded files: `git add js/motha/themeManagerV2.js js/motha/themeManagerV2_core.js python/derpThemeManagerV2.py .deepseek/` and commit "restore excluded files to daily-development"
+10. Restore excluded files: `git add js/motha/themeManagerV2.js js/motha/themeManagerV2_core.js python/derpThemeManagerV2.py .deepseek/ notes.txt` and commit "restore excluded files to daily-development"
 11. Push to origin: `git push --force-with-lease origin daily-development`
 12. **Verify**: confirm `public/main` pyproject.toml shows correct version, tag exists and points to same commit as main
 
