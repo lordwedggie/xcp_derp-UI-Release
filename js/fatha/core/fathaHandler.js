@@ -133,6 +133,7 @@ function getSystemMessageHost(preferredNode = null, fallbackId = "xcp_system_mes
 }
 
 function getTooltipHost(entity) {
+    if (entity?.isSystemPanel === true || entity?.isSysPanel === true) return entity;
     return entity?.hostNode || entity;
 }
 

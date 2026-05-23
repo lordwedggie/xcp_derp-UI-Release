@@ -322,6 +322,7 @@ app.registerExtension({
                         toggleModelVAE: {
                             type: this.UI_TYPES.TOGGLE_V2, isTextOnly: true, themeKey: "button, t_textSystem",
                             text: tLocale("$derp_vae_loader.system.extract_from_model", "Extract VAE from model"),
+                            toolTip: tLocale("$derp_vae_loader.tooltips.extract_from_model", "Extract VAE data from a model file. If turned on, the dropdown will point to your models folder rather than the VAE folder."),
                             width: "auto", height: "auto", padding: [pW, pH],
                             value: this.properties.extractFromModel || false,
                             onChange: (v) => {

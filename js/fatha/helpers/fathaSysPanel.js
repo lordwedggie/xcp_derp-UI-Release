@@ -52,6 +52,8 @@ function logLoraStackProfileAnchor(node, label, payload) {
  */
 export const sysPanel = {
     isVisible: false,
+    isSysPanel: true,
+    isSystemPanel: true,
     hostNode: null,
     dynamicElements: {},
     layout: null,
@@ -74,6 +76,7 @@ export const sysPanel = {
 
     // --- VIRTUAL NODE INTERFACE ---
     get id() { return this.hostNode?.id || "fatha_sys_panel_global"; },
+    get graph() { return this.hostNode?.graph || null; },
     get pos() {
         if (!this.hostNode || !this.hostNode.pos || !this.hostNode.size) return [0, 0];
         // THE TRUE ZERO FIX: Remove the margin subtraction.

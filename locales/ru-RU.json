@@ -94,6 +94,9 @@
     "port": {
       "vae": "Vae"
     },
+    "tooltips": {
+      "extract_from_model": "Extract VAE data from a model file. If turned on, the dropdown will point to your models folder rather than the VAE folder."
+    },
     "browser": {
       "select": "Выбрать Vae...",
       "refresh": "Обновить"
@@ -240,7 +243,12 @@
       "placeholder": "Trigger Test"
     },
     "tooltips": {
-      "trigger": "Left click to toggle the trigger. Right click to open trigger's detail panel"
+      "trigger": "Left click to toggle the trigger. Right click to open trigger's detail panel",
+      "new_group": "Adds a new Trigger Group. Remember to save it to a Preset or it will be lost when loading a new workflow!",
+      "save_preset": "Saves the currently selected Trigger Group preset with all changes made to its Trigger Groups.",
+      "load_preset": "Load a Trigger Group preset. A preset contains Trigger Groups that can then be added to the deck.",
+      "exclusive": "Only one trigger can be turned on in this Trigger Group when this is toggled on.",
+      "save_to_current": "Saves the current Trigger Group to the currently selected Trigger Group preset. Disabled if it is already part of the preset."
     },
     "groups": {
       "default": "Trigger Group",
