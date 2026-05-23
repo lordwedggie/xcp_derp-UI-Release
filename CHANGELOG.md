@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 - Added CHANGELOG.md to keep versioned change logs.
+- Added parallax effect to background image pan and zoom. Added five background images and 3 ComfyUI appearance Color Palette themes.
 - Added background CSS image display. Select it in the derp global settings panel. Background images are stored in `user/derpNodes/background`.
 
 ## [1.0.2] - 2026-05-24
