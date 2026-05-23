@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- Added CHANGELOG.md to keep versioned change logs.
+
 ## [1.0.2] - 2026-05-24
 
 ### Fixed
