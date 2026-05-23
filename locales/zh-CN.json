@@ -280,6 +280,9 @@
     "trigger": {
       "placeholder": "触发词示例"
     },
+    "tooltips": {
+      "trigger": "左键切换触发词开关。右键打开该触发词的详情面板"
+    },
     "groups": {
       "default": "触发词组",
       "default_prefix": "触发词组",

@@ -239,6 +239,9 @@
     "trigger": {
       "placeholder": "Trigger Test"
     },
+    "tooltips": {
+      "trigger": "Left click to toggle the trigger. Right click to open trigger's detail panel"
+    },
     "groups": {
       "default": "Trigger Group",
       "default_prefix": "Trigger Group",
