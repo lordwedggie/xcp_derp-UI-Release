@@ -3,6 +3,7 @@
  * ROLE: Standalone registry for Derp ecosystem global settings.
  */
 import { app } from "../../../scripts/app.js";
+import { applyDerpBackgroundImage, hydrateDerpBackgroundSetting } from "./fatha/core/fathaHandler.js";
 
 const HOTKEY_SETTINGS = [];
 const DERP_CATEGORY = "Derp";
@@ -219,6 +220,23 @@ app.registerExtension({
         });
 
         app.ui.settings.addSetting({
+            id: "Derp.BackgroundImage",
+            name: "Derp Nodes: Background Image",
+            category: DERP_GROUPS.general("Background Image"),
+            sortOrder: DERP_GROUP_SORT_ORDER.general,
+            type: "combo",
+            options: [{ value: "none", text: "None" }],
+            default: "none",
+            onChange: (v) => {
+                const value = String(v || "none").trim() || "none";
+                window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
+                window.DERP_GLOBAL_SETTINGS.backgroundImage = value;
+                applyDerpBackgroundImage(value);
+                if (app.canvas) app.canvas.setDirty(true, true);
+            }
+        });
+
+        app.ui.settings.addSetting({
             id: "Derp.VerticalDockHeaderCollapse",
             name: "Header Collapse: Clicking on node header to toggle collapsing state of the node.",
             category: DERP_GROUPS.docking("Header Collapse Toggle"),
@@ -349,6 +367,7 @@ app.registerExtension({
             playSound: app.ui.settings.getSettingValue("Derp.PlaySound", true),
             useAnimation: app.ui.settings.getSettingValue("Derp.UseAnimation", true),
             closeSysPanelOnOutsideClick: normalizeBooleanSetting(app.ui.settings.getSettingValue("Derp.CloseSysPanelOnOutsideClick", true), true),
+            backgroundImage: String(app.ui.settings.getSettingValue("Derp.BackgroundImage", "none") || "none"),
             verticalDockHeaderCollapse: normalizeBooleanSetting(app.ui.settings.getSettingValue("Derp.VerticalDockHeaderCollapse", true), true),
             syncedCollapse: normalizeBooleanSetting(app.ui.settings.getSettingValue("Derp.SyncedCollapse", true), true),
             perfOverlayHotkey: normalizeHotkeyString(app.ui.settings.getSettingValue("Derp.PerfOverlayHotkey", "Alt+Shift+P"), "Alt+Shift+P"),
@@ -358,5 +377,14 @@ app.registerExtension({
             perfOverlayFontSize: Number(app.ui.settings.getSettingValue("Derp.PerfOverlayFontSize", 12)) || 12,
             perfOverlayShowRanking: normalizeBooleanSetting(app.ui.settings.getSettingValue("Derp.PerfOverlayShowRanking", true), true)
         };
+
+        hydrateDerpBackgroundSetting().then((options) => {
+            const registry = app.ui?.settings?.settingsLookup;
+            const setting = registry?.["Derp.BackgroundImage"];
+            if (setting && Array.isArray(options) && options.length) {
+                setting.options = options;
+            }
+            applyDerpBackgroundImage(window.DERP_GLOBAL_SETTINGS.backgroundImage);
+        });
     }
 });

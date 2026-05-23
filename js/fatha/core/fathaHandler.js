@@ -25,6 +25,94 @@ const COLLAPSED_NODE_MAX_CORNER = 5;
 const TOOLTIP_DELAY_MS = 650;
 const TOOLTIP_DURATION_MS = 3000;
 const TOOLTIP_MOVE_THRESHOLD = 5;
+const DERP_BACKGROUND_SETTING_ID = "Derp.BackgroundImage";
+
+function ensureDerpBackgroundLayer() {
+    if (window.__xcpDerpBackgroundLayer && document.body?.contains(window.__xcpDerpBackgroundLayer)) {
+        return window.__xcpDerpBackgroundLayer;
+    }
+
+    const layer = document.createElement("div");
+    layer.id = "xcp-derp-background-layer";
+    layer.style.position = "fixed";
+    layer.style.inset = "0";
+    layer.style.pointerEvents = "none";
+    layer.style.zIndex = "-1";
+    layer.style.backgroundPosition = "center center";
+    layer.style.backgroundRepeat = "no-repeat";
+    layer.style.backgroundSize = "cover";
+    layer.style.opacity = "1";
+    layer.style.transition = "background-image 160ms ease";
+    layer.style.display = "none";
+    document.documentElement.style.background = "transparent";
+    document.body.style.background = "transparent";
+    const canvasEl = app?.canvas?.canvas;
+    if (canvasEl?.parentElement) {
+        canvasEl.parentElement.insertBefore(layer, canvasEl);
+        if (!canvasEl.parentElement.style.position) {
+            canvasEl.parentElement.style.position = "relative";
+        }
+        canvasEl.style.position = canvasEl.style.position || "relative";
+        canvasEl.style.zIndex = "1";
+    } else {
+        document.body.appendChild(layer);
+    }
+    window.__xcpDerpBackgroundLayer = layer;
+    return layer;
+}
+
+function ensureDerpBackgroundCanvasTransparency() {
+    const canvasEl = app?.canvas?.canvas;
+    if (canvasEl) {
+        canvasEl.style.background = "transparent";
+        canvasEl.style.position = canvasEl.style.position || "relative";
+        canvasEl.style.zIndex = "1";
+        const layer = window.__xcpDerpBackgroundLayer;
+        if (layer && canvasEl.parentElement && layer.parentElement !== canvasEl.parentElement) {
+            canvasEl.parentElement.insertBefore(layer, canvasEl);
+            if (!canvasEl.parentElement.style.position) {
+                canvasEl.parentElement.style.position = "relative";
+            }
+        }
+    }
+}
+
+export function applyDerpBackgroundImage(backgroundName = "") {
+    const layer = ensureDerpBackgroundLayer();
+    const normalized = String(backgroundName || "").trim();
+    window.xcpActiveBackgroundName = normalized;
+
+    if (!normalized || normalized.toLowerCase() === "none") {
+        layer.style.display = "none";
+        layer.style.backgroundImage = "none";
+        return;
+    }
+
+    layer.style.display = "block";
+    layer.style.backgroundImage = `url("/xcp/get_background?name=${encodeURIComponent(normalized)}")`;
+    ensureDerpBackgroundCanvasTransparency();
+}
+
+export async function hydrateDerpBackgroundSetting(settingId = DERP_BACKGROUND_SETTING_ID) {
+    const initialValue = app.ui?.settings?.getSettingValue?.(settingId, "none") || "none";
+    applyDerpBackgroundImage(initialValue);
+
+    try {
+        const response = await fetch("/xcp/list/backgrounds");
+        if (!response.ok) throw new Error("Failed to list backgrounds");
+        const result = await response.json();
+        const items = Array.isArray(result?.items) ? result.items.slice().sort((a, b) => String(a).localeCompare(String(b))) : [];
+        window.__xcpDerpBackgroundOptions = [
+            { value: "none", text: "None" },
+            ...items.map(name => ({ value: name, text: name }))
+        ];
+        return window.__xcpDerpBackgroundOptions;
+    } catch (error) {
+        console.error("[xcpDerp] Background list load failed", error);
+        window.__xcpDerpBackgroundOptions = [{ value: "none", text: "None" }];
+        return window.__xcpDerpBackgroundOptions;
+    }
+}
 
 function getDeckEngine() {
     if (!window.xcpMasterDeckEngine) {
@@ -1340,6 +1428,8 @@ export function handleInitDerpGlobalListener(app) {
     // THE PALETTE HYDRATION: Load the active palette on boot
     const initialPalette = app.ui.settings.getSettingValue("Derp.Palette") || "Derp_Default_v01";
     loadDerpPalette(initialPalette);
+
+    hydrateDerpBackgroundSetting();
 
     // THE FOOLPROOF LIVE SYNC: ComfyUI's settings UI often bypasses the standard setter
     // or fires while the graph is idle (so pipeline hooks fail). A lightweight interval is bulletproof.

@@ -98,6 +98,8 @@ THEME_DIR = resolve_derp_subdir("Themes", "themes")
 
 PALETTE_DIR = resolve_derp_subdir("Palettes", "palettes")
 
+BACKGROUNDS_DIR = resolve_derp_subdir("backgrounds")
+
 SETTINGS_DIR = resolve_derp_subdir("nodeSettings")
 
 DEFAULT_SETTINGS_FILES = {
@@ -130,6 +132,7 @@ CATEGORIES = {
     "derpVaeLoader": SETTINGS_DIR,
     "derpLoraStack": LORA_STACKS_DIR,
     "palettes": PALETTE_DIR,
+    "backgrounds": BACKGROUNDS_DIR,
     "derpPromptBook": PROMPT_BOOK_DIR,
     "books": PROMPT_BOOK_DIR, # THE COMPATIBILITY FIX: Add 'books' alias for legacy URL requests
     "locales": LOCALE_DIR,
@@ -153,6 +156,12 @@ def get_palette_search_dirs():
     return [
         os.path.join(PRIMARY_ROOT, "Palettes"),
         os.path.join(FALLBACK_ROOT, "palettes"),
+    ]
+
+def get_background_search_dirs():
+    return [
+        os.path.join(PRIMARY_ROOT, "backgrounds"),
+        os.path.join(FALLBACK_ROOT, "backgrounds"),
     ]
 
 # SAFETY UTILITY: Prevents duplicate route registration crashes
@@ -190,7 +199,7 @@ async def list_files(request):
     try:
         items = []
         seen = set()
-        search_roots = get_theme_search_dirs() if category == "themes" else get_palette_search_dirs() if category == "palettes" else [target_dir]
+        search_roots = get_theme_search_dirs() if category == "themes" else get_palette_search_dirs() if category == "palettes" else get_background_search_dirs() if category == "backgrounds" else [target_dir]
         # THE SYMLINK FIX: followlinks=True ensures symlinked folders (common in ComfyUI) are traversed
         for search_root in search_roots:
             if not search_root or not os.path.exists(search_root):
@@ -210,11 +219,11 @@ async def list_files(request):
 
                 for f in files:
                     # THE EXTENSION FILTER FIX: Allow model files (.safetensors, .ckpt, .pt) for the 'models' and 'vaes' categories
-                    valid_exts = (".safetensors", ".ckpt", ".pt") if category in ["models", "vaes"] else (".txt" if category == "lora_triggers" else ".json")
+                    valid_exts = (".safetensors", ".ckpt", ".pt") if category in ["models", "vaes"] else ((".jpg", ".jpeg", ".png", ".webp") if category == "backgrounds" else (".txt" if category == "lora_triggers" else ".json"))
                     if f.lower().endswith(valid_exts):
                         rel_path = os.path.relpath(os.path.join(root, f), search_root)
 
-                        if category in ["models", "vaes"]:
+                        if category in ["models", "vaes", "backgrounds"]:
                             clean_item = rel_path.replace("\\", "/")
                         else:
                             clean_item = os.path.splitext(rel_path)[0].replace("\\", "/")
@@ -226,6 +235,27 @@ async def list_files(request):
     except Exception as e:
         return attach_fallback_header(web.json_response({"items": [], "error": str(e)}, status=500))
 safe_get("/xcp/list/{category}", list_files)
+
+async def get_background_file(request):
+    file_name = request.query.get("name")
+    if not file_name:
+        return attach_fallback_header(web.Response(status=400))
+    try:
+        used_fallback = False
+        target_path = None
+        search_dirs = get_background_search_dirs()
+        for index, search_dir in enumerate(search_dirs):
+            candidate_path = resolve_case_insensitive_path(search_dir, file_name)
+            if candidate_path and os.path.exists(candidate_path):
+                target_path = candidate_path
+                used_fallback = index > 0
+                break
+        if not target_path or not os.path.exists(target_path):
+            return attach_fallback_header(web.Response(status=404), used_fallback=used_fallback)
+        return attach_fallback_header(web.FileResponse(target_path), used_fallback=used_fallback)
+    except Exception:
+        return attach_fallback_header(web.Response(status=500))
+safe_get("/xcp/get_background", get_background_file)
 
 async def open_prompt_book_folder(request):
     try:
