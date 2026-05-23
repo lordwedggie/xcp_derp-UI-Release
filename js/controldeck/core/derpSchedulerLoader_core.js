@@ -5,6 +5,38 @@
 import { showBastaMessage } from "../../fatha/bastas/bastaMessage.js";
 import { playMicrowaveDing } from "../../herbina/masterSoundEffects.js";
 
+function tLocale(key, fallback = key) {
+    if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
+    const path = key.substring(1).split(".");
+    let target = window.xcpDerpLocaleData || {};
+    for (const segment of path) {
+        target = target?.[segment];
+        if (target === undefined) return fallback;
+    }
+    return target;
+}
+
+export function syncDerpSchedulerLoaderLocaleLabels(node) {
+    if (!node?.properties) return;
+    const localizedTitle = tLocale("$derp_scheduler_loader.title", "Derp Scheduler Loader");
+    const previousLocalizedTitle = node._lastLocalizedDerpSchedulerLoaderTitle;
+    const localizedOutput = tLocale("$derp_scheduler_loader.port.scheduler", "Scheduler");
+    const previousLocalizedOutput = node._lastLocalizedDerpSchedulerLoaderOutput;
+
+    if (!node.titleLabel || node.titleLabel === "Derp Scheduler Loader" || (previousLocalizedTitle && node.titleLabel === previousLocalizedTitle)) {
+        node.titleLabel = localizedTitle;
+    }
+    if (!node.properties.titleLabel || node.properties.titleLabel === "Derp Scheduler Loader" || (previousLocalizedTitle && node.properties.titleLabel === previousLocalizedTitle)) {
+        node.properties.titleLabel = localizedTitle;
+    }
+    if (!node.properties.outputName || node.properties.outputName === "Scheduler" || (previousLocalizedOutput && node.properties.outputName === previousLocalizedOutput)) {
+        node.properties.outputName = localizedOutput;
+    }
+
+    node._lastLocalizedDerpSchedulerLoaderTitle = localizedTitle;
+    node._lastLocalizedDerpSchedulerLoaderOutput = localizedOutput;
+}
+
 export function initDerpSchedulerLoaderCore(nodeType) {
     const proto = nodeType.prototype;
 
@@ -39,6 +71,7 @@ export function initDerpSchedulerLoaderCore(nodeType) {
 
     proto.onThemeUpdate = function(config) {
         this.handleThemeUpdate(config);
+        syncDerpSchedulerLoaderLocaleLabels(this);
         this._layoutMapHash = null;
         this.refreshNodeLayoutMap();
         this.refreshDerpTemplateSysMap();
@@ -46,6 +79,7 @@ export function initDerpSchedulerLoaderCore(nodeType) {
 
     proto.applyPalette = function() {
         if (window.xcpDerpThemeConfig) this.handleThemeUpdate(window.xcpDerpThemeConfig);
+        syncDerpSchedulerLoaderLocaleLabels(this);
         this._layoutMapHash = null;
         this.refreshNodeLayoutMap();
         this.refreshDerpTemplateSysMap();
@@ -85,8 +119,8 @@ export function initDerpSchedulerLoaderCore(nodeType) {
 
                     const mode = missing.length > 0 ? "error" : "info";
                     const msg = missing.length > 0
-                        ? `Missing Schedulers Purged: ${missing.join(", ")}`
-                        : "Scheduler list updated";
+                        ? `${tLocale("$derp_scheduler_loader.messages.missing_purged_prefix", "Missing Schedulers Purged: ")}${missing.join(", ")}`
+                        : tLocale("$derp_scheduler_loader.messages.list_updated", "Scheduler list updated");
                     if (typeof showBastaMessage === "function") {
                         showBastaMessage(this, msg, missing.length > 0 ? 6000 : 3000, { fade: true, grow: true }, "btnRefreshSchedulers", false, mode);
                     }
@@ -101,14 +135,14 @@ export function initDerpSchedulerLoaderCore(nodeType) {
                 this.refreshNodeLayoutMap();
                 this.requestDerpSync();
                 if (showNotification && typeof showBastaMessage === "function") {
-                    showBastaMessage(this, "Failed to load schedulers", 4000, { fade: true, grow: true }, "btnRefreshSchedulers", false, "error");
+                    showBastaMessage(this, tLocale("$derp_scheduler_loader.messages.load_failed", "Failed to load schedulers"), 4000, { fade: true, grow: true }, "btnRefreshSchedulers", false, "error");
                 }
             });
     };
 
     proto.syncDerpOutputs = function() {
         const ports = [
-            { name: "Scheduler", type: getSchedulerTypeList(this) }
+            { name: tLocale("$derp_scheduler_loader.port.scheduler", "Scheduler"), type: getSchedulerTypeList(this) }
         ];
 
         if (!this.outputs || this.outputs.length !== ports.length || JSON.stringify(this.outputs[0]?.type) !== JSON.stringify(ports[0].type)) {
@@ -126,7 +160,7 @@ export function initDerpSchedulerLoaderCore(nodeType) {
         const deck = this.properties.schedulerDeck || [];
         const activeItem = deck.find(m => m.active);
         const val = isBypassed ? null : (activeItem ? activeItem.name : null);
-        const nodeName = this.titleLabel || this.title || "Derp Scheduler Loader";
+        const nodeName = this.titleLabel || this.title || tLocale("$derp_scheduler_loader.title", "Derp Scheduler Loader");
         const signalType = val ? getSchedulerTypeList(this) : "null";
         const fingerprint = `${isBypassed ? "bypass" : "live"}_${val}_${nodeName}_${this.id}_${deck.length}_${JSON.stringify(signalType)}`;
         if (this._lastSignalFingerprint === fingerprint) return;
@@ -138,7 +172,7 @@ export function initDerpSchedulerLoaderCore(nodeType) {
         const signalId = `${baseId}:0`;
         window.xcpDerpSignals[signalId] = {
             nodeId: signalId,
-            nodeName: `${nodeName} [Scheduler]`,
+            nodeName: `${nodeName} [${tLocale("$derp_scheduler_loader.signal.scheduler", "Scheduler")}]`,
             nodeType: this.type,
             type: signalType,
             value: val,
@@ -221,9 +255,9 @@ export function initDerpSchedulerLoaderCore(nodeType) {
         this.properties.skipGenericWirelessHeartbeat = true;
         if (!this._restoreSchedulerDeckPending && this.syncDerpOutputs) this.syncDerpOutputs();
 
-        this.titleLabel = "Derp Scheduler Loader";
-        this.properties.titleLabel = "Derp Scheduler Loader";
-        this.properties.outputName = "Scheduler";
+        this.titleLabel = tLocale("$derp_scheduler_loader.title", "Derp Scheduler Loader");
+        this.properties.titleLabel = tLocale("$derp_scheduler_loader.title", "Derp Scheduler Loader");
+        this.properties.outputName = tLocale("$derp_scheduler_loader.port.scheduler", "Scheduler");
         this.properties.schedulerDeck = [];
         this.properties.drawSettingBtn = false;
 
@@ -231,6 +265,8 @@ export function initDerpSchedulerLoaderCore(nodeType) {
         this.properties.autoHeight = true;
         this.properties.nodeSize = [220, 90];
         this.size = [220, 90];
+
+        syncDerpSchedulerLoaderLocaleLabels(this);
 
         this.refreshNodeLayoutMap();
         this.refreshDerpTemplateSysMap();
@@ -247,9 +283,10 @@ export function initDerpSchedulerLoaderCore(nodeType) {
     proto.handleSchedulerConfigure = function() {
         this.properties.skipGenericWirelessHeartbeat = true;
         this.properties.drawSettingBtn = false;
-        this.titleLabel = this.properties.titleLabel || "Derp Scheduler Loader";
+        this.titleLabel = this.properties.titleLabel || tLocale("$derp_scheduler_loader.title", "Derp Scheduler Loader");
         this.properties.titleLabel = this.titleLabel;
-        this.properties.outputName = "Scheduler";
+        this.properties.outputName = tLocale("$derp_scheduler_loader.port.scheduler", "Scheduler");
+        syncDerpSchedulerLoaderLocaleLabels(this);
 
         this._restoreSchedulerDeckPending = true;
         const savedDeck = JSON.parse(JSON.stringify(this.properties.schedulerDeck || []));

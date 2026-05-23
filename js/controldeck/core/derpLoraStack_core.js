@@ -23,9 +23,35 @@ const LORA_STACK_NUMERIC_SETTING_KEYS = [
     "clipMin", "clipMax", "clipStep", "clipDefault"
 ];
 
+function tLocale(key, fallback = key) {
+    if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
+    const path = key.substring(1).split(".");
+    let target = window.xcpDerpLocaleData || {};
+    for (const segment of path) {
+        target = target?.[segment];
+        if (target === undefined) return fallback;
+    }
+    return target;
+}
+
+function syncDerpLoraStackLocaleLabels(node) {
+    if (!node?.properties) return;
+    const localizedTitle = tLocale("$derp_lora_stack.title", "Derp Lora Stack");
+    const previousLocalizedTitle = node._lastLocalizedDerpLoraStackTitle;
+
+    if (!node.titleLabel || node.titleLabel === "Derp Lora Stack" || (previousLocalizedTitle && node.titleLabel === previousLocalizedTitle)) {
+        node.titleLabel = localizedTitle;
+    }
+    if (!node.properties.titleLabel || node.properties.titleLabel === "Derp Lora Stack" || (previousLocalizedTitle && node.properties.titleLabel === previousLocalizedTitle)) {
+        node.properties.titleLabel = localizedTitle;
+    }
+
+    node._lastLocalizedDerpLoraStackTitle = localizedTitle;
+}
+
 function queueMissingLoraMessages(node, items) {
     items.forEach((item) => {
-        showBastaSystemMessage(node, "Removed non-existing LoRA: ", 5000, { fade: true, grow: true }, null, "error", false, item);
+        showBastaSystemMessage(node, tLocale("$derp_lora_stack.messages.removed_missing_prefix", "Removed non-existing LoRA: "), 5000, { fade: true, grow: true }, null, "error", false, item);
     });
 }
 
@@ -100,6 +126,7 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
 
                 nodeType.prototype.applyPalette = function() {
                     if (window.xcpDerpThemeConfig) this.handleThemeUpdate(window.xcpDerpThemeConfig);
+                    syncDerpLoraStackLocaleLabels(this);
                     this._layoutMapHash = null; // THE STRUCTURAL RESET: Synchronized cache nuke
                     if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
                     this.requestDerpSync();
@@ -108,6 +135,7 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                 // --- THEME UPDATE ---
                 nodeType.prototype.onThemeUpdate = function(config) {
                     this.handleThemeUpdate(config);
+                    syncDerpLoraStackLocaleLabels(this);
                     this._layoutMapHash = null; // THE STRUCTURAL RESET: Synchronized cache nuke
                     if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
                     if (this.refreshDerpLoraStackSysMap) this.refreshDerpLoraStackSysMap();
@@ -391,8 +419,8 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                     // Critical: pure virtual nodes must have empty outputs
                     this.outputs = [];
 
-                    this.titleLabel = "Derp Lora Stack";
-                    this.properties.titleLabel = "Derp Lora Stack";
+                    this.titleLabel = tLocale("$derp_lora_stack.title", "Derp Lora Stack");
+                    this.properties.titleLabel = tLocale("$derp_lora_stack.title", "Derp Lora Stack");
                     this.properties.stackData = [];
                     this.activeModelPrefix = "Unknown_Model";
                     this.properties.activeModelPrefix = "Unknown_Model";
@@ -405,6 +433,7 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
 
                     this.fetchDerpLoraData(); // THE DATA FETCH FIX: Run on creation
                     this.fetchDerpRatingsPalette();
+                    syncDerpLoraStackLocaleLabels(this);
 
                     if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
                     if (this.refreshDerpLoraStackSysMap) this.refreshDerpLoraStackSysMap();
@@ -433,6 +462,7 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
 
                     this.fetchDerpLoraData(); // THE DATA FETCH FIX: Run on workflow load
                     this.fetchDerpRatingsPalette();
+                    syncDerpLoraStackLocaleLabels(this);
                     this.activeModelPrefix = this.activeModelPrefix || "Unknown_Model";
                     if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
                     if (this.refreshDerpLoraStackSysMap) this.refreshDerpLoraStackSysMap();

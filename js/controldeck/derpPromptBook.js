@@ -8,6 +8,7 @@ import {
     createDefaultDerpBook,
     bindPromptBookHooks,
     getPageLabel,
+    syncDerpPromptBookLocaleLabels,
     handleBookChange,
     handlePageChange,
     handlePageAdd,
@@ -19,6 +20,17 @@ import {
     handleRenameBook,
     handleCopyBook
 } from "./core/derpPromptBook_core.js";
+
+function tLocale(key, fallback = key) {
+    if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
+    const path = key.substring(1).split(".");
+    let target = window.xcpDerpLocaleData || {};
+    for (const segment of path) {
+        target = target?.[segment];
+        if (target === undefined) return fallback;
+    }
+    return target;
+}
 
 app.registerExtension({
     name: "xcp.derpPromptBook_Extension",
@@ -42,6 +54,7 @@ app.registerExtension({
         // --- THEME & LAYOUT REFRESH ---
         nodeType.prototype.onThemeUpdate = function(config) {
             this.handleThemeUpdate(config);
+            if (typeof syncDerpPromptBookLocaleLabels === "function") syncDerpPromptBookLocaleLabels(this);
             this._lastBookStructure = null; // THE STRUCTURAL RESET: Force full map rebuild on theme change
             this.refreshNodeLayoutMap();
             this.refreshDerpPromptBookSysMap();
@@ -63,7 +76,7 @@ app.registerExtension({
             const structureHash = `${book.length}_${safeIndex}_${this.properties.bookName}_${this.properties.coverPage}_${this.properties.showTotalPage}_${this.properties.drawHeader}_${(this._availableBooks || []).length}_${window._xcpDerpSession}`;
             this._layoutMapHash = structureHash;
 
-            const activePage = book[safeIndex] || { title: "Empty", content: "" };
+            const activePage = book[safeIndex] || { title: tLocale("$derp_prompt_book.page.empty", "Empty"), content: "" };
             if (activePage.content) {
                 activePage.content = activePage.content.replace(/\[\[IMG:(?:.*_IMG\/)([^\]]+)\]\]/g, "[[IMG:$1]]");
             }
@@ -79,12 +92,12 @@ app.registerExtension({
                 const bReg = this.layoutMap.bookRegion;
                 if (bReg && bReg.dropdownBooks) {
                     bReg.dropdownBooks.items = this._availableBooks || [];
-                    bReg.dropdownBooks.value = this.properties.bookName || "Untitled Book";
+                    bReg.dropdownBooks.value = this.properties.bookName || tLocale("$derp_prompt_book.book.untitled_name", "Untitled Book");
                 }
 
                 const cReg = this.layoutMap.contentRegion;
                 if (cReg && cReg.editorMain) {
-                    const bName = this.properties.bookName || "Untitled Book";
+                    const bName = this.properties.bookName || tLocale("$derp_prompt_book.book.untitled_name", "Untitled Book");
                     const editorValue = (activePage.content || "").replace(/\[\[IMG:(?!data:|http|\/|.*_IMG\/)([^\]]+)\]\]/g, (m, file) => {
                         return `[[IMG:/xcp/get_asset/derpPromptBook?name=${encodeURIComponent(file)}&bookName=${encodeURIComponent(bName)}]]`;
                     });
@@ -145,8 +158,8 @@ app.registerExtension({
                         dropdownBooks: {
                             type: this.UI_TYPES.FILEBROWSER, canvasShield: true, skipBackground: false, themeKey: "button, t_textBig",
                             indicator: "on", mouseOver: false,
-                            items: this._availableBooks || [], value: this.properties.bookName || "Untitled Book",
-                            mode: "file", fileType: "promptBook", displayText: "Select Book...",
+                            items: this._availableBooks || [], value: this.properties.bookName || tLocale("$derp_prompt_book.book.untitled_name", "Untitled Book"),
+                            mode: "file", fileType: "promptBook", displayText: tLocale("$derp_prompt_book.browser.select", "Select Book..."),
                             minWidth: 200, width: "full", height: "auto", padding: [pW, pH], spacing: [sW, 0],
                             onChange: (val) => handleBookChange(this, val)
                         },
@@ -174,7 +187,7 @@ app.registerExtension({
                         labelAlign: ["left", "top"], measureText: "MEASURE_RESERVE_FLOOR",
                         width: "full", height: "fill", padding: [pW, pH],
                         value: (activePage.content || "").replace(/\[\[IMG:(?!data:|http|\/|.*_IMG\/)([^\]]+)\]\]/g, (m, file) => {
-                            const bookName = this.properties.bookName || "Untitled Book";
+                            const bookName = this.properties.bookName || tLocale("$derp_prompt_book.book.untitled_name", "Untitled Book");
                             return `[[IMG:/xcp/get_asset/derpPromptBook?name=${encodeURIComponent(file)}&bookName=${encodeURIComponent(bookName)}]]`;
                         }),
                         onInput: (val) => {
@@ -252,14 +265,14 @@ app.registerExtension({
                     dir: "col", width: "full", height: "auto", margin: [mW, sH], spacing: [0, sH],
                     lblSysMapTitle: {
                         type: this.UI_TYPES.TEXT, themeKey: "t_textSystem", mouseOver: false,
-                        text: "Prompt Book Settings",
+                        text: tLocale("$derp_prompt_book.system.properties", "Prompt Book Settings"),
                         width: "auto", height: "auto", padding: [pW, pH],
                         objectAlign: ["left", "middle"]
                     },
                     togglesRow: {
                         dir: "row", width: "full", height: "auto", spacing: [sW, 0],
                         btnCover: {
-                            type: this.UI_TYPES.BUTTON, text: "Cover Page", themeKey: "systemButton, t_textSystem",
+                            type: this.UI_TYPES.BUTTON, text: tLocale("$derp_prompt_book.system.cover_page", "Cover Page"), themeKey: "systemButton, t_textSystem",
                             state: this.properties.coverPage !== false,
                             width: "auto", height: "auto", padding: [pW, pH], spacing: [sW, 0],
                             onPress: () => {
@@ -269,7 +282,7 @@ app.registerExtension({
                             }
                         },
                         btnTotal: {
-                            type: this.UI_TYPES.BUTTON, text: "Show Total", themeKey: "systemButton, t_textSystem",
+                            type: this.UI_TYPES.BUTTON, text: tLocale("$derp_prompt_book.system.show_total", "Show Total"), themeKey: "systemButton, t_textSystem",
                             state: this.properties.showTotalPage !== false,
                             width: "auto", height: "auto", padding: [pW, pH],
                             onPress: () => {
@@ -295,21 +308,23 @@ app.registerExtension({
             this.properties.isWirelessTransmitter = true;
             this.outputs = [];
 
-            this.titleLabel = "Derp Prompt Book";
-            this.properties.titleLabel = "Derp Prompt Book";
+            this.titleLabel = tLocale("$derp_prompt_book.title", "Derp Prompt Book");
+            this.properties.titleLabel = tLocale("$derp_prompt_book.title", "Derp Prompt Book");
 
             Object.assign(this.properties, {
                 nodeSize: [400, 400],
-                derpBook: typeof createDefaultDerpBook === "function" ? createDefaultDerpBook() : [{title: "Cover", content: ""}],
+                derpBook: typeof createDefaultDerpBook === "function" ? createDefaultDerpBook() : [{title: tLocale("$derp_prompt_book.page.cover", "Cover"), content: ""}],
                 currentPageIndex: 0,
-                bookName: "Untitled Book",
+                bookName: tLocale("$derp_prompt_book.book.untitled_name", "Untitled Book"),
                 autoWidth: false,
                 autoHeight: false,
                 coverPage: true,
                 showTotalPage: true
             });
             this.size = [400, 400];
-            this._lastSavedBookName = "Untitled Book";
+            this._lastSavedBookName = tLocale("$derp_prompt_book.book.untitled_name", "Untitled Book");
+
+            if (typeof syncDerpPromptBookLocaleLabels === "function") syncDerpPromptBookLocaleLabels(this);
 
             if (typeof this.fetchRemoteBooks === "function") this.fetchRemoteBooks();
             this.refreshNodeLayoutMap();

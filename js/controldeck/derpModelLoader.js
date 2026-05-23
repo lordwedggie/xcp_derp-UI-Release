@@ -8,6 +8,17 @@ import { initDerpModelLoaderCore } from "./core/derpModelLoader_core.js";
 import { showBastaFileHandler } from "../fatha/bastas/bastaFileHandler.js";
 import { startStackDrag, updateStackDrag, endStackDrag } from "../fatha/helpers/fathaDragDrop.js";
 
+function tLocale(key, fallback = key) {
+    if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
+    const path = key.substring(1).split(".");
+    let target = window.xcpDerpLocaleData || {};
+    for (const segment of path) {
+        target = target?.[segment];
+        if (target === undefined) return fallback;
+    }
+    return target;
+}
+
 app.registerExtension({
     name: "xcp.derpModelLoader_Extension",
     async setup() {
@@ -119,15 +130,15 @@ app.registerExtension({
                         hidden: !m.active,
                         alpha: item.isPreviewGhost ? 0 : 1.0,
                         width: "match", height: "full", padding: [pW, pH], margin: [0, sH, sW, sH],
-                        themeKey: "button, t_textNormal",
-                        onPress: () => {
-                            showBastaFileHandler(this, "none", `btnRemoveModel_${idx}`, {
-                                title: "Remove Model",
-                                message: `Remove ${m.name.split(/[\\/]/).pop().replace(/\.safetensors$/i, "")} from deck?`,
-                                confirm: "Remove",
-                                mode: "delete",
-                                playSound: "delete",
-                                onConfirm: () => {
+                            themeKey: "button, t_textNormal",
+                            onPress: () => {
+                                showBastaFileHandler(this, "none", `btnRemoveModel_${idx}`, {
+                                    title: tLocale("$derp_model_loader.dialogs.remove_model.title", "Remove Model"),
+                                    message: `${tLocale("$derp_model_loader.dialogs.remove_model.message_prefix", "Remove")} ${m.name.split(/[\\/]/).pop().replace(/\.safetensors$/i, "")} ${tLocale("$derp_model_loader.dialogs.remove_model.message_suffix", "from deck?")}`,
+                                    confirm: tLocale("$derp_model_loader.dialogs.remove_model.confirm", "Remove"),
+                                    mode: "delete",
+                                    playSound: "delete",
+                                    onConfirm: () => {
                                     const currentIdx = this.properties.modelDeck.indexOf(m);
                                     if (currentIdx === -1) return;
 
@@ -217,9 +228,9 @@ app.registerExtension({
                             themeKey: "button, t_textNormal",
                             onPress: () => {
                                 showBastaFileHandler(this, "none", "btnNew", {
-                                    title: "Clear Model Deck",
-                                    message: "Clear the Model deck?",
-                                    confirm: "Clear",
+                                    title: tLocale("$derp_model_loader.dialogs.clear_deck.title", "Clear Model Deck"),
+                                    message: tLocale("$derp_model_loader.dialogs.clear_deck.message", "Clear the Model deck?"),
+                                    confirm: tLocale("$derp_model_loader.dialogs.clear_deck.confirm", "Clear"),
                                     mode: "delete",
                                     playSound: "delete",
                                     properties: { bastaMovalbe: false },
@@ -236,8 +247,8 @@ app.registerExtension({
                         browserModels: {
                             type: this.UI_TYPES.FILEBROWSER,
                             items: (this._modelList || []).filter(name => !deck.some(m => m.name === name)),
-                            mode: "file", rootName: "models", fileType: "model", mouseOver: false,
-                            value: "Select Model...",
+                            mode: "file", rootName: tLocale("$derp_model_loader.browser.root_name", "models"), fileType: "model", mouseOver: false,
+                            value: tLocale("$derp_model_loader.browser.select", "Select Model..."),
                             width: "full", height: "auto",
                             fontSize: t_textNormal_size,
                             themeKey: "dialog, t_textNormal", canvasShield: true,
@@ -257,7 +268,7 @@ app.registerExtension({
                             }
                         },
                         btnRefreshModels: {
-                            type: this.UI_TYPES.BUTTON, text: "Refresh",
+                            type: this.UI_TYPES.BUTTON, text: tLocale("$derp_model_loader.browser.refresh", "Refresh"),
                             width: "auto", height: "fill", padding: [pW, pH],
                             fontSize: t_textNormal_size,
                             labelAlign: ["center", "middle"], themeKey: "button, t_textSmall",
@@ -289,7 +300,7 @@ app.registerExtension({
                         type: this.UI_TYPES.TEXT, mouseOver: false,
                         themeKey: "t_textSystem",
                         labelAlign: ["left", "middle"],
-                        text: "Custom node properties:",
+                        text: tLocale("$derp_model_loader.system.properties", "Custom node properties:"),
                         width: "full", padding: [pW, pH],
                     },
                     "regionSetting-1": {
@@ -297,7 +308,7 @@ app.registerExtension({
                         dir: "row", width: "full", height: "auto", spacing: [sW, 0],
                         toggleShowFolder: {
                             type: this.UI_TYPES.TOGGLE_V2, isTextOnly: true, themeKey: "button, t_textSystem",
-                            text: "Show Folder Names",
+                            text: tLocale("$derp_model_loader.system.show_folder_names", "Show Folder Names"),
                             width: "full", height: "auto", padding: [pW, pH],
                             value: this.properties.showFolderNames !== false,
                             onChange: (v) => {
@@ -312,7 +323,7 @@ app.registerExtension({
                         dir: "row", width: "full", height: "auto", spacing: [sW, 0],
                         toggleDumpModelOnChange: {
                             type: this.UI_TYPES.TOGGLE_V2, isTextOnly: true, themeKey: "button, t_textSystem",
-                            text: "Clear VRAM on new model selection",
+                            text: tLocale("$derp_model_loader.system.clear_vram_on_change", "Clear VRAM on new model selection"),
                             width: "full", height: "auto", padding: [pW, pH],
                             value: this.properties.toggleDumpModelOnChange !== false,
                             onChange: (v) => {

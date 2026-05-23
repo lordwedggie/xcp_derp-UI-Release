@@ -11,6 +11,43 @@ import { endStackDrag } from "../../fatha/helpers/fathaDragDrop.js";
 import { settleDerpSizeBeforeDraw } from "../../fatha/core/fathaHandler.js";
 import { isLinearDeckGroup, isNodeDocked } from "../../fatha/core/masterDockEngine.js";
 
+function tLocale(key, fallback = key) {
+    if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
+    const path = key.substring(1).split(".");
+    let target = window.xcpDerpLocaleData || {};
+    for (const segment of path) {
+        target = target?.[segment];
+        if (target === undefined) return fallback;
+    }
+    return target;
+}
+
+function syncDerpTriggerWallLocaleLabels(node) {
+    if (!node?.properties) return;
+    const localizedTitle = tLocale("$derp_trigger_wall.title", "Derp Trigger Wall");
+    const previousLocalizedTitle = node._lastLocalizedDerpTriggerWallTitle;
+    const localizedOutput = tLocale("$derp_trigger_wall.output", "Triggers");
+    const previousLocalizedOutput = node._lastLocalizedDerpTriggerWallOutput;
+
+    if (!node.titleLabel || node.titleLabel === "Derp Trigger Wall" || (previousLocalizedTitle && node.titleLabel === previousLocalizedTitle)) {
+        node.titleLabel = localizedTitle;
+    }
+    if (!node.properties.titleLabel || node.properties.titleLabel === "Derp Trigger Wall" || (previousLocalizedTitle && node.properties.titleLabel === previousLocalizedTitle)) {
+        node.properties.titleLabel = localizedTitle;
+    }
+    if (!node.properties.outputName || node.properties.outputName === "Triggers" || (previousLocalizedOutput && node.properties.outputName === previousLocalizedOutput)) {
+        node.properties.outputName = localizedOutput;
+    }
+
+    node._lastLocalizedDerpTriggerWallTitle = localizedTitle;
+    node._lastLocalizedDerpTriggerWallOutput = localizedOutput;
+}
+
+function getTriggerGroupDefaultTitle(index = 1) {
+    const prefix = tLocale("$derp_trigger_wall.groups.default_prefix", "Trigger Group");
+    return `${prefix} ${index}`;
+}
+
 // Sync structural-only data from runtime cache to workflow-serializable properties
 function syncTriggerGroupToProperties(node) {
     if (!node.properties) return;
@@ -20,27 +57,11 @@ function syncTriggerGroupToProperties(node) {
         .map(g => ({ id: g.id, title: g.title, isExclusive: !!g.isExclusive, triggers: (g.triggers || []).filter(t => !t.hidden).map(t => ({ id: t.id, label: t.label, weight: t.weight, active: !!t.active })) }));
 }
 
-// Ensure runtime cache exists, seeded from properties if needed
 export function ensureTriggerGroupData(node, force = false) {
     if (force || !Array.isArray(node._triggerGroupData)) {
         node._triggerGroupData = (node.properties.triggerGroups || []).map(g => ({ ...g, triggers: (g.triggers || []).map(t => ({ ...t, active: t.active !== false, weight: t.weight ?? 1.0 })) }));
     }
     return node._triggerGroupData;
-}
-
-function applyDeckProfileToData(node, deckGroups) {
-    if (!Array.isArray(deckGroups) || !Array.isArray(node._triggerGroupData)) return;
-    const deckMap = new Map(deckGroups.map(g => [g.id, g]));
-    node._triggerGroupData.forEach(group => {
-        const deck = deckMap.get(group.id);
-        if (deck && Array.isArray(deck.triggers)) {
-            const triggerMap = new Map(deck.triggers.map(t => [t.id, t]));
-            (group.triggers || []).forEach(trig => {
-                const dt = triggerMap.get(trig.id);
-                if (dt) { trig.weight = dt.weight; trig.active = !!dt.active; }
-            });
-        }
-    });
 }
 
 function refreshAndSync(node, syncOutputs = true, dirtyFull = false, settleOptions = {}) {
@@ -73,14 +94,14 @@ function setLoadedTriggerPreset(node, presetName, presetData) {
 export function triggerWall_syncOutputs(node) {
     if (node.id === -1) return;
 
-    // THE ASSASSIN EVASION: Rename the debouncer so fatha.js doesn't kill it during bypass
     if (node._twSyncDebouncer) clearTimeout(node._twSyncDebouncer);
 
-    node.outputs = [{ name: "Triggers", type: "STRING", label: "Triggers" }];
+    const outputName = node.properties?.outputName || tLocale("$derp_trigger_wall.output", "Triggers");
+    node.outputs = [{ name: outputName, type: "STRING", label: outputName }];
 
     const baseId = String(node.id);
     const signalId = `${baseId}:0`;
-    const nodeName = node.titleLabel || node.title || "Derp Trigger Wall";
+    const nodeName = node.titleLabel || node.title || tLocale("$derp_trigger_wall.title", "Derp Trigger Wall");
 
     const isBypassed = node.mode === 4 || node.mode === 2 || node._derpSpoofedBypass;
     let allActiveStrings = [];
@@ -98,11 +119,9 @@ export function triggerWall_syncOutputs(node) {
     const outContent = allActiveStrings.length > 0 ? allActiveStrings.join(", ") + ", " : "";
     const syncFingerprint = `${isBypassed ? "bypass" : "live"}__${nodeName}__${outContent}`;
 
-    // ZERO-INFERENCE GATING: Prevent redundant signal broadcast and server sync
     if (node._lastSyncedContent === syncFingerprint) return;
     node._lastSyncedContent = syncFingerprint;
 
-    // THE BYPASS SIGNAL ENFORCER: Ensure root and index signals are identical and cleared on bypass
     const signalEntries = [baseId, signalId];
     signalEntries.forEach(sid => {
         window.xcpDerpSignals[sid] = {
@@ -141,7 +160,6 @@ export function triggerWall_syncOutputs(node) {
         window.app.canvas.setDirty(true, false);
     }
 
-    // THE HEIST CLEANUP: Purge physical slots after the registry update
     setTimeout(() => {
         if (node.outputs && node.outputs.length > 0) {
             node.outputs.forEach(o => { if (o.links) o.links = null; });
@@ -156,20 +174,18 @@ export function triggerWall_onNodeCreated(node, originalCallback) {
     node.properties.skipGenericWirelessHeartbeat = true;
     node.outputs = [];
 
-    node.titleLabel = "Derp Trigger Wall";
-    node.properties.titleLabel = "Derp Trigger Wall";
-    node.properties.outputName = "Triggers";
+    syncDerpTriggerWallLocaleLabels(node);
     node.properties.lastSavedPreset = node.properties.lastSavedPreset || "";
     node.properties.loadedTriggerPreset = node.properties.loadedTriggerPreset || null;
     const initialGroupId = `grp_${Date.now()}`;
     node._triggerGroupData = [{
         id: initialGroupId,
-        title: "Trigger Group 1",
+        title: getTriggerGroupDefaultTitle(1),
         isExclusive: false,
         triggers: [{ id: `trig_${Date.now()}`, active: true, weight: 1.0 }]
     }];
     syncTriggerGroupToProperties(node);
-    node.properties.triggers = []; // THE COLLISION FIX: Clear legacy array
+    node.properties.triggers = [];
     node.properties.showWeight = true;
     node.properties.toggleAddAlways = true;
     node.properties.drawSettingBtn = true;
@@ -252,7 +268,6 @@ export function triggerWall_onDrawForeground(node, ctx, originalCallback) {
         node.requestDerpSync();
     }
 
-    // THE REFLOW FIX: Only rebuild layout map if the physical width actually changed
     const currentW = Math.round(node.size[0]);
     const widthBucket = Math.round(currentW / 10) * 10;
     if (node._lastDerpWBucket !== widthBucket) {
@@ -272,7 +287,6 @@ export function triggerWall_onDrawForeground(node, ctx, originalCallback) {
 
     if (node.flags?.collapsed) return;
 
-    // THE TITLE REFRESH FIX: Update wireless registry if the title label changed
     if (node._lastTitleLabel !== node.titleLabel) {
         node._lastTitleLabel = node.titleLabel;
         if (node.syncDerpOutputs) node.syncDerpOutputs();
@@ -283,7 +297,7 @@ export function triggerWall_onDeselected(node) {
     const suppressRegionDeselect = Date.now() < (node._suppressRegionDeselectUntil || 0);
     if ((node._selectedRegions && Object.keys(node._selectedRegions).length > 0) || node._activeModalItemKey) {
         if (!suppressRegionDeselect) node._selectedRegions = {};
-        node._activeModalItemKey = null; // THE CLEANUP FIX: Clear modal theme lock on deselection
+        node._activeModalItemKey = null;
         node.refreshNodeLayoutMap();
         node.setDirtyCanvas(true);
     }
@@ -360,17 +374,21 @@ export async function triggerWall_onLoadDeckProfile(node, presetName) {
 
 export function triggerWall_onThemeUpdate(node, config) {
     node.handleThemeUpdate(config);
+    syncDerpTriggerWallLocaleLabels(node);
     node._layoutMapHash = null;
     node.refreshNodeLayoutMap();
     if (node.refreshDerpTriggerWallSysMap) node.refreshDerpTriggerWallSysMap();
+    if (node.syncDerpOutputs) node.syncDerpOutputs();
     node.requestDerpSync();
 }
 
 export function triggerWall_applyPalette(node) {
     if (window.xcpDerpThemeConfig) node.handleThemeUpdate(window.xcpDerpThemeConfig);
+    syncDerpTriggerWallLocaleLabels(node);
     node._layoutMapHash = null;
     node.refreshNodeLayoutMap();
     if (node.refreshDerpTriggerWallSysMap) node.refreshDerpTriggerWallSysMap();
+    if (node.syncDerpOutputs) node.syncDerpOutputs();
     node.requestDerpSync();
 }
 
@@ -378,7 +396,7 @@ export function triggerWall_addGroup(node) {
     ensureTriggerGroupData(node);
     node._triggerGroupData.push({
         id: `grp_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`,
-        title: `Trigger Group ${node._triggerGroupData.length + 1}`,
+        title: getTriggerGroupDefaultTitle(node._triggerGroupData.length + 1),
         triggers: [{ id: `trig_${Math.random().toString(16).slice(2, 8)}`, active: true, weight: 1.0 }],
         isExclusive: false
     });
@@ -623,13 +641,13 @@ export function triggerWall_toggleRegion(node, regionKey) {
 }
 
 export function triggerWall_renameGroup(node, group, gIdx) {
-    const currentTitle = group.title || "Trigger Group";
+    const currentTitle = group.title || tLocale("$derp_trigger_wall.groups.default", "Trigger Group");
     showBastaFileHandler(node, "none", `btnRename_${gIdx}`, {
-        title: "Rename Trigger Group",
-        confirm: "Rename",
+        title: tLocale("$derp_trigger_wall.dialogs.rename_group.title", "Rename Trigger Group"),
+        confirm: tLocale("$derp_trigger_wall.dialogs.rename_group.confirm", "Rename"),
         originalName: currentTitle,
         mode: "rename",
-        message: "Enter new name for trigger group:",
+        message: tLocale("$derp_trigger_wall.dialogs.rename_group.message", "Enter new name for trigger group:"),
         onConfirm: async (newName) => {
             group.title = newName;
             refreshAndSync(node, true, false);
@@ -678,14 +696,14 @@ export function triggerWall_confirmRemoveGroup(node, gIdx) {
     ensureTriggerGroupData(node);
     const group = node._triggerGroupData?.[gIdx];
     if (!group) return;
-    const groupTitle = String(group.title || `Trigger Group ${gIdx + 1}`);
-    const removeMessage = `Remove '${groupTitle}' from the wall?`;
+    const groupTitle = String(group.title || getTriggerGroupDefaultTitle(gIdx + 1));
+    const removeMessage = `${tLocale("$derp_trigger_wall.dialogs.remove_group.message_prefix", "Remove")} '${groupTitle}' ${tLocale("$derp_trigger_wall.dialogs.remove_group.message_suffix", "from the wall?")}`;
 
     showBastaFileHandler(node, "none", `btnRemoveGroup_${gIdx}`, {
-        title: "Remove Trigger Group",
+        title: tLocale("$derp_trigger_wall.dialogs.remove_group.title", "Remove Trigger Group"),
         mode: "delete",
         message: removeMessage,
-        confirm: "Remove",
+        confirm: tLocale("$derp_trigger_wall.dialogs.remove_group.confirm", "Remove"),
         properties: {
             messageThemeKey: "t_textNormal",
             showMessageLinebreak: true,
@@ -705,7 +723,7 @@ export function triggerWall_confirmRemoveGroup(node, gIdx) {
         },
         onConfirm: async () => {
             triggerWall_removeGroup(node, gIdx);
-            showBastaMessage(node, `Removed '${groupTitle}'.`, 1800, { width: 260 }, `btnRemoveGroup_${gIdx}`, false, "success");
+            showBastaMessage(node, `${tLocale("$derp_trigger_wall.messages.removed_prefix", "Removed")} '${groupTitle}'.`, 1800, { width: 260 }, `btnRemoveGroup_${gIdx}`, false, "success");
             node.requestDerpSync();
         }
     });
@@ -813,10 +831,10 @@ export async function triggerWall_addSelectedGroupToProfile(node) {
         setLoadedTriggerPreset(node, presetName, presetData);
         node._layoutMapHash = null;
         refreshAndSync(node, false, true);
-        showBastaMessage(node, "Profile Saved!", 3000, { fade: true, grow: true }, "btnAddTriggerToProfile", false, "success");
+        showBastaMessage(node, tLocale("$derp_trigger_wall.messages.profile_saved", "Profile Saved!"), 3000, { fade: true, grow: true }, "btnAddTriggerToProfile", false, "success");
     } catch (e) {
         console.error("[xcpDerp] Failed to save trigger group to profile:", e);
-        showBastaMessage(node, "Save Failed", 3000, { fade: true, grow: true }, "btnAddTriggerToProfile", false, "error");
+        showBastaMessage(node, tLocale("$derp_trigger_wall.messages.save_failed", "Save Failed"), 3000, { fade: true, grow: true }, "btnAddTriggerToProfile", false, "error");
     }
 }
 
@@ -858,10 +876,10 @@ export async function triggerWall_saveGroupToProfile(node, group, targetRegion =
         setLoadedTriggerPreset(node, presetName, presetData);
         node._layoutMapHash = null;
         refreshAndSync(node, false, true);
-        showBastaMessage(node, "Profile Saved!", 3000, { fade: true, grow: true }, targetRegion, false, "success");
+        showBastaMessage(node, tLocale("$derp_trigger_wall.messages.profile_saved", "Profile Saved!"), 3000, { fade: true, grow: true }, targetRegion, false, "success");
     } catch (e) {
         console.error("[xcpDerp] Failed to overwrite trigger group in profile:", e);
-        showBastaMessage(node, "Save Failed", 3000, { fade: true, grow: true }, targetRegion, false, "error");
+        showBastaMessage(node, tLocale("$derp_trigger_wall.messages.save_failed", "Save Failed"), 3000, { fade: true, grow: true }, targetRegion, false, "error");
     }
 }
 
@@ -913,10 +931,10 @@ export async function triggerWall_saveCurrentProfile(node, targetRegion = "btnSa
         node._layoutMapHash = null;
         refreshAndSync(node, false, true);
         const savedName = String(presetName || "").split(/[\\/]/).pop() || String(presetName || "");
-        showBastaSystemMessage(node, "Profile Saved: ", 3000, { fade: true, grow: true }, targetRegion, "success", null, savedName);
+        showBastaSystemMessage(node, tLocale("$derp_trigger_wall.messages.profile_saved_prefix", "Profile Saved: "), 3000, { fade: true, grow: true }, targetRegion, "success", null, savedName);
     } catch (e) {
         console.error("[xcpDerp] Failed to save current profile:", e);
-        showBastaMessage(node, "Save Failed", 3000, { fade: true, grow: true }, targetRegion, false, "error");
+        showBastaMessage(node, tLocale("$derp_trigger_wall.messages.save_failed", "Save Failed"), 3000, { fade: true, grow: true }, targetRegion, false, "error");
     }
 }
 

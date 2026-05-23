@@ -8,6 +8,17 @@ var BTN_LR_RATIO = 0.75;
 var BTN_LR_FONTSIZE = 6;
 var BTN_LR_MARGIN = 1;
 
+function tLocale(key, fallback = key) {
+    if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
+    const path = key.substring(1).split(".");
+    let target = window.xcpDerpLocaleData || {};
+    for (const segment of path) {
+        target = target?.[segment];
+        if (target === undefined) return fallback;
+    }
+    return target;
+}
+
 export function setupDerpSliderCore(nodeType) {
     if (!nodeType.prototype.transmitDerpSignal) {
         nodeType.prototype.transmitDerpSignal = transmitDerpSignal;
@@ -199,8 +210,8 @@ export function setupDerpSliderCore(nodeType) {
         this.properties.isWirelessTransmitter = true;
         this.properties.skipGenericWirelessHeartbeat = true;
 
-        this.titleLabel = "Derp Slider";
-        this.properties.titleLabel = "Derp Slider";
+        this.titleLabel = tLocale("$derp_slider.title", "Derp Slider");
+        this.properties.titleLabel = tLocale("$derp_slider.title", "Derp Slider");
         this.properties.autoWidth = false;
         this.properties.autoHeight = true;
         this.properties.nodeSize = [300, 50];
@@ -225,6 +236,17 @@ export function setupDerpSliderCore(nodeType) {
 
         if (info.properties && this.refreshDerpSliderSysMap) this.refreshDerpSliderSysMap();
         this.properties.skipGenericWirelessHeartbeat = true;
+        if (!this.properties.nameDisplay) this.properties.nameDisplay = "Top";
+        const normalizedDisplay = String(this.properties.nameDisplay || "").trim().toLowerCase();
+        const localizedDisplayMap = {
+            [String(tLocale("$derp_slider.name_display.slider", "Slider")).trim().toLowerCase()]: "Slider",
+            [String(tLocale("$derp_slider.name_display.top", "Top")).trim().toLowerCase()]: "Top",
+            [String(tLocale("$derp_slider.name_display.left", "Left")).trim().toLowerCase()]: "Left",
+            [String(tLocale("$derp_slider.name_display.none", "None")).trim().toLowerCase()]: "None",
+        };
+        if (localizedDisplayMap[normalizedDisplay]) this.properties.nameDisplay = localizedDisplayMap[normalizedDisplay];
+        if (!this.titleLabel || this.titleLabel === "Derp Slider") this.titleLabel = tLocale("$derp_slider.title", "Derp Slider");
+        if (!this.properties.titleLabel || this.properties.titleLabel === "Derp Slider") this.properties.titleLabel = tLocale("$derp_slider.title", "Derp Slider");
         if (typeof this.syncDerpOutputs === "function") this.syncDerpOutputs();
     };
 

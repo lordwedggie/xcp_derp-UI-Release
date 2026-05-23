@@ -16,6 +16,17 @@ import { colorPulse2, parseColor, animateAlpha } from "../../herbina/masterAnima
 import { resolvePaintData, measureTextHeight } from "../../herbina/utils/widgetsUtils.js";
 import { calculatePreviewDisplayHeight, switchLoraImage, setLoraCover, calculatePreviewAspectRatio, deleteLoraDetailImage } from "../../controldeck/helpers/loraImages.js";
 
+function tLocale(key, fallback = key) {
+    if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
+    const path = key.substring(1).split(".");
+    let target = window.xcpDerpLocaleData || {};
+    for (const segment of path) {
+        target = target?.[segment];
+        if (target === undefined) return fallback;
+    }
+    return target;
+}
+
 function debugPreviewSet(loraData, source, url) {
     try {
         if (window._xcpDebugLoraPreviewSwitch !== true) return;
@@ -297,17 +308,17 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                         const livePath = (liveStack[loraData.slotIndex]?.[0] || currentPath || "").replace(/\\/g, "/");
                         const originalName = livePath.split("/").pop() || (loraData.name || "");
                         showBastaFileHandler(basta, "none", "btnRenameLora", {
-                            title: `Rename LoRA: ${originalName}`,
-                            message: "Rename this LoRA and its linked preview assets.",
+                            title: `${tLocale("$basta_lora_detail.dialogs.rename_lora.title", "Rename LoRA")}: ${originalName}`,
+                            message: tLocale("$basta_lora_detail.dialogs.rename_lora.message", "Rename this LoRA and its linked preview assets."),
                             mode: "rename",
                             originalName,
                             onConfirm: async (nextName) => {
                                 try {
                                     await renameLoraBundle(host, basta, loraData, nextName);
-                                    showBastaSystemMessage(basta, "LoRA Renamed: ", 2600, { fade: true, grow: true }, "btnRenameLora", "success", null, nextName);
+                                    showBastaSystemMessage(basta, tLocale("$basta_lora_detail.messages.lora_renamed_prefix", "LoRA Renamed: "), 2600, { fade: true, grow: true }, "btnRenameLora", "success", null, nextName);
                                 } catch (error) {
                                     console.error("[xcpDerp] LoRA rename failed:", error);
-                                    showBastaMessage(basta, error?.message || "LoRA Rename Failed", 3200, { fade: true, grow: true, width: 260 }, "btnRenameLora", false, "error");
+                                    showBastaMessage(basta, error?.message || tLocale("$basta_lora_detail.messages.rename_failed", "LoRA Rename Failed"), 3200, { fade: true, grow: true, width: 260 }, "btnRenameLora", false, "error");
                                     throw error;
                                 }
                             }
@@ -320,7 +331,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                     indicator: true,
                     minWidth: 50,
                     themeKey: "dialog, t_textSmall",
-                    text: currentPath.split(/[\\/]/).pop() || "Unknown",
+                    text: currentPath.split(/[\\/]/).pop() || tLocale("$basta_lora_detail.labels.unknown", "Unknown"),
                     value: currentPath,
                     fileType: "lora",
                     width: "full", height: "auto", padding: [pW, pH], spacing: [sW, 0], margin: [0, 0, 0, 0],
@@ -329,7 +340,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 },
                 btnDeleteNote: {
                     type: UI_TYPES.BUTTON, themeKey: "button, t_textSmall", labelAlign: ["center", "middle"],
-                    text: "Delete Notes", width: "auto", height: "auto", padding: [pW, pH],
+                    text: tLocale("$basta_lora_detail.notes.delete", "Delete Notes"), width: "auto", height: "auto", padding: [pW, pH],
                     hidden: !loraData.notes, spacing: [sW, 0], margin: [0, 0, 0, 0],
                     onPress: () => {
                         const liveStack = host.properties?.stackData || [];
@@ -390,7 +401,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 hidden: !basta._showLoraSettings,
                 labelMin: {
                     type: UI_TYPES.TEXT, themeKey: "t_textSystem",
-                    text: "Min:", width: "auto", spacing: [sW, 0],
+                    text: tLocale("$basta_lora_detail.settings.min", "Min:"), width: "auto", spacing: [sW, 0],
                 },
                 editorMin: {
                     type: UI_TYPES.EDITOR, themeKey: "dialog, t_textSystem", labelAlign: ["center", "middle"],
@@ -412,7 +423,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 },
                 labelMax: {
                     type: UI_TYPES.TEXT, themeKey: "t_textSystem",
-                    text: "Max:", width: "auto", spacing: [sW, 0],
+                    text: tLocale("$basta_lora_detail.settings.max", "Max:"), width: "auto", spacing: [sW, 0],
                 },
                 editorMax: {
                     type: UI_TYPES.EDITOR, themeKey: "dialog, t_textSystem", labelAlign: ["center", "middle"],
@@ -433,7 +444,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 },
                 labelStep: {
                     type: UI_TYPES.TEXT, themeKey: "t_textSystem",
-                    text: "Step:", width: "auto", spacing: [sW, 0],
+                    text: tLocale("$basta_lora_detail.settings.step", "Step:"), width: "auto", spacing: [sW, 0],
                 },
                 editorStep: {
                     type: UI_TYPES.EDITOR, themeKey: "dialog, t_textSystem", labelAlign: ["center", "middle"],
@@ -454,7 +465,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 },
                 labelDefault: {
                     type: UI_TYPES.TEXT, themeKey: "t_textSystem",
-                    text: "Def:", width: "auto", spacing: [sW, 0],
+                    text: tLocale("$basta_lora_detail.settings.default", "Def:"), width: "auto", spacing: [sW, 0],
                 },
                 editorDefault: {
                     type: UI_TYPES.EDITOR, themeKey: "dialog, t_textSystem", labelAlign: ["center", "middle"],
@@ -488,8 +499,8 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 isSelected: basta._previewSelected,
                 showPasteOverlay: !!basta._previewSelected,
                 overlayText: [
-                    { text: "Ready to accept image pasting (CTRL-V)", themeKey: "t_textBig", offset: -6 },
-                    { text: "Image will be saved in the lora's subfolder", themeKey: "t_textSmall", offset: 8 }
+                    { text: tLocale("$basta_lora_detail.preview.overlay_ready", "Ready to accept image pasting (CTRL-V)"), themeKey: "t_textBig", offset: -6 },
+                    { text: tLocale("$basta_lora_detail.preview.overlay_path", "Image will be saved in the lora's subfolder"), themeKey: "t_textSmall", offset: 8 }
                 ],
                 pulseColorA: [0, 0, 0, 0.8],
                 pulseColorB: [255, 255, 255, 1.0],
@@ -543,7 +554,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 btnSetCover: {
                     type: UI_TYPES.BUTTON, themeKey: "button, t_textSystem", palette: btnPal, objectAlign:["left", "middle"],
                     alpha: basta._navAlpha, spacing: [sH, 0],
-                    text: "Set as Cover", labelAlign: ["center", "middle"],
+                    text: tLocale("$basta_lora_detail.preview.set_cover", "Set as Cover"), labelAlign: ["center", "middle"],
                     width: "auto", height: "full", padding: [pW, pH], margin: [0, sH],
                     // THE COVER GUARD: Hide the button if we are currently viewing the cover (index -1) or no sub-images exist
                     hidden: !hasImages || loraData.currentImageIndex === -1,
@@ -556,7 +567,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                     // THE TYPE REVERSION: Returning to standard BUTTON for reliability
                     type: UI_TYPES.BUTTON,
                     themeKey: "button, t_textSystem", palette: btnPal,margin: [0, sH],
-                    text: "Link", labelAlign: ["center", "middle"],
+                    text: tLocale("$basta_lora_detail.preview.link", "Link"), labelAlign: ["center", "middle"],
                     alpha: basta._navAlpha,
                     width: "fit", height: "fit",
                     padding: [pW, pH],spacing: [sH, 0],
@@ -571,7 +582,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                                 slotIndex: loraData.slotIndex,
                                 tagKey: basta._activeTagKey,
                                 image: currentImg,
-                                successMsg: "Image Linked",
+                                successMsg: tLocale("$basta_lora_detail.messages.image_linked", "Image Linked"),
                                 regionKey: "btnSetTrigger"
                             });
                         }
@@ -580,7 +591,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 btnDeleteImage: {
                     type: UI_TYPES.BUTTON,
                     themeKey: "button, t_textSystem", palette: btnPal,
-                    text: "Delete", labelAlign: ["center", "middle"],
+                    text: tLocale("$widgets.delete", "Delete"), labelAlign: ["center", "middle"],
                     alpha: basta._navAlpha,
                     state: (loraData.currentImageIndex === -1 || (loraData.images || []).length === 0) ? "DIS" : "OFF",
                     width: "fit", height: "fit",
@@ -591,11 +602,11 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                         const imgList = loraData.images || [];
                         const loraBase = currentPath.split(/[\\/]/).pop().replace(/\.safetensors$/i, "");
                         const coverExt = loraData.coverFilename ? loraData.coverFilename.split('.').pop() : "png";
-                        const displayFilename = decodeURIComponent((idx === -1) ? (loraBase + "." + coverExt) : (imgList[idx] || "Unknown")).split(/[\\/]/).pop();
+                        const displayFilename = decodeURIComponent((idx === -1) ? (loraBase + "." + coverExt) : (imgList[idx] || tLocale("$basta_lora_detail.labels.unknown", "Unknown"))).split(/[\\/]/).pop();
                         showBastaFileHandler(basta, "none", "btnDeleteImage", {
-                            title: "Delete Image",
-                            message: `Delete image: ${displayFilename}?`,
-                            confirm: "Delete",
+                            title: tLocale("$basta_lora_detail.dialogs.delete_image.title", "Delete Image"),
+                            message: `${tLocale("$basta_lora_detail.dialogs.delete_image.message_prefix", "Delete image")}: ${displayFilename}?`,
+                            confirm: tLocale("$widgets.delete", "Delete"),
                             mode: "delete",
                             originalName: displayFilename,
                             initialSize: [160, 100],
@@ -612,7 +623,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                             },
                             onConfirm: () => {
                                 deleteLoraDetailImage(basta, loraData, () => {
-                                    showBastaMessage(basta, `Deleted: ${displayFilename}`, 3000, { fade: true, grow: true }, "btnDeleteImage", false, "success");
+                                    showBastaMessage(basta, `${tLocale("$basta_lora_detail.messages.deleted_prefix", "Deleted: ")}${displayFilename}`, 3000, { fade: true, grow: true }, "btnDeleteImage", false, "success");
                                     if (basta.setDirtyCanvas) basta.setDirtyCanvas(true);
                                 });
                             }
@@ -644,7 +655,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                     text: (() => {
                         const idx = loraData.currentImageIndex ?? -1;
                         const list = loraData.images || [];
-                        let fname = (idx === -1) ? (loraData.coverFilename || "Cover") : (list[idx] || "Unknown");
+                        let fname = (idx === -1) ? (loraData.coverFilename || tLocale("$basta_lora_detail.labels.cover", "Cover")) : (list[idx] || tLocale("$basta_lora_detail.labels.unknown", "Unknown"));
                         return decodeURIComponent(fname).replace("__PRIMARY_PREVIEW__", "");
                     })(),
                     labelAlign: ["left", "middle"], width: "full", margin: [mW, 0],
@@ -657,7 +668,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                         const list = loraData.images || [];
                         const total = list.length + (loraData.hasCover ? 1 : 0);
                         const currentIdx = idx + (loraData.hasCover ? 2 : 1);
-                        return `Image ${currentIdx} / ${total}`;
+                        return `${tLocale("$basta_lora_detail.labels.image", "Image")} ${currentIdx} / ${total}`;
                     })(),
                     labelAlign: ["right", "middle"], width: "auto", margin: [mW, 0],
                 }
@@ -674,7 +685,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                     type: UI_TYPES.BUTTON, labelAlign: ["center", "middle"], padding: [pW, pH],
                     themeKey: "button, t_textSmall", palette: civitPal,
                     alpha: basta._navAlpha,
-                    text: "CivitAI",
+                    text: tLocale("$basta_lora_detail.external.civitai", "CivitAI"),
                     width: "auto", spacing: [sW, 0],
                     objectAlign: ["left", "middle"],
                     onPress: async () => {
@@ -686,7 +697,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                     type: UI_TYPES.BUTTON, labelAlign: ["center", "middle"], padding: [pW, pH],
                     themeKey: "button, t_textSmall", palette: civArchivePal,
                     alpha: basta._navAlpha,
-                    text: "CivArchive",
+                    text: tLocale("$basta_lora_detail.external.civarchive", "CivArchive"),
                     width: "auto", spacing: [sW, 0],
                     onPress: async () => {
                         if (basta._navAlpha < 0.5) return;
@@ -698,7 +709,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                     type: UI_TYPES.BUTTON, labelAlign: ["center", "middle"], padding: [pW, pH],
                     themeKey: "button, t_textSmall", palette: folderPal,
                     alpha: basta._navAlpha,
-                    text: "Open LoRA folder",
+                    text: tLocale("$basta_lora_detail.external.open_folder", "Open LoRA folder"),
                     width: "auto", spacing: [sW, 0],
                     onPress: (e) => {
                         if (basta._navAlpha < 0.5) return;
@@ -725,10 +736,10 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                         const livePath = (liveStack[loraData.slotIndex]?.[0] || currentPath || loraData.name || "").replace(/\\/g, "/");
                         const defaultName = (livePath.split("/").pop() || loraData.name || "").replace(/\.[^/.]+$/, "");
                         showBastaFileHandler(basta, "none", "btnNew", {
-                            title: "New Trigger", confirm: "Create", originalName: defaultName, mode: "newTrigger",
-                            message: "Enter name for new trigger:",
+                            title: tLocale("$basta_lora_detail.dialogs.new_trigger.title", "New Trigger"), confirm: tLocale("$basta_lora_detail.dialogs.new_trigger.confirm", "Create"), originalName: defaultName, mode: "newTrigger",
+                            message: tLocale("$basta_lora_detail.dialogs.new_trigger.message", "Enter name for new trigger:"),
                             fileList: triggerItems.map(t => t.name),
-                            onConfirm: (newName) => manageLoraTrigger(host, basta, "new_tag", { slotIndex: loraData.slotIndex, tagName: newName, tagContent: "", successMsg: "Trigger Created", regionKey: "btnNew" })
+                            onConfirm: (newName) => manageLoraTrigger(host, basta, "new_tag", { slotIndex: loraData.slotIndex, tagName: newName, tagContent: "", successMsg: tLocale("$basta_lora_detail.messages.trigger_created", "Trigger Created"), regionKey: "btnNew" })
                         });
                     }
                 },
@@ -739,10 +750,10 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                     onPress: () => {
                         const currentName = (basta._activeTagName || "").replace(/\.txt$/i, "");
                         showBastaFileHandler(basta, "none", "btnRenameTrigger", {
-                            title: "Rename Trigger", confirm: "Rename", originalName: currentName, mode: "rename",
-                            message: "Enter new name for trigger entry:",
+                            title: tLocale("$basta_lora_detail.dialogs.rename_trigger.title", "Rename Trigger"), confirm: tLocale("$basta_lora_detail.dialogs.rename_trigger.confirm", "Rename"), originalName: currentName, mode: "rename",
+                            message: tLocale("$basta_lora_detail.dialogs.rename_trigger.message", "Enter new name for trigger entry:"),
                             fileList: triggerItems.map(t => t.name.replace(/\.txt$/i, "")),
-                            onConfirm: (newName) => manageLoraTrigger(host, basta, "rename", { slotIndex: loraData.slotIndex, tagKey: basta._activeTagKey, newName: newName, successMsg: "Trigger Renamed", regionKey: "btnRenameTrigger" })
+                            onConfirm: (newName) => manageLoraTrigger(host, basta, "rename", { slotIndex: loraData.slotIndex, tagKey: basta._activeTagKey, newName: newName, successMsg: tLocale("$basta_lora_detail.messages.trigger_renamed", "Trigger Renamed"), regionKey: "btnRenameTrigger" })
                         });
                     }
                 },
@@ -757,15 +768,15 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                         const liveContent = host.properties.stackData[loraData.slotIndex]?.[4] || "";
 
                         showBastaFileHandler(basta, "none", "btnCopyTrigger", {
-                            title: "Copy Trigger", confirm: "Duplicate", originalName: currentName, mode: "duplicate",
-                            message: "Enter name for duplicated trigger entry:",
+                            title: tLocale("$basta_lora_detail.dialogs.copy_trigger.title", "Copy Trigger"), confirm: tLocale("$basta_lora_detail.dialogs.copy_trigger.confirm", "Duplicate"), originalName: currentName, mode: "duplicate",
+                            message: tLocale("$basta_lora_detail.dialogs.copy_trigger.message", "Enter name for duplicated trigger entry:"),
                             fileList: triggerItems.map(t => t.name.replace(/\.txt$/i, "")),
                             onConfirm: (newName) => manageLoraTrigger(host, basta, "copy", {
                                 slotIndex: loraData.slotIndex,
                                 tagKey: basta._activeTagKey,
                                 newName: newName,
                                 tagContent: liveContent, // Inject current buffer
-                                successMsg: "Trigger Duplicated",
+                                successMsg: tLocale("$basta_lora_detail.messages.trigger_duplicated", "Trigger Duplicated"),
                                 regionKey: "btnCopyTrigger"
                             })
                         });
@@ -803,14 +814,14 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                         if (basta.layout?.regions?.btnSaveTrigger) basta.layout.regions.btnSaveTrigger.state = "DIS";
                         if (basta._compDataCache?.btnSaveTrigger) basta._compDataCache.btnSaveTrigger.state = "DIS";
 
-                        manageLoraTrigger(host, basta, "save", { slotIndex: loraData.slotIndex, tagKey: basta._activeTagKey, tagContent: content, successMsg: "Trigger Saved", regionKey: "triggerControlRow" }).finally(() => {
+                        manageLoraTrigger(host, basta, "save", { slotIndex: loraData.slotIndex, tagKey: basta._activeTagKey, tagContent: content, successMsg: tLocale("$basta_lora_detail.messages.trigger_saved", "Trigger Saved"), regionKey: "triggerControlRow" }).finally(() => {
                             basta._isSaving = false;
                             basta.requestDerpSync();
                         });
                     }
                 },
                 dropdownTrigger: {
-                    type: UI_TYPES.DROPDOWN_DERP, themeKey: "button, t_textSmall", measureText: "Select Trigger...",
+                    type: UI_TYPES.DROPDOWN_DERP, themeKey: "button, t_textSmall", measureText: tLocale("$basta_lora_detail.trigger.select", "Select Trigger..."),
                     state: (triggerItems && triggerItems.length > 0) ? "OFF" : "DIS", mouseOver: false,
                     canvasShield: true, width: "full", height: "auto", padding: [pW, pH], spacing: [sW, 0],
                     indicator: "on",
@@ -824,11 +835,11 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                     onPress: () => {
                         const currentName = basta._activeTagName || basta._activeTagKey;
                         showBastaFileHandler(basta, "none", "btnDeleteTrigger", {
-                            title: "Delete Trigger", confirm: "Delete", warning: "Delete Trigger?",
-                            message: `Permanently delete trigger entry: ${currentName}?`,
+                            title: tLocale("$basta_lora_detail.dialogs.delete_trigger.title", "Delete Trigger"), confirm: tLocale("$widgets.delete", "Delete"), warning: tLocale("$basta_lora_detail.dialogs.delete_trigger.warning", "Delete Trigger?"),
+                            message: `${tLocale("$basta_lora_detail.dialogs.delete_trigger.message_prefix", "Permanently delete trigger entry")}: ${currentName}?`,
                             originalName: currentName,
                             mode: "delete",
-                            onConfirm: () => manageLoraTrigger(host, basta, "delete", { slotIndex: loraData.slotIndex, tagKey: basta._activeTagKey, successMsg: "Trigger Deleted", regionKey: "btnDeleteTrigger" })
+                            onConfirm: () => manageLoraTrigger(host, basta, "delete", { slotIndex: loraData.slotIndex, tagKey: basta._activeTagKey, successMsg: tLocale("$basta_lora_detail.messages.trigger_deleted", "Trigger Deleted"), regionKey: "btnDeleteTrigger" })
                         });
                     }
                 }
@@ -852,7 +863,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 hidden: !triggerItems.some(t => (t.key || "").toLowerCase().endsWith(".txt")),
                 toggleRemoveTxt: {
                     type: UI_TYPES.TOGGLE, textThemeKey: "t_textSmall", labelAlign: ["left", "middle"],
-                    text: "Remove .txt files after import", icon: "radial",
+                    text: tLocale("$basta_lora_detail.import.remove_txt", "Remove .txt files after import"), icon: "radial",
                     width: "auto", height: "auto", padding: [pW, pH], spacing: [sW, 0],
                     state: "OFF",
                     // THE PERSISTENCE FIX: Bind value to the instance variable so it survives the layout engine's frame-by-frame reflows
@@ -867,7 +878,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                     labelAlign: ["center", "middle"], padding: [pW, pH],
                     themeKey: "button, t_textSmall",
                     state: "OFF",
-                    text: "Import Triggers",
+                    text: tLocale("$basta_lora_detail.import.import_triggers", "Import Triggers"),
                     width: "auto", height: "auto",
                     onPress: async () => {
                         const liveStack = host.properties?.stackData || [];
@@ -907,20 +918,22 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                                         if (host.refreshNodeLayoutMap) host.refreshNodeLayoutMap();
                                     }
 
-                                    const msg = removeTxt ? "Import & Cleanup Complete" : `Imported ${data.count || 0} triggers`;
+                                    const msg = removeTxt
+                                        ? tLocale("$basta_lora_detail.messages.import_cleanup_complete", "Import & Cleanup Complete")
+                                        : `${tLocale("$basta_lora_detail.messages.imported_prefix", "Imported")} ${data.count || 0} ${tLocale("$basta_lora_detail.messages.imported_suffix", "triggers")}`;
                                     showBastaMessage(basta, msg, 3000, {}, "btnImport", false, "success");
 
                                     basta._layoutDirty = true;
                                     basta._forceSync = true;
                                     if (typeof basta.setDirtyCanvas === "function") basta.setDirtyCanvas(true, true);
                                 } else {
-                                    showBastaMessage(basta, "Import Failed", 3000, { width: basta.size[0] }, "btnImport", false, "error");
+                                    showBastaMessage(basta, tLocale("$basta_lora_detail.messages.import_failed", "Import Failed"), 3000, { width: basta.size[0] }, "btnImport", false, "error");
                                 }
                             } else {
-                                showBastaMessage(basta, "Server Error", 3000, { width: basta.size[0] }, "btnImport", false, "error");
+                                showBastaMessage(basta, tLocale("$basta_lora_detail.messages.server_error", "Server Error"), 3000, { width: basta.size[0] }, "btnImport", false, "error");
                             }
                         } catch (e) {
-                            showBastaMessage(basta, "Network Error", 3000, { width: basta.size[0] }, "btnImport", false, "error");
+                            showBastaMessage(basta, tLocale("$basta_lora_detail.messages.network_error", "Network Error"), 3000, { width: basta.size[0] }, "btnImport", false, "error");
                         }
                     }
                 }
@@ -933,11 +946,11 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
             dir: "row", width: "full", margin: [mW, 0, mW, mH],
             labelRating: {
                 type: UI_TYPES.TEXT,
-                themeKey: "t_textNormal", text: "Rating:", width: "auto", spacing: [sW, 0],
+                themeKey: "t_textNormal", text: tLocale("$basta_lora_detail.footer.rating", "Rating:"), width: "auto", spacing: [sW, 0],
                 labelAlign: ["left", "middle"]
             },
             dropdownLoraRating: {
-                type: UI_TYPES.DROPDOWN_DERP, themeKey: "button, t_textSmall", measureText: "A - Excellent",
+                type: UI_TYPES.DROPDOWN_DERP, themeKey: "button, t_textSmall", measureText: tLocale("$basta_lora_detail.footer.rating_measure", "A - Excellent"),
                 canvasShield: true, width: "auto", height: "auto", padding: [pW, pH], mouseOver: false,
                 labelAlign: ["center", "middle"],
                 ...ratingProps
@@ -947,7 +960,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 themeKey: "buttonNode, t_textNormal",
                 objectAlign: ["right", "middle"],
                 labelAlign: ["center", "middle"], padding: [pW, pH],
-                text: "Close",
+                text: tLocale("$widgets.close", "Close"),
                 width: "auto",
                 height: "auto",
                 onPress: () => {

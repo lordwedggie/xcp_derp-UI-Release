@@ -8,6 +8,17 @@ import { initDerpVaeLoaderCore } from "./core/derpVaeLoader_core.js";
 import { showBastaFileHandler } from "../fatha/bastas/bastaFileHandler.js";
 import { startStackDrag, updateStackDrag, endStackDrag } from "../fatha/helpers/fathaDragDrop.js";
 
+function tLocale(key, fallback = key) {
+    if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
+    const path = key.substring(1).split(".");
+    let target = window.xcpDerpLocaleData || {};
+    for (const segment of path) {
+        target = target?.[segment];
+        if (target === undefined) return fallback;
+    }
+    return target;
+}
+
 app.registerExtension({
     name: "xcp.derpVaeLoader_Extension",
     async setup() {
@@ -119,9 +130,9 @@ app.registerExtension({
                         themeKey: "button, t_textNormal",
                         onPress: () => {
                             showBastaFileHandler(this, "none", `btnRemoveVae_${idx}`, {
-                                title: "Remove VAE",
-                                message: `Remove ${m.name.split(/[\\/]/).pop().replace(/\.(safetensors|pt|ckpt)$/i, "")} from deck?`,
-                                confirm: "Remove",
+                                title: tLocale("$derp_vae_loader.dialogs.remove_vae.title", "Remove VAE"),
+                                message: `${tLocale("$derp_vae_loader.dialogs.remove_vae.message_prefix", "Remove")} ${m.name.split(/[\\/]/).pop().replace(/\.(safetensors|pt|ckpt)$/i, "")} ${tLocale("$derp_vae_loader.dialogs.remove_vae.message_suffix", "from deck?")}`,
+                                confirm: tLocale("$derp_vae_loader.dialogs.remove_vae.confirm", "Remove"),
                                 mode: "delete",
                                 playSound: "delete",
                                 onConfirm: () => {
@@ -215,9 +226,9 @@ app.registerExtension({
                             themeKey: "button, t_textNormal",
                             onPress: () => {
                                 showBastaFileHandler(this, "none", "btnNew", {
-                                    title: "Clear VAE Deck",
-                                    message: "Clear the VAE deck?",
-                                    confirm: "Clear",
+                                    title: tLocale("$derp_vae_loader.dialogs.clear_deck.title", "Clear VAE Deck"),
+                                    message: tLocale("$derp_vae_loader.dialogs.clear_deck.message", "Clear the VAE deck?"),
+                                    confirm: tLocale("$derp_vae_loader.dialogs.clear_deck.confirm", "Clear"),
                                     mode: "delete",
                                     playSound: "delete",
                                     properties: { bastaMovalbe: false },
@@ -235,7 +246,7 @@ app.registerExtension({
                             type: this.UI_TYPES.FILEBROWSER,
                             items: (this._vaeList || []).filter(name => !deck.some(m => m.name === name)),
                             mode: "file", rootName: this.properties.extractFromModel ? "models" : "vaes", fileType: "vae", mouseOver: false,
-                            value: "Select Vae...",
+                            value: tLocale("$derp_vae_loader.browser.select", "Select Vae..."),
                             width: "full", height: "auto",
                             fontSize: t_textNormal_size,
                             themeKey: "dialog, t_textNormal", canvasShield: true,
@@ -258,7 +269,7 @@ app.registerExtension({
                             }
                         },
                         btnRefreshVaes: {
-                            type: this.UI_TYPES.BUTTON, text: "Refresh",
+                            type: this.UI_TYPES.BUTTON, text: tLocale("$derp_vae_loader.browser.refresh", "Refresh"),
                             width: "auto", height: "fill", padding: [pW, pH],
                             fontSize: t_textNormal_size,
                             labelAlign: ["center", "middle"], themeKey: "button, t_textSmall",
@@ -291,7 +302,7 @@ app.registerExtension({
                         type: this.UI_TYPES.TEXT, mouseOver: false,
                         themeKey: "t_textSystem",
                         labelAlign: ["left", "middle"],
-                        text: "Custom node properties:",
+                        text: tLocale("$derp_vae_loader.system.properties", "Custom node properties:"),
                         width: "full", padding: [pW, pH],
                     },
                     regionSetting1: {
@@ -299,7 +310,7 @@ app.registerExtension({
                         dir: "row", width: "full", height: "auto", spacing: [sW, 0],
                         toggleShowFolder: {
                             type: this.UI_TYPES.TOGGLE_V2, isTextOnly: true, themeKey: "button, t_textSystem",
-                            text: "Show Folder Names",
+                            text: tLocale("$derp_vae_loader.system.show_folder_names", "Show Folder Names"),
                             width: "auto", height: "auto", padding: [pW, pH],
                             value: this.properties.showFolderNames !== false,
                             onChange: (v) => {
@@ -310,7 +321,7 @@ app.registerExtension({
                         },
                         toggleModelVAE: {
                             type: this.UI_TYPES.TOGGLE_V2, isTextOnly: true, themeKey: "button, t_textSystem",
-                            text: "Extract VAE from model",
+                            text: tLocale("$derp_vae_loader.system.extract_from_model", "Extract VAE from model"),
                             width: "auto", height: "auto", padding: [pW, pH],
                             value: this.properties.extractFromModel || false,
                             onChange: (v) => {

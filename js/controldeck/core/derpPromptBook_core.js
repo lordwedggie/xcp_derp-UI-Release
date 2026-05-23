@@ -10,8 +10,44 @@ import { playKaChing, playKaboom } from "../../herbina/masterSoundEffects.js";
 
 const defaultDerpBookPages = 3;
 
+function tLocale(key, fallback = key) {
+    if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
+    const path = key.substring(1).split(".");
+    let target = window.xcpDerpLocaleData || {};
+    for (const segment of path) {
+        target = target?.[segment];
+        if (target === undefined) return fallback;
+    }
+    return target;
+}
+
+export function syncDerpPromptBookLocaleLabels(node) {
+    if (!node?.properties) return;
+    const localizedTitle = tLocale("$derp_prompt_book.title", "Derp Prompt Book");
+    const previousLocalizedTitle = node._lastLocalizedDerpPromptBookTitle;
+    const localizedBookName = tLocale("$derp_prompt_book.book.untitled_name", "Untitled Book");
+    const previousLocalizedBookName = node._lastLocalizedDerpPromptBookName;
+
+    if (!node.titleLabel || node.titleLabel === "Derp Prompt Book" || (previousLocalizedTitle && node.titleLabel === previousLocalizedTitle)) {
+        node.titleLabel = localizedTitle;
+    }
+    if (!node.properties.titleLabel || node.properties.titleLabel === "Derp Prompt Book" || (previousLocalizedTitle && node.properties.titleLabel === previousLocalizedTitle)) {
+        node.properties.titleLabel = localizedTitle;
+    }
+    if (!node.properties.bookName || node.properties.bookName === "Untitled Book" || (previousLocalizedBookName && node.properties.bookName === previousLocalizedBookName)) {
+        node.properties.bookName = localizedBookName;
+    }
+    if (!node._lastSavedBookName || node._lastSavedBookName === "Untitled Book" || (previousLocalizedBookName && node._lastSavedBookName === previousLocalizedBookName)) {
+        node._lastSavedBookName = localizedBookName;
+    }
+
+    node._lastLocalizedDerpPromptBookTitle = localizedTitle;
+    node._lastLocalizedDerpPromptBookName = localizedBookName;
+}
+
 function normalizePromptBookName(name) {
-    return String(name || "Untitled Book").replace(/\.json$/i, "").trim() || "Untitled Book";
+    const fallback = tLocale("$derp_prompt_book.book.untitled_name", "Untitled Book");
+    return String(name || fallback).replace(/\.json$/i, "").trim() || fallback;
 }
 
 function showPromptBookSystemSaveMessage(node, prefix, bookName, targetRegion = null) {
@@ -21,7 +57,7 @@ function showPromptBookSystemSaveMessage(node, prefix, bookName, targetRegion = 
 
 function showPromptBookMissingBookMessage(node, bookName, targetRegion = null) {
     const cleanName = normalizePromptBookName(bookName);
-    showBastaSystemMessage(node, "Book File Missing: ", 3200, { fade: true, grow: true }, targetRegion, "error", null, cleanName);
+    showBastaSystemMessage(node, tLocale("$derp_prompt_book.messages.book_missing_prefix", "Book File Missing: "), 3200, { fade: true, grow: true }, targetRegion, "error", null, cleanName);
 }
 
 function cleanPromptBookText(text) {
@@ -68,7 +104,7 @@ async function validateActivePromptBook(node) {
         if (availableBooks.includes(activeBookName)) return;
 
         showPromptBookMissingBookMessage(node, activeBookName);
-        node.properties.bookName = availableBooks[0] || "Untitled Book";
+        node.properties.bookName = availableBooks[0] || tLocale("$derp_prompt_book.book.untitled_name", "Untitled Book");
         node._lastSavedBookName = node.properties.bookName;
         node.properties.currentPageIndex = 0;
         node.properties.derpBook = createDefaultDerpBook();
@@ -91,7 +127,7 @@ async function validateActivePromptBook(node) {
 
 export const createDefaultDerpBook = () => {
     return Array.from({ length: defaultDerpBookPages }, (_, i) => ({
-        title: "untitled",
+        title: tLocale("$derp_prompt_book.page.untitled_title", "untitled"),
         content: "",
         images: []
     }));
@@ -108,7 +144,7 @@ export function bindPromptBookHooks(nodeType) {
             const isBypassed = this.mode === 4 || this.mode === 2 || this._derpSpoofedBypass;
 
             const baseId = String(this.id);
-            const nodeName = this.titleLabel || this.title || "Derp Prompt Book";
+            const nodeName = this.titleLabel || this.title || tLocale("$derp_prompt_book.title", "Derp Prompt Book");
             const activePage = this.properties.derpBook?.[this.properties.currentPageIndex || 0];
 
             const rawContent = (activePage?.content || "").replace(/\[\[IMG:[\s\S]*?\]\]/g, "");
@@ -126,7 +162,7 @@ export function bindPromptBookHooks(nodeType) {
 
             window.xcpDerpSignals[signalId] = {
                 nodeId: signalId,
-                nodeName: `${nodeName} [BookContent]`,
+                nodeName: `${nodeName} [${tLocale("$derp_prompt_book.signal.book_content", "BookContent")}]`,
                 nodeType: this.type || "Node",
                 type: "STRING",
                 value: outContent,
@@ -176,11 +212,11 @@ export function bindPromptBookHooks(nodeType) {
     };
 
     nodeType.prototype.onDerpSavePress = function() {
-        const currentName = this.properties.bookName || "Untitled Book";
+        const currentName = this.properties.bookName || tLocale("$derp_prompt_book.book.untitled_name", "Untitled Book");
         showBastaFileHandler(this, "derpPromptBook", "btnSave", {
-            title: "Save Book As",
-            message: "Enter filename for prompt book:",
-            confirm: "Save",
+            title: tLocale("$derp_prompt_book.dialogs.save_as.title", "Save Book As"),
+            message: tLocale("$derp_prompt_book.dialogs.save_as.message", "Enter filename for prompt book:"),
+            confirm: tLocale("$derp_prompt_book.dialogs.save_as.confirm", "Save"),
             mode: "save",
             originalName: currentName,
             initialSize: [250, 130],
@@ -195,7 +231,7 @@ export function bindPromptBookHooks(nodeType) {
                     if (res.ok) {
                         this.properties.bookName = filename;
                         this._lastSavedBookName = filename;
-                        showPromptBookSystemSaveMessage(this, "Book Saved: ", filename, "btnSave");
+                        showPromptBookSystemSaveMessage(this, tLocale("$derp_prompt_book.messages.book_saved_prefix", "Book Saved: "), filename, "btnSave");
                         this._sysProfileCache = null;
                         if (this._derpPanel?.showProfiles) this._derpPanel.showProfiles("derpPromptBook", "nodeSettings");
                         if (this.fetchRemoteBooks) await this.fetchRemoteBooks();
@@ -210,7 +246,7 @@ export function bindPromptBookHooks(nodeType) {
         const profileName = this._currentProfileName;
         if (!profileName || profileName === "(No Profiles Found)") return;
 
-        if (confirm(`Delete book file "${profileName}.json"?`)) {
+        if (confirm(`${tLocale("$derp_prompt_book.dialogs.delete_book.message_prefix", "Delete book file")} "${profileName}.json"?`)) {
             fetch(`/xcp/delete/derpPromptBook`, {
                 method: "POST",
                 body: JSON.stringify({ name: profileName })
@@ -218,7 +254,7 @@ export function bindPromptBookHooks(nodeType) {
                 .then(res => {
                     if (res.ok) {
                         playKaboom();
-                        showBastaMessage(this, "Book Deleted!");
+                        showBastaSystemMessage(this, tLocale("$derp_prompt_book.messages.book_deleted", "Book Deleted!"), 2400, { fade: true, grow: true }, "btnDelete", "error");
                         this._sysProfileCache = null;
                         if (this._derpPanel?.showProfiles) this._derpPanel.showProfiles("derpPromptBook", "nodeSettings");
                     }
@@ -293,9 +329,11 @@ export function bindPromptBookHooks(nodeType) {
 
             if (this.properties.derpBook) {
                 this.properties.derpBook.forEach((p) => {
-                    if (/^Page \d+$/.test(p.title)) p.title = "untitled";
+                    if (/^Page \d+$/.test(p.title) || p.title === "untitled") p.title = tLocale("$derp_prompt_book.page.untitled_title", "untitled");
                 });
             }
+
+            syncDerpPromptBookLocaleLabels(this);
 
             if (info.properties.nodeSize) {
                 this.properties.nodeSize = info.properties.nodeSize;
@@ -413,16 +451,8 @@ export function handlePageChange(node, action) {
     if (typeof action === "number") {
         node.properties.currentPageIndex = (node.properties.currentPageIndex + action + book.length) % book.length;
     } else if (typeof action === "string") {
-        let newIndex = -1;
-        if (action.startsWith("Cover:")) {
-            newIndex = 0;
-        } else {
-            const match = action.match(/^Page (\d+)/);
-            if (match) {
-                const pNum = parseInt(match[1]);
-                newIndex = (node.properties.coverPage !== false) ? pNum : pNum - 1;
-            }
-        }
+        const labels = book.map((page, idx) => getPageLabel(node, idx, page.title));
+        const newIndex = labels.indexOf(action);
         if (newIndex !== -1 && book[newIndex]) {
             node.properties.currentPageIndex = newIndex;
         } else return;
@@ -441,7 +471,7 @@ export function handlePageChange(node, action) {
 export function handlePageAdd(node) {
     if (document.activeElement) document.activeElement.blur();
     const book = node.properties.derpBook || [];
-    book.push({ title: "untitled", content: "", images: [] });
+    book.push({ title: tLocale("$derp_prompt_book.page.untitled_title", "untitled"), content: "", images: [] });
     node.properties.currentPageIndex = book.length - 1;
 
     node.properties.prompt = "";
@@ -460,9 +490,9 @@ export function handlePageRename(node) {
     if (!page) return;
 
     showBastaFileHandler(node, "derpPromptBook", "btnPageRename", {
-        title: "Rename Page",
-        message: "Enter new name for this page:",
-        confirm: "Rename",
+        title: tLocale("$derp_prompt_book.dialogs.rename_page.title", "Rename Page"),
+        message: tLocale("$derp_prompt_book.dialogs.rename_page.message", "Enter new name for this page:"),
+        confirm: tLocale("$derp_prompt_book.dialogs.rename_page.confirm", "Rename"),
         mode: "rename",
         originalName: page.title,
         initialSize: [250, 130],
@@ -502,17 +532,17 @@ export function handlePageDelete(node) {
     if (!page || book.length === 0) return;
 
     showBastaFileHandler(node, "derpPromptBook", "btnPageDelete", {
-        title: "Delete Page",
-        message: `Delete page \"${page.title || "untitled"}\"?`,
-        confirm: "Delete",
+        title: tLocale("$derp_prompt_book.dialogs.delete_page.title", "Delete Page"),
+        message: `${tLocale("$derp_prompt_book.dialogs.delete_page.message_prefix", "Delete page")} \"${page.title || tLocale("$derp_prompt_book.page.untitled_title", "untitled")}\"?`,
+        confirm: tLocale("$widgets.delete", "Delete"),
         mode: "delete",
-        originalName: page.title || "untitled",
+        originalName: page.title || tLocale("$derp_prompt_book.page.untitled_title", "untitled"),
         initialSize: [250, 110],
         onConfirm: () => {
             book.splice(currentIdx, 1);
 
             if (book.length === 0) {
-                node.properties.derpBook = [{ title: "untitled", content: "", images: [] }];
+                node.properties.derpBook = [{ title: tLocale("$derp_prompt_book.page.untitled_title", "untitled"), content: "", images: [] }];
                 node.properties.currentPageIndex = 0;
             } else {
                 node.properties.currentPageIndex = Math.min(currentIdx, book.length - 1);
@@ -534,12 +564,12 @@ export async function handleSaveBook(node) {
     const el = node._derpDomElements?.editorMain;
     if (el && document.activeElement === el) el.blur();
 
-    const currentName = node.properties.bookName || "Untitled Book";
+    const currentName = node.properties.bookName || tLocale("$derp_prompt_book.book.untitled_name", "Untitled Book");
 
     showBastaFileHandler(node, "derpPromptBook", "btnSaveBook", {
-        title: "Save Book",
-        message: "Enter filename for prompt book:",
-        confirm: "Save",
+        title: tLocale("$derp_prompt_book.dialogs.save_book.title", "Save Book"),
+        message: tLocale("$derp_prompt_book.dialogs.save_book.message", "Enter filename for prompt book:"),
+        confirm: tLocale("$derp_prompt_book.dialogs.save_book.confirm", "Save"),
         mode: "save",
         originalName: currentName,
         initialSize: [250, 130],
@@ -569,7 +599,7 @@ export async function handleSaveBook(node) {
                     if (node.refreshNodeLayoutMap) node.refreshNodeLayoutMap();
                     if (node.refreshDerpPromptBookSysMap) node.refreshDerpPromptBookSysMap();
                     node.updateDerpPromptBookUI();
-                    showPromptBookSystemSaveMessage(node, "Book Saved: ", cleanName, "btnSaveBook");
+                    showPromptBookSystemSaveMessage(node, tLocale("$derp_prompt_book.messages.book_saved_prefix", "Book Saved: "), cleanName, "btnSaveBook");
                 }
             } catch (e) {
                 console.error("[Save Error]:", e);
@@ -580,11 +610,11 @@ export async function handleSaveBook(node) {
 
 export function handleNewBook(node) {
     showBastaFileHandler(node, "derpPromptBook", "btnNewBook", {
-        title: "New Book",
-        message: "Enter filename for new prompt book:",
-        confirm: "Create",
+        title: tLocale("$derp_prompt_book.dialogs.new_book.title", "New Book"),
+        message: tLocale("$derp_prompt_book.dialogs.new_book.message", "Enter filename for new prompt book:"),
+        confirm: tLocale("$derp_prompt_book.dialogs.new_book.confirm", "Create"),
         mode: "create",
-        originalName: "Untitled Book",
+        originalName: tLocale("$derp_prompt_book.book.untitled_name", "Untitled Book"),
         initialSize: [250, 130],
         onConfirm: async (filename) => {
             try {
@@ -593,21 +623,21 @@ export function handleNewBook(node) {
                 node.properties.currentPageIndex = 0;
                 node.properties.prompt = "";
                 await refreshPromptBookState(node, cleanName, nextBook);
-                showPromptBookSystemSaveMessage(node, "Book Created: ", cleanName, "btnNewBook");
+                showPromptBookSystemSaveMessage(node, tLocale("$derp_prompt_book.messages.book_created_prefix", "Book Created: "), cleanName, "btnNewBook");
             } catch (e) {
                 console.error("[New Book Error]:", e);
-                showBastaMessage(node, "Book create failed", 2400, { fade: true }, "btnNewBook", false, "error");
+                showBastaMessage(node, tLocale("$derp_prompt_book.messages.create_failed", "Book create failed"), 2400, { fade: true }, "btnNewBook", false, "error");
             }
         }
     });
 }
 
 export function handleRenameBook(node) {
-    const currentName = node.properties.bookName || "Untitled Book";
+    const currentName = node.properties.bookName || tLocale("$derp_prompt_book.book.untitled_name", "Untitled Book");
     showBastaFileHandler(node, "derpPromptBook", "btnRenameBook", {
-        title: "Rename Book",
-        message: "Enter new name for this book:",
-        confirm: "Rename",
+        title: tLocale("$derp_prompt_book.dialogs.rename_book.title", "Rename Book"),
+        message: tLocale("$derp_prompt_book.dialogs.rename_book.message", "Enter new name for this book:"),
+        confirm: tLocale("$derp_prompt_book.dialogs.rename_book.confirm", "Rename"),
         mode: "rename",
         originalName: currentName,
         initialSize: [250, 130],
@@ -629,21 +659,21 @@ export function handleRenameBook(node) {
                 }
 
                 await refreshPromptBookState(node, cleanName, node.properties.derpBook || createDefaultDerpBook());
-                showPromptBookSystemSaveMessage(node, "Book Renamed: ", cleanName, "btnRenameBook");
+                showPromptBookSystemSaveMessage(node, tLocale("$derp_prompt_book.messages.book_renamed_prefix", "Book Renamed: "), cleanName, "btnRenameBook");
             } catch (e) {
                 console.error("[Rename Book Error]:", e);
-                showBastaMessage(node, "Book rename failed", 2400, { fade: true }, "btnRenameBook", false, "error");
+                showBastaMessage(node, tLocale("$derp_prompt_book.messages.rename_failed", "Book rename failed"), 2400, { fade: true }, "btnRenameBook", false, "error");
             }
         }
     });
 }
 
 export function handleCopyBook(node) {
-    const currentName = node.properties.bookName || "Untitled Book";
+    const currentName = node.properties.bookName || tLocale("$derp_prompt_book.book.untitled_name", "Untitled Book");
     showBastaFileHandler(node, "derpPromptBook", "btnCopyBook", {
-        title: "Duplicate Book",
-        message: "Enter filename for duplicated prompt book:",
-        confirm: "Duplicate",
+        title: tLocale("$derp_prompt_book.dialogs.duplicate_book.title", "Duplicate Book"),
+        message: tLocale("$derp_prompt_book.dialogs.duplicate_book.message", "Enter filename for duplicated prompt book:"),
+        confirm: tLocale("$derp_prompt_book.dialogs.duplicate_book.confirm", "Duplicate"),
         mode: "duplicate",
         originalName: `${normalizePromptBookName(currentName)} Copy`,
         initialSize: [250, 130],
@@ -652,10 +682,10 @@ export function handleCopyBook(node) {
                 const currentBook = JSON.parse(JSON.stringify(node.properties.derpBook || createDefaultDerpBook()));
                 const cleanName = await savePromptBookFile(node, newName, currentBook);
                 await refreshPromptBookState(node, cleanName, currentBook);
-                showPromptBookSystemSaveMessage(node, "Book Duplicated: ", cleanName, "btnCopyBook");
+                showPromptBookSystemSaveMessage(node, tLocale("$derp_prompt_book.messages.book_duplicated_prefix", "Book Duplicated: "), cleanName, "btnCopyBook");
             } catch (e) {
                 console.error("[Duplicate Book Error]:", e);
-                showBastaMessage(node, "Book duplicate failed", 2400, { fade: true }, "btnCopyBook", false, "error");
+                showBastaMessage(node, tLocale("$derp_prompt_book.messages.duplicate_failed", "Book duplicate failed"), 2400, { fade: true }, "btnCopyBook", false, "error");
             }
         }
     });
@@ -663,11 +693,11 @@ export function handleCopyBook(node) {
 
 export function getPageLabel(node, idx, title) {
     const isCover = idx === 0 && node.properties.coverPage !== false;
-    if (isCover) return `Cover: ${title}`;
+    if (isCover) return `${tLocale("$derp_prompt_book.page.cover", "Cover")}: ${title}`;
     const pageNumber = node.properties.coverPage !== false ? idx : idx + 1;
     if (node.properties.showTotalPage !== false) {
         const totalPages = (node.properties.derpBook || []).length - (node.properties.coverPage !== false ? 1 : 0);
-        return `Page ${pageNumber}/${Math.max(totalPages, 1)}: ${title}`;
+        return `${tLocale("$derp_prompt_book.page.prefix", "Page")} ${pageNumber}/${Math.max(totalPages, 1)}: ${title}`;
     }
-    return `Page ${pageNumber}: ${title}`;
+    return `${tLocale("$derp_prompt_book.page.prefix", "Page")} ${pageNumber}: ${title}`;
 }

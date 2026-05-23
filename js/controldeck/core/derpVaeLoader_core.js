@@ -6,6 +6,32 @@ import { showBastaMessage } from "../../fatha/bastas/bastaMessage.js";
 import { showBastaSystemMessage } from "../../fatha/bastas/bastaSystemMessage.js";
 import { playMicrowaveDing } from "../../herbina/masterSoundEffects.js";
 
+function tLocale(key, fallback = key) {
+    if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
+    const path = key.substring(1).split(".");
+    let target = window.xcpDerpLocaleData || {};
+    for (const segment of path) {
+        target = target?.[segment];
+        if (target === undefined) return fallback;
+    }
+    return target;
+}
+
+function syncDerpVaeLoaderLocaleLabels(node) {
+    if (!node?.properties) return;
+    const localizedTitle = tLocale("$derp_vae_loader.title", "Derp Vae Loader");
+    const previousLocalizedTitle = node._lastLocalizedDerpVaeLoaderTitle;
+
+    if (!node.titleLabel || node.titleLabel === "Derp Vae Loader" || (previousLocalizedTitle && node.titleLabel === previousLocalizedTitle)) {
+        node.titleLabel = localizedTitle;
+    }
+    if (!node.properties.titleLabel || node.properties.titleLabel === "Derp Vae Loader" || (previousLocalizedTitle && node.properties.titleLabel === previousLocalizedTitle)) {
+        node.properties.titleLabel = localizedTitle;
+    }
+
+    node._lastLocalizedDerpVaeLoaderTitle = localizedTitle;
+}
+
 export function initDerpVaeLoaderCore(nodeType) {
     const proto = nodeType.prototype;
 
@@ -37,18 +63,18 @@ export function initDerpVaeLoaderCore(nodeType) {
     function ensureVaeIdentity(node) {
         node._sysProfileFile = "derpVaeLoader";
         node._sysProfileFolder = "nodeSettings";
-        node.titleLabel = "Derp Vae Loader";
-        node.properties.titleLabel = node.titleLabel;
+        syncDerpVaeLoaderLocaleLabels(node);
     }
 
     function queueVaeRelinkMessages(node, items) {
         items.forEach((item) => {
-            showBastaSystemMessage(node, "VAEs Re-linked: ", 3000, { fade: true, grow: true }, null, "success", false, item);
+            showBastaSystemMessage(node, tLocale("$derp_vae_loader.messages.relinked_prefix", "VAEs Re-linked: "), 3000, { fade: true, grow: true }, null, "success", false, item);
         });
     }
 
     proto.onThemeUpdate = function(config) {
         this.handleThemeUpdate(config);
+        syncDerpVaeLoaderLocaleLabels(this);
         this._layoutMapHash = null; // THE STRUCTURAL RESET: Synchronized cache nuke
         this.refreshNodeLayoutMap();
         this.refreshDerpTemplateSysMap();
@@ -56,6 +82,7 @@ export function initDerpVaeLoaderCore(nodeType) {
 
     proto.applyPalette = function() {
         if (window.xcpDerpThemeConfig) this.handleThemeUpdate(window.xcpDerpThemeConfig);
+        syncDerpVaeLoaderLocaleLabels(this);
         this._layoutMapHash = null; // Force layout refresh for palette colors
         this.refreshNodeLayoutMap();
         this.refreshDerpTemplateSysMap();
@@ -104,20 +131,20 @@ export function initDerpVaeLoaderCore(nodeType) {
                 if (showNotification || missing.length > 0 || healed.length > 0) {
                     if (typeof playMicrowaveDing === "function") playMicrowaveDing();
 
-                    let msg = "VAE list updated";
+                    let msg = tLocale("$derp_vae_loader.messages.list_updated", "VAE list updated");
                     let mode = "info";
 
                     // THE WARNING ENGINE: Explicit mode mapping for BastaMessage
                     if (missing.length > 0) {
-                        msg = `Missing VAEs Purged: ${missing.join(", ")}`;
+                        msg = `${tLocale("$derp_vae_loader.messages.missing_purged_prefix", "Missing VAEs Purged: ")}${missing.join(", ")}`;
                         mode = "error"; // Triggers error styling and playKaboom()
                     } else if (healed.length > 0) {
-                        msg = `VAEs Re-linked: ${healed.join(", ")}`;
+                        msg = `${tLocale("$derp_vae_loader.messages.relinked_prefix", "VAEs Re-linked: ")}${healed.join(", ")}`;
                         mode = "success"; // Triggers success styling and playKaChing()
                     }
 
                     if (missing.length > 0 && healed.length > 0) {
-                        msg = "VAE deck synced: items repaired or removed.";
+                        msg = tLocale("$derp_vae_loader.messages.deck_synced", "VAE deck synced: items repaired or removed.");
                         mode = "info";
                     }
 
@@ -139,7 +166,7 @@ export function initDerpVaeLoaderCore(nodeType) {
      */
     proto.syncDerpOutputs = function() {
         const ports = [
-            { name: "Vae", type: "VAE" }
+            { name: tLocale("$derp_vae_loader.port.vae", "Vae"), type: "VAE" }
         ];
 
         if (!this.outputs || this.outputs.length !== ports.length) {
@@ -168,7 +195,7 @@ export function initDerpVaeLoaderCore(nodeType) {
         if (!window.xcpDerpSignals) window.xcpDerpSignals = {};
 
         const ports = [
-            { name: "Vae", type: "VAE" }
+            { name: tLocale("$derp_vae_loader.port.vae", "Vae"), type: "VAE" }
         ];
         const vaePayload = val ? { vae_name: val } : null;
 

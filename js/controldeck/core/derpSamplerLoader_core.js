@@ -5,6 +5,38 @@
 import { showBastaMessage } from "../../fatha/bastas/bastaMessage.js";
 import { playMicrowaveDing } from "../../herbina/masterSoundEffects.js";
 
+function tLocale(key, fallback = key) {
+    if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
+    const path = key.substring(1).split(".");
+    let target = window.xcpDerpLocaleData || {};
+    for (const segment of path) {
+        target = target?.[segment];
+        if (target === undefined) return fallback;
+    }
+    return target;
+}
+
+export function syncDerpSamplerLoaderLocaleLabels(node) {
+    if (!node?.properties) return;
+    const localizedTitle = tLocale("$derp_sampler_loader.title", "Derp Sampler Loader");
+    const previousLocalizedTitle = node._lastLocalizedDerpSamplerLoaderTitle;
+    const localizedOutput = tLocale("$derp_sampler_loader.port.sampler", "Sampler");
+    const previousLocalizedOutput = node._lastLocalizedDerpSamplerLoaderOutput;
+
+    if (!node.titleLabel || node.titleLabel === "Derp Sampler Loader" || (previousLocalizedTitle && node.titleLabel === previousLocalizedTitle)) {
+        node.titleLabel = localizedTitle;
+    }
+    if (!node.properties.titleLabel || node.properties.titleLabel === "Derp Sampler Loader" || (previousLocalizedTitle && node.properties.titleLabel === previousLocalizedTitle)) {
+        node.properties.titleLabel = localizedTitle;
+    }
+    if (!node.properties.outputName || node.properties.outputName === "Sampler" || (previousLocalizedOutput && node.properties.outputName === previousLocalizedOutput)) {
+        node.properties.outputName = localizedOutput;
+    }
+
+    node._lastLocalizedDerpSamplerLoaderTitle = localizedTitle;
+    node._lastLocalizedDerpSamplerLoaderOutput = localizedOutput;
+}
+
 export function initDerpSamplerLoaderCore(nodeType) {
     const proto = nodeType.prototype;
 
@@ -39,6 +71,7 @@ export function initDerpSamplerLoaderCore(nodeType) {
 
     proto.onThemeUpdate = function(config) {
         this.handleThemeUpdate(config);
+        syncDerpSamplerLoaderLocaleLabels(this);
         this._layoutMapHash = null;
         this.refreshNodeLayoutMap();
         this.refreshDerpTemplateSysMap();
@@ -46,6 +79,7 @@ export function initDerpSamplerLoaderCore(nodeType) {
 
     proto.applyPalette = function() {
         if (window.xcpDerpThemeConfig) this.handleThemeUpdate(window.xcpDerpThemeConfig);
+        syncDerpSamplerLoaderLocaleLabels(this);
         this._layoutMapHash = null;
         this.refreshNodeLayoutMap();
         this.refreshDerpTemplateSysMap();
@@ -85,8 +119,8 @@ export function initDerpSamplerLoaderCore(nodeType) {
 
                     const mode = missing.length > 0 ? "error" : "info";
                     const msg = missing.length > 0
-                        ? `Missing Samplers Purged: ${missing.join(", ")}`
-                        : "Sampler list updated";
+                        ? `${tLocale("$derp_sampler_loader.messages.missing_purged_prefix", "Missing Samplers Purged: ")}${missing.join(", ")}`
+                        : tLocale("$derp_sampler_loader.messages.list_updated", "Sampler list updated");
                     if (typeof showBastaMessage === "function") {
                         showBastaMessage(this, msg, missing.length > 0 ? 6000 : 3000, { fade: true, grow: true }, "btnRefreshSamplers", false, mode);
                     }
@@ -101,7 +135,7 @@ export function initDerpSamplerLoaderCore(nodeType) {
                 this.refreshNodeLayoutMap();
                 this.requestDerpSync();
                 if (showNotification && typeof showBastaMessage === "function") {
-                    showBastaMessage(this, "Failed to load samplers", 4000, { fade: true, grow: true }, "btnRefreshSamplers", false, "error");
+                    showBastaMessage(this, tLocale("$derp_sampler_loader.messages.load_failed", "Failed to load samplers"), 4000, { fade: true, grow: true }, "btnRefreshSamplers", false, "error");
                 }
             });
     };
@@ -111,7 +145,7 @@ export function initDerpSamplerLoaderCore(nodeType) {
      */
     proto.syncDerpOutputs = function() {
         const ports = [
-            { name: "Sampler", type: getSamplerTypeList(this) }
+            { name: tLocale("$derp_sampler_loader.port.sampler", "Sampler"), type: getSamplerTypeList(this) }
         ];
 
         if (!this.outputs || this.outputs.length !== ports.length || JSON.stringify(this.outputs[0]?.type) !== JSON.stringify(ports[0].type)) {
@@ -129,7 +163,7 @@ export function initDerpSamplerLoaderCore(nodeType) {
         const deck = this.properties.samplerDeck || [];
         const activeItem = deck.find(m => m.active);
         const val = isBypassed ? null : (activeItem ? activeItem.name : null);
-        const nodeName = this.titleLabel || this.title || "Derp Sampler Loader";
+        const nodeName = this.titleLabel || this.title || tLocale("$derp_sampler_loader.title", "Derp Sampler Loader");
         const signalType = val ? getSamplerTypeList(this) : "null";
         const fingerprint = `${isBypassed ? "bypass" : "live"}_${val}_${nodeName}_${this.id}_${deck.length}_${JSON.stringify(signalType)}`;
         if (this._lastSignalFingerprint === fingerprint) return;
@@ -141,7 +175,7 @@ export function initDerpSamplerLoaderCore(nodeType) {
         const signalId = `${baseId}:0`;
         window.xcpDerpSignals[signalId] = {
             nodeId: signalId,
-            nodeName: `${nodeName} [Sampler]`,
+            nodeName: `${nodeName} [${tLocale("$derp_sampler_loader.signal.sampler", "Sampler")}]`,
             nodeType: this.type,
             type: signalType,
             value: val,
@@ -224,9 +258,9 @@ export function initDerpSamplerLoaderCore(nodeType) {
         this.properties.skipGenericWirelessHeartbeat = true;
         if (!this._restoreSamplerDeckPending && this.syncDerpOutputs) this.syncDerpOutputs();
 
-        this.titleLabel = "Derp Sampler Loader";
-        this.properties.titleLabel = "Derp Sampler Loader";
-        this.properties.outputName = "Sampler";
+        this.titleLabel = tLocale("$derp_sampler_loader.title", "Derp Sampler Loader");
+        this.properties.titleLabel = tLocale("$derp_sampler_loader.title", "Derp Sampler Loader");
+        this.properties.outputName = tLocale("$derp_sampler_loader.port.sampler", "Sampler");
         this.properties.samplerDeck = [];
         this.properties.drawSettingBtn = false;
 
@@ -234,6 +268,8 @@ export function initDerpSamplerLoaderCore(nodeType) {
         this.properties.autoHeight = true;
         this.properties.nodeSize = [220, 90];
         this.size = [220, 90];
+
+        syncDerpSamplerLoaderLocaleLabels(this);
 
         this.refreshNodeLayoutMap();
         this.refreshDerpTemplateSysMap();
@@ -250,9 +286,10 @@ export function initDerpSamplerLoaderCore(nodeType) {
     proto.handleSamplerConfigure = function() {
         this.properties.skipGenericWirelessHeartbeat = true;
         this.properties.drawSettingBtn = false;
-        this.titleLabel = this.properties.titleLabel || "Derp Sampler Loader";
+        this.titleLabel = this.properties.titleLabel || tLocale("$derp_sampler_loader.title", "Derp Sampler Loader");
         this.properties.titleLabel = this.titleLabel;
-        this.properties.outputName = "Sampler";
+        this.properties.outputName = tLocale("$derp_sampler_loader.port.sampler", "Sampler");
+        syncDerpSamplerLoaderLocaleLabels(this);
 
         this._restoreSamplerDeckPending = true;
         const savedDeck = JSON.parse(JSON.stringify(this.properties.samplerDeck || []));

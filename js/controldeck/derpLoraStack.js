@@ -18,6 +18,17 @@ import {
 } from "./helpers/loraComponents.js";
 import { getPreviewImageUrl } from "./helpers/loraImages.js";
 
+function tLocale(key, fallback = key) {
+    if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
+    const path = key.substring(1).split(".");
+    let target = window.xcpDerpLocaleData || {};
+    for (const segment of path) {
+        target = target?.[segment];
+        if (target === undefined) return fallback;
+    }
+    return target;
+}
+
 if (!window._xcp_derpLoraStack_Layout_Loaded) {
     window._xcp_derpLoraStack_Layout_Loaded = true;
     try {
@@ -219,8 +230,12 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                             const widget = trigRow[`dropTrigger_${i}`];
                                             widget.value = matched ? matched.key : (lora[3] || "None");
                                             widget.label = matched ? `${matched.display}:\u00A0` : "";
-                                            widget.text = (lora[4] && lora[4] !== "") ? lora[4] : (matched ? (matched.tag || matched.name) : (lora[3] || "None"));
-                                            widget.dropdownHeaderText = matched ? matched.display : (lora[3] || "Select Trigger...");
+                                            const triggerNoneText = tLocale("$derp_lora_stack.trigger.none", "None");
+                                            const triggerSelectText = tLocale("$derp_lora_stack.trigger.select", "Select Trigger...");
+                                            const fallbackTriggerKey = lora[3] || "None";
+                                            const fallbackTriggerText = fallbackTriggerKey === "None" ? triggerNoneText : fallbackTriggerKey;
+                                            widget.text = (lora[4] && lora[4] !== "") ? lora[4] : (matched ? (matched.tag || matched.name) : fallbackTriggerText);
+                                            widget.dropdownHeaderText = matched ? matched.display : (fallbackTriggerKey === "None" ? triggerSelectText : fallbackTriggerText);
                                             // THE BYPASS SYNC: Ensure the widget state matches the bypass flag to trigger the widget_Dropdown fix
                                             widget.state = isBypassed ? "DIS" : (isSelected ? "ON" : "OFF");
                                             widget.labelState = isBypassed ? "DIS" : (isSelected ? "ON" : "OFF");
@@ -293,7 +308,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                 regionOffset: [mW, 2, mW, 2],
                                 dropPreviewGhost: {
                                     type: this.UI_TYPES.TEXT,
-                                    text: "Drop here",
+                                    text: tLocale("$derp_lora_stack.drop_here", "Drop here"),
                                     themeKey: "t_textSmall",
                                     state: "OFF",
                                     alpha: 0.55,
@@ -387,7 +402,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                     [`toggleFuseQKV_${i}`]: {
                                         hidden: nameDisplay !== "Top" || this.properties.attentionMode !== "Joint-Attention",
                                         type: this.UI_TYPES.TOGGLE_V2, themeKey: "dialog, button, t_textSystem",
-                                        label: "Fuse QKV", icon: "ring", width: "auto", height: "fill", padding: [pW, pH], spacing: [sW, 0],
+                                        label: tLocale("$derp_lora_stack.fuse_qkv", "Fuse QKV"), icon: "ring", width: "auto", height: "fill", padding: [pW, pH], spacing: [sW, 0],
                                         isTextOnly: true, mouseOver: false, alpha: rowAlpha,
                                         state: (i === this._activeDetailSlot) ? "ON" : (isBypassed ? "DIS" : "OFF"),
                                         value: !!lora[6],
@@ -433,10 +448,10 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                     dir: "row", width: "full", height: "auto", spacing: [sW, sH], margin: [0, 0, -mW + sW, 0],
                                     [`sldModel_${i}`]: {
                                         type: this.UI_TYPES.SLIDER, mouseOver: false,
-                                        text: nameDisplay === "Slider" ? loraName : "Strength",
+                                        text: nameDisplay === "Slider" ? loraName : tLocale("$derp_lora_stack.labels.strength", "Strength"),
                                         padding: [pW, pH], fillPadding: [1, 1],
                                         displayMode: "cutoff", alpha: rowAlpha,
-                                        measureText: nameDisplay === "Slider" ? loraName : "Strength",
+                                        measureText: nameDisplay === "Slider" ? loraName : tLocale("$derp_lora_stack.labels.strength", "Strength"),
                                         value: lora[1],
                                         min: this._loraSetup?.[lora[0]]?.sliderStrength?.[0] ?? this.properties.sliderMin ?? -2.0,
                                         max: this._loraSetup?.[lora[0]]?.sliderStrength?.[1] ?? this.properties.sliderMax ?? 2.0,
@@ -495,9 +510,9 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                     dir: "row", width: "full", height: "auto", spacing: [sW, sH], alpha: rowAlpha, margin: [0, 0, -mW + sW, 0],
                                     [`sldClip_${i}`]: {
                                         type: this.UI_TYPES.SLIDER, mouseOver: false,
-                                        text: "Clip", padding: [pW, pH], fillPadding: [1, 1],
+                                        text: tLocale("$derp_lora_stack.labels.clip", "Clip"), padding: [pW, pH], fillPadding: [1, 1],
                                         displayMode: "cutoff", alpha: rowAlpha,
-                                        measureText: "Clip",
+                                        measureText: tLocale("$derp_lora_stack.labels.clip", "Clip"),
                                         value: lora[2],
                                         min: this._loraSetup?.[lora[0]]?.sliderStrength?.[0] ?? this.properties.clipMin ?? -2.0,
                                         max: this._loraSetup?.[lora[0]]?.sliderStrength?.[1] ?? this.properties.clipMax ?? 2.0,
@@ -585,7 +600,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                             regionOffset: [mW, 2, mW, 2],
                             dropPreviewGhost: {
                                 type: this.UI_TYPES.TEXT,
-                                text: "Drop here",
+                                text: tLocale("$derp_lora_stack.drop_here", "Drop here"),
                                 themeKey: "t_textSmall",
                                 state: "OFF",
                                 alpha: 0.65,
@@ -623,7 +638,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                     ratingsList: this._loraRatings || {}, // THE RATING PASS: Provide the node's rating cache to the browser
                                     ratingsPalette: this._ratingsPalette, // THE PALETTE PASS: Color the icons in the browser
                                     fileType: "lora",
-                                    value: "Add Lora to Stack...", width: "full", height: "auto",
+                                    value: tLocale("$derp_lora_stack.browser.add", "Add Lora to Stack..."), width: "full", height: "auto",
                                     themeKey: "dialog, t_textNormal", canvasShield: true, spacing: [sW, 0], padding: [pW, pH],
                                     onChange: (val) => {
                                         if (!this.properties.stackData) this.properties.stackData = [];
@@ -640,7 +655,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                     }
                                 },
                                 btnRefresh: {
-                                    type: this.UI_TYPES.BUTTON, text: "Refresh",
+                                    type: this.UI_TYPES.BUTTON, text: tLocale("$derp_lora_stack.browser.refresh", "Refresh"),
                                     width: "auto", height: "fill", padding: [pW, pH],
                                     labelAlign: ["center", "middle"], themeKey: "button, t_textSmall",
                                     onPress: () => {
@@ -649,7 +664,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
 
                                         window._xcpDerpSession = Date.now();
                                         if (this.fetchDerpLoraData) this.fetchDerpLoraData(true);
-                                        showBastaMessage(this, "Refreshing Metadata...", 2000, { width: this.size[0] }, null, false, "info", "microwave");
+                                        showBastaMessage(this, tLocale("$derp_lora_stack.messages.refreshing_metadata", "Refreshing Metadata..."), 2000, { width: this.size[0] }, null, false, "info", "microwave");
                                     }
                                 }
                             },
@@ -669,7 +684,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                 lblWarningCrossAttention: {
                                     type: this.UI_TYPES.TEXT,
                                     themeKey: "t_textSystem",
-                                    text: "MODEL and CLIP signals required, click the wireless button in the header.",
+                                    text: tLocale("$derp_lora_stack.warnings.cross_attention", "MODEL and CLIP signals required, click the wireless button in the header."),
                                     hidden: hasRequiredSignals || isJointAttention,
                                     width: "full",
                                     padding: [pW, pH],
@@ -678,7 +693,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                 lblWarningJointAttention: {
                                     type: this.UI_TYPES.TEXT,
                                     themeKey: "t_textSystem",
-                                    text: "MODEL signal required, click the wireless button in the header.",
+                                    text: tLocale("$derp_lora_stack.warnings.joint_attention", "MODEL signal required, click the wireless button in the header."),
                                     hidden: hasRequiredSignals || !isJointAttention,
                                     width: "full",
                                     padding: [pW, pH],
@@ -705,15 +720,15 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                 type: this.UI_TYPES.TEXT, mouseOver: false,
                                 themeKey: "t_textsystem",
                                 labelAlign: ["left", "middle"],
-                                text: "Derp Lora Stack properties:",
+                                text: tLocale("$derp_lora_stack.system.properties", "Derp Lora Stack properties:"),
                                 width: "full", padding: [pW, pH],
                             },
                             sysRow_1: {
                                 dir: "row", width: "full", height: "auto", spacing: [sW, 0],                                
                                 btnToggleMode: {
                                     type: this.UI_TYPES.BUTTON, themeKey: "button, t_textSystem",
-                                    text: `Mode: ${this.properties.attentionMode || "Cross-Attention"}`,
-                                    measureText: "Mode: Cross-Attention",
+                                    text: `${tLocale("$derp_lora_stack.system.mode", "Mode")}: ${this.properties.attentionMode || "Cross-Attention"}`,
+                                    measureText: `${tLocale("$derp_lora_stack.system.mode", "Mode")}: Cross-Attention`,
                                     width: "auto", height: "auto", padding: [pW, pH], spacing: [sW, 0],
                                     onPress: () => {
                                         this.properties.attentionMode = this.properties.attentionMode === "Joint-Attention" ? "Cross-Attention" : "Joint-Attention";
@@ -725,7 +740,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                 },
                                 btnToggleCLIP: {
                                     type: this.UI_TYPES.BUTTON, themeKey: "button, t_textSystem",
-                                    text: `Show CLIP: ${this.properties.showCLIP ? "ON" : "OFF"}`,
+                                    text: `${tLocale("$derp_lora_stack.system.show_clip", "Show CLIP")}: ${this.properties.showCLIP ? tLocale("$derp_lora_stack.system.states.on", "ON") : tLocale("$derp_lora_stack.system.states.off", "OFF")}`,
                                     width: "auto", height: "auto", padding: [pW, pH], spacing: [sW, 0],
                                     onPress: () => {
                                         this.properties.showCLIP = !this.properties.showCLIP;
@@ -736,7 +751,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                 },
                                 lblDisplay: {
                                     type: this.UI_TYPES.TEXT, themeKey: "t_textSystem",
-                                    text: "Name display:", width: "auto", padding: [pW, 0],
+                                    text: tLocale("$derp_lora_stack.system.name_display", "Name display:"), width: "auto", padding: [pW, 0],
                                 },
                                 dropdownNameDisplay: {
                                     type: this.UI_TYPES.DROPDOWN_DERP, themeKey: "button, t_textSystem",
@@ -757,11 +772,11 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                 dir: "row", width: "full", height: "auto", spacing: [sW, 0],
                                 labelHeader: {
                                     type: this.UI_TYPES.TEXT, themeKey: "t_textSmall",
-                                    text: "Strength Setting", width: "auto", spacing: [sW, 0],
+                                    text: tLocale("$derp_lora_stack.system.strength_setting", "Strength Setting"), width: "auto", spacing: [sW, 0],
                                 },
                                 labelMin: {
                                     type: this.UI_TYPES.TEXT, themeKey: "t_textSystem",
-                                    text: "Min:", width: "auto", spacing: [sW, 0],
+                                    text: tLocale("$derp_lora_stack.system.min", "Min:"), width: "auto", spacing: [sW, 0],
                                 },
                                 editorMin: {
                                     type: this.UI_TYPES.EDITOR, themeKey: "dialog, t_textSystem", labelAlign: ["center", "middle"],
@@ -771,7 +786,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                 },
                                 labelMax: {
                                     type: this.UI_TYPES.TEXT, themeKey: "t_textSystem",
-                                    text: "Max:", width: "auto", spacing: [sW, 0],
+                                    text: tLocale("$derp_lora_stack.system.max", "Max:"), width: "auto", spacing: [sW, 0],
                                 },
                                 editorMax: {
                                     type: this.UI_TYPES.EDITOR, themeKey: "dialog, t_textSystem", labelAlign: ["center", "middle"],
@@ -781,7 +796,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                 },
                                 labelStep: {
                                     type: this.UI_TYPES.TEXT, themeKey: "t_textSystem",
-                                    text: "Step:", width: "auto", spacing: [sW, 0],
+                                    text: tLocale("$derp_lora_stack.system.step", "Step:"), width: "auto", spacing: [sW, 0],
                                 },
                                 editorStep: {
                                     type: this.UI_TYPES.EDITOR, themeKey: "dialog, t_textSystem", labelAlign: ["center", "middle"],
@@ -791,7 +806,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                 },
                                 labelDefault: {
                                     type: this.UI_TYPES.TEXT, themeKey: "t_textSystem",
-                                    text: "Default:", width: "auto", spacing: [sW, 0],
+                                    text: tLocale("$derp_lora_stack.system.default", "Default:"), width: "auto", spacing: [sW, 0],
                                 },
                                 editorDefault: {
                                     type: this.UI_TYPES.EDITOR, themeKey: "dialog, t_textSystem", labelAlign: ["center", "middle"],
@@ -802,7 +817,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                 toggleLR: {
                                     type: this.UI_TYPES.TOGGLE_V2, themeKey: "dialog, button, t_textSystem",
                                     isTextOnly: true, mouseOver: false, icon: "ring",
-                                    label: "LR button",
+                                    label: tLocale("$derp_lora_stack.system.lr_button", "LR button"),
                                     width: "auto", height: "auto", padding: [pW, pH], spacing: [sW, 0],
                                     value: this.properties.toggleLR ?? false,
                                     onPress: () => {
@@ -819,12 +834,12 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                 dir: "row", width: "full", height: "auto", spacing: [sW, 0],
                                 labelCLIPHeader: {
                                     type: this.UI_TYPES.TEXT, themeKey: "t_textSmall",
-                                    text: "CLIP Setting", width: "auto", spacing: [sW, 0],
-                                    measureText: "Strength Setting",
+                                    text: tLocale("$derp_lora_stack.system.clip_setting", "CLIP Setting"), width: "auto", spacing: [sW, 0],
+                                    measureText: tLocale("$derp_lora_stack.system.strength_setting", "Strength Setting"),
                                 },
                                 labelCLIPMin: {
                                     type: this.UI_TYPES.TEXT, themeKey: "t_textSystem",
-                                    text: "Min:", width: "auto", spacing: [sW, 0],
+                                    text: tLocale("$derp_lora_stack.system.min", "Min:"), width: "auto", spacing: [sW, 0],
                                 },
                                 editorCLIPMin: {
                                     type: this.UI_TYPES.EDITOR, themeKey: "dialog, t_textSystem", labelAlign: ["center", "middle"], height: "fill",
@@ -834,7 +849,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                 },
                                 labelCLIPMax: {
                                     type: this.UI_TYPES.TEXT, themeKey: "t_textSystem",
-                                    text: "Max:", width: "auto", spacing: [sW, 0],
+                                    text: tLocale("$derp_lora_stack.system.max", "Max:"), width: "auto", spacing: [sW, 0],
                                 },
                                 editorCLIPMax: {
                                     type: this.UI_TYPES.EDITOR, themeKey: "dialog, t_textSystem", labelAlign: ["center", "middle"], height: "fill",
@@ -844,7 +859,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                 },
                                 labelCLIPStep: {
                                     type: this.UI_TYPES.TEXT, themeKey: "t_textSystem",
-                                    text: "Step:", width: "auto", spacing: [sW, 0],
+                                    text: tLocale("$derp_lora_stack.system.step", "Step:"), width: "auto", spacing: [sW, 0],
                                 },
                                 editorCLIPStep: {
                                     type: this.UI_TYPES.EDITOR, themeKey: "dialog, t_textSystem", labelAlign: ["center", "middle"], height: "fill",
@@ -854,7 +869,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                 },
                                 labelCLIPDefault: {
                                     type: this.UI_TYPES.TEXT, themeKey: "t_textSystem",
-                                    text: "Default:", width: "auto", spacing: [sW, 0],
+                                    text: tLocale("$derp_lora_stack.system.default", "Default:"), width: "auto", spacing: [sW, 0],
                                 },
                                 editorCLIPDefault: {
                                     type: this.UI_TYPES.EDITOR, themeKey: "dialog, t_textSystem", labelAlign: ["center", "middle"], height: "fill",

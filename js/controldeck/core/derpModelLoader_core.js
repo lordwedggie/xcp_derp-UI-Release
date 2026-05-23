@@ -10,6 +10,32 @@ import { app } from "../../../../scripts/app.js";
 
 let derpModelLoaderPromptHookInstalled = false;
 
+function tLocale(key, fallback = key) {
+    if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
+    const path = key.substring(1).split(".");
+    let target = window.xcpDerpLocaleData || {};
+    for (const segment of path) {
+        target = target?.[segment];
+        if (target === undefined) return fallback;
+    }
+    return target;
+}
+
+function syncDerpModelLoaderLocaleLabels(node) {
+    if (!node?.properties) return;
+    const localizedTitle = tLocale("$derp_model_loader.title", "Derp Model Loader");
+    const previousLocalizedTitle = node._lastLocalizedDerpModelLoaderTitle;
+
+    if (!node.titleLabel || node.titleLabel === "Derp Model Loader" || (previousLocalizedTitle && node.titleLabel === previousLocalizedTitle)) {
+        node.titleLabel = localizedTitle;
+    }
+    if (!node.properties.titleLabel || node.properties.titleLabel === "Derp Model Loader" || (previousLocalizedTitle && node.properties.titleLabel === previousLocalizedTitle)) {
+        node.properties.titleLabel = localizedTitle;
+    }
+
+    node._lastLocalizedDerpModelLoaderTitle = localizedTitle;
+}
+
 function installDerpModelLoaderPromptHook() {
     if (derpModelLoaderPromptHookInstalled || !app?.graphToPrompt) return;
     derpModelLoaderPromptHookInstalled = true;
@@ -61,8 +87,7 @@ export function initDerpModelLoaderCore(nodeType) {
     function ensureModelIdentity(node) {
         node._sysProfileFile = "derpModelLoader";
         node._sysProfileFolder = "nodeSettings";
-        node.titleLabel = "Derp Model Loader";
-        node.properties.titleLabel = node.titleLabel;
+        syncDerpModelLoaderLocaleLabels(node);
         if (typeof node.properties.selectedProfileName !== "string") node.properties.selectedProfileName = "";
         if (typeof node._currentProfileName !== "string" || !node._currentProfileName) {
             node._currentProfileName = node.properties.selectedProfileName || "";
@@ -71,7 +96,7 @@ export function initDerpModelLoaderCore(nodeType) {
 
     function queueModelRelinkMessages(node, items) {
         items.forEach((item) => {
-            showBastaSystemMessage(node, "Models Re-linked: ", 3000, { fade: true, grow: true }, null, "success", false, item);
+            showBastaSystemMessage(node, tLocale("$derp_model_loader.messages.relinked_prefix", "Models Re-linked: "), 3000, { fade: true, grow: true }, null, "success", false, item);
         });
     }
 
@@ -106,16 +131,20 @@ export function initDerpModelLoaderCore(nodeType) {
 
     proto.onThemeUpdate = function(config) {
         this.handleThemeUpdate(config);
+        syncDerpModelLoaderLocaleLabels(this);
         this._layoutMapHash = null; // THE STRUCTURAL RESET: Force full map rebuild on theme change
         this.refreshNodeLayoutMap();
         this.refreshDerpTemplateSysMap();
+        if (this.syncDerpOutputs) this.syncDerpOutputs();
     };
 
     proto.applyPalette = function() {
         if (window.xcpDerpThemeConfig) this.handleThemeUpdate(window.xcpDerpThemeConfig);
+        syncDerpModelLoaderLocaleLabels(this);
         this._layoutMapHash = null; // Force layout refresh for palette shift
         this.refreshNodeLayoutMap();
         this.refreshDerpTemplateSysMap();
+        if (this.syncDerpOutputs) this.syncDerpOutputs();
     };
 
     proto.fetchModelData = function(showNotification = false, options = {}) {
@@ -159,20 +188,20 @@ export function initDerpModelLoaderCore(nodeType) {
                 if (showNotification || missing.length > 0 || healed.length > 0) {
                     if (typeof playMicrowaveDing === "function") playMicrowaveDing();
 
-                    let msg = "Model list updated";
+                    let msg = tLocale("$derp_model_loader.messages.list_updated", "Model list updated");
                     let mode = "info";
 
                     // THE WARNING ENGINE: Explicit mode mapping for BastaMessage
                     if (missing.length > 0) {
-                        msg = `Missing Models Purged: ${missing.join(", ")}`;
+                        msg = `${tLocale("$derp_model_loader.messages.missing_purged_prefix", "Missing Models Purged: ")}${missing.join(", ")}`;
                         mode = "error"; // Triggers error styling and playKaboom()
                     } else if (healed.length > 0) {
-                        msg = `Models Re-linked: ${healed.join(", ")}`;
+                        msg = `${tLocale("$derp_model_loader.messages.relinked_prefix", "Models Re-linked: ")}${healed.join(", ")}`;
                         mode = "success"; // Triggers success styling and playKaChing()
                     }
 
                     if (missing.length > 0 && healed.length > 0) {
-                        msg = "Model deck synced: items repaired or removed.";
+                        msg = tLocale("$derp_model_loader.messages.deck_synced", "Model deck synced: items repaired or removed.");
                         mode = "info";
                     }
 
@@ -194,9 +223,9 @@ export function initDerpModelLoaderCore(nodeType) {
      */
     proto.syncDerpOutputs = function() {
         const ports = [
-            { name: "Model", type: "MODEL" },
-            { name: "Clip", type: "CLIP" },
-            { name: "Vae", type: "VAE" }
+            { name: tLocale("$derp_model_loader.ports.model", "Model"), type: "MODEL" },
+            { name: tLocale("$derp_model_loader.ports.clip", "Clip"), type: "CLIP" },
+            { name: tLocale("$derp_model_loader.ports.vae", "Vae"), type: "VAE" }
         ];
 
         if (!this.outputs || this.outputs.length !== ports.length) {
@@ -243,7 +272,7 @@ export function initDerpModelLoaderCore(nodeType) {
                 }
             }
 
-            const nodeName = this.titleLabel || this.title || "Unknown";
+            const nodeName = this.titleLabel || this.title || tLocale("$derp_model_loader.messages.unknown_node", "Unknown");
             const fingerprint = `${val}_${nodeName}_${this.id}_${(this.properties.modelDeck || []).length}`;
             if (this._lastSignalFingerprint === fingerprint) return;
             this._lastSignalFingerprint = fingerprint;
@@ -280,13 +309,13 @@ export function initDerpModelLoaderCore(nodeType) {
                     this._lastUnloadedNextModelName = val;
                     this._hasClearedVRAMSinceQueuePrompt = true;
                     if (typeof showBastaSystemMessage === "function") {
-                        showBastaSystemMessage(this, "VRAM Cleared: ", 2600, { fade: true, grow: true, silent: true }, null, "success", false, previousModel.split(/[\\/]/).pop() || previousModel);
+                        showBastaSystemMessage(this, tLocale("$derp_model_loader.messages.vram_cleared_prefix", "VRAM Cleared: "), 2600, { fade: true, grow: true, silent: true }, null, "success", false, previousModel.split(/[\\/]/).pop() || previousModel);
                     }
                 })
                 .catch((error) => {
                     console.error("[xcpDerp] Failed to unload previous model from VRAM:", error);
                     if (typeof showBastaMessage === "function") {
-                        showBastaMessage(this, "Model unload failed; continuing with switch", 2600, { fade: true, grow: true, width: 260 }, null, false, "error");
+                        showBastaMessage(this, tLocale("$derp_model_loader.messages.unload_failed", "Model unload failed; continuing with switch"), 2600, { fade: true, grow: true, width: 260 }, null, false, "error");
                     }
                 })
                 .finally(() => {

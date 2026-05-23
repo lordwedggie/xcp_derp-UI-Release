@@ -9,6 +9,47 @@ import { fatha, initDerpGlobalListener } from "../fatha/fatha.js";
 import { measureTextWidth } from "../herbina/utils/widgetsUtils.js";
 import { setupDerpSliderCore } from "./core/derpSlider_core.js";
 
+function tLocale(key, fallback = key) {
+    if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
+    const path = key.substring(1).split(".");
+    let target = window.xcpDerpLocaleData || {};
+    for (const segment of path) {
+        target = target?.[segment];
+        if (target === undefined) return fallback;
+    }
+    return target;
+}
+
+function normalizeSliderNameDisplay(value) {
+    const raw = String(value || "").trim();
+    const lower = raw.toLowerCase();
+    const labelMap = {
+        Slider: String(tLocale("$derp_slider.name_display.slider", "Slider")).trim().toLowerCase(),
+        Top: String(tLocale("$derp_slider.name_display.top", "Top")).trim().toLowerCase(),
+        Left: String(tLocale("$derp_slider.name_display.left", "Left")).trim().toLowerCase(),
+        None: String(tLocale("$derp_slider.name_display.none", "None")).trim().toLowerCase(),
+    };
+    for (const [internalValue, localizedValue] of Object.entries(labelMap)) {
+        if (lower === internalValue.toLowerCase() || lower === localizedValue) return internalValue;
+    }
+    return "Top";
+}
+
+function syncDerpSliderLocaleLabels(node) {
+    if (!node?.properties) return;
+    const localizedTitle = tLocale("$derp_slider.title", "Derp Slider");
+    const previousLocalizedTitle = node._lastLocalizedDerpSliderTitle;
+
+    if (!node.titleLabel || node.titleLabel === "Derp Slider" || (previousLocalizedTitle && node.titleLabel === previousLocalizedTitle)) {
+        node.titleLabel = localizedTitle;
+    }
+    if (!node.properties.titleLabel || node.properties.titleLabel === "Derp Slider" || (previousLocalizedTitle && node.properties.titleLabel === previousLocalizedTitle)) {
+        node.properties.titleLabel = localizedTitle;
+    }
+
+    node._lastLocalizedDerpSliderTitle = localizedTitle;
+}
+
 app.registerExtension({
     name: "xcp.derpSlider_Extension",
     async setup() {
@@ -28,6 +69,8 @@ app.registerExtension({
         // --- THEME & LAYOUT REFRESH ---
         nodeType.prototype.onThemeUpdate = function(config) {
             this.handleThemeUpdate(config);
+            this.properties.nameDisplay = normalizeSliderNameDisplay(this.properties.nameDisplay);
+            syncDerpSliderLocaleLabels(this);
             this._lastMapStructure = null;
             this.refreshNodeLayoutMap();
             this.refreshDerpSliderSysMap();
@@ -41,6 +84,7 @@ app.registerExtension({
         // --- MAIN UI LAYOUT ---
         nodeType.prototype.refreshNodeLayoutMap = function() {
             if (this.flags.collapsed || this.size[0] <= 0) return;
+            this.properties.nameDisplay = normalizeSliderNameDisplay(this.properties.nameDisplay);
 
             const vars = this.getDerpVars(this);
             const [mW, mH, sW, sH, oX, oY, pW, pH] = [
@@ -86,7 +130,7 @@ app.registerExtension({
                         [`lblTitle_${i}`, {
                             type: this.UI_TYPES.EDITOR, canvasShield: true,
                             themeKey: "t_textSmall",
-                            hidden: (this.properties.nameDisplay || "Top") !== "Top",
+                            hidden: this.properties.nameDisplay !== "Top",
                             labelAlign: ["left", "middle"],
                             text: this.properties.sliderContainer?.[i]?.name || `Slider_${i + 1}`,
                             width: labelWidthSmall, padding: [0, 0],
@@ -154,6 +198,13 @@ app.registerExtension({
         // --- SYSTEM PANEL LAYOUT ---
         nodeType.prototype.refreshDerpSliderSysMap = function() {
             const { mW, mH, sW, sH, oX, oY, pW, pH } = this.getDerpVars(this);
+            const nameDisplay = normalizeSliderNameDisplay(this.properties.nameDisplay);
+            const nameDisplayItems = [
+                { label: tLocale("$derp_slider.name_display.slider", "Slider"), value: "Slider" },
+                { label: tLocale("$derp_slider.name_display.top", "Top"), value: "Top" },
+                { label: tLocale("$derp_slider.name_display.left", "Left"), value: "Left" },
+                { label: tLocale("$derp_slider.name_display.none", "None"), value: "None" },
+            ];
 
             const pSys = this._t_textsystemPaintData || this._t_textSystemPaintData || { fontSize: 10, font: "Arial", fontWeight: "normal" };
             const sysWidthInput = measureTextWidth("99999", pSys.fontSize, pSys.font, pSys.fontWeight);
@@ -167,7 +218,7 @@ app.registerExtension({
                         type: this.UI_TYPES.TEXT, mouseOver: false,
                         themeKey: "t_textsystem",
                         labelAlign: ["left", "middle"],
-                        text: "Derp Slider properties:",
+                        text: tLocale("$derp_slider.system.properties", "Derp Slider properties:"),
                         width: "full", padding: [pW, pH],
                     },
                     optionsRowOne: {
@@ -177,7 +228,7 @@ app.registerExtension({
                             type: this.UI_TYPES.TEXT,
                             themeKey: "t_textsystem",
                             labelAlign: ["left", "middle"],
-                            text: "Sliders:",
+                            text: tLocale("$derp_slider.system.sliders", "Sliders:"),
                             width: "auto", spacing: [sW, 0],
                         },
                         editorSliderCount: {
@@ -197,7 +248,7 @@ app.registerExtension({
                             type: this.UI_TYPES.TEXT,
                             themeKey: "t_textsystem",
                             labelAlign: ["left", "middle"],
-                            text: "Name display:",
+                            text: tLocale("$derp_slider.system.name_display", "Name display:"),
                             width: "auto", spacing: [sW, 0],
                         },
                         dropdownNameDisplay: {
@@ -205,11 +256,11 @@ app.registerExtension({
                             themeKey: "dialog, t_textSystem",
                             canvasShield: true,
                             labelAlign: ["center", "middle"], padding: [pW, pH],
-                            width: "auto", measureText: "Slider",
-                            items: ["Slider", "Top", "Left", "None"],
-                            value: this.properties.nameDisplay || "Top",
+                            width: "auto", measureText: tLocale("$derp_slider.name_display.slider", "Slider"),
+                            items: nameDisplayItems,
+                            value: nameDisplay,
                             onChange: (v) => {
-                                this.properties.nameDisplay = v;
+                                this.properties.nameDisplay = normalizeSliderNameDisplay(v);
                                 this.refreshNodeLayoutMap();
                                 if (this.refreshDerpSliderSysMap) this.refreshDerpSliderSysMap();
                                 this.requestDerpSync();
@@ -223,49 +274,49 @@ app.registerExtension({
                             type: this.UI_TYPES.TEXT,
                             themeKey: "dialog, t_textSystem, 4", state: "DIS", skipBackground: true,
                             labelAlign: ["center", "middle"],
-                            text: "NAME", minWidth: 50,
+                            text: tLocale("$derp_slider.headers.name", "NAME"), minWidth: 50,
                             width: "fit", padding: [pW, 0], spacing: [sW, 0],
                         },
                         lblSliderMin: {
                             type: this.UI_TYPES.TEXT,
                             themeKey: "dialog, t_textSystem, 4", state: "DIS", skipBackground: true,
                             labelAlign: ["center", "middle"],
-                            text: "MIN",
+                            text: tLocale("$derp_slider.headers.min", "MIN"),
                             width: sysWidthInput, padding: [pW, 0], spacing: [sW, 0],
                         },
                         lblSliderMax: {
                             type: this.UI_TYPES.TEXT,
                             themeKey: "dialog, t_textSystem, 4", state: "DIS", skipBackground: true,
                             labelAlign: ["center", "middle"],
-                            text: "MAX",
+                            text: tLocale("$derp_slider.headers.max", "MAX"),
                             width: sysWidthInput, padding: [pW, 0], spacing: [sW, 0],
                         },
                         lblSliderStep: {
                             type: this.UI_TYPES.TEXT,
                             themeKey: "dialog, t_textSystem, 4", state: "DIS", skipBackground: true,
                             labelAlign: ["center", "middle"],
-                            text: "STEP",
+                            text: tLocale("$derp_slider.headers.step", "STEP"),
                             width: sysWidthInput, padding: [pW, 0], spacing: [sW, 0],
                         },
                         lblSliderDefault: {
                             type: this.UI_TYPES.TEXT,
                             themeKey: "dialog, t_textSystem, 4", state: "DIS", skipBackground: true,
                             labelAlign: ["center", "middle"],
-                            text: "DEFAULT",
+                            text: tLocale("$derp_slider.headers.default", "DEFAULT"),
                             width: sysWidthInput, padding: [pW, 0], spacing: [sW, 0],
                         },
                         lblSliderDecimal: {
                             type: this.UI_TYPES.TEXT,
                             themeKey: "dialog, t_textSystem, 4", state: "DIS", skipBackground: true,
                             labelAlign: ["center", "middle"],
-                            text: "DECIMAL",
+                            text: tLocale("$derp_slider.headers.decimal", "DECIMAL"),
                             width: sysWidthInput, padding: [pW, 0], spacing: [sW, 0],
                         },
                         lblSliderBtnLR: {
                             type: this.UI_TYPES.TEXT,
                             themeKey: "dialog, t_textSystem, 4", state: "DIS", skipBackground: true,
                             labelAlign: ["center", "middle"],
-                            text: "BTN",
+                            text: tLocale("$derp_slider.headers.btn", "BTN"),
                             width: sysWidthInput, padding: [pW, 0], spacing: [sW, 0],
                         },
                     },
@@ -312,7 +363,7 @@ app.registerExtension({
                                 [`toggleBtnLR_${i}`]: {
                                     type: this.UI_TYPES.TOGGLE_V2, themeKey: "dialog, button, t_textSystem",
                                     isTextOnly: true, mouseOver: false, icon: "ring",
-                                    label: "btnLR",
+                                    label: tLocale("$derp_slider.headers.btn_lr", "btnLR"),
                                     width: "auto", height: "auto", padding: [pW, 0], spacing: [sW, 0],
                                     value: item.btnLR ?? false,
                                     onPress: () => {

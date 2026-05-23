@@ -13,6 +13,42 @@ import { activeBastas } from "../fatha/basta.js";
 import { getSignalReceiverId } from "../fatha/bastas/bastaSignalReceiver.js";
 import { getPinnedVerticalDeckAnchor, restorePinnedVerticalDeckAnchor } from "../fatha/core/dockResize.js";
 
+function tLocale(key, fallback = key) {
+    if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
+    const path = key.substring(1).split(".");
+    let target = window.xcpDerpLocaleData || {};
+    for (const segment of path) {
+        target = target?.[segment];
+        if (target === undefined) return fallback;
+    }
+    return target;
+}
+
+function getImageDeckPrefixPlaceholder() {
+    return tLocale("$derp_image_deck.prefix.placeholder", "Image Prefix");
+}
+
+function isImageDeckPrefixPlaceholder(value) {
+    const normalized = normalizeImageDeckToken(value);
+    return !normalized || normalized === "Image Prefix" || normalized === getImageDeckPrefixPlaceholder();
+}
+
+function syncDerpImageDeckLocaleLabels(node) {
+    if (!node?.properties) return;
+    const localizedTitle = tLocale("$derp_image_deck.title", "Derp Image Deck");
+    const previousLocalizedTitle = node._lastLocalizedDerpImageDeckTitle;
+    if (!node.titleLabel || node.titleLabel === "Derp Image Deck" || (previousLocalizedTitle && node.titleLabel === previousLocalizedTitle)) {
+        node.titleLabel = localizedTitle;
+    }
+    if (!node.properties.titleLabel || node.properties.titleLabel === "Derp Image Deck" || (previousLocalizedTitle && node.properties.titleLabel === previousLocalizedTitle)) {
+        node.properties.titleLabel = localizedTitle;
+    }
+    if (isImageDeckPrefixPlaceholder(node.properties.imageDeckFilenamePrefix)) {
+        node.properties.imageDeckFilenamePrefix = getImageDeckPrefixPlaceholder();
+    }
+    node._lastLocalizedDerpImageDeckTitle = localizedTitle;
+}
+
 async function copyImageUrlToClipboard(imageUrl) {
     if (!imageUrl || !navigator.clipboard || typeof navigator.clipboard.write !== "function") return;
     const res = await fetch(imageUrl);
@@ -42,7 +78,7 @@ function normalizeImageDeckFilenameToken(raw) {
 
 function getImageDeckCustomPrefix(raw) {
     const prefix = normalizeImageDeckToken(raw);
-    return prefix && prefix !== "Image Prefix" ? prefix : "";
+    return prefix && !isImageDeckPrefixPlaceholder(prefix) ? prefix : "";
 }
 
 function normalizeImageDeckFolderPath(raw) {
@@ -108,7 +144,7 @@ function restoreImageDeckRefreshAnchor(anchor) {
 async function saveImageDeckCurrentImage(node, isAutoSave = false) {
     const image = getImageDeckCurrentImage(node);
     if (!image || !image.filename) {
-        showBastaMessage(node, "No image to save", 1800, { fade: true }, "btnSaveImage", false, "error");
+        showBastaMessage(node, tLocale("$derp_image_deck.messages.no_image_to_save", "No image to save"), 1800, { fade: true }, "btnSaveImage", false, "error");
         return;
     }
 
@@ -131,19 +167,19 @@ async function saveImageDeckCurrentImage(node, isAutoSave = false) {
     });
     const data = await res.json();
     if (!res.ok || !data?.success) {
-        const msg = data?.error || "Save failed";
+        const msg = data?.error || tLocale("$derp_image_deck.messages.save_failed", "Save failed");
         showBastaMessage(node, msg, 2200, { fade: true }, "btnSaveImage", false, "error");
         return;
     }
 
     const savedName = String(data.filename || "").split(/[\\/]/).pop() || String(data.filename || "");
-    showBastaSystemMessage(node, isAutoSave ? "Auto-saved: " : "Saved: ", 2200, { fade: true, grow: true }, "btnSaveImage", "success", null, savedName);
+    showBastaSystemMessage(node, isAutoSave ? tLocale("$derp_image_deck.messages.auto_saved_prefix", "Auto-saved: ") : tLocale("$derp_image_deck.messages.saved_prefix", "Saved: "), 2200, { fade: true, grow: true }, "btnSaveImage", "success", null, savedName);
 }
 
 function openImageDeckFolderSelector(node, items = []) {
     showBastaFileHandler(node, "output", "btnFolderSelector", {
-        title: "Select Folder",
-        confirm: "Select",
+        title: tLocale("$derp_image_deck.dialogs.select_folder.title", "Select Folder"),
+        confirm: tLocale("$derp_image_deck.dialogs.select_folder.confirm", "Select"),
         mode: "folder",
         fileList: items,
         initialSize: [260, 260],
@@ -222,6 +258,7 @@ app.registerExtension({
 
         nodeType.prototype.onThemeUpdate = function(config) {
             this.handleThemeUpdate(config);
+            syncDerpImageDeckLocaleLabels(this);
             this.refreshNodeLayoutMap();
             this.refreshDerpImageDeckSysMap();
         };
@@ -237,8 +274,8 @@ app.registerExtension({
                 additionalTypes,
                 layoutOverrides: {
                     signalLabelText: {
-                        IMAGE: "Select IMAGE signal (required):",
-                        MODEL: "Select optional signals for file name parsing:"
+                        IMAGE: tLocale("$derp_image_deck.signals.image_required", "Select IMAGE signal (required):"),
+                        MODEL: tLocale("$derp_image_deck.signals.optional_for_filename", "Select optional signals for file name parsing:")
                     },
                     hiddenSignalLabels: ["SAMPLER", "SCHEDULER"]
                 }
@@ -454,7 +491,7 @@ app.registerExtension({
             this.properties.imageDeckSchedulerNames = Array.isArray(this.properties.imageDeckSchedulerNames) ? this.properties.imageDeckSchedulerNames : [];
             this.properties.imageDeckFilenamePrefix = typeof this.properties.imageDeckFilenamePrefix === "string"
                 ? this.properties.imageDeckFilenamePrefix
-                : "Image Prefix";
+                : getImageDeckPrefixPlaceholder();
             this.properties.imageDeckSaveFormat = typeof this.properties.imageDeckSaveFormat === "string"
                 ? this.properties.imageDeckSaveFormat
                 : "PNG";
@@ -464,7 +501,7 @@ app.registerExtension({
             this.updateImageDeckSignalFilters();
             this.properties.multiSignalIds = this.properties.multiSignalIds || {};
             this.properties.multiSignalLabels = this.properties.multiSignalLabels || {};
-            this.titleLabel = this.titleLabel || "Derp Image Deck";
+            this.titleLabel = this.titleLabel || tLocale("$derp_image_deck.title", "Derp Image Deck");
             this.properties.titleLabel = this.titleLabel;
             this.properties.autoWidth = false;
             this.properties.autoHeight = false;
@@ -475,6 +512,7 @@ app.registerExtension({
                 index: 0,
                 images: []
             };
+            syncDerpImageDeckLocaleLabels(this);
 
             if (!this._imageDeckExecHooksBound && app.api) {
                 this._imageDeckExecHooksBound = true;
@@ -605,7 +643,7 @@ app.registerExtension({
             data.size = Array.isArray(this.size) ? [...this.size] : data.size;
             data.properties.nodeSize = Array.isArray(this.size) ? [...this.size] : this.properties.nodeSize;
             data.properties.imageDeckCustomFolder = this.properties.imageDeckCustomFolder || "";
-            data.properties.imageDeckFilenamePrefix = this.properties.imageDeckFilenamePrefix || "Image Prefix";
+            data.properties.imageDeckFilenamePrefix = this.properties.imageDeckFilenamePrefix || getImageDeckPrefixPlaceholder();
             data.properties.toggleAutoSave = this.properties.toggleAutoSave === true;
             data.properties.imageDeckState = {
                 images: Array.isArray(this._derpImageDeckList) ? this._derpImageDeckList : [],
@@ -702,7 +740,7 @@ app.registerExtension({
                         onContextMenu: () => {
                             if (!imageUrl) return [];
                             return [{
-                                content: "Copy Image",
+                                content: tLocale("$derp_image_deck.menu.copy_image", "Copy Image"),
                                 callback: async () => {
                                     try {
                                         await copyImageUrlToClipboard(imageUrl);
@@ -738,20 +776,20 @@ app.registerExtension({
                                         const folderItems = items.filter(item => typeof item === "string" && item.endsWith("/"));
 
                                         if (!ok) {
-                                            const msg = data?.error ? `Folder list failed: ${data.error}` : `Folder list failed (${status})`;
+                                            const msg = data?.error ? `${tLocale("$derp_image_deck.messages.folder_list_failed_prefix", "Folder list failed: ")}${data.error}` : `${tLocale("$derp_image_deck.messages.folder_list_failed_status_prefix", "Folder list failed (")}${status})`;
                                             showBastaMessage(this, msg, 2800, { fade: true }, "btnFolderSelector", false, "error");
                                             return;
                                         }
 
                                         if (folderItems.length === 0) {
-                                            showBastaMessage(this, "No output subfolders found", 2400, { fade: true }, "btnFolderSelector", false, "info");
+                                            showBastaMessage(this, tLocale("$derp_image_deck.messages.no_output_subfolders", "No output subfolders found"), 2400, { fade: true }, "btnFolderSelector", false, "info");
                                         }
 
                                         openImageDeckFolderSelector(this, items);
                                     })
                                     .catch((e) => {
                                         console.warn("[DerpImageDeck] Failed to load output folders:", e);
-                                        showBastaMessage(this, "Folder list request failed", 2800, { fade: true }, "btnFolderSelector", false, "error");
+                                        showBastaMessage(this, tLocale("$derp_image_deck.messages.folder_list_request_failed", "Folder list request failed"), 2800, { fade: true }, "btnFolderSelector", false, "error");
                                     });
                             }
                         },
@@ -762,10 +800,10 @@ app.registerExtension({
                             height: "auto",
                             padding: [pW, pH], spacing: [sH, 0],
                             labelAlign: ["left", "middle"],
-                            text: this.properties.imageDeckFilenamePrefix || "Image Prefix",
-                            value: this.properties.imageDeckFilenamePrefix || "Image Prefix",
+                            text: this.properties.imageDeckFilenamePrefix || getImageDeckPrefixPlaceholder(),
+                            value: this.properties.imageDeckFilenamePrefix || getImageDeckPrefixPlaceholder(),
                             onBlur: (v) => {
-                                this.properties.imageDeckFilenamePrefix = String(v || "").trim() || "Image Prefix";
+                                this.properties.imageDeckFilenamePrefix = String(v || "").trim() || getImageDeckPrefixPlaceholder();
                                 if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
                                 if (this.requestDerpSync) this.requestDerpSync();
                             }
@@ -786,7 +824,7 @@ app.registerExtension({
                         },
                         btnSaveImage: {
                             type: this.UI_TYPES.BUTTON,
-                            text: "SAVE IMAGE",
+                            text: tLocale("$derp_image_deck.buttons.save_image", "SAVE IMAGE"),
                             themeKey: "button, t_textSmall",
                             width: "auto", height: "fill",
                             spacing: [sW, 0], padding: [pW, pH],
@@ -796,7 +834,7 @@ app.registerExtension({
                                 try {
                                     await saveImageDeckCurrentImage(this);
                                 } catch (e) {
-                                    showBastaMessage(this, "Save failed", 2200, { fade: true }, "btnSaveImage", false, "error");
+                                    showBastaMessage(this, tLocale("$derp_image_deck.messages.save_failed", "Save failed"), 2200, { fade: true }, "btnSaveImage", false, "error");
                                 }
                             }
                         }
@@ -823,7 +861,7 @@ app.registerExtension({
                         mouseOver: false,
                         themeKey: "t_textsystem",
                         labelAlign: ["left", "middle"],
-                        text: "Image Deck settings",
+                        text: tLocale("$derp_image_deck.system.settings", "Image Deck settings"),
                         width: "full",
                         padding: [pW, pH],
                     },
@@ -836,7 +874,7 @@ app.registerExtension({
                             type: this.UI_TYPES.TOGGLE,
                             textThemeKey: "t_textSystem",
                             icon: "radio",
-                            label: "Get model name",
+                            label: tLocale("$derp_image_deck.system.get_model_name", "Get model name"),
                             value: this.properties.toggleModelInfo !== false,
                             width: "auto",
                             height: "auto",
@@ -854,7 +892,7 @@ app.registerExtension({
                             type: this.UI_TYPES.TOGGLE,
                             textThemeKey: "t_textSystem",
                             icon: "radio",
-                            label: "Get sampler name",
+                            label: tLocale("$derp_image_deck.system.get_sampler_name", "Get sampler name"),
                             value: this.properties.toggleSamplerInfo !== false,
                             width: "auto",
                             height: "auto",
@@ -873,7 +911,7 @@ app.registerExtension({
                             type: this.UI_TYPES.TOGGLE,
                             textThemeKey: "t_textSystem",
                             icon: "radio",
-                            label: "Get scheduler name",
+                            label: tLocale("$derp_image_deck.system.get_scheduler_name", "Get scheduler name"),
                             value: this.properties.toggleSchedulerInfo !== false,
                             width: "auto",
                             height: "auto",
@@ -902,7 +940,7 @@ app.registerExtension({
                             mouseOver: false,
                             iconAlign: "right",
                             icon: "ring",
-                            label: "Auto adjust node height",
+                            label: tLocale("$derp_image_deck.system.auto_adjust_height", "Auto adjust node height"),
                             value: this.properties.toggleAutoFit !== false,
                             width: "auto",
                             height: "auto",
@@ -923,7 +961,7 @@ app.registerExtension({
                             mouseOver: false,
                             iconAlign: "right",
                             icon: "ring",
-                            label: "Auto save new images",
+                            label: tLocale("$derp_image_deck.system.auto_save_new", "Auto save new images"),
                             value: this.properties.toggleAutoSave === true,
                             width: "auto",
                             height: "auto",
@@ -940,7 +978,7 @@ app.registerExtension({
                             mouseOver: false,
                             themeKey: "t_textsystem",
                             labelAlign: ["left", "middle"],
-                            text: "Image format:",
+                            text: tLocale("$derp_image_deck.system.image_format", "Image format:"),
                             width: "auto",
                             height: "auto",
                             padding: [pW, pH],

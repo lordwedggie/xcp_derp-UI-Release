@@ -8,11 +8,22 @@ import { showBastaSystemMessage } from "../../fatha/bastas/bastaSystemMessage.js
 
 const imageResizeWidth = 512;
 
+function tLocale(key, fallback = key) {
+    if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
+    const path = key.substring(1).split(".");
+    let target = window.xcpDerpLocaleData || {};
+    for (const segment of path) {
+        target = target?.[segment];
+        if (target === undefined) return fallback;
+    }
+    return target;
+}
+
 async function uploadBinaryToServer(file, node) {
     try {
         const formData = new FormData();
         // THE SYNC FIX: Trim the book name to match the server's folder structure exactly
-        const currentName = (node.properties.bookName || "Untitled Book").trim();
+        const currentName = (node.properties.bookName || tLocale("$derp_prompt_book.book.untitled_name", "Untitled Book")).trim();
 
         formData.append('bookName', currentName);
         formData.append('image', file);
@@ -35,7 +46,7 @@ async function deleteImageFromServer(filename, node) {
         await fetch("/xcp/delete_asset/derpPromptBook", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name: filename, bookName: node.properties.bookName || "Untitled Book" })
+            body: JSON.stringify({ name: filename, bookName: node.properties.bookName || tLocale("$derp_prompt_book.book.untitled_name", "Untitled Book") })
         });
     } catch (e) { console.error("Disk Cleanup Failed:", e); }
 }
@@ -65,7 +76,7 @@ function reportMissingPromptBookImage(node, imageName) {
     node._missingPromptBookImages = node._missingPromptBookImages || new Set();
     if (node._missingPromptBookImages.has(imageName)) return;
     node._missingPromptBookImages.add(imageName);
-    showBastaSystemMessage(node, "Page Image Missing", 3200, { fade: true, grow: true }, null, "error", null, imageName);
+    showBastaSystemMessage(node, tLocale("$derp_prompt_book.messages.page_image_missing", "Page Image Missing"), 3200, { fade: true, grow: true }, null, "error", null, imageName);
 }
 
 export function setupPromptBookImageSupport(el, node) {
@@ -134,7 +145,7 @@ export function setupPromptBookImageSupport(el, node) {
                     const imgName = imgMatch[1].trim();
                     let imgSrc = imgName;
                     if (!imgName.startsWith("data:image") && !imgName.startsWith("http") && !imgName.startsWith("/")) {
-                        const currentBook = (node.properties.bookName || "Untitled Book").trim();
+                        const currentBook = (node.properties.bookName || tLocale("$derp_prompt_book.book.untitled_name", "Untitled Book")).trim();
                         // THE ASSET PATH FIX: Use the 'derpPromptBook' category to resolve assets from the correct user folder
                         imgSrc = `/xcp/get_asset/derpPromptBook?name=${encodeURIComponent(imgName)}&bookName=${encodeURIComponent(currentBook)}`;
                     }

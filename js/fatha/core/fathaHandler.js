@@ -428,11 +428,31 @@ export async function loadDerpLocale(langCode = "en-US") {
             window.xcpDerpLocaleData = result.data;
             window.xcpDerpActiveLocale = target;
 
-            // GLOBAL REFLOW: All nodes using the Layout Engine will now physically resize
+            // GLOBAL REFLOW: Re-run node refresh hooks so locale-backed stored labels
+            // (titles, outputs, normalized display values) also update on live locale changes.
             if (app.graph && app.graph._nodes) {
                 app.graph._nodes.forEach(node => {
-                    if ((node.isFathaNode || node.isUncleNode) && node.requestDerpSync) {
+                    if (!(node.isFathaNode || node.isUncleNode)) return;
+                    if (typeof node.onThemeUpdate === "function") {
+                        node.onThemeUpdate(window.xcpDerpThemeConfig);
+                    } else if (node.requestDerpSync) {
                         node.requestDerpSync();
+                    }
+                });
+            }
+            if (window.xcpActiveBastas) {
+                window.xcpActiveBastas.forEach(basta => {
+                    if (!basta || basta.isClosing) return;
+                    if (typeof basta.onThemeUpdate === "function") {
+                        basta.onThemeUpdate(window.xcpDerpThemeConfig);
+                    } else {
+                        basta._layoutDirty = true;
+                        basta._forceSync = true;
+                        if (typeof basta.requestDerpSync === "function") {
+                            basta.requestDerpSync();
+                        } else if (typeof basta.setDirtyCanvas === "function") {
+                            basta.setDirtyCanvas(true, true);
+                        }
                     }
                 });
             }

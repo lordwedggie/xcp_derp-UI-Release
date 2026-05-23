@@ -19,7 +19,7 @@ import { showBastaSystemMessage } from "../bastas/bastaSystemMessage.js";
 import { getDeckCornerOverride } from "../core/masterDockEngine.js";
 
 const DEBUG_OPTIONS = ["None", "Layout", "Hitbox", "Widgets Hitbox"];
-const TITLE_LABEL_DEFAULT = "Derp Nodes";
+const TITLE_LABEL_DEFAULT = "$fatha_layout.title_default";
 const DEFAULT_WARP_SHORTCUT_ZOOM = 1.5;
 const WARP_SHORTCUT_ITEMS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
 // Collapsed nodes use a fixed compact header so theme margins do not skew top/bottom spacing.
@@ -505,7 +505,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
             lblTheme: {
                 type: UI_TYPES.TEXT,
                 themeKey: "t_textSystem",
-                text: "Theme:",
+                text: "$fatha_layout.theme",
                 width: "auto", height: "auto",
                 objectAlign: ["left", "middle"],
                 padding: [pW, pH],
@@ -548,7 +548,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
             btnWarp: {
                 type: UI_TYPES.BUTTON,
                 themeKey: "button, t_textSystem",
-                text: "Add WarpPoint",
+                text: "$fatha_layout.add_warp_point",
                 labelAlign: ["center", "middle"],
                 width: "auto", height: "fill",
                 spacing: [sW, 0],
@@ -567,7 +567,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
             btnWarpDelete: {
                 type: UI_TYPES.BUTTON,
                 themeKey: "button, t_textSystem",
-                text: "Delete WarpPoint",
+                text: "$fatha_layout.delete_warp_point",
                 labelAlign: ["center", "middle"],
                 width: "auto", height: "fill",
                 spacing: [sW, 0],
@@ -593,7 +593,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
             lblShortcut: {
                 type: UI_TYPES.TEXT,
                 themeKey: "t_textSystem",
-                text: "Warp shortcut:",
+                text: "$fatha_layout.warp_shortcut",
                 width: "auto", height: "auto",
                 objectAlign: ["left", "middle"],
                 padding: [pW, pH],
@@ -603,7 +603,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                 type: UI_TYPES.TOGGLE,
                 textThemeKey: "t_textSystem",
                 icon: "radio",
-                label: "Ctrl",
+                label: "$fatha_layout.ctrl",
                 value: isCtrlOn,
                 width: "auto", height: "auto",
                 padding: [pW, pH],
@@ -639,7 +639,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
             lblZoom: {
                 type: UI_TYPES.TEXT,
                 themeKey: "t_textSystem",
-                text: "Zoom:",
+                text: "$fatha_layout.zoom",
                 width: "auto", height: "auto",
                 objectAlign: ["left", "middle"],
                 padding: [pW, pH],
@@ -761,7 +761,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
             dir: "row", height: "auto", width: "full", margin: [mW, mH, mW, mH],
             themeKey: "panel",
             settingsLabel: {
-                type: UI_TYPES.TEXT, text: "Load settings:", themeKey: "t_textSystem",
+                type: UI_TYPES.TEXT, text: "$fatha_layout.load_settings", themeKey: "t_textSystem",
                 width: "auto", height: "auto", objectAlign: ["left", "middle"], disabled: false, spacing: [2, 0],
             },
             dropdownProfiles: {

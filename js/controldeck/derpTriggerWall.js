@@ -48,6 +48,17 @@ import {
     triggerWall_groupDragEnd
 } from "./core/derpTriggerWall_core.js";
 
+function tLocale(key, fallback = key) {
+    if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
+    const path = key.substring(1).split(".");
+    let target = window.xcpDerpLocaleData || {};
+    for (const segment of path) {
+        target = target?.[segment];
+        if (target === undefined) return fallback;
+    }
+    return target;
+}
+
 function dockDebug(label, payload = {}) {
     if (!globalThis?.DERP_DOCK_RESIZE_DEBUG) return;
     globalThis.DERP_DOCK_RESIZE_LOGS = globalThis.DERP_DOCK_RESIZE_LOGS || [];
@@ -478,7 +489,7 @@ app.registerExtension({
                 }));
                 this._triggerGroupData = [{
                     id: `grp_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`,
-                    title: this.properties.regionTitle || "Trigger Group 1",
+                    title: this.properties.regionTitle || `${tLocale("$derp_trigger_wall.groups.default_prefix", "Trigger Group")} 1`,
                     triggers: legacy,
                     isExclusive: false
                 }];
@@ -577,7 +588,7 @@ app.registerExtension({
                             measureCacheMisses += 1;
                             tw = Math.ceil(this.layout.measure({
                                 type: this.UI_TYPES.COMPOSITE_TRIGGER, themeKey: "panel, button, t_textsmall",
-                                text: item.trig.label || "Trigger Test", width: "auto", height: "auto",
+                                text: item.trig.label || "$derp_trigger_wall.trigger.placeholder", width: "auto", height: "auto",
                                 padding: [triggerPadW, triggerPadH, triggerPadW, triggerPadH], margin: [0, 0], spacing: [sW, 0],
                                 showWeight: this.properties.showWeight, weight: trigWeight
                             }, { textTheme: measureTextTheme }));
@@ -634,7 +645,7 @@ app.registerExtension({
                                 const triggerItemKey = rowAnchorPrefix === "triggerRow" ? `triggerItem_${gIdx}_${item.idx}` : `${rowAnchorPrefix}Item_${gIdx}_${item.idx}`;
                                 return [triggerItemKey, {
                                     type: this.UI_TYPES.COMPOSITE_TRIGGER, themeKey: "panel, button, t_textsmall",
-                                    text: item.trig.label || "Trigger Test", mouseOver: false,
+                                    text: item.trig.label || "$derp_trigger_wall.trigger.placeholder", mouseOver: false,
                                     width: "auto", height: "auto", padding: [triggerPadW, triggerPadH, triggerPadW, triggerPadH], margin: [0, 0], spacing: [sW, 0],
                                     showWeight: this.properties.showWeight, weight: item.trig.weight ?? 1.0,
                                     alpha: groupWidgetAlpha,
@@ -733,17 +744,17 @@ app.registerExtension({
                             indicator: true, canvasShield: true, mouseOver: false,
                             width: "full", height: "auto", spacing: [sW, 0],
                             padding: [pW, pH],
-                            value: group.title || "Trigger Group",
+                            value: group.title || tLocale("$derp_trigger_wall.groups.default", "Trigger Group"),
                             items: [...(this._cachedPresetData?.triggerGroups || this._triggerGroupData || [])]
                                 .filter(g => !activeTitles.includes(g.title) || g.title === group.title)
                                 .sort((a, b) => (a.title || "").localeCompare(b.title || ""))
-                                .map(g => g.title || "Trigger Group"),
+                                .map(g => g.title || tLocale("$derp_trigger_wall.groups.default", "Trigger Group")),
                             onChange: (v) => triggerWall_changeGroupTemplate(this, group, v)
                         },
                         [`${childKeyPrefix}btnAddTriggerToProfile_${gIdx}`]: {
                             type: this.UI_TYPES.BUTTON, themeKey: "button, t_textSmall",
                             alpha: isPreviewGhost ? 0 : 1,
-                            text: "Add to Profile", width: "auto", height: "auto", padding: [pW, pH], spacing: [sW, 0],
+                            text: "$derp_trigger_wall.buttons.add_to_profile", width: "auto", height: "auto", padding: [pW, pH], spacing: [sW, 0],
                             hidden: triggerWall_isGroupDuplicate(this),
                             state: isBypassed ? "DIS" : "OFF",
                             onPress: () => triggerWall_addSelectedGroupToProfile(this)
@@ -786,7 +797,7 @@ app.registerExtension({
                 dir: "row", width: "full", height: "auto", margin: [mW, mH, mW, 0],
                 addGroup: {
                     type: this.UI_TYPES.BUTTON, themeKey: "button, t_textsmall", labelAlign: ["center", "middle"],
-                    text: "New trigger group", width: "fit", padding: [pW, pH],
+                    text: "$derp_trigger_wall.buttons.new_group", width: "fit", padding: [pW, pH],
                     onPress: () => triggerWall_addGroup(this)
                 },
                 btnSaveTriggerGroup: {
@@ -801,12 +812,12 @@ app.registerExtension({
                 },
                 filebrowserTrigger: {
                     type: this.UI_TYPES.FILEBROWSER, themeKey: "button, t_textsmall", canvasShield: true,
-                    text: this.properties.lastSavedPreset || "Load trigger profiles", mouseOver: false,
+                    text: this.properties.lastSavedPreset || "$derp_trigger_wall.browser.load_profiles", mouseOver: false,
                     icon: this.properties.lastSavedPreset ? "file" : "folder",
                     width: "full", height: "fill", padding: [pW, pH], margin: [sW, 0, 0, 0],
                     items: this._sortedPresetItems || [],
                     indicator: true,
-                    rootName: "Presets",
+                    rootName: tLocale("$derp_trigger_wall.browser.presets", "Presets"),
                     onChange: (val) => {
                         if (typeof triggerWall_onLoadPreset === "function") triggerWall_onLoadPreset(this, val);
                     }
@@ -857,7 +868,7 @@ app.registerExtension({
                     return !loadedDeckTitles.has(title);
                 })
                 .sort((a, b) => (a.title || "").localeCompare(b.title || ""))
-                .map(g => g.title || "Trigger Group");
+                .map(g => g.title || tLocale("$derp_trigger_wall.groups.default", "Trigger Group"));
 
             layoutMap.regionSelectTriggerGroup = {
                 anchor: { target: lastRegionKey, axis: "y"},
@@ -868,7 +879,7 @@ app.registerExtension({
                     indicator: true, canvasShield: true, mouseOver: false,
                     width: "full", height: "auto", spacing: [sW, 0],
                     padding: [pW, pH],
-                    value: "Select Trigger Group",
+                    value: tLocale("$derp_trigger_wall.groups.select", "Select Trigger Group"),
                     items: cachedTriggerGroupItems,
                     state: isBypassed ? "DIS" : (cachedTriggerGroupItems.length > 0 ? "OFF" : "DIS"),
                     onChange: (v) => {
@@ -886,7 +897,7 @@ app.registerExtension({
                 toggleExclusive: {
                     type: this.UI_TYPES.TOGGLE_V2, themeKey: "button, t_textSmall",
                     isTextOnly: true, mouseOver: false, cutoff: false,
-                    text: "Mutually exclusive",
+                    text: "$derp_trigger_wall.buttons.exclusive",
                     width: "auto", height: "auto", padding: [pW, pH],
                     value: !!selectedGroup?.isExclusive,
                     state: isBypassed ? "DIS" : (anySelected ? (selectedGroup.isExclusive ? "ON" : "OFF") : "DIS"),
@@ -894,7 +905,7 @@ app.registerExtension({
                 },
                 btnSaveToCurrent: {
                     type: this.UI_TYPES.BUTTON, themeKey: "button, t_textSmall",
-                    text: "Save to current", width: "auto", height: "auto", padding: [pW, pH],
+                    text: "$derp_trigger_wall.buttons.save_to_current", width: "auto", height: "auto", padding: [pW, pH],
                     state: isBypassed ? "DIS" : (triggerWall_isGroupDuplicate(this) ? "DIS" : "OFF"),
                     onPress: () => triggerWall_addSelectedGroupToProfile(this)
                 }
@@ -971,7 +982,7 @@ app.registerExtension({
                         type: this.UI_TYPES.TEXT, hidden: false, mouseOver: false,
                         themeKey: "t_textSystem",
                         labelAlign: ["left", "middle"],
-                        text: "Derp Triger Wall properties:",
+                        text: tLocale("$derp_trigger_wall.system.properties", "Derp Trigger Wall properties:"),
                         width: "full", padding: [pW, pH],
                     },
                     regionOption1: {
@@ -983,7 +994,7 @@ app.registerExtension({
                             value: !!this.properties.showWeight,
                             objectAlign: ["left", "top"],
                             labelAlign: ["left", "middle"],
-                            label: "Show Trigger Weight",
+                            label: tLocale("$derp_trigger_wall.system.show_weight", "Show Trigger Weight"),
                             width: "auto", height: "fill",
                             padding: [pW, pH],
                             onPress: () => triggerWall_toggleShowWeight(this)
@@ -993,7 +1004,7 @@ app.registerExtension({
                             value: !!this.properties.toggleAddAlways,
                             objectAlign: ["left", "top"],
                             labelAlign: ["left", "middle"],
-                            label: "Add trigger button always visible",
+                            label: tLocale("$derp_trigger_wall.system.add_always", "Add trigger button always visible"),
                             width: "auto", height: "fill",
                             padding: [pW, pH],
                             onPress: () => triggerWall_toggleAddAlways(this)

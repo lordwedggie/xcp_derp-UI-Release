@@ -1,25 +1,540 @@
 {
   "metadata": {
-    "language": "English",
-    "region": "US",
+    "language": "Русский",
+    "region": "RU",
     "author": "Gemini"
   },
   "system": {
-    "auto_width": "AutoWidth",
-    "auto_height": "AutoHeight",
-    "title": "Title",
-    "animation": "Animation",
-    "close_panel": "Close Panel"
-  },
-  "nodes": {
-    "virtual_node": "Virtual Node",
-    "logic_node": "Logic Node",
-    "master_switch": "Master Switch"
+    "auto_width": "Авто-ширина",
+    "auto_height": "Авто-высота",
+    "title": "Заголовок",
+    "animation": "Анимация",
+    "close_panel": "Закрыть панель"
   },
   "widgets": {
-    "confirm": "Confirm",
-    "cancel": "Cancel",
-    "save": "Save",
-    "delete": "Delete"
+    "back": ".. [Назад]"
+  },
+  "fatha_layout": {
+    "title_default": "Derp Nodes",
+    "theme": "Тема:",
+    "add_warp_point": "Добавить WarpPoint",
+    "delete_warp_point": "Удалить WarpPoint",
+    "warp_shortcut": "Горячая клавиша warp:",
+    "ctrl": "Ctrl",
+    "zoom": "Масштаб:",
+    "load_settings": "Загрузить настройки:"
+  },
+  "nodes": {
+    "virtual_node": "Виртуальный узел",
+    "logic_node": "Логический узел",
+    "master_switch": "Главный переключатель"
+  },
+  "derp_latent": {
+    "title": "Derp Latent",
+    "output": "Латент",
+    "select": "Выбор",
+    "mode": {
+      "landscape": "Альбом",
+      "portrait": "Портрет"
+    },
+    "system": {
+      "configuration": "Настройка латента:"
+    },
+    "tooltips": {
+      "mode": "Нажмите, чтобы переключаться между портретным и альбомным режимами",
+      "selector": "Нажмите, чтобы выбрать доступные разрешения из профиля",
+      "batch": "Нажмите, чтобы изменить размер batch"
+    }
+  },
+  "derp_slider": {
+    "title": "Derp Slider",
+    "system": {
+      "properties": "Свойства Derp Slider:",
+      "sliders": "Слайдеры:",
+      "name_display": "Показ имени:"
+    },
+    "name_display": {
+      "slider": "На слайдере",
+      "top": "Сверху",
+      "left": "Слева",
+      "none": "Нет"
+    },
+    "headers": {
+      "name": "ИМЯ",
+      "min": "МИН",
+      "max": "МАКС",
+      "step": "ШАГ",
+      "default": "ПО УМОЛЧАНИЮ",
+      "decimal": "ДРОБЬ",
+      "btn": "КНП",
+      "btn_lr": "btnLR"
+    }
+  },
+  "derp_toggle": {
+    "title": "Derp Toggle",
+    "output": "BOOL_OUT",
+    "default_label": "Bypass Toggle",
+    "item_prefix": "Toggle",
+    "system": {
+      "properties": "Свойства Derp Toggle:",
+      "output_bool": "Выход BOOL:"
+    },
+    "states": {
+      "true": "TRUE",
+      "false": "FALSE"
+    }
+  },
+  "derp_vae_loader": {
+    "title": "Derp Vae Loader",
+    "port": {
+      "vae": "Vae"
+    },
+    "browser": {
+      "select": "Выбрать Vae...",
+      "refresh": "Обновить"
+    },
+    "system": {
+      "properties": "Свойства пользовательского узла:",
+      "show_folder_names": "Показывать имена папок",
+      "extract_from_model": "Извлекать VAE из модели"
+    },
+    "dialogs": {
+      "remove_vae": {
+        "title": "Удалить VAE",
+        "message_prefix": "Удалить",
+        "message_suffix": "из колоды?",
+        "confirm": "Удалить"
+      },
+      "clear_deck": {
+        "title": "Очистить колоду VAE",
+        "message": "Очистить колоду VAE?",
+        "confirm": "Очистить"
+      }
+    },
+    "messages": {
+      "list_updated": "Список VAE обновлен",
+      "missing_purged_prefix": "Отсутствующие VAE удалены: ",
+      "relinked_prefix": "VAE перепривязаны: ",
+      "deck_synced": "Колода VAE синхронизирована: элементы исправлены или удалены."
+    }
+  },
+  "derp_sampler_loader": {
+    "title": "Derp Sampler Loader",
+    "signal": {
+      "sampler": "Sampler"
+    },
+    "port": {
+      "sampler": "Sampler"
+    },
+    "browser": {
+      "select": "Выбрать Sampler...",
+      "refresh": "Обновить"
+    },
+    "system": {
+      "properties": "Свойства Derp Sampler Loader:"
+    },
+    "dialogs": {
+      "remove_sampler": {
+        "title": "Удалить Sampler",
+        "message_prefix": "Удалить",
+        "message_suffix": "из колоды?",
+        "confirm": "Удалить"
+      },
+      "clear_deck": {
+        "title": "Очистить колоду Sampler",
+        "message": "Очистить колоду Sampler?",
+        "confirm": "Очистить"
+      }
+    },
+    "messages": {
+      "list_updated": "Список Sampler обновлен",
+      "missing_purged_prefix": "Отсутствующие Sampler удалены: ",
+      "load_failed": "Не удалось загрузить sampler"
+    }
+  },
+  "derp_scheduler_loader": {
+    "title": "Derp Scheduler Loader",
+    "signal": {
+      "scheduler": "Scheduler"
+    },
+    "port": {
+      "scheduler": "Scheduler"
+    },
+    "browser": {
+      "select": "Выбрать Scheduler...",
+      "refresh": "Обновить"
+    },
+    "system": {
+      "properties": "Свойства пользовательского узла:"
+    },
+    "dialogs": {
+      "remove_scheduler": {
+        "title": "Удалить Scheduler",
+        "message_prefix": "Удалить",
+        "message_suffix": "из колоды?",
+        "confirm": "Удалить"
+      },
+      "clear_deck": {
+        "title": "Очистить колоду Scheduler",
+        "message": "Очистить колоду Scheduler?",
+        "confirm": "Очистить"
+      }
+    },
+    "messages": {
+      "list_updated": "Список Scheduler обновлен",
+      "missing_purged_prefix": "Отсутствующие Scheduler удалены: ",
+      "load_failed": "Не удалось загрузить scheduler"
+    }
+  },
+  "derp_image_deck": {
+    "title": "Derp Image Deck",
+    "prefix": {
+      "placeholder": "Image Prefix"
+    },
+    "menu": {
+      "copy_image": "Copy Image"
+    },
+    "buttons": {
+      "save_image": "SAVE IMAGE"
+    },
+    "signals": {
+      "image_required": "Выберите сигнал IMAGE (обязательно):",
+      "optional_for_filename": "Выберите необязательные сигналы для разбора имени файла:"
+    },
+    "system": {
+      "settings": "Image Deck settings",
+      "get_model_name": "Get model name",
+      "get_sampler_name": "Get sampler name",
+      "get_scheduler_name": "Get scheduler name",
+      "auto_adjust_height": "Auto adjust node height",
+      "auto_save_new": "Auto save new images",
+      "image_format": "Image format:"
+    },
+    "dialogs": {
+      "select_folder": {
+        "title": "Выбрать папку",
+        "confirm": "Выбрать"
+      }
+    },
+    "messages": {
+      "no_image_to_save": "Нет изображения для сохранения",
+      "save_failed": "Save failed",
+      "saved_prefix": "Saved: ",
+      "auto_saved_prefix": "Auto-saved: ",
+      "folder_list_failed_prefix": "Folder list failed: ",
+      "folder_list_failed_status_prefix": "Folder list failed (",
+      "no_output_subfolders": "Подпапки output не найдены",
+      "folder_list_request_failed": "Folder list request failed"
+    }
+  },
+  "derp_lora_stack": {
+    "title": "Derp Lora Stack",
+    "drop_here": "Отпустите здесь",
+    "fuse_qkv": "Fuse QKV",
+    "labels": {
+      "strength": "Strength",
+      "clip": "Clip"
+    },
+    "browser": {
+      "add": "Add Lora to Stack...",
+      "refresh": "Обновить"
+    },
+    "trigger": {
+      "none": "None",
+      "select": "Select Trigger..."
+    },
+    "warnings": {
+      "cross_attention": "Требуются сигналы MODEL и CLIP, нажмите кнопку wireless в заголовке.",
+      "joint_attention": "Требуется сигнал MODEL, нажмите кнопку wireless в заголовке."
+    },
+    "messages": {
+      "refreshing_metadata": "Refreshing Metadata...",
+      "removed_missing_prefix": "Removed non-existing LoRA: "
+    },
+    "system": {
+      "properties": "Свойства Derp Lora Stack:",
+      "mode": "Mode",
+      "show_clip": "Show CLIP",
+      "name_display": "Name display:",
+      "strength_setting": "Strength Setting",
+      "clip_setting": "CLIP Setting",
+      "min": "Min:",
+      "max": "Max:",
+      "step": "Step:",
+      "default": "Default:",
+      "lr_button": "LR button",
+      "states": {
+        "on": "ON",
+        "off": "OFF"
+      }
+    }
+  },
+  "derp_trigger_wall": {
+    "title": "Derp Trigger Wall",
+    "output": "Triggers",
+    "trigger": {
+      "placeholder": "Trigger Test"
+    },
+    "groups": {
+      "default": "Trigger Group",
+      "default_prefix": "Trigger Group",
+      "select": "Select Trigger Group"
+    },
+    "buttons": {
+      "new_group": "New trigger group",
+      "add_to_profile": "Add to Profile",
+      "exclusive": "Mutually exclusive",
+      "save_to_current": "Save to current"
+    },
+    "browser": {
+      "load_profiles": "Load trigger profiles",
+      "presets": "Presets"
+    },
+    "system": {
+      "properties": "Derp Trigger Wall properties:",
+      "show_weight": "Show Trigger Weight",
+      "add_always": "Add trigger button always visible"
+    },
+    "dialogs": {
+      "rename_group": {
+        "title": "Переименовать группу триггеров",
+        "confirm": "Переименовать",
+        "message": "Введите новое имя для группы триггеров:"
+      },
+      "remove_group": {
+        "title": "Удалить группу триггеров",
+        "confirm": "Удалить",
+        "message_prefix": "Удалить",
+        "message_suffix": "со стены?"
+      }
+    },
+    "messages": {
+      "removed_prefix": "Удалено",
+      "profile_saved": "Профиль сохранен!",
+      "profile_saved_prefix": "Профиль сохранен: ",
+      "save_failed": "Сохранение не удалось"
+    }
+  },
+  "derp_model_loader": {
+    "title": "Derp Model Loader",
+    "browser": {
+      "root_name": "models",
+      "select": "Select Model...",
+      "refresh": "Refresh"
+    },
+    "system": {
+      "properties": "Custom node properties:",
+      "show_folder_names": "Show Folder Names",
+      "clear_vram_on_change": "Clear VRAM on new model selection"
+    },
+    "ports": {
+      "model": "Model",
+      "clip": "Clip",
+      "vae": "Vae"
+    },
+    "dialogs": {
+      "remove_model": {
+        "title": "Remove Model",
+        "message_prefix": "Remove",
+        "message_suffix": "from deck?",
+        "confirm": "Remove"
+      },
+      "clear_deck": {
+        "title": "Clear Model Deck",
+        "message": "Clear the Model deck?",
+        "confirm": "Clear"
+      }
+    },
+    "messages": {
+      "list_updated": "Model list updated",
+      "missing_purged_prefix": "Missing Models Purged: ",
+      "relinked_prefix": "Models Re-linked: ",
+      "deck_synced": "Model deck synced: items repaired or removed.",
+      "vram_cleared_prefix": "VRAM Cleared: ",
+      "unload_failed": "Model unload failed; continuing with switch",
+      "unknown_node": "Unknown"
+    }
+  },
+  "derp_prompt_book": {
+    "title": "Derp Prompt Book",
+    "signal": {
+      "book_content": "BookContent"
+    },
+    "book": {
+      "untitled_name": "Untitled Book"
+    },
+    "browser": {
+      "select": "Select Book..."
+    },
+    "system": {
+      "properties": "Prompt Book Settings",
+      "cover_page": "Cover Page",
+      "show_total": "Show Total"
+    },
+    "page": {
+      "cover": "Cover",
+      "prefix": "Page",
+      "empty": "Empty",
+      "untitled_title": "untitled"
+    },
+    "dialogs": {
+      "save_as": {
+        "title": "Save Book As",
+        "message": "Enter filename for prompt book:",
+        "confirm": "Save"
+      },
+      "save_book": {
+        "title": "Save Book",
+        "message": "Enter filename for prompt book:",
+        "confirm": "Save"
+      },
+      "new_book": {
+        "title": "New Book",
+        "message": "Enter filename for new prompt book:",
+        "confirm": "Create"
+      },
+      "rename_book": {
+        "title": "Rename Book",
+        "message": "Enter new name for this book:",
+        "confirm": "Rename"
+      },
+      "duplicate_book": {
+        "title": "Duplicate Book",
+        "message": "Enter filename for duplicated prompt book:",
+        "confirm": "Duplicate"
+      },
+      "delete_book": {
+        "message_prefix": "Delete book file"
+      },
+      "rename_page": {
+        "title": "Rename Page",
+        "message": "Enter new name for this page:",
+        "confirm": "Rename"
+      },
+      "delete_page": {
+        "title": "Delete Page",
+        "message_prefix": "Delete page"
+      }
+    },
+    "messages": {
+      "book_missing_prefix": "Book File Missing: ",
+      "book_saved_prefix": "Book Saved: ",
+      "book_created_prefix": "Book Created: ",
+      "book_renamed_prefix": "Book Renamed: ",
+      "book_duplicated_prefix": "Book Duplicated: ",
+      "book_deleted": "Book Deleted!",
+      "page_image_missing": "Page Image Missing",
+      "create_failed": "Book create failed",
+      "rename_failed": "Book rename failed",
+      "duplicate_failed": "Book duplicate failed"
+    }
+  },
+  "basta_lora_detail": {
+    "title": "LoRA Detail",
+    "labels": {
+      "unknown": "Unknown",
+      "cover": "Cover",
+      "image": "Image"
+    },
+    "notes": {
+      "delete": "Delete Notes"
+    },
+    "settings": {
+      "min": "Min:",
+      "max": "Max:",
+      "step": "Step:",
+      "default": "Def:"
+    },
+    "preview": {
+      "overlay_ready": "Ready to accept image pasting (CTRL-V)",
+      "overlay_path": "Image will be saved in the lora's subfolder",
+      "set_cover": "Set as Cover",
+      "link": "Link"
+    },
+    "external": {
+      "civitai": "CivitAI",
+      "civarchive": "CivArchive",
+      "open_folder": "Open LoRA folder"
+    },
+    "trigger": {
+      "select": "Select Trigger...",
+      "none": "None",
+      "none_found": "No triggers found"
+    },
+    "import": {
+      "remove_txt": "Remove .txt files after import",
+      "import_triggers": "Import Triggers"
+    },
+    "footer": {
+      "rating": "Rating:",
+      "rating_measure": "A - Excellent"
+    },
+    "metadata": {
+      "civitai_url": "CivitAI URL:",
+      "loading": "Loading...",
+      "no_readable": "No human-readable metadata found.",
+      "failed": "Failed to fetch metadata."
+    },
+    "messages": {
+      "lora_renamed_prefix": "LoRA Renamed: ",
+      "rename_failed": "LoRA Rename Failed",
+      "image_linked": "Image Linked",
+      "deleted_prefix": "Deleted: ",
+      "trigger_created": "Trigger Created",
+      "trigger_renamed": "Trigger Renamed",
+      "trigger_duplicated": "Trigger Duplicated",
+      "trigger_saved": "Trigger Saved",
+      "trigger_deleted": "Trigger Deleted",
+      "import_cleanup_complete": "Import & Cleanup Complete",
+      "imported_prefix": "Imported",
+      "imported_suffix": "triggers",
+      "import_failed": "Import Failed",
+      "server_error": "Server Error",
+      "network_error": "Network Error",
+      "purging_syncing": "Purging & Syncing Triggers...",
+      "scanning": "Scanning for Triggers...",
+      "success_prefix": "Success!",
+      "triggers_processed": "Triggers processed."
+    },
+    "dialogs": {
+      "rename_lora": {
+        "title": "Rename LoRA",
+        "message": "Rename this LoRA and its linked preview assets."
+      },
+      "delete_image": {
+        "title": "Delete Image",
+        "message_prefix": "Delete image"
+      },
+      "new_trigger": {
+        "title": "New Trigger",
+        "confirm": "Create",
+        "message": "Enter name for new trigger:"
+      },
+      "rename_trigger": {
+        "title": "Rename Trigger",
+        "confirm": "Rename",
+        "message": "Enter new name for trigger entry:"
+      },
+      "copy_trigger": {
+        "title": "Copy Trigger",
+        "confirm": "Duplicate",
+        "message": "Enter name for duplicated trigger entry:"
+      },
+      "delete_trigger": {
+        "title": "Delete Trigger",
+        "warning": "Delete Trigger?",
+        "message_prefix": "Permanently delete trigger entry"
+      },
+      "manage": {
+        "title": "Manage"
+      }
+    }
+  },
+  "widgets": {
+    "confirm": "Подтвердить",
+    "cancel": "Отмена",
+    "save": "Сохранить",
+    "close": "Закрыть",
+    "delete": "Удалить"
   }
 }

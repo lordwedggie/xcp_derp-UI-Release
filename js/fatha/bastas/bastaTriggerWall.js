@@ -2,6 +2,17 @@ import { app } from "../../../../scripts/app.js";
 import { spawnBasta, activeBastas } from "../basta.js";
 import { UI_TYPES } from "../core/masterLayoutTypes.js";
 
+function tLocale(key, fallback = key) {
+    if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
+    const path = key.substring(1).split(".");
+    let target = window.xcpDerpLocaleData || {};
+    for (const segment of path) {
+        target = target?.[segment];
+        if (target === undefined) return fallback;
+    }
+    return target;
+}
+
 const TRIGGER_WEIGHT_MIN = -2;
 const TRIGGER_WEIGHT_MAX = 2;
 const TRIGGER_WEIGHT_DEFAULT = 1.0;
@@ -62,7 +73,7 @@ export function showTriggerWall(host, targetRegion = null) {
 
     const config = {
         host: host,
-        titleLabel: "Trigger Wall",
+        titleLabel: tLocale("$derp_trigger_wall.modal.title", "Trigger Wall"),
         onClose: () => {
             releaseTriggerWallModalState(host, true);
         },
@@ -149,7 +160,7 @@ export function showTriggerWall(host, targetRegion = null) {
                     },
                     sliderWeight: {
                         type: UI_TYPES.SLIDER, themeKey: "panel, button, t_textSmall", mouseOver: false,
-                        label: "Trigger Weight", labelAlign: ["center", "middle"],
+                        label: tLocale("$derp_trigger_wall.modal.trigger_weight", "Trigger Weight"), labelAlign: ["center", "middle"],
                         value: initialWeight, min: TRIGGER_WEIGHT_MIN, max: TRIGGER_WEIGHT_MAX, step: 0.01,
                         width: "full", height: "full", spacing: [sW, 0],
                         onChange: (v) => {
@@ -210,7 +221,7 @@ export function showTriggerWall(host, targetRegion = null) {
                 spacing: [sW, 0],
                 btnCancel: {
                     type: UI_TYPES.BUTTON, themeKey: "button, t_textSmall",
-                    text: "Cancel", padding: [pW, pH], labelAlign: ["center", "middle"],
+                    text: tLocale("$widgets.cancel", "Cancel"), padding: [pW, pH], labelAlign: ["center", "middle"],
                     width: "fit",
                     onPress: () => {
                         const b = activeBastas.get(id);
@@ -220,7 +231,7 @@ export function showTriggerWall(host, targetRegion = null) {
                 spacer: { width: "full" },
                 btnConfirm: {
                     type: UI_TYPES.BUTTON, themeKey: "button, t_textSmall",
-                    text: "Confirm", padding: [pW, pH], labelAlign: ["center", "middle"],
+                    text: tLocale("$widgets.confirm", "Confirm"), padding: [pW, pH], labelAlign: ["center", "middle"],
                     width: "fit",
                     onPress: () => {
                         trig.label = config._tempLabel;

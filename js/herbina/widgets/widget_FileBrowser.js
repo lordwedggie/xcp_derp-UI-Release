@@ -34,6 +34,7 @@ import {
     appendHybridPickerRow,
     syncHybridScroll
 } from "./helpers/dropdown_lib.js";
+import { t } from "../../fatha/core/masterLayoutEngine.js";
 
 const BROWSER_ICONS = {
     DIR: "📁 ",
@@ -257,7 +258,7 @@ function openFilePicker(sourceEl, config, node, callbacks) {
         const list = [];
 
         // THE ROOT FIX: Remove leading slash and handle empty root for file mode
-        const rootDisplayName = config.rootName || (config.mode === "folder" ? "/" : "");
+        const rootDisplayName = t(config.rootName || (config.mode === "folder" ? "/" : ""));
         let currentPathDisplay = rootDisplayName;
         if (dir && dir !== "/") {
             const cleanDir = dir.replace(/\.(safetensors|json)$/i, "").replace(/\/$/, "").replace(/\//g, "\\");
@@ -265,7 +266,7 @@ function openFilePicker(sourceEl, config, node, callbacks) {
             currentPathDisplay = `${rootDisplayName}${sep}${cleanDir}`;
         }
         list.push({ name: currentPathDisplay, type: "select_current", path: dir || "/" });
-        if (dir) list.push({ name: ".. [Back]", type: "up" });
+        if (dir) list.push({ name: t("$widgets.back") || ".. [Back]", type: "up" });
         Array.from(entries).sort().forEach(folder => list.push({ name: folder, type: "dir" }));
 
         if (config.mode !== "folder") {
@@ -588,7 +589,7 @@ export function syncFileBrowser(context, node, app, config) {
             masterPainter(ctx, { width: w, height: h, posX: snapToScreenGrid(x, dsScale), posY: snapToScreenGrid(y, dsScale), paintData: bodyPaint, color: animatedFillColor });
         }
 
-        const rootDisplayName = safeConfig.rootName || (safeConfig.mode === "folder" ? "/" : "");
+        const rootDisplayName = t(safeConfig.rootName || (safeConfig.mode === "folder" ? "/" : ""));
         const isSelection = safeConfig.value && safeConfig.value !== "/" && (safeConfig.mode === "folder" || (safeConfig.items || []).some(item => {
             const itemValue = typeof item === "string" ? item : (item?.path ?? item?.value ?? item?.name);
             return itemValue === safeConfig.value;
@@ -638,7 +639,7 @@ export function syncFileBrowser(context, node, app, config) {
     if (scale === null) return;
 
     // THE FAST-HASH GATING: Prevent layout thrashing and theme resolution unless state or content changes
-    const rootDisplayName = safeConfig.rootName || (safeConfig.mode === "folder" ? "/" : "");
+    const rootDisplayName = t(safeConfig.rootName || (safeConfig.mode === "folder" ? "/" : ""));
     const isSelection = safeConfig.value && safeConfig.value !== "/" && (safeConfig.mode === "folder" || (safeConfig.items || []).some(item => {
         const itemValue = typeof item === "string" ? item : (item?.path ?? item?.value ?? item?.name);
         return itemValue === safeConfig.value;

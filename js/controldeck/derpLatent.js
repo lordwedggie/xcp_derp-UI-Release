@@ -7,6 +7,50 @@ import { fatha, initDerpGlobalListener } from "../fatha/fatha.js";
 import { measureTextWidth, resolvePaintData } from "../herbina/utils/widgetsUtils.js";
 import { transmitDerpSignal } from "../fatha/core/masterSignalEngine.js";
 
+function tLocale(key, fallback = key) {
+    if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
+    const path = key.substring(1).split(".");
+    let target = window.xcpDerpLocaleData || {};
+    for (const segment of path) {
+        target = target?.[segment];
+        if (target === undefined) return fallback;
+    }
+    return target;
+}
+
+function normalizeLatentMode(mode) {
+    const raw = String(mode || "").trim();
+    const lower = raw.toLowerCase();
+    const portraitLabel = String(tLocale("$derp_latent.mode.portrait", "Portrait")).trim().toLowerCase();
+    const landscapeLabel = String(tLocale("$derp_latent.mode.landscape", "Landscape")).trim().toLowerCase();
+    if (lower === "portrait" || lower === portraitLabel) return "Portrait";
+    return "Landscape";
+}
+
+function syncDerpLatentLocaleLabels(node) {
+    if (!node?.properties) return;
+    const localizedTitle = tLocale("$derp_latent.title", "Derp Latent");
+    const localizedOutput = tLocale("$derp_latent.output", "Latent");
+    const previousLocalizedTitle = node._lastLocalizedDerpLatentTitle;
+    const previousLocalizedOutput = node._lastLocalizedDerpLatentOutput;
+
+    if (!node.titleLabel || node.titleLabel === "Derp Latent" || (previousLocalizedTitle && node.titleLabel === previousLocalizedTitle)) {
+        node.titleLabel = localizedTitle;
+    }
+    if (!node.properties.titleLabel || node.properties.titleLabel === "Derp Latent" || (previousLocalizedTitle && node.properties.titleLabel === previousLocalizedTitle)) {
+        node.properties.titleLabel = localizedTitle;
+    }
+    if (!node.properties.outputName || node.properties.outputName === "Latent" || (previousLocalizedOutput && node.properties.outputName === previousLocalizedOutput)) {
+        node.properties.outputName = localizedOutput;
+    }
+    if (Array.isArray(node.outputs) && node.outputs[0] && (!node.outputs[0].name || node.outputs[0].name === "Latent" || (previousLocalizedOutput && node.outputs[0].name === previousLocalizedOutput))) {
+        node.outputs[0].name = localizedOutput;
+    }
+
+    node._lastLocalizedDerpLatentTitle = localizedTitle;
+    node._lastLocalizedDerpLatentOutput = localizedOutput;
+}
+
 app.registerExtension({
     name: "xcp.derpLatent_Extension",
     async setup() {
@@ -26,7 +70,7 @@ app.registerExtension({
             const profile = this._sysProfileData[profileName];
 
             this.properties.batchSize = profile.batch ?? 1;
-            this.properties.mode = profile.mode ?? "Landscape";
+            this.properties.mode = normalizeLatentMode(profile.mode ?? "Landscape");
             this.properties.latentPresets = profile.presets || [];
             const isPortrait = this.properties.mode === "Portrait";
 
@@ -82,6 +126,8 @@ app.registerExtension({
 
         nodeType.prototype.onThemeUpdate = function(config) {
             this.handleThemeUpdate(config);
+            syncDerpLatentLocaleLabels(this);
+            this.properties.mode = normalizeLatentMode(this.properties.mode);
             this.refreshNodeLayoutMap();
             this.refreshDerpLatentSysMap();
             this.requestDerpSync();
@@ -91,7 +137,9 @@ app.registerExtension({
         nodeType.prototype.refreshNodeLayoutMap = function() {
             if (this.flags.collapsed || this.size[0] <= 0) return;
             const presets = this.properties.latentPresets || [];
-            const mode = this.properties.mode || "Landscape";
+            const portraitLabel = tLocale("$derp_latent.mode.portrait", "Portrait");
+            const landscapeLabel = tLocale("$derp_latent.mode.landscape", "Landscape");
+            const mode = normalizeLatentMode(this.properties.mode);
 
             const vars = this.getDerpVars(this);
             const [mW, mH, sW, sH, oX, oY, pW, pH] = [
@@ -139,8 +187,9 @@ app.registerExtension({
                 };
             });
 
-            const currentFull = this.properties.selectedLatent || (presets[0] ? getLabel(presets[0], mode) : "Select - ...");
-            const currentAr = currentFull.includes(" - ") ? currentFull.split(" - ")[0] : "Select";
+            const selectLabel = tLocale("$derp_latent.select", "Select");
+            const currentFull = this.properties.selectedLatent || (presets[0] ? getLabel(presets[0], mode) : `${selectLabel} - ...`);
+            const currentAr = currentFull.includes(" - ") ? currentFull.split(" - ")[0] : selectLabel;
             const currentRes = currentFull.includes(" - ") ? " - " + currentFull.split(" - ")[1] : "...";
 
             this.layoutMap = {
@@ -155,12 +204,12 @@ app.registerExtension({
                         type: this.UI_TYPES.BUTTON,
                         themeKey: "systemButton, t_textNormal", labelAlign: ["center", "middle"],
                         state: isPortrait,
-                        text: mode, measureText: "Landscape ",
+                        text: mode === "Portrait" ? portraitLabel : landscapeLabel, measureText: `${landscapeLabel} `,
                         width: "auto", height: "fill",
                         padding: [pW, pH], spacing: [sW, 0],
-                        toolTip: "Click to switch between portrait and landscape modes",
+                        toolTip: tLocale("$derp_latent.tooltips.mode", "Click to switch between portrait and landscape modes"),
                         onPress: () => {
-                            const oldMode = this.properties.mode || "Landscape";
+                            const oldMode = normalizeLatentMode(this.properties.mode);
                             const newMode = oldMode === "Portrait" ? "Landscape" : "Portrait";
                             this.properties.mode = newMode;
 
@@ -191,7 +240,7 @@ app.registerExtension({
                         value: currentFull,
                         options: dropdownItems.map(i => i.value),
                         items: dropdownItems,
-                        toolTip: "Click to select available resolutions in the profile",
+                        toolTip: tLocale("$derp_latent.tooltips.selector", "Click to select available resolutions in the profile"),
                         onChange: (val) => {
                             this.properties.selectedLatent = val;
                             const found = presets.find(p => getLabel(p, mode) === val);
@@ -212,7 +261,7 @@ app.registerExtension({
                         labelAlign: ["center", "middle"],
                         text: (this.properties.batchSize || 1).toString(),
                         value: (this.properties.batchSize || 1).toString(),
-                        toolTip: "Click to change batch number",
+                        toolTip: tLocale("$derp_latent.tooltips.batch", "Click to change batch number"),
                         onBlur: (val) => {
                             const intVal = parseInt(val);
                             if (!isNaN(intVal) && intVal >= 1) {
@@ -241,7 +290,7 @@ app.registerExtension({
                         type: this.UI_TYPES.TEXT, mouseOver: false,
                         themeKey: "t_textsystem",
                         labelAlign: ["left", "middle"],
-                        text: "Latent Configuration:",
+                        text: tLocale("$derp_latent.system.configuration", "Latent Configuration:"),
                         width: "full", padding: [pW, pH],
                     }
                 }
@@ -269,7 +318,7 @@ app.registerExtension({
             // THE VIRTUAL BROADCASTpattern: Uses indexed signal IDs to ensure detection by SignalOut
             const baseId = String(this.id);
             const signalId = `${baseId}:0`;
-            const nodeName = this.titleLabel || this.title || "Derp Latent";
+            const nodeName = this.titleLabel || this.title || tLocale("$derp_latent.title", "Derp Latent");
 
             window.xcpDerpSignals[signalId] = {
                 nodeId: signalId,
@@ -303,7 +352,7 @@ app.registerExtension({
         nodeType.prototype.onNodeCreated = function() {
             if (onCreated) onCreated.apply(this, arguments);
 
-            this.properties.outputName = "Latent";
+            this.properties.outputName = tLocale("$derp_latent.output", "Latent");
             this.outputs = [{ name: this.properties.outputName, type: "LATENT" }];
 
             this.isPureVirtual = true;
@@ -311,8 +360,8 @@ app.registerExtension({
             this.properties.isWirelessTransmitter = true;
             this.properties.skipGenericWirelessHeartbeat = true;
 
-            this.titleLabel = "Derp Latent";
-            this.properties.titleLabel = "Derp Latent";
+            this.titleLabel = tLocale("$derp_latent.title", "Derp Latent");
+            this.properties.titleLabel = tLocale("$derp_latent.title", "Derp Latent");
 
             this.properties.width = 400;
             this.properties.height = 100;
@@ -320,6 +369,7 @@ app.registerExtension({
             this.properties.mode = "Landscape";
             this.properties.autoWidth = false;
             this.properties.latentPresets = [];
+            syncDerpLatentLocaleLabels(this);
 
             this.refreshNodeLayoutMap();
             this.refreshDerpLatentSysMap();
@@ -341,8 +391,10 @@ app.registerExtension({
             this.properties.isWirelessTransmitter = true;
             this.properties.skipGenericWirelessHeartbeat = true;
             this.properties.latentPresets = Array.isArray(this.properties.latentPresets) ? this.properties.latentPresets : [];
+            this.properties.mode = normalizeLatentMode(this.properties.mode);
+            syncDerpLatentLocaleLabels(this);
             if (!this.properties.selectedLatent && this.properties.width && this.properties.height) {
-                const mode = this.properties.mode || "Landscape";
+                const mode = normalizeLatentMode(this.properties.mode);
                 const isPortrait = mode === "Portrait";
                 const width = Number(this.properties.width) || 512;
                 const height = Number(this.properties.height) || 512;

@@ -11,15 +11,530 @@
     "animation": "动画",
     "close_panel": "关闭面板"
   },
+  "widgets": {
+    "back": ".. [返回]"
+  },
+  "fatha_layout": {
+    "title_default": "老登节点",
+    "theme": "主题：",
+    "add_warp_point": "添加 WarpPoint",
+    "delete_warp_point": "删除 WarpPoint",
+    "warp_shortcut": "Warp 快捷键：",
+    "ctrl": "Ctrl",
+    "zoom": "缩放：",
+    "load_settings": "加载设置："
+  },
   "nodes": {
     "virtual_node": "虚拟节点",
     "logic_node": "逻辑节点",
     "master_switch": "主开关"
   },
+  "derp_latent": {
+    "title": "老登潜空间",
+    "output": "潜空间",
+    "select": "选择",
+    "mode": {
+      "landscape": "横向",
+      "portrait": "纵向"
+    },
+    "system": {
+      "configuration": "潜空间配置："
+    },
+    "tooltips": {
+      "mode": "点击切换纵向和横向模式",
+      "selector": "点击选择当前配置文件中的可用分辨率",
+      "batch": "点击修改批次数量"
+    }
+  },
+  "derp_slider": {
+    "title": "老登滑杆",
+    "system": {
+      "properties": "老登滑杆属性：",
+      "sliders": "滑杆数：",
+      "name_display": "名称显示："
+    },
+    "name_display": {
+      "slider": "滑杆内",
+      "top": "顶部",
+      "left": "左侧",
+      "none": "无"
+    },
+    "headers": {
+      "name": "名称",
+      "min": "最小",
+      "max": "最大",
+      "step": "步进",
+      "default": "默认",
+      "decimal": "小数位",
+      "btn": "按钮",
+      "btn_lr": "左右键"
+    }
+  },
+  "derp_toggle": {
+    "title": "老登开关",
+    "output": "布尔输出",
+    "default_label": "旁路开关",
+    "item_prefix": "开关",
+    "system": {
+      "properties": "老登开关属性：",
+      "output_bool": "布尔输出："
+    },
+    "states": {
+      "true": "真",
+      "false": "假"
+    }
+  },
+  "derp_vae_loader": {
+    "title": "老登 VAE 加载器",
+    "port": {
+      "vae": "Vae"
+    },
+    "browser": {
+      "select": "选择 Vae...",
+      "refresh": "刷新"
+    },
+    "system": {
+      "properties": "自定义节点属性：",
+      "show_folder_names": "显示文件夹名称",
+      "extract_from_model": "从模型中提取 VAE"
+    },
+    "dialogs": {
+      "remove_vae": {
+        "title": "移除 VAE",
+        "message_prefix": "将",
+        "message_suffix": "从牌组中移除？",
+        "confirm": "移除"
+      },
+      "clear_deck": {
+        "title": "清空 VAE 牌组",
+        "message": "要清空 VAE 牌组吗？",
+        "confirm": "清空"
+      }
+    },
+    "messages": {
+      "list_updated": "VAE 列表已更新",
+      "missing_purged_prefix": "已清除缺失的 VAE：",
+      "relinked_prefix": "VAE 已重新关联：",
+      "deck_synced": "VAE 牌组已同步：项目已修复或移除。"
+    }
+  },
+  "derp_sampler_loader": {
+    "title": "老登采样器加载器",
+    "signal": {
+      "sampler": "采样器"
+    },
+    "port": {
+      "sampler": "采样器"
+    },
+    "browser": {
+      "select": "选择采样器...",
+      "refresh": "刷新"
+    },
+    "system": {
+      "properties": "老登采样器加载器属性："
+    },
+    "dialogs": {
+      "remove_sampler": {
+        "title": "移除采样器",
+        "message_prefix": "将",
+        "message_suffix": "从牌组中移除？",
+        "confirm": "移除"
+      },
+      "clear_deck": {
+        "title": "清空采样器牌组",
+        "message": "要清空采样器牌组吗？",
+        "confirm": "清空"
+      }
+    },
+    "messages": {
+      "list_updated": "采样器列表已更新",
+      "missing_purged_prefix": "已清除缺失采样器：",
+      "load_failed": "加载采样器失败"
+    }
+  },
+  "derp_scheduler_loader": {
+    "title": "老登调度器加载器",
+    "signal": {
+      "scheduler": "调度器"
+    },
+    "port": {
+      "scheduler": "调度器"
+    },
+    "browser": {
+      "select": "选择调度器...",
+      "refresh": "刷新"
+    },
+    "system": {
+      "properties": "自定义节点属性："
+    },
+    "dialogs": {
+      "remove_scheduler": {
+        "title": "移除调度器",
+        "message_prefix": "将",
+        "message_suffix": "从牌组中移除？",
+        "confirm": "移除"
+      },
+      "clear_deck": {
+        "title": "清空调度器牌组",
+        "message": "要清空调度器牌组吗？",
+        "confirm": "清空"
+      }
+    },
+    "messages": {
+      "list_updated": "调度器列表已更新",
+      "missing_purged_prefix": "已清除缺失调度器：",
+      "load_failed": "加载调度器失败"
+    }
+  },
+  "derp_image_deck": {
+    "title": "老登图片牌组",
+    "prefix": {
+      "placeholder": "图片前缀"
+    },
+    "menu": {
+      "copy_image": "复制图片"
+    },
+    "buttons": {
+      "save_image": "保存图片"
+    },
+    "signals": {
+      "image_required": "选择 IMAGE 信号（必需）：",
+      "optional_for_filename": "选择用于文件名解析的可选信号："
+    },
+    "system": {
+      "settings": "图片牌组设置",
+      "get_model_name": "获取模型名称",
+      "get_sampler_name": "获取采样器名称",
+      "get_scheduler_name": "获取调度器名称",
+      "auto_adjust_height": "自动调整节点高度",
+      "auto_save_new": "自动保存新图片",
+      "image_format": "图片格式："
+    },
+    "dialogs": {
+      "select_folder": {
+        "title": "选择文件夹",
+        "confirm": "选择"
+      }
+    },
+    "messages": {
+      "no_image_to_save": "没有可保存的图片",
+      "save_failed": "保存失败",
+      "saved_prefix": "已保存：",
+      "auto_saved_prefix": "已自动保存：",
+      "folder_list_failed_prefix": "文件夹列表加载失败：",
+      "folder_list_failed_status_prefix": "文件夹列表加载失败（",
+      "no_output_subfolders": "未找到输出子文件夹",
+      "folder_list_request_failed": "文件夹列表请求失败"
+    }
+  },
+  "derp_lora_stack": {
+    "title": "老登 LoRA 堆栈",
+    "drop_here": "拖到这里",
+    "fuse_qkv": "融合 QKV",
+    "labels": {
+      "strength": "强度",
+      "clip": "CLIP"
+    },
+    "browser": {
+      "add": "将 LoRA 添加到堆栈...",
+      "refresh": "刷新"
+    },
+    "trigger": {
+      "none": "无",
+      "select": "选择触发词..."
+    },
+    "warnings": {
+      "cross_attention": "需要 MODEL 和 CLIP 信号，请点击标题栏中的无线按钮。",
+      "joint_attention": "需要 MODEL 信号，请点击标题栏中的无线按钮。"
+    },
+    "messages": {
+      "refreshing_metadata": "正在刷新元数据...",
+      "removed_missing_prefix": "已移除不存在的 LoRA："
+    },
+    "system": {
+      "properties": "老登 LoRA 堆栈属性：",
+      "mode": "模式",
+      "show_clip": "显示 CLIP",
+      "name_display": "名称显示：",
+      "strength_setting": "强度设置",
+      "clip_setting": "CLIP 设置",
+      "min": "最小：",
+      "max": "最大：",
+      "step": "步进：",
+      "default": "默认：",
+      "lr_button": "左右键按钮",
+      "states": {
+        "on": "开",
+        "off": "关"
+      }
+    }
+  },
+  "derp_trigger_wall": {
+    "title": "老登触发词墙",
+    "output": "触发词",
+    "trigger": {
+      "placeholder": "触发词示例"
+    },
+    "groups": {
+      "default": "触发词组",
+      "default_prefix": "触发词组",
+      "select": "选择触发词组"
+    },
+    "buttons": {
+      "new_group": "新建触发词组",
+      "add_to_profile": "添加到配置",
+      "exclusive": "互斥",
+      "save_to_current": "保存到当前配置"
+    },
+    "browser": {
+      "load_profiles": "加载触发词配置",
+      "presets": "预设"
+    },
+    "system": {
+      "properties": "老登触发词墙属性：",
+      "show_weight": "显示触发词权重",
+      "add_always": "始终显示添加触发词按钮"
+    },
+    "dialogs": {
+      "rename_group": {
+        "title": "重命名触发词组",
+        "confirm": "重命名",
+        "message": "输入触发词组的新名称："
+      },
+      "remove_group": {
+        "title": "移除触发词组",
+        "confirm": "移除",
+        "message_prefix": "将",
+        "message_suffix": "从词墙中移除？"
+      }
+    },
+    "messages": {
+      "removed_prefix": "已移除",
+      "profile_saved": "配置已保存！",
+      "profile_saved_prefix": "配置已保存：",
+      "save_failed": "保存失败"
+    }
+  },
+  "derp_model_loader": {
+    "title": "老登模型加载器",
+    "browser": {
+      "root_name": "models",
+      "select": "选择模型...",
+      "refresh": "刷新"
+    },
+    "system": {
+      "properties": "自定义节点属性：",
+      "show_folder_names": "显示文件夹名称",
+      "clear_vram_on_change": "选择新模型时清理 VRAM"
+    },
+    "ports": {
+      "model": "模型",
+      "clip": "Clip",
+      "vae": "Vae"
+    },
+    "dialogs": {
+      "remove_model": {
+        "title": "移除模型",
+        "message_prefix": "将",
+        "message_suffix": "从牌组中移除？",
+        "confirm": "移除"
+      },
+      "clear_deck": {
+        "title": "清空模型牌组",
+        "message": "要清空模型牌组吗？",
+        "confirm": "清空"
+      }
+    },
+    "messages": {
+      "list_updated": "模型列表已更新",
+      "missing_purged_prefix": "已清除缺失模型：",
+      "relinked_prefix": "模型已重新关联：",
+      "deck_synced": "模型牌组已同步：项目已修复或移除。",
+      "vram_cleared_prefix": "VRAM 已清理：",
+      "unload_failed": "模型卸载失败；继续切换模型",
+      "unknown_node": "未知"
+    }
+  },
+  "derp_prompt_book": {
+    "title": "老登提示书",
+    "signal": {
+      "book_content": "书页内容"
+    },
+    "book": {
+      "untitled_name": "未命名书籍"
+    },
+    "browser": {
+      "select": "选择书籍..."
+    },
+    "system": {
+      "properties": "提示书设置",
+      "cover_page": "封面页",
+      "show_total": "显示总页数"
+    },
+    "page": {
+      "cover": "封面",
+      "prefix": "第",
+      "empty": "空白",
+      "untitled_title": "未命名"
+    },
+    "dialogs": {
+      "save_as": {
+        "title": "书籍另存为",
+        "message": "输入提示书文件名：",
+        "confirm": "保存"
+      },
+      "save_book": {
+        "title": "保存书籍",
+        "message": "输入提示书文件名：",
+        "confirm": "保存"
+      },
+      "new_book": {
+        "title": "新建书籍",
+        "message": "输入新提示书文件名：",
+        "confirm": "创建"
+      },
+      "rename_book": {
+        "title": "重命名书籍",
+        "message": "输入这本书的新名称：",
+        "confirm": "重命名"
+      },
+      "duplicate_book": {
+        "title": "复制书籍",
+        "message": "输入复制后提示书文件名：",
+        "confirm": "复制"
+      },
+      "delete_book": {
+        "message_prefix": "删除书籍文件"
+      },
+      "rename_page": {
+        "title": "重命名页面",
+        "message": "输入此页面的新名称：",
+        "confirm": "重命名"
+      },
+      "delete_page": {
+        "title": "删除页面",
+        "message_prefix": "删除页面"
+      }
+    },
+    "messages": {
+      "book_missing_prefix": "书籍文件缺失：",
+      "book_saved_prefix": "书籍已保存：",
+      "book_created_prefix": "书籍已创建：",
+      "book_renamed_prefix": "书籍已重命名：",
+      "book_duplicated_prefix": "书籍已复制：",
+      "book_deleted": "书籍已删除！",
+      "page_image_missing": "页面图片缺失",
+      "create_failed": "书籍创建失败",
+      "rename_failed": "书籍重命名失败",
+      "duplicate_failed": "书籍复制失败"
+    }
+  },
+  "basta_lora_detail": {
+    "title": "LoRA 详情",
+    "labels": {
+      "unknown": "未知",
+      "cover": "封面",
+      "image": "图片"
+    },
+    "notes": {
+      "delete": "删除备注"
+    },
+    "settings": {
+      "min": "最小：",
+      "max": "最大：",
+      "step": "步进：",
+      "default": "默认："
+    },
+    "preview": {
+      "overlay_ready": "已准备好接收粘贴图片（CTRL-V）",
+      "overlay_path": "图片将保存到该 lora 的子文件夹中",
+      "set_cover": "设为封面",
+      "link": "关联"
+    },
+    "external": {
+      "civitai": "CivitAI",
+      "civarchive": "CivArchive",
+      "open_folder": "打开 LoRA 文件夹"
+    },
+    "trigger": {
+      "select": "选择触发词...",
+      "none": "无",
+      "none_found": "未找到触发词"
+    },
+    "import": {
+      "remove_txt": "导入后删除 .txt 文件",
+      "import_triggers": "导入触发词"
+    },
+    "footer": {
+      "rating": "评分：",
+      "rating_measure": "A - 极佳"
+    },
+    "metadata": {
+      "civitai_url": "CivitAI 链接：",
+      "loading": "加载中...",
+      "no_readable": "未找到可读的元数据。",
+      "failed": "获取元数据失败。"
+    },
+    "messages": {
+      "lora_renamed_prefix": "LoRA 已重命名：",
+      "rename_failed": "LoRA 重命名失败",
+      "image_linked": "图片已关联",
+      "deleted_prefix": "已删除：",
+      "trigger_created": "触发词已创建",
+      "trigger_renamed": "触发词已重命名",
+      "trigger_duplicated": "触发词已复制",
+      "trigger_saved": "触发词已保存",
+      "trigger_deleted": "触发词已删除",
+      "import_cleanup_complete": "导入并清理完成",
+      "imported_prefix": "已导入",
+      "imported_suffix": "个触发词",
+      "import_failed": "导入失败",
+      "server_error": "服务器错误",
+      "network_error": "网络错误",
+      "purging_syncing": "正在清理并同步触发词...",
+      "scanning": "正在扫描触发词...",
+      "success_prefix": "成功！",
+      "triggers_processed": "个触发词已处理。"
+    },
+    "dialogs": {
+      "rename_lora": {
+        "title": "重命名 LoRA",
+        "message": "重命名该 LoRA 及其关联的预览资源。"
+      },
+      "delete_image": {
+        "title": "删除图片",
+        "message_prefix": "删除图片"
+      },
+      "new_trigger": {
+        "title": "新建触发词",
+        "confirm": "创建",
+        "message": "输入新触发词名称："
+      },
+      "rename_trigger": {
+        "title": "重命名触发词",
+        "confirm": "重命名",
+        "message": "输入触发词条目的新名称："
+      },
+      "copy_trigger": {
+        "title": "复制触发词",
+        "confirm": "复制",
+        "message": "输入复制后触发词条目的名称："
+      },
+      "delete_trigger": {
+        "title": "删除触发词",
+        "warning": "删除触发词？",
+        "message_prefix": "永久删除触发词条目"
+      },
+      "manage": {
+        "title": "管理"
+      }
+    }
+  },
   "widgets": {
     "confirm": "确认",
     "cancel": "取消",
     "save": "保存",
+    "close": "关闭",
     "delete": "删除"
   }
 }

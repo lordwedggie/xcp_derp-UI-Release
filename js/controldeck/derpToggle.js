@@ -9,11 +9,57 @@ import { refreshWirelessSignalConsumers, transmitDerpSignal } from "../fatha/cor
 import { showBastaToggle } from "../fatha/bastas/bastaToggle.js";
 import { startStackDrag, updateStackDrag, endStackDrag } from "../fatha/helpers/fathaDragDrop.js";
 
+function tLocale(key, fallback = key) {
+    if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
+    const path = key.substring(1).split(".");
+    let target = window.xcpDerpLocaleData || {};
+    for (const segment of path) {
+        target = target?.[segment];
+        if (target === undefined) return fallback;
+    }
+    return target;
+}
+
+function getDefaultToggleLabel() {
+    return tLocale("$derp_toggle.default_label", "Bypass Toggle");
+}
+
+function getDefaultToggleItemLabel(index) {
+    return `${tLocale("$derp_toggle.item_prefix", "Toggle")} ${index + 1}`;
+}
+
+function syncDerpToggleLocaleLabels(node) {
+    if (!node?.properties) return;
+    const localizedTitle = tLocale("$derp_toggle.title", "Derp Toggle");
+    const localizedOutput = tLocale("$derp_toggle.output", "BOOL_OUT");
+    const localizedSignalName = tLocale("$derp_toggle.default_label", "Bypass Toggle");
+    const previousLocalizedTitle = node._lastLocalizedDerpToggleTitle;
+    const previousLocalizedOutput = node._lastLocalizedDerpToggleOutput;
+    const previousLocalizedSignal = node._lastLocalizedDerpToggleSignalName;
+
+    if (!node.titleLabel || node.titleLabel === "Derp Toggle" || (previousLocalizedTitle && node.titleLabel === previousLocalizedTitle)) {
+        node.titleLabel = localizedTitle;
+    }
+    if (!node.properties.titleLabel || node.properties.titleLabel === "Derp Toggle" || (previousLocalizedTitle && node.properties.titleLabel === previousLocalizedTitle)) {
+        node.properties.titleLabel = localizedTitle;
+    }
+    if (!node.properties.outputName || node.properties.outputName === "BOOL_OUT" || (previousLocalizedOutput && node.properties.outputName === previousLocalizedOutput)) {
+        node.properties.outputName = localizedOutput;
+    }
+    if (!node.properties.signalName || node.properties.signalName === "Bypass Toggle" || (previousLocalizedSignal && node.properties.signalName === previousLocalizedSignal)) {
+        node.properties.signalName = localizedSignalName;
+    }
+
+    node._lastLocalizedDerpToggleTitle = localizedTitle;
+    node._lastLocalizedDerpToggleOutput = localizedOutput;
+    node._lastLocalizedDerpToggleSignalName = localizedSignalName;
+}
+
 function ensureToggleItems(node) {
     if (!node.properties) node.properties = {};
 
     if (!Array.isArray(node.properties.toggleItems) || node.properties.toggleItems.length === 0) {
-        const fallbackLabel = node.properties.signalName || "Bypass Toggle";
+        const fallbackLabel = node.properties.signalName || getDefaultToggleLabel();
         const fallbackState = node.properties.toggleState !== false;
         node.properties.toggleItems = [{
             label: fallbackLabel,
@@ -36,7 +82,7 @@ function ensureToggleItems(node) {
 
     const firstSignalItem = [...node.properties.toggleItems]
         .sort((a, b) => (Number(a?.signalIndex) || 0) - (Number(b?.signalIndex) || 0))[0];
-    node.properties.signalName = firstSignalItem?.label || "Bypass Toggle";
+    node.properties.signalName = firstSignalItem?.label || getDefaultToggleLabel();
     node.properties.toggleState = firstSignalItem?.value !== false;
     return node.properties.toggleItems;
 }
@@ -71,6 +117,7 @@ app.registerExtension({
 
         nodeType.prototype.onThemeUpdate = function(config) {
             this.handleThemeUpdate(config);
+            syncDerpToggleLocaleLabels(this);
             this._layoutMapHash = null;
             this.refreshNodeLayoutMap();
             this.refreshDerpToggleSysMap();
@@ -78,6 +125,7 @@ app.registerExtension({
 
         nodeType.prototype.applyPalette = function() {
             if (window.xcpDerpThemeConfig) this.handleThemeUpdate(window.xcpDerpThemeConfig);
+            syncDerpToggleLocaleLabels(this);
             this._layoutMapHash = null;
             this.refreshNodeLayoutMap();
             this.refreshDerpToggleSysMap();
@@ -129,7 +177,7 @@ app.registerExtension({
                         items[idx].value = !(items[idx].value !== false);
                         const firstSignalItem = [...items]
                             .sort((a, b) => (Number(a?.signalIndex) || 0) - (Number(b?.signalIndex) || 0))[0];
-                        this.properties.signalName = firstSignalItem?.label || "Bypass Toggle";
+                        this.properties.signalName = firstSignalItem?.label || getDefaultToggleLabel();
                         this.properties.toggleState = firstSignalItem?.value !== false;
                         if (this.syncDerpOutputs) this.syncDerpOutputs();
                         this.refreshNodeLayoutMap();
@@ -138,7 +186,7 @@ app.registerExtension({
                     [`btnToggle_${idx}`]: {
                         type: this.UI_TYPES.BUTTON,
                         themeKey: "button, t_textNormal", mouseOver: false,
-                        text: item.label || `Toggle ${idx + 1}`,
+                        text: item.label || getDefaultToggleItemLabel(idx),
                         state: item.value !== false ? "ON" : "OFF",
                         alpha: entry.isPreviewGhost ? 0 : 1.0,
                         width: "full",
@@ -156,7 +204,7 @@ app.registerExtension({
                             items[idx].value = !(items[idx].value !== false);
                             const firstSignalItem = [...items]
                                 .sort((a, b) => (Number(a?.signalIndex) || 0) - (Number(b?.signalIndex) || 0))[0];
-                            this.properties.signalName = firstSignalItem?.label || "Bypass Toggle";
+                            this.properties.signalName = firstSignalItem?.label || getDefaultToggleLabel();
                             this.properties.toggleState = firstSignalItem?.value !== false;
                             if (this.syncDerpOutputs) this.syncDerpOutputs();
                             this.refreshNodeLayoutMap();
@@ -195,7 +243,7 @@ app.registerExtension({
                     floatingToggle: {
                         type: this.UI_TYPES.BUTTON,
                         themeKey: "button, t_textNormal",
-                        text: item.label || `Toggle ${idx + 1}`,
+                        text: item.label || getDefaultToggleItemLabel(idx),
                         state: item.value !== false ? "ON" : "OFF",
                         width: "full",
                         height: "auto",
@@ -233,14 +281,14 @@ app.registerExtension({
                         type: this.UI_TYPES.TEXT, mouseOver: false,
                         themeKey: "t_textsystem",
                         labelAlign: ["left", "middle"],
-                        text: "Derp Toggle properties:",
+                        text: tLocale("$derp_toggle.system.properties", "Derp Toggle properties:"),
                         width: "full", padding: [pW, pH],
                     },
                     lblState: {
                         anchor: { target: "lblTitle", axis: "y", offset: oY },
                         type: this.UI_TYPES.TEXT,
                         themeKey: "t_textSystem",
-                        text: `Output BOOL: ${toggleItems.map((item) => item.value !== false ? "TRUE" : "FALSE").join(" | ")}`,
+                        text: `${tLocale("$derp_toggle.system.output_bool", "Output BOOL:")} ${toggleItems.map((item) => item.value !== false ? tLocale("$derp_toggle.states.true", "TRUE") : tLocale("$derp_toggle.states.false", "FALSE")).join(" | ")}`,
                         width: "full",
                         padding: [pW, pH],
                         labelAlign: ["left", "middle"],
@@ -259,7 +307,7 @@ app.registerExtension({
 
             const toggleItems = ensureToggleItems(this);
             const isBypassed = this.mode === 4 || this.mode === 2 || this._derpSpoofedBypass;
-            const nodeName = this.titleLabel || this.title || "Derp Toggle";
+            const nodeName = this.titleLabel || this.title || tLocale("$derp_toggle.title", "Derp Toggle");
             const signalItems = [...toggleItems]
                 .sort((a, b) => (Number(a?.signalIndex) || 0) - (Number(b?.signalIndex) || 0));
             const fingerprint = `${isBypassed ? "bypass" : "live"}_${nodeName}_${this.id}_${signalItems.map((item) => `${item?.signalIndex}:${item?.label || ""}:${item?.value !== false}`).join("|")}`;
@@ -273,7 +321,7 @@ app.registerExtension({
                 const signalIndex = Number(item?.signalIndex) || 0;
                 const signalId = `${this.id}:${signalIndex}`;
                 const finalValue = isBypassed ? null : (item.value !== false);
-                const displayName = `${nodeName} [${item.label || `Toggle ${signalIndex + 1}`}]`;
+                const displayName = `${nodeName} [${item.label || getDefaultToggleItemLabel(signalIndex)}]`;
                 const existing = window.xcpDerpSignals[signalId];
                 if (!existing || existing.value !== finalValue || existing.nodeName !== displayName || existing.type !== "bool") {
                     hasChanged = true;
@@ -322,7 +370,7 @@ app.registerExtension({
             }
 
             const firstSignalItem = signalItems[0];
-            this.properties.signalName = firstSignalItem?.label || "Bypass Toggle";
+            this.properties.signalName = firstSignalItem?.label || getDefaultToggleLabel();
             this.properties.toggleState = firstSignalItem?.value !== false;
 
             if (this.broadcastWirelessSignal) this.broadcastWirelessSignal();
@@ -344,16 +392,18 @@ app.registerExtension({
             this.properties.isPureVirtual = true;
             this.outputs = [];
 
-            this.titleLabel = "Derp Toggle";
-            this.properties.titleLabel = "Derp Toggle";
+            this.titleLabel = tLocale("$derp_toggle.title", "Derp Toggle");
+            this.properties.titleLabel = tLocale("$derp_toggle.title", "Derp Toggle");
             this.properties.toggleState = true;
-            this.properties.outputName = "BOOL_OUT";
-            this.properties.signalName = "Bypass Toggle";
-            this.properties.toggleItems = [{ label: "Bypass Toggle", value: true, signalIndex: 0 }];
+            this.properties.outputName = tLocale("$derp_toggle.output", "BOOL_OUT");
+            this.properties.signalName = getDefaultToggleLabel();
+            this.properties.toggleItems = [{ label: getDefaultToggleLabel(), value: true, signalIndex: 0 }];
             this.properties.autoWidth = false;
             this.properties.autoHeight = true;
             this.properties.nodeSize = [150, 50];
             this.size = [150, 50];
+
+            syncDerpToggleLocaleLabels(this);
 
             this.refreshNodeLayoutMap();
             this.refreshDerpToggleSysMap();
@@ -375,6 +425,7 @@ app.registerExtension({
             this.isPureVirtual = true;
             this.properties.isPureVirtual = true;
             ensureToggleItems(this);
+            syncDerpToggleLocaleLabels(this);
 
             if (this.outputs && this.outputs.length > 0) {
                 this.outputs.forEach((o) => { if (o.links) o.links = null; });

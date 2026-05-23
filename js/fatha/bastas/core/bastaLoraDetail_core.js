@@ -13,6 +13,17 @@ import { resolvePaintData, measureTextHeight } from "../../../herbina/utils/widg
 import { initLoraImageHandlers, calculatePreviewAspectRatio, refreshLoraImageList } from "../../../controldeck/helpers/loraImages.js";
 import { getLoraDetailTitle } from "../../../controldeck/helpers/loraComponents.js";
 
+function tLocale(key, fallback = key) {
+    if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
+    const path = key.substring(1).split(".");
+    let target = window.xcpDerpLocaleData || {};
+    for (const segment of path) {
+        target = target?.[segment];
+        if (target === undefined) return fallback;
+    }
+    return target;
+}
+
 function getNormalizedLoraPath(value) {
     return String(value || "").replace(/\\/g, "/");
 }
@@ -56,7 +67,7 @@ export async function renameLoraBundle(host, basta, loraData, newName) {
 
     const data = await res.json().catch(() => ({}));
     if (!res.ok || data.success !== true) {
-        throw new Error(data.error || "Rename failed");
+        throw new Error(data.error || tLocale("$basta_lora_detail.messages.rename_failed", "Rename failed"));
     }
 
     const liveStack = host?.properties?.stackData || [];
@@ -644,7 +655,7 @@ export const getLoraTriggerDropdownProps = (host, basta, loraData, triggerItems,
             ...t,
             // THE PROPERTY FIX: The dropdown engine expects 'imageUrl', not 'image'
             imageUrl: t.image ? `/xcp/get_lora_image?name=${encodeURIComponent(currentPath)}&file=${encodeURIComponent(t.image)}&v=${window._xcpDerpSession || Date.now()}` : null
-        })) : [{ key: "None", display: "None", tag: "", name: "None" }],
+        })) : [{ key: "None", display: tLocale("$basta_lora_detail.trigger.none", "None"), tag: "", name: tLocale("$basta_lora_detail.trigger.none", "None") }],
         // THE FACE FIX: Explicitly supply imageUrl to the root widget to render the active selection on the closed dropdown
         imageUrl: (() => {
             const active = triggerItems.find(t => t.key === basta._activeTagKey);
@@ -655,10 +666,10 @@ export const getLoraTriggerDropdownProps = (host, basta, loraData, triggerItems,
             const active = triggerItems.find(t => t.key === basta._activeTagKey);
             if (active) return active.display;
             // THE PENDING FIX: Display the new name immediately while fetch/rebuild is in flight
-            return basta._activeTagName || (triggerItems.length > 0 ? triggerItems[0].display : "No triggers found");
+            return basta._activeTagName || (triggerItems.length > 0 ? triggerItems[0].display : tLocale("$basta_lora_detail.trigger.none_found", "No triggers found"));
         })(),
         onChange: (val) => {
-            if (val === "No triggers found") return;
+            if (val === "No triggers found" || val === tLocale("$basta_lora_detail.trigger.none_found", "No triggers found")) return;
             const matched = triggerItems.find(t => t.key === val);
             if (matched) {
                 basta._activeTagKey = matched.key;
@@ -763,7 +774,7 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
     }
 
     if (!loraData.metadataString) {
-        loraData.metadataString = "Loading...";
+        loraData.metadataString = tLocale("$basta_lora_detail.metadata.loading", "Loading...");
         const fileName = loraData.rawFileName || loraData.name;
         const sessionTime = window._xcpDerpSession || Date.now();
         const fetchPath = (fileName || "").replace(/\\/g, "/");
@@ -775,7 +786,7 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
                 if (typeof rawMeta === "string") { try { rawMeta = JSON.parse(rawMeta); } catch(e) { rawMeta = { Raw: rawMeta }; } }
                 const metaEntries = (typeof rawMeta === "object" && rawMeta !== null) ? Object.entries(rawMeta) : [];
 
-                loraData.baseModel = (data.baseModel && data.baseModel !== "Unknown") ? data.baseModel : (rawMeta.ss_base_model_version || loraData.baseModel || "Unknown");
+                loraData.baseModel = (data.baseModel && data.baseModel !== "Unknown") ? data.baseModel : (rawMeta.ss_base_model_version || loraData.baseModel || tLocale("$basta_lora_detail.labels.unknown", "Unknown"));
 
                 const potentialHashes = [
                     data.full_hash, data.auto_hash, data.hash
@@ -810,7 +821,7 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
                 if (b) {
                     const rInt = loraData.rating;
                     const ratingBadge = (rInt >= 1 && rInt <= 7) ? (ratingGlyphs[rInt] || "") : (host.properties.previewList?.includes(loraData.name) ? "🖻 " : "🖺 ");
-                    b.titleLabel = ratingBadge + (loraData.name || "LoRA Detail").replace(/\.safetensors$/i, "");
+                    b.titleLabel = ratingBadge + (loraData.name || tLocale("$basta_lora_detail.title", "LoRA Detail")).replace(/\.safetensors$/i, "");
                     markBLDDirty(b, false);
                     b._forceSync = true;
                     if (typeof b.requestDerpSync === "function") b.requestDerpSync();
@@ -849,7 +860,7 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
                 const cleanMeta = metaEntries
                     .filter(([k]) => (!k.startsWith("ss_") || allowedKeys.includes(k)) && !k.startsWith("modelspec.") && !k.includes("datasets") && !k.includes("bucket"))
                     .map(([k, v]) => `${k.replace("ss_", "")}: ${typeof v === 'object' ? JSON.stringify(v) : v}`);
-                const fallbackMetaStr = cleanMeta.length > 0 ? cleanMeta.join("\n") : "No human-readable metadata found.";
+                 const fallbackMetaStr = cleanMeta.length > 0 ? cleanMeta.join("\n") : tLocale("$basta_lora_detail.metadata.no_readable", "No human-readable metadata found.");
 
                 const fallbackToMeta = () => {
                     loraData.metadataString = fallbackMetaStr;
@@ -858,7 +869,7 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
                         // THE UI REFRESH: Update title label with rating/icon and toggle notes editor visibility
                         const rInt = loraData.rating;
                         const ratingBadge = (rInt >= 1 && rInt <= 7) ? (ratingGlyphs[rInt] || "") : (host.properties.previewList?.includes(loraData.name) ? "🖻 " : "🖺 ");
-                        b.titleLabel = ratingBadge + (loraData.name || "LoRA Detail").replace(/\.safetensors$/i, "");
+                        b.titleLabel = ratingBadge + (loraData.name || tLocale("$basta_lora_detail.title", "LoRA Detail")).replace(/\.safetensors$/i, "");
 
                         if (b.layout?.regions?.editorLoraNotes) {
                             b.layout.regions.editorLoraNotes.hidden = !loraData.notes;
@@ -876,8 +887,8 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
                     fallbackToMeta();
                 }
             }).catch(() => {
-            loraData.baseModel = "Unknown";
-            loraData.metadataString = "Failed to fetch metadata.";
+            loraData.baseModel = tLocale("$basta_lora_detail.labels.unknown", "Unknown");
+            loraData.metadataString = tLocale("$basta_lora_detail.metadata.failed", "Failed to fetch metadata.");
             const b = window.xcpActiveBastas?.get(id);
             if (b) {
                 markBLDDirty(b, false);
@@ -890,7 +901,7 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
     }
 
     const onScanTags = (purge = false) => {
-        showBastaMessage(host, purge ? "Purging & Syncing Triggers..." : "Scanning for Triggers...", 2000, {fade:true}, null, false, "info", "shuffle");
+        showBastaMessage(host, purge ? tLocale("$basta_lora_detail.messages.purging_syncing", "Purging & Syncing Triggers...") : tLocale("$basta_lora_detail.messages.scanning", "Scanning for Triggers..."), 2000, {fade:true}, null, false, "info", "shuffle");
         fetch("/xcp/extract_lora_tags", {
             method: "POST",
             body: JSON.stringify({ name: loraData.name, remove_txt: purge })
@@ -898,7 +909,7 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
             .then(r => r.json())
             .then(data => {
                 if (data.success) {
-                    showBastaMessage(host, `Success! ${data.count} Triggers processed.`, 3000, {fade:true}, null, false, "success", "success");
+                    showBastaMessage(host, `${tLocale("$basta_lora_detail.messages.success_prefix", "Success!")} ${data.count} ${tLocale("$basta_lora_detail.messages.triggers_processed", "Triggers processed.")}`, 3000, {fade:true}, null, false, "success", "success");
                     if (host.refreshNodeLayoutMap) host.refreshNodeLayoutMap();
                 }
             });
@@ -907,7 +918,7 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
     const onManageTags = () => {
         const category = `lora_triggers?name=${encodeURIComponent(loraData.name)}`;
         showBastaFileHandler(host, category, targetRegion, {
-            title: `Manage: ${loraData.name.replace(/\.safetensors$/i, "")}`,
+            title: `${tLocale("$basta_lora_detail.dialogs.manage.title", "Manage")}: ${loraData.name.replace(/\.safetensors$/i, "")}`,
             mode: "rename"
         });
     };
@@ -1218,7 +1229,7 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
             instance._derpLoraDetailInitialized = true;
         }
 
-        instance.layoutMap = config.layoutMap;
+        instance.layoutMap = layoutMapFactory(host, targetRegion, loraData, id);
         instance.titleLabel = config.titleLabel;
         instance._forceSync = true;
         instance._skipAnimOnce = true;

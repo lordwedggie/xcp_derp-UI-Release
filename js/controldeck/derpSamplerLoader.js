@@ -8,6 +8,17 @@ import { initDerpSamplerLoaderCore } from "./core/derpSamplerLoader_core.js";
 import { showBastaFileHandler } from "../fatha/bastas/bastaFileHandler.js";
 import { startStackDrag, updateStackDrag, endStackDrag } from "../fatha/helpers/fathaDragDrop.js";
 
+function tLocale(key, fallback = key) {
+    if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
+    const path = key.substring(1).split(".");
+    let target = window.xcpDerpLocaleData || {};
+    for (const segment of path) {
+        target = target?.[segment];
+        if (target === undefined) return fallback;
+    }
+    return target;
+}
+
 app.registerExtension({
     name: "xcp.derpSamplerLoader_Extension",
     async setup() {
@@ -124,9 +135,9 @@ app.registerExtension({
                         themeKey: "button, t_textNormal",
                         onPress: () => {
                             showBastaFileHandler(this, "none", `btnRemoveSampler_${idx}`, {
-                                title: "Remove Sampler",
-                                message: `Remove ${m.name} from deck?`,
-                                confirm: "Remove",
+                                title: tLocale("$derp_sampler_loader.dialogs.remove_sampler.title", "Remove Sampler"),
+                                message: `${tLocale("$derp_sampler_loader.dialogs.remove_sampler.message_prefix", "Remove")} ${m.name} ${tLocale("$derp_sampler_loader.dialogs.remove_sampler.message_suffix", "from deck?")}`,
+                                confirm: tLocale("$derp_sampler_loader.dialogs.remove_sampler.confirm", "Remove"),
                                 mode: "delete",
                                 playSound: "delete",
                                 onConfirm: () => {
@@ -221,9 +232,9 @@ app.registerExtension({
                             themeKey: "button, t_textNormal",
                             onPress: () => {
                                 showBastaFileHandler(this, "none", "btnNew", {
-                                    title: "Clear Sampler Deck",
-                                    message: "Clear the Sampler deck?",
-                                    confirm: "Clear",
+                                    title: tLocale("$derp_sampler_loader.dialogs.clear_deck.title", "Clear Sampler Deck"),
+                                    message: tLocale("$derp_sampler_loader.dialogs.clear_deck.message", "Clear the Sampler deck?"),
+                                    confirm: tLocale("$derp_sampler_loader.dialogs.clear_deck.confirm", "Clear"),
                                     mode: "delete",
                                     playSound: "delete",
                                     properties: { bastaMovalbe: false },
@@ -240,14 +251,14 @@ app.registerExtension({
                         browserSamplers: {
                             type: this.UI_TYPES.DROPDOWN_DERP,
                             items: samplerList.filter(name => !deck.some(m => m.name === name)),
-                            value: "Select Sampler...",
+                            value: tLocale("$derp_sampler_loader.browser.select", "Select Sampler..."),
                             width: "full", height: "auto",
                             fontSize: t_textNormal_size,
                             themeKey: "dialog, t_textNormal",
                             canvasShield: true,
                             spacing: [sW, 0], padding: [pW, pH],
                             onChange: (v) => {
-                                if (!v || v === "Select Sampler...") return;
+                                if (!v || v === tLocale("$derp_sampler_loader.browser.select", "Select Sampler...")) return;
                                 if (!this.properties.samplerDeck) this.properties.samplerDeck = [];
                                 this.properties.samplerDeck.forEach(m => { m.active = false; });
                                 const existing = this.properties.samplerDeck.find(m => m.name === v);
@@ -264,7 +275,7 @@ app.registerExtension({
                         },
                         btnRefreshSamplers: {
                             type: this.UI_TYPES.BUTTON,
-                            text: "Refresh",
+                            text: tLocale("$derp_sampler_loader.browser.refresh", "Refresh"),
                             width: "auto", height: "fill",
                             padding: [pW, pH],
                             fontSize: t_textNormal_size,
@@ -299,7 +310,7 @@ app.registerExtension({
                         type: this.UI_TYPES.TEXT, mouseOver: false, hidden: true,
                         themeKey: "t_textSystem",
                         labelAlign: ["left", "middle"],
-                        text: "Derp Sampler Loader properties:",
+                        text: tLocale("$derp_sampler_loader.system.properties", "Derp Sampler Loader properties:"),
                         width: "full", padding: [pW, pH],
                     },
                     layoutSpacer: { anchor: { target: "lblTitle", axis: "y" } }

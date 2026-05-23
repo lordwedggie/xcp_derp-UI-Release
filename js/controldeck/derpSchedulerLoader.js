@@ -8,6 +8,17 @@ import { initDerpSchedulerLoaderCore } from "./core/derpSchedulerLoader_core.js"
 import { showBastaFileHandler } from "../fatha/bastas/bastaFileHandler.js";
 import { startStackDrag, updateStackDrag, endStackDrag } from "../fatha/helpers/fathaDragDrop.js";
 
+function tLocale(key, fallback = key) {
+    if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
+    const path = key.substring(1).split(".");
+    let target = window.xcpDerpLocaleData || {};
+    for (const segment of path) {
+        target = target?.[segment];
+        if (target === undefined) return fallback;
+    }
+    return target;
+}
+
 app.registerExtension({
     name: "xcp.derpSchedulerLoader_Extension",
     async setup() {
@@ -122,9 +133,9 @@ app.registerExtension({
                         themeKey: "button, t_textNormal",
                         onPress: () => {
                             showBastaFileHandler(this, "none", `btnRemoveScheduler_${idx}`, {
-                                title: "Remove Scheduler",
-                                message: `Remove ${m.name} from deck?`,
-                                confirm: "Remove",
+                                title: tLocale("$derp_scheduler_loader.dialogs.remove_scheduler.title", "Remove Scheduler"),
+                                message: `${tLocale("$derp_scheduler_loader.dialogs.remove_scheduler.message_prefix", "Remove")} ${m.name} ${tLocale("$derp_scheduler_loader.dialogs.remove_scheduler.message_suffix", "from deck?")}`,
+                                confirm: tLocale("$derp_scheduler_loader.dialogs.remove_scheduler.confirm", "Remove"),
                                 mode: "delete",
                                 playSound: "delete",
                                 onConfirm: () => {
@@ -219,9 +230,9 @@ app.registerExtension({
                             themeKey: "button, t_textNormal",
                             onPress: () => {
                                 showBastaFileHandler(this, "none", "btnNew", {
-                                    title: "Clear Scheduler Deck",
-                                    message: "Clear the Scheduler deck?",
-                                    confirm: "Clear",
+                                    title: tLocale("$derp_scheduler_loader.dialogs.clear_deck.title", "Clear Scheduler Deck"),
+                                    message: tLocale("$derp_scheduler_loader.dialogs.clear_deck.message", "Clear the Scheduler deck?"),
+                                    confirm: tLocale("$derp_scheduler_loader.dialogs.clear_deck.confirm", "Clear"),
                                     mode: "delete",
                                     playSound: "delete",
                                     properties: { bastaMovalbe: false },
@@ -238,14 +249,14 @@ app.registerExtension({
                         browserSchedulers: {
                             type: this.UI_TYPES.DROPDOWN_DERP,
                             items: schedulerList.filter(name => !deck.some(m => m.name === name)),
-                            value: "Select Scheduler...",
+                            value: tLocale("$derp_scheduler_loader.browser.select", "Select Scheduler..."),
                             width: "full", height: "auto",
                             fontSize: t_textNormal_size,
                             themeKey: "dialog, t_textNormal",
                             canvasShield: true,
                             spacing: [sW, 0], padding: [pW, pH],
                             onChange: (v) => {
-                                if (!v || v === "Select Scheduler...") return;
+                                if (!v || v === tLocale("$derp_scheduler_loader.browser.select", "Select Scheduler...")) return;
                                 if (!this.properties.schedulerDeck) this.properties.schedulerDeck = [];
                                 this.properties.schedulerDeck.forEach(m => { m.active = false; });
                                 const existing = this.properties.schedulerDeck.find(m => m.name === v);
@@ -262,7 +273,7 @@ app.registerExtension({
                         },
                         btnRefreshSchedulers: {
                             type: this.UI_TYPES.BUTTON,
-                            text: "Refresh",
+                            text: tLocale("$derp_scheduler_loader.browser.refresh", "Refresh"),
                             width: "auto", height: "fill",
                             padding: [pW, pH],
                             fontSize: t_textNormal_size,
@@ -296,7 +307,7 @@ app.registerExtension({
                         type: this.UI_TYPES.TEXT, hidden: true, mouseOver: false,
                         themeKey: "t_textSystem",
                         labelAlign: ["left", "middle"],
-                        text: "Custom node properties:",
+                        text: tLocale("$derp_scheduler_loader.system.properties", "Custom node properties:"),
                         width: "full", padding: [pW, pH],
                     },
                     layoutSpacer: { anchor: { target: "lblTitle", axis: "y", offset: oY } }
