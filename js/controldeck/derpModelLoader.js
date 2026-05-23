@@ -307,7 +307,21 @@ app.registerExtension({
                             }
                         }
                     },
-                    layoutSpacer: { anchor: { target: "regionSetting-1", axis: "y", offset: oY } }
+                    "regionSetting-2": {
+                        anchor: { target: "regionSetting-1", axis: "y", offset: oY },
+                        dir: "row", width: "full", height: "auto", spacing: [sW, 0],
+                        toggleDumpModelOnChange: {
+                            type: this.UI_TYPES.TOGGLE_V2, isTextOnly: true, themeKey: "button, t_textSystem",
+                            text: "Clear VRAM on new model selection",
+                            width: "full", height: "auto", padding: [pW, pH],
+                            value: this.properties.toggleDumpModelOnChange !== false,
+                            onChange: (v) => {
+                                this.properties.toggleDumpModelOnChange = v;
+                                this.refreshDerpTemplateSysMap();
+                            }
+                        }
+                    },
+                    layoutSpacer: { anchor: { target: "regionSetting-2", axis: "y", offset: oY } }
                 }
             };
         };

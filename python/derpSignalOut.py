@@ -1,6 +1,5 @@
 # Path: ./python/derpSignalOut.py
 import json
-import torch
 from server import PromptServer
 from aiohttp import web
 from .signalDictionaryDefault import process_signal_fallback

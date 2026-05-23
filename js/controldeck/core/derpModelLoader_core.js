@@ -6,9 +6,29 @@ import { showBastaMessage } from "../../fatha/bastas/bastaMessage.js";
 import { showBastaSystemMessage } from "../../fatha/bastas/bastaSystemMessage.js";
 import { playMicrowaveDing } from "../../herbina/masterSoundEffects.js";
 import { transmitDerpSignal } from "../../fatha/core/masterSignalEngine.js";
+import { app } from "../../../../scripts/app.js";
+
+let derpModelLoaderPromptHookInstalled = false;
+
+function installDerpModelLoaderPromptHook() {
+    if (derpModelLoaderPromptHookInstalled || !app?.graphToPrompt) return;
+    derpModelLoaderPromptHookInstalled = true;
+
+    const originalGraphToPrompt = app.graphToPrompt;
+    app.graphToPrompt = function() {
+        if (app?.graph?._nodes) {
+            app.graph._nodes.forEach((node) => {
+                if (!node || node._isDerpModelLoaderNode !== true) return;
+                node._hasClearedVRAMSinceQueuePrompt = false;
+            });
+        }
+        return originalGraphToPrompt.apply(this, arguments);
+    };
+}
 
 export function initDerpModelLoaderCore(nodeType) {
     const proto = nodeType.prototype;
+    installDerpModelLoaderPromptHook();
 
     function normalizeModelDeck(deck) {
         if (!Array.isArray(deck) || deck.length === 0) return [];
@@ -53,6 +73,35 @@ export function initDerpModelLoaderCore(nodeType) {
         items.forEach((item) => {
             showBastaSystemMessage(node, "Models Re-linked: ", 3000, { fade: true, grow: true }, null, "success", false, item);
         });
+    }
+
+    function syncModelUnloadBaseline(node, force = false) {
+        const activeModelName = (node?.properties?.modelDeck || []).find(m => m.active)?.name || null;
+        if (!activeModelName) return;
+        if (force || typeof node._lastBroadcastModelName !== "string" || !node._lastBroadcastModelName) {
+            node._lastBroadcastModelName = activeModelName;
+        }
+    }
+
+    async function unloadPreviousModelFromVRAM(node, previousModel, nextModel) {
+        const res = await fetch("/free", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                unload_models: true,
+            })
+        });
+
+        if (!res.ok) {
+            let errorText = `HTTP ${res.status}`;
+            try {
+                const payload = await res.json();
+                errorText = payload?.error || errorText;
+            } catch (_) {
+                // no-op
+            }
+            throw new Error(errorText);
+        }
     }
 
     proto.onThemeUpdate = function(config) {
@@ -102,6 +151,8 @@ export function initDerpModelLoaderCore(nodeType) {
                 }
 
                 if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
+
+                syncModelUnloadBaseline(this);
 
                 if (!suppressSignal && this.broadcastWirelessSignal) this.broadcastWirelessSignal();
 
@@ -172,32 +223,87 @@ export function initDerpModelLoaderCore(nodeType) {
 
         if (!val) return;
 
-        // THE BACKEND SYNC FIX: Update the physical LiteGraph widget so the Python backend executes with the chosen model
-        if (this.widgets) {
-            const ckptWidget = this.widgets.find(w => w.name === "ckpt_name" || w.name === "model_name");
-            if (ckptWidget && ckptWidget.value !== val) {
-                ckptWidget.value = val;
+        const previousModel = this._lastBroadcastModelName || null;
+        const shouldDumpModelOnChange = this.properties.toggleDumpModelOnChange !== false;
+        const isDifferentModelSelection = !!previousModel && previousModel !== val;
+        const unloadAlreadyPendingForTarget = this._pendingModelSwitchTarget === val;
+        const unloadAlreadyPerformedForQueuedPrompt = this._hasClearedVRAMSinceQueuePrompt === true;
+
+        const runTransmit = () => {
+            this._lastBroadcastModelName = val;
+            if (this._pendingModelSwitchTarget === val) {
+                this._pendingModelSwitchTarget = null;
             }
+
+            // THE BACKEND SYNC FIX: Update the physical LiteGraph widget so the Python backend executes with the chosen model
+            if (this.widgets) {
+                const ckptWidget = this.widgets.find(w => w.name === "ckpt_name" || w.name === "model_name");
+                if (ckptWidget && ckptWidget.value !== val) {
+                    ckptWidget.value = val;
+                }
+            }
+
+            const nodeName = this.titleLabel || this.title || "Unknown";
+            const fingerprint = `${val}_${nodeName}_${this.id}_${(this.properties.modelDeck || []).length}`;
+            if (this._lastSignalFingerprint === fingerprint) return;
+            this._lastSignalFingerprint = fingerprint;
+
+            const modelPayload = { model_name_prefix: val, ckpt_name: val };
+
+            // THE TRUE SLOTS FIX: Bypass the Perfect Heist's visual array deletion
+            // to ensure the Signal Engine sees the physical MODEL/CLIP/VAE ports.
+            const savedOutputs = this.outputs;
+            if (this._xcpTrueOutputs && this._xcpTrueOutputs.length > 0) {
+                this.outputs = this._xcpTrueOutputs;
+            }
+
+            transmitDerpSignal(this, modelPayload);
+
+            // Restore the visual array state to maintain the Heist
+            this.outputs = savedOutputs;
+        };
+
+        if (shouldDumpModelOnChange && isDifferentModelSelection) {
+            if (unloadAlreadyPendingForTarget || unloadAlreadyPerformedForQueuedPrompt) {
+                runTransmit();
+                return;
+            }
+
+            const unloadToken = `${Date.now()}:${val}`;
+            this._pendingModelUnloadToken = unloadToken;
+            this._pendingModelSwitchTarget = val;
+            this._lastSignalFingerprint = null;
+
+            unloadPreviousModelFromVRAM(this, previousModel, val)
+                .then(() => {
+                    this._lastUnloadedModelName = previousModel;
+                    this._lastUnloadedNextModelName = val;
+                    this._hasClearedVRAMSinceQueuePrompt = true;
+                    if (typeof showBastaSystemMessage === "function") {
+                        showBastaSystemMessage(this, "VRAM Cleared: ", 2600, { fade: true, grow: true, silent: true }, null, "success", false, previousModel.split(/[\\/]/).pop() || previousModel);
+                    }
+                })
+                .catch((error) => {
+                    console.error("[xcpDerp] Failed to unload previous model from VRAM:", error);
+                    if (typeof showBastaMessage === "function") {
+                        showBastaMessage(this, "Model unload failed; continuing with switch", 2600, { fade: true, grow: true, width: 260 }, null, false, "error");
+                    }
+                })
+                .finally(() => {
+                    if (this._pendingModelUnloadToken !== unloadToken) return;
+                    const liveActive = (this.properties.modelDeck || []).find(m => m.active)?.name || null;
+                    this._pendingModelUnloadToken = null;
+                    if (liveActive !== val) {
+                        this._pendingModelSwitchTarget = null;
+                        if (this.broadcastWirelessSignal) this.broadcastWirelessSignal();
+                        return;
+                    }
+                    runTransmit();
+                });
+            return;
         }
 
-        const nodeName = this.titleLabel || this.title || "Unknown";
-        const fingerprint = `${val}_${nodeName}_${this.id}_${(this.properties.modelDeck || []).length}`;
-        if (this._lastSignalFingerprint === fingerprint) return;
-        this._lastSignalFingerprint = fingerprint;
-
-        const modelPayload = { model_name_prefix: val, ckpt_name: val };
-
-        // THE TRUE SLOTS FIX: Bypass the Perfect Heist's visual array deletion
-        // to ensure the Signal Engine sees the physical MODEL/CLIP/VAE ports.
-        const savedOutputs = this.outputs;
-        if (this._xcpTrueOutputs && this._xcpTrueOutputs.length > 0) {
-            this.outputs = this._xcpTrueOutputs;
-        }
-
-        transmitDerpSignal(this, modelPayload);
-
-        // Restore the visual array state to maintain the Heist
-        this.outputs = savedOutputs;
+        runTransmit();
     };
 
     proto.onDerpSysPanelOpen = function(panel) {
@@ -255,13 +361,16 @@ export function initDerpModelLoaderCore(nodeType) {
 
     proto.handleLoaderCreated = function() {
         ensureModelIdentity(this);
+        this._isDerpModelLoaderNode = true;
         this.properties.isWirelessTransmitter = true;
         this.properties.skipGenericWirelessHeartbeat = true;
         if (!this._restoreModelDeckPending && this.syncDerpOutputs) this.syncDerpOutputs();
 
         this.properties.modelDeck = this.properties.modelDeck || [];
-        this.properties.showFolderNames = true;
+        if (typeof this.properties.showFolderNames !== "boolean") this.properties.showFolderNames = true;
+        if (typeof this.properties.toggleDumpModelOnChange !== "boolean") this.properties.toggleDumpModelOnChange = true;
         this.properties.drawSettingBtn = false;
+        syncModelUnloadBaseline(this, true);
 
         this.properties.autoWidth = false;
         this.properties.autoHeight = true;
@@ -282,8 +391,10 @@ export function initDerpModelLoaderCore(nodeType) {
 
     proto.handleLoaderConfigure = function() {
         ensureModelIdentity(this);
+        this._isDerpModelLoaderNode = true;
         this.properties.skipGenericWirelessHeartbeat = true;
         this.properties.drawSettingBtn = false;
+        if (typeof this.properties.toggleDumpModelOnChange !== "boolean") this.properties.toggleDumpModelOnChange = true;
         this._restoreModelDeckPending = true;
         const savedDeck = JSON.parse(JSON.stringify(this.properties.modelDeck || []));
         this.fetchModelData(false, { suppressSignal: true });
@@ -301,6 +412,7 @@ export function initDerpModelLoaderCore(nodeType) {
                     this.properties.modelDeck = normalizeModelDeck(restored);
                 }
             }
+            syncModelUnloadBaseline(this, true);
             this._restoreModelDeckPending = false;
             if (this.syncDerpOutputs) this.syncDerpOutputs();
             if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();

@@ -274,7 +274,8 @@ function spawnBastaSystemMessage(host, text, duration = 3000, animations = {}, t
     const holdMs = SYSTEM_MESSAGE_HOLD_MS;
 
     const globalPlaySound = window.DERP_GLOBAL_SETTINGS?.playSound !== false;
-    if (globalPlaySound) {
+    const isSoundSuppressed = playSound === false || animations?.silent === true || animations?.playSound === false;
+    if (globalPlaySound && !isSoundSuppressed) {
         const soundKey = playSound === false ? null : (playSound || mode);
         if (SOUND_INDEX[soundKey]) SOUND_INDEX[soundKey]();
     }

@@ -632,10 +632,11 @@ app.registerExtension({
             const isCollapsed = this.properties?.contentCollapsed === true;
 
             if (wasCollapsed && !isCollapsed) {
-                const restoreH = Number(this._preCollapseHeight || 0);
+                const restoreH = Number(this.properties?._savedExpandedHeight || this._preCollapseHeight || 0);
                 if (restoreH > 0) {
                     const restoreW = Number(this.properties?.nodeSize?.[0] || this.size?.[0] || 400);
                     this.properties.nodeSize = [restoreW, restoreH];
+                    this._preCollapseHeight = restoreH;
                     if (typeof this.refreshNodeLayoutMap === "function") this.refreshNodeLayoutMap();
                     if (typeof this.requestDerpSync === "function") this.requestDerpSync();
                 }
