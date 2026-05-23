@@ -45,16 +45,17 @@ Correct order (follow exactly):
 
 1. Bump version in `pyproject.toml` and `package.json` to X.Y.Z
 2. **Verify the bump took effect** — read both files back from disk after writing
-3. Strip excluded files: `git rm --cached js/motha/themeManagerV2.js js/motha/themeManagerV2_core.js python/derpThemeManagerV2.py` and `git rm --cached -r .deepseek/` and `git rm --cached notes.txt`
-4. Ensure `.github/workflows/publish_action.yml` is present
-5. Commit with message "release vX.Y.Z"
-6. **Sync main FIRST**: `git push --force-with-lease public daily-development:main`
-7. Create tag: `git tag -a vX.Y.Z -m "vX.Y.Z"`
-8. Push tag: `git push public vX.Y.Z`
-9. Push release branch: `git push public daily-development:refs/heads/release/vX.Y.Z`
-10. Restore excluded files: `git add js/motha/themeManagerV2.js js/motha/themeManagerV2_core.js python/derpThemeManagerV2.py .deepseek/ notes.txt` and commit "restore excluded files to daily-development"
-11. Push to origin: `git push --force-with-lease origin daily-development`
-12. **Verify**: confirm `public/main` pyproject.toml shows correct version, tag exists and points to same commit as main
+3. **Ensure __init__.py handles missing themeManagerV2** — the import must be wrapped in try/except so the node works when the file is stripped from public releases
+14. Strip excluded files: `git rm --cached js/motha/themeManagerV2.js js/motha/themeManagerV2_core.js python/derpThemeManagerV2.py` and `git rm --cached -r .deepseek/` and `git rm --cached notes.txt`
+14. Ensure `.github/workflows/publish_action.yml` is present
+14. Commit with message "release vX.Y.Z"
+14. **Sync main FIRST**: `git push --force-with-lease public daily-development:main`
+14. Create tag: `git tag -a vX.Y.Z -m "vX.Y.Z"`
+14. Push tag: `git push public vX.Y.Z`
+14. Push release branch: `git push public daily-development:refs/heads/release/vX.Y.Z`
+14. Restore excluded files: `git add js/motha/themeManagerV2.js js/motha/themeManagerV2_core.js python/derpThemeManagerV2.py .deepseek/ notes.txt` and commit "restore excluded files to daily-development"
+14. Push to origin: `git push --force-with-lease origin daily-development`
+14. **Verify**: confirm `public/main` pyproject.toml shows correct version, tag exists and points to same commit as main
 
 The release repo auto-publishes to Comfy Registry via `.github/workflows/publish_action.yml` which triggers on push to `main` when `pyproject.toml` changes.
 
@@ -84,4 +85,4 @@ The registry reads metadata from `pyproject.toml` `[project.urls]`:
 1. Think Before Coding — state assumptions, surface tradeoffs, ask when unclear
 2. Simplicity First — minimum code, no speculation, no unasked features
 3. Surgical Changes — touch only what you must, match existing style
-4. Goal-Driven Execution — define success criteria, verify, loop until done
+14. Goal-Driven Execution — define success criteria, verify, loop until done
