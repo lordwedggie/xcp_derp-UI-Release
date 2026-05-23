@@ -24,6 +24,14 @@ function showPromptBookMissingBookMessage(node, bookName, targetRegion = null) {
     showBastaSystemMessage(node, "Book File Missing: ", 3200, { fade: true, grow: true }, targetRegion, "error", null, cleanName);
 }
 
+function cleanPromptBookText(text) {
+    if (!text) return "";
+    return text.split('\n').map(segment => {
+        if (!segment.trim()) return "";
+        return segment.split(',').map(t => t.trim()).filter(t => t !== "").join(', ') + ", ";
+    }).join('\n');
+}
+
 async function savePromptBookFile(node, fileName, bookData) {
     const cleanName = normalizePromptBookName(fileName);
     const response = await fetch("/xcp/save/derpPromptBook", {
@@ -436,6 +444,10 @@ export function handlePageAdd(node) {
     book.push({ title: "untitled", content: "", images: [] });
     node.properties.currentPageIndex = book.length - 1;
 
+    node.properties.prompt = "";
+    const w = node.widgets?.find(x => x.name === "prompt");
+    if (w) w.value = "";
+
     if (node.syncDerpOutputs) node.syncDerpOutputs();
 
     if (node.refreshNodeLayoutMap) node.refreshNodeLayoutMap();
@@ -461,6 +473,26 @@ export function handlePageRename(node) {
             }
         }
     });
+}
+
+export function handlePageClean(node) {
+    const book = node.properties.derpBook || [];
+    const currentIdx = node.properties.currentPageIndex || 0;
+    const page = book[currentIdx];
+    if (!page) return;
+
+    const cleaned = cleanPromptBookText(page.content || "");
+    page.content = cleaned;
+    node.properties.prompt = cleaned;
+
+    const w = node.widgets?.find(x => x.name === "prompt");
+    if (w) w.value = cleaned;
+
+    if (node.refreshNodeLayoutMap) node.refreshNodeLayoutMap();
+    if (node.updateDerpPromptBookUI) node.updateDerpPromptBookUI();
+    if (node.syncDerpOutputs) node.syncDerpOutputs();
+    if (node.requestDerpSync) node.requestDerpSync();
+    if (node.setDirtyCanvas) node.setDirtyCanvas(true, true);
 }
 
 export function handlePageDelete(node) {

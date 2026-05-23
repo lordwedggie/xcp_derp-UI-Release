@@ -12,6 +12,7 @@ import {
     handlePageChange,
     handlePageAdd,
     handlePageDelete,
+    handlePageClean,
     handlePageRename,
     handleSaveBook,
     handleNewBook,
@@ -59,7 +60,7 @@ app.registerExtension({
             const currentIndex = this.properties.currentPageIndex || 0;
             const safeIndex = Math.max(0, Math.min(currentIndex, Math.max(0, book.length - 1)));
 
-            const structureHash = `${book.length}_${this.properties.bookName}_${this.properties.coverPage}_${this.properties.showTotalPage}_${this.properties.drawHeader}_${(this._availableBooks || []).length}_${window._xcpDerpSession}`;
+            const structureHash = `${book.length}_${safeIndex}_${this.properties.bookName}_${this.properties.coverPage}_${this.properties.showTotalPage}_${this.properties.drawHeader}_${(this._availableBooks || []).length}_${window._xcpDerpSession}`;
             this._layoutMapHash = structureHash;
 
             const activePage = book[safeIndex] || { title: "Empty", content: "" };
@@ -84,10 +85,25 @@ app.registerExtension({
                 const cReg = this.layoutMap.contentRegion;
                 if (cReg && cReg.editorMain) {
                     const bName = this.properties.bookName || "Untitled Book";
-                    // THE ASSET RESOLUTION FIX: Category must match the server-side registry (derpPromptBook)
-                    cReg.editorMain.value = (activePage.content || "").replace(/\[\[IMG:(?!data:|http|\/|.*_IMG\/)([^\]]+)\]\]/g, (m, file) => {
+                    const editorValue = (activePage.content || "").replace(/\[\[IMG:(?!data:|http|\/|.*_IMG\/)([^\]]+)\]\]/g, (m, file) => {
                         return `[[IMG:/xcp/get_asset/derpPromptBook?name=${encodeURIComponent(file)}&bookName=${encodeURIComponent(bName)}]]`;
                     });
+                    // THE ASSET RESOLUTION FIX: Category must match the server-side registry (derpPromptBook)
+                    cReg.editorMain.value = editorValue;
+                    cReg.editorMain.text = editorValue;
+
+                    const liveEditor = this._derpDomElements?.editorMain;
+                    if (liveEditor) {
+                        liveEditor._config.value = editorValue;
+                        liveEditor._config.text = editorValue;
+                        liveEditor._lastStateHash = null;
+                        liveEditor._lastSyncKey = null;
+                        liveEditor._lastProps = null;
+                        liveEditor._lastMetrics = null;
+                        if (document.activeElement !== liveEditor) {
+                            liveEditor.value = editorValue;
+                        }
+                    }
                 }
                 this.requestDerpSync();
                 return;
@@ -114,6 +130,11 @@ app.registerExtension({
                             type: this.UI_TYPES.ICONBUTTON, icon: "copy", themeKey: "button, t_textBig",
                             width: "match", height: "full", iconScale: 0.72, padding: [pW, pH], spacing: [sW, 0], objectAlign: ["left", "middle"],
                             onPress: () => handleCopyBook(this)
+                        },
+                        btnCleanBook: {
+                            type: this.UI_TYPES.ICONBUTTON, icon: "clean", themeKey: "button, t_textBig",
+                            width: "match", height: "full", iconScale: 0.72, padding: [pW, pH], spacing: [sW, 0], objectAlign: ["left", "middle"],
+                            onPress: () => handlePageClean(this)
                         },
                         btnSaveBook: {
                             type: this.UI_TYPES.ICONBUTTON, icon: "save", themeKey: "button, t_textBig",
