@@ -1,72 +1,72 @@
 {
   "metadata": {
-    "language": "Русский",
-    "region": "RU",
+    "language": "English",
+    "region": "US",
     "author": "Gemini"
   },
   "system": {
-    "auto_width": "Авто-ширина",
-    "auto_height": "Авто-высота",
-    "title": "Заголовок",
-    "animation": "Анимация",
-    "close_panel": "Закрыть панель"
+    "auto_width": "Auto-width",
+    "auto_height": "Auto-height",
+    "title": "Title",
+    "animation": "Animation",
+    "close_panel": "Close panel"
   },
   "widgets": {
-    "back": ".. [Назад]"
+    "back": ".. [Back]"
   },
   "fatha_layout": {
     "title_default": "Derp Nodes",
-    "theme": "Тема:",
-    "add_warp_point": "Добавить WarpPoint",
-    "delete_warp_point": "Удалить WarpPoint",
-    "warp_shortcut": "Горячая клавиша warp:",
+    "theme": "Theme:",
+    "add_warp_point": "Add WarpPoint",
+    "delete_warp_point": "Delete WarpPoint",
+    "warp_shortcut": "Warp shortcut:",
     "ctrl": "Ctrl",
-    "zoom": "Масштаб:",
-    "load_settings": "Загрузить настройки:"
+    "zoom": "Zoom:",
+    "load_settings": "Load settings:"
   },
   "nodes": {
-    "virtual_node": "Виртуальный узел",
-    "logic_node": "Логический узел",
-    "master_switch": "Главный переключатель"
+    "virtual_node": "Virtual node",
+    "logic_node": "Logic node",
+    "master_switch": "Master switch"
   },
   "derp_latent": {
     "title": "Derp Latent",
-    "output": "Латент",
-    "select": "Выбор",
+    "output": "Latent",
+    "select": "Select",
     "mode": {
-      "landscape": "Альбом",
-      "portrait": "Портрет"
+      "landscape": "Landscape",
+      "portrait": "Portrait"
     },
     "system": {
-      "configuration": "Настройка латента:"
+      "configuration": "Latent configuration:"
     },
     "tooltips": {
-      "mode": "Нажмите, чтобы переключаться между портретным и альбомным режимами",
-      "selector": "Нажмите, чтобы выбрать доступные разрешения из профиля",
-      "batch": "Нажмите, чтобы изменить размер batch"
+      "mode": "Click to switch between portrait and landscape mode",
+      "selector": "Click to choose available resolutions from the profile",
+      "batch": "Click to change batch size"
     }
   },
   "derp_slider": {
     "title": "Derp Slider",
     "system": {
-      "properties": "Свойства Derp Slider:",
-      "sliders": "Слайдеры:",
-      "name_display": "Показ имени:"
+      "properties": "Derp Slider properties:",
+      "sliders": "Sliders:",
+      "name_display": "Name display:"
     },
     "name_display": {
-      "slider": "На слайдере",
-      "top": "Сверху",
-      "left": "Слева",
-      "none": "Нет"
+      "slider": "On slider",
+      "top": "Top",
+      "left": "Left",
+      "none": "None"
     },
     "headers": {
-      "name": "ИМЯ",
-      "min": "МИН",
-      "max": "МАКС",
-      "step": "ШАГ",
-      "default": "ПО УМОЛЧАНИЮ",
-      "decimal": "ДРОБЬ",
-      "btn": "КНП",
+      "name": "NAME",
+      "min": "MIN",
+      "max": "MAX",
+      "step": "STEP",
+      "default": "DEFAULT",
+      "decimal": "DECIMAL",
+      "btn": "BTN",
       "btn_lr": "btnLR"
     }
   },
@@ -76,8 +76,8 @@
     "default_label": "Bypass Toggle",
     "item_prefix": "Toggle",
     "system": {
-      "properties": "Свойства Derp Toggle:",
-      "output_bool": "Выход BOOL:"
+      "properties": "Derp Toggle properties:",
+      "output_bool": "BOOL output:"
     },
     "states": {
       "true": "TRUE",
@@ -90,32 +90,32 @@
       "vae": "Vae"
     },
     "browser": {
-      "select": "Выбрать Vae...",
-      "refresh": "Обновить"
+      "select": "Select Vae...",
+      "refresh": "Refresh"
     },
     "system": {
-      "properties": "Свойства пользовательского узла:",
-      "show_folder_names": "Показывать имена папок",
-      "extract_from_model": "Извлекать VAE из модели"
+      "properties": "Custom node properties:",
+      "show_folder_names": "Show folder names",
+      "extract_from_model": "Extract VAE from model"
     },
     "dialogs": {
       "remove_vae": {
-        "title": "Удалить VAE",
-        "message_prefix": "Удалить",
-        "message_suffix": "из колоды?",
-        "confirm": "Удалить"
+        "title": "Remove VAE",
+        "message_prefix": "Remove",
+        "message_suffix": "from deck?",
+        "confirm": "Remove"
       },
       "clear_deck": {
-        "title": "Очистить колоду VAE",
-        "message": "Очистить колоду VAE?",
-        "confirm": "Очистить"
+        "title": "Clear VAE Deck",
+        "message": "Clear the VAE deck?",
+        "confirm": "Clear"
       }
     },
     "messages": {
-      "list_updated": "Список VAE обновлен",
-      "missing_purged_prefix": "Отсутствующие VAE удалены: ",
-      "relinked_prefix": "VAE перепривязаны: ",
-      "deck_synced": "Колода VAE синхронизирована: элементы исправлены или удалены."
+      "list_updated": "VAE list updated",
+      "missing_purged_prefix": "Missing VAEs purged: ",
+      "relinked_prefix": "VAEs re-linked: ",
+      "deck_synced": "VAE deck synced: items repaired or removed."
     }
   },
   "derp_sampler_loader": {
@@ -127,29 +127,29 @@
       "sampler": "Sampler"
     },
     "browser": {
-      "select": "Выбрать Sampler...",
-      "refresh": "Обновить"
+      "select": "Select Sampler...",
+      "refresh": "Refresh"
     },
     "system": {
-      "properties": "Свойства Derp Sampler Loader:"
+      "properties": "Derp Sampler Loader properties:"
     },
     "dialogs": {
       "remove_sampler": {
-        "title": "Удалить Sampler",
-        "message_prefix": "Удалить",
-        "message_suffix": "из колоды?",
-        "confirm": "Удалить"
+        "title": "Remove Sampler",
+        "message_prefix": "Remove",
+        "message_suffix": "from deck?",
+        "confirm": "Remove"
       },
       "clear_deck": {
-        "title": "Очистить колоду Sampler",
-        "message": "Очистить колоду Sampler?",
-        "confirm": "Очистить"
+        "title": "Clear Sampler Deck",
+        "message": "Clear the Sampler deck?",
+        "confirm": "Clear"
       }
     },
     "messages": {
-      "list_updated": "Список Sampler обновлен",
-      "missing_purged_prefix": "Отсутствующие Sampler удалены: ",
-      "load_failed": "Не удалось загрузить sampler"
+      "list_updated": "Sampler list updated",
+      "missing_purged_prefix": "Missing Samplers purged: ",
+      "load_failed": "Failed to load sampler"
     }
   },
   "derp_scheduler_loader": {
@@ -161,29 +161,29 @@
       "scheduler": "Scheduler"
     },
     "browser": {
-      "select": "Выбрать Scheduler...",
-      "refresh": "Обновить"
+      "select": "Select Scheduler...",
+      "refresh": "Refresh"
     },
     "system": {
-      "properties": "Свойства пользовательского узла:"
+      "properties": "Custom node properties:"
     },
     "dialogs": {
       "remove_scheduler": {
-        "title": "Удалить Scheduler",
-        "message_prefix": "Удалить",
-        "message_suffix": "из колоды?",
-        "confirm": "Удалить"
+        "title": "Remove Scheduler",
+        "message_prefix": "Remove",
+        "message_suffix": "from deck?",
+        "confirm": "Remove"
       },
       "clear_deck": {
-        "title": "Очистить колоду Scheduler",
-        "message": "Очистить колоду Scheduler?",
-        "confirm": "Очистить"
+        "title": "Clear Scheduler Deck",
+        "message": "Clear the Scheduler deck?",
+        "confirm": "Clear"
       }
     },
     "messages": {
-      "list_updated": "Список Scheduler обновлен",
-      "missing_purged_prefix": "Отсутствующие Scheduler удалены: ",
-      "load_failed": "Не удалось загрузить scheduler"
+      "list_updated": "Scheduler list updated",
+      "missing_purged_prefix": "Missing Schedulers purged: ",
+      "load_failed": "Failed to load scheduler"
     }
   },
   "derp_image_deck": {
@@ -198,8 +198,8 @@
       "save_image": "SAVE IMAGE"
     },
     "signals": {
-      "image_required": "Выберите сигнал IMAGE (обязательно):",
-      "optional_for_filename": "Выберите необязательные сигналы для разбора имени файла:"
+      "image_required": "Select IMAGE signal (required):",
+      "optional_for_filename": "Select optional signals for parsing the filename:"
     },
     "system": {
       "settings": "Image Deck settings",
@@ -212,24 +212,24 @@
     },
     "dialogs": {
       "select_folder": {
-        "title": "Выбрать папку",
-        "confirm": "Выбрать"
+        "title": "Select folder",
+        "confirm": "Select"
       }
     },
     "messages": {
-      "no_image_to_save": "Нет изображения для сохранения",
+      "no_image_to_save": "No image to save",
       "save_failed": "Save failed",
       "saved_prefix": "Saved: ",
       "auto_saved_prefix": "Auto-saved: ",
       "folder_list_failed_prefix": "Folder list failed: ",
       "folder_list_failed_status_prefix": "Folder list failed (",
-      "no_output_subfolders": "Подпапки output не найдены",
+      "no_output_subfolders": "No output subfolders found",
       "folder_list_request_failed": "Folder list request failed"
     }
   },
   "derp_lora_stack": {
     "title": "Derp Lora Stack",
-    "drop_here": "Отпустите здесь",
+    "drop_here": "Drop here",
     "fuse_qkv": "Fuse QKV",
     "labels": {
       "strength": "Strength",
@@ -237,22 +237,22 @@
     },
     "browser": {
       "add": "Add Lora to Stack...",
-      "refresh": "Обновить"
+      "refresh": "Refresh"
     },
     "trigger": {
       "none": "None",
       "select": "Select Trigger..."
     },
     "warnings": {
-      "cross_attention": "Требуются сигналы MODEL и CLIP, нажмите кнопку wireless в заголовке.",
-      "joint_attention": "Требуется сигнал MODEL, нажмите кнопку wireless в заголовке."
+      "cross_attention": "MODEL and CLIP signals are required. Click the wireless button in the header.",
+      "joint_attention": "MODEL signal is required. Click the wireless button in the header."
     },
     "messages": {
       "refreshing_metadata": "Refreshing Metadata...",
       "removed_missing_prefix": "Removed non-existing LoRA: "
     },
     "system": {
-      "properties": "Свойства Derp Lora Stack:",
+      "properties": "Derp Lora Stack properties:",
       "mode": "Mode",
       "show_clip": "Show CLIP",
       "name_display": "Name display:",
@@ -297,22 +297,22 @@
     },
     "dialogs": {
       "rename_group": {
-        "title": "Переименовать группу триггеров",
-        "confirm": "Переименовать",
-        "message": "Введите новое имя для группы триггеров:"
+        "title": "Rename trigger group",
+        "confirm": "Rename",
+        "message": "Enter a new name for the trigger group:"
       },
       "remove_group": {
-        "title": "Удалить группу триггеров",
-        "confirm": "Удалить",
-        "message_prefix": "Удалить",
-        "message_suffix": "со стены?"
+        "title": "Delete trigger group",
+        "confirm": "Delete",
+        "message_prefix": "Delete",
+        "message_suffix": "from the wall?"
       }
     },
     "messages": {
-      "removed_prefix": "Удалено",
-      "profile_saved": "Профиль сохранен!",
-      "profile_saved_prefix": "Профиль сохранен: ",
-      "save_failed": "Сохранение не удалось"
+      "removed_prefix": "Removed",
+      "profile_saved": "Profile saved!",
+      "profile_saved_prefix": "Profile saved: ",
+      "save_failed": "Save failed"
     }
   },
   "derp_model_loader": {
@@ -531,10 +531,10 @@
     }
   },
   "widgets": {
-    "confirm": "Подтвердить",
-    "cancel": "Отмена",
-    "save": "Сохранить",
-    "close": "Закрыть",
-    "delete": "Удалить"
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "save": "Save",
+    "close": "Close",
+    "delete": "Delete"
   }
 }

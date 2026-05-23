@@ -427,9 +427,6 @@ export async function loadDerpLocale(langCode = "en-US") {
         if (result.data) {
             window.xcpDerpLocaleData = result.data;
             window.xcpDerpActiveLocale = target;
-
-            // GLOBAL REFLOW: Re-run node refresh hooks so locale-backed stored labels
-            // (titles, outputs, normalized display values) also update on live locale changes.
             if (app.graph && app.graph._nodes) {
                 app.graph._nodes.forEach(node => {
                     if (!(node.isFathaNode || node.isUncleNode)) return;
@@ -446,8 +443,6 @@ export async function loadDerpLocale(langCode = "en-US") {
                     if (typeof basta.onThemeUpdate === "function") {
                         basta.onThemeUpdate(window.xcpDerpThemeConfig);
                     } else {
-                        basta._layoutDirty = true;
-                        basta._forceSync = true;
                         if (typeof basta.requestDerpSync === "function") {
                             basta.requestDerpSync();
                         } else if (typeof basta.setDirtyCanvas === "function") {
