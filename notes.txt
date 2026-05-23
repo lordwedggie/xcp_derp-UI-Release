@@ -5,10 +5,8 @@
 A ComfyUI custom nodes plugin — adds utility, UI, and workflow nodes.
 
 **GitHub (intended)**: https://github.com/lordwedggie/xcp_derpNodes (private/not yet public — 404)
-**Git remote**: points to robertvoy/ComfyUI-Flux-Continuum (fork base)
 **Active workspace (2026-05-16)**: E:\Stable_Diffusion\ComfyUI-Easy-CU130_Developer\ComfyUI\custom_nodes\xcpDerpNodes\
 **Prior path**: D:\xcpDerpNodes\ComfyUI-Easy-CU130_Developer\ComfyUI\custom_nodes\xcpDerpNodes\
-**pyproject.toml**: comfyui-flux-continuum v1.7.1
 
 ### Structure
 - __init__.py — entry point, ~15+ nodes (ANY, MX, Bool, Float, INT, STR, Samplers, Schedulers, Color Palette, Seed, Show Text, Theme Manager)
