@@ -122,7 +122,7 @@ function buildPassiveWholeWallCacheState(node, passiveCacheScale) {
         const activeRegionType = String(activeRegion?.type || "");
         const hasOpenPicker = !!(window.__xcpHasActiveDropdown || window.__xcpHasActiveFileBrowser);
         const hasLiveControlInteraction = activeRegionType === UI_TYPES.SLIDER ||
-            activeRegionType === UI_TYPES.DROPDOWN_DERP ||
+            activeRegionType === UI_TYPES.DROPDOWN_DERP || activeRegionType === UI_TYPES.FILEBROWSER ||
             activeRegionType === UI_TYPES.DROPDOWN ||
             activeRegionType === UI_TYPES.EDITOR;
         const canUse = !!(
@@ -165,7 +165,7 @@ function ensurePassiveCacheInteractionBindings(node, app) {
     if (!node?.layout?.regions) return;
     for (const [key, reg] of Object.entries(node.layout.regions)) {
         if (!reg?.type) continue;
-        if (reg.type === UI_TYPES.DROPDOWN_DERP || reg.type === UI_TYPES.DROPDOWN) {
+        if (reg.type === UI_TYPES.DROPDOWN_DERP || reg.type === UI_TYPES.DROPDOWN || reg.type === UI_TYPES.FILEBROWSER) {
             ensureDropdownDerpBinding(node, app, { ...reg, key, geometry: { x: reg.x, y: reg.y, w: reg.w, h: reg.h } });
             continue;
         }

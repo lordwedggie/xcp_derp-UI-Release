@@ -228,17 +228,15 @@ app.registerExtension({
                         }
                     },
                     latentSelector: {
-                        type: this.UI_TYPES.DROPDOWN_DERP, indicator: "on",
+                        type: this.UI_TYPES.FILEBROWSER,
+                        icon: "dropdown",
                         themeKey: "panel, t_textNormal",
                         canvasShield: true,
-                        labelAlign: ["left", "middle"],
                         width: "full", height: "auto",
                         padding: [pW, pH], spacing: [sW, 0],
-                        measureText: [arLabel, "t_textNormal"],
-                        label: currentAr,
-                        text: currentRes,
+                        mode: "file",
+                        rootName: "latents",
                         value: currentFull,
-                        options: dropdownItems.map(i => i.value),
                         items: dropdownItems,
                         toolTip: tLocale("$derp_latent.tooltips.selector", "Click to select available resolutions in the profile"),
                         onChange: (val) => {

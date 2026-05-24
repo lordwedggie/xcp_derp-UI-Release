@@ -191,12 +191,16 @@ app.registerExtension({
                         width: "auto", height: "auto", spacing: [sW, 0]
                     },
                     dropdownPalette: {
-                        type: UI_TYPES.DROPDOWN, themeKey: "dialog, t_textSmall", canvasShield: true,
-                        indicator: true, width: "fit", height: "auto", minWidth: 120,
+                        type: UI_TYPES.FILEBROWSER,
+                        icon: "palette",
+                        themeKey: "dialog, t_textSmall", canvasShield: true,
+                        width: "fit", height: "auto", minWidth: 120,
+                        mode: "file",
+                        fileType: "palette",
+                        rootName: "palettes",
                         items: systemPaletteList,
                         value: selectedSystemPalette,
-                        text: selectedSystemPaletteText,
-                        objectAlign: ["left", "middle"], padding: [pW, pH], spacing: [sW, 0]
+                        padding: [pW, pH], spacing: [sW, 0]
                     },
                 },
                 previewRegion: {
@@ -217,10 +221,19 @@ app.registerExtension({
                         width: "match", height: "fill", spacing: [sW, 0],
                     },
                     dropdownKey: {
-                        type: UI_TYPES.DROPDOWN_DERP, themeKey: "dialog, t_textNormal", canvasShield: true,
-                        indicator: true, width: "full", height: "auto", minWidth: 80,
+                        type: UI_TYPES.FILEBROWSER,
+                        icon: "dropdown",
+                        themeKey: "dialog, t_textNormal", canvasShield: true,
+                        width: "full", height: "auto", minWidth: 80,
+                        mode: "file",
+                        rootName: "keys",
                         items: keyList.length > 0 ? keyList : [this._selectedKeyName || "None"],
-                        value: this._selectedKeyName, objectAlign: ["left", "middle"], padding: [pW, pH], spacing: [sW, 0]
+                        value: this._selectedKeyName, padding: [pW, pH], spacing: [sW, 0],
+                        onChange: (val) => {
+                            this._selectedKeyName = val;
+                            updateThemeLayout(this);
+                            this.requestDerpSync();
+                        }
                     },
                     btnKeyRename: {
                         type: UI_TYPES.ICONBUTTON, themeKey: "button, t_textNormal", noHover: false,
@@ -267,8 +280,12 @@ app.registerExtension({
                         width: "auto", height: "auto", padding: [pW, pH]
                     },
                     dropdownFonts: {
-                        type: UI_TYPES.DROPDOWN, themeKey: "panel, t_textSmall", width: "fit",
+                        type: UI_TYPES.FILEBROWSER,
+                        icon: "dropdown",
+                        themeKey: "panel, t_textSmall", width: "fit",
                         height: "auto", padding: [pW, 2], minWidth: 80,
+                        mode: "file",
+                        rootName: "fonts",
                         items: this._cachedFonts || ["Loading..."]
                     },
                     lblFontSize: {
@@ -324,8 +341,13 @@ app.registerExtension({
                         noHover: true, width: "auto", height: "auto", spacing: [sW, 0]
                     },
                     dropdownShadowClip: {
-                        type: UI_TYPES.DROPDOWN, canvasShield:true, themeKey: "panel, t_textSmall",
-                        width: "auto", height: "auto", labelAlign: ["center", "middle"], padding: [pW, pH], minWidth: 40, measureText: "OutsideH", items: ["None", "Inside", "Outside"]
+                        type: UI_TYPES.FILEBROWSER,
+                        icon: "dropdown",
+                        canvasShield:true, themeKey: "panel, t_textSmall",
+                        width: "auto", height: "auto", padding: [pW, pH], minWidth: 40,
+                        mode: "file",
+                        rootName: "clip",
+                        items: ["None", "Inside", "Outside"]
                     },
                 },
                 strokeRegion: {
@@ -354,8 +376,13 @@ app.registerExtension({
                         noHover: true, width: "auto", height: "auto", spacing: [sW, 0]
                     },
                     dropdownStrokeMode: {
-                        type: UI_TYPES.DROPDOWN, canvasShield:true, themeKey: "panel, t_textSmall",
-                        width: "auto", height: "auto", labelAlign: ["center", "middle"], padding: [pW, pH], minWidth: 40, measureText: "OutsideH", items: ["Outside", "Center", "Inside"]
+                        type: UI_TYPES.FILEBROWSER,
+                        icon: "dropdown",
+                        canvasShield:true, themeKey: "panel, t_textSmall",
+                        width: "auto", height: "auto", padding: [pW, pH], minWidth: 40,
+                        mode: "file",
+                        rootName: "mode",
+                        items: ["Outside", "Center", "Inside"]
                     },
                 },
                 glowRegion: {
@@ -392,8 +419,13 @@ app.registerExtension({
                         noHover: true, width: "auto", height: "auto", spacing: [sW, 0]
                     },
                     dropdownGlowClip: {
-                        type: UI_TYPES.DROPDOWN, canvasShield:true, themeKey: "panel, t_textSmall",
-                        width: "auto", height: "auto", labelAlign: ["center", "middle"], padding: [pW, pH], minWidth: 40, measureText: "OutsideH", items: ["None", "Inside", "Outside"]
+                        type: UI_TYPES.FILEBROWSER,
+                        icon: "dropdown",
+                        canvasShield:true, themeKey: "panel, t_textSmall",
+                        width: "auto", height: "auto", padding: [pW, pH], minWidth: 40,
+                        mode: "file",
+                        rootName: "clip",
+                        items: ["None", "Inside", "Outside"]
                     },
                 },
             };

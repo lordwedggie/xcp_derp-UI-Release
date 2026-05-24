@@ -509,8 +509,13 @@ export function showBastaPalette(host, targetRegion = null) {
                     }
                 },
                 dropdownKeys: {
-                    type: UI_TYPES.DROPDOWN_DERP, themeKey: "button, t_textNormal",  displayMode: "cutoff",
+                    type: UI_TYPES.FILEBROWSER,
+                    icon: "dropdown",
+                    themeKey: "button, t_textNormal",
+                    displayMode: "cutoff",
                     width: "full", height: 20, padding: [pW, pH], spacing: [sW, 0],
+                    mode: "file",
+                    rootName: "palettes",
                     state: basta.properties.activePaletteName ? "OFF" : "DIS",
                     items: (basta._availablePalettes || []).map(p => `${String(p.id).padStart(2, '0')}: ${p.name}`),
                     value: activeDisplay,

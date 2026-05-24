@@ -740,10 +740,14 @@ app.registerExtension({
                             onPress: () => triggerWall_saveGroupToProfile(this, group, `${childKeyPrefix}btnSave_${gIdx}`)
                         },
                         [`${childKeyPrefix}dropdownTriggerGroup_${gIdx}`]: {
-                            type: this.UI_TYPES.DROPDOWN, themeKey: "button, t_textsmall", skipBackground: false,
+                            type: this.UI_TYPES.FILEBROWSER,
+                            icon: "dropdown",
+                            themeKey: "button, t_textsmall", skipBackground: false,
                             hidden: isPreviewGhost,
-                            indicator: true, canvasShield: true, mouseOver: false,
+                            canvasShield: true, mouseOver: false,
                             width: "full", height: "auto", spacing: [sW, 0],
+                            mode: "file",
+                            rootName: "triggergroup",
                             padding: [pW, pH],
                             value: group.title || tLocale("$derp_trigger_wall.groups.default", "Trigger Group"),
                             items: [...(this._cachedPresetData?.triggerGroups || this._triggerGroupData || [])]
@@ -879,9 +883,13 @@ app.registerExtension({
                 dir: "row", width: "full", height: "auto", margin: [mW, 0, mW, 0],
                 spacing: [sW, 0],
                 dropdownTriggerGroup: {
-                    type: this.UI_TYPES.DROPDOWN, themeKey: "button, t_textsmall", skipBackground: false,
-                    indicator: true, canvasShield: true, mouseOver: false,
+                    type: this.UI_TYPES.FILEBROWSER,
+                    icon: "dropdown",
+                    themeKey: "button, t_textsmall", skipBackground: false,
+                    canvasShield: true, mouseOver: false,
                     width: "full", height: "auto", spacing: [sW, 0],
+                    mode: "file",
+                    rootName: "triggergroup",
                     padding: [pW, pH],
                     value: tLocale("$derp_trigger_wall.groups.select", "Select Trigger Group"),
                     items: cachedTriggerGroupItems,

@@ -252,11 +252,13 @@ app.registerExtension({
                             }
                         },
                         browserSamplers: {
-                            type: this.UI_TYPES.DROPDOWN_DERP,
+                            type: this.UI_TYPES.FILEBROWSER,
+                            icon: "dropdown",
                             items: samplerList.filter(name => !deck.some(m => m.name === name)),
                             value: tLocale("$derp_sampler_loader.browser.select", "Select Sampler..."),
                             width: "full", height: "auto",
-                            fontSize: t_textNormal_size,
+                            mode: "file",
+                            rootName: "samplers",
                             themeKey: "dialog, t_textNormal",
                             canvasShield: true,
                             spacing: [sW, 0], padding: [pW, pH],

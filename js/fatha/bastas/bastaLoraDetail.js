@@ -827,10 +827,13 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                     }
                 },
                 dropdownTrigger: {
-                    type: UI_TYPES.DROPDOWN_DERP, themeKey: "button, t_textSmall", measureText: tLocale("$basta_lora_detail.trigger.select", "Select Trigger..."),
+                    type: UI_TYPES.FILEBROWSER,
+                    icon: "dropdown",
+                    themeKey: "button, t_textSmall",
                     state: (triggerItems && triggerItems.length > 0) ? "OFF" : "DIS", mouseOver: false,
                     canvasShield: true, width: "full", height: "auto", padding: [pW, pH], spacing: [sW, 0],
-                    indicator: "on",
+                    mode: "file",
+                    rootName: "triggers",
                     bypassHashOptimization: true, // THE LIST SYNC FIX: Force widget to update items array past layout hash
                     ...getLoraTriggerDropdownProps(host, basta, loraData, triggerItems, currentPath, vars)
                 },
@@ -956,9 +959,12 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 labelAlign: ["left", "middle"]
             },
             dropdownLoraRating: {
-                type: UI_TYPES.DROPDOWN_DERP, themeKey: "button, t_textSmall", measureText: tLocale("$basta_lora_detail.footer.rating_measure", "A - Excellent"),
+                type: UI_TYPES.FILEBROWSER,
+                icon: "dropdown",
+                themeKey: "button, t_textSmall",
                 canvasShield: true, width: "auto", height: "auto", padding: [pW, pH], mouseOver: false,
-                labelAlign: ["center", "middle"],
+                mode: "file",
+                rootName: "rating",
                 ...ratingProps
             },
             btnCloseFooter: {

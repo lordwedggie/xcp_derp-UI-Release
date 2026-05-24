@@ -387,14 +387,15 @@ app.registerExtension({
                             width: "auto", height: "auto", padding: [pW, pH]
                         },
                         dropdownWeightDtype: {
-                            type: this.UI_TYPES.DROPDOWN,
+                            type: this.UI_TYPES.FILEBROWSER,
+                            icon: "dropdown",
                             themeKey: "panel, t_textSystem",
                             canvasShield: true,
                             width: "auto",
                             height: "auto",
                             padding: [pW, pH],
-                            labelAlign: ["center", "middle"],
-                            measureText: "fp8_e4m3fn",
+                            mode: "file",
+                            rootName: "dtype",
                             items: weightDtypeItems,
                             value: this.properties.weightDtype || "default",
                             onChange: (val) => {

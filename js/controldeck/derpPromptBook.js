@@ -228,10 +228,14 @@ app.registerExtension({
                         onPress: () => handlePageRename(this)
                     },
                     dropdownPages: {
-                        type: this.UI_TYPES.DROPDOWN_DERP, canvasShield: true, multiline: false, themeKey: "dialog, t_textBig",
+                        type: this.UI_TYPES.FILEBROWSER,
+                        icon: "dropdown",
+                        canvasShield: true, themeKey: "dialog, t_textBig",
                         items: book.map((page, idx) => getPageLabel(this, idx, page.title)),
-                        indicator: "on", mouseOver: false,
+                        mouseOver: false,
                         width: "full", height: "auto", padding: [pW, pH], spacing: [sW, 0],
+                        mode: "file",
+                        rootName: "pages",
                         value: getPageLabel(this, safeIndex, activePage.title),
                         onChange: (val) => handlePageChange(this, val)
                     },

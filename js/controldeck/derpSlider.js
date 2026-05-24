@@ -252,11 +252,14 @@ app.registerExtension({
                             width: "auto", spacing: [sW, 0],
                         },
                         dropdownNameDisplay: {
-                            type: this.UI_TYPES.DROPDOWN_DERP,
+                            type: this.UI_TYPES.FILEBROWSER,
+                            icon: "dropdown",
                             themeKey: "dialog, t_textSystem",
                             canvasShield: true,
-                            labelAlign: ["center", "middle"], padding: [pW, pH],
-                            width: "auto", measureText: tLocale("$derp_slider.name_display.slider", "Slider"),
+                            padding: [pW, pH],
+                            width: "auto",
+                            mode: "file",
+                            rootName: "namedisplay",
                             items: nameDisplayItems,
                             value: nameDisplay,
                             onChange: (v) => {

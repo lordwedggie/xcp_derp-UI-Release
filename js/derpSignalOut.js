@@ -229,13 +229,14 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                         cancelSignalOutRowDrag(this);
                                     },
                                     [`lblOutputInfo_${idx}`]: {
-                                        type: UI_TYPES.DROPDOWN_DERP, themeKey: "panel, t_textNormal",
-                                        wrap: false, // THE TYPO FIX: Changed 'warp' to 'wrap'
+                                        type: UI_TYPES.FILEBROWSER,
+                                        icon: "dropdown",
+                                        themeKey: "panel, t_textNormal",
                                         minWidth: 100,
-                                        canvasShield: true, labelAlign: ["left", "middle"],
-                                        indicator: "on",
-                                        openOnPress: false,
-                                        domPointerEvents: false,
+                                        canvasShield: true,
+                                        mode: "file",
+                                        rootName: "signals",
+                                        mouseOver: false,
                                         items: sortSignals((this.receivedSignals || [])
                                             .filter(s => {
                                                 const sType = normalizeSignalType(s.type);
@@ -330,11 +331,13 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                 dir: "row", width: "full", height: "auto",
                                 margin: [0, mH, 0, 0], spacing: [0, sH],
                                 dropdownSignalSelect: {
-                                    type: UI_TYPES.DROPDOWN_DERP, themeKey: "dialog, t_textNormal",
-                                    wrap: false, // THE CUTOFF FIX: Explicitly disable wrapping to prevent row overlaps
-                                    canvasShield: true, labelAlign: ["left", "middle"],
+                                    type: UI_TYPES.FILEBROWSER,
+                                    icon: "dropdown",
+                                    themeKey: "dialog, t_textNormal",
+                                    canvasShield: true,
                                     width: "full", height: "auto", padding: [pW, pH], spacing: [sW, 0],
-                                    indicator: "on",
+                                    mode: "file",
+                                    rootName: "signals",
                                     items: signalItems,
                                     value: signalItems.length === 0 ? signalEmptyLabel : (this.properties.selectedSignalLabel || signalPromptLabel),
                                     state: (this.mode === 4 || this.mode === 2 || !signalItems?.length) ? "DIS" : "OFF",
@@ -480,14 +483,15 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                     padding: [pW, pH]
                                 },
                                 dropdownSort: {
-                                    type: UI_TYPES.DROPDOWN,
+                                    type: UI_TYPES.FILEBROWSER,
+                                    icon: "dropdown",
                                     themeKey: "panel, t_textsystem",
                                     canvasShield: true,
                                     width: "auto",
                                     height: "auto",
                                     padding: [pW, pH],
-                                    labelAlign: ["center", "middle"],
-                                    measureText: "$derp_router.sort.name",
+                                    mode: "file",
+                                    rootName: "sort",
                                     items: ["$derp_router.sort.name", "$derp_router.sort.type", "$derp_router.sort.id"],
                                     value: getLocalizedSortModeLabel(this.properties.signalSortMode || "Type"),
                                     onChange: (val) => {

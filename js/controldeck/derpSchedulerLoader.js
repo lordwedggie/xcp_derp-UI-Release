@@ -250,11 +250,13 @@ app.registerExtension({
                             }
                         },
                         browserSchedulers: {
-                            type: this.UI_TYPES.DROPDOWN_DERP,
+                            type: this.UI_TYPES.FILEBROWSER,
+                            icon: "dropdown",
                             items: schedulerList.filter(name => !deck.some(m => m.name === name)),
                             value: tLocale("$derp_scheduler_loader.browser.select", "Select Scheduler..."),
                             width: "full", height: "auto",
-                            fontSize: t_textNormal_size,
+                            mode: "file",
+                            rootName: "schedulers",
                             themeKey: "dialog, t_textNormal",
                             canvasShield: true,
                             spacing: [sW, 0], padding: [pW, pH],

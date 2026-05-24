@@ -36,6 +36,15 @@ import {
 } from "./helpers/dropdown_lib.js";
 import { t } from "../../fatha/core/masterLayoutEngine.js";
 
+const FILEBROWSER_ICON_MAP = {
+    folder:     ["📁", "📂"],
+    dropdown:   ["▶", "▼"],
+    palette:    ["❖", "❖"],
+    file:       ["🖺", "🖺"],
+    settings:   ["⛯", "⛯"],
+    fallback:   ["📁", "📂"],
+};
+
 const BROWSER_ICONS = {
     DIR: "📁 ",
     UP: "⮤ ",
@@ -140,7 +149,12 @@ window._xcpCloseActiveFileBrowser = () => {
 
 
 export function createFileBrowser(callbacks = {}) {
-    return createHybridDropdownHTML(callbacks, ["📁", "📂"]);
+    const iconName = String(callbacks.icon || "folder").toLowerCase();
+    const iconEntry = FILEBROWSER_ICON_MAP[iconName] || FILEBROWSER_ICON_MAP.fallback;
+    const glyphs = (Array.isArray(iconEntry) && iconEntry.length >= 2)
+        ? iconEntry
+        : FILEBROWSER_ICON_MAP.fallback;
+    return createHybridDropdownHTML(callbacks, glyphs);
 }
 
 function shouldShowFileBrowserIndicator(config) {
@@ -270,11 +284,20 @@ function openFilePicker(sourceEl, config, node, callbacks) {
         Array.from(entries).sort().forEach(folder => list.push({ name: folder, type: "dir" }));
 
         if (config.mode !== "folder") {
-            files.sort((a, b) => a.name.localeCompare(b.name)).forEach(file => list.push({ name: file.name, path: file.path, type: "file" }));
+            files.sort((a, b) => a.name.localeCompare(b.name)).forEach(file => list.push({ name: file.name, path: file.path, type: "file", item: file.item }));
         }
 
         list.forEach(entry => {
             const displayName = entry.type === "file" ? entry.name.replace(/\.(safetensors|json)$/i, "") : entry.name;
+            // THE RICH FORMAT FIX: Support label/display split like DROPDOWN for object items
+            let contentHTML = displayName;
+            if (entry.type === "file" && entry.item && typeof entry.item === "object" && entry.item.label && (entry.item.display || entry.item.value)) {
+                const displayStr = entry.item.display || entry.item.value;
+                const lColor = rowPaintON?.textColor || rowPaintON?.fill || rowPaintOFF?.textColor || rowPaintOFF?.fill || "#ffffff";
+                contentHTML = `<span style="color: ${lColor}; font-weight: bold">${entry.item.label}</span><span>${displayStr}</span>`;
+            } else if (entry.item && typeof entry.item === "object" && entry.item.display) {
+                contentHTML = entry.item.display;
+            }
 
             let prefix = BROWSER_ICONS.FILE;
             let prefixColor = null;
@@ -302,7 +325,7 @@ function openFilePicker(sourceEl, config, node, callbacks) {
             const isSelected = entry.type === "file" && (entry.path || "").replace(/\\/g, "/") === (config.value || "").replace(/\\/g, "/");
             const targetContainer = (entry.type === "select_current" || entry.type === "up") ? picker._headerWrapper : contentWrapper;
 
-            const row = appendHybridPickerRow(targetContainer, sourceEl, rowPaintOFF, rowPaintON, scale, dynamicRowHeight, prefix, displayName, isSelected, pX, (entry.type === "select_current" && !hasIndicator) ? 0 : iconOffset, sW);
+            const row = appendHybridPickerRow(targetContainer, sourceEl, rowPaintOFF, rowPaintON, scale, dynamicRowHeight, prefix, contentHTML, isSelected, pX, (entry.type === "select_current" && !hasIndicator) ? 0 : iconOffset, sW);
             row.style.cursor = (entry.type === "select_current") ? "default" : "pointer";
             if (entry.type === "select_current") row.style.fontStyle = "italic";
             if (prefixColor && row._glyphSpan) row._glyphSpan.style.color = prefixColor;

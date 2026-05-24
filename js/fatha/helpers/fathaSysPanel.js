@@ -132,6 +132,7 @@ export const sysPanel = {
                 const isInteractive = reg.onPress || reg.onClick || reg.onDblClick || reg.onChange ||
                     reg.type === UI_TYPES.DROPDOWN_DERP ||
                     reg.type === UI_TYPES.DROPDOWN ||
+                    reg.type === UI_TYPES.FILEBROWSER ||
                     reg.type === UI_TYPES.TOGGLE ||
                     reg.type === UI_TYPES.TOGGLE_V2;
 
@@ -160,7 +161,7 @@ export const sysPanel = {
                     reg.onChange(!reg.value, data);
                 }
 
-                if (reg.type === UI_TYPES.DROPDOWN_DERP) {
+                if (reg.type === UI_TYPES.DROPDOWN_DERP || reg.type === UI_TYPES.FILEBROWSER) {
                     this._pressedRegionKey = key;
                 }
                 this.setDirtyCanvas(true);

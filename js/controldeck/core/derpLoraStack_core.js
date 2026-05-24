@@ -605,7 +605,7 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                                         if (!(k === rowKey || regionBelongsToRow(rowKey, r, snapshot?.regions || this.layout?.regions))) continue;
                                         // Render only stable visual widgets in ghost pass.
                                         // This avoids slot/circle artifacts from non-row helper regions.
-                                        const isTriggerDropdown = r.type === this.UI_TYPES.DROPDOWN_DERP || k.startsWith("dropTrigger_");
+                                        const isTriggerDropdown = r.type === this.UI_TYPES.DROPDOWN_DERP || r.type === this.UI_TYPES.FILEBROWSER || k.startsWith("dropTrigger_");
                                         if (!ghostAllowedTypes.has(r.type) && !isTriggerDropdown) {
                                             continue;
                                         }
@@ -635,7 +635,7 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                                     const bp = this.UI_TYPES ? COMPONENT_BLUEPRINTS[r.type] : null;
                                     if (bp) {
                                         const sourceState = fCfg?.state ?? r?.state ?? "OFF";
-                                        const isTriggerDropdown = r.type === this.UI_TYPES.DROPDOWN_DERP || k.startsWith("dropTrigger_");
+                                        const isTriggerDropdown = r.type === this.UI_TYPES.DROPDOWN_DERP || r.type === this.UI_TYPES.FILEBROWSER || k.startsWith("dropTrigger_");
 
                                         // Draw trigger dropdown as a stable canvas button-like surrogate
                                         // during ghost pass to avoid hybrid DOM flicker.

@@ -128,9 +128,13 @@ export function showBastaSignalReceiver(host, targetRegion = null, params = {}) 
                 const canOpenPicker = items.length > 0;
 
                 acc[`dropdownSignalSelect_${idx}`] = {
-                    anchor: { target: `signalLabel_${idx}`, axis: "y", offset: sH }, labelAlign: ["left", "middle"],
-                    type: UI_TYPES.DROPDOWN_DERP, canvasShield: true,
+                    anchor: { target: `signalLabel_${idx}`, axis: "y", offset: sH },
+                    type: UI_TYPES.FILEBROWSER,
+                    icon: "dropdown",
+                    canvasShield: true,
                     themeKey: "dialog, t_textNormal",
+                    mode: "file",
+                    rootName: "signals",
                     mouseOver: canOpenPicker,
                     canOpenPicker,
                     bypassHashOptimization: true,
