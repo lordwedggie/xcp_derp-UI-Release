@@ -25,6 +25,7 @@ import {
     updateThemeLayout,
     bindThemeEvents
 } from "./themeManagerV2_core.js";
+import { handleThemeDropdownChange } from "./helpers/themeManager_themeHandler.js";
 import { getSystemPaletteDisplayName, toSystemPaletteDropdownItem } from "./helpers/themeManager_paletteUtils.js";
 
 function refreshSystemPaletteList(node) {
@@ -123,7 +124,10 @@ app.registerExtension({
                         displayText: "Select Theme...", mouseOver: false,
                         width: "full", height: "auto", minWidth: 80,
                         items: themeList.length > 0 ? themeList : [this._selectedThemeName || "Default"],
-                        value: this._selectedThemeName, objectAlign: ["left", "middle"], padding: [pW, pH], spacing: [sW, 0]
+                        value: this._selectedThemeName, objectAlign: ["left", "middle"], padding: [pW, pH], spacing: [sW, 0],
+                        onChange: (val) => {
+                            handleThemeDropdownChange(this, val, updateThemeLayout);
+                        }
                     },
                     btnThemeRename: {
                         type: UI_TYPES.ICONBUTTON, themeKey: "button, t_textNormal", noHover: false,

@@ -128,8 +128,8 @@ function resolveLiveGeometry(config, liveReg) {
     return liveReg?.geometry || config?.geometry;
 }
 
-function closePicker() {
-    if (handleHybridPickerClosePhase(activePicker, lastOpenTime, comfyApp)) return;
+function closePicker(force = false) {
+    if (!force && handleHybridPickerClosePhase(activePicker, lastOpenTime, comfyApp)) return;
     finalizePickerCleanup();
 }
 
@@ -138,9 +138,26 @@ function finalizePickerCleanup() {
         cancelAnimationFrame(activePicker._positionRaf);
         activePicker._positionRaf = null;
     }
+    const sourceEl = activePicker?._sourceEl;
+    const node = sourceEl?._node;
+    const config = sourceEl?._config;
+    if (node) clearPendingHostPressState(node, config);
+    if (sourceEl?.dataset) sourceEl.dataset.isPressed = "false";
     finalizeHybridPickerCleanup(activePicker, toggleSingletonShield, closePicker);
     activePicker = null;
     window.__xcpHasActiveDropdown = false;
+}
+
+function forceDropdownResync(node, config, sourceEl) {
+    if (sourceEl) {
+        sourceEl._lastSyncKey = "";
+    }
+    if (node) {
+        node._forceSync = true;
+        node._layoutDirty = true;
+        if (typeof node.requestDerpSync === "function") node.requestDerpSync();
+        if (typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, true);
+    }
 }
 
 window._xcpCloseActiveDropdown = () => {
@@ -299,8 +316,17 @@ function openPicker(sourceEl, config, node, callbacks) {
         row.onclick = (e) => {
             e.stopPropagation();
             if (node) node._derpAwakeFrames = 10;
-            window._xcpCloseActiveDropdown?.();
+            if (picker._previewBox) picker._previewBox.style.display = "none";
+            picker.style.pointerEvents = "none";
+            picker.style.opacity = "0";
+            picker.style.display = "none";
+            toggleSingletonShield(false, closePicker);
+            window.__xcpHasActiveDropdown = false;
+            if (activePicker === picker) activePicker = null;
+            forceDropdownResync(node, config, sourceEl);
             if (callbacks.onChange) callbacks.onChange(valStr);
+            finalizeHybridPickerCleanup(picker, toggleSingletonShield, closePicker);
+            if (node?.setDirtyCanvas) node.setDirtyCanvas(true, true);
         };
 
         contentWrapper.appendChild(row);
@@ -439,14 +465,6 @@ export function syncDropdownDerp(context, node, app, config) {
     if (isCanvas) {
         if (alpha <= 0) return;
 
-        if (safeConfig.openOnPress !== false && safeConfig.isPressed && !isAwake) {
-            executeShieldedInteraction(node, app, x, y, w, h, () => {
-                node._derpAwakeFrames = 10;
-                openPicker(el, safeConfig, node, safeConfig);
-                node.setDirtyCanvas(true, true);
-            });
-        }
-
         if (useCanvasShield && !isAwake) {
             const ctx = context;
             ctx.save();
@@ -551,10 +569,10 @@ export function syncDropdownDerp(context, node, app, config) {
         el._config = safeConfig;
         el._node = node;
 
-        el.onclick = (e) => {
+        const togglePicker = (e) => {
+            if (e && e.stopPropagation) e.stopPropagation();
             if (safeConfig.canOpenPicker === false) return;
             if (stateStr === "DIS" && safeConfig.allowOpenWhenDisabled !== true) return;
-            if (node._pressedRegionKey === safeConfig.key) return;
 
             executeShieldedInteraction(node, app, x, y, w, h, () => {
                 node._derpAwakeFrames = 10;
@@ -563,8 +581,18 @@ export function syncDropdownDerp(context, node, app, config) {
                 } else {
                     openPicker(el, safeConfig, node, safeConfig);
                 }
+                node.setDirtyCanvas(true, true);
             });
+            return true;
         };
+
+        if (isCanvas) {
+            el.onclick = null;
+            el.onpointerdown = togglePicker;
+        } else {
+            el.onpointerdown = null;
+            el.onclick = togglePicker;
+        }
 
         applyInteractionStyles(el, safeConfig, stateStr);
 
@@ -735,12 +763,7 @@ export function syncDropdownDerp(context, node, app, config) {
         activePicker.style.width = `${(activePicker._currentSize[0] * scale).toFixed(2)}px`;
         activePicker.style.height = `${(activePicker._currentSize[1] * scale).toFixed(2)}px`;
 
-        const totalDistY = Math.max(0.1, Math.abs(targetH - aH));
-        const currentDistY = Math.abs(targetH - activePicker._currentSize[1]);
-        const canFade = (!useAnim || (currentDistY <= totalDistY * DROPDOWN_ANIM_SETTINGS.fadeThreshold));
-        const targetAlpha = canFade ? 1 : 0;
-
-        const alphaAnim = animateAlpha(activePicker._itemAlpha || 0, targetAlpha, DROPDOWN_ANIM_SETTINGS.alphaFactor, useAnim);
+        const alphaAnim = animateAlpha(activePicker._itemAlpha || 0, 1, DROPDOWN_ANIM_SETTINGS.alphaFactor, useAnim);
         activePicker._itemAlpha = alphaAnim.value;
         activePicker.style.opacity = activePicker._itemAlpha;
 
