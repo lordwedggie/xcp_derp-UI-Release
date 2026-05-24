@@ -26,7 +26,7 @@ app.registerExtension({
     },
 
     async beforeRegisterNodeDef(nodeType, nodeData) {
-        if (!nodeData.name.toLowerCase().includes("vaeloader")) return;
+        if (nodeData.name !== "DerpVaeLoaderNode") return;
 
         // Initialize Fatha and the Logic Core
         fatha(nodeType, nodeData, 200);
