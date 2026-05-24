@@ -145,6 +145,7 @@ export function bindPromptBookHooks(nodeType) {
 
             const baseId = String(this.id);
             const nodeName = this.titleLabel || this.title || tLocale("$derp_prompt_book.title", "Derp Prompt Book");
+            const activeBookName = normalizePromptBookName(this.properties.bookName);
             const activePage = this.properties.derpBook?.[this.properties.currentPageIndex || 0];
 
             const rawContent = (activePage?.content || "").replace(/\[\[IMG:[\s\S]*?\]\]/g, "");
@@ -162,7 +163,7 @@ export function bindPromptBookHooks(nodeType) {
 
             window.xcpDerpSignals[signalId] = {
                 nodeId: signalId,
-                nodeName: `${nodeName} [${tLocale("$derp_prompt_book.signal.book_content", "BookContent")}]`,
+                nodeName: `${nodeName} [${activeBookName}]`,
                 nodeType: this.type || "Node",
                 type: "STRING",
                 value: outContent,

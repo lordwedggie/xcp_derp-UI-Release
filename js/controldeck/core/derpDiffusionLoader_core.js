@@ -213,7 +213,10 @@ export function initDerpDiffusionLoaderCore(nodeType) {
             weight_dtype: this.properties.weightDtype || "default"
         };
 
-        const fingerprint = JSON.stringify([diffusionName, textEncoderName, weightDtype, this.id]);
+        const nodeName = this.titleLabel || this.title || tLocale("$derp_diffusion_loader.title", "Derp Diffusion Loader");
+        const modelPortLabel = tLocale("$derp_diffusion_loader.ports.model", "Model");
+        const clipPortLabel = tLocale("$derp_diffusion_loader.ports.clip", "Clip");
+        const fingerprint = JSON.stringify([diffusionName, textEncoderName, weightDtype, this.id, nodeName, modelPortLabel, clipPortLabel]);
         if (this._lastSignalFingerprint === fingerprint) return;
         this._lastSignalFingerprint = fingerprint;
 
@@ -226,10 +229,9 @@ export function initDerpDiffusionLoaderCore(nodeType) {
             if (dtypeWidget) dtypeWidget.value = weightDtype;
         }
 
-        const nodeName = this.titleLabel || this.title || tLocale("$derp_diffusion_loader.title", "Derp Diffusion Loader");
         const baseId = String(this.id);
-        pushDiffusionSignalToRegistry(this, `${baseId}:0`, nodeName, tLocale("$derp_diffusion_loader.ports.model", "Model"), "model", modelPayload);
-        pushDiffusionSignalToRegistry(this, `${baseId}:1`, nodeName, tLocale("$derp_diffusion_loader.ports.clip", "Clip"), "clip", clipPayload);
+        pushDiffusionSignalToRegistry(this, `${baseId}:0`, nodeName, modelPortLabel, "model", modelPayload);
+        pushDiffusionSignalToRegistry(this, `${baseId}:1`, nodeName, clipPortLabel, "clip", clipPayload);
 
         const savedOutputs = this.outputs;
         if (this._xcpTrueOutputs && this._xcpTrueOutputs.length > 0) {

@@ -24,6 +24,7 @@ function syncDerpRouterLocaleLabels(node) {
     const previousLocalizedTitle = node._lastLocalizedDerpRouterTitle;
     const localizedSelectSignal = tLocale("$derp_router.signals.select", "Select signal...");
     const previousLocalizedSelectSignal = node._lastLocalizedDerpRouterSelectSignal;
+    const hasSelectedSignal = !!node.properties.selectedSignalId;
 
     if (!node.titleLabel || node.titleLabel === "Node" || node.titleLabel === "Derp Router" || (previousLocalizedTitle && node.titleLabel === previousLocalizedTitle)) {
         node.titleLabel = localizedTitle;
@@ -31,12 +32,49 @@ function syncDerpRouterLocaleLabels(node) {
     if (!node.properties.titleLabel || node.properties.titleLabel === "Node" || node.properties.titleLabel === "Derp Router" || (previousLocalizedTitle && node.properties.titleLabel === previousLocalizedTitle)) {
         node.properties.titleLabel = localizedTitle;
     }
-    if (!node.properties.selectedSignalLabel || node.properties.selectedSignalLabel === "Select signal..." || (previousLocalizedSelectSignal && node.properties.selectedSignalLabel === previousLocalizedSelectSignal)) {
+    if (!hasSelectedSignal || !node.properties.selectedSignalLabel || node.properties.selectedSignalLabel === "Select signal..." || (previousLocalizedSelectSignal && node.properties.selectedSignalLabel === previousLocalizedSelectSignal)) {
         node.properties.selectedSignalLabel = localizedSelectSignal;
     }
 
     node._lastLocalizedDerpRouterTitle = localizedTitle;
     node._lastLocalizedDerpRouterSelectSignal = localizedSelectSignal;
+}
+
+function formatDerpRouterSignalLabel(node, signal) {
+    if (!signal) return "";
+    const showSignalIds = node?.properties?.showSignalIds !== false;
+    const showName = !!node?.properties?.showSlotNames;
+    const showType = !!node?.properties?.showSlotTypes;
+    const rawType = Array.isArray(signal.type)
+        ? "COMBO"
+        : (typeof signal.type === "string"
+            ? signal.type.toUpperCase()
+            : (signal.type && typeof signal.type.name === "string"
+                ? signal.type.name.toUpperCase()
+                : String(signal.type || "unknown").toUpperCase()));
+    const idPrefix = showSignalIds ? `[${signal.nodeId}] ` : "";
+    const displayName = showName ? signal.nodeName : String(signal.nodeName || "").replace(/\s\[[^\]]+\]$/, "");
+    const tag = showType ? ` [${rawType}]` : "";
+    return `${idPrefix}${displayName}${tag}`;
+}
+
+function syncDerpRouterDisplayLabels(node) {
+    if (!node?.properties) return;
+    syncDerpRouterLocaleLabels(node);
+
+    const selectedId = node.properties.selectedSignalId ? String(node.properties.selectedSignalId) : "";
+    if (!selectedId) {
+        node.properties.selectedSignalLabel = tLocale("$derp_router.signals.select", "Select signal...");
+        return;
+    }
+
+    const liveSignal = (node.receivedSignals || []).find((sig) => String(sig?.nodeId || "") === selectedId)
+        || (node.activeOutputs || []).find((sig) => String(sig?.nodeId || "") === selectedId)
+        || (window.xcpDerpSignals ? window.xcpDerpSignals[selectedId] : null);
+
+    if (liveSignal) {
+        node.properties.selectedSignalLabel = formatDerpRouterSignalLabel(node, liveSignal);
+    }
 }
 
 if (!window._xcp_derpSignalOut_Core_Loaded) {
@@ -458,9 +496,22 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                 const onThemeUpdate = nodeType.prototype.onThemeUpdate;
                 nodeType.prototype.onThemeUpdate = function(config) {
                     if (onThemeUpdate) onThemeUpdate.apply(this, arguments);
+                    syncDerpRouterDisplayLabels(this);
+                    this._layoutMapHash = null;
+                    this._lastSignalStructureHash = null;
+                    this._lastSignalValueHash = null;
+                    if (this.updateReceivedSignals) this.updateReceivedSignals();
                     if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
                     if (this.refreshDerpSignalOutSysMap) this.refreshDerpSignalOutSysMap();
                     this.requestDerpSync();
+                    setTimeout(() => {
+                        syncDerpRouterDisplayLabels(this);
+                        if (this.updateReceivedSignals) this.updateReceivedSignals();
+                        if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
+                        if (this.refreshDerpSignalOutSysMap) this.refreshDerpSignalOutSysMap();
+                        this.requestDerpSync();
+                        if (this.setDirtyCanvas) this.setDirtyCanvas(true, true);
+                    }, 0);
                 };
 
                 /**
@@ -608,7 +659,7 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                 nodeType.prototype.onConfigure = function(info) {
                     if (onConf) onConf.apply(this, arguments);
                     this.suppressDefaultWidgets();
-                    syncDerpRouterLocaleLabels(this);
+                    syncDerpRouterDisplayLabels(this);
 
                     if (info.properties) {
                         if (info.properties.activeOutputsData) {
