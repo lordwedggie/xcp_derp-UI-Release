@@ -736,6 +736,8 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                         if (this.syncDerpOutputs) this.syncDerpOutputs();
                                         if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
                                         this.refreshDerpLoraStackSysMap();
+                                        if (this.setDirtyCanvas) this.setDirtyCanvas(true, true);
+                                        if (app.graph?.setDirtyCanvas) app.graph.setDirtyCanvas(true, true);
                                     }
                                 },
                                 btnToggleCLIP: {

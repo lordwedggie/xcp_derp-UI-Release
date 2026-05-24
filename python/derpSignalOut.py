@@ -2,7 +2,7 @@
 import json
 from server import PromptServer
 from aiohttp import web
-from .signalDictionaryDefault import process_signal_fallback
+from .signalDictionaryDefault import process_signal_fallback, safe_clone
 
 class AnyType(str):
     def __eq__(self, _) -> bool: return True
@@ -13,6 +13,12 @@ class AnyType(str):
 any_type = AnyType("*")
 
 DERP_LIVE_REGISTRY = {}
+
+def clone_runtime_signal_value(value, sig_type=""):
+    upper_type = str(sig_type or "").upper()
+    if any(x in upper_type for x in ["MODEL", "CLIP", "VAE"]):
+        return safe_clone(value)
+    return value
 
 @PromptServer.instance.routes.post("/xcp/purge_signal")
 async def purge_signal_api(request):
@@ -70,7 +76,7 @@ class xcpDerpSignalOut:
                 wire_key = f"_hidden_wire_{i}"
                 raw_val = kwargs.get(wire_key)
                 if raw_val is not None and not isinstance(raw_val, str):
-                    val = raw_val
+                    val = clone_runtime_signal_value(raw_val, sig_type)
                     is_live = True
 
                 # 2. Global registry fallback
@@ -78,13 +84,14 @@ class xcpDerpSignalOut:
                     reg_val = DERP_LIVE_REGISTRY[node_id]
                     is_media_dict = isinstance(reg_val, dict) and ("samples" in reg_val or "waveform" in reg_val)
                     if not isinstance(reg_val, (str, dict)) or is_media_dict:
-                        val = reg_val
+                        val = clone_runtime_signal_value(reg_val, sig_type)
                         is_live = True
                     else:
                         val = reg_val
 
                 # 3. Reconstruction engine
                 if not is_live:
+                    original_val = val
                     if isinstance(val, dict) and "ckpt_name" in val:
                         val = val["ckpt_name"]
 
@@ -92,9 +99,12 @@ class xcpDerpSignalOut:
                     if new_val is not val:
                         val = new_val
                         is_live = True
-                        # Cache the resolved value back into registry
-                        if val is not None:
-                            DERP_LIVE_REGISTRY[node_id] = val
+                        # Keep descriptor payloads in the live registry; do not overwrite
+                        # them with resolved MODEL/CLIP objects or they will accumulate
+                        # patches across later generations.
+                        original_is_descriptor = isinstance(original_val, dict) or isinstance(original_val, str)
+                        if val is not None and not original_is_descriptor:
+                            DERP_LIVE_REGISTRY[node_id] = clone_runtime_signal_value(val, sig_type)
 
                 # Final output guard
                 is_complex = any(x in sig_type for x in ["MODEL", "CLIP", "VAE", "IMAGE", "LATENT", "MASK", "CONDITIONING", "AUDIO"])
@@ -130,6 +140,9 @@ class xcpDerpSignalOut:
                             val = json.dumps(val)
                         except:
                             pass
+
+                if is_complex and val is not None:
+                    val = clone_runtime_signal_value(val, sig_type)
 
                 out_signals.append(val)
             else:

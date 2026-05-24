@@ -182,14 +182,16 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                         const isJoint = this.properties.attentionMode === "Joint-Attention";
                         const activeStack = (this.properties.stackData || []).filter(lora => !lora[5]);
                         const processedStack = activeStack.map(lora => {
-                            const entry = [lora[0], Number(lora[1])];
                             if (isJoint) {
-                                entry.push(!!lora[6]);
+                                return {
+                                    lora_name: lora[0],
+                                    strength_model: Number(lora[1]),
+                                    fuse_qkv: !!lora[6],
+                                    trigger: lora[4] || ""
+                                };
                             } else {
-                                entry.push(Number(lora[2]));
+                                return [lora[0], Number(lora[1]), Number(lora[2]), lora[4] || ""];
                             }
-                            entry.push(lora[4] || "");
-                            return entry;
                         });
                         let allTriggers = activeStack.map(l => l[4] || "").filter(t => t.length > 0).join(", ");
 
@@ -202,6 +204,14 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                         let baseModelFallback = null;
                         let baseClipFallback = null;
                         let upstreamIds = [];
+                        const normalizeUpstreamId = (id) => {
+                            if (!id && id !== 0) return null;
+                            return String(id).split(":")[0] || null;
+                        };
+                        const pushUpstreamId = (id) => {
+                            const normalized = normalizeUpstreamId(id);
+                            if (normalized && normalized !== String(this.id)) upstreamIds.push(normalized);
+                        };
 
                         const getFallback = (id) => {
                             if (!id) return null;
@@ -237,6 +247,9 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                             if (upVal.upstream_ids) upstreamIds.push(...upVal.upstream_ids);
                         }
 
+                        pushUpstreamId(baseModelId);
+                        pushUpstreamId(baseClipId);
+
                         if (!baseModelFallback && mSignalId) baseModelFallback = getFallback(mSignalId);
                         if (!baseClipFallback && cSignalId && !isJoint) baseClipFallback = getFallback(cSignalId);
 
@@ -248,7 +261,7 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                             model_fallback: baseModelFallback,
                             clip_fallback: baseClipFallback,
                             triggers: allTriggers,
-                            upstream_ids: [...new Set(upstreamIds)]
+                            upstream_ids: [...new Set(upstreamIds.map(id => String(id).split(":")[0]).filter(id => id && id !== String(this.id)))]
                         };
 
                         const signalHash = `${isBypassed ? "bypass" : "live"}__${JSON.stringify(packageValue)}`;
@@ -277,7 +290,7 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                                 nodeType: this.type || "Node",
                                 type: output.value === null ? "null" : output.type,
                                 value: output.value,
-                                upstreamIds: output.type === "STRING" ? [] : [...new Set(upstreamIds)],
+                                upstreamIds: output.type === "STRING" ? [] : [...new Set(packageValue?.upstream_ids || [])],
                                 timestamp: Date.now()
                             };
 
@@ -421,15 +434,15 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
 
                     this.titleLabel = tLocale("$derp_lora_stack.title", "Derp Lora Stack");
                     this.properties.titleLabel = tLocale("$derp_lora_stack.title", "Derp Lora Stack");
-                    this.properties.stackData = [];
-                    this.activeModelPrefix = "Unknown_Model";
-                    this.properties.activeModelPrefix = "Unknown_Model";
+                    if (!Array.isArray(this.properties.stackData)) this.properties.stackData = [];
+                    this.activeModelPrefix = this.activeModelPrefix || this.properties.activeModelPrefix || "Unknown_Model";
+                    this.properties.activeModelPrefix = this.properties.activeModelPrefix || "Unknown_Model";
 
 
                     this.properties.autoWidth = false;
                     this.properties.autoHeight = true;
-                    this.properties.nodeSize = [300, 60];
-                    this.size = [300, 60];
+                    this.properties.nodeSize = this.properties.nodeSize || [300, 60];
+                    this.size = this.size || this.properties.nodeSize || [300, 60];
 
                     this.fetchDerpLoraData(); // THE DATA FETCH FIX: Run on creation
                     this.fetchDerpRatingsPalette();

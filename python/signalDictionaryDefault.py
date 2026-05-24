@@ -5,6 +5,8 @@ import numpy as np
 import glob
 from PIL import Image, ImageOps
 import folder_paths
+import comfy.lora
+import comfy.model_base
 import comfy.sd
 import comfy.utils
 
@@ -129,6 +131,138 @@ def load_diffusion_and_clip(diffusion_name, text_encoder_name, registry, weight_
     registry[cache_key] = (model, clip)
     return safe_clone(model), safe_clone(clip)
 
+def is_joint_attention_lora_entry(lora):
+    return isinstance(lora, dict) and "fuse_qkv" in lora
+
+def build_lumina2_key_map(model):
+    key_map = {}
+
+    if isinstance(getattr(model, "model", None), comfy.model_base.Lumina2):
+        try:
+            diffusers_keys = comfy.utils.z_image_to_diffusers(
+                model.model.model_config.unet_config,
+                output_prefix="diffusion_model.",
+            )
+            for k, target in diffusers_keys.items():
+                if not k.endswith(".weight"):
+                    continue
+                lora_key = k[:-len(".weight")]
+                key_map[f"diffusion_model.{lora_key}"] = target
+                key_map[f"transformer.{lora_key}"] = target
+                key_map[f"lycoris_{lora_key.replace('.', '_')}"] = target
+                key_map[lora_key] = target
+            return key_map
+        except Exception as e:
+            print(f"Lumina2 key map fallback: {e}")
+
+    for model_key in model.model.state_dict().keys():
+        if model_key.startswith("diffusion_model.") and model_key.endswith(".weight"):
+            base = model_key[len("diffusion_model."):-len(".weight")]
+            key_map[base] = model_key
+            key_map[f"diffusion_model.{base}"] = model_key
+            key_map[f"transformer.{base}"] = model_key
+    return key_map
+
+def lora_has_separate_qkv(lora_sd):
+    return any(
+        ".to_q.lora_A" in k or ".to_k.lora_A" in k or ".to_v.lora_A" in k
+        for k in lora_sd
+    )
+
+def convert_lora_to_lumina2_qkv(lora_sd, model):
+    n_layers = getattr(model.model.model_config.unet_config, "n_layers", 30)
+    converted = {}
+    processed = set()
+
+    for layer_idx in range(n_layers):
+        for prefix in ("diffusion_model.", "transformer.", ""):
+            base = f"{prefix}layers.{layer_idx}.attention"
+
+            qkv_parts = {}
+            for component in ("to_q", "to_k", "to_v"):
+                down_key = f"{base}.{component}.lora_A.weight"
+                up_key = f"{base}.{component}.lora_B.weight"
+                if down_key in lora_sd and up_key in lora_sd:
+                    qkv_parts[component] = (lora_sd[down_key], lora_sd[up_key])
+
+            if len(qkv_parts) == 3:
+                q_down, q_up = qkv_parts["to_q"]
+                k_down, k_up = qkv_parts["to_k"]
+                v_down, v_up = qkv_parts["to_v"]
+
+                converted[f"{base}.qkv.lora_A.weight"] = torch.cat([q_down, k_down, v_down], dim=0)
+                converted[f"{base}.qkv.lora_B.weight"] = torch.cat([q_up, k_up, v_up], dim=0)
+
+                alphas = []
+                for component in ("to_q", "to_k", "to_v"):
+                    alpha_key = f"{base}.{component}.alpha"
+                    if alpha_key in lora_sd:
+                        alphas.append(lora_sd[alpha_key])
+                        processed.add(alpha_key)
+                if len(alphas) == 3:
+                    converted[f"{base}.qkv.alpha"] = sum(alphas) / 3.0
+
+                for component in ("to_q", "to_k", "to_v"):
+                    processed.add(f"{base}.{component}.lora_A.weight")
+                    processed.add(f"{base}.{component}.lora_B.weight")
+
+                break
+
+            out_down_key = f"{base}.to_out.0.lora_A.weight"
+            out_up_key = f"{base}.to_out.0.lora_B.weight"
+            if out_down_key in lora_sd and out_up_key in lora_sd:
+                converted[f"{base}.out.lora_A.weight"] = lora_sd[out_down_key]
+                converted[f"{base}.out.lora_B.weight"] = lora_sd[out_up_key]
+                processed.update([out_down_key, out_up_key])
+
+                out_alpha_key = f"{base}.to_out.0.alpha"
+                if out_alpha_key in lora_sd:
+                    converted[f"{base}.out.alpha"] = lora_sd[out_alpha_key]
+                    processed.add(out_alpha_key)
+
+                break
+
+    for key, value in lora_sd.items():
+        if key not in processed:
+            converted[key] = value
+    return converted
+
+def apply_joint_attention_lora_stack(model, stack_data):
+    if model is None:
+        return None
+
+    current = safe_clone(model)
+    key_map = build_lumina2_key_map(current)
+
+    for lora in stack_data:
+        if not is_joint_attention_lora_entry(lora):
+            continue
+
+        lora_name = lora.get("lora_name", lora.get("name"))
+        if not lora_name:
+            continue
+
+        strength_model = float(lora.get("strength_model", 1.0))
+        if strength_model == 0:
+            continue
+
+        lora_path = folder_paths.get_full_path("loras", lora_name)
+        if not lora_path:
+            continue
+
+        try:
+            lora_sd = comfy.utils.load_torch_file(lora_path, safe_load=True)
+            if lora.get("fuse_qkv", True) and lora_has_separate_qkv(lora_sd):
+                lora_sd = convert_lora_to_lumina2_qkv(lora_sd, current)
+            patch_dict = comfy.lora.load_lora(lora_sd, key_map, log_missing=False)
+            next_model = current.clone()
+            next_model.add_patches(patch_dict, strength_patch=strength_model, strength_model=1.0)
+            current = next_model
+        except Exception as e:
+            print(f"Failed to load joint-attention Lora: {lora_name} - {e}")
+
+    return current
+
 def process_signal_fallback(val, sig_type, registry):
     # IMAGE FALLBACK
     if "IMAGE" in sig_type:
@@ -145,6 +279,11 @@ def process_signal_fallback(val, sig_type, registry):
     if any(x in sig_type for x in ["MODEL", "CLIP", "VAE"]):
         # Handle LoRA stack dictionaries
         if isinstance(val, dict) and "stack" in val:
+            stack_data = val.get("stack", [])
+            joint_stack = [l for l in stack_data if is_joint_attention_lora_entry(l)]
+            regular_stack = [l for l in stack_data if not is_joint_attention_lora_entry(l)]
+            needs_clip_for_stack = bool(regular_stack) or ("CLIP" in sig_type)
+
             m_id_raw = val.get("model_id")
             m_id = str(m_id_raw) if m_id_raw not in [None, ""] else ""
             c_id_raw = val.get("clip_id")
@@ -158,34 +297,49 @@ def process_signal_fallback(val, sig_type, registry):
             # If m or c are strings or dicts, we need to resolve them via fallback
             if m is None or isinstance(m, (str, dict)):
                 m = process_signal_fallback(registry.get(m_id) if m_id else None, "MODEL", registry) if m_id else None
-            if c is None or isinstance(c, (str, dict)):
+            if needs_clip_for_stack and (c is None or isinstance(c, (str, dict))):
                 c = process_signal_fallback(registry.get(c_id) if c_id else None, "CLIP", registry) if c_id else None
 
             need_m = m is None or isinstance(m, (str, dict))
-            need_c = c is None or isinstance(c, (str, dict))
+            need_c = needs_clip_for_stack and (c is None or isinstance(c, (str, dict)))
 
             if need_m or need_c:
                 m_fallback = val.get("model_fallback")
                 c_fallback = val.get("clip_fallback")
-                ckpt_name = None
-                if isinstance(m_fallback, dict):
-                    ckpt_name = m_fallback.get("ckpt_name")
-                elif isinstance(m_fallback, str):
-                    ckpt_name = m_fallback
-                if not ckpt_name and isinstance(c_fallback, dict):
-                    ckpt_name = c_fallback.get("ckpt_name")
-                elif not ckpt_name and isinstance(c_fallback, str):
-                    ckpt_name = c_fallback
-                if not ckpt_name or ckpt_name == "None":
-                    ckpt_name = find_first_checkpoint()
-                    if not ckpt_name:
-                        print("No checkpoint found for LoRA stack")
-                        return None
-                m_new, c_new, v_new = load_checkpoint_models(ckpt_name, registry)
-                if need_m: m = m_new
-                if need_c: c = c_new
-                if m is None or c is None:
-                    print(f"Failed to load base model/clip from {ckpt_name}")
+                if need_m and m_fallback is not None:
+                    m = process_signal_fallback(m_fallback, "MODEL", registry)
+                if need_c and c_fallback is not None:
+                    c = process_signal_fallback(c_fallback, "CLIP", registry)
+
+                still_need_m = m is None or isinstance(m, (str, dict))
+                still_need_c = need_c and (c is None or isinstance(c, (str, dict)))
+
+                if still_need_m or still_need_c:
+                    ckpt_name = None
+                    if isinstance(m_fallback, dict):
+                        ckpt_name = m_fallback.get("ckpt_name")
+                    elif isinstance(m_fallback, str):
+                        ckpt_name = m_fallback
+                    if not ckpt_name and isinstance(c_fallback, dict):
+                        ckpt_name = c_fallback.get("ckpt_name")
+                    elif not ckpt_name and isinstance(c_fallback, str):
+                        ckpt_name = c_fallback
+                    if not ckpt_name or ckpt_name == "None":
+                        ckpt_name = find_first_checkpoint()
+                        if not ckpt_name:
+                            print("No checkpoint found for LoRA stack")
+                            return None
+                    m_new, c_new, v_new = load_checkpoint_models(ckpt_name, registry)
+                    if still_need_m:
+                        m = m_new
+                    if still_need_c:
+                        c = c_new
+
+                if m is None or isinstance(m, (str, dict)):
+                    print("Failed to resolve base model for LoRA stack")
+                    return None
+                if need_c and (c is None or isinstance(c, (str, dict))):
+                    print("Failed to resolve base clip for LoRA stack")
                     return None
 
             if isinstance(m, str): m = None
@@ -196,10 +350,11 @@ def process_signal_fallback(val, sig_type, registry):
             c = safe_clone(c)
             v = safe_clone(v)
 
-            # Apply LoRAs
-            if m is not None and c is not None:
-                stack_data = val.get("stack", [])
-                for lora in stack_data:
+            if joint_stack and m is not None:
+                m = apply_joint_attention_lora_stack(m, joint_stack)
+
+            if regular_stack and m is not None and c is not None:
+                for lora in regular_stack:
                     lora_name = None
                     str_model = 1.0
                     str_clip = 1.0
@@ -222,18 +377,12 @@ def process_signal_fallback(val, sig_type, registry):
                     except Exception as e:
                         print(f"Failed to load Lora: {lora_name} - {e}")
 
-                # Cache resolved tensors back into registry
-                if m_id and m is not None:
-                    registry[m_id] = m
-                if c_id and c is not None:
-                    registry[c_id] = c
-
-                if "MODEL" in sig_type and m is not None:
-                    return m
-                if "CLIP" in sig_type and c is not None:
-                    return c
-                if "VAE" in sig_type and v is not None:
-                    return v
+            if "MODEL" in sig_type and m is not None:
+                return m
+            if "CLIP" in sig_type and c is not None:
+                return c
+            if "VAE" in sig_type and v is not None:
+                return v
             return None
 
         # Diffusion-family payload
