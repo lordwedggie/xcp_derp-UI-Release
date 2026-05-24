@@ -1137,7 +1137,7 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
                     };
                     ["imageHandlingRegion", "btnImagePrevious", "btnSetCover", "btnSetTrigger", "btnDeleteImage", "btnImageNext",
                         "labelRegion", "labelImageName", "labelCount",
-                        "externalRow", "btnCivit", "btnCivArchive", "btnOpenFolder"].forEach(updateAlpha);
+                        "externalRow", "externalRowBg", "btnCivit", "btnCivArchive", "btnOpenFolder"].forEach(updateAlpha);
                     needsVisualDirty = true;
                 }
 

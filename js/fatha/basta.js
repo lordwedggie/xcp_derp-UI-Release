@@ -17,6 +17,38 @@ const BASTA_FADE_SPEED = 0.4;
 const BLD_ID = "basta_lora_detail_global_unique_id";
 const BASTA_OVERLAY_WINDOW_MS = 4000;
 
+function getRegionClipChain(layout, region) {
+    if (!layout?.regions || !region?.parentKey) return null;
+    const chain = [];
+    let current = layout.regions[region.parentKey];
+    while (current) {
+        if (current.type === "imageHTML" || current.clipChildren === true) {
+            chain.unshift(current);
+        }
+        current = current.parentKey ? layout.regions[current.parentKey] : null;
+    }
+    return chain.length > 0 ? chain : null;
+}
+
+function applyRegionClipChain(ctx, clipChain) {
+    if (!ctx || !clipChain?.length) return false;
+    ctx.save();
+    for (let i = 0; i < clipChain.length; i++) {
+        const clipRegion = clipChain[i];
+        const x = Math.floor(clipRegion.x || 0);
+        const y = Math.floor(clipRegion.y || 0);
+        const w = Math.max(0, Math.floor(clipRegion.w || 0));
+        const h = Math.max(0, Math.floor(clipRegion.h || 0));
+        if (w <= 0 || h <= 0) continue;
+        const radius = Math.max(0, Number(clipRegion.cornerRadius ?? (clipRegion.type === "imageHTML" ? 4 : 0)) || 0);
+        ctx.beginPath();
+        if (ctx.roundRect && radius > 0) ctx.roundRect(x, y, w, h, radius);
+        else ctx.rect(x, y, w, h);
+        ctx.clip();
+    }
+    return true;
+}
+
 function ensureBastaOverlayPerf(basta) {
     if (!basta) return null;
     if (!basta._overlayPerf) {
@@ -646,6 +678,9 @@ class BastaInstance {
                     this._compDataCache[key] = compData;
                 }
 
+                const clipChain = getRegionClipChain(this.layout, reg);
+                const hasClip = !blueprint.isHtml && applyRegionClipChain(ctx, clipChain);
+
                 if (blueprint.isHtml && this.dynamicElements) {
                     let isNewElement = false;
                     if (!this.dynamicElements[key]) {
@@ -691,6 +726,8 @@ class BastaInstance {
                         bumpBLDComponentPerf(this, key, reg.type, "canvas", bldCompElapsed);
                     }
                 }
+
+                if (hasClip) ctx.restore();
             }
 
             // THE OVERLAY BACKDROP FIX: Draw regions requested to render above components
@@ -709,8 +746,10 @@ class BastaInstance {
                 const bldCompStart = window.DERP_BLD_PROFILE && this.id === BLD_ID ? performance.now() : 0;
                 const overlayData = this._compDataCache[key];
                 if (overlayData) {
+                    const hasClip = applyRegionClipChain(ctx, getRegionClipChain(this.layout, reg));
                     overlayData.alpha = this.alpha;
                     blueprint.sync(ctx, this, app, overlayData, true);
+                    if (hasClip) ctx.restore();
                     if (window.DERP_BLD_PROFILE && this.id === BLD_ID) {
                         const bldCompElapsed = performance.now() - bldCompStart;
                         bumpBLDPerf(this, "componentSync");

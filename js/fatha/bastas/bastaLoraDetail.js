@@ -178,6 +178,9 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
     const previewH = Math.floor(calculatePreviewDisplayHeight(basta, previewAspectForLayout, mW));
     const loaderProps = getLoraLoaderProps(host, basta, loraData);
     const triggerItems = getTriggerItemsForPath(host, currentPath);
+    const externalTextPaint = profileResolvePaint(basta, "t_textSmall", "OFF") || {};
+    const externalRowH = Math.ceil(Math.max(18, Number(externalTextPaint.fontSize || 10) + (pH * 2)));
+    const externalRowOffsetY = -(externalRowH + sH);
 
     // THE RESET ENGINE: If the model or slot has changed, clear the stale trigger selection
     if (basta._lastLoraName !== currentPath || basta._lastSlotIndex !== loraData.slotIndex) {
@@ -274,7 +277,6 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 dir: "row", width: "full", height: "auto", margin: [0, 0, 0, mH],
                 btnAddNote: {
                     type: UI_TYPES.ICONBUTTON, icon: "new", themeKey: "button, t_textSmall",
-                        iconScale: 0.5,
                     width: "match", height: "full", spacing: [sW, 0],
                     hidden: !!loraData.notes,
                     onPress: () => {
@@ -303,7 +305,6 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 },
                 btnRenameLora: {
                     type: UI_TYPES.ICONBUTTON, icon: "rename", themeKey: "button, t_textSmall",
-                        iconScale: 0.5,
                     width: "match", height: "full", spacing: [sW, 0],
                     onPress: () => {
                         const liveStack = host.properties?.stackData || [];
@@ -369,7 +370,6 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 },
                 btnSettings: {
                     type: UI_TYPES.ICONBUTTON, icon: "settings", themeKey: "button, t_textSmall",
-                        iconScale: 0.5,
                     state: basta._showLoraSettings ? "ON" : "OFF",
                     width: "match", height: "full", spacing: [sW, 0],
                     onPress: () => {
@@ -536,9 +536,63 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                     basta.requestDerpSync();
                 }
             },
+            externalRowBg: {
+                type: UI_TYPES.REGION, themeKey: "background", palette: bgPal, regionOffset: [sW, 0, sW, 0],
+                corners: [0, 0, 2, 2],
+                hidden: !basta._externalReady && !basta._isDerpResizing,
+                spawnAnim: false,
+                alpha: basta._navAlpha,
+                anchor: { target: "loraPreview", axis: "y", offset: externalRowOffsetY },
+                dir: "row", width: "full", height: externalRowH, margin: [sW, 0, sW, 0],
+                zIndex: 0,
+                btnCivit: {
+                    type: UI_TYPES.BUTTON, labelAlign: ["center", "middle"], padding: [pW, pH],
+                    themeKey: "button, t_textSmall", palette: civitPal,
+                    alpha: basta._navAlpha,
+                    text: tLocale("$basta_lora_detail.external.civitai", "CivitAI"),
+                    width: "auto", spacing: [sW, 0],
+                    objectAlign: ["left", "middle"],
+                    onPress: async () => {
+                        if (basta._navAlpha < 0.5) return;
+                        openCivitAI(basta, loraData);
+                    }
+                },
+                btnCivArchive: {
+                    type: UI_TYPES.BUTTON, labelAlign: ["center", "middle"], padding: [pW, pH],
+                    themeKey: "button, t_textSmall", palette: civArchivePal,
+                    alpha: basta._navAlpha,
+                    text: tLocale("$basta_lora_detail.external.civarchive", "CivArchive"),
+                    width: "auto", spacing: [sW, 0],
+                    objectAlign: ["left", "middle"],
+                    onPress: async () => {
+                        if (basta._navAlpha < 0.5) return;
+                        openCivArchive(basta, loraData);
+                    }
+                },
+                spring: { width: "full" },
+                btnOpenFolder: {
+                    type: UI_TYPES.BUTTON, labelAlign: ["center", "middle"], padding: [pW, pH],
+                    themeKey: "button, t_textSmall", palette: folderPal,
+                    alpha: basta._navAlpha,
+                    text: tLocale("$basta_lora_detail.external.open_folder", "Open LoRA folder"),
+                    width: "auto", spacing: [sW, 0],
+                    objectAlign: ["left", "middle"],
+                    onPress: (e) => {
+                        if (basta._navAlpha < 0.5) return;
+                        const liveStack = host.properties?.stackData || [];
+                        const fileName = liveStack[loraData.slotIndex]?.[0] || currentPath;
+                        const isShift = (e && e.shiftKey) ||
+                            (window.app && window.app.canvas && window.app.canvas.shift_down) ||
+                            (window.app && window.app.shiftDown);
+                        const sub = isShift ? "" : "&subfolder=true";
+
+                        fetch(`/xcp/open_folder?name=${encodeURIComponent(fileName)}${sub}`);
+                    }
+                }
+            },
             imageHandlingRegion: {
                 themeKey: "background", palette: bgPal,
-                type: UI_TYPES.REGION, regionOffset: [1, 0, mW + 1, 0], corners: [null, null, -1, -1],
+                type: UI_TYPES.REGION, regionOffset: [0, 0, mW + 1, 0], corners: [2, 2, 0, 0],
                 hidden: !hasImages,
                 spawnAnim: false,
                 alpha: basta._navAlpha,
@@ -546,7 +600,6 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 dir: "row", width: "full", height: "auto", margin: [0, -sH, mW, sH],
                 btnImagePrevious: {
                     type: UI_TYPES.ICONBUTTON, icon: "leftarrow", themeKey: "button, t_textSystem", palette: btnPal,
-                        iconScale: 0.5,
                     alpha: basta._navAlpha, margin: [sW, sH, 0, sH],
                     objectAlign: ["left", "middle"],
                     width: "match", height: "full", spacing: [sH, 0],
@@ -636,7 +689,6 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 },
                 btnImageNext: {
                     type: UI_TYPES.ICONBUTTON, icon: "rightarrow", themeKey: "button, t_textSystem", palette: btnPal,
-                        iconScale: 0.5,
                     alpha: basta._navAlpha,
                     objectAlign: ["right", "middle"],
                     width: "match", height: "full", margin: [0, sH, -sW * 2 - sW, sH],
@@ -678,64 +730,12 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                     labelAlign: ["right", "middle"], width: "auto", margin: [mW, 0],
                 }
             },
-            externalRow: {
-                type: UI_TYPES.REGION, themeKey: "background", palette: bgPal, regionOffset: [sW, sH, sW, -1],
-                corners: [0, 0, null, null],
-                hidden: !basta._externalReady && !basta._isDerpResizing,
-                spawnAnim: false,
-                alpha: basta._navAlpha,
-                anchor: { target: "loraPreview", axis: "y", offset: -stableNavH - sH },
-                dir: "row", width: "full", height: "auto", margin: [sW, mH, sW, mH],
-                btnCivit: {
-                    type: UI_TYPES.BUTTON, labelAlign: ["center", "middle"], padding: [pW, pH],
-                    themeKey: "button, t_textSmall", palette: civitPal,
-                    alpha: basta._navAlpha,
-                    text: tLocale("$basta_lora_detail.external.civitai", "CivitAI"),
-                    width: "auto", spacing: [sW, 0],
-                    objectAlign: ["left", "middle"],
-                    onPress: async () => {
-                        if (basta._navAlpha < 0.5) return;
-                        openCivitAI(basta, loraData);
-                    }
-                },
-                btnCivArchive: {
-                    type: UI_TYPES.BUTTON, labelAlign: ["center", "middle"], padding: [pW, pH],
-                    themeKey: "button, t_textSmall", palette: civArchivePal,
-                    alpha: basta._navAlpha,
-                    text: tLocale("$basta_lora_detail.external.civarchive", "CivArchive"),
-                    width: "auto", spacing: [sW, 0],
-                    onPress: async () => {
-                        if (basta._navAlpha < 0.5) return;
-                        openCivArchive(basta, loraData);
-                    }
-                },
-                spring: { width: "full" },
-                btnOpenFolder: {
-                    type: UI_TYPES.BUTTON, labelAlign: ["center", "middle"], padding: [pW, pH],
-                    themeKey: "button, t_textSmall", palette: folderPal,
-                    alpha: basta._navAlpha,
-                    text: tLocale("$basta_lora_detail.external.open_folder", "Open LoRA folder"),
-                    width: "auto", spacing: [sW, 0],
-                    onPress: (e) => {
-                        if (basta._navAlpha < 0.5) return;
-                        const liveStack = host.properties?.stackData || [];
-                        const fileName = liveStack[loraData.slotIndex]?.[0] || currentPath;
-                        const isShift = (e && e.shiftKey) ||
-                            (window.app && window.app.canvas && window.app.canvas.shift_down) ||
-                            (window.app && window.app.shiftDown);
-                        const sub = isShift ? "" : "&subfolder=true";
-
-                        fetch(`/xcp/open_folder?name=${encodeURIComponent(fileName)}${sub}`);
-                    }
-                }
-            },
             triggerControlRow: {
                 themeKey: "background",
-                anchor: { target: "loraPreview", axis: "y"},
+                anchor: { target: "loraPreview", axis: "y", offset: oY },
                 dir: "row", width: "full", height: "auto", spacing: [sW, 0], margin: [0, 0, 0, sH],
                 btnNew: {
                     type: UI_TYPES.ICONBUTTON, icon: "new", themeKey: "button, t_textSmall",
-                        iconScale: 0.5,
                     width: "match", height: "full", spacing: [sW, 0],
                     onPress: () => {
                         const liveStack = host.properties?.stackData || [];
@@ -751,7 +751,6 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 },
                 btnRenameTrigger: {
                     type: UI_TYPES.ICONBUTTON, icon: "rename", themeKey: "button, t_textSmall",
-                        iconScale: 0.5,
                     width: "match", height: "full", spacing: [sW, 0],
                     state: basta._activeTagKey ? "OFF" : "DIS",
                     onPress: () => {
@@ -766,7 +765,6 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 },
                 btnCopyTrigger: {
                     type: UI_TYPES.ICONBUTTON, icon: "copy", themeKey: "button, t_textSmall",
-                        iconScale: 0.5,
                     width: "match", height: "full", spacing: [sW, 0],
                     state: basta._activeTagKey ? "OFF" : "DIS",
                     onPress: () => {
@@ -792,7 +790,6 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 },
                 btnCleanTrigger: {
                     type: UI_TYPES.ICONBUTTON, icon: "clean", themeKey: "button, t_textSmall",
-                        iconScale: 0.5,
                     width: "match", height: "full", spacing: [sW, 0],
                     state: basta._activeTagKey ? "OFF" : "DIS",
                     onPress: () => {
@@ -811,7 +808,6 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 },
                 btnSaveTrigger: {
                     type: UI_TYPES.ICONBUTTON, icon: "save", themeKey: "button, t_textSmall",
-                        iconScale: 0.5,
                     width: "match", height: "full", spacing: [sW, 0], mouseOver: false,
                     state: isSaveEnabled ? "OFF" : "DIS",
                     btnColor: initialPulseColor,
@@ -840,7 +836,6 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 },
                 btnDeleteTrigger: {
                     type: UI_TYPES.ICONBUTTON, icon: "trash", themeKey: "button, t_textSmall",
-                        iconScale: 0.5,
                     width: "match", height: "full",
                     state: basta._activeTagKey ? "OFF" : "DIS",
                     onPress: () => {
@@ -868,7 +863,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
             },
             tagImportRow: {
                 themeKey: "background",
-                anchor: { target: "loraTriggersEditor", axis: "y" },
+                anchor: { target: "loraTriggersEditor", axis: "y", offset: oY },
                 dir: "row", width: "full", height: "auto", margin: [0, 0, 0, sH],
                 // THE DYNAMIC TXT DETECTION FIX: Scan the current triggers directly to ensure accurate UI state rather than relying on stale host flags
                 hidden: !triggerItems.some(t => (t.key || "").toLowerCase().endsWith(".txt")),

@@ -505,6 +505,18 @@ export function handleHorizontalDeckTitleToggle(entity) {
 function findHitRegion(layout, localMouse, options = {}) {
     if (!layout || !layout.regions) return null;
     const { allowDisabledDrag = false } = options;
+
+    const isInsideClipAncestors = (reg) => {
+        let current = reg?.parentKey ? layout.regions[reg.parentKey] : null;
+        while (current) {
+            if ((current.type === UI_TYPES.IMAGE_HTML || current.clipChildren === true) && !layout.hitTest(localMouse, current)) {
+                return false;
+            }
+            current = current.parentKey ? layout.regions[current.parentKey] : null;
+        }
+        return true;
+    };
+
     const regionEntries = Object.entries(layout.regions).reverse();
     for (const [key, reg] of regionEntries) {
         if (reg.isSpacing || (!reg.type && !reg.onPress && !reg.onClick && !reg.onDblClick && !reg.hoverEffect)) continue;
@@ -520,6 +532,7 @@ function findHitRegion(layout, localMouse, options = {}) {
         const allowDisabledInteraction = reg.allowOpenWhenDisabled === true;
         if (isDisabled && !allowDisabledInteraction && !(allowDisabledDrag && reg.allowDragWhenDisabled)) continue;
         if (!(reg.hitTest ? reg.hitTest(localMouse) : layout.hitTest(localMouse, reg))) continue;
+        if (!isInsideClipAncestors(reg)) continue;
 
         if (isDisabled && allowDisabledDrag && reg.dragProxyKey) {
             const proxyReg = layout.regions[reg.dragProxyKey];
