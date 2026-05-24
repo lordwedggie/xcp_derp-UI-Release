@@ -179,10 +179,11 @@ export function uncle(nodeType, nodeData, minWidth = 100) {
 
         // THE PROTOTYPE BOUNDARY SQUEEZE: Define targets before calling the lerp function
         const canShowInAnim = this.properties.showInputs !== false;
+        const keepRouterOutputSlotsVisible = this.type === "xcpDerpSignalOut" && this.properties?.hideLinkSlots === false;
         const canShowOutAnim = this.properties.showOutputs !== false;
 
         const targetL = (trueIn && trueIn.length > 0 && isTrueSelected && canShowInAnim) ? UNCLE_LINK_PAD.LEFT : 0;
-        const targetR = (trueOut && trueOut.length > 0 && isTrueSelected && canShowOutAnim) ? UNCLE_LINK_PAD.RIGHT : 0;
+        const targetR = (trueOut && trueOut.length > 0 && canShowOutAnim && (isTrueSelected || keepRouterOutputSlotsVisible)) ? UNCLE_LINK_PAD.RIGHT : 0;
 
         // THE LERP ANIMATION: Smoothly transition padding values for the Squeeze
         // THE REORDER FIX: Execute lerp BEFORE _shouldSync check to influence current frame

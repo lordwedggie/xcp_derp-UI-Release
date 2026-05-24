@@ -77,6 +77,31 @@ function syncDerpRouterDisplayLabels(node) {
     }
 }
 
+const DERP_ROUTER_LINK_PAD_RIGHT = 15;
+
+function syncDerpRouterLinkSlotVisibility(node) {
+    if (!node?.properties) return;
+    const outputs = node._xcpTrueOutputs || node.outputs;
+    const shouldHideSlots = !!node.properties.hideLinkSlots;
+    const hasOutputs = Array.isArray(outputs) && outputs.length > 0;
+    const useAnimations = node.properties.useAnimations !== false;
+    const isSelected = node._xcpTrueSelected !== undefined ? node._xcpTrueSelected : (node.selected || node._xcpTrueInMap);
+    const targetR = hasOutputs && (!shouldHideSlots || isSelected) && node.properties.showOutputs !== false ? DERP_ROUTER_LINK_PAD_RIGHT : 0;
+
+    if (typeof node._padR !== "number") node._padR = 0;
+    if (typeof node._alphaOut !== "number") node._alphaOut = 0;
+
+    if (!useAnimations) {
+        node._padR = targetR;
+        node._alphaOut = targetR > 0 ? 1 : 0;
+    } else if (!shouldHideSlots && !isSelected) {
+        node._padR = targetR;
+        node._alphaOut = targetR > 0 ? 1 : 0;
+    }
+
+    if (typeof node.syncUncleSlots === "function") node.syncUncleSlots();
+}
+
 if (!window._xcp_derpSignalOut_Core_Loaded) {
     window._xcp_derpSignalOut_Core_Loaded = true;
     try {
@@ -659,6 +684,7 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                 nodeType.prototype.onConfigure = function(info) {
                     if (onConf) onConf.apply(this, arguments);
                     this.suppressDefaultWidgets();
+                    if (typeof this.properties.hideLinkSlots !== "boolean") this.properties.hideLinkSlots = false;
                     syncDerpRouterDisplayLabels(this);
 
                     if (info.properties) {
@@ -682,6 +708,7 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                     if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
                     if (this.refreshDerpSignalOutSysMap) this.refreshDerpSignalOutSysMap();
                     if (this.manageDerpOutputs) this.manageDerpOutputs();
+                    syncDerpRouterLinkSlotVisibility(this);
                     this.requestDerpSync();
                     if (this.setDirtyCanvas) this.setDirtyCanvas(true, true);
                 };
@@ -705,6 +732,7 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                     this.properties.showSlotTypes = true;
                     this.properties.signalSortMode = "Type";
                     this.properties.showVirtualLinks = false;
+                    this.properties.hideLinkSlots = false;
                     this.properties.autoHeight = true;
                     this.properties.autoWidth = false;
                     this.properties.nodeSize = [300, 50];
@@ -724,6 +752,7 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                     }
 
                     this.suppressDefaultWidgets();
+                    syncDerpRouterLinkSlotVisibility(this);
                     if (this.updateReceivedSignals) this.updateReceivedSignals();
                     if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
                     if (this.refreshDerpSignalOutSysMap) this.refreshDerpSignalOutSysMap();
@@ -731,6 +760,7 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
 
                 nodeType.prototype.onResize = function(size) {
                     this.properties.nodeSize = [size[0], size[1]];
+                    syncDerpRouterLinkSlotVisibility(this);
                     this.refreshNodeLayoutMap();
                 };
 
@@ -746,6 +776,12 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                         this._lastTitleLabel = this.titleLabel;
                         if (this.updateReceivedSignals) this.updateReceivedSignals();
                         if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
+                    }
+
+                    const hideSlotsKey = `${!!this.properties.hideLinkSlots}:${!!(this._xcpTrueSelected !== undefined ? this._xcpTrueSelected : (this.selected || this._xcpTrueInMap))}:${this.mode}:${this.outputs?.length || 0}:${this._xcpTrueOutputs?.length || 0}`;
+                    if (this._lastHideSlotsKey !== hideSlotsKey) {
+                        this._lastHideSlotsKey = hideSlotsKey;
+                        syncDerpRouterLinkSlotVisibility(this);
                     }
 
                     if (this._lastMode !== this.mode) {

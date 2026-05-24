@@ -144,7 +144,7 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
 
                     const activeHash = activeOuts.map((sig, idx) => `${idx}:${sig?.nodeId || ""}:${sig?.type || ""}:${sig?.nodeName || ""}:${!!sig?.isOrphaned}`).join("|");
                     const signalHash = (this.receivedSignals || []).map((sig) => `${sig?.nodeId || ""}:${sig?.type || ""}:${sig?.nodeName || ""}`).join("|");
-                    const structureHash = `${activeHash}_${signalHash}_${this.properties.settingActive}_${this.properties.showSignalIds}_${this.properties.showSlotNames}_${this.properties.showSlotTypes}_${this.properties.showVirtualLinks}_${this.properties.signalSortMode}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}_${mW}_${mH}_${this._dropPreviewIdx}_${this._dragTrig?.index}_${this._dragThresholdMet}_${this._dragMouse?.join(",")}_${this.mode}`;
+                    const structureHash = `${activeHash}_${signalHash}_${this.properties.settingActive}_${this.properties.showSignalIds}_${this.properties.showSlotNames}_${this.properties.showSlotTypes}_${this.properties.showVirtualLinks}_${this.properties.hideLinkSlots}_${this.properties.signalSortMode}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}_${mW}_${mH}_${this._dropPreviewIdx}_${this._dragTrig?.index}_${this._dragThresholdMet}_${this._dragMouse?.join(",")}_${this.mode}`;
 
                     if (this._layoutMapHash === structureHash && this.layoutMap) {
                         this.requestDerpSync();
@@ -447,6 +447,23 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                         this.refreshNodeLayoutMap();
                                         this.refreshDerpSignalOutSysMap();
                                         this.requestDerpSync();
+                                    }
+                                },
+                                toggleHideSlot: {
+                                    type: UI_TYPES.TOGGLE, icon: "radio",
+                                    themeKey: "buttonNode, t_textsystem",
+                                    text: "Hide Link Slots",
+                                    toolTip: "When enabled, Link Slots are only shown when the node is selected.",
+                                    width: "full", height: "auto",
+                                    padding: [pW, pH],
+                                    value: !!this.properties.hideLinkSlots,
+                                    onPress: () => {
+                                        this.properties.hideLinkSlots = !this.properties.hideLinkSlots;
+                                        if (typeof this.syncUncleSlots === "function") this.syncUncleSlots();
+                                        this.refreshNodeLayoutMap();
+                                        this.refreshDerpSignalOutSysMap();
+                                        this.requestDerpSync();
+                                        if (this.setDirtyCanvas) this.setDirtyCanvas(true, true);
                                     }
                                 },
                                 spring: { width: "full", height: 0 },
