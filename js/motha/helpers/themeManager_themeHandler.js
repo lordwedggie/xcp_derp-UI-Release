@@ -69,6 +69,9 @@ export const handleThemeDropdownChange = (node, val, updateThemeLayoutFn) => {
         }
     }
 
+    node._layoutMapHash = "";
+    node._lastUISyncHash = "";
+    if (typeof node.refreshNodeLayoutMap === "function") node.refreshNodeLayoutMap();
     if (typeof updateThemeLayoutFn === "function") updateThemeLayoutFn(node);
 
     // THE ISOLATION FIX: Removed the global broadcast. Browsing themes in the Manager

@@ -118,8 +118,10 @@ app.registerExtension({
                         spacing: [sW, 0],
                     },
                     dropdownTheme: {
-                        type: UI_TYPES.DROPDOWN_DERP, themeKey: "dialog, t_textNormal", canvasShield: true,
-                        indicator: true, width: "full", height: "auto", minWidth: 80,
+                        type: UI_TYPES.FILEBROWSER, themeKey: "dialog, t_textNormal", canvasShield: true,
+                        indicator: true, mode: "file", fileType: "theme", rootName: "themes",
+                        displayText: "Select Theme...", mouseOver: false,
+                        width: "full", height: "auto", minWidth: 80,
                         items: themeList.length > 0 ? themeList : [this._selectedThemeName || "Default"],
                         value: this._selectedThemeName, objectAlign: ["left", "middle"], padding: [pW, pH], spacing: [sW, 0]
                     },

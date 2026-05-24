@@ -299,8 +299,8 @@ function openPicker(sourceEl, config, node, callbacks) {
         row.onclick = (e) => {
             e.stopPropagation();
             if (node) node._derpAwakeFrames = 10;
+            window._xcpCloseActiveDropdown?.();
             if (callbacks.onChange) callbacks.onChange(valStr);
-            closePicker();
         };
 
         contentWrapper.appendChild(row);

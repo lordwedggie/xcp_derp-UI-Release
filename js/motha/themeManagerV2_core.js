@@ -263,7 +263,7 @@ export function bindThemeEvents(node) {
     const tReg = node.layoutMap.themeManagementRegion;
     // THE FIX: Wrap remaining root buttons in safeClick to prevent double-fire bypasses
     tReg.btnThemeDelete.onClick = safeClick(() => handleThemeDeleteAction(node, updateThemeLayout));
-    tReg.dropdownTheme.onChange = (val) => handleThemeDropdownChange(node, val);
+    tReg.dropdownTheme.onChange = (val) => handleThemeDropdownChange(node, val, updateThemeLayout);
     tReg.btnThemeRename.onClick = safeClick(() => handleThemeRenameAction(node, updateThemeLayout));
     tReg.btnThemeCopy.onClick = safeClick(() => handleThemeCopyAction(node, updateThemeLayout));
     tReg.btnThemeSave.onClick = safeClick(() => handleThemeSaveAction(node, updateThemeLayout));
