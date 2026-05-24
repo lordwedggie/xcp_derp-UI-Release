@@ -29,6 +29,13 @@ function tLocale(key, fallback = key) {
     return target;
 }
 
+function persistLoraStackSettings(node) {
+    if (!node) return;
+    if (node.requestDerpSync) node.requestDerpSync();
+    if (node.setDirtyCanvas) node.setDirtyCanvas(true, true);
+    if (app.graph && typeof app.graph.change === "function") app.graph.change();
+}
+
 if (!window._xcp_derpLoraStack_Layout_Loaded) {
     window._xcp_derpLoraStack_Layout_Loaded = true;
     try {
@@ -738,6 +745,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                         this.refreshDerpLoraStackSysMap();
                                         if (this.setDirtyCanvas) this.setDirtyCanvas(true, true);
                                         if (app.graph?.setDirtyCanvas) app.graph.setDirtyCanvas(true, true);
+                                        persistLoraStackSettings(this);
                                     }
                                 },
                                 btnToggleCLIP: {
@@ -749,6 +757,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                         if (this.syncDerpOutputs) this.syncDerpOutputs();
                                         if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
                                         this.refreshDerpLoraStackSysMap();
+                                        persistLoraStackSettings(this);
                                     }
                                 },
                                 lblDisplay: {
@@ -765,7 +774,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                         this.properties.nameDisplay = v;
                                         this.refreshNodeLayoutMap();
                                         this.refreshDerpLoraStackSysMap();
-                                        this.requestDerpSync();
+                                        persistLoraStackSettings(this);
                                     }
                                 },
                             },
@@ -784,7 +793,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                     type: this.UI_TYPES.EDITOR, themeKey: "dialog, t_textSystem", labelAlign: ["center", "middle"],
                                     text: String(this.properties.sliderMin ?? -2.0), width: "auto", padding: [pW, pH], spacing: [sW, 0],
                                     measureText: "00",
-                                    onBlur: (v) => { this.properties.sliderMin = parseFloat(v); this.refreshNodeLayoutMap(); this.refreshDerpLoraStackSysMap(); this.syncDerpOutputs(); }
+                                    onBlur: (v) => { this.properties.sliderMin = parseFloat(v); this.refreshNodeLayoutMap(); this.refreshDerpLoraStackSysMap(); this.syncDerpOutputs(); persistLoraStackSettings(this); }
                                 },
                                 labelMax: {
                                     type: this.UI_TYPES.TEXT, themeKey: "t_textSystem",
@@ -794,7 +803,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                     type: this.UI_TYPES.EDITOR, themeKey: "dialog, t_textSystem", labelAlign: ["center", "middle"],
                                     text: String(this.properties.sliderMax ?? 2.0), width: "auto", padding: [pW, pH], spacing: [sW, 0],
                                     measureText: "00",
-                                    onBlur: (v) => { this.properties.sliderMax = parseFloat(v); this.refreshNodeLayoutMap(); this.refreshDerpLoraStackSysMap(); this.syncDerpOutputs(); }
+                                    onBlur: (v) => { this.properties.sliderMax = parseFloat(v); this.refreshNodeLayoutMap(); this.refreshDerpLoraStackSysMap(); this.syncDerpOutputs(); persistLoraStackSettings(this); }
                                 },
                                 labelStep: {
                                     type: this.UI_TYPES.TEXT, themeKey: "t_textSystem",
@@ -804,7 +813,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                     type: this.UI_TYPES.EDITOR, themeKey: "dialog, t_textSystem", labelAlign: ["center", "middle"],
                                     text: String(this.properties.sliderStep ?? 0.05), width: "auto", padding: [pW, pH], spacing: [sW, 0],
                                     measureText: "0.00",
-                                    onBlur: (v) => { this.properties.sliderStep = parseFloat(v); this.refreshNodeLayoutMap(); this.refreshDerpLoraStackSysMap(); this.syncDerpOutputs(); }
+                                    onBlur: (v) => { this.properties.sliderStep = parseFloat(v); this.refreshNodeLayoutMap(); this.refreshDerpLoraStackSysMap(); this.syncDerpOutputs(); persistLoraStackSettings(this); }
                                 },
                                 labelDefault: {
                                     type: this.UI_TYPES.TEXT, themeKey: "t_textSystem",
@@ -814,7 +823,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                     type: this.UI_TYPES.EDITOR, themeKey: "dialog, t_textSystem", labelAlign: ["center", "middle"],
                                     text: String(this.properties.sliderDefault ?? 1.0), width: "auto", padding: [pW, pH], spacing: [sW, 0],
                                     measureText: "0.00",
-                                    onBlur: (v) => { this.properties.sliderDefault = parseFloat(v); this.refreshNodeLayoutMap(); this.refreshDerpLoraStackSysMap(); this.syncDerpOutputs(); }
+                                    onBlur: (v) => { this.properties.sliderDefault = parseFloat(v); this.refreshNodeLayoutMap(); this.refreshDerpLoraStackSysMap(); this.syncDerpOutputs(); persistLoraStackSettings(this); }
                                 },
                                 toggleLR: {
                                     type: this.UI_TYPES.TOGGLE_V2, themeKey: "dialog, button, t_textSystem",
@@ -826,7 +835,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                         this.properties.toggleLR = !this.properties.toggleLR;
                                         this.refreshNodeLayoutMap();
                                         this.refreshDerpLoraStackSysMap();
-                                        this.requestDerpSync();
+                                        persistLoraStackSettings(this);
                                     }
                                 },
                             },
@@ -847,7 +856,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                     type: this.UI_TYPES.EDITOR, themeKey: "dialog, t_textSystem", labelAlign: ["center", "middle"], height: "fill",
                                     text: String(this.properties.clipMin ?? -2.0), width: "auto", padding: [pW, pH], spacing: [sW, 0],
                                     measureText: "00",
-                                    onBlur: (v) => { this.properties.clipMin = parseFloat(v); this.refreshNodeLayoutMap(); this.refreshDerpLoraStackSysMap(); this.syncDerpOutputs(); }
+                                    onBlur: (v) => { this.properties.clipMin = parseFloat(v); this.refreshNodeLayoutMap(); this.refreshDerpLoraStackSysMap(); this.syncDerpOutputs(); persistLoraStackSettings(this); }
                                 },
                                 labelCLIPMax: {
                                     type: this.UI_TYPES.TEXT, themeKey: "t_textSystem",
@@ -857,7 +866,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                     type: this.UI_TYPES.EDITOR, themeKey: "dialog, t_textSystem", labelAlign: ["center", "middle"], height: "fill",
                                     text: String(this.properties.clipMax ?? 2.0), width: "auto", padding: [pW, pH], spacing: [sW, 0],
                                     measureText: "00",
-                                    onBlur: (v) => { this.properties.clipMax = parseFloat(v); this.refreshNodeLayoutMap(); this.refreshDerpLoraStackSysMap(); this.syncDerpOutputs(); }
+                                    onBlur: (v) => { this.properties.clipMax = parseFloat(v); this.refreshNodeLayoutMap(); this.refreshDerpLoraStackSysMap(); this.syncDerpOutputs(); persistLoraStackSettings(this); }
                                 },
                                 labelCLIPStep: {
                                     type: this.UI_TYPES.TEXT, themeKey: "t_textSystem",
@@ -867,7 +876,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                     type: this.UI_TYPES.EDITOR, themeKey: "dialog, t_textSystem", labelAlign: ["center", "middle"], height: "fill",
                                     text: String(this.properties.clipStep ?? 0.05), width: "auto", padding: [pW, pH], spacing: [sW, 0],
                                     measureText: "0.00",
-                                    onBlur: (v) => { this.properties.clipStep = parseFloat(v); this.refreshNodeLayoutMap(); this.refreshDerpLoraStackSysMap(); this.syncDerpOutputs(); }
+                                    onBlur: (v) => { this.properties.clipStep = parseFloat(v); this.refreshNodeLayoutMap(); this.refreshDerpLoraStackSysMap(); this.syncDerpOutputs(); persistLoraStackSettings(this); }
                                 },
                                 labelCLIPDefault: {
                                     type: this.UI_TYPES.TEXT, themeKey: "t_textSystem",
@@ -877,7 +886,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                     type: this.UI_TYPES.EDITOR, themeKey: "dialog, t_textSystem", labelAlign: ["center", "middle"], height: "fill",
                                     text: String(this.properties.clipDefault ?? 1.0), width: "auto", padding: [pW, pH], spacing: [sW, 0],
                                     measureText: "0.00",
-                                    onBlur: (v) => { this.properties.clipDefault = parseFloat(v); this.refreshNodeLayoutMap(); this.refreshDerpLoraStackSysMap(); this.syncDerpOutputs(); }
+                                    onBlur: (v) => { this.properties.clipDefault = parseFloat(v); this.refreshNodeLayoutMap(); this.refreshDerpLoraStackSysMap(); this.syncDerpOutputs(); persistLoraStackSettings(this); }
                                 },
                             },
                         }
