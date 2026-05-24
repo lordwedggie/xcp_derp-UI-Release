@@ -31,9 +31,39 @@ function tLocale(key, fallback = key) {
 
 function persistLoraStackSettings(node) {
     if (!node) return;
+    if (typeof node.flushDerpLoraStackSysSettings === "function") {
+        node.flushDerpLoraStackSysSettings();
+    }
     if (node.requestDerpSync) node.requestDerpSync();
     if (node.setDirtyCanvas) node.setDirtyCanvas(true, true);
     if (app.graph && typeof app.graph.change === "function") app.graph.change();
+}
+
+function flushLoraStackSysSettings(node) {
+    if (!node) return;
+    const sysState = window.xcpFathaSysState;
+    if (!sysState || sysState.hostNode !== node) return;
+
+    const dynamicElements = sysState.dynamicElements || {};
+    const numericFields = [
+        ["editorMin", "sliderMin"],
+        ["editorMax", "sliderMax"],
+        ["editorStep", "sliderStep"],
+        ["editorDefault", "sliderDefault"],
+        ["editorCLIPMin", "clipMin"],
+        ["editorCLIPMax", "clipMax"],
+        ["editorCLIPStep", "clipStep"],
+        ["editorCLIPDefault", "clipDefault"],
+    ];
+
+    numericFields.forEach(([elementKey, propertyKey]) => {
+        const el = dynamicElements[elementKey];
+        if (!el) return;
+        const parsed = parseFloat(el.value);
+        if (Number.isFinite(parsed)) {
+            node.properties[propertyKey] = parsed;
+        }
+    });
 }
 
 if (!window._xcp_derpLoraStack_Layout_Loaded) {
@@ -47,6 +77,10 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                 nodeType.prototype.onResize = function(size) {
                     this.properties.nodeSize = [size[0], size[1]];
                     if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
+                };
+
+                nodeType.prototype.flushDerpLoraStackSysSettings = function() {
+                    flushLoraStackSysSettings(this);
                 };
 
                 const onNodeCreated = nodeType.prototype.onNodeCreated;

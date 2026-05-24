@@ -257,84 +257,86 @@ export function initLoraImageHandlers(getLoraDetailIdFunc) {
     if (window._xcpLoraImageHandlersInitialized) return;
     window._xcpLoraImageHandlersInitialized = true;
 
-    window.addEventListener("keydown", async (e) => {
+    window.addEventListener("paste", (e) => {
+        const basta = window.xcpActiveBastas?.get(getLoraDetailIdFunc());
+        if (!basta?._previewSelected) return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+
+        const clipboardItems = e.clipboardData?.items;
+        if (clipboardItems) {
+            for (const item of clipboardItems) {
+                if (item.type.startsWith("image/")) {
+                    const blob = item.getAsFile();
+                    if (!blob) continue;
+                    const reader = new FileReader();
+                    reader.onload = async () => {
+                        const lName = basta._loraData?.rawFileName || basta._loraData?.name;
+                        const isCover = !basta._loraData?.hasCover;
+                        const pData = await app.graphToPrompt();
+
+                        resizeImage(reader.result, PREVIEW_LONG_SIDE_TARGET, PREVIEW_RESIZE_QUALITY, (resizedImage) => {
+                            fetch("/xcp/upload_lora_preview", {
+                                method: "POST", headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                    name: lName,
+                                    loraPath: basta._loraData?.loraPath || basta._loraData?.rawFileName || basta._loraData?.path || lName,
+                                    image: resizedImage,
+                                    is_cover: isCover,
+                                    prompt: pData.output,
+                                    extra_pnginfo: { workflow: pData.workflow },
+                                    model_name_prefix: (() => {
+                                        const h = basta.hostNode;
+                                        const sigs = window.xcpDerpSignals;
+                                        if (!sigs) return "Unknown_Model";
+                                        const mId = h?.properties?.multiSignalIds?.Model || h?.properties?.modelSignalId;
+                                        const sig = sigs[mId] || Object.values(sigs).find(s => String(s.type || "").toUpperCase() === "MODEL" && s.value?.model_name_prefix);
+                                        return sig?.value?.model_name_prefix || h?.properties?.selectedModel || "Unknown_Model";
+                                    })()
+                                })
+                            }).then(r => r.json()).then(data => {
+                                if (data.success) {
+                                    const msg = isCover ? "Image set as primary cover" : "Image saved to subfolder";
+                                    showBastaMessage(basta, msg, 3000, {}, "loraPreview", false);
+                                    playKaChing();
+                                    window._xcpDerpSession = Date.now();
+
+                                    if (basta._loraData) {
+                                        const lNameNorm = lName.replace(/\\/g, "/");
+                                        if (basta.hostNode) {
+                                            if (!basta.hostNode._loraPreviewList) basta.hostNode._loraPreviewList = [];
+                                            if (!basta.hostNode._loraPreviewList.includes(lNameNorm)) basta.hostNode._loraPreviewList.push(lNameNorm);
+                                            if (!basta.hostNode._loraPreviewList.includes(lName)) basta.hostNode._loraPreviewList.push(lName);
+
+                                            if (basta.hostNode.refreshNodeLayoutMap) basta.hostNode.refreshNodeLayoutMap();
+                                            if (basta.hostNode.setDirtyCanvas) basta.hostNode.setDirtyCanvas(true);
+                                        }
+
+                                        basta._loraData.previewUrl = resizedImage;
+                                        basta._loraData.aspectRatio = null;
+
+                                        calculatePreviewAspectRatio(basta, basta._loraData, () => {
+                                            refreshLoraImageList(basta, basta._loraData, data.file);
+                                            basta._previewSelected = false;
+                                            basta._forceSync = true;
+                                            if (typeof basta.setDirtyCanvas === "function") basta.setDirtyCanvas(true);
+                                        });
+                                    }
+                                }
+                            });
+                        });
+                    };
+                    reader.readAsDataURL(blob);
+                    break;
+                }
+            }
+        }
+    });
+
+    window.addEventListener("keydown", (e) => {
         const basta = window.xcpActiveBastas?.get(getLoraDetailIdFunc());
         if (basta && basta._previewSelected) {
-            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "v") {
-                e.preventDefault();
-                e.stopImmediatePropagation();
-
-                try {
-                    const clipboardItems = await navigator.clipboard.read();
-                    for (const item of clipboardItems) {
-                        if (item.types.some(t => t.startsWith("image/"))) {
-                            const blob = await item.getType(item.types.find(t => t.startsWith("image/")));
-                            const reader = new FileReader();
-                            reader.onload = async () => {
-                                const lName = basta._loraData?.rawFileName || basta._loraData?.name;
-                                const isCover = !basta._loraData?.hasCover;
-                                const pData = await app.graphToPrompt();
-
-                                resizeImage(reader.result, PREVIEW_LONG_SIDE_TARGET, PREVIEW_RESIZE_QUALITY, (resizedImage) => {
-                                    fetch("/xcp/upload_lora_preview", {
-                                        method: "POST", headers: { "Content-Type": "application/json" },
-                                        body: JSON.stringify({
-                                            name: lName,
-                                            loraPath: basta._loraData?.loraPath || basta._loraData?.rawFileName || basta._loraData?.path || lName,
-                                            image: resizedImage,
-                                            is_cover: isCover,
-                                            prompt: pData.output,
-                                            extra_pnginfo: { workflow: pData.workflow },
-                                            model_name_prefix: (() => {
-                                                const h = basta.hostNode;
-                                                const sigs = window.xcpDerpSignals;
-                                                if (!sigs) return "Unknown_Model";
-                                                const mId = h?.properties?.multiSignalIds?.Model || h?.properties?.modelSignalId;
-                                                const sig = sigs[mId] || Object.values(sigs).find(s => String(s.type || "").toUpperCase() === "MODEL" && s.value?.model_name_prefix);
-                                                return sig?.value?.model_name_prefix || h?.properties?.selectedModel || "Unknown_Model";
-                                            })()
-                                        })
-                                    }).then(r => r.json()).then(data => {
-                                        if (data.success) {
-                                            const msg = isCover ? "Image set as primary cover" : "Image saved to subfolder";
-                                            showBastaMessage(basta, msg, 3000, {}, "loraPreview", false);
-                                            playKaChing();
-                                            window._xcpDerpSession = Date.now();
-
-                                            if (basta._loraData) {
-                                                // THE LIST UPDATE: Ensure the host node knows it now has a preview (updates face icon)
-                                                const lNameNorm = lName.replace(/\\/g, "/");
-                                                if (basta.hostNode) {
-                                                    if (!basta.hostNode._loraPreviewList) basta.hostNode._loraPreviewList = [];
-                                                    if (!basta.hostNode._loraPreviewList.includes(lNameNorm)) basta.hostNode._loraPreviewList.push(lNameNorm);
-                                                    if (!basta.hostNode._loraPreviewList.includes(lName)) basta.hostNode._loraPreviewList.push(lName);
-
-                                                    if (basta.hostNode.refreshNodeLayoutMap) basta.hostNode.refreshNodeLayoutMap();
-                                                    if (basta.hostNode.setDirtyCanvas) basta.hostNode.setDirtyCanvas(true);
-                                                }
-
-                                                // THE IMMEDIATE DISPLAY FIX: Set the pasted image as the active preview and recalculate layout
-                                                basta._loraData.previewUrl = resizedImage;
-                                                basta._loraData.aspectRatio = null;
-
-                                                calculatePreviewAspectRatio(basta, basta._loraData, () => {
-                                                    // THE INDEX SYNC FIX: Pass the newly returned filename to refreshLoraImageList to lock the correct index for triggering
-                                                    refreshLoraImageList(basta, basta._loraData, data.file);
-                                                    basta._previewSelected = false;
-                                                    basta._forceSync = true;
-                                                    if (typeof basta.setDirtyCanvas === "function") basta.setDirtyCanvas(true);
-                                                });
-                                            }
-                                        }
-                                    });
-                                });
-                            };
-                            reader.readAsDataURL(blob);
-                            break;
-                        }
-                    }
-                } catch (err) { console.warn("[xcpDerp] Clipboard access denied or empty.", err); }
-            } else if (e.key === "Delete" || e.key === "Backspace") {
+            if (e.key === "Delete" || e.key === "Backspace") {
                 e.preventDefault();
                 e.stopImmediatePropagation();
 

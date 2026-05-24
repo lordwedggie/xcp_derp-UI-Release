@@ -49,6 +49,17 @@ function syncDerpLoraStackLocaleLabels(node) {
     node._lastLocalizedDerpLoraStackTitle = localizedTitle;
 }
 
+function hasSerializedDerpLoraStackSettings(properties) {
+    if (!properties || typeof properties !== "object") return false;
+    if (Array.isArray(properties.stackData) && properties.stackData.length > 0) return true;
+    if (properties.selectedProfileName) return true;
+    if (properties.attentionMode !== undefined) return true;
+    if (properties.showCLIP !== undefined) return true;
+    if (properties.nameDisplay !== undefined) return true;
+    if (properties.toggleLR !== undefined) return true;
+    return LORA_STACK_NUMERIC_SETTING_KEYS.some((key) => properties[key] !== undefined && properties[key] !== null);
+}
+
 function queueMissingLoraMessages(node, items) {
     items.forEach((item) => {
         showBastaSystemMessage(node, tLocale("$derp_lora_stack.messages.removed_missing_prefix", "Removed non-existing LoRA: "), 5000, { fade: true, grow: true }, null, "error", false, item);
@@ -345,6 +356,9 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                     if (profileName === "(No Profiles Found)") return;
 
                     const applyProfileData = (profileData) => {
+                        if (profileName === "_Default" && this._hasRestoredDerpLoraStackWorkflowState) {
+                            return;
+                        }
                         const p = profileData || {};
                         if (p.stackData) this.properties.stackData = JSON.parse(JSON.stringify(p.stackData));
                         if (p.attentionMode) this.properties.attentionMode = p.attentionMode;
@@ -386,12 +400,17 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                 nodeType.prototype.applyDefaultDerpProfileOnCreate = function() {
                     if (this._didAttemptInitialDefaultProfile) return;
                     this._didAttemptInitialDefaultProfile = true;
+                    if (this._hasRestoredDerpLoraStackWorkflowState) return;
                     if ((this.properties.stackData || []).length > 0) return;
                     if (this.applyDerpProfile) this.applyDerpProfile("_Default");
                 };
 
                 nodeType.prototype.exportDerpProfile = function() {
+                    if (typeof this.flushDerpLoraStackSysSettings === "function") {
+                        this.flushDerpLoraStackSysSettings();
+                    }
                     return {
+                        stackData: JSON.parse(JSON.stringify(this.properties.stackData || [])),
                         // THE PROFILE CLEANUP: Includes only settings seen in the screenshot ("Saved Normally").
                         // Explicitly excludes framework keys: minWidth, nodeSize, drawHeader, drawSignalBtn, contentCollapsed, isWirelessTransmitter.
                         attentionMode: this.properties.attentionMode,
@@ -410,7 +429,7 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                 nodeType.prototype.onDerpSysPanelOpen = function(panel) {
                     this._derpPanel = panel;
                     if (panel.showProfiles) {
-                        panel.showProfiles("derpLoraStack.json", "nodeSettings");
+                        panel.showProfiles("derpLoraStack", "nodeSettings");
                     }
                     if (this.sysLayoutMap) panel.setLayoutMap(this.sysLayoutMap);
                 };
@@ -461,9 +480,47 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                 };
 
                 const onConfigure = nodeType.prototype.onConfigure;
+                const onSerialize = nodeType.prototype.onSerialize;
+
+                nodeType.prototype.onSerialize = function(info) {
+                    if (onSerialize) onSerialize.apply(this, arguments);
+                    if (typeof this.flushDerpLoraStackSysSettings === "function") {
+                        this.flushDerpLoraStackSysSettings();
+                    }
+                    info.properties = info.properties || {};
+
+                    info.properties.attentionMode = this.properties.attentionMode || "Cross-Attention";
+                    info.properties.showCLIP = this.properties.showCLIP ?? false;
+                    info.properties.nameDisplay = this.properties.nameDisplay || "Top";
+                    info.properties.toggleLR = this.properties.toggleLR ?? false;
+
+                    LORA_STACK_NUMERIC_SETTING_KEYS.forEach((key) => {
+                        if (this.properties[key] === undefined) return;
+                        info.properties[key] = this.properties[key];
+                    });
+                };
+
                 nodeType.prototype.onConfigure = function(info) {
                     if (onConfigure) onConfigure.apply(this, arguments);
+                    if (hasSerializedDerpLoraStackSettings(info?.properties)) {
+                        this._hasRestoredDerpLoraStackWorkflowState = true;
+                    }
+                    if (info?.properties) {
+                        if (info.properties.attentionMode !== undefined) this.properties.attentionMode = info.properties.attentionMode;
+                        if (info.properties.showCLIP !== undefined) this.properties.showCLIP = info.properties.showCLIP;
+                        if (info.properties.nameDisplay !== undefined) this.properties.nameDisplay = info.properties.nameDisplay;
+                        if (info.properties.toggleLR !== undefined) this.properties.toggleLR = info.properties.toggleLR;
+                        LORA_STACK_NUMERIC_SETTING_KEYS.forEach((key) => {
+                            if (info.properties[key] === undefined || info.properties[key] === null) return;
+                            const parsed = parseFloat(info.properties[key]);
+                            if (Number.isFinite(parsed)) this.properties[key] = parsed;
+                        });
+                    }
+
                     this.properties.attentionMode = this.properties.attentionMode || "Cross-Attention";
+                    this.properties.showCLIP = this.properties.showCLIP ?? false;
+                    this.properties.nameDisplay = this.properties.nameDisplay || "Top";
+                    this.properties.toggleLR = this.properties.toggleLR ?? false;
                     this.signalFilters = { types: this.properties.attentionMode === "Joint-Attention" ? ["MODEL"] : ["MODEL", "CLIP"] };
                     this.isPureVirtual = true;
                     this.properties.isPureVirtual = true;

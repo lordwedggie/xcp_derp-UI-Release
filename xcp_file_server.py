@@ -117,9 +117,6 @@ async def load_derpLoraStack(request):
 
 async def load_settings_redirect(request):
     name = request.query.get("name")
-    if name == "derpLoraStack":
-        return await handle_load_derpLoraStack(request)
-
     target_dir = get_category_dir("settings")
     try:
         if not name:
