@@ -815,7 +815,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
 
                                     if (saveRes.ok) {
                                         playKaChing();
-                                        showBastaMessage(hostNode, `Profile Renamed!`);
+                                        showBastaSystemMessage(hostNode, "Profile Renamed: ", 3000, { fade: true, grow: true }, "btnRename", "success", null, newName);
                                         hostNode._sysProfileData = profiles;
                                         hostNode._sysProfileCache = Object.keys(profiles).sort();
                                         hostNode._currentProfileName = newName;
@@ -867,7 +867,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
 
                                     if (saveRes.ok) {
                                         playKaChing();
-                                        showBastaMessage(hostNode, `Profile Duplicated!`);
+                                        showBastaSystemMessage(hostNode, "Profile Duplicated: ", 3000, { fade: true, grow: true }, "btnCopy", "success", null, newName);
                                         hostNode._sysProfileData = profiles;
                                         hostNode._sysProfileCache = Object.keys(profiles).sort();
                                         hostNode._currentProfileName = newName;
@@ -923,7 +923,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
 
                                     if (saveRes.ok) {
                                         playKaChing();
-                                        showBastaMessage(hostNode, "Profile Saved!");
+                                        showBastaSystemMessage(hostNode, "Profile Saved: ", 3000, { fade: true, grow: true }, "btnSave", "success", null, profileName);
                                         hostNode._sysProfileData = profiles;
                                         hostNode._sysProfileCache = Object.keys(profiles).sort();
                                         hostNode._currentProfileName = profileName;
@@ -979,7 +979,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
 
                                 if (saveRes.ok) {
                                     playKaboom();
-                                    showBastaMessage(hostNode, "Profile Deleted!");
+                                    showBastaSystemMessage(hostNode, "Profile Deleted: ", 3000, { fade: true, grow: true }, "btnDelete", "error", null, profileName);
                                     hostNode._sysProfileData = profiles;
                                     hostNode._sysProfileCache = Object.keys(profiles).sort();
                                     if (hostNode._sysProfileCache.length === 0) hostNode._sysProfileCache = ["(No Profiles Found)"];

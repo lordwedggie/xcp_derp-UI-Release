@@ -198,6 +198,9 @@
     "title": "Derp Lora Stack",
     "drop_here": "Отпустите здесь",
     "fuse_qkv": "Fuse QKV",
+    "tooltips": {
+      "preview_image": "Click on the preview image for more Lora control options"
+    },
     "labels": {
       "strength": "Strength",
       "clip": "Clip"

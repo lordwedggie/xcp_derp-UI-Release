@@ -41,7 +41,8 @@ export const getBastaBaseMap = (basta) => {
                     type: UI_TYPES.ICONBUTTON,
                     themeKey: "buttonNode, t_textSystem",
                     icon: "close",
-                    width: "match: 1.0",
+                    iconScale: 0.72,
+                    width: "match",
                     height: "fit",
                     padding: [pW, pH],
                     onPress: () => basta.close("headerButton")

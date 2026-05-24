@@ -22,10 +22,10 @@ function syncDerpVaeLoaderLocaleLabels(node) {
     const localizedTitle = tLocale("$derp_vae_loader.title", "Derp Vae Loader");
     const previousLocalizedTitle = node._lastLocalizedDerpVaeLoaderTitle;
 
-    if (!node.titleLabel || node.titleLabel === "Derp Vae Loader" || (previousLocalizedTitle && node.titleLabel === previousLocalizedTitle)) {
+    if (!node.titleLabel || node.titleLabel === "Virtual Node" || node.titleLabel === "Derp Vae Loader" || (previousLocalizedTitle && node.titleLabel === previousLocalizedTitle)) {
         node.titleLabel = localizedTitle;
     }
-    if (!node.properties.titleLabel || node.properties.titleLabel === "Derp Vae Loader" || (previousLocalizedTitle && node.properties.titleLabel === previousLocalizedTitle)) {
+    if (!node.properties.titleLabel || node.properties.titleLabel === "Virtual Node" || node.properties.titleLabel === "Derp Vae Loader" || (previousLocalizedTitle && node.properties.titleLabel === previousLocalizedTitle)) {
         node.properties.titleLabel = localizedTitle;
     }
 

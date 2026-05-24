@@ -106,6 +106,7 @@ function buildDeckRegions(node, deck, deckKey, rowPrefix, togglePrefix, removePr
             },
             [`${removePrefix}${idx}`]: {
                 type: node.UI_TYPES.ICONBUTTON, icon: "close",
+                    iconScale: 0.5,
                 hidden: !m.active,
                 alpha: item.isPreviewGhost ? 0 : 1.0,
                 width: "match", height: "full", padding: [pW, pH], margin: [0, sH, sW, sH],
@@ -233,6 +234,7 @@ app.registerExtension({
                         margin: [0, mH, 0, 0],
                         btnNewDiffusion: {
                             type: this.UI_TYPES.ICONBUTTON,
+                            iconScale: 0.5,
                             icon: "new",
                             width: "match", height: "fill", padding: [pW, pH], spacing: [sW, 0],
                             themeKey: "button, t_textNormal",
@@ -293,6 +295,30 @@ app.registerExtension({
                     },
                     regionTextEncoderLoader: {
                         dir: "row", width: "full", height: "auto", spacing: [sW, 0],
+                        btnClearTextEncoders: {
+                            type: this.UI_TYPES.ICONBUTTON,
+                            iconScale: 0.5,
+                            icon: "new",
+                            width: "match", height: "fill", padding: [pW, pH], spacing: [sW, 0],
+                            themeKey: "button, t_textNormal",
+                            onPress: () => {
+                                showBastaFileHandler(this, "none", "btnClearTextEncoders", {
+                                    title: tLocale("$derp_diffusion_loader.dialogs.clear_text_encoder_deck.title", "Clear Text Encoder Deck"),
+                                    message: tLocale("$derp_diffusion_loader.dialogs.clear_text_encoder_deck.message", "Clear the text encoder deck?"),
+                                    confirm: tLocale("$derp_diffusion_loader.dialogs.clear_text_encoder_deck.confirm", "Clear"),
+                                    mode: "delete",
+                                    playSound: "delete",
+                                    properties: { bastaMovalbe: false },
+                                    onConfirm: () => {
+                                        this.properties.textEncoderDeck = [];
+                                        sendSignal();
+                                        if (this.syncDerpOutputs) this.syncDerpOutputs();
+                                        this.refreshNodeLayoutMap();
+                                        this.requestDerpSync();
+                                    }
+                                });
+                            }
+                        },
                         browserTextEncoders: {
                             type: this.UI_TYPES.FILEBROWSER,
                             items: (this._textEncoderList || []).filter(name => !textEncoderDeck.some(m => m.name === name)),
@@ -311,29 +337,6 @@ app.registerExtension({
                                 sendSignal();
                                 if (this.syncDerpOutputs) this.syncDerpOutputs();
                                 this.refreshNodeLayoutMap();
-                            }
-                        },
-                        btnClearTextEncoders: {
-                            type: this.UI_TYPES.ICONBUTTON,
-                            icon: "close",
-                            width: "match", height: "fill", padding: [pW, pH],
-                            themeKey: "button, t_textNormal",
-                            onPress: () => {
-                                showBastaFileHandler(this, "none", "btnClearTextEncoders", {
-                                    title: tLocale("$derp_diffusion_loader.dialogs.clear_text_encoder_deck.title", "Clear Text Encoder Deck"),
-                                    message: tLocale("$derp_diffusion_loader.dialogs.clear_text_encoder_deck.message", "Clear the text encoder deck?"),
-                                    confirm: tLocale("$derp_diffusion_loader.dialogs.clear_text_encoder_deck.confirm", "Clear"),
-                                    mode: "delete",
-                                    playSound: "delete",
-                                    properties: { bastaMovalbe: false },
-                                    onConfirm: () => {
-                                        this.properties.textEncoderDeck = [];
-                                        sendSignal();
-                                        if (this.syncDerpOutputs) this.syncDerpOutputs();
-                                        this.refreshNodeLayoutMap();
-                                        this.requestDerpSync();
-                                    }
-                                });
                             }
                         }
                     }

@@ -274,6 +274,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 dir: "row", width: "full", height: "auto", margin: [0, 0, 0, mH],
                 btnAddNote: {
                     type: UI_TYPES.ICONBUTTON, icon: "new", themeKey: "button, t_textSmall",
+                        iconScale: 0.5,
                     width: "match", height: "full", spacing: [sW, 0],
                     hidden: !!loraData.notes,
                     onPress: () => {
@@ -302,6 +303,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 },
                 btnRenameLora: {
                     type: UI_TYPES.ICONBUTTON, icon: "rename", themeKey: "button, t_textSmall",
+                        iconScale: 0.5,
                     width: "match", height: "full", spacing: [sW, 0],
                     onPress: () => {
                         const liveStack = host.properties?.stackData || [];
@@ -367,6 +369,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 },
                 btnSettings: {
                     type: UI_TYPES.ICONBUTTON, icon: "settings", themeKey: "button, t_textSmall",
+                        iconScale: 0.5,
                     state: basta._showLoraSettings ? "ON" : "OFF",
                     width: "match", height: "full", spacing: [sW, 0],
                     onPress: () => {
@@ -535,7 +538,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
             },
             imageHandlingRegion: {
                 themeKey: "background", palette: bgPal,
-                type: UI_TYPES.REGION, regionOffset: [0, 0, mW + 1, 0], corners: [null, null, -1, -1],
+                type: UI_TYPES.REGION, regionOffset: [1, 0, mW + 1, 0], corners: [null, null, -1, -1],
                 hidden: !hasImages,
                 spawnAnim: false,
                 alpha: basta._navAlpha,
@@ -543,6 +546,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 dir: "row", width: "full", height: "auto", margin: [0, -sH, mW, sH],
                 btnImagePrevious: {
                     type: UI_TYPES.ICONBUTTON, icon: "leftarrow", themeKey: "button, t_textSystem", palette: btnPal,
+                        iconScale: 0.5,
                     alpha: basta._navAlpha, margin: [sW, sH, 0, sH],
                     objectAlign: ["left", "middle"],
                     width: "match", height: "full", spacing: [sH, 0],
@@ -632,9 +636,10 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 },
                 btnImageNext: {
                     type: UI_TYPES.ICONBUTTON, icon: "rightarrow", themeKey: "button, t_textSystem", palette: btnPal,
+                        iconScale: 0.5,
                     alpha: basta._navAlpha,
                     objectAlign: ["right", "middle"],
-                    width: "match", height: "full", margin: [0, sH, sW, sH],
+                    width: "match", height: "full", margin: [0, sH, -sW * 2 - sW, sH],
                     onPress: () => {
                         if (basta._navAlpha < 0.5) return;
                         switchLoraImage(basta, "next");
@@ -726,10 +731,11 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
             },
             triggerControlRow: {
                 themeKey: "background",
-                anchor: { target: "loraPreview", axis: "y", offset: oY },
+                anchor: { target: "loraPreview", axis: "y"},
                 dir: "row", width: "full", height: "auto", spacing: [sW, 0], margin: [0, 0, 0, sH],
                 btnNew: {
                     type: UI_TYPES.ICONBUTTON, icon: "new", themeKey: "button, t_textSmall",
+                        iconScale: 0.5,
                     width: "match", height: "full", spacing: [sW, 0],
                     onPress: () => {
                         const liveStack = host.properties?.stackData || [];
@@ -745,6 +751,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 },
                 btnRenameTrigger: {
                     type: UI_TYPES.ICONBUTTON, icon: "rename", themeKey: "button, t_textSmall",
+                        iconScale: 0.5,
                     width: "match", height: "full", spacing: [sW, 0],
                     state: basta._activeTagKey ? "OFF" : "DIS",
                     onPress: () => {
@@ -759,6 +766,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 },
                 btnCopyTrigger: {
                     type: UI_TYPES.ICONBUTTON, icon: "copy", themeKey: "button, t_textSmall",
+                        iconScale: 0.5,
                     width: "match", height: "full", spacing: [sW, 0],
                     state: basta._activeTagKey ? "OFF" : "DIS",
                     onPress: () => {
@@ -784,6 +792,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 },
                 btnCleanTrigger: {
                     type: UI_TYPES.ICONBUTTON, icon: "clean", themeKey: "button, t_textSmall",
+                        iconScale: 0.5,
                     width: "match", height: "full", spacing: [sW, 0],
                     state: basta._activeTagKey ? "OFF" : "DIS",
                     onPress: () => {
@@ -802,6 +811,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 },
                 btnSaveTrigger: {
                     type: UI_TYPES.ICONBUTTON, icon: "save", themeKey: "button, t_textSmall",
+                        iconScale: 0.5,
                     width: "match", height: "full", spacing: [sW, 0], mouseOver: false,
                     state: isSaveEnabled ? "OFF" : "DIS",
                     btnColor: initialPulseColor,
@@ -830,6 +840,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 },
                 btnDeleteTrigger: {
                     type: UI_TYPES.ICONBUTTON, icon: "trash", themeKey: "button, t_textSmall",
+                        iconScale: 0.5,
                     width: "match", height: "full",
                     state: basta._activeTagKey ? "OFF" : "DIS",
                     onPress: () => {
@@ -857,7 +868,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
             },
             tagImportRow: {
                 themeKey: "background",
-                anchor: { target: "loraTriggersEditor", axis: "y", offset: oY },
+                anchor: { target: "loraTriggersEditor", axis: "y" },
                 dir: "row", width: "full", height: "auto", margin: [0, 0, 0, sH],
                 // THE DYNAMIC TXT DETECTION FIX: Scan the current triggers directly to ensure accurate UI state rather than relying on stale host flags
                 hidden: !triggerItems.some(t => (t.key || "").toLowerCase().endsWith(".txt")),

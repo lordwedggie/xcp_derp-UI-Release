@@ -260,8 +260,9 @@ export function initLoraImageHandlers(getLoraDetailIdFunc) {
     window.addEventListener("paste", (e) => {
         const basta = window.xcpActiveBastas?.get(getLoraDetailIdFunc());
         if (!basta?._previewSelected) return;
-        e.preventDefault();
+        e.stopPropagation();
         e.stopImmediatePropagation();
+        e.preventDefault();
 
         const clipboardItems = e.clipboardData?.items;
         if (clipboardItems) {
@@ -331,7 +332,7 @@ export function initLoraImageHandlers(getLoraDetailIdFunc) {
                 }
             }
         }
-    });
+    }, { capture: true });
 
     window.addEventListener("keydown", (e) => {
         const basta = window.xcpActiveBastas?.get(getLoraDetailIdFunc());

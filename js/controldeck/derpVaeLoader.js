@@ -124,6 +124,7 @@ app.registerExtension({
                     },
                     [`btnRemoveVae_${idx}`]: {
                         type: this.UI_TYPES.ICONBUTTON, icon: "close",
+                            iconScale: 0.5,
                         hidden: !m.active,
                         alpha: item.isPreviewGhost ? 0 : 1.0,
                         width: "match", height: "full", padding: [pW, pH], margin: [0, sH, sW, sH],
@@ -194,6 +195,7 @@ app.registerExtension({
                     },
                     [`floatingRemoveBtn`]: {
                         type: this.UI_TYPES.ICONBUTTON,
+                        iconScale: 0.5,
                         icon: "close",
                         hidden: !m.active,
                         width: "match",
@@ -221,6 +223,7 @@ app.registerExtension({
                         margin: [0, mH, 0, 0],
                         btnNew: {
                             type: this.UI_TYPES.ICONBUTTON,
+                            iconScale: 0.5,
                             icon: "new",
                             width: "match", height: "fill", padding: [pW, pH], spacing: [sW, 0],
                             themeKey: "button, t_textNormal",

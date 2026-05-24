@@ -187,6 +187,10 @@ export function showBastaFileHandler(host, category = "settings", targetRegion =
                             onChange: (v) => {
                                 basta.properties.selectedFolder = v;
                                 basta.requestDerpSync();
+                                if (basta.properties.mode === "folder" && basta.properties.onConfirm) {
+                                    basta.properties.onConfirm(v);
+                                    basta.close();
+                                }
                             }
                         },
                         btnRefreshFolder: {

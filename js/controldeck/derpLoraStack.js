@@ -223,11 +223,6 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                         if (topRow[`lblLoraNameTop_${i}`]) {
                                             topRow[`lblLoraNameTop_${i}`].state = (i === activeSlot) ? "ON" : (isBypassed ? "DIS" : "OFF");
                                         }
-                                        if (topRow[`toggleFuseQKV_${i}`]) {
-                                            topRow[`toggleFuseQKV_${i}`].state = (i === activeSlot) ? "ON" : (isBypassed ? "DIS" : "OFF");
-                                            topRow[`toggleFuseQKV_${i}`].value = !!lora[6];
-                                            topRow[`toggleFuseQKV_${i}`].hidden = nameDisplay !== "Top" || this.properties.attentionMode !== "Joint-Attention";
-                                        }
                                         // THE CACHE PRESERVATION FIX: Prevent resetting the layout cache during pure visual hydration
                                     }
                                     const modelRow = loraMid[`modelRow_${i}`];
@@ -280,6 +275,11 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                             // THE BYPASS SYNC: Ensure the widget state matches the bypass flag to trigger the widget_Dropdown fix
                                             widget.state = isBypassed ? "DIS" : (isSelected ? "ON" : "OFF");
                                             widget.labelState = isBypassed ? "DIS" : (isSelected ? "ON" : "OFF");
+                                        }
+                                        if (trigRow[`toggleFuseQKV_${i}`]) {
+                                            trigRow[`toggleFuseQKV_${i}`].state = (i === activeSlot) ? "ON" : (isBypassed ? "DIS" : "OFF");
+                                            trigRow[`toggleFuseQKV_${i}`].value = !!lora[6];
+                                            trigRow[`toggleFuseQKV_${i}`].hidden = nameDisplay !== "Top" || this.properties.attentionMode !== "Joint-Attention";
                                         }
                                     }
                                 }
@@ -401,6 +401,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                 dragProxyKey: `loraRow_${i}`,
                                 grayscale: isBypassed, margin: [-mW * 2 + sW, 0, 0, 0],
                                 width: "match", height: "fill", spacing: [ sW , 0],
+                                toolTip: tLocale("$derp_lora_stack.tooltips.preview_image", "Click on the preview image for more Lora control options"),
                                 onDragStart: (e, data) => startStackDrag(this, data, i, `loraRow_${i}`),
                                 onDrag: (e, data) => { updateStackDrag(this, data, "loraRow_", stack.length); },
                                 onDragEnd: () => endStackDrag(this, "stackData"),
@@ -441,19 +442,6 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                         onDrag: (e, data) => { updateStackDrag(this, data, "loraRow_", stack.length); },
                                         onDragEnd: () => endStackDrag(this, "stackData"),
                                         onPress: () => toggleLoraDetail(i, `lblLoraNameTop_${i}`, lora)
-                                    },
-                                    [`toggleFuseQKV_${i}`]: {
-                                        hidden: nameDisplay !== "Top" || this.properties.attentionMode !== "Joint-Attention",
-                                        type: this.UI_TYPES.TOGGLE_V2, themeKey: "dialog, button, t_textSystem",
-                                        label: tLocale("$derp_lora_stack.fuse_qkv", "Fuse QKV"), icon: "ring", width: "auto", height: "fill", padding: [pW, pH], spacing: [sW, 0],
-                                        isTextOnly: true, mouseOver: false, alpha: rowAlpha,
-                                        state: (i === this._activeDetailSlot) ? "ON" : (isBypassed ? "DIS" : "OFF"),
-                                        value: !!lora[6],
-                                        onPress: () => {
-                                            lora[6] = !lora[6];
-                                            if (this.syncDerpOutputs) this.syncDerpOutputs();
-                                            this.refreshNodeLayoutMap();
-                                        }
                                     },
                                     [`btnEnable_${i}`]: {
                                         hidden: nameDisplay !== "Top",
@@ -581,7 +569,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                     }
                                 },
                                 [`triggerRow_${i}`]: {
-                                    dir: "row", width: "full", height: "auto", spacing: [sW, 0], alpha: rowAlpha, margin: [0, 0, -mW + sW, 0],
+                                    dir: "row", width: "full", height: "auto", spacing: [sW, 0], alpha: rowAlpha, margin: [0, 0, 0, 0],
                                     [`dropTrigger_${i}`]: {
                                         type: this.UI_TYPES.DROPDOWN_DERP, themeKey: "dialog, t_textSmall",
                                         canvasShield: true, width: "full", height: "auto", padding: [pW, pH], alpha: rowAlpha,
@@ -614,6 +602,20 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                                 lora[4] = entry ? entry.tag : "";
                                             }
 
+                                            if (this.syncDerpOutputs) this.syncDerpOutputs();
+                                            this.refreshNodeLayoutMap();
+                                        }
+                                    },
+                                    [`toggleFuseQKV_${i}`]: {
+                                        hidden: nameDisplay !== "Top" || this.properties.attentionMode !== "Joint-Attention",
+                                        type: this.UI_TYPES.TOGGLE_V2, themeKey: "panel, button, t_textSmall",
+                                        label: tLocale("$derp_lora_stack.fuse_qkv", "Fuse QKV"), icon: "ring", width: "auto", height: "match", padding: [pW, pH], spacing: [0, 0], margin: [0, 0, -mH * 2, 0],
+                                        isTextOnly: true, mouseOver: false, alpha: rowAlpha,
+                                        state: (i === this._activeDetailSlot) ? "ON" : (isBypassed ? "DIS" : "OFF"),
+                                        toolTip: "ZIT lora patch, may (or may not) fix undesired results or improve the output. Made by Capitan01R@civitai.com",
+                                        value: !!lora[6],
+                                        onPress: () => {
+                                            lora[6] = !lora[6];
                                             if (this.syncDerpOutputs) this.syncDerpOutputs();
                                             this.refreshNodeLayoutMap();
                                         }

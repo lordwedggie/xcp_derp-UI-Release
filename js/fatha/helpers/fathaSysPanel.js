@@ -320,7 +320,7 @@ export function drawDerpSysPanelGlobal(ctx) {
                             } catch (e) { console.error(e); }
 
                             playKaChing();
-                            showBastaMessage(node, `Profile Renamed: ${newName}`, 3000, { fade: true, grow: true }, "sys_btnRename");
+                            showBastaSystemMessage(node, "Profile Renamed: ", 3000, { fade: true, grow: true }, "sys_btnRename", "success", null, newName);
                             sysPanel._layoutDirty = true;
                             sysPanel.requestDerpSync();
                         }
@@ -359,7 +359,7 @@ export function drawDerpSysPanelGlobal(ctx) {
                             } catch (e) { console.error(e); }
 
                             playKaChing();
-                            showBastaMessage(node, `Profile Duplicated: ${newName}`, 3000, { fade: true, grow: true }, "sys_btnCopy");
+                            showBastaSystemMessage(node, "Profile Duplicated: ", 3000, { fade: true, grow: true }, "sys_btnCopy", "success", null, newName);
                             sysPanel._layoutDirty = true;
                             sysPanel.requestDerpSync();
                         }
@@ -402,7 +402,7 @@ export function drawDerpSysPanelGlobal(ctx) {
                                     node._currentProfileName = newName;
                                     node._sysProfileCache = Object.keys(node._sysProfileData);
                                     playKaChing();
-                                    showBastaMessage(node, `Profile Created`, 3000, { fade: true, grow: true }, "sys_btnSave");
+                                    showBastaSystemMessage(node, "Profile Saved: ", 3000, { fade: true, grow: true }, "sys_btnSave", "success", null, newName);
                                     sysPanel._layoutDirty = true;
                                     sysPanel.requestDerpSync();
                                 }
@@ -440,7 +440,7 @@ export function drawDerpSysPanelGlobal(ctx) {
                             });
                             if (res.ok) {
                                 playKaChing();
-                                showBastaMessage(node, `Profiles Saved`, 3000, { fade: true, grow: true }, "sys_btnSave");
+                                showBastaSystemMessage(node, "Profile Saved: ", 3000, { fade: true, grow: true }, "sys_btnSave", "success", null, newName);
                                 sysPanel._layoutDirty = true;
                                 sysPanel.requestDerpSync();
                             }
@@ -462,6 +462,7 @@ export function drawDerpSysPanelGlobal(ctx) {
                     properties: { bastaMovalbe: false },
                     onConfirm: async () => {
                         if (node._sysProfileData && node._sysProfileData[node._currentProfileName]) {
+                            const deletedName = node._currentProfileName;
                             delete node._sysProfileData[node._currentProfileName];
                             node._sysProfileCache = Object.keys(node._sysProfileData);
                             if (node._sysProfileCache.length === 0) {
@@ -482,7 +483,7 @@ export function drawDerpSysPanelGlobal(ctx) {
                             } catch (e) { console.error(e); }
 
                             playKaboom();
-                            showBastaMessage(node, `Profile Deleted`, 3000, { fade: true, grow: true }, "sys_btnDelete");
+                            showBastaSystemMessage(node, "Profile Deleted: ", 3000, { fade: true, grow: true }, "sys_btnDelete", "error", null, deletedName);
                             sysPanel._layoutDirty = true;
                             sysPanel.requestDerpSync();
                         }

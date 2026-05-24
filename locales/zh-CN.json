@@ -239,6 +239,9 @@
     "title": "老登 LoRA 堆栈",
     "drop_here": "拖到这里",
     "fuse_qkv": "融合 QKV",
+    "tooltips": {
+      "preview_image": "点击预览图可打开更多 LoRA 控制选项"
+    },
     "labels": {
       "strength": "强度",
       "clip": "CLIP"
