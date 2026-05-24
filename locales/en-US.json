@@ -445,6 +445,27 @@
       "duplicate_failed": "Book duplicate failed"
     }
   },
+  "derp_router": {
+    "title": "Derp Router",
+    "signals": {
+      "select_detected": "Select a detected signal:",
+      "select": "Select signal...",
+      "none_detected": "No signals detected..."
+    },
+    "system": {
+      "properties": "Derp Router properties:",
+      "signal_id": "Signal ID",
+      "signal_name": "Signal Name",
+      "signal_type": "Signal Type",
+      "show_input_wires": "Show input wires",
+      "sort_signals_by": "Sort signals by:"
+    },
+    "sort": {
+      "name": "Name",
+      "type": "Type",
+      "id": "ID"
+    }
+  },
   "basta_lora_detail": {
     "title": "LoRA Detail",
     "labels": {

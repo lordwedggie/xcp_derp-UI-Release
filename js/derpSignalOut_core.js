@@ -7,6 +7,38 @@ import { uncle } from "./fatha/uncle.js";
 import { handleInitDerpGlobalListener } from "./fatha/core/fathaHandler.js";
 import { COMPONENT_BLUEPRINTS } from "./fatha/core/masterLayoutTypes.js";
 
+function tLocale(key, fallback = key) {
+    if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
+    const path = key.substring(1).split(".");
+    let target = window.xcpDerpLocaleData || {};
+    for (const segment of path) {
+        target = target?.[segment];
+        if (target === undefined) return fallback;
+    }
+    return target;
+}
+
+function syncDerpRouterLocaleLabels(node) {
+    if (!node?.properties) return;
+    const localizedTitle = tLocale("$derp_router.title", "Derp Router");
+    const previousLocalizedTitle = node._lastLocalizedDerpRouterTitle;
+    const localizedSelectSignal = tLocale("$derp_router.signals.select", "Select signal...");
+    const previousLocalizedSelectSignal = node._lastLocalizedDerpRouterSelectSignal;
+
+    if (!node.titleLabel || node.titleLabel === "Derp Router" || (previousLocalizedTitle && node.titleLabel === previousLocalizedTitle)) {
+        node.titleLabel = localizedTitle;
+    }
+    if (!node.properties.titleLabel || node.properties.titleLabel === "Derp Router" || (previousLocalizedTitle && node.properties.titleLabel === previousLocalizedTitle)) {
+        node.properties.titleLabel = localizedTitle;
+    }
+    if (!node.properties.selectedSignalLabel || node.properties.selectedSignalLabel === "Select signal..." || (previousLocalizedSelectSignal && node.properties.selectedSignalLabel === previousLocalizedSelectSignal)) {
+        node.properties.selectedSignalLabel = localizedSelectSignal;
+    }
+
+    node._lastLocalizedDerpRouterTitle = localizedTitle;
+    node._lastLocalizedDerpRouterSelectSignal = localizedSelectSignal;
+}
+
 if (!window._xcp_derpSignalOut_Core_Loaded) {
     window._xcp_derpSignalOut_Core_Loaded = true;
     try {
@@ -347,7 +379,7 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                     this.activeOutputs.push(sanitizeDerpSignal(sig));
                     this.properties.activeOutputs = this.activeOutputs.length;
 
-                    this.properties.selectedSignalLabel = "Select signal...";
+                    this.properties.selectedSignalLabel = tLocale("$derp_router.signals.select", "Select signal...");
                     this.properties.selectedSignalId = null;
 
                     this.updateReceivedSignals();
@@ -505,7 +537,7 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                             const activeIds = (this.activeOutputs || []).map(s => s.nodeId);
                             const trueOutputs = this._xcpTrueOutputs || this.outputs || [];
                             const baseId = String(this.id);
-                            const nodeName = this.titleLabel || this.title || "Signal Out";
+                            const nodeName = this.titleLabel || this.title || "Derp Router";
 
                             activeIds.forEach((sigId, idx) => {
                                 const sourceSig = globalSignals[sigId];
@@ -613,8 +645,6 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                     this.vLinkAlpha = [0.8, 0.2];   // [Selected, Normal]
 
                     this.inputs = [];
-                    this.titleLabel = "Signal Out";
-                    this.properties.titleLabel = "Signal Out";
                     this.receivedSignals = [];
                     this.activeOutputs = [];
                     this.properties.activeOutputs = 0;
@@ -627,6 +657,7 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                     this.properties.autoWidth = false;
                     this.properties.nodeSize = [300, 50];
                     this.size = [300, 50];
+                    syncDerpRouterLocaleLabels(this);
 
                     // Ensure exactly 16 outputs to match Python's RETURN_TYPES
                     const INVISIBLE_CHAR = '\u200b';

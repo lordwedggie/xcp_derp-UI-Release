@@ -1,8 +1,8 @@
 export const DERP_BACKGROUND_PARALLAX_CONFIG = {
-    initialScale: 1.5,
+    initialScale: 1.4,
     panStrengthX: 0.1,
     panStrengthY: 0.1,
-    zoomStrength: 0.12,
+    zoomStrength: 0.11,
     zoomMin: 0.88,
     zoomMax: 1.2,
 };

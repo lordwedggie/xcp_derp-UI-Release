@@ -24,7 +24,7 @@
     "theme": "主题：",
     "add_warp_point": "添加传送点",
     "delete_warp_point": "删除传送点",
-    "warp_shortcut": "传送点快捷键：",
+    "warp_shortcut": "Warp 快捷键：",
     "ctrl": "Ctrl",
     "zoom": "缩放：",
     "load_settings": "加载设置："
@@ -52,9 +52,9 @@
     }
   },
   "derp_slider": {
-    "title": "老登拉条子",
+    "title": "老登滑杆",
     "system": {
-      "properties": "老登拉条子属性：",
+      "properties": "老登滑杆属性：",
       "sliders": "滑杆数：",
       "name_display": "名称显示："
     },
@@ -443,6 +443,27 @@
       "create_failed": "书籍创建失败",
       "rename_failed": "书籍重命名失败",
       "duplicate_failed": "书籍复制失败"
+    }
+  },
+  "derp_router": {
+    "title": "老登路由器",
+    "signals": {
+      "select_detected": "选择一个已检测到的信号：",
+      "select": "选择信号...",
+      "none_detected": "未检测到信号..."
+    },
+    "system": {
+      "properties": "老登路由器属性：",
+      "signal_id": "信号 ID",
+      "signal_name": "信号名称",
+      "signal_type": "信号类型",
+      "show_input_wires": "显示输入连线",
+      "sort_signals_by": "信号排序方式："
+    },
+    "sort": {
+      "name": "名称",
+      "type": "类型",
+      "id": "ID"
     }
   },
   "basta_lora_detail": {

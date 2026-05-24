@@ -154,9 +154,7 @@ class xcpDerpSignalSender:
 
 NODE_CLASS_MAPPINGS = {
     "xcpDerpSignalOut": xcpDerpSignalOut,
-    "xcpDerpSignalSender": xcpDerpSignalSender
 }
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "xcpDerpSignalOut": "Derp Signal Out",
-    "xcpDerpSignalSender": "Derp Signal Sender"
+    "xcpDerpSignalOut": "Derp Router",
 }

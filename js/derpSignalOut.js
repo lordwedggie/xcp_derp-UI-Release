@@ -7,6 +7,36 @@ import { UI_TYPES } from "./fatha/core/masterLayoutTypes.js";
 import { startStackDrag, updateStackDrag, endStackDrag } from "./fatha/helpers/fathaDragDrop.js";
 import { showBastaFileHandler } from "./fatha/bastas/bastaFileHandler.js";
 
+function tLocale(key, fallback = key) {
+    if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
+    const path = key.substring(1).split(".");
+    let target = window.xcpDerpLocaleData || {};
+    for (const segment of path) {
+        target = target?.[segment];
+        if (target === undefined) return fallback;
+    }
+    return target;
+}
+
+function getLocalizedSortModeLabel(mode) {
+    const normalized = String(mode || "Type");
+    if (normalized === "ID") return tLocale("$derp_router.sort.id", "ID");
+    if (normalized === "Type") return tLocale("$derp_router.sort.type", "Type");
+    return tLocale("$derp_router.sort.name", "Name");
+}
+
+function normalizeSortModeLabel(value) {
+    const raw = String(value || "").trim();
+    const lower = raw.toLowerCase();
+    const nameLabel = String(tLocale("$derp_router.sort.name", "Name")).trim().toLowerCase();
+    const typeLabel = String(tLocale("$derp_router.sort.type", "Type")).trim().toLowerCase();
+    const idLabel = String(tLocale("$derp_router.sort.id", "ID")).trim().toLowerCase();
+    if (lower === "id" || lower === idLabel) return "ID";
+    if (lower === "type" || lower === typeLabel) return "Type";
+    if (lower === "name" || lower === nameLabel) return "Name";
+    return "Type";
+}
+
 if (!window._xcp_derpSignalOut_Layout_Loaded) {
     window._xcp_derpSignalOut_Layout_Loaded = true;
     try {
@@ -24,7 +54,7 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                     const callerId = String(this.id);
                     const isPlainWrapperSignalId = (signalId) => /^\d+$/.test(String(signalId || ""));
                     const showSignalIds = this.properties.showSignalIds !== false;
-                    const sortMode = this.properties.signalSortMode || "Type";
+                    const sortMode = normalizeSortModeLabel(this.properties.signalSortMode || "Type");
                     const normalizeSignalType = (rawType) => {
                         if (Array.isArray(rawType)) return "COMBO";
                         if (typeof rawType === "string") return rawType.toUpperCase();
@@ -109,8 +139,8 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                             this._signalLabelToId.set(label, String(sig.nodeId));
                             return label;
                         });
-                    const signalPromptLabel = "Select signal...";
-                    const signalEmptyLabel = "No signals detected...";
+                    const signalPromptLabel = tLocale("$derp_router.signals.select", "Select signal...");
+                    const signalEmptyLabel = tLocale("$derp_router.signals.none_detected", "No signals detected...");
 
                     const activeHash = activeOuts.map((sig, idx) => `${idx}:${sig?.nodeId || ""}:${sig?.type || ""}:${sig?.nodeName || ""}:${!!sig?.isOrphaned}`).join("|");
                     const signalHash = (this.receivedSignals || []).map((sig) => `${sig?.nodeId || ""}:${sig?.type || ""}:${sig?.nodeName || ""}`).join("|");
@@ -145,7 +175,7 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                             margin: [mW, 0, mW, 0], padding: [pW, pH],
                             lblContent: {
                                 type: UI_TYPES.TEXT, themeKey: "t_textsystem",
-                                text: "Select a detected signal:",
+                                text: "$derp_router.signals.select_detected",
                                 labelAlign: ["left", "middle"], width: "full", height: "auto"
                             },
                             // THE DYNAMIC REPETITION: Generate indexed regions to repeat the outputsRegion
@@ -338,7 +368,7 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                 type: this.UI_TYPES.TEXT, mouseOver: false,
                                 themeKey: "t_textSystem",
                                 labelAlign: ["left", "middle"],
-                                text: "Derp SignalOut properties:",
+                                text: "$derp_router.system.properties",
                                 width: "full", padding: [pW, pH],
                             },
                             regionCustom_1: {
@@ -347,7 +377,7 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                 toggleID: {
                                     type: UI_TYPES.TOGGLE, icon: "radio",
                                     themeKey: "buttonNode, t_textsystem", 
-                                    text: "Signal ID",
+                                    text: "$derp_router.system.signal_id",
                                     width: "auto", height: "full",
                                     padding: [pW, pH], spacing: [sW, 0],
                                     value: this.properties.showSignalIds !== false,
@@ -362,7 +392,7 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                 toggleSlotName: {
                                     type: UI_TYPES.TOGGLE, icon: "radio",
                                     themeKey: "buttonNode, t_textsystem",
-                                    text: "Signal Name",
+                                    text: "$derp_router.system.signal_name",
                                     width: "auto", height: "full",
                                     padding: [pW, pH], spacing: [sW, 0],
                                     value: !!this.properties.showSlotNames,
@@ -377,7 +407,7 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                 toggleSlotType: {
                                     type: UI_TYPES.TOGGLE, icon: "radio",
                                     themeKey: "buttonNode, t_textsystem",
-                                    text: "Signal Type",
+                                    text: "$derp_router.system.signal_type",
                                     width: "auto", height: "full",
                                     padding: [pW, pH],
                                     value: !!this.properties.showSlotTypes,
@@ -397,7 +427,7 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                 toggleVirtualWires: {
                                     type: UI_TYPES.TOGGLE, icon: "radio",
                                     themeKey: "buttonNode, t_textsystem",
-                                    text: "Show input wires",
+                                    text: "$derp_router.system.show_input_wires",
                                     width: "full", height: "auto",
                                     padding: [pW, pH],
                                     value: !!this.properties.showVirtualLinks,
@@ -412,7 +442,7 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                 lblSort: {
                                     type: UI_TYPES.TEXT,
                                     themeKey: "t_textsystem",
-                                    text: "Sort signals by:",
+                                    text: "$derp_router.system.sort_signals_by",
                                     width: "auto",
                                     height: "auto",
                                     padding: [pW, pH]
@@ -425,11 +455,11 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                     height: "auto",
                                     padding: [pW, pH],
                                     labelAlign: ["center", "middle"],
-                                    measureText: "Name",
-                                    items: ["Name", "Type", "ID"],
-                                    value: this.properties.signalSortMode || "Type",
+                                    measureText: "$derp_router.sort.name",
+                                    items: ["$derp_router.sort.name", "$derp_router.sort.type", "$derp_router.sort.id"],
+                                    value: getLocalizedSortModeLabel(this.properties.signalSortMode || "Type"),
                                     onChange: (val) => {
-                                        this.properties.signalSortMode = val || "Type";
+                                        this.properties.signalSortMode = normalizeSortModeLabel(val || "Type");
                                         if (typeof window._xcpCloseActiveDropdown === "function") {
                                             window._xcpCloseActiveDropdown();
                                         }
