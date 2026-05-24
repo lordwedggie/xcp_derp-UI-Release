@@ -3,24 +3,42 @@
  * ROLE: Protocol-based interaction and theme engine for all Fatha entities.
  */
 import { app } from "../../../../scripts/app.js";
-import { dockDebug, snapshotDockNode } from "./dockDebugHelpers.js";
 import { syncDerpShield } from "./fathaDOMshield.js";
 import { toggleDerpSysPanel, sysPanel, closeDerpSysPanel } from "../helpers/fathaSysPanel.js";
-import { masterPainter, compileThemeData, invalidateCompiledThemeCache } from "../../herbina/masterPainter.js";
+import { masterPainter } from "../../herbina/masterPainter.js";
 import { UI_TYPES, COMPONENT_BLUEPRINTS } from "./masterLayoutTypes.js";
 import { measureTextWidth, resolvePaintData } from "../../herbina/utils/widgetsUtils.js";
 import { beginDockDrag, updateDockDrag, endDockDrag } from "./dockDrag.js";
 import { handleNodeResize } from "./fathaNodeResize.js";
-import { getPinnedVerticalDeckAnchor, getPinnedVerticalDeckPositionAnchor, restorePinnedVerticalDeckAnchor, restorePinnedVerticalDeckPositionAnchor, resolveCollapseShiftDirection, syncHorizontalDeckHeight as syncHorizontalDeckHeightForGraph } from "./dockResize.js";
+import {
+    syncHorizontalDeckHeight as syncHorizontalDeckHeightForGraph,
+    settleDerpSizeBeforeDrawImpl,
+    animateDerpSizeImpl,
+    resolveDerpRuntimeSizeImpl,
+    resolveHorizontalDeckSharedHeightImpl,
+    handleDerpComputeSizeImpl,
+    handleDerpCollapseImpl,
+    handleHorizontalDeckTitleToggleImpl,
+} from "./dockResize.js";
 import { masterDockEngine, getDeckMembers, getDeckCornerOverride, isLinearDeckGroup } from "./masterDockEngine.js";
-import { getVirtualNodeLayoutMap } from "../helpers/fathaLayoutMaps.js";
-import { getDockGroupAxisFromMembers, resolveRuntimeDockSize, shouldPreserveDockHeight, shouldPreserveDockWidth } from "./dockDimensions.js";
+import { getDockGroupAxisFromMembers, shouldPreserveDockHeight, shouldPreserveDockWidth } from "./dockDimensions.js";
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
-import { findHeaderPaletteEntry, getHeaderPaletteCandidateNames } from "../helpers/headerPaletteIdentity.js";
+import {
+    getNodeHeaderPaletteFingerprint,
+    applyNodeHeaderPalette,
+} from "../helpers/headerPaletteIdentity.js";
 import { getPulseAlpha } from "../../herbina/masterAnimator.js";
 import { showBastaMessage, closeBastaMessage } from "../bastas/bastaMessage.js";
-import { showBastaSystemMessage } from "../bastas/bastaSystemMessage.js";
-import { ensureDerpBackgroundParallax, setDerpBackgroundParallaxImage, syncDerpBackgroundParallax } from "../helpers/derpBackgroundParallax.js";
+import {
+    applyDerpBackgroundImageImpl,
+    hydrateDerpBackgroundSettingImpl,
+} from "../helpers/derpBackgroundParallax.js";
+import {
+    loadDerpPaletteImpl,
+    handleThemeUpdateImpl,
+    handleInitDerpGlobalListenerImpl,
+    getPaletteCache,
+} from "../helpers/fathaThemeRuntime.js";
 
 const COLLAPSED_NODE_MAX_CORNER = 5;
 const TOOLTIP_DELAY_MS = 650;
@@ -28,92 +46,12 @@ const TOOLTIP_DURATION_MS = 3000;
 const TOOLTIP_MOVE_THRESHOLD = 5;
 const DERP_BACKGROUND_SETTING_ID = "Derp.BackgroundImage";
 
-function ensureDerpBackgroundLayer() {
-    if (window.__xcpDerpBackgroundLayer && document.body?.contains(window.__xcpDerpBackgroundLayer)) {
-        ensureDerpBackgroundParallax(window.__xcpDerpBackgroundLayer, () => ({ ds: app?.canvas?.ds || null }));
-        return window.__xcpDerpBackgroundLayer;
-    }
-
-    const layer = document.createElement("div");
-    layer.id = "xcp-derp-background-layer";
-    layer.style.position = "fixed";
-    layer.style.inset = "0";
-    layer.style.pointerEvents = "none";
-    layer.style.overflow = "hidden";
-    layer.style.zIndex = "-1";
-    layer.style.opacity = "1";
-    layer.style.display = "none";
-    document.documentElement.style.background = "transparent";
-    document.body.style.background = "transparent";
-    const canvasEl = app?.canvas?.canvas;
-    if (canvasEl?.parentElement) {
-        canvasEl.parentElement.insertBefore(layer, canvasEl);
-        if (!canvasEl.parentElement.style.position) {
-            canvasEl.parentElement.style.position = "relative";
-        }
-        canvasEl.style.position = canvasEl.style.position || "relative";
-        canvasEl.style.zIndex = "1";
-    } else {
-        document.body.appendChild(layer);
-    }
-    window.__xcpDerpBackgroundLayer = layer;
-    ensureDerpBackgroundParallax(layer, () => ({ ds: app?.canvas?.ds || null }));
-    return layer;
-}
-
-function ensureDerpBackgroundCanvasTransparency() {
-    const canvasEl = app?.canvas?.canvas;
-    if (canvasEl) {
-        canvasEl.style.background = "transparent";
-        canvasEl.style.position = canvasEl.style.position || "relative";
-        canvasEl.style.zIndex = "1";
-        const layer = window.__xcpDerpBackgroundLayer;
-        if (layer && canvasEl.parentElement && layer.parentElement !== canvasEl.parentElement) {
-            canvasEl.parentElement.insertBefore(layer, canvasEl);
-            if (!canvasEl.parentElement.style.position) {
-                canvasEl.parentElement.style.position = "relative";
-            }
-        }
-    }
-}
-
 export function applyDerpBackgroundImage(backgroundName = "") {
-    const layer = ensureDerpBackgroundLayer();
-    const normalized = String(backgroundName || "").trim();
-    window.xcpActiveBackgroundName = normalized;
-
-    if (!normalized || normalized.toLowerCase() === "none") {
-        layer.style.display = "none";
-        setDerpBackgroundParallaxImage(layer, "");
-        return;
-    }
-
-    const imageUrl = `/xcp/get_background?name=${encodeURIComponent(normalized)}`;
-    layer.style.display = "block";
-    setDerpBackgroundParallaxImage(layer, imageUrl);
-    ensureDerpBackgroundCanvasTransparency();
-    syncDerpBackgroundParallax(layer);
+    return applyDerpBackgroundImageImpl(backgroundName);
 }
 
 export async function hydrateDerpBackgroundSetting(settingId = DERP_BACKGROUND_SETTING_ID) {
-    const initialValue = app.ui?.settings?.getSettingValue?.(settingId, "none") || "none";
-    applyDerpBackgroundImage(initialValue);
-
-    try {
-        const response = await fetch("/xcp/list/backgrounds");
-        if (!response.ok) throw new Error("Failed to list backgrounds");
-        const result = await response.json();
-        const items = Array.isArray(result?.items) ? result.items.slice().sort((a, b) => String(a).localeCompare(String(b))) : [];
-        window.__xcpDerpBackgroundOptions = [
-            { value: "none", text: "None" },
-            ...items.map(name => ({ value: name, text: name }))
-        ];
-        return window.__xcpDerpBackgroundOptions;
-    } catch (error) {
-        console.error("[xcpDerp] Background list load failed", error);
-        window.__xcpDerpBackgroundOptions = [{ value: "none", text: "None" }];
-        return window.__xcpDerpBackgroundOptions;
-    }
+    return hydrateDerpBackgroundSettingImpl(settingId);
 }
 
 function getDeckEngine() {
@@ -122,14 +60,6 @@ function getDeckEngine() {
     }
     window.xcpMasterDeckEngine.setGraph(app.graph || null);
     return window.xcpMasterDeckEngine;
-}
-
-function getSystemMessageHost(preferredNode = null, fallbackId = "xcp_system_message_host") {
-    return preferredNode || app?.graph?._nodes?.find?.(node => node?.isFathaNode || node?.isUncleNode) || {
-        id: fallbackId,
-        properties: {},
-        setDirtyCanvas() {},
-    };
 }
 
 function getTooltipHost(entity) {
@@ -298,145 +228,6 @@ export function clearEntityTooltip(entity, closeVisible = true) {
     cancelTooltip(entity, closeVisible);
 }
 
-function showFallbackStatusMessage(host, kind, name, status) {
-    const safeHost = getSystemMessageHost(host, `xcp_${kind}_status_host`);
-    const normalizedKind = kind === "theme" ? "Theme" : "Palette";
-    const prefix = status === "fallback"
-        ? `${normalizedKind} fallback found: `
-        : `${normalizedKind} missing, no fallback: `;
-    showBastaSystemMessage(safeHost, prefix, 3200, { fade: true, grow: true }, null, status === "fallback" ? "info" : "error", null, name || "");
-}
-
-function getThemeWarningNodeName(node) {
-    return node?.titleLabel || node?.title || node?.type || `Node ${node?.id ?? "unknown"}`;
-}
-
-function showPerNodeThemeStatusMessage(node, status, requestedTheme, resolvedTheme = "") {
-    if (!node || !requestedTheme) return;
-    window._xcpPerNodeThemeWarnings = window._xcpPerNodeThemeWarnings || {};
-    const accent = status === "fallback-loaded"
-        ? resolvedTheme
-        : status === "fallback-switched"
-            ? `${requestedTheme} -> ${resolvedTheme}`
-            : status === "hardcoded-switched"
-                ? `${requestedTheme} -> ${resolvedTheme}`
-            : requestedTheme;
-    const warningKey = `${node.id || getThemeWarningNodeName(node)}::${status}::${accent}`;
-    if (window._xcpPerNodeThemeWarnings[warningKey]) return;
-    window._xcpPerNodeThemeWarnings[warningKey] = true;
-
-    const prefix = status === "fallback-loaded"
-        ? `${getThemeWarningNodeName(node)} loaded fallback theme: `
-        : status === "fallback-switched"
-            ? `${getThemeWarningNodeName(node)} switched to fallback theme: `
-            : status === "hardcoded-switched"
-                ? `${getThemeWarningNodeName(node)} switched to hardcoded fallback theme: `
-            : `${getThemeWarningNodeName(node)} missing theme, no fallback: `;
-    const mode = status === "missing" ? "error" : "info";
-    showBastaSystemMessage(node, prefix, 3600, { fade: true, grow: true }, null, mode, null, accent);
-}
-
-function paletteColorToCss(color) {
-    if (!Array.isArray(color) || color.length < 3) return null;
-    const r = Math.round(Number(color[0]) || 0);
-    const g = Math.round(Number(color[1]) || 0);
-    const b = Math.round(Number(color[2]) || 0);
-    const a = color[3] === undefined ? 1 : Number(color[3]);
-    return `rgba(${r}, ${g}, ${b}, ${Number.isFinite(a) ? a : 1})`;
-}
-
-function resolvePaletteStateColor(entry, key, state) {
-    const source = entry?.entries?.[key];
-    if (!source) return null;
-    const stateKey = state === "_ON" || state === "ON"
-        ? "_ON"
-        : state === "_DIS" || state === "DIS"
-            ? "_DIS"
-            : "_OFF";
-    return source[stateKey] || source._OFF || source._ON || source._DIS || null;
-}
-
-function findPaletteEntry(paletteData, entryName) {
-    if (!entryName) return null;
-    const palettes = paletteData?.palettes;
-    if (!Array.isArray(palettes)) return null;
-    const target = String(entryName).toLowerCase();
-    return palettes.find((entry) => String(entry?.name || "").toLowerCase() === target) || null;
-}
-
-function normalizePaletteName(name) {
-    return String(name || "").replace(/\\/g, "/").trim();
-}
-
-function findCaseInsensitiveKey(source, target) {
-    if (!source || !target) return null;
-    const normalizedTarget = String(target).toLowerCase();
-    return Object.keys(source).find((key) => String(key).toLowerCase() === normalizedTarget) || null;
-}
-
-function getPaletteCache() {
-    if (!window.xcpPaletteCache || typeof window.xcpPaletteCache !== "object") window.xcpPaletteCache = {};
-    return window.xcpPaletteCache;
-}
-
-function rememberPaletteData(paletteName, data) {
-    const normalizedName = normalizePaletteName(paletteName);
-    if (!normalizedName || !data) return;
-    getPaletteCache()[normalizedName] = data;
-}
-
-function findNodePaletteEntry(entity, entryName) {
-    const paletteName = normalizePaletteName(entity?._headerPaletteName || "");
-    if (!paletteName) return null;
-    return findPaletteEntry(getPaletteCache()[paletteName], entryName);
-}
-
-function getNodePaletteData(entity) {
-    const paletteName = normalizePaletteName(entity?._headerPaletteName || "");
-    return paletteName ? getPaletteCache()[paletteName] : null;
-}
-
-function getNodeHeaderPaletteNames(entity) {
-    return getHeaderPaletteCandidateNames(entity, true);
-}
-
-function resolveNodeHeaderPaletteEntry(entity) {
-    const paletteData = getNodePaletteData(entity);
-    return findHeaderPaletteEntry(paletteData?.palettes, entity, true);
-}
-
-function resolveNodeHeaderPaletteMatch(entity) {
-    const paletteData = getNodePaletteData(entity);
-    const entry = findHeaderPaletteEntry(paletteData?.palettes, entity, true);
-    return entry ? { entry, paletteData } : null;
-}
-
-function getNodeHeaderPaletteFingerprint(entity) {
-    const match = resolveNodeHeaderPaletteMatch(entity);
-    return match ? JSON.stringify({ effects: match.paletteData?.effects === true, entries: match.entry.entries || {} }) : "no-header-palette";
-}
-
-function applyPaletteEntryColors(paint, entry, state = "_OFF", effectSource = paint, effectsEnabled = false) {
-    if (!paint || !entry) return paint;
-    const next = { ...paint };
-    const fill = paletteColorToCss(resolvePaletteStateColor(entry, "main", state));
-    const shadow = effectsEnabled ? paletteColorToCss(resolvePaletteStateColor(entry, "shadow", state)) : null;
-    const stroke = effectsEnabled ? paletteColorToCss(resolvePaletteStateColor(entry, "stroke", state)) : null;
-    const glow = effectsEnabled ? paletteColorToCss(resolvePaletteStateColor(entry, "glow", state)) : null;
-
-    if (fill) next.fill = fill;
-    if (shadow && effectSource?.shadow) next.shadow = { ...effectSource.shadow, color: shadow };
-    if (stroke && effectSource?.border) next.border = { ...effectSource.border, color: stroke };
-    if (glow && effectSource?.glow) next.glow = { ...effectSource.glow, color: glow };
-
-    return next;
-}
-
-function applyNodeHeaderPalette(entity, paint, state = "_OFF", effectSource = paint) {
-    const match = resolveNodeHeaderPaletteMatch(entity);
-    return applyPaletteEntryColors(paint, match?.entry, state, effectSource, match?.paletteData?.effects === true);
-}
-
 function playRegionSound(region) {
     const soundKey = region?.playSound;
     if (!soundKey || window.DERP_GLOBAL_SETTINGS?.playSound === false) return;
@@ -571,67 +362,7 @@ export async function loadDerpLocale(langCode = "en-US") {
  * loadDerpPalette: Fetches the active palette and triggers a global reflow.
  */
 export async function loadDerpPalette(paletteName = "Derp_Default_v01") {
-    if (!paletteName) return;
-    const normalizedName = normalizePaletteName(paletteName);
-    if (!normalizedName) return;
-    const paletteCache = getPaletteCache();
-    const cachedKey = findCaseInsensitiveKey(paletteCache, normalizedName);
-    if (window.xcpActivePaletteName === normalizedName && paletteCache[normalizedName]) return;
-    if (cachedKey && paletteCache[cachedKey]) {
-        window.xcpActivePalette = paletteCache[cachedKey];
-        window.xcpActivePaletteName = cachedKey;
-        return;
-    }
-    if (window.xcpActivePalettePendingName === normalizedName) return;
-    window.xcpActivePalettePendingName = normalizedName;
-    try {
-        const response = await fetch(`/xcp/load/palettes?name=${encodeURIComponent(normalizedName)}`);
-        const usingFallback = response?.headers?.get?.("X-Xcp-Using-Fallback") === "1";
-        if (!response.ok) throw new Error(`Palette ${normalizedName} not found.`);
-
-        const result = await response.json();
-        if (result.data) {
-            rememberPaletteData(normalizedName, result.data);
-            window.xcpActivePalette = result.data;
-            window.xcpActivePaletteName = normalizedName;
-            if (usingFallback && window._xcpPaletteFallbackWarnings?.[normalizedName] !== true) {
-                window._xcpPaletteFallbackWarnings = window._xcpPaletteFallbackWarnings || {};
-                window._xcpPaletteFallbackWarnings[normalizedName] = true;
-                showFallbackStatusMessage(null, "palette", normalizedName, "fallback");
-            }
-
-            // Fire event for paletteExtender.js
-            window.dispatchEvent(new CustomEvent("xcp_palette_changed", { detail: result.data }));
-
-            // GLOBAL REFLOW: Recompile theme colors for all Fatha/Uncle/Basta entities
-            if (app.graph && app.graph._nodes) {
-                app.graph._nodes.forEach(node => {
-                    if ((node.isFathaNode || node.isUncleNode) && node.applyPalette) {
-                        node.applyPalette();
-                    }
-                });
-            }
-            if (window.xcpActiveBastas) {
-                window.xcpActiveBastas.forEach(basta => {
-                    if (basta.id === "basta_lora_detail_global_unique_id") {
-                        basta.close();
-                    } else if (basta.onThemeUpdate) {
-                        basta.onThemeUpdate(window.xcpDerpThemeConfig);
-                    }
-                });
-            }
-            if (app.canvas) app.canvas.setDirty(true, true);
-        }
-    } catch (e) {
-        if (window._xcpPaletteMissingWarnings?.[normalizedName] !== true) {
-            window._xcpPaletteMissingWarnings = window._xcpPaletteMissingWarnings || {};
-            window._xcpPaletteMissingWarnings[normalizedName] = true;
-            showFallbackStatusMessage(null, "palette", normalizedName, "missing");
-        }
-        console.error(`❌ [xcpDerp] Palette Load Error:`, e);
-    } finally {
-        if (window.xcpActivePalettePendingName === normalizedName) window.xcpActivePalettePendingName = "";
-    }
+    return loadDerpPaletteImpl(paletteName);
 }
 
 // --- ANIMATION TUNABLES ---
@@ -646,120 +377,22 @@ function debugPinnedDraw(label, node, extra = {}) {
 }
 
 export function settleDerpSizeBeforeDraw(entity, options = {}) {
-    if (!entity?.layout || !entity?.properties) return;
-
-    if (entity.layout) entity.layout._lastCacheKey = "";
-    entity.layout.compute({ x: 0, y: 0, w: entity.size?.[0] || 0, h: entity.size?.[1] || 0 }, getVirtualNodeLayoutMap(entity), {
-        textTheme: entity._t_textSmallPaintData || entity._t_textNormalPaintData,
-        useAnim: false,
-        spawnAnim: false,
-        isVirtual: true,
-    }, true);
-
-    const { SNAP, autoWidth, autoHeight } = getDerpVars(entity);
-    const isMinState = entity.properties.contentCollapsed === true;
-    const contentReqW = entity.layout?.contentMinWidth || 0;
-    const engineFloorW = Math.ceil(contentReqW / SNAP) * SNAP;
-    const layoutTotalH = Number(entity.layout?.totalHeight) || 0;
-    const layoutContentH = Number(entity.layout?.contentMinHeight) || 0;
-    const forceAutoHeight = options?.forceAutoHeight === true;
-    const rawH = forceAutoHeight && !isMinState
-        ? (layoutContentH || layoutTotalH || 40)
-        : (isMinState && entity.properties?.useCollapsedTotalHeight === true)
-            ? (Math.max(layoutContentH, layoutTotalH) || 40)
-            : (layoutTotalH || layoutContentH || 40);
-    const engineFloorH = isMinState ? rawH : Math.ceil(rawH / SNAP) * SNAP;
-    const collapseMinimal = entity.properties?.collapseMinimal === true;
-    const targetW = (autoWidth || (isMinState && collapseMinimal)) ? engineFloorW : Math.max(entity.properties.nodeSize?.[0] || 0, engineFloorW);
-    const preserveCurrentHeight = options?.preserveCurrentHeight === true;
-    const currentH = Number(entity.size?.[1]) || Number(entity.properties.nodeSize?.[1]) || 0;
-    const targetH = preserveCurrentHeight
-        ? currentH
-        : (forceAutoHeight || autoHeight || isMinState) ? engineFloorH : Math.max(entity.properties.nodeSize?.[1] || 0, engineFloorH);
-
-    dockDebug("settle-before-draw", {
-        node: snapshotDockNode(entity),
-        options,
-        measured: {
-            contentReqW,
-            layoutContentH,
-            layoutTotalH,
-            engineFloorW,
-            engineFloorH,
-            preserveCurrentHeight,
-        },
-        target: { width: targetW, height: targetH },
-    });
-
-    animateDerpSize(entity, targetW, targetH, false, {
-        suppressRequestSync: options?.suppressRequestSync === true,
+    return settleDerpSizeBeforeDrawImpl(entity, options, {
+        getDerpVars,
+        animateDerpSize,
     });
 }
 
 function settleCollapseSizeBeforeDraw(entity) {
-    settleDerpSizeBeforeDraw(entity, {
+    return settleDerpSizeBeforeDraw(entity, {
         forceAutoHeight: entity?.properties?.contentCollapsed !== true && entity?.properties?.autoHeight !== false,
     });
 }
 
 export function animateDerpSize(node, targetW, targetH, useAnim, options = {}) {
-    if (node.size[0] !== targetW || node.size[1] !== targetH) {
-        const prevH = Number(node.size?.[1]) || 0;
-        const graph = app.graph || node.graph || null;
-        const deltaH = (Number(targetH) || 0) - prevH;
-        const allowCollapseShift = node._allowDockCollapseShift === true;
-        const deckAnchor = (deltaH !== 0)
-            ? getPinnedVerticalDeckPositionAnchor(node, graph)
-            : null;
-        const shouldAnchorAfterReflow = !!deckAnchor && !allowCollapseShift;
-        dockDebug("animate-size-before", {
-            node: snapshotDockNode(node),
-            target: { width: targetW, height: targetH },
-            deltaH,
-            useAnim,
-            options,
-            allowCollapseShift,
-            hasDeckAnchor: !!deckAnchor,
-            shouldAnchorAfterReflow,
-        });
-        node.size[0] = targetW;
-        node.size[1] = targetH;
-        if (node.properties) node.properties.nodeSize = [targetW, targetH];
-        const shiftDirection = allowCollapseShift ? resolveCollapseShiftDirection(node, graph) : 0;
-        const skipCollapseShift = node._skipNextAnimateCollapseShift === true;
-        if (skipCollapseShift) node._skipNextAnimateCollapseShift = false;
-        if (!skipCollapseShift && deltaH !== 0 && shiftDirection !== 0) {
-            node.pos[1] = (Number(node.pos?.[1]) || 0) + (deltaH * shiftDirection);
-        }
-        const isVerticalDeck = graph && isLinearDeckGroup(node, graph, "vertical");
-        const heightChanged = deltaH !== 0;
-        const shouldReflow = allowCollapseShift || (isVerticalDeck && heightChanged);
-
-        if (graph && shouldReflow) {
-            const moved = getDeckEngine().reflowChildren(node);
-            dockDebug("animate-size-reflow", {
-                node: snapshotDockNode(node),
-                moved: moved.map(snapshotDockNode),
-                shouldAnchorAfterReflow,
-            });
-            if (shouldAnchorAfterReflow) {
-                restorePinnedVerticalDeckPositionAnchor(deckAnchor);
-            }
-            moved.forEach((child) => {
-                if (typeof child.syncUncleSlots === "function") child.syncUncleSlots();
-                if (typeof child.setDirtyCanvas === "function") child.setDirtyCanvas(true, true);
-            });
-        }
-        dockDebug("animate-size-after", {
-            node: snapshotDockNode(node),
-            graphMembers: graph ? getDeckMembers(node, graph).map(snapshotDockNode) : [],
-        });
-        if (options?.suppressRequestSync !== true && node.requestDerpSync) node.requestDerpSync();
-    }
-
-    if (node?.properties?.contentCollapsed !== true && Number(targetH) > 0) {
-        node._preCollapseHeight = Math.max(Number(node._preCollapseHeight || 0), Number(targetH));
-    }
+    return animateDerpSizeImpl(node, targetW, targetH, useAnim, options, {
+        requestSyncFallback: handleDerpRequestSync,
+    });
 }
 
 export function shouldPreserveVerticalDeckWidth(node) {
@@ -775,40 +408,11 @@ export function shouldPreserveHorizontalDeckHeight(node) {
 }
 
 export function resolveDerpRuntimeSize(node, measured, vars = {}) {
-    const graph = app.graph || node?.graph || null;
-    const axis = graph && node ? getDockGroupAxisFromMembers(getDeckMembers(node, graph)) : null;
-    return resolveRuntimeDockSize(node, axis, measured, vars);
+    return resolveDerpRuntimeSizeImpl(node, measured, vars);
 }
 
 export function resolveHorizontalDeckSharedHeight(node) {
-    const graph = app.graph || node?.graph || null;
-    if (!graph || !node) return 0;
-
-    const members = getDeckMembers(node, graph);
-    if (!Array.isArray(members) || members.length === 0) return 0;
-
-    return members.reduce((maxHeight, member) => {
-        const memberVars = typeof member?.getDerpVars === "function"
-            ? member.getDerpVars(member)
-            : getDerpVars(member);
-        const measured = {
-            contentMinWidth: member?.layout?.contentMinWidth || 0,
-            contentMinHeight: member?.layout?.contentMinHeight || 0,
-            totalHeight: member?.layout?.totalHeight || 0,
-        };
-        const resolved = resolveRuntimeDockSize(member, "horizontal", measured, {
-            ...memberVars,
-            // Horizontal deck groups own member height collectively. When a node is docked,
-            // autoHeight may be intentionally locked off to prevent manual resize conflicts,
-            // but shared-height recompute still needs the member's real content demand.
-            autoHeight: true,
-        });
-        const memberHeight = Number(resolved?.height)
-            || Number(member?.size?.[1])
-            || Number(member?.properties?.nodeSize?.[1])
-            || 0;
-        return Math.max(maxHeight, memberHeight);
-    }, 0);
+    return resolveHorizontalDeckSharedHeightImpl(node, { getDerpVars });
 }
 
 export function syncHorizontalDeckHeight(node, targetHeight = 0) {
@@ -870,144 +474,32 @@ export function handleDerpRequestSync(entity) {
 }
 
 export function handleDerpComputeSize(entity, out, minWidth = 100) {
-    const minW = entity.layout?.contentMinWidth || minWidth;
-    const minH = entity.layout?.totalHeight || 40;
-    if (out) {
-        out[0] = minW;
-        out[1] = minH;
-        return out;
-    }
-    return [minW, minH];
+    return handleDerpComputeSizeImpl(entity, out, minWidth);
 }
 
 export function handleDerpCollapse(entity, force) {
-    const nextState = force !== undefined ? force : !entity.properties.contentCollapsed;
-    const graph = app.graph || entity.graph || null;
-    const isHorizontalDeckGroup = !!(graph && isLinearDeckGroup(entity, graph, "horizontal"));
-    const syncedCollapseEnabled = window.DERP_GLOBAL_SETTINGS?.syncedCollapse ?? true;
-    const collapseTargets = (syncedCollapseEnabled && isHorizontalDeckGroup)
-        ? getDeckMembers(entity, graph)
-        : [entity];
-    const orderedCollapseTargets = (syncedCollapseEnabled && isHorizontalDeckGroup && nextState === false)
-        ? [...collapseTargets].sort((a, b) => {
-            const ax = Number(a?.pos?.[0]) || 0;
-            const bx = Number(b?.pos?.[0]) || 0;
-            if (ax !== bx) return bx - ax;
-            return (Number(b?.id) || 0) - (Number(a?.id) || 0);
-        })
-        : collapseTargets;
-
-    const applyCollapseState = (target) => {
-        if (!target?.properties) target.properties = {};
-
-        if (nextState === true && !target.properties.contentCollapsed) {
+    return handleDerpCollapseImpl(entity, force, {
+        getDerpVars,
+        animateDerpSize,
+        requestSyncFallback: handleDerpRequestSync,
+        settleDerpSizeBeforeDraw,
+        resolveHorizontalDeckSharedHeight,
+        syncHorizontalDeckHeight,
+        closeSysPanel: (target) => {
             if (sysPanel.isVisible && sysPanel.hostNode?.id === target.id) {
                 closeDerpSysPanel();
             }
-            if (target.properties.autoHeight === false) {
-                const storedManualHeight = Number(target.properties?.nodeSize?.[1] || 0);
-                const liveHeight = Number(target.size?.[1] || 0);
-                target.properties._savedExpandedHeight = storedManualHeight > 0
-                    ? storedManualHeight
-                    : liveHeight;
-            }
-            target._preCollapseHeight = Math.max(
-                Number(target._preCollapseHeight || 0),
-                Number(target.size?.[1] || 0),
-                Number(target.properties?.nodeSize?.[1] || 0),
-                Number(target.layout?.totalHeight || 0),
-                Number(target.layout?.contentMinHeight || 0)
-            );
-        }
-
-        target.properties.contentCollapsed = nextState;
-        if (nextState === false && target.properties.autoHeight === false) {
-            const savedExpandedHeight = Number(target.properties._savedExpandedHeight || 0);
-            if (savedExpandedHeight > 0) {
-                if (!Array.isArray(target.properties.nodeSize)) {
-                    target.properties.nodeSize = [
-                        Number(target.size?.[0] || 0),
-                        savedExpandedHeight,
-                    ];
-                } else {
-                    target.properties.nodeSize[1] = savedExpandedHeight;
-                }
-                if (Array.isArray(target.size) && savedExpandedHeight > 0) {
-                    target.size[1] = savedExpandedHeight;
-                }
-            }
-        }
-        if (!target.flags) target.flags = {};
-        target.flags.collapsed = false;
-        target._allowDockCollapseShift = true;
-        try {
-            settleCollapseSizeBeforeDraw(target);
-        } finally {
-            target._allowDockCollapseShift = false;
-        }
-
-        if (target.syncUncleSlots) target.syncUncleSlots();
-        if (target.requestDerpSync) target.requestDerpSync();
-        else handleDerpRequestSync(target);
-    };
-
-    orderedCollapseTargets.forEach(applyCollapseState);
-
-    if (syncedCollapseEnabled && isHorizontalDeckGroup) {
-        const sharedHeight = resolveHorizontalDeckSharedHeight(entity);
-
-        if (sharedHeight > 0) {
-            syncHorizontalDeckHeight(entity, sharedHeight);
-        }
-    }
-
-    if (app.graph && app.graph.change) app.graph.change();
+        },
+    });
 }
 
 export function handleHorizontalDeckTitleToggle(entity) {
-    const graph = app.graph || entity?.graph || null;
-    if (!graph || !entity || !isLinearDeckGroup(entity, graph, "horizontal")) {
-        if (entity?.requestDerpSync) entity.requestDerpSync();
-        else if (entity) handleDerpRequestSync(entity);
-        return;
-    }
-
-    const members = getDeckMembers(entity, graph);
-    if (!Array.isArray(members) || members.length <= 1) {
-        if (entity?.requestDerpSync) entity.requestDerpSync();
-        else if (entity) handleDerpRequestSync(entity);
-        return;
-    }
-
-    const orderedMembers = [...members].sort((a, b) => {
-        const ax = Number(a?.pos?.[0]) || 0;
-        const bx = Number(b?.pos?.[0]) || 0;
-        if (ax !== bx) return bx - ax;
-        return (Number(b?.id) || 0) - (Number(a?.id) || 0);
+    return handleHorizontalDeckTitleToggleImpl(entity, {
+        requestSyncFallback: handleDerpRequestSync,
+        settleDerpSizeBeforeDraw,
+        resolveHorizontalDeckSharedHeight,
+        syncHorizontalDeckHeight,
     });
-
-    orderedMembers.forEach((member) => {
-        if (!member?.properties) member.properties = {};
-        if (member.layout) member.layout._lastCacheKey = "";
-        member._layoutMapHash = null;
-        settleDerpSizeBeforeDraw(member, {
-            forceAutoHeight: member.properties?.autoHeight !== false,
-            suppressRequestSync: true,
-        });
-        if (member.syncUncleSlots) member.syncUncleSlots();
-    });
-
-    const sharedHeight = resolveHorizontalDeckSharedHeight(entity);
-    if (sharedHeight > 0) {
-        syncHorizontalDeckHeight(entity, sharedHeight);
-    }
-
-    orderedMembers.forEach((member) => {
-        if (member.requestDerpSync) member.requestDerpSync();
-        else handleDerpRequestSync(member);
-    });
-
-    if (app.graph && app.graph.change) app.graph.change();
 }
 
 function findHitRegion(layout, localMouse, options = {}) {
@@ -1038,164 +530,224 @@ function findHitRegion(layout, localMouse, options = {}) {
     }
     return null;
 }
+
+function isSystemButtonHit(entity, localMouse, scale) {
+    const sysBtn = entity.layout?.regions?.systemBtn;
+    return !!(sysBtn && entity.layout.hitTest(localMouse, sysBtn, Math.max(8, 8 / scale)));
+}
+
+function handleShieldDragStart(entity, data, localMouse, scale, deckEngine) {
+    entity._startPos = [...(entity.pos || [0, 0])];
+    entity._startSize = [...(entity.size || [0, 0])];
+    entity._deckDragAltActive = !!data.originalEvent?.altKey;
+
+    if (isSystemButtonHit(entity, localMouse, scale)) {
+        entity._pressedRegionKey = "systemBtn";
+        return true;
+    }
+
+    const hit = findHitRegion(entity.layout, localMouse, { allowDisabledDrag: true });
+    if (hit && !hit.reg.noDragLock) {
+        entity._pressedRegionKey = hit.key;
+        if (hit.reg.onDragStart) hit.reg.onDragStart(data.originalEvent, data);
+        entity._derpAwakeFrames = 15;
+        entity.setDirtyCanvas(true);
+        return true;
+    }
+
+    beginDockDrag(entity, deckEngine);
+    return false;
+}
+
+function handleShieldDrag(entity, data, scale, deckEngine) {
+    if (entity._pressedRegionKey) {
+        const reg = entity.layout?.regions[entity._pressedRegionKey];
+        if (reg && reg.onDrag) reg.onDrag(data.originalEvent, data);
+        return false;
+    }
+
+    updateDockDrag(entity, deckEngine, data, scale);
+    return false;
+}
+
+function handlePressedRegionActivation(entity, key, data) {
+    if (key === "systemBtn") {
+        toggleDerpSysPanel(entity);
+        if (app.graph && app.graph.change) app.graph.change();
+        return true;
+    }
+
+    const reg = entity.layout?.regions[key];
+    if (!reg) return null;
+
+    if (reg.type === UI_TYPES.TOGGLE || reg.type === UI_TYPES.TOGGLE_V2) {
+        reg.value = !reg.value;
+
+        if (key === "togglePlaySound") {
+            app.ui.settings.setSettingValue("Derp.PlaySound", reg.value);
+        }
+        if (key === "toggleUseAnimation") {
+            app.ui.settings.setSettingValue("Derp.UseAnimation", reg.value);
+        }
+
+        if (reg.onChange) reg.onChange(reg.value, data.originalEvent, data);
+    }
+
+    if (reg.onPress) {
+        reg.onPress(data.originalEvent, data);
+    } else if (reg.onClick) {
+        reg.onClick(data.originalEvent, data);
+    }
+    entity.setDirtyCanvas(true);
+    if (app.graph && app.graph.change) app.graph.change();
+    return true;
+}
+
+function handleVerticalHeaderClick(entity, localMouse) {
+    const header = entity.layout?.regions?.headerRegion;
+    const graph = app.graph || entity.graph || null;
+    const headerCollapseEnabled = window.DERP_GLOBAL_SETTINGS?.verticalDockHeaderCollapse ?? true;
+    const isVerticalDockHeaderHit = headerCollapseEnabled && header && graph && isLinearDeckGroup(entity, graph, "vertical") && entity.layout.hitTest(localMouse, header);
+    if (!isVerticalDockHeaderHit) return false;
+    if (isPointerOverEditableTitleText(entity, localMouse)) {
+        return false;
+    }
+
+    const wasCollapsed = !!entity.properties?.contentCollapsed;
+    playRegionSound(entity.layout?.regions?.btnCollapse);
+    if (typeof entity.collapse === "function") entity.collapse();
+    else handleDerpCollapse(entity);
+    if (wasCollapsed) {
+        entity._derpAwakeFrames = Math.max(Number(entity._derpAwakeFrames || 0), 8);
+    }
+    entity.setDirtyCanvas(true, true);
+    if (app.graph && app.graph.change) app.graph.change();
+    return true;
+}
+
+function handleShieldClickOrPointerUp(entity, type, data, localMouse) {
+    if (type === "click" && entity._suppressClickAfterDrag) {
+        entity._suppressClickAfterDrag = false;
+        entity._pressedRegionKey = null;
+        return true;
+    }
+
+    const key = entity._pressedRegionKey;
+    entity._pressedRegionKey = null;
+
+    if (key === "systemBtn") {
+        if (type === "click") {
+            toggleDerpSysPanel(entity);
+            if (app.graph && app.graph.change) app.graph.change();
+        }
+        return true;
+    }
+
+    const handledRegion = handlePressedRegionActivation(entity, key, data);
+    if (handledRegion !== null) return handledRegion;
+
+    return handleVerticalHeaderClick(entity, localMouse);
+}
+
+function handleHeaderRenameDblClick(entity, localMouse) {
+    const header = entity.layout?.regions?.headerRegion;
+    if (!(header && entity.layout.hitTest(localMouse, header) && !entity.isSystemPanel && (entity.isFathaNode || entity.isUncleNode))) {
+        return false;
+    }
+
+    const currentTitle = entity.titleLabel || entity.type || "Node";
+    const newTitle = prompt("Rename Node:", currentTitle);
+
+    if (newTitle !== null && newTitle !== currentTitle) {
+        entity.titleLabel = newTitle;
+        entity.properties.titleLabel = newTitle;
+        if (typeof entity.syncDerpOutputs === "function") {
+            entity.syncDerpOutputs();
+        }
+        if (typeof entity.refreshNodeLayoutMap === "function") {
+            entity.refreshNodeLayoutMap();
+        }
+        entity.setDirtyCanvas(true, true);
+        if (app.graph && app.graph.change) app.graph.change();
+    }
+    return true;
+}
+
+function handleShieldDblClick(entity, data, localMouse) {
+    const hit = findHitRegion(entity.layout, localMouse);
+
+    if (hit && hit.reg.onDblClick) {
+        hit.reg.onDblClick(data.originalEvent, hit.reg, data);
+        if (app.graph && app.graph.change) app.graph.change();
+        return true;
+    }
+
+    return handleHeaderRenameDblClick(entity, localMouse);
+}
+
+function handleShieldHover(entity, localMouse, scale) {
+    const isOverSys = isSystemButtonHit(entity, localMouse, scale);
+    const hit = findHitRegion(entity.layout, localMouse);
+    const hitType = hit?.reg?.type;
+    const isPickerRegion = hitType === UI_TYPES.DROPDOWN_DERP || hitType === UI_TYPES.DROPDOWN || hitType === UI_TYPES.FILEBROWSER;
+
+    if (entity.interactionShield) {
+        entity.interactionShield.style.cursor = (hit || isOverSys) ? "pointer" : "default";
+    }
+
+    const nextKey = isOverSys ? "systemBtn" : (hit ? hit.key : null);
+    if (entity._hoveredRegionKey !== nextKey) {
+        entity._hoveredRegionKey = nextKey;
+        entity._derpAwakeFrames = (entity?.properties?.optimizeHoverDirty !== false && !isPickerRegion) ? 1 : 5;
+        const isBasta = entity?.properties?.bastaSingleton !== undefined || entity?.properties?.bastaMovalbe !== undefined;
+        const useHoverFastPath = isBasta || ((entity?.properties?.optimizeHoverNoSync !== false) && !isPickerRegion);
+        if (!useHoverFastPath) {
+            entity._forceSync = true;
+            if (typeof entity.requestDerpSync === "function") entity.requestDerpSync();
+        }
+        if (entity?.properties?.optimizeHoverDirty !== false && !isPickerRegion) {
+            const frame = app.canvas?.frame;
+            if (frame === undefined || entity._lastHoverDirtyFrame !== frame) {
+                entity._lastHoverDirtyFrame = frame;
+                if (typeof entity.setDirtyCanvas === "function") entity.setDirtyCanvas(true, false);
+                if (window.app && window.app.canvas) window.app.canvas.setDirty(true, false);
+            }
+        } else {
+            if (typeof entity.setDirtyCanvas === "function") entity.setDirtyCanvas(true, true);
+            if (window.app && window.app.canvas) window.app.canvas.setDirty(true, true);
+        }
+    }
+    handleTooltipHover(entity, nextKey, localMouse);
+}
+
+function handleShieldDragEnd(entity, data, deckEngine) {
+    endDockDrag(entity, deckEngine, data);
+}
+
 export function handleShieldInteraction(entity, type, data = {}) {
     const scale = app.canvas.ds.scale;
     const localMouse = [data.localX || 0, data.localY || 0];
     const deckEngine = getDeckEngine();
     if (type === "dragStart") {
         clearEntityTooltip(entity, true);
-        entity._startPos = [...(entity.pos || [0,0])];
-        entity._startSize = [...(entity.size || [0,0])];
-        entity._deckDragAltActive = !!data.originalEvent?.altKey;
-        const sysBtn = entity.layout?.regions?.systemBtn;
-        if (sysBtn && entity.layout.hitTest(localMouse, sysBtn, Math.max(8, 8 / scale))) {
-            entity._pressedRegionKey = "systemBtn";
-            return true;
-        }
-        const hit = findHitRegion(entity.layout, localMouse, { allowDisabledDrag: true });
-        if (hit && !hit.reg.noDragLock) {
-            entity._pressedRegionKey = hit.key;
-            if (hit.reg.onDragStart) hit.reg.onDragStart(data.originalEvent, data);
-            entity._derpAwakeFrames = 15;
-            entity.setDirtyCanvas(true);
-            return true;
-        }
-        beginDockDrag(entity, deckEngine);
+        return handleShieldDragStart(entity, data, localMouse, scale, deckEngine);
     } else if (type === "resize" && !entity.isSystemPanel) {
         clearEntityTooltip(entity, true);
         handleNodeResize(entity, data, scale);
     } else if (type === "drag" && !entity.isSystemPanel) {
         clearEntityTooltip(entity, true);
-        if (entity._pressedRegionKey) {
-            const reg = entity.layout?.regions[entity._pressedRegionKey];
-            if (reg && reg.onDrag) reg.onDrag(data.originalEvent, data);
-            return false;
-        }
-        updateDockDrag(entity, deckEngine, data, scale);
+        return handleShieldDrag(entity, data, scale, deckEngine);
     } else if (type === "click" || type === "pointerup") {
         clearEntityTooltip(entity, true);
-        const key = entity._pressedRegionKey;
-        entity._pressedRegionKey = null;
-        if (key === "systemBtn") {
-            if (type === "click") toggleDerpSysPanel(entity);
-            if (app.graph && app.graph.change) app.graph.change();
-            return true;
-        }
-        const reg = entity.layout?.regions[key];
-        if (reg) {
-            if (reg.type === UI_TYPES.TOGGLE || reg.type === UI_TYPES.TOGGLE_V2) {
-                reg.value = !reg.value;
-
-                if (key === "togglePlaySound") {
-                    app.ui.settings.setSettingValue("Derp.PlaySound", reg.value);
-                }
-                if (key === "toggleUseAnimation") {
-                    app.ui.settings.setSettingValue("Derp.UseAnimation", reg.value);
-                }
-
-                if (reg.onChange) reg.onChange(reg.value, data.originalEvent, data);
-            }
-
-            // THE INTERACTION FIX: Allow Toggles to fire onPress callbacks.
-            // This prevents the framework from blocking manual property-flip logic in custom panels.
-            if (reg.onPress) {
-                reg.onPress(data.originalEvent, data);
-            } else if (reg.onClick) {
-                reg.onClick(data.originalEvent, data);
-            }
-            entity.setDirtyCanvas(true);
-            if (app.graph && app.graph.change) app.graph.change();
-            return true;
-        }
-
-        const header = entity.layout?.regions?.headerRegion;
-        const graph = app.graph || entity.graph || null;
-        const headerCollapseEnabled = window.DERP_GLOBAL_SETTINGS?.verticalDockHeaderCollapse ?? true;
-        const isVerticalDockHeaderHit = headerCollapseEnabled && header && graph && isLinearDeckGroup(entity, graph, "vertical") && entity.layout.hitTest(localMouse, header);
-        if (isVerticalDockHeaderHit) {
-            if (isPointerOverEditableTitleText(entity, localMouse)) {
-                return false;
-            }
-            const wasCollapsed = !!entity.properties?.contentCollapsed;
-            playRegionSound(entity.layout?.regions?.btnCollapse);
-            if (typeof entity.collapse === "function") entity.collapse();
-            else handleDerpCollapse(entity);
-            if (wasCollapsed) {
-                entity._derpAwakeFrames = Math.max(Number(entity._derpAwakeFrames || 0), 8);
-            }
-            entity.setDirtyCanvas(true, true);
-            if (app.graph && app.graph.change) app.graph.change();
-            return true;
-        }
+        return handleShieldClickOrPointerUp(entity, type, data, localMouse);
     } else if (type === "dblclick") {
         clearEntityTooltip(entity, true);
-        const hit = findHitRegion(entity.layout, localMouse);
-
-        if (hit && hit.reg.onDblClick) {
-            hit.reg.onDblClick(data.originalEvent, hit.reg, data);
-            if (app.graph && app.graph.change) app.graph.change();
-            return true;
-        }
-
-        const header = entity.layout?.regions?.headerRegion;
-        // THE BASTA PROTECTION: Only trigger the rename prompt for physical Graph Nodes.
-        if (header && entity.layout.hitTest(localMouse, header) && !entity.isSystemPanel && (entity.isFathaNode || entity.isUncleNode)) {
-            const currentTitle = entity.titleLabel || entity.type || "Node";
-            const newTitle = prompt("Rename Node:", currentTitle);
-
-            if (newTitle !== null && newTitle !== currentTitle) {
-                entity.titleLabel = newTitle;
-                // THE SERIALIZATION FIX: Persist renamed titles into the property block
-                entity.properties.titleLabel = newTitle;
-                if (typeof entity.syncDerpOutputs === "function") {
-                    entity.syncDerpOutputs();
-                }
-                if (typeof entity.refreshNodeLayoutMap === "function") {
-                    entity.refreshNodeLayoutMap();
-                }
-                entity.setDirtyCanvas(true, true);
-                if (app.graph && app.graph.change) app.graph.change();
-            }
-            return true;
-        }
+        return handleShieldDblClick(entity, data, localMouse);
     } else if (type === "hover") {
-        const sysBtn = entity.layout?.regions?.systemBtn;
-        const isOverSys = sysBtn && entity.layout.hitTest(localMouse, sysBtn, Math.max(8, 8 / scale));
-        const hit = findHitRegion(entity.layout, localMouse);
-        const hitType = hit?.reg?.type;
-        const isPickerRegion = hitType === UI_TYPES.DROPDOWN_DERP || hitType === UI_TYPES.DROPDOWN || hitType === UI_TYPES.FILEBROWSER;
-
-        if (entity.interactionShield) {
-            entity.interactionShield.style.cursor = (hit || isOverSys) ? "pointer" : "default";
-        }
-
-        const nextKey = isOverSys ? "systemBtn" : (hit ? hit.key : null);
-        if (entity._hoveredRegionKey !== nextKey) {
-            entity._hoveredRegionKey = nextKey;
-            entity._derpAwakeFrames = (entity?.properties?.optimizeHoverDirty !== false && !isPickerRegion) ? 1 : 5;
-            const isBasta = entity?.properties?.bastaSingleton !== undefined || entity?.properties?.bastaMovalbe !== undefined;
-            const useHoverFastPath = isBasta || ((entity?.properties?.optimizeHoverNoSync !== false) && !isPickerRegion);
-            if (!useHoverFastPath) {
-                entity._forceSync = true;
-                if (typeof entity.requestDerpSync === "function") entity.requestDerpSync();
-            }
-            if (entity?.properties?.optimizeHoverDirty !== false && !isPickerRegion) {
-                // Optional throttle: enable only for heavy nodes that benefit.
-                const frame = app.canvas?.frame;
-                if (frame === undefined || entity._lastHoverDirtyFrame !== frame) {
-                    entity._lastHoverDirtyFrame = frame;
-                    if (typeof entity.setDirtyCanvas === "function") entity.setDirtyCanvas(true, false);
-                    if (window.app && window.app.canvas) window.app.canvas.setDirty(true, false);
-                }
-            } else {
-                if (typeof entity.setDirtyCanvas === "function") entity.setDirtyCanvas(true, true);
-                if (window.app && window.app.canvas) window.app.canvas.setDirty(true, true);
-            }
-        }
-        handleTooltipHover(entity, nextKey, localMouse);
-    }else if (type === "dragEnd") {
+        handleShieldHover(entity, localMouse, scale);
+    } else if (type === "dragEnd") {
         clearEntityTooltip(entity, true);
-        endDockDrag(entity, deckEngine, data);
+        handleShieldDragEnd(entity, data, deckEngine);
     }
 }
 
@@ -1214,7 +766,6 @@ export function handleDrawCTX(entity, ctx, overlayPass = false) {
         const isCollapsed = !!entity.properties?.contentCollapsed;
         const paintOFF = resolvePaintData(entity, "canvas", isBypassed ? "_DIS" : "");
         const paintON = resolvePaintData(entity, "canvas", isBypassed ? "_DIS" : "_ON");
-        const paintDIS = resolvePaintData(entity, "canvas", "_DIS");
         const cornerOverride = getDeckCornerOverride(entity, app.graph || entity.graph || null);
         const applyNodeCornerOverride = (paint) => paint
             ? { ...paint, corners: applyCornerOverride(paint.corners || [8, 8, 8, 8], cornerOverride) }
@@ -1235,14 +786,14 @@ export function handleDrawCTX(entity, ctx, overlayPass = false) {
 
                 if (isCollapsed) {
                     const collapsedPaint = applyCollapsedCornerCap(
-                        applyNodeHeaderPalette(entity, { ...bodyPaint, corners: [cON[0], cON[1], cOFF[2], cOFF[3]] }, headerPaletteState, headerEffectPaint),
+                        applyNodeHeaderPalette(entity, { ...bodyPaint, corners: [cON[0], cON[1], cOFF[2], cOFF[3]] }, headerPaletteState, headerEffectPaint, getPaletteCache),
                         isCollapsed
                     );
                     masterPainter(targetCtx, { posX: 0, posY: 0, width: entity.size[0], height: entity.size[1], color: collapsedPaint.fill, paintData: collapsedPaint });
                 } else {
                     const splitY = header.y + header.h + (header.margin?.length === 4 ? header.margin[3] : (header.margin?.[1] || 0));
                     const headerBasePaint = { ...bodyPaint, corners: [cON[0], cON[1], 0, 0], border: null, shadow: null, glow: null };
-                    const headerPaint = applyNodeHeaderPalette(entity, headerBasePaint, headerPaletteState, headerEffectPaint);
+                    const headerPaint = applyNodeHeaderPalette(entity, headerBasePaint, headerPaletteState, headerEffectPaint, getPaletteCache);
                     masterPainter(targetCtx, { posX: 0, posY: 0, width: entity.size[0], height: splitY, color: headerPaint.fill, paintData: headerPaint });
 
                     const contentPaint = { ...bodyPaint, corners: [0, 0, cOFF[2], cOFF[3]], border: null, shadow: null, glow: null };
@@ -1321,7 +872,7 @@ export function handleDrawCTX(entity, ctx, overlayPass = false) {
                     entity._currentThemeName || "",
                     isSelected ? "selected" : "normal",
                     header ? `${header.y}_${header.h}_${header.margin?.join?.("_") || ""}` : "noheader",
-                    getNodeHeaderPaletteFingerprint(entity),
+                    getNodeHeaderPaletteFingerprint(entity, getPaletteCache),
                     cornerOverride ? cornerOverride.join("_") : "nocorners",
                     getPaintFingerprint(paintOFF),
                     getPaintFingerprint(paintON)
@@ -1363,128 +914,15 @@ export function handleDrawCTX(entity, ctx, overlayPass = false) {
 }
 
 export function handleThemeUpdate(node, config) {
-    if (!config || !config.themes) return;
-    const themeName = node.properties?.selectedTheme || node.properties?.selectedThemeName || node._selectedThemeName || config.activeTheme || "Template_Standard_v02";
-    const resolvedThemeKey = findCaseInsensitiveKey(config.themes, themeName) || themeName;
-    let theme = config.themes[resolvedThemeKey];
-    const defaultTheme = "_Templates/DerpTheme_Default";
-
-    if (themeName && themeName !== config.activeTheme) {
-        if (theme && config.themeSources?.[resolvedThemeKey] === "fallback") {
-            showPerNodeThemeStatusMessage(node, "fallback-loaded", themeName, resolvedThemeKey);
-        } else if (!theme) {
-            const resolvedDefaultTheme = findCaseInsensitiveKey(config.themes, defaultTheme) || defaultTheme;
-            const fallbackTheme = config.themes[resolvedDefaultTheme];
-            const fallbackSource = config.themeSources?.[resolvedDefaultTheme] || "unknown";
-            if (fallbackTheme) {
-                showPerNodeThemeStatusMessage(
-                    node,
-                    fallbackSource === "hardcoded" ? "hardcoded-switched" : "fallback-switched",
-                    themeName,
-                    resolvedDefaultTheme
-                );
-                theme = fallbackTheme;
-                if (node.properties?.selectedTheme !== undefined) node.properties.selectedTheme = resolvedDefaultTheme;
-                if (node.properties?.selectedThemeName !== undefined) node.properties.selectedThemeName = resolvedDefaultTheme;
-                if (node._selectedThemeName !== undefined) node._selectedThemeName = resolvedDefaultTheme;
-            } else {
-                showPerNodeThemeStatusMessage(node, "missing", themeName, "");
-            }
-        }
-    }
-
-    if (theme) {
-        if (node.properties?.selectedTheme !== undefined) node.properties.selectedTheme = resolvedThemeKey;
-        if (node.properties?.selectedThemeName !== undefined) node.properties.selectedThemeName = resolvedThemeKey;
-        if (node._selectedThemeName !== undefined) node._selectedThemeName = resolvedThemeKey;
-        Object.entries(theme).forEach(([key, val]) => {
-            if (key.startsWith("_") || typeof val !== 'object' || Array.isArray(val)) return;
-            invalidateCompiledThemeCache(val);
-            node[`_${key}PaintData`] = compileThemeData(val, key, "OFF");
-            node[`_${key}PaintData_ON`] = compileThemeData(val, key, "ON");
-            node[`_${key}PaintData_DIS`] = compileThemeData(val, key, "DIS");
-            if (sysPanel) {
-                sysPanel[`_${key}PaintData`] = node[`_${key}PaintData`];
-                sysPanel[`_${key}PaintData_ON`] = node[`_${key}PaintData_ON`];
-                sysPanel[`_${key}PaintData_DIS`] = node[`_${key}PaintData_DIS`];
-            }
-        });
-        const paletteName = typeof theme._palette === "string" ? theme._palette.trim() : "";
-        node._headerPaletteName = normalizePaletteName(paletteName);
-        if (node._headerPaletteName) loadDerpPalette(node._headerPaletteName);
-    }
-
-    if (node._derpBgCache) {
-        node._derpBgCache.key = "";
-    }
-    if (node.layout) {
-        node.layout._lastCacheKey = "";
-    }
-    if (node._compDataCache) {
-        node._compDataCache = {};
-    }
-    node._prevDerpState = null;
-    node._forceSync = true;
-
-    // THE UNIVERSAL AUTO-CLOSE: Immediately close all panels linked to this node when it undergoes a theme switch
-    if (window.xcpActiveBastas) {
-        window.xcpActiveBastas.forEach(basta => {
-            if (basta.hostNode === node) basta.close();
-        });
-    }
-
-    if (sysPanel.isVisible && sysPanel.hostNode === node) {
-        sysPanel._prevDerpState = null;
-        sysPanel._shouldSync = true;
-        sysPanel._layoutDirty = true;
-        closeDerpSysPanel();
-    }
-
-    node.setDirtyCanvas(true, true);
+    return handleThemeUpdateImpl(node, config, {
+        loadDerpPalette,
+    });
 }
 
 export function handleInitDerpGlobalListener(app) {
-    if (window._xcpDerpGlobalActive) return;
-
-    // THE STARTUP HYDRATION: Ensure nodes are localized on boot even without the panel
-    const initialLocale = app.ui.settings.getSettingValue("Comfy.Locale") || "en-US";
-    loadDerpLocale(initialLocale);
-
-    // THE PALETTE HYDRATION: Load the active palette on boot
-    const initialPalette = app.ui.settings.getSettingValue("Derp.Palette") || "Derp_Default_v01";
-    loadDerpPalette(initialPalette);
-
-    hydrateDerpBackgroundSetting();
-
-    // THE FOOLPROOF LIVE SYNC: ComfyUI's settings UI often bypasses the standard setter
-    // or fires while the graph is idle (so pipeline hooks fail). A lightweight interval is bulletproof.
-    let lastKnownLocale = initialLocale;
-    setInterval(() => {
-        if (!app.ui || !app.ui.settings) return;
-        const currentLocale = app.ui.settings.getSettingValue("Comfy.Locale");
-        if (currentLocale && currentLocale !== lastKnownLocale) {
-            lastKnownLocale = currentLocale;
-            loadDerpLocale(currentLocale);
-        }
-    }, 500);
-
-    const originalRefresh = app.refreshPipeline;
-    app.refreshPipeline = function() {
-        if (originalRefresh) originalRefresh.apply(this, arguments);
-        app.graph._nodes.forEach(node => {
-            // THE FAMILY FIX: Refresh both Fatha and Uncle identities
-            if ((node.isFathaNode || node.isUncleNode) && node.onThemeUpdate) {
-                node.onThemeUpdate(window.xcpDerpThemeConfig);
-            }
-        });
-
-        if (window.xcpActiveBastas) {
-            window.xcpActiveBastas.forEach(basta => basta.close());
-        }
-        if (sysPanel.isVisible) {
-            closeDerpSysPanel();
-        }
-    };
-
-    window._xcpDerpGlobalActive = true;
+    return handleInitDerpGlobalListenerImpl(app, {
+        loadDerpLocale,
+        loadDerpPalette,
+        hydrateDerpBackgroundSetting,
+    });
 }

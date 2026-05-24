@@ -4,10 +4,10 @@ import {
     getDeckParent,
     getDeckChildren,
     getDeckMembers,
-    getNodeOnDeckEdge,
     isLinearDeckGroup,
     isNodeDocked,
     syncDeckNodeSize,
+    masterDockEngine,
 } from "./masterDockEngine.js";
 import {
     getDockGroupAxisFromMembers,
@@ -16,10 +16,12 @@ import {
     getDockNodeMinWidth,
     getSharedDockHeight,
     resolveDockResizeDimensions,
+    resolveRuntimeDockSize,
     shouldPreserveDockHeight,
     shouldPreserveDockWidth,
 } from "./dockDimensions.js";
 import { dockDebug, snapshotDockNode } from "./dockDebugHelpers.js";
+import { getVirtualNodeLayoutMap } from "../helpers/fathaLayoutMaps.js";
 
 globalThis.DERP_DOCK_RESIZE_DEBUG = true;
 globalThis.DERP_DOCK_RESIZE_CONSOLE = false;
@@ -195,6 +197,322 @@ export function syncHorizontalDeckHeight(node, graph = app.graph || node?.graph 
     });
 
     return changed;
+}
+
+function getDockResizeEngine() {
+    if (!window.xcpMasterDeckEngine) {
+        window.xcpMasterDeckEngine = new masterDockEngine(app.graph || null);
+    }
+    if (window.xcpMasterDeckEngine?.setGraph) {
+        window.xcpMasterDeckEngine.setGraph(app.graph || null);
+    }
+    return window.xcpMasterDeckEngine;
+}
+
+export function settleDerpSizeBeforeDrawImpl(entity, options = {}, deps = {}) {
+    const { getDerpVars, animateDerpSize } = deps;
+    if (!entity?.layout || !entity?.properties || typeof getDerpVars !== "function" || typeof animateDerpSize !== "function") return;
+
+    if (entity.layout) entity.layout._lastCacheKey = "";
+    entity.layout.compute({ x: 0, y: 0, w: entity.size?.[0] || 0, h: entity.size?.[1] || 0 }, getVirtualNodeLayoutMap(entity), {
+        textTheme: entity._t_textSmallPaintData || entity._t_textNormalPaintData,
+        useAnim: false,
+        spawnAnim: false,
+        isVirtual: true,
+    }, true);
+
+    const { SNAP, autoWidth, autoHeight } = getDerpVars(entity);
+    const isMinState = entity.properties.contentCollapsed === true;
+    const contentReqW = entity.layout?.contentMinWidth || 0;
+    const engineFloorW = Math.ceil(contentReqW / SNAP) * SNAP;
+    const layoutTotalH = Number(entity.layout?.totalHeight) || 0;
+    const layoutContentH = Number(entity.layout?.contentMinHeight) || 0;
+    const forceAutoHeight = options?.forceAutoHeight === true;
+    const rawH = forceAutoHeight && !isMinState
+        ? (layoutContentH || layoutTotalH || 40)
+        : (isMinState && entity.properties?.useCollapsedTotalHeight === true)
+            ? (Math.max(layoutContentH, layoutTotalH) || 40)
+            : (layoutTotalH || layoutContentH || 40);
+    const engineFloorH = isMinState ? rawH : Math.ceil(rawH / SNAP) * SNAP;
+    const collapseMinimal = entity.properties?.collapseMinimal === true;
+    const targetW = (autoWidth || (isMinState && collapseMinimal)) ? engineFloorW : Math.max(entity.properties.nodeSize?.[0] || 0, engineFloorW);
+    const preserveCurrentHeight = options?.preserveCurrentHeight === true;
+    const currentH = Number(entity.size?.[1]) || Number(entity.properties.nodeSize?.[1]) || 0;
+    const targetH = preserveCurrentHeight
+        ? currentH
+        : (forceAutoHeight || autoHeight || isMinState) ? engineFloorH : Math.max(entity.properties.nodeSize?.[1] || 0, engineFloorH);
+
+    dockDebug("settle-before-draw", {
+        node: snapshotDockNode(entity),
+        options,
+        measured: {
+            contentReqW,
+            layoutContentH,
+            layoutTotalH,
+            engineFloorW,
+            engineFloorH,
+            preserveCurrentHeight,
+        },
+        target: { width: targetW, height: targetH },
+    });
+
+    animateDerpSize(entity, targetW, targetH, false, {
+        suppressRequestSync: options?.suppressRequestSync === true,
+    });
+}
+
+function settleCollapseSizeBeforeDrawImpl(entity, deps = {}) {
+    settleDerpSizeBeforeDrawImpl(entity, {
+        forceAutoHeight: entity?.properties?.contentCollapsed !== true && entity?.properties?.autoHeight !== false,
+    }, deps);
+}
+
+export function animateDerpSizeImpl(node, targetW, targetH, useAnim, options = {}, deps = {}) {
+    const { requestSyncFallback } = deps;
+    if (node.size[0] !== targetW || node.size[1] !== targetH) {
+        const prevH = Number(node.size?.[1]) || 0;
+        const graph = app.graph || node.graph || null;
+        const deltaH = (Number(targetH) || 0) - prevH;
+        const allowCollapseShift = node._allowDockCollapseShift === true;
+        const deckAnchor = (deltaH !== 0)
+            ? getPinnedVerticalDeckPositionAnchor(node, graph)
+            : null;
+        const shouldAnchorAfterReflow = !!deckAnchor && !allowCollapseShift;
+        dockDebug("animate-size-before", {
+            node: snapshotDockNode(node),
+            target: { width: targetW, height: targetH },
+            deltaH,
+            useAnim,
+            options,
+            allowCollapseShift,
+            hasDeckAnchor: !!deckAnchor,
+            shouldAnchorAfterReflow,
+        });
+        node.size[0] = targetW;
+        node.size[1] = targetH;
+        if (node.properties) node.properties.nodeSize = [targetW, targetH];
+        const shiftDirection = allowCollapseShift ? resolveCollapseShiftDirection(node, graph) : 0;
+        const skipCollapseShift = node._skipNextAnimateCollapseShift === true;
+        if (skipCollapseShift) node._skipNextAnimateCollapseShift = false;
+        if (!skipCollapseShift && deltaH !== 0 && shiftDirection !== 0) {
+            node.pos[1] = (Number(node.pos?.[1]) || 0) + (deltaH * shiftDirection);
+        }
+        const isVerticalDeck = graph && isLinearDeckGroup(node, graph, "vertical");
+        const heightChanged = deltaH !== 0;
+        const shouldReflow = allowCollapseShift || (isVerticalDeck && heightChanged);
+
+        if (graph && shouldReflow) {
+            const moved = getDockResizeEngine()?.reflowChildren?.(node) || [];
+            dockDebug("animate-size-reflow", {
+                node: snapshotDockNode(node),
+                moved: moved.map(snapshotDockNode),
+                shouldAnchorAfterReflow,
+            });
+            if (shouldAnchorAfterReflow) {
+                restorePinnedVerticalDeckPositionAnchor(deckAnchor);
+            }
+            moved.forEach((child) => {
+                if (typeof child.syncUncleSlots === "function") child.syncUncleSlots();
+                if (typeof child.setDirtyCanvas === "function") child.setDirtyCanvas(true, true);
+            });
+        }
+        dockDebug("animate-size-after", {
+            node: snapshotDockNode(node),
+            graphMembers: graph ? getDeckMembers(node, graph).map(snapshotDockNode) : [],
+        });
+        if (options?.suppressRequestSync !== true) {
+            if (node.requestDerpSync) node.requestDerpSync();
+            else if (typeof requestSyncFallback === "function") requestSyncFallback(node);
+        }
+    }
+
+    if (node?.properties?.contentCollapsed !== true && Number(targetH) > 0) {
+        node._preCollapseHeight = Math.max(Number(node._preCollapseHeight || 0), Number(targetH));
+    }
+}
+
+export function resolveDerpRuntimeSizeImpl(node, measured, vars = {}) {
+    const graph = app.graph || node?.graph || null;
+    const axis = graph && node ? getDockGroupAxisFromMembers(getDeckMembers(node, graph)) : null;
+    return resolveRuntimeDockSize(node, axis, measured, vars);
+}
+
+export function resolveHorizontalDeckSharedHeightImpl(node, deps = {}) {
+    const { getDerpVars } = deps;
+    const graph = app.graph || node?.graph || null;
+    if (!graph || !node || typeof getDerpVars !== "function") return 0;
+
+    const members = getDeckMembers(node, graph);
+    if (!Array.isArray(members) || members.length === 0) return 0;
+
+    return members.reduce((maxHeight, member) => {
+        const memberVars = typeof member?.getDerpVars === "function"
+            ? member.getDerpVars(member)
+            : getDerpVars(member);
+        const measured = {
+            contentMinWidth: member?.layout?.contentMinWidth || 0,
+            contentMinHeight: member?.layout?.contentMinHeight || 0,
+            totalHeight: member?.layout?.totalHeight || 0,
+        };
+        const resolved = resolveRuntimeDockSize(member, "horizontal", measured, {
+            ...memberVars,
+            autoHeight: true,
+        });
+        const memberHeight = Number(resolved?.height)
+            || Number(member?.size?.[1])
+            || Number(member?.properties?.nodeSize?.[1])
+            || 0;
+        return Math.max(maxHeight, memberHeight);
+    }, 0);
+}
+
+export function handleDerpComputeSizeImpl(entity, out, minWidth = 100) {
+    const minW = entity.layout?.contentMinWidth || minWidth;
+    const minH = entity.layout?.totalHeight || 40;
+    if (out) {
+        out[0] = minW;
+        out[1] = minH;
+        return out;
+    }
+    return [minW, minH];
+}
+
+export function handleDerpCollapseImpl(entity, force, deps = {}) {
+    const { requestSyncFallback, settleDerpSizeBeforeDraw, resolveHorizontalDeckSharedHeight, syncHorizontalDeckHeight, closeSysPanel } = deps;
+    const nextState = force !== undefined ? force : !entity.properties.contentCollapsed;
+    const graph = app.graph || entity.graph || null;
+    const isHorizontalDeckGroup = !!(graph && isLinearDeckGroup(entity, graph, "horizontal"));
+    const syncedCollapseEnabled = window.DERP_GLOBAL_SETTINGS?.syncedCollapse ?? true;
+    const collapseTargets = (syncedCollapseEnabled && isHorizontalDeckGroup)
+        ? getDeckMembers(entity, graph)
+        : [entity];
+    const orderedCollapseTargets = (syncedCollapseEnabled && isHorizontalDeckGroup && nextState === false)
+        ? [...collapseTargets].sort((a, b) => {
+            const ax = Number(a?.pos?.[0]) || 0;
+            const bx = Number(b?.pos?.[0]) || 0;
+            if (ax !== bx) return bx - ax;
+            return (Number(b?.id) || 0) - (Number(a?.id) || 0);
+        })
+        : collapseTargets;
+
+    const settleDeps = {
+        getDerpVars: deps.getDerpVars,
+        animateDerpSize: deps.animateDerpSize,
+    };
+
+    const applyCollapseState = (target) => {
+        if (!target?.properties) target.properties = {};
+
+        if (nextState === true && !target.properties.contentCollapsed) {
+            if (typeof closeSysPanel === "function") closeSysPanel(target);
+            if (target.properties.autoHeight === false) {
+                const storedManualHeight = Number(target.properties?.nodeSize?.[1] || 0);
+                const liveHeight = Number(target.size?.[1] || 0);
+                target.properties._savedExpandedHeight = storedManualHeight > 0
+                    ? storedManualHeight
+                    : liveHeight;
+            }
+            target._preCollapseHeight = Math.max(
+                Number(target._preCollapseHeight || 0),
+                Number(target.size?.[1] || 0),
+                Number(target.properties?.nodeSize?.[1] || 0),
+                Number(target.layout?.totalHeight || 0),
+                Number(target.layout?.contentMinHeight || 0)
+            );
+        }
+
+        target.properties.contentCollapsed = nextState;
+        if (nextState === false && target.properties.autoHeight === false) {
+            const savedExpandedHeight = Number(target.properties._savedExpandedHeight || 0);
+            if (savedExpandedHeight > 0) {
+                if (!Array.isArray(target.properties.nodeSize)) {
+                    target.properties.nodeSize = [
+                        Number(target.size?.[0] || 0),
+                        savedExpandedHeight,
+                    ];
+                } else {
+                    target.properties.nodeSize[1] = savedExpandedHeight;
+                }
+                if (Array.isArray(target.size) && savedExpandedHeight > 0) {
+                    target.size[1] = savedExpandedHeight;
+                }
+            }
+        }
+        if (!target.flags) target.flags = {};
+        target.flags.collapsed = false;
+        target._allowDockCollapseShift = true;
+        try {
+            settleCollapseSizeBeforeDrawImpl(target, settleDeps);
+        } finally {
+            target._allowDockCollapseShift = false;
+        }
+
+        if (target.syncUncleSlots) target.syncUncleSlots();
+        if (target.requestDerpSync) target.requestDerpSync();
+        else if (typeof requestSyncFallback === "function") requestSyncFallback(target);
+    };
+
+    orderedCollapseTargets.forEach(applyCollapseState);
+
+    if (syncedCollapseEnabled && isHorizontalDeckGroup && typeof resolveHorizontalDeckSharedHeight === "function" && typeof syncHorizontalDeckHeight === "function") {
+        const sharedHeight = resolveHorizontalDeckSharedHeight(entity);
+        if (sharedHeight > 0) {
+            syncHorizontalDeckHeight(entity, sharedHeight);
+        }
+    }
+
+    if (app.graph && app.graph.change) app.graph.change();
+}
+
+export function handleHorizontalDeckTitleToggleImpl(entity, deps = {}) {
+    const { requestSyncFallback, settleDerpSizeBeforeDraw, resolveHorizontalDeckSharedHeight, syncHorizontalDeckHeight } = deps;
+    const graph = app.graph || entity?.graph || null;
+    if (!graph || !entity || !isLinearDeckGroup(entity, graph, "horizontal")) {
+        if (entity?.requestDerpSync) entity.requestDerpSync();
+        else if (entity && typeof requestSyncFallback === "function") requestSyncFallback(entity);
+        return;
+    }
+
+    const members = getDeckMembers(entity, graph);
+    if (!Array.isArray(members) || members.length <= 1) {
+        if (entity?.requestDerpSync) entity.requestDerpSync();
+        else if (entity && typeof requestSyncFallback === "function") requestSyncFallback(entity);
+        return;
+    }
+
+    const orderedMembers = [...members].sort((a, b) => {
+        const ax = Number(a?.pos?.[0]) || 0;
+        const bx = Number(b?.pos?.[0]) || 0;
+        if (ax !== bx) return bx - ax;
+        return (Number(b?.id) || 0) - (Number(a?.id) || 0);
+    });
+
+    orderedMembers.forEach((member) => {
+        if (!member?.properties) member.properties = {};
+        if (member.layout) member.layout._lastCacheKey = "";
+        member._layoutMapHash = null;
+        if (typeof settleDerpSizeBeforeDraw === "function") {
+            settleDerpSizeBeforeDraw(member, {
+                forceAutoHeight: member.properties?.autoHeight !== false,
+                suppressRequestSync: true,
+            });
+        }
+        if (member.syncUncleSlots) member.syncUncleSlots();
+    });
+
+    if (typeof resolveHorizontalDeckSharedHeight === "function" && typeof syncHorizontalDeckHeight === "function") {
+        const sharedHeight = resolveHorizontalDeckSharedHeight(entity);
+        if (sharedHeight > 0) {
+            syncHorizontalDeckHeight(entity, sharedHeight);
+        }
+    }
+
+    orderedMembers.forEach((member) => {
+        if (member.requestDerpSync) member.requestDerpSync();
+        else if (typeof requestSyncFallback === "function") requestSyncFallback(member);
+    });
+
+    if (app.graph && app.graph.change) app.graph.change();
 }
 
 function normalizeHorizontalMemberPositions(anchorNode, graph) {

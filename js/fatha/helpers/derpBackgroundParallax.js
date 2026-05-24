@@ -1,14 +1,104 @@
+import { app } from "../../../../scripts/app.js";
+
 export const DERP_BACKGROUND_PARALLAX_CONFIG = {
-    initialScale: 1.4,
+    initialScale: 1.5,
     panStrengthX: 0.1,
     panStrengthY: 0.1,
-    zoomStrength: 0.11,
+    zoomStrength: 0.12,
     zoomMin: 0.88,
     zoomMax: 1.2,
 };
 
 function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
+}
+
+function ensureDerpBackgroundLayerImpl() {
+    if (window.__xcpDerpBackgroundLayer && document.body?.contains(window.__xcpDerpBackgroundLayer)) {
+        ensureDerpBackgroundParallax(window.__xcpDerpBackgroundLayer, () => ({ ds: app?.canvas?.ds || null }));
+        return window.__xcpDerpBackgroundLayer;
+    }
+
+    const layer = document.createElement("div");
+    layer.id = "xcp-derp-background-layer";
+    layer.style.position = "fixed";
+    layer.style.inset = "0";
+    layer.style.pointerEvents = "none";
+    layer.style.overflow = "hidden";
+    layer.style.zIndex = "-1";
+    layer.style.opacity = "1";
+    layer.style.display = "none";
+    document.documentElement.style.background = "transparent";
+    document.body.style.background = "transparent";
+    const canvasEl = app?.canvas?.canvas;
+    if (canvasEl?.parentElement) {
+        canvasEl.parentElement.insertBefore(layer, canvasEl);
+        if (!canvasEl.parentElement.style.position) {
+            canvasEl.parentElement.style.position = "relative";
+        }
+        canvasEl.style.position = canvasEl.style.position || "relative";
+        canvasEl.style.zIndex = "1";
+    } else {
+        document.body.appendChild(layer);
+    }
+    window.__xcpDerpBackgroundLayer = layer;
+    ensureDerpBackgroundParallax(layer, () => ({ ds: app?.canvas?.ds || null }));
+    return layer;
+}
+
+function ensureDerpBackgroundCanvasTransparencyImpl() {
+    const canvasEl = app?.canvas?.canvas;
+    if (!canvasEl) return;
+
+    canvasEl.style.background = "transparent";
+    canvasEl.style.position = canvasEl.style.position || "relative";
+    canvasEl.style.zIndex = "1";
+    const layer = window.__xcpDerpBackgroundLayer;
+    if (layer && canvasEl.parentElement && layer.parentElement !== canvasEl.parentElement) {
+        canvasEl.parentElement.insertBefore(layer, canvasEl);
+        if (!canvasEl.parentElement.style.position) {
+            canvasEl.parentElement.style.position = "relative";
+        }
+    }
+}
+
+export function applyDerpBackgroundImageImpl(backgroundName = "") {
+    const layer = ensureDerpBackgroundLayerImpl();
+    const normalized = String(backgroundName || "").trim();
+    window.xcpActiveBackgroundName = normalized;
+
+    if (!normalized || normalized.toLowerCase() === "none") {
+        layer.style.display = "none";
+        setDerpBackgroundParallaxImage(layer, "");
+        return;
+    }
+
+    const imageUrl = `/xcp/get_background?name=${encodeURIComponent(normalized)}`;
+    layer.style.display = "block";
+    setDerpBackgroundParallaxImage(layer, imageUrl);
+    ensureDerpBackgroundCanvasTransparencyImpl();
+    syncDerpBackgroundParallax(layer);
+}
+
+export async function hydrateDerpBackgroundSettingImpl(settingId = "Derp.BackgroundImage") {
+    const initialValue = app.ui?.settings?.getSettingValue?.(settingId, "none") || "none";
+    applyDerpBackgroundImageImpl(initialValue);
+
+    try {
+        const response = await fetch("/xcp/list/backgrounds");
+        if (!response.ok) throw new Error("Failed to list backgrounds");
+        const result = await response.json();
+        const items = Array.isArray(result?.items) ? result.items.slice().sort((a, b) => String(a).localeCompare(String(b))) : [];
+        window.__xcpDerpBackgroundOptions = [
+            { value: "none", text: "None" },
+            ...items.map(name => ({ value: name, text: name }))
+        ];
+        return window.__xcpDerpBackgroundOptions;
+    } catch (error) {
+        console.error("[xcpDerp] Background list load failed", error);
+        window.__xcpDerpBackgroundOptions = [{ value: "none", text: "None" }];
+        return window.__xcpDerpBackgroundOptions;
+    }
 }
 
 function getLayerState(layer) {
