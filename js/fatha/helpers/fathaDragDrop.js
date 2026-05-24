@@ -12,6 +12,22 @@ const STACK_DRAG_HOLD_BOX_PX = 5;
 const STACK_DRAG_HOLD_BOX_HALF = STACK_DRAG_HOLD_BOX_PX / 2;
 const STACK_DRAG_RELEASE_LOCK_MS = 120;
 
+function activateStackDrag(node) {
+    if (!node?._dragTrig || node._dragThresholdMet) return;
+
+    if (node._dragHoldTimer) {
+        clearTimeout(node._dragHoldTimer);
+        node._dragHoldTimer = null;
+    }
+
+    node._dragThresholdMet = true;
+    if (node._dragTrig?.regionKey) node._pressedRegionKey = node._dragTrig.regionKey;
+    if (window.DERP_GLOBAL_SETTINGS?.playSound && SOUND_INDEX.pickup) SOUND_INDEX.pickup();
+    if (node.refreshNodeLayoutMap) node.refreshNodeLayoutMap();
+    if (node.requestDerpSync) node.requestDerpSync();
+    if (node.setDirtyCanvas) node.setDirtyCanvas(true);
+}
+
 function finalizeHorizontalStackStructure(node) {
     if (!node || typeof shouldPreserveHorizontalDeckHeight !== "function" || !shouldPreserveHorizontalDeckHeight(node)) return;
     const graph = app.graph || node.graph || null;
@@ -70,14 +86,7 @@ export function startStackDrag(node, data, index, regionKey) {
 
     if (node._dragHoldTimer) clearTimeout(node._dragHoldTimer);
     node._dragHoldTimer = setTimeout(() => {
-        if (node._dragTrig) {
-            node._dragThresholdMet = true;
-            if (regionKey) node._pressedRegionKey = regionKey;
-            if (window.DERP_GLOBAL_SETTINGS?.playSound && SOUND_INDEX.pickup) SOUND_INDEX.pickup();
-            if (node.refreshNodeLayoutMap) node.refreshNodeLayoutMap();
-            if (node.requestDerpSync) node.requestDerpSync();
-            if (node.setDirtyCanvas) node.setDirtyCanvas(true);
-        }
+        activateStackDrag(node);
     }, 500);
 }
 
@@ -95,9 +104,9 @@ export function updateStackDrag(node, data, regionPrefix, itemCount) {
         const driftX = Math.abs(data.localX - node._dragMouse[0]);
         const driftY = Math.abs(data.localY - node._dragMouse[1]);
         if (driftX > STACK_DRAG_HOLD_BOX_HALF || driftY > STACK_DRAG_HOLD_BOX_HALF) {
-            endStackDrag(node, "");
+            activateStackDrag(node);
         }
-        return;
+        if (!node._dragThresholdMet) return;
     }
 
     node._dragMouse = [data.localX, data.localY];

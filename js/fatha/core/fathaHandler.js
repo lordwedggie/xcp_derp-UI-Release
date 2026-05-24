@@ -8,7 +8,7 @@ import { syncDerpShield } from "./fathaDOMshield.js";
 import { toggleDerpSysPanel, sysPanel, closeDerpSysPanel } from "../helpers/fathaSysPanel.js";
 import { masterPainter, compileThemeData, invalidateCompiledThemeCache } from "../../herbina/masterPainter.js";
 import { UI_TYPES, COMPONENT_BLUEPRINTS } from "./masterLayoutTypes.js";
-import { resolvePaintData } from "../../herbina/utils/widgetsUtils.js";
+import { measureTextWidth, resolvePaintData } from "../../herbina/utils/widgetsUtils.js";
 import { beginDockDrag, updateDockDrag, endDockDrag } from "./dockDrag.js";
 import { handleNodeResize } from "./fathaNodeResize.js";
 import { getPinnedVerticalDeckAnchor, getPinnedVerticalDeckPositionAnchor, restorePinnedVerticalDeckAnchor, restorePinnedVerticalDeckPositionAnchor, resolveCollapseShiftDirection, syncHorizontalDeckHeight as syncHorizontalDeckHeightForGraph } from "./dockResize.js";
@@ -153,6 +153,24 @@ function getTooltipState(entity) {
         };
     }
     return entity._xcpTooltipState;
+}
+
+function isPointerOverEditableTitleText(entity, localMouse) {
+    const titleReg = entity?.layout?.regions?.titleLabel;
+    if (!titleReg || !Array.isArray(localMouse)) return false;
+    if (!entity.layout?.hitTest?.(localMouse, titleReg)) return false;
+
+    const paintData = resolvePaintData(entity, "t_textBig");
+    const fontSize = paintData?.fontSize || 14;
+    const font = paintData?.font || "arial";
+    const text = String(entity?.titleLabel || entity?.title || "Virtual Node");
+    const textW = measureTextWidth(text, fontSize, font, paintData?.fontWeight || "normal");
+    const padX = Array.isArray(titleReg.padding)
+        ? (titleReg.padding.length === 4 ? (titleReg.padding[0] || 0) : (titleReg.padding[0] || 0))
+        : 0;
+    const startX = titleReg.x + padX;
+    const pointerX = Number(localMouse[0]);
+    return pointerX >= startX && pointerX <= (startX + textW);
 }
 
 function clearTooltipTimer(state) {
@@ -1093,7 +1111,11 @@ export function handleShieldInteraction(entity, type, data = {}) {
         const header = entity.layout?.regions?.headerRegion;
         const graph = app.graph || entity.graph || null;
         const headerCollapseEnabled = window.DERP_GLOBAL_SETTINGS?.verticalDockHeaderCollapse ?? true;
-        if (headerCollapseEnabled && header && graph && isLinearDeckGroup(entity, graph, "vertical") && entity.layout.hitTest(localMouse, header)) {
+        const isVerticalDockHeaderHit = headerCollapseEnabled && header && graph && isLinearDeckGroup(entity, graph, "vertical") && entity.layout.hitTest(localMouse, header);
+        if (isVerticalDockHeaderHit) {
+            if (isPointerOverEditableTitleText(entity, localMouse)) {
+                return false;
+            }
             const wasCollapsed = !!entity.properties?.contentCollapsed;
             playRegionSound(entity.layout?.regions?.btnCollapse);
             if (typeof entity.collapse === "function") entity.collapse();
