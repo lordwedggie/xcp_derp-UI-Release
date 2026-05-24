@@ -76,6 +76,59 @@ def load_checkpoint_models(ckpt_name, registry):
     registry[cache_key] = (m, c, v)
     return safe_clone(m), safe_clone(c), safe_clone(v)
 
+def normalize_weight_dtype(weight_dtype):
+    if weight_dtype in [None, "", "default", "auto", "Auto"]:
+        return None
+    if not isinstance(weight_dtype, str):
+        return None
+    dtype_map = {
+        "fp8_e4m3fn": torch.float8_e4m3fn if hasattr(torch, "float8_e4m3fn") else None,
+        "fp8_e5m2": torch.float8_e5m2 if hasattr(torch, "float8_e5m2") else None,
+        "bf16": torch.bfloat16,
+        "fp16": torch.float16,
+        "fp32": torch.float32,
+    }
+    return dtype_map.get(weight_dtype)
+
+def find_full_path_from_categories(filename, *categories):
+    if not filename:
+        return None
+    for category in categories:
+        try:
+            path = folder_paths.get_full_path(category, filename)
+        except Exception:
+            path = None
+        if path:
+            return path
+    return None
+
+def load_diffusion_and_clip(diffusion_name, text_encoder_name, registry, weight_dtype=None):
+    if not diffusion_name or not text_encoder_name:
+        return None, None
+    cache_key = f"DIFFUSION:{diffusion_name}|CLIP:{text_encoder_name}|DTYPE:{weight_dtype or 'auto'}"
+    cached = registry.get(cache_key)
+    if cached is not None:
+        model, clip = cached
+        return safe_clone(model), safe_clone(clip)
+
+    diffusion_path = find_full_path_from_categories(diffusion_name, "diffusion_models", "unet")
+    text_encoder_path = find_full_path_from_categories(text_encoder_name, "text_encoders")
+    if not diffusion_path or not text_encoder_path:
+        return None, None
+
+    model_options = {}
+    resolved_dtype = normalize_weight_dtype(weight_dtype)
+    if resolved_dtype is not None:
+        model_options["weight_dtype"] = resolved_dtype
+
+    model = comfy.sd.load_diffusion_model(diffusion_path, model_options=model_options)
+    clip = comfy.sd.load_clip(
+        ckpt_paths=[text_encoder_path],
+        embedding_directory=folder_paths.get_folder_paths("embeddings")
+    )
+    registry[cache_key] = (model, clip)
+    return safe_clone(model), safe_clone(clip)
+
 def process_signal_fallback(val, sig_type, registry):
     # IMAGE FALLBACK
     if "IMAGE" in sig_type:
@@ -181,6 +234,20 @@ def process_signal_fallback(val, sig_type, registry):
                     return c
                 if "VAE" in sig_type and v is not None:
                     return v
+            return None
+
+        # Diffusion-family payload
+        if isinstance(val, dict) and (val.get("diffusion_name") or val.get("text_encoder_name")):
+            model, clip = load_diffusion_and_clip(
+                val.get("diffusion_name"),
+                val.get("text_encoder_name"),
+                registry,
+                val.get("weight_dtype")
+            )
+            if "MODEL" in sig_type and model is not None:
+                return model
+            if "CLIP" in sig_type and clip is not None:
+                return clip
             return None
 
         # Plain checkpoint name (string) or dict with ckpt_name

@@ -100,7 +100,7 @@ class xcpDerpSignalOut:
                 is_complex = any(x in sig_type for x in ["MODEL", "CLIP", "VAE", "IMAGE", "LATENT", "MASK", "CONDITIONING", "AUDIO"])
 
                 if is_complex:
-                    is_payload = isinstance(val, dict) and any(k in val for k in ["model_name_prefix", "ckpt_name", "stack", "triggers"])
+                    is_payload = isinstance(val, dict) and any(k in val for k in ["model_name_prefix", "ckpt_name", "stack", "triggers", "diffusion_name", "text_encoder_name"])
                     is_media = isinstance(val, dict) and ("samples" in val or "waveform" in val)
 
                     if not is_live and not is_media and not is_payload:

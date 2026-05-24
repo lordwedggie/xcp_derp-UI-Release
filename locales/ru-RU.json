@@ -330,6 +330,55 @@
       "unknown_node": "Unknown"
     }
   },
+  "derp_diffusion_loader": {
+    "title": "Derp Diffusion Loader",
+    "browser": {
+      "diffusion_root_name": "diffusion_models + unet",
+      "text_encoder_root_name": "text_encoders",
+      "select_diffusion": "Select Diffusion...",
+      "select_text_encoder": "Select Text Encoder...",
+      "refresh": "Refresh"
+    },
+    "system": {
+      "properties": "Custom node properties:",
+      "show_folder_names": "Show Folder Names",
+      "weight_dtype": "Weight DType"
+    },
+    "ports": {
+      "model": "Model",
+      "clip": "Clip"
+    },
+    "dialogs": {
+      "remove_diffusion": {
+        "title": "Remove Diffusion",
+        "message_prefix": "Remove",
+        "message_suffix": "from deck?",
+        "confirm": "Remove"
+      },
+      "remove_text_encoder": {
+        "title": "Remove Text Encoder",
+        "message_prefix": "Remove",
+        "message_suffix": "from deck?",
+        "confirm": "Remove"
+      },
+      "clear_diffusion_deck": {
+        "title": "Clear Diffusion Deck",
+        "message": "Clear the diffusion deck?",
+        "confirm": "Clear"
+      },
+      "clear_text_encoder_deck": {
+        "title": "Clear Text Encoder Deck",
+        "message": "Clear the text encoder deck?",
+        "confirm": "Clear"
+      }
+    },
+    "messages": {
+      "relinked_diffusions_prefix": "Diffusions Re-linked: ",
+      "relinked_text_encoders_prefix": "Text Encoders Re-linked: ",
+      "missing_diffusions_prefix": "Missing Diffusions Purged: ",
+      "missing_text_encoders_prefix": "Missing Text Encoders Purged: "
+    }
+  },
   "derp_prompt_book": {
     "title": "Derp Prompt Book",
     "signal": {

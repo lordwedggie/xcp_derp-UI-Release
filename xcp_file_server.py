@@ -137,6 +137,9 @@ CATEGORIES = {
     "books": PROMPT_BOOK_DIR, # THE COMPATIBILITY FIX: Add 'books' alias for legacy URL requests
     "locales": LOCALE_DIR,
     "models": folder_paths.get_folder_paths("checkpoints")[0],
+    "diffusion_models": folder_paths.get_folder_paths("diffusion_models")[0],
+    "unet": folder_paths.get_folder_paths("unet")[0],
+    "text_encoders": folder_paths.get_folder_paths("text_encoders")[0],
     "vaes": folder_paths.get_folder_paths("vae")[0],
     "output": folder_paths.get_output_directory(),
     "triggerWall": TRIGGER_WALL_DIR,
@@ -187,6 +190,7 @@ print(f"✅ [xcpDerp] Server Initialized (Namespace Pattern).")
 async def list_files(request):
     category = request.match_info.get("category")
     target_dir = get_category_dir(category)
+    model_categories = {"models", "vaes", "diffusion_models", "unet", "text_encoders"}
     # THE VIRTUAL CATEGORY FIX: Dynamically resolve LoRA sidecar path for trigger file management
     if category == "lora_triggers":
         name = request.query.get("name")
@@ -197,6 +201,10 @@ async def list_files(request):
                 os.makedirs(target_dir, exist_ok=True)
     if not target_dir: return web.json_response({"error": "Invalid category"}, status=400)
     try:
+        if category in model_categories:
+            items = folder_paths.get_filename_list(category)
+            return attach_fallback_header(web.json_response({"items": items}))
+
         items = []
         seen = set()
         search_roots = get_theme_search_dirs() if category == "themes" else get_palette_search_dirs() if category == "palettes" else get_background_search_dirs() if category == "backgrounds" else [target_dir]
@@ -218,12 +226,12 @@ async def list_files(request):
                             items.append(rel_dir)
 
                 for f in files:
-                    # THE EXTENSION FILTER FIX: Allow model files (.safetensors, .ckpt, .pt) for the 'models' and 'vaes' categories
-                    valid_exts = (".safetensors", ".ckpt", ".pt") if category in ["models", "vaes"] else ((".jpg", ".jpeg", ".png", ".webp") if category == "backgrounds" else (".txt" if category == "lora_triggers" else ".json"))
+                    # THE EXTENSION FILTER FIX: Allow model files (.safetensors, .ckpt, .pt) for model categories
+                    valid_exts = (".safetensors", ".ckpt", ".pt") if category in ["models", "vaes", "diffusion_models", "unet", "text_encoders"] else ((".jpg", ".jpeg", ".png", ".webp") if category == "backgrounds" else (".txt" if category == "lora_triggers" else ".json"))
                     if f.lower().endswith(valid_exts):
                         rel_path = os.path.relpath(os.path.join(root, f), search_root)
 
-                        if category in ["models", "vaes", "backgrounds"]:
+                        if category in ["models", "vaes", "diffusion_models", "unet", "text_encoders", "backgrounds"]:
                             clean_item = rel_path.replace("\\", "/")
                         else:
                             clean_item = os.path.splitext(rel_path)[0].replace("\\", "/")

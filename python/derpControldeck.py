@@ -120,6 +120,19 @@ class DerpModelLoaderNode:
         # THE PURE VIRTUAL FIX: Return None to force wireless signal handling
         return (None, None, None)
 
+class DerpDiffusionLoaderNode:
+    @classmethod
+    def INPUT_TYPES(s):
+        return {"required": {}}
+
+    RETURN_TYPES = ("MODEL", "CLIP")
+    RETURN_NAMES = ("model", "clip")
+    FUNCTION = "do_nothing"
+    CATEGORY = "🔞 derpNodes/ControlDeck"
+
+    def do_nothing(self):
+        return (None, None)
+
 # THE NEW FATHA CHILD: Pure virtual vae loader shell
 class DerpVaeLoaderNode:
     @classmethod
@@ -261,6 +274,7 @@ NODE_CLASS_MAPPINGS = {
     "DerpPromptBookNode": DerpPromptBookNode,
     "DerpLatentNode": DerpLatentNode,
     "DerpModelLoaderNode": DerpModelLoaderNode,
+    "DerpDiffusionLoaderNode": DerpDiffusionLoaderNode,
     "DerpVaeLoaderNode": DerpVaeLoaderNode,
     "derpSamplerLoader": derpSamplerLoader,
     "derpSchedulerLoader": derpSchedulerLoader,
@@ -276,6 +290,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "DerpPromptBookNode": "Derp Prompt Book",
     "DerpLatentNode": "Derp Latent",
     "DerpModelLoaderNode": "Derp Model Loader",
+    "DerpDiffusionLoaderNode": "Derp Diffusion Loader",
     "DerpVaeLoaderNode": "Derp Vae Loader",
     "derpSamplerLoader": "Derp Sampler Loader",
     "derpSchedulerLoader": "Derp Scheduler Loader",

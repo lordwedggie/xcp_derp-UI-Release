@@ -25,10 +25,10 @@ function syncDerpRouterLocaleLabels(node) {
     const localizedSelectSignal = tLocale("$derp_router.signals.select", "Select signal...");
     const previousLocalizedSelectSignal = node._lastLocalizedDerpRouterSelectSignal;
 
-    if (!node.titleLabel || node.titleLabel === "Derp Router" || (previousLocalizedTitle && node.titleLabel === previousLocalizedTitle)) {
+    if (!node.titleLabel || node.titleLabel === "Node" || node.titleLabel === "Derp Router" || (previousLocalizedTitle && node.titleLabel === previousLocalizedTitle)) {
         node.titleLabel = localizedTitle;
     }
-    if (!node.properties.titleLabel || node.properties.titleLabel === "Derp Router" || (previousLocalizedTitle && node.properties.titleLabel === previousLocalizedTitle)) {
+    if (!node.properties.titleLabel || node.properties.titleLabel === "Node" || node.properties.titleLabel === "Derp Router" || (previousLocalizedTitle && node.properties.titleLabel === previousLocalizedTitle)) {
         node.properties.titleLabel = localizedTitle;
     }
     if (!node.properties.selectedSignalLabel || node.properties.selectedSignalLabel === "Select signal..." || (previousLocalizedSelectSignal && node.properties.selectedSignalLabel === previousLocalizedSelectSignal)) {
@@ -608,6 +608,7 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                 nodeType.prototype.onConfigure = function(info) {
                     if (onConf) onConf.apply(this, arguments);
                     this.suppressDefaultWidgets();
+                    syncDerpRouterLocaleLabels(this);
 
                     if (info.properties) {
                         if (info.properties.activeOutputsData) {
