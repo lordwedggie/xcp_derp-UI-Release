@@ -154,7 +154,34 @@ export function createFileBrowser(callbacks = {}) {
     const glyphs = (Array.isArray(iconEntry) && iconEntry.length >= 2)
         ? iconEntry
         : FILEBROWSER_ICON_MAP.fallback;
-    return createHybridDropdownHTML(callbacks, glyphs);
+    const el = createHybridDropdownHTML(callbacks, glyphs);
+    el._iconName = iconName;
+    return el;
+}
+
+export function ensureFileBrowserBinding(node, app, config) {
+    if (!node || !config?.key) return null;
+    if (!node._derpDomElements) node._derpDomElements = {};
+    let el = node._derpDomElements[config.key];
+    if (!el) {
+        el = createFileBrowser({ ...(config.callbacks || {}), icon: config.icon });
+        node._derpDomElements[config.key] = el;
+    }
+
+    let liveReg = node.layout?.regions?.[config.key];
+    if (!liveReg) return el;
+
+    liveReg.onPress = (e) => {
+        if (e && e.stopPropagation) e.stopPropagation();
+        executeShieldedInteraction(node, app, config.geometry.x, config.geometry.y, config.geometry.w, config.geometry.h, () => {
+            if (activeFilePicker && activeFilePicker._sourceEl === el) closeFilePicker();
+            else openFilePicker(el, config, node, config);
+            node.setDirtyCanvas(true, true);
+        });
+        return true;
+    };
+
+    return el;
 }
 
 function shouldShowFileBrowserIndicator(config) {
@@ -270,20 +297,28 @@ function openFilePicker(sourceEl, config, node, callbacks) {
         });
 
         const list = [];
+        const isDropdownMode = sourceEl._glyphs && sourceEl._glyphs[0] === "▶" && sourceEl._glyphs[1] === "▼";
 
-        // THE ROOT FIX: Remove leading slash and handle empty root for file mode
-        const rootDisplayName = t(config.rootName || (config.mode === "folder" ? "/" : ""));
-        let currentPathDisplay = rootDisplayName;
-        if (dir && dir !== "/") {
-            const cleanDir = dir.replace(/\.(safetensors|json)$/i, "").replace(/\/$/, "").replace(/\//g, "\\");
-            const sep = rootDisplayName && rootDisplayName !== "/" ? "\\" : "";
-            currentPathDisplay = `${rootDisplayName}${sep}${cleanDir}`;
+        if (isDropdownMode) {
+            // Dropdown mode — show current value header with open arrow, then flat items
+            const displayVal = config.value || (items.length > 0 ? (typeof items[0] === "string" ? items[0] : (items[0].value || items[0].name || "")) : "");
+            list.push({ name: displayVal, type: "select_current", path: displayVal });
+            files.forEach(file => list.push({ name: file.name, path: file.path, type: "file", item: file.item }));
+        } else {
+            // THE ROOT FIX: Remove leading slash and handle empty root for file mode
+            const rootDisplayName = t(config.rootName || (config.mode === "folder" ? "/" : ""));
+            let currentPathDisplay = rootDisplayName;
+            if (dir && dir !== "/") {
+                const cleanDir = dir.replace(/\.(safetensors|json)$/i, "").replace(/\/$/, "").replace(/\//g, "\\");
+                const sep = rootDisplayName && rootDisplayName !== "/" ? "\\" : "";
+                currentPathDisplay = `${rootDisplayName}${sep}${cleanDir}`;
+            }
+            list.push({ name: currentPathDisplay, type: "select_current", path: dir || "/" });
+            if (dir) list.push({ name: t("$widgets.back") || ".. [Back]", type: "up" });
+            Array.from(entries).sort().forEach(folder => list.push({ name: folder, type: "dir" }));
         }
-        list.push({ name: currentPathDisplay, type: "select_current", path: dir || "/" });
-        if (dir) list.push({ name: t("$widgets.back") || ".. [Back]", type: "up" });
-        Array.from(entries).sort().forEach(folder => list.push({ name: folder, type: "dir" }));
 
-        if (config.mode !== "folder") {
+        if (!isDropdownMode && config.mode !== "folder") {
             files.sort((a, b) => a.name.localeCompare(b.name)).forEach(file => list.push({ name: file.name, path: file.path, type: "file", item: file.item }));
         }
 
@@ -299,7 +334,7 @@ function openFilePicker(sourceEl, config, node, callbacks) {
                 contentHTML = entry.item.display;
             }
 
-            let prefix = BROWSER_ICONS.FILE;
+            let prefix = isDropdownMode ? null : BROWSER_ICONS.FILE;
             let prefixColor = null;
             if (entry.type === "select_current") prefix = hasIndicator ? sourceEl._glyphs[1] : null;
             else if (entry.type === "dir") prefix = BROWSER_ICONS.DIR;
@@ -526,7 +561,7 @@ export function syncFileBrowser(context, node, app, config) {
         el = node._derpDomElements[safeConfig.key];
         if (!el) {
             // THE CALLBACK FIX: Map safeConfig directly to support root-level onChange handlers.
-            el = createFileBrowser(safeConfig.callbacks || safeConfig);
+            el = createFileBrowser({ ...(safeConfig.callbacks || {}), icon: safeConfig.icon });
             node._derpDomElements[safeConfig.key] = el;
         }
 

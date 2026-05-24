@@ -8,8 +8,6 @@ import {
     createDerpEditorHTML,
     syncBtnSimple,
     syncBtnSimpleHTML,
-    syncDropdownDerp,
-    createDropdownDerp,
     syncTextLabel,
     syncTextLabelHTML,
     syncDerpSliderCanvas,
@@ -59,36 +57,6 @@ export const UI_TYPES = {
 };
 
 export const COMPONENT_BLUEPRINTS = {
-    [UI_TYPES.DROPDOWN]: {
-        themeKey: "panel, t_textsystem",
-        width: "fit", height: "auto",
-        padding: [2, 2],
-        isHtml: false,
-        isHybrid: true,
-        sync: (ctx, node, app, props) => syncDropdownDerp(ctx, node, app, props)
-    },
-    [UI_TYPES.DROPDOWN_HTML]: {
-        themeKey: "panel, t_textsystem",
-        width: "fit", height: "auto",
-        padding: [2, 2],
-        isHtml: true,
-        create: (props) => {
-            const el = createDropdownDerp(props);
-            // GPU HINT: Promotes to a compositor layer for smooth panel sliding
-            el.style.willChange = "transform, opacity";
-            return el;
-        },
-        sync: (el, node, app, props) => syncDropdownDerp(el, node, app, props)
-    },
-    [UI_TYPES.DROPDOWN_DERP]: {
-        themeKey: "panel, t_textsystem",
-        width: "fit",
-        height: "auto",
-        padding: [2, 2],
-        isHtml: false,
-        isHybrid: true,
-        sync: (ctx, node, app, props) => syncDropdownDerp(ctx, node, app, props)
-    },
     [UI_TYPES.BUTTON]: {
         themeKey: "button",
         width: 32, height: 6,

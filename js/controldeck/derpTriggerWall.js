@@ -1060,7 +1060,7 @@ app.registerExtension({
                 const keys = Object.keys(regions).reverse();
                 for (const key of keys) {
                     const reg = regions[key];
-                    if (!reg || (reg.type !== this.UI_TYPES.DROPDOWN && reg.type !== this.UI_TYPES.DROPDOWN_DERP)) continue;
+                    if (!reg || (reg.type !== this.UI_TYPES.DROPDOWN && reg.type !== this.UI_TYPES.DROPDOWN_DERP && reg.type !== this.UI_TYPES.FILEBROWSER)) continue;
                     if (reg.state === "DIS" && reg.allowOpenWhenDisabled !== true) continue;
                     if (!this.layout.hitTest([data.localX, data.localY], reg)) continue;
 

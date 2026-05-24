@@ -14,7 +14,6 @@
 // --- RE-EXPORTING SPECIALISTS ---
 // This allows xcpThemeManager.js to find them through this Hub.
 export { createDerpEditorHTML, syncDerpEditor } from "./widgets/derpEditor.js";
-export { createDropdownDerp, syncDropdownDerp } from "./widgets/widget_Dropdown.js";
 export { createPopupPrompt, syncPopupPrompt } from "./widgets/popupPrompt.js";
 export { createBtnIcon, syncBtnIcon, syncBtnIconHTML } from "./widgets/btnIcon.js";
 export { createBtnSimple, syncBtnSimple, syncBtnSimpleHTML } from "./widgets/btnSimple.js";

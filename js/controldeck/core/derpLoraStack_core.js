@@ -640,7 +640,7 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                                         // Draw trigger dropdown as a stable canvas button-like surrogate
                                         // during ghost pass to avoid hybrid DOM flicker.
                                         if (isTriggerDropdown) {
-                                            const ghostDropBp = COMPONENT_BLUEPRINTS[this.UI_TYPES.DROPDOWN_DERP];
+                                            const ghostDropBp = COMPONENT_BLUEPRINTS[this.UI_TYPES.FILEBROWSER];
                                             if (ghostDropBp) {
                                                 const ghostDropData = {
                                                     ...fCfg,
