@@ -74,11 +74,15 @@ function markHorizontalStackReleaseLock(node) {
  * @param {number} index - The starting index of the item in the property array.
  * @param {string} regionKey - The layoutMap key of the region being dragged.
  */
-export function startStackDrag(node, data, index, regionKey) {
+export function startStackDrag(node, data, index, regionKey, options = {}) {
     const reg = node.layout.regions[regionKey];
     if (!reg) return;
 
-    node._dragTrig = { index, regionKey };
+    node._dragTrig = {
+        index,
+        regionKey,
+        holdOnly: options?.holdOnly === true
+    };
     node._dragMouse = [data.localX, data.localY];
     node._dragOffset = [data.localX - reg.x, data.localY - reg.y];
     node._dragThresholdMet = false;
@@ -101,6 +105,7 @@ export function updateStackDrag(node, data, regionPrefix, itemCount) {
     if (!node._dragTrig) return;
 
     if (!node._dragThresholdMet) {
+        if (node._dragTrig?.holdOnly) return;
         const driftX = Math.abs(data.localX - node._dragMouse[0]);
         const driftY = Math.abs(data.localY - node._dragMouse[1]);
         if (driftX > STACK_DRAG_HOLD_BOX_HALF || driftY > STACK_DRAG_HOLD_BOX_HALF) {

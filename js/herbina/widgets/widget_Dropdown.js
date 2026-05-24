@@ -65,6 +65,27 @@ const DEFAULT_VISIBLE_LIMIT = 15;
 let activePicker = null;
 let lastOpenTime = 0;
 
+function clearPendingHostPressState(node, config) {
+    if (!node) return;
+
+    if (node._dragHoldTimer) {
+        clearTimeout(node._dragHoldTimer);
+        node._dragHoldTimer = null;
+    }
+
+    node._pressedRegionKey = null;
+
+    if (!node._dragThresholdMet && node._dragTrig) {
+        const isDropdownRowDrag = !config?.key || node._dragTrig.regionKey !== config.key;
+        if (isDropdownRowDrag) {
+            node._dragTrig = null;
+            node._dragMouse = null;
+            node._dragOffset = null;
+            node._dropPreviewIdx = undefined;
+        }
+    }
+}
+
 function isSystemPanelDropdown(config, node) {
     return config?.isSysPanel === true || config?.isSystemPanel === true || node?.isSystemPanel === true;
 }
@@ -143,8 +164,12 @@ function openPicker(sourceEl, config, node, callbacks) {
         finalizePickerCleanup();
     }
 
-    if (node && node._pressedRegionKey === config.key) {
-        node._pressedRegionKey = null;
+    clearPendingHostPressState(node, config);
+
+    if (typeof config?.onPress === "function") {
+        try {
+            config.onPress();
+        } catch (e) {}
     }
 
     // Keep the host redrawing while the picker animates open and the viewport-fit

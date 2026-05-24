@@ -37,6 +37,11 @@ function normalizeSortModeLabel(value) {
     return "Type";
 }
 
+function cancelSignalOutRowDrag(node) {
+    endStackDrag(node, "_derpSignalOutDragProxy");
+    if (node) node._signalOutFloatingSnapshot = null;
+}
+
 if (!window._xcp_derpSignalOut_Layout_Loaded) {
     window._xcp_derpSignalOut_Layout_Loaded = true;
     try {
@@ -209,7 +214,7 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                     outSlotIdx: idx, // GENERIC SLOT TAG: Allows uncleSlotHelper to find this region
                                     state: item.isPreviewGhost ? "DIS" : (isPickedUp ? "ON" : "OFF"),
                                     alpha: rowAlpha,
-                                    onDragStart: (e, data) => startStackDrag(this, data, idx, rowKey),
+                                    onDragStart: (e, data) => startStackDrag(this, data, idx, rowKey, { holdOnly: true }),
                                     onDrag: (e, data) => { updateStackDrag(this, data, "outputsRegion_display_", activeOuts.length); this.refreshNodeLayoutMap(); },
                                     onDragEnd: () => {
                                         const fromIdx = this._dragTrig?.index;
@@ -221,8 +226,7 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                         }
                                     },
                                     onPress: () => {
-                                        endStackDrag(this, "_derpSignalOutDragProxy");
-                                        this._signalOutFloatingSnapshot = null;
+                                        cancelSignalOutRowDrag(this);
                                     },
                                     [`lblOutputInfo_${idx}`]: {
                                         type: UI_TYPES.DROPDOWN_DERP, themeKey: "panel, t_textNormal",
@@ -258,13 +262,13 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                         width: "full", padding: [pW, pH], spacing: [sW, 0],
                                         state: isPickedUp ? "ON" : ((isBypassed || !isConnected) ? "DIS" : "OFF"),
                                         allowOpenWhenDisabled: true,
-                                        onDragStart: (e, data) => startStackDrag(this, data, idx, rowKey),
+                                        onPress: () => cancelSignalOutRowDrag(this),
+                                        onDragStart: (e, data) => startStackDrag(this, data, idx, rowKey, { holdOnly: true }),
                                         onDrag: (e, data) => { updateStackDrag(this, data, "outputsRegion_display_", activeOuts.length); this.refreshNodeLayoutMap(); },
                                         onDragEnd: () => {
                                             const fromIdx = this._dragTrig?.index;
                                             const toIdx = this._dropPreviewIdx;
-                                            endStackDrag(this, "_derpSignalOutDragProxy");
-                                            this._signalOutFloatingSnapshot = null;
+                                            cancelSignalOutRowDrag(this);
                                             if (fromIdx !== undefined && toIdx !== undefined && fromIdx !== toIdx && this.reorderDerpOutputs) {
                                                 this.reorderDerpOutputs(fromIdx, toIdx);
                                             }
@@ -284,6 +288,7 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                             })).length > 0,
                                         alpha: rowAlpha,
                                         onChange: (val) => {
+                                            cancelSignalOutRowDrag(this);
                                             const newSigId = resolveSignalIdFromLabel(val);
                                             if (newSigId) {
                                                 const newSig = (this.receivedSignals || []).find(s => String(s.nodeId) === newSigId);
@@ -302,9 +307,8 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                         hidden: shouldGhostHideChildren,
                                         icon: "trash", width: "match", height: "fill", spacing: [sW, 0],
                                         alpha: rowAlpha,
-                                        onPress: () => {
-                                            endStackDrag(this, "_derpSignalOutDragProxy");
-                                            this._signalOutFloatingSnapshot = null;
+                                    onPress: () => {
+                                            cancelSignalOutRowDrag(this);
                                             showBastaFileHandler(this, "none", `btnOutputDelete_${idx}`, {
                                                 title: "Remove Signal",
                                                 message: `Remove signal ${formatSignalLabel(sig)}?`,

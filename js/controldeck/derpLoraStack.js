@@ -352,13 +352,15 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                             onDrag: (e, data) => { updateStackDrag(this, data, "loraRow_", stack.length); },
                             onDragEnd: () => endStackDrag(this, "stackData"),
                             onPress: isSelected ? (() => toggleLoraDetail(i, `loraPreview_${i}`, lora)) : undefined,
-                            [`loraPreview_${i}`]: {
-                                hidden: false,
-                                isThumbnail: true, // THE CACHE OPTIMIZATION: Use THUMBNAIL_LONG_SIDE_TARGET for stack images
-                                type: this.UI_TYPES.IMAGE_HTML,
-                                borderColor: resolveRatingColor(this, lora[0], isSelected, isBypassed),
-                                imageUrl: (lora[0] && this._loraPreviewList?.includes(lora[0])) ? getPreviewImageUrl(lora[0], true) : null,
-                                btnColor: "rgba(0,0,0,0.2)",
+                                [`loraPreview_${i}`]: {
+                                    hidden: false,
+                                    isThumbnail: true, // THE CACHE OPTIMIZATION: Use THUMBNAIL_LONG_SIDE_TARGET for stack images
+                                    type: this.UI_TYPES.IMAGE_HTML,
+                                    placeholderShrinkToFit: true,
+                                    placeholderPadX: sW,
+                                    borderColor: resolveRatingColor(this, lora[0], isSelected, isBypassed),
+                                    imageUrl: (lora[0] && this._loraPreviewList?.includes(lora[0])) ? getPreviewImageUrl(lora[0], true) : null,
+                                    btnColor: "rgba(0,0,0,0.2)",
                                 alpha: previewAlpha,
                                 state: (i === activeSlot) ? "ON" : (isBypassed ? "DIS" : "OFF"),
                                 allowDragWhenDisabled: isBypassed,

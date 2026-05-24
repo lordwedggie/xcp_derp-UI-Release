@@ -73,16 +73,37 @@ export function syncImageHTML(ctx, node, app, config, overlayPass = false) {
 
     const drawPlaceholderText = (text) => {
         const textPaint = resolvePlaceholderTextPaint();
-        const fontSize = Number(textPaint?.fontSize || 10);
+        const fontSize = Number(config.placeholderFontSize ?? textPaint?.fontSize ?? 10);
         const fontFamily = textPaint?.font || "Arial";
         const fontWeight = textPaint?.fontWeight || "normal";
         const textColor = textPaint?.textColor || textPaint?.fill || "rgba(255,255,255,0.4)";
+        const shouldShrinkToFit = !!config.placeholderShrinkToFit;
+        const padX = Math.max(0, Number(config.placeholderPadX ?? 0));
+        const padY = Math.max(0, Number(config.placeholderPadY ?? 0));
+        const minFontSize = Math.max(6, Number(config.placeholderMinFontSize ?? 6));
 
         ctx.save();
         ctx.fillStyle = textColor;
-        ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
+
+        let fittedSize = fontSize;
+        if (shouldShrinkToFit) {
+            const maxTextW = Math.max(1, w - (padX * 2));
+            const maxTextH = Math.max(1, h - (padY * 2));
+            for (let fs = fontSize; fs >= minFontSize; fs -= 1) {
+                ctx.font = `${fontWeight} ${fs}px ${fontFamily}`;
+                const metrics = ctx.measureText(String(text || ""));
+                const textW = metrics.width || 0;
+                const textH = (metrics.actualBoundingBoxAscent || fs * 0.8) + (metrics.actualBoundingBoxDescent || fs * 0.2);
+                if (textW <= maxTextW && textH <= maxTextH) {
+                    fittedSize = fs;
+                    break;
+                }
+            }
+        }
+
+        ctx.font = `${fontWeight} ${fittedSize}px ${fontFamily}`;
         ctx.fillText(String(text || ""), x + w / 2, y + h / 2);
         ctx.restore();
     };
