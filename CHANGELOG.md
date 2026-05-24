@@ -5,6 +5,8 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- Major refactor of `xcp_file_server.py` — the very long messy file server code now lives in dedicated route modules (`xcp_file_asset_routes.py`, `xcp_file_categories.py`, `xcp_file_common.py`, `xcp_file_image_routes.py`, `xcp_file_json_routes.py`, `xcp_file_prompt_book_routes.py`).
+- Added Diffusion model loader for ZIT, Wan, and Flux.
 - Added CHANGELOG.md to keep versioned change logs.
 - Added parallax effect to background image pan and zoom. Added five background images and 3 ComfyUI appearance Color Palette themes.
 - Added background CSS image display. Select it in the derp global settings panel. Background images are stored in `user/derpNodes/background`.
