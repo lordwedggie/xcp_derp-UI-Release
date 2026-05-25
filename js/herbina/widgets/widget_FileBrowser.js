@@ -373,7 +373,6 @@ function openFilePicker(sourceEl, config, node, callbacks) {
 
             const row = appendHybridPickerRow(targetContainer, sourceEl, rowPaintOFF, rowPaintON, scale, dynamicRowHeight, prefix, contentHTML, isSelected, pX, (entry.type === "select_current" && !hasIndicator) ? 0 : iconOffset, sW);
             row.style.cursor = (entry.type === "select_current") ? "default" : "pointer";
-            if (entry.type === "select_current") row.style.fontStyle = "italic";
             if (prefixColor && row._glyphSpan) row._glyphSpan.style.color = prefixColor;
 
             row.onmouseenter = () => {
@@ -588,8 +587,16 @@ export function syncFileBrowser(context, node, app, config) {
             return true;
         };
 
-        if (liveReg && !liveReg.onPress) {
-            liveReg.onPress = togglePicker;
+        if (liveReg) {
+            if (!liveReg._fileBrowserOnPressWrapped) {
+                const originalOnPress = liveReg.onPress;
+                liveReg.onPress = (event, interactionData) => {
+                    if (typeof originalOnPress === "function") originalOnPress(event, interactionData);
+                    return togglePicker(event, interactionData);
+                };
+                liveReg._fileBrowserOnPressWrapped = true;
+            }
+            el._boundTogglePicker = liveReg.onPress;
         }
 
         // THE HTML NATIVE CLICK FIX: Bind directly to the HTML overlay so it triggers

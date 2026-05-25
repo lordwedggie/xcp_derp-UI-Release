@@ -234,9 +234,10 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                         themeKey: "panel, t_textNormal",
                                         minWidth: 100,
                                         canvasShield: true,
+                                        bypassHashOptimization: true,
                                         mode: "file",
                                         rootName: "signals",
-                                        mouseOver: false,
+                                        mouseOver: true,
                                         items: sortSignals((this.receivedSignals || [])
                                             .filter(s => {
                                                 const sType = normalizeSignalType(s.type);
@@ -263,6 +264,7 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                         width: "full", padding: [pW, pH], spacing: [sW, 0],
                                         state: isPickedUp ? "ON" : ((isBypassed || !isConnected) ? "DIS" : "OFF"),
                                         allowOpenWhenDisabled: true,
+                                        canOpenPicker: true,
                                         onPress: () => cancelSignalOutRowDrag(this),
                                         onDragStart: (e, data) => startStackDrag(this, data, idx, rowKey, { holdOnly: true }),
                                         onDrag: (e, data) => { updateStackDrag(this, data, "outputsRegion_display_", activeOuts.length); this.refreshNodeLayoutMap(); },
@@ -274,19 +276,6 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                                 this.reorderDerpOutputs(fromIdx, toIdx);
                                             }
                                         },
-                                        canOpenPicker: sortSignals((this.receivedSignals || [])
-                                            .filter(s => {
-                                                const sType = normalizeSignalType(s.type);
-                                                if (sType !== normalizeSignalType(sig.type)) return false;
-                                                const sigIdStr = String(s.nodeId);
-                                                const sigBaseId = sigIdStr.split(":")[0];
-                                                const isAlreadyActive = activeIds.has(sigIdStr);
-                                                const isOwnSignal = sigBaseId === callerId;
-                                                const isWrapperSignal = isPlainWrapperSignalId(sigIdStr);
-                                                const isSignalOutSignal = s.nodeType === "xcpDerpSignalOut";
-                                                const isDownstream = downstreamIds.has(sigBaseId) || (Array.isArray(s.upstreamIds) && s.upstreamIds.some(id => String(id) === callerId));
-                                                return (sigIdStr === String(sig.nodeId)) || (!isWrapperSignal && !isSignalOutSignal && !isAlreadyActive && !isOwnSignal && !isDownstream);
-                                            })).length > 0,
                                         alpha: rowAlpha,
                                         onChange: (val) => {
                                             cancelSignalOutRowDrag(this);
@@ -335,6 +324,9 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                     icon: "dropdown",
                                     themeKey: "dialog, t_textNormal",
                                     canvasShield: true,
+                                    bypassHashOptimization: true,
+                                    mouseOver: true,
+                                    canOpenPicker: signalItems.length > 0,
                                     width: "full", height: "auto", padding: [pW, pH], spacing: [sW, 0],
                                     mode: "file",
                                     rootName: "signals",

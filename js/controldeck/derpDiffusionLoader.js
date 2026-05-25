@@ -76,6 +76,7 @@ function buildDeckRegions(node, deck, deckKey, rowPrefix, togglePrefix, removePr
                 type: node.UI_TYPES.TOGGLE_V2, iconAlign: "left", isTextOnly: true, mouseOver: true, cutoff: true,
                 text: stripModelName(m.name, node.properties.showFolderNames !== false),
                 value: m.active,
+                playSound: m.active ? null : "powerUp",
                 alpha: item.isPreviewGhost ? 0 : 1.0,
                 width: "full", height: "auto", padding: [pW, pH],
                 themeKey: "button, t_textNormal",

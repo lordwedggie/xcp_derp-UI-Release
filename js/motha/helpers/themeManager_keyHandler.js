@@ -7,7 +7,7 @@ import { showBastaColorDesigner } from "../../fatha/bastas/bastaColorDesigner.js
 import { showBastaPalette, getPaletteId } from "../../fatha/bastas/bastaPalette.js";
 import { activeBastas } from "../../fatha/basta.js";
 import { showBastaFileHandler } from "../../fatha/bastas/bastaFileHandler.js";
-import { showBastaMessage } from "../../fatha/bastas/bastaMessage.js";
+import { showBastaSystemMessage } from "../../fatha/bastas/bastaSystemMessage.js";
 import { playKaChing } from "../../herbina/masterSoundEffects.js";
 import { safeClick, safePersist, playSuccessSound } from "../themeManagerV2_core.js";
 
@@ -185,7 +185,7 @@ export const handleKeyDeleteAction = (node, updateThemeLayoutFn) => {
         onConfirm: async () => {
             delete node.themeToEdit[currentKey];
             await syncAndPersistKey(node, null, updateThemeLayoutFn);
-            showBastaMessage(node, `Key '${currentKey}' deleted.`, 2000, { width: 250 }, "btnKeyDelete", false, "success");
+            showBastaSystemMessage(node, "Key Deleted: ", 2000, { fade: true, grow: true }, "btnKeyDelete", "success", null, currentKey);
             node.requestDerpSync();
         }
     });
@@ -216,8 +216,7 @@ export const handleKeyRenameAction = (node, updateThemeLayoutFn) => {
                 node.themeToEdit[newName] = node.themeToEdit[currentKey];
                 delete node.themeToEdit[currentKey];
                 await syncAndPersistKey(node, newName, updateThemeLayoutFn);
-                playKaChing();
-                showBastaMessage(node, `Key renamed to '${newName}'.`, 2000, { width: 250 }, "btnKeyRename", false, "success");
+                showBastaSystemMessage(node, "Key Renamed: ", 2000, { fade: true, grow: true }, "btnKeyRename", "success", null, newName);
             }
             node.requestDerpSync();
         }
@@ -238,8 +237,7 @@ export const handleKeyCopyAction = (node, updateThemeLayoutFn) => {
             if (newName) {
                 node.themeToEdit[newName] = JSON.parse(JSON.stringify(node.themeToEdit[currentKey]));
                 await syncAndPersistKey(node, newName, updateThemeLayoutFn);
-                playSuccessSound();
-                showBastaMessage(node, `Key copied as '${newName}'.`, 2000, { width: 250 }, "btnKeyCopy", false, "success");
+                showBastaSystemMessage(node, "Key Copied: ", 2000, { fade: true, grow: true }, "btnKeyCopy", "success", null, newName);
             }
             node.requestDerpSync();
         }
@@ -262,11 +260,10 @@ export const handleKeySaveAction = (node, updateThemeLayoutFn) => {
                 const themeName = node._selectedThemeName;
                 cfg.themes[themeName] = JSON.parse(JSON.stringify(node.themeToEdit));
                 safePersist(cfg, themeName);
-                playSuccessSound();
                 if (node.layout) node.layout._lastCacheKey = "";
-                showBastaMessage(node, "Keys Saved", 2000, { width: 250 }, "btnKeySave", false, "success");
+                showBastaSystemMessage(node, "Keys Saved", 2000, { fade: true, grow: true }, "btnKeySave", "success", null, "");
             } catch (err) {
-                showBastaMessage(node, "Save Failed", 3000, { width: 250 }, "btnKeySave", false, "error");
+                showBastaSystemMessage(node, "Save Failed", 3000, { fade: true, grow: true }, "btnKeySave", "error", null, "");
                 console.error("Key Save Error:", err);
             }
             node.requestDerpSync();
