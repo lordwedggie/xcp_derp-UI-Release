@@ -550,9 +550,12 @@ app.registerExtension({
         const _getDerpVars = nodeType.prototype.getDerpVars;
         nodeType.prototype.getDerpVars = function(...args) {
             const savedName = this._selectedThemeName;
-            this._selectedThemeName = this.properties?.selectedTheme || window.xcpDerpThemeConfig?.activeTheme || savedName;
+            const savedPropName = this.properties?.selectedThemeName;
+            this._selectedThemeName = (this.properties?.selectedTheme && this.properties.selectedTheme !== "") ? this.properties.selectedTheme : "Template_Standard_v02";
+            this.properties.selectedThemeName = this._selectedThemeName;
             const result = _getDerpVars.apply(this, args);
             this._selectedThemeName = savedName;
+            this.properties.selectedThemeName = savedPropName;
             return result;
         };
     }

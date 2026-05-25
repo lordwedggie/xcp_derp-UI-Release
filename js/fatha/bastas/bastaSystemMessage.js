@@ -24,6 +24,15 @@ const queuedSystemMessages = [];
 const systemMessageThemeHost = {
     properties: { selectedThemeName: SYSTEM_MESSAGE_THEME_NAME },
     setDirtyCanvas() {},
+    onThemeUpdate() {
+        const cfg = window.xcpDerpThemeConfig;
+        if (cfg?.themes?.[SYSTEM_MESSAGE_THEME_NAME]) {
+            systemMessageThemeData = cfg.themes[SYSTEM_MESSAGE_THEME_NAME];
+            handleThemeUpdate(systemMessageThemeHost, { themes: { [SYSTEM_MESSAGE_THEME_NAME]: systemMessageThemeData }, activeTheme: SYSTEM_MESSAGE_THEME_NAME });
+            activeSystemMessages.forEach((record) => applySystemMessageThemeToRecord(record, systemMessageThemeHost));
+            updateSystemMessageSlots();
+        }
+    },
 };
 const systemMessageMeasureCache = new Map();
 const SYSTEM_MESSAGE_MEASURE_CACHE_LIMIT = 128;
@@ -55,9 +64,9 @@ function getSystemMessageVars(fallbackHost = null) {
 
 function getSystemMessagePaints(themeNode) {
     return {
-        bodyPaint: resolvePaintData(themeNode, "canvas", "_OFF") || themeNode._canvasPaintData || themeNode._panelPaintData_OFF || { fill: "rgba(20,20,20,0.92)", corners: [8, 8, 8, 8] },
-        labelPaint: resolvePaintData(themeNode, "t_textNormal", "_OFF") || themeNode._t_textnormalPaintData || themeNode._t_textNormalPaintData || { textColor: "rgba(255,255,255,1)", font: "Arial", fontSize: 12 },
-        accentPaint: resolvePaintData(themeNode, "t_textAccent", "_OFF") || resolvePaintData(themeNode, "t_textAccent") || null,
+        bodyPaint: resolvePaintData(themeNode, "systemMessage_background", "_OFF") || themeNode._systemMessage_backgroundPaintData_OFF || { fill: "rgba(20,20,20,0.92)", corners: [8, 8, 8, 8] },
+        labelPaint: resolvePaintData(themeNode, "t_systemTextNormal", "_OFF") || themeNode._t_systemTextNormalPaintData_OFF || { textColor: "rgba(255,255,255,1)", font: "Arial", fontSize: 12 },
+        accentPaint: resolvePaintData(themeNode, "t_systemTextAccent", "_OFF") || themeNode._t_systemTextAccentPaintData_OFF || null,
     };
 }
 
@@ -95,6 +104,9 @@ function getSystemMessageDimensions(themeNode, text, accentText, fixedW, pW, pH)
 function applySystemMessageThemeToRecord(record, themeNode) {
     if (!record || !themeNode || !record.el || !record.bgEl || !record.label) return;
 
+    const freshVars = getSystemMessageVars();
+    record.pW = Number(freshVars.pW || 6);
+    record.pH = Number(freshVars.pH || 4);
     const dims = getSystemMessageDimensions(themeNode, record.text, record.accentText, record.fixedW, record.pW, record.pH);
     const { bodyPaint, labelPaint, accentPaint, fontName, fontSize, fontWeight, accentFontName, accentFontSize, accentFontWeight } = dims;
 
@@ -151,6 +163,10 @@ function ensureSystemMessageThemeLoaded(forceRefresh = false) {
         .then((payload) => {
             const themeData = payload?.data;
             if (!themeData || typeof themeData !== "object") throw new Error("Theme data missing");
+            if (window.xcpDerpThemeConfig) {
+                window.xcpDerpThemeConfig.register(systemMessageThemeHost);
+            }
+            if (window.xcpDerpThemeConfig?.themes) window.xcpDerpThemeConfig.themes[SYSTEM_MESSAGE_THEME_NAME] = themeData;
             systemMessageThemeData = themeData;
             handleThemeUpdate(systemMessageThemeHost, {
                 themes: { [SYSTEM_MESSAGE_THEME_NAME]: themeData },
