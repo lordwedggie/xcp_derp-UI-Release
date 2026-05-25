@@ -259,7 +259,7 @@ app.registerExtension({
                             width: "full", height: "auto",
                             mode: "file",
                             rootName: "samplers",
-                            themeKey: "dialog, t_textNormal",
+                            themeKey: "panel, t_textNormal",
                             canvasShield: true,
                             spacing: [sW, 0], padding: [pW, pH],
                             onChange: (v) => {
