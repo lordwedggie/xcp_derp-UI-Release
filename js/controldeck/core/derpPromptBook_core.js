@@ -452,11 +452,16 @@ export function handlePageChange(node, action) {
     if (typeof action === "number") {
         node.properties.currentPageIndex = (node.properties.currentPageIndex + action + book.length) % book.length;
     } else if (typeof action === "string") {
-        const labels = book.map((page, idx) => getPageLabel(node, idx, page.title));
-        const newIndex = labels.indexOf(action);
-        if (newIndex !== -1 && book[newIndex]) {
-            node.properties.currentPageIndex = newIndex;
-        } else return;
+        const parsedIndex = Number.parseInt(action, 10);
+        if (Number.isInteger(parsedIndex) && book[parsedIndex]) {
+            node.properties.currentPageIndex = parsedIndex;
+        } else {
+            const labels = book.map((page, idx) => getPageLabel(node, idx, page.title));
+            const newIndex = labels.indexOf(action);
+            if (newIndex !== -1 && book[newIndex]) {
+                node.properties.currentPageIndex = newIndex;
+            } else return;
+        }
     }
 
     const newContent = book[node.properties.currentPageIndex]?.content || "";

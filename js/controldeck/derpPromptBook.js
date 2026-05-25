@@ -85,8 +85,11 @@ app.registerExtension({
                 // RE-HYDRATE VISUALS: Update page selection and editor content in-place without rebuilding the map
                 const pReg = this.layoutMap.pageRegion;
                 if (pReg && pReg.dropdownPages) {
-                    pReg.dropdownPages.value = getPageLabel(this, safeIndex, activePage.title);
-                    pReg.dropdownPages.items = book.map((page, idx) => getPageLabel(this, idx, page.title));
+                    pReg.dropdownPages.value = String(safeIndex);
+                    pReg.dropdownPages.items = book.map((page, idx) => ({
+                        value: String(idx),
+                        display: getPageLabel(this, idx, page.title)
+                    }));
                 }
 
                 const bReg = this.layoutMap.bookRegion;
@@ -231,12 +234,15 @@ app.registerExtension({
                         type: this.UI_TYPES.FILEBROWSER,
                         icon: "dropdown",
                         canvasShield: true, themeKey: "panel, t_textNormal",
-                        items: book.map((page, idx) => getPageLabel(this, idx, page.title)),
+                        items: book.map((page, idx) => ({
+                            value: String(idx),
+                            display: getPageLabel(this, idx, page.title)
+                        })),
                         mouseOver: false,
                         width: "full", height: "auto", padding: [pW, pH], spacing: [sW, 0],
                         mode: "file",
                         rootName: "pages",
-                        value: getPageLabel(this, safeIndex, activePage.title),
+                        value: String(safeIndex),
                         onChange: (val) => handlePageChange(this, val)
                     },
                     btnPageDelete: {
