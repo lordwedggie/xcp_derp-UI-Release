@@ -186,7 +186,7 @@ export const handleKeyDeleteAction = (node, updateThemeLayoutFn) => {
         onConfirm: async () => {
             delete node.themeToEdit[currentKey];
             await syncAndPersistKey(node, null, updateThemeLayoutFn);
-            showBastaSystemMessage(node, "Key Deleted: ", 2000, { fade: true, grow: true }, "btnKeyDelete", "success", null, currentKey);
+            showBastaSystemMessage(node, "Key Deleted: ", 2000, { fade: true, grow: true }, "btnKeyDelete", "critical", null, currentKey);
             node.requestDerpSync();
         }
     });

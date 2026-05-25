@@ -35,7 +35,7 @@ export const handleThemeDeleteAction = (node, updateThemeLayoutFn) => {
                     const next = themes[0] || "";
                     if (cfg.activeTheme === currentTheme) cfg.activeTheme = next;
                     handleThemeDropdownChange(node, next, updateThemeLayoutFn);
-                    showBastaSystemMessage(node, "Theme Deleted: ", 2000, { fade: true, grow: true }, "btnThemeDelete", "success", null, currentTheme);
+                    showBastaSystemMessage(node, "Theme Deleted: ", 2000, { fade: true, grow: true }, "btnThemeDelete", "critical", null, currentTheme);
                 } catch (err) { console.error("Theme Deletion Error:", err); }
             }
             node.requestDerpSync();
