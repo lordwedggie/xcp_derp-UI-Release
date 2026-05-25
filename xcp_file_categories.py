@@ -24,26 +24,23 @@ BACKGROUND_FILE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".webp")
 
 
 def get_theme_search_dirs():
-    from .xcp_file_common import FALLBACK_ROOT, PRIMARY_ROOT
+    from .xcp_file_common import PRIMARY_ROOT
     return [
         f"{PRIMARY_ROOT}/Themes",
-        f"{FALLBACK_ROOT}/themes",
     ]
 
 
 def get_palette_search_dirs():
-    from .xcp_file_common import FALLBACK_ROOT, PRIMARY_ROOT
+    from .xcp_file_common import PRIMARY_ROOT
     return [
         f"{PRIMARY_ROOT}/Palettes",
-        f"{FALLBACK_ROOT}/palettes",
     ]
 
 
 def get_background_search_dirs():
-    from .xcp_file_common import FALLBACK_ROOT, PRIMARY_ROOT
+    from .xcp_file_common import PRIMARY_ROOT
     return [
         f"{PRIMARY_ROOT}/backgrounds",
-        f"{FALLBACK_ROOT}/backgrounds",
     ]
 
 

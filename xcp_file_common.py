@@ -24,13 +24,9 @@ USING_FALLBACK_ROOT = False
 
 def resolve_derp_root():
     global USING_FALLBACK_ROOT
-    if os.path.exists(PRIMARY_ROOT):
-        USING_FALLBACK_ROOT = False
-        return PRIMARY_ROOT
-    os.makedirs(FALLBACK_ROOT, exist_ok=True)
-    USING_FALLBACK_ROOT = True
-    print(f"⚠️ [xcpDerp] Using fallback extension storage: '{FALLBACK_ROOT}'")
-    return FALLBACK_ROOT
+    os.makedirs(PRIMARY_ROOT, exist_ok=True)
+    USING_FALLBACK_ROOT = False
+    return PRIMARY_ROOT
 
 
 def attach_fallback_header(response, used_fallback=False):
