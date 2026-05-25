@@ -46,6 +46,7 @@ export const handleThemeDeleteAction = (node, updateThemeLayoutFn) => {
 export const handleThemeDropdownChange = (node, val, updateThemeLayoutFn) => {
     node._selectedThemeName = val;
     node.properties.selectedThemeName = val; // THE REFRESH FIX: Persist selection to survive browser reload
+    node.properties.selectedTheme = ""; // Prevent onThemeUpdate from applying this as the active theme
     if (node.layoutMap?.themeManagementRegion?.dropdownTheme) {
         node.layoutMap.themeManagementRegion.dropdownTheme.value = val;
     }

@@ -544,5 +544,16 @@ app.registerExtension({
             const baseMap = panel.getPanelBaseMap ? panel.getPanelBaseMap(this, app, panel, () => panel.closeDerpSysPanel()) : {};
             panel.setLayoutMap({ ...baseMap });
         };
+
+        // Override getDerpVars to ignore edit-only theme properties (selectedThemeName / _selectedThemeName).
+        // Only selectedTheme (the APPLY property) or activeTheme should control this node's layout vars.
+        const _getDerpVars = nodeType.prototype.getDerpVars;
+        nodeType.prototype.getDerpVars = function(...args) {
+            const savedName = this._selectedThemeName;
+            this._selectedThemeName = this.properties?.selectedTheme || window.xcpDerpThemeConfig?.activeTheme || savedName;
+            const result = _getDerpVars.apply(this, args);
+            this._selectedThemeName = savedName;
+            return result;
+        };
     }
 });
