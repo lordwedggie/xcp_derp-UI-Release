@@ -3,8 +3,12 @@
  */
 import { spawnBasta, activeBastas } from "../basta.js";
 import { UI_TYPES } from "../core/masterLayoutTypes.js";
-import { measureTextWidth } from "../../herbina/utils/widgetsUtils.js";
+import { measureTextWidth, resolvePaintData } from "../../herbina/utils/widgetsUtils.js";
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
+
+export const TOOLTIP_EXPAND_START_WIDTH = 1;
+export const TOOLTIP_EXPAND_ANIMATION_SPEED = 0.22;
+export const TOOLTIP_EXPAND_Y_SHIFT_ROWS = 1;
 
 export function getBastaMessageId(host, targetRegion = null) {
     return `basta_msg_${host.id}_${targetRegion || 'node'}`;
@@ -22,7 +26,7 @@ export function showBastaMessage(host, text, duration = 3000, animations = {}, t
     if (activeBastas.has(id)) return null;
 
     const vars = host.getDerpVars ? host.getDerpVars(host) : { mW: 4, mH: 2, sW: 2, sH: 2, pW: 2, pH: 4, playSound: true };
-    const { mW, mH, pH } = vars;
+    const { mW, mH, sH, pW, pH } = vars;
 
     const globalPlaySound = window.DERP_GLOBAL_SETTINGS?.playSound !== false;
     if (globalPlaySound) {
@@ -33,7 +37,15 @@ export function showBastaMessage(host, text, duration = 3000, animations = {}, t
     }
 
     const hasFixedW = animations && animations.width;
-    const fontData = host._t_textnormalPaintData || host._t_textNormalPaintData || { fontSize: 12 };
+    const textThemeKey = animations?.textThemeKey || animations?.messageThemeKey || "t_textnormal";
+    const backgroundThemeKey = animations?.backgroundThemeKey || null;
+    const isTooltipMessage = animations?.tooltipExpand === true;
+    const fontData = resolvePaintData(host, textThemeKey, "_OFF")
+        || host._t_textsystemPaintData_OFF
+        || host._t_textSystemPaintData_OFF
+        || host._t_textnormalPaintData
+        || host._t_textNormalPaintData
+        || { fontSize: 12 };
     const fontSize = parseFloat(fontData.fontSize) || 12;
     const BASTA_HEADER_H = 20;
 
@@ -43,7 +55,7 @@ export function showBastaMessage(host, text, duration = 3000, animations = {}, t
     } else {
         const fontName = (fontData.font || "arial").replace(/[0-9]+px/ig, "").trim();
         const fontWeight = fontData.fontWeight || "normal";
-        initialW = Math.ceil(measureTextWidth(text, fontSize, fontName, fontWeight)) + 10;
+        initialW = Math.ceil(measureTextWidth(text, fontSize, fontName, fontWeight)) + (pW * 2) + 10;
     }
 
     const initialH = fontSize + (pH * 2) + (drawHeader ? BASTA_HEADER_H : 0) + (mH * 2);
@@ -58,30 +70,64 @@ export function showBastaMessage(host, text, duration = 3000, animations = {}, t
             autoWidth: !hasFixedW,
             autoHeight: true,
             snapHeight: false,
-            drawHeader: drawHeader
+            drawHeader: drawHeader,
+            tooltipText: text,
+            messageThemeKey: textThemeKey,
+            bastaBackgroundKey: backgroundThemeKey,
+            tooltipExpand: isTooltipMessage,
+            tooltipExpandAnimationSpeed: TOOLTIP_EXPAND_ANIMATION_SPEED,
+            tooltipExpandPaddingX: pW,
+            tooltipExpandTargetWidth: initialW
         },
         layoutMap: {
             contentRegion: {
                 anchor: drawHeader ? { target: "headerRegion", axis: "y", offset: 0 } : null,
                 dir: "col",
-                width: hasFixedW ? "full" : "auto",
+                width: isTooltipMessage ? "full" : (hasFixedW ? "full" : "auto"),
                 height: "auto",
                 margin: [0, mH],
+                clipChildren: isTooltipMessage,
                 objectAlign: ["center", "top"],
                 lblMessage: {
-                    type: UI_TYPES.TEXT,
-                    themeKey: "t_textnormal",
+                    type: isTooltipMessage ? UI_TYPES.BUTTON : UI_TYPES.TEXT,
+                    themeKey: textThemeKey,
                     text: text,
-                    width: hasFixedW ? "full" : "auto",
+                    width: isTooltipMessage ? "full" : (hasFixedW ? "full" : "auto"),
                     height: "auto",
                     labelAlign: ["center", "middle"],
-                    padding: [0, pH]
+                    padding: [pW, pH],
+                    displayMode: isTooltipMessage ? "cutoff" : undefined,
+                    skipBackground: true,
+                    noShrink: true,
+                    mouseOver: false
                 }
             }
         }
     };
 
     const basta = spawnBasta(id, config);
+    if (basta) {
+        basta.properties = basta.properties || {};
+        basta.properties.tooltipText = text;
+        basta.properties.messageThemeKey = textThemeKey;
+        if (backgroundThemeKey) basta.properties.bastaBackgroundKey = backgroundThemeKey;
+        if (isTooltipMessage) {
+            basta.properties.nodeSize = [initialW, initialH];
+            basta.targetSize = [initialW, initialH];
+            basta.size = [TOOLTIP_EXPAND_START_WIDTH, initialH];
+            basta._tooltipExpandCurrentWidth = TOOLTIP_EXPAND_START_WIDTH;
+            basta._tooltipExpandTargetWidth = initialW;
+            basta._tooltipExpandPaddingX = pW;
+            basta.offset[1] -= sH * TOOLTIP_EXPAND_Y_SHIFT_ROWS;
+            basta._tooltipExpandAnchorCenterX = basta.offset[0] + (initialW / 2);
+            basta._tooltipExpandBaseOffsetY = basta.offset[1];
+            basta.offset[0] = basta._tooltipExpandAnchorCenterX - (TOOLTIP_EXPAND_START_WIDTH / 2);
+            basta.pos[0] = basta.hostNode.pos[0] + basta.offset[0];
+            basta.pos[1] = basta.hostNode.pos[1] + basta.offset[1];
+            basta._forceSync = true;
+            basta._derpAwakeFrames = Math.max(basta._derpAwakeFrames || 0, 10);
+        }
+    }
     if (duration > 0) {
         setTimeout(() => { if (basta && !basta.isClosing) basta.close(); }, duration);
     }

@@ -159,7 +159,12 @@ function scheduleTooltip(entity, regionKey, tooltipText) {
             closeActiveTooltip(entity);
         }
         closeBastaMessage(host, regionKey, "tooltip-refresh");
-        const basta = showBastaMessage(host, tooltipText, TOOLTIP_DURATION_MS, { fade: true }, regionKey, false, "info", false);
+        const basta = showBastaMessage(host, tooltipText, TOOLTIP_DURATION_MS, {
+            fade: true,
+            backgroundThemeKey: "systemBackground",
+            textThemeKey: "t_textSystem",
+            tooltipExpand: true
+        }, regionKey, false, "info", false);
         if (!basta) return;
         state.activeKey = regionKey;
         state.activeText = tooltipText;
@@ -777,8 +782,9 @@ export function handleDrawCTX(entity, ctx, overlayPass = false) {
     if (!overlayPass) {
         const header = entity.layout?.regions?.headerRegion;
         const isCollapsed = !!entity.properties?.contentCollapsed;
-        const paintOFF = resolvePaintData(entity, "canvas", isBypassed ? "_DIS" : "");
-        const paintON = resolvePaintData(entity, "canvas", isBypassed ? "_DIS" : "_ON");
+        const backgroundPaintKey = entity.properties?.bastaBackgroundKey || "canvas";
+        const paintOFF = resolvePaintData(entity, backgroundPaintKey, isBypassed ? "_DIS" : "") || resolvePaintData(entity, "canvas", isBypassed ? "_DIS" : "");
+        const paintON = resolvePaintData(entity, backgroundPaintKey, isBypassed ? "_DIS" : "_ON") || resolvePaintData(entity, "canvas", isBypassed ? "_DIS" : "_ON");
         const cornerOverride = getDeckCornerOverride(entity, app.graph || entity.graph || null);
         const applyNodeCornerOverride = (paint) => paint
             ? { ...paint, corners: applyCornerOverride(paint.corners || [8, 8, 8, 8], cornerOverride) }
@@ -835,7 +841,7 @@ export function handleDrawCTX(entity, ctx, overlayPass = false) {
                     const bw = Math.max(1, Math.round(entity.size[0]));
                     const bh = Math.max(1, Math.round(entity.size[1]));
                     const cache = getOrCreateBgCache(entity, bw, bh);
-                    const cacheKey = `pulse|${bw}|${bh}|${isBypassed}|${entity.mode}|${entity._currentThemeName || ""}|${getPaintFingerprint(paintOFF)}`;
+                    const cacheKey = `pulse|${bw}|${bh}|${isBypassed}|${entity.mode}|${entity._currentThemeName || ""}|${backgroundPaintKey}|${getPaintFingerprint(paintOFF)}`;
                     if (cache) {
                         const pad = cache.pad || 0;
                         const ratio = cache.ratio || 1;
@@ -887,6 +893,7 @@ export function handleDrawCTX(entity, ctx, overlayPass = false) {
                     header ? `${header.y}_${header.h}_${header.margin?.join?.("_") || ""}` : "noheader",
                     getNodeHeaderPaletteFingerprint(entity, getPaletteCache),
                     cornerOverride ? cornerOverride.join("_") : "nocorners",
+                    backgroundPaintKey,
                     getPaintFingerprint(paintOFF),
                     getPaintFingerprint(paintON)
                 ].join("|");

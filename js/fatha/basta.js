@@ -10,6 +10,8 @@ import { createDerpShield, syncDerpShield, removeDerpShield } from "./core/fatha
 import { COMPONENT_BLUEPRINTS } from "./core/masterLayoutTypes.js";
 import { handleShieldInteraction, getDerpVars, handleThemeUpdate, handleDrawCTX } from "./core/fathaHandler.js";
 import { animateAlpha, lerpTo } from "../herbina/masterAnimator.js";
+import { masterPainterText } from "../herbina/masterPainter.js";
+import { resolvePaintData } from "../herbina/utils/widgetsUtils.js";
 import { getBastaBaseMap } from "./helpers/bastaLayoutMaps.js";
 import { ensureScreenRectVisible, isWarping } from "./core/fathaWarp.js";
 
@@ -46,6 +48,54 @@ function applyRegionClipChain(ctx, clipChain) {
         else ctx.rect(x, y, w, h);
         ctx.clip();
     }
+    return true;
+}
+
+function drawAnimatedTooltipLabel(ctx, basta, region) {
+    if (!ctx || !basta?.properties?.tooltipExpand || !region) return false;
+    const text = String(basta.properties?.tooltipText || region.text || "");
+    if (!text) return false;
+
+    const paddingX = Number(region.padding?.[0] ?? basta._tooltipExpandPaddingX ?? 0) || 0;
+    const paddingY = Number(region.padding?.[1] ?? 0) || 0;
+    const bastaWidth = Math.max(0, Number(basta.size?.[0]) || 0);
+    const visibleRegionW = Math.max(0, Math.min(Number(region.w) || 0, bastaWidth - (Number(region.x) || 0)));
+    const clipW = Math.max(0, visibleRegionW - (paddingX * 2));
+    const clipH = Math.max(0, Number(region.h) || 0);
+    if (clipW <= 0 || clipH <= 0) return true;
+
+    const paintKey = basta.properties.messageThemeKey || "t_textNormal";
+    const rawTheme = resolvePaintData(basta, paintKey, "_OFF")
+        || basta[`_${paintKey}PaintData`]
+        || basta.hostNode?.[`_${paintKey}PaintData`]
+        || { fontSize: 12, font: "arial", fill: "red" };
+    const fontSize = parseFloat(rawTheme.fontSize) || 12;
+    const fontWeight = rawTheme.fontWeight || "normal";
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(
+        Math.floor(region.x + paddingX),
+        Math.floor(region.y),
+        Math.floor(clipW),
+        Math.floor(clipH)
+    );
+    ctx.clip();
+
+    masterPainterText(ctx, {
+        x: region.x + Math.round((Number(region.w) || 0) / 2),
+        y: region.y + Math.round(region.h / 2) + Math.round(paddingY / 2),
+        text,
+        paintData: {
+            ...rawTheme,
+            fontSize,
+            fontWeight,
+            fill: rawTheme.textColor || rawTheme.fill || "red"
+        },
+        align: "center",
+        baseline: "middle"
+    });
+    ctx.restore();
     return true;
 }
 
@@ -333,7 +383,14 @@ class BastaInstance {
                 if (bMap.headerRegion) bMap.headerRegion.hidden = true;
                 if (bMap.footerRegion) bMap.footerRegion.hidden = true;
             }
-            const tTheme = this.hostNode?._t_textnormalPaintData || this.hostNode?._t_textNormalPaintData || this._t_textNormalPaintData;
+            const measureThemeKey = this.properties.messageThemeKey || "t_textNormal";
+            const tTheme = resolvePaintData(this, measureThemeKey, "_OFF")
+                || this.hostNode?._t_textsystemPaintData_OFF
+                || this.hostNode?._t_textSystemPaintData_OFF
+                || this.hostNode?._t_textnormalPaintData
+                || this.hostNode?._t_textNormalPaintData
+                || this._t_textSystemPaintData_OFF
+                || this._t_textNormalPaintData;
 
             // THE SPAWN JUMP FIX: Perform a multi-pass layout compute during instantiation to resolve nested auto-height dependencies
             for (let i = 0; i < 2; i++) {
@@ -508,6 +565,29 @@ class BastaInstance {
 
         this.size = [...this.targetSize];
 
+        if (this.properties?.tooltipExpand === true) {
+            const useAnim = window.DERP_GLOBAL_SETTINGS?.useAnimation !== false && this.properties.useAnimations !== false;
+            const currentWidth = Number(this._tooltipExpandCurrentWidth || this.size[0] || 1);
+            const targetWidth = Math.max(1, Number(this._tooltipExpandTargetWidth || this.targetSize?.[0] || this.size[0] || 1));
+            const animSpeed = Number(this.properties.tooltipExpandAnimationSpeed || 0.35);
+            const widthAnim = lerpTo(currentWidth, targetWidth, animSpeed, useAnim);
+            this._tooltipExpandCurrentWidth = Math.max(1, widthAnim.value);
+            this.size[0] = this._tooltipExpandCurrentWidth;
+            if (this.hostNode && !this._isDraggingBasta) {
+                const anchorCenterX = Number(this._tooltipExpandAnchorCenterX);
+                const baseOffsetY = Number(this._tooltipExpandBaseOffsetY);
+                if (Number.isFinite(anchorCenterX)) {
+                    this.offset[0] = anchorCenterX - (this.size[0] / 2);
+                    this.pos[0] = this.hostNode.pos[0] + this.offset[0];
+                }
+                if (Number.isFinite(baseOffsetY)) {
+                    this.offset[1] = baseOffsetY;
+                    this.pos[1] = this.hostNode.pos[1] + this.offset[1];
+                }
+            }
+            if (widthAnim.isAnimating) this._derpAwakeFrames = Math.max(this._derpAwakeFrames || 0, 6);
+        }
+
         if (this.isClosing && this.alpha <= 0.01) {
             this.alpha = 0;
             this.destroy();
@@ -525,8 +605,8 @@ class BastaInstance {
         ctx.globalAlpha = this.alpha;
         ctx.translate(this.pos[0], this.pos[1]);
 
-        const paintKey = "t_textNormal";
-        const rawTheme = this[`_${paintKey}PaintData`] || this.hostNode?.[`_${paintKey}PaintData`] || { fontSize: 12, font: "arial", fill: "red" };
+        const paintKey = this.properties.messageThemeKey || "t_textNormal";
+        const rawTheme = resolvePaintData(this, paintKey, "_OFF") || this[`_${paintKey}PaintData`] || this.hostNode?.[`_${paintKey}PaintData`] || { fontSize: 12, font: "arial", fill: "red" };
         const engineTextTheme = { ...rawTheme, font: rawTheme.font.replace(" px", "") };
 
         const ds = app.canvas.ds;
@@ -558,7 +638,9 @@ class BastaInstance {
         window.useAnim = useAnim; // THE RESCUE FIX: Export globally for widgets resolving without props
 
         // 1. Layout Pass
-        const layoutW = this.targetSize[0];
+        const layoutW = this.properties?.tooltipExpand === true
+            ? Math.max(1, Number(this._tooltipExpandCurrentWidth || this.size[0] || this.targetSize[0]))
+            : this.targetSize[0];
         const layoutH = this.properties.autoHeight !== false ? 2000 : this.targetSize[1];
         const bounds = { x: 0, y: 0, w: layoutW, h: layoutH };
 
@@ -678,6 +760,11 @@ class BastaInstance {
                     this._compDataCache[key] = compData;
                 }
 
+                if (this.properties?.tooltipExpand === true && key === "lblMessage") {
+                    drawAnimatedTooltipLabel(ctx, this, reg);
+                    continue;
+                }
+
                 const clipChain = getRegionClipChain(this.layout, reg);
                 const hasClip = !blueprint.isHtml && applyRegionClipChain(ctx, clipChain);
 
@@ -726,7 +813,6 @@ class BastaInstance {
                         bumpBLDComponentPerf(this, key, reg.type, "canvas", bldCompElapsed);
                     }
                 }
-
                 if (hasClip) ctx.restore();
             }
 

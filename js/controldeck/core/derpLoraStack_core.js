@@ -62,7 +62,7 @@ function hasSerializedDerpLoraStackSettings(properties) {
 
 function queueMissingLoraMessages(node, items) {
     items.forEach((item) => {
-        showBastaSystemMessage(node, tLocale("$derp_lora_stack.messages.removed_missing_prefix", "Removed non-existing LoRA: "), 5000, { fade: true, grow: true }, null, "error", false, item);
+        showBastaSystemMessage(node, tLocale("$derp_lora_stack.messages.removed_missing_prefix", "Removed non-existing LoRA: "), 5000, { fade: true, grow: true }, null, "critical", false, item);
     });
 }
 

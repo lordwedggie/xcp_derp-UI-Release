@@ -138,8 +138,12 @@ export function syncBtnSimple(ctx, node, config) {
         if (alignX === "center") textX = x + (w / 2);
         else if (alignX === "right") textX = x + w - pW;
 
+        const clipW = Math.max(0, w - (pW * 2));
+        const clipH = Math.max(0, h);
         ctx.save();
-        ctx.beginPath(); ctx.rect(x + pW, y, w - (pW * 2), h); ctx.clip();
+        ctx.beginPath();
+        ctx.rect(Math.floor(x + pW), Math.floor(y), Math.floor(clipW), Math.floor(clipH));
+        ctx.clip();
         masterPainterText(ctx, {
             x: textX, y: textAnchor.y, width: w, height: h, text: btnText,
             paintData: { ...labelData, fill: iconColor, fontSize: fontSize, fontWeight: props.fontWeight },
@@ -258,19 +262,19 @@ export function syncBtnSimpleHTML(element, node, app, config) {
     element.style.color = iconColor;
     element.style.opacity = sysAlpha;
 
-    if (!isTextOnly) {
-        if (config.drawChecker) {
-            const sz = CHECKER_SIZE * scale;
-            const chkGrad = `linear-gradient(45deg, ${CHECKER_COLOR_A} 25%, transparent 25%, transparent 75%, ${CHECKER_COLOR_A} 75%, ${CHECKER_COLOR_A})`;
-            element.style.backgroundImage = `linear-gradient(${fillColor}, ${fillColor}), ${chkGrad}`;
+        if (!isTextOnly) {
+            if (config.drawChecker) {
+                const sz = CHECKER_SIZE * scale;
+                const chkGrad = `linear-gradient(45deg, ${CHECKER_COLOR_A} 25%, transparent 25%, transparent 75%, ${CHECKER_COLOR_A} 75%, ${CHECKER_COLOR_A})`;
+                element.style.backgroundImage = `linear-gradient(${fillColor}, ${fillColor}), ${chkGrad}`;
         } else {
             element.style.backgroundColor = fillColor;
-        }
+            }
 
-        // THE CENTRALIZED ALPHA & ANIMATION FIX: Delegate all effect fading and interpolation to the utility layer
-        const animatedPaint = compileAnimatedPaint(paintData, config, sysAlpha, { fill: fillColor, textColor: iconColor });
-        applyHTMLTheme(element, animatedPaint, scale);
-    }
+            // THE CENTRALIZED ALPHA & ANIMATION FIX: Delegate all effect fading and interpolation to the utility layer
+            const animatedPaint = compileAnimatedPaint(paintData, config, sysAlpha, { fill: fillColor, textColor: iconColor });
+            applyHTMLTheme(element, animatedPaint, scale);
+        }
 
     element.onclick = (e) => {
         // THE AWAKE GATE: Ensure framework stays alive for color/recoil animations

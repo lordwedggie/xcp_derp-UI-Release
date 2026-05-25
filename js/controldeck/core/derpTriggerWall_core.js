@@ -931,7 +931,7 @@ export async function triggerWall_saveCurrentProfile(node, targetRegion = "btnSa
         node._layoutMapHash = null;
         refreshAndSync(node, false, true);
         const savedName = String(presetName || "").split(/[\\/]/).pop() || String(presetName || "");
-        showBastaSystemMessage(node, tLocale("$derp_trigger_wall.messages.profile_saved_prefix", "Profile Saved: "), 3000, { fade: true, grow: true }, targetRegion, "success", null, savedName);
+        showBastaSystemMessage(node, tLocale("$derp_trigger_wall.messages.profile_saved_prefix", "Profile Saved: "), 3000, { fade: true, grow: true }, targetRegion, "warning", null, savedName);
     } catch (e) {
         console.error("[xcpDerp] Failed to save current profile:", e);
         showBastaMessage(node, tLocale("$derp_trigger_wall.messages.save_failed", "Save Failed"), 3000, { fade: true, grow: true }, targetRegion, false, "error");

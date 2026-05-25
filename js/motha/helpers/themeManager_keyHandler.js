@@ -217,7 +217,7 @@ export const handleKeyRenameAction = (node, updateThemeLayoutFn) => {
                 node.themeToEdit[newName] = node.themeToEdit[currentKey];
                 delete node.themeToEdit[currentKey];
                 await syncAndPersistKey(node, newName, updateThemeLayoutFn);
-                showBastaSystemMessage(node, "Key Renamed: ", 2000, { fade: true, grow: true }, "btnKeyRename", "success", null, newName);
+                showBastaSystemMessage(node, "Key Renamed: ", 2000, { fade: true, grow: true }, "btnKeyRename", "warning", null, newName);
             }
             node.requestDerpSync();
         }
@@ -238,7 +238,7 @@ export const handleKeyCopyAction = (node, updateThemeLayoutFn) => {
             if (newName) {
                 node.themeToEdit[newName] = JSON.parse(JSON.stringify(node.themeToEdit[currentKey]));
                 await syncAndPersistKey(node, newName, updateThemeLayoutFn);
-                showBastaSystemMessage(node, "Key Copied: ", 2000, { fade: true, grow: true }, "btnKeyCopy", "success", null, newName);
+                showBastaSystemMessage(node, "Key Copied: ", 2000, { fade: true, grow: true }, "btnKeyCopy", "warning", null, newName);
             }
             node.requestDerpSync();
         }

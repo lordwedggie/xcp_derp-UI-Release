@@ -107,7 +107,7 @@ export const handleThemeRenameAction = (node, updateThemeLayoutFn) => {
                     const dropdown = node.layoutMap?.themeManagementRegion?.dropdownTheme;
                     if (dropdown) dropdown.items = Object.keys(cfg.themes);
                     handleThemeDropdownChange(node, newName, updateThemeLayoutFn);
-                    showBastaSystemMessage(node, "Theme Renamed: ", 2000, { fade: true, grow: true }, "btnThemeRename", "success", null, newName);
+                    showBastaSystemMessage(node, "Theme Renamed: ", 2000, { fade: true, grow: true }, "btnThemeRename", "warning", null, newName);
                 } catch (err) {
                     showBastaSystemMessage(node, "Rename Failed", 3000, { fade: true, grow: true }, "btnThemeRename", "error", null, "");
                     console.error("Theme Rename Error:", err);
@@ -136,7 +136,7 @@ export const handleThemeCopyAction = (node, updateThemeLayoutFn) => {
                     const dropdown = node.layoutMap?.themeManagementRegion?.dropdownTheme;
                     if (dropdown) dropdown.items = Object.keys(cfg.themes);
                     handleThemeDropdownChange(node, newName, updateThemeLayoutFn);
-                    showBastaSystemMessage(node, "Theme Copied: ", 2000, { fade: true, grow: true }, "btnThemeCopy", "success", null, newName);
+                    showBastaSystemMessage(node, "Theme Copied: ", 2000, { fade: true, grow: true }, "btnThemeCopy", "warning", null, newName);
                 } catch (err) {
                     showBastaSystemMessage(node, "Save Failed", 3000, { fade: true, grow: true }, "btnThemeCopy", "error", null, "");
                     console.error("Theme Copy Error:", err);
@@ -161,7 +161,7 @@ export const handleThemeSaveAction = (node, updateThemeLayoutFn) => {
             try {
                 cfg.themes[themeName] = JSON.parse(JSON.stringify(node.themeToEdit));
                 safePersist(cfg, themeName);
-                showBastaSystemMessage(node, "Configuration Saved: ", 2000, { fade: true, grow: true }, "btnThemeSave", "success", null, themeName);
+                showBastaSystemMessage(node, "Configuration Saved: ", 2000, { fade: true, grow: true }, "btnThemeSave", "warning", null, themeName);
             } catch (err) {
                 showBastaSystemMessage(node, "Save Failed", 3000, { fade: true, grow: true }, "btnThemeSave", "error", null, "");
                 console.error("Theme Save Error:", err);

@@ -124,18 +124,24 @@ export function applyHTMLTheme(el, paintData, scale = 1.0) {
     el.style.maskImage = "none";
 
     if (glow) {
-        const gX = (glow.offsetX * DERP_OFFSET_FACTOR) * scale;
-        const gY = (glow.offsetY * DERP_OFFSET_FACTOR) * scale;
-        const gB = (glow.blur * DERP_BLUR_FACTOR) * scale;
-
-        // THE FIX: Use scaleAlpha to safely modify the pre-compiled string
-        const gCol = scaleAlpha(glow.color, DERP_ALPHA_FACTOR);
-
         if (glowClip === "c_glowInside") {
-            // INSIDE: Use inset shadow and hide overflow
+            const gX = (glow.offsetX * DERP_OFFSET_FACTOR) * scale;
+            const gY = (glow.offsetY * DERP_OFFSET_FACTOR) * scale;
+            const gB = (glow.blur * DERP_BLUR_FACTOR) * scale;
+
+            // THE FIX: Use scaleAlpha to safely modify the pre-compiled string
+            const gCol = scaleAlpha(glow.color, DERP_ALPHA_FACTOR);
+
             shadowLayers.push(`inset ${gX}px ${gY}px ${gB}px ${gCol}`);
             el.style.overflow = "hidden";
         } else {
+            const gX = (glow.offsetX * DERP_OFFSET_FACTOR) * scale;
+            const gY = (glow.offsetY * DERP_OFFSET_FACTOR) * scale;
+            const gB = (glow.blur * DERP_BLUR_FACTOR) * scale;
+
+            // THE FIX: Use scaleAlpha to safely modify the pre-compiled string
+            const gCol = scaleAlpha(glow.color, DERP_ALPHA_FACTOR);
+
             shadowLayers.push(`${gX}px ${gY}px ${gB}px ${gCol}`);
         }
     }

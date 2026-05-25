@@ -255,7 +255,7 @@ export function bindPromptBookHooks(nodeType) {
                 .then(res => {
                     if (res.ok) {
                         playKaboom();
-                        showBastaSystemMessage(this, tLocale("$derp_prompt_book.messages.book_deleted", "Book Deleted!"), 2400, { fade: true, grow: true }, "btnDelete", "error");
+                        showBastaSystemMessage(this, tLocale("$derp_prompt_book.messages.book_deleted", "Book Deleted!"), 2400, { fade: true, grow: true }, "btnDelete", "critical");
                         this._sysProfileCache = null;
                         if (this._derpPanel?.showProfiles) this._derpPanel.showProfiles("derpPromptBook", "nodeSettings");
                     }

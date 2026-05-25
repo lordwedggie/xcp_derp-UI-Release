@@ -227,7 +227,8 @@ function openFilePicker(sourceEl, config, node, callbacks) {
     const { bodyKey, pickerKey, textKey: labelKey } = resolveHybridThemeKeys(config.themeKey);
     const listPaint = resolvePaintData(node, bodyKey, "_OFF") || node._panelPaintData_OFF;
     const rowPaintOFF = resolvePaintData(node, labelKey, "_OFF") || node._t_textnormalPaintData_OFF;
-    const rowPaintON = resolvePaintData(node, labelKey, "_ON") || node._t_textnormalPaintData_ON;
+    const rowTextON = resolvePaintData(node, labelKey, "_ON") || rowPaintOFF;
+    const rowPaintON = resolvePaintData(node, bodyKey, "_ON") || node._t_textnormalPaintData_ON;
 
     const pX = (config.padding?.[0] || 4);
     const fs = (config.fontSize || rowPaintOFF?.fontSize || 10);
@@ -375,7 +376,7 @@ function openFilePicker(sourceEl, config, node, callbacks) {
             row.style.cursor = (entry.type === "select_current") ? "default" : "pointer";
             if (prefixColor && row._glyphSpan) row._glyphSpan.style.color = prefixColor;
 
-            row.onmouseenter = () => {
+            row.onmouseenter = () => { if(rowPaintON?.fill) row.style.setProperty("background-color", rowPaintON.fill, "important"); const tc = rowTextON?.textColor || rowTextON?.fill; if(tc) { row._origColor = row.style.color; row.style.setProperty("color", tc, "important"); }
                 // THE PREVIEW TRIGGER: Only show the box if the lora has a validated companion image
                 const itemObj = (config.items || []).find(i => {
                     if (!i || typeof i !== "object") return false;
@@ -403,7 +404,7 @@ function openFilePicker(sourceEl, config, node, callbacks) {
                     picker._previewBox.style.display = "none";
                 }
             };
-            row.onmouseleave = () => {
+            row.onmouseleave = () => { row.style.setProperty("background-color", "", "important"); if(row._origColor !== undefined) { row.style.setProperty("color", row._origColor, "important"); row._origColor = undefined; }
                 picker._previewToken = (picker._previewToken || 0) + 1;
                 picker._previewBox.style.display = "none";
             };
