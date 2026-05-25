@@ -40,6 +40,7 @@ const PICKER_WARP_MARGIN_UNITS = 10;
 const PICKER_SCROLLBAR_WIDTH = 6;
 const PICKER_SCROLLBAR_INSET = 2;
 const PICKER_SCROLLBAR_MIN_THUMB = 18;
+const OUTSIDE_DRAG_CLOSE_THRESHOLD_PX = 4;
 
 const DROPDOWN_ANIM_SETTINGS = {
     lerpFactor: 0.325,
@@ -387,6 +388,11 @@ function openFilePicker(config, node) {
         dragScrollbarPointerId: null,
         dragScrollbarStartY: 0,
         dragScrollbarStartOffset: 0,
+        suppressNextOutsidePointerUp: true,
+        pendingOutsidePointerId: null,
+        pendingOutsidePointerStartX: 0,
+        pendingOutsidePointerStartY: 0,
+        pendingOutsidePointerDragged: false,
     };
 
     rebuildFilePickerRows(activeFilePicker);
@@ -493,8 +499,8 @@ function ensureFilePickerListeners() {
         const insidePanel = isPointInRect(clientX, clientY, state.panelScreenRect);
         const row = findPickerHit(clientX, clientY);
 
-        consumeEvent(event);
         if (onScrollbarThumb) {
+            consumeEvent(event);
             state.draggingScrollbar = true;
             state.dragScrollbarPointerId = event.pointerId;
             state.dragScrollbarStartY = clientY;
@@ -502,17 +508,23 @@ function ensureFilePickerListeners() {
             return;
         }
         if (onScrollbarTrack) {
+            consumeEvent(event);
             scrollPickerToTrackPosition(clientY);
             return;
         }
         if (insideAnchor) {
-            closeFilePicker();
+            state.pendingOutsidePointerId = null;
             return;
         }
         if (!insidePanel) {
-            closeFilePicker();
+            state.pendingOutsidePointerId = event.pointerId;
+            state.pendingOutsidePointerStartX = clientX;
+            state.pendingOutsidePointerStartY = clientY;
+            state.pendingOutsidePointerDragged = false;
             return;
         }
+        state.pendingOutsidePointerId = null;
+        consumeEvent(event);
         handlePickerRowAction(row);
     }, true);
 
@@ -532,6 +544,13 @@ function ensureFilePickerListeners() {
                 markNodeDirty(state.node, 8);
             }
             return;
+        }
+        if (activeFilePicker.pendingOutsidePointerId === event.pointerId) {
+            const dx = event.clientX - activeFilePicker.pendingOutsidePointerStartX;
+            const dy = event.clientY - activeFilePicker.pendingOutsidePointerStartY;
+            if (Math.hypot(dx, dy) >= OUTSIDE_DRAG_CLOSE_THRESHOLD_PX) {
+                activeFilePicker.pendingOutsidePointerDragged = true;
+            }
         }
         const row = findPickerHit(event.clientX, event.clientY);
         const nextHoverId = row?.id || null;
@@ -560,11 +579,32 @@ function ensureFilePickerListeners() {
 
     window.addEventListener("pointerup", (event) => {
         if (!activeFilePicker) return;
-        if (!activeFilePicker.draggingScrollbar) return;
-        if (activeFilePicker.dragScrollbarPointerId !== event.pointerId) return;
-        consumeEvent(event);
-        activeFilePicker.draggingScrollbar = false;
-        activeFilePicker.dragScrollbarPointerId = null;
+
+        const state = activeFilePicker;
+        if (state.draggingScrollbar) {
+            if (state.dragScrollbarPointerId !== event.pointerId) return;
+            consumeEvent(event);
+            state.draggingScrollbar = false;
+            state.dragScrollbarPointerId = null;
+            return;
+        }
+
+        if (state.pendingOutsidePointerId === event.pointerId) {
+            const wasDragged = state.pendingOutsidePointerDragged;
+            state.pendingOutsidePointerId = null;
+            state.pendingOutsidePointerDragged = false;
+            if (wasDragged) return;
+        }
+
+        const insideAnchor = isPointInRect(event.clientX, event.clientY, state.screenAnchorRect);
+        const insidePanel = isPointInRect(event.clientX, event.clientY, state.panelScreenRect);
+        if (state.suppressNextOutsidePointerUp) {
+            state.suppressNextOutsidePointerUp = false;
+            return;
+        }
+        if (!insideAnchor && !insidePanel) {
+            closeFilePicker();
+        }
     }, true);
 }
 
