@@ -6,6 +6,11 @@
 
 import { toRGBA } from "./utils/colorMath.js";
 
+export const DERP_HTML_CORNER_SCALE = 1.2;
+export const DERP_HTML_BLUR_FACTOR = 0.5;
+export const DERP_HTML_ALPHA_FACTOR = 0.5;
+export const DERP_HTML_OFFSET_FACTOR = 0.5;
+
 function normalizeCornerRadii(corners) {
     const clamp = (value) => {
         const num = Number(value);
@@ -47,6 +52,23 @@ function buildChamferClipPath(corners) {
     return `polygon(${points.join(", ")})`;
 }
 
+export function applyHTMLCornerGeometry(el, cornersInput, scale = 1.0, cornerScale = DERP_HTML_CORNER_SCALE) {
+    if (!el) return;
+    const corners = normalizeCornerRadii(cornersInput || 0);
+    const scaledCorners = corners.map((corner) => corner * scale * cornerScale);
+    const hasChamfer = scaledCorners.some((corner) => corner < 0);
+
+    el.style.borderRadius = `${Math.max(0, scaledCorners[0])}px ${Math.max(0, scaledCorners[1])}px ${Math.max(0, scaledCorners[2])}px ${Math.max(0, scaledCorners[3])}px`;
+    if (hasChamfer) {
+        const clipPath = buildChamferClipPath(scaledCorners);
+        el.style.clipPath = clipPath;
+        el.style.webkitClipPath = clipPath;
+    } else {
+        el.style.clipPath = "none";
+        el.style.webkitClipPath = "none";
+    }
+}
+
 // Helper to safely multiply the alpha of an already-compiled rgba() string
 function scaleAlpha(colorStr, factor) {
     if (!colorStr) return "transparent";
@@ -70,28 +92,13 @@ function scaleAlpha(colorStr, factor) {
 export function applyHTMLTheme(el, paintData, scale = 1.0) {
     if (!el || !paintData) return;
 
-    // --- LOCAL TUNING: Adjust these multipliers to match Canvas density ---
-    const DERP_BLUR_FACTOR   = 0.5; // Scales the diffusion spread. Lower = Sharper.
-    const DERP_ALPHA_FACTOR  = 0.5; // Scales the opacity of the shadow/glow color.
-    const DERP_OFFSET_FACTOR = 0.5; // Scales the physical displacement of the effect.
-
     const corners = normalizeCornerRadii(paintData.corners || 0);
     const glow = paintData.glow;
     const border = paintData.border;
     const shadow = paintData.shadow;
-    const hasChamfer = corners.some((corner) => corner < 0);
 
     // 1. BASE GEOMETRY
-    el.style.borderRadius = `${Math.max(0, corners[0]) * scale}px ${Math.max(0, corners[1]) * scale}px ${Math.max(0, corners[2]) * scale}px ${Math.max(0, corners[3]) * scale}px`;
-    if (hasChamfer) {
-        const scaledCorners = corners.map((corner) => corner * scale);
-        const clipPath = buildChamferClipPath(scaledCorners);
-        el.style.clipPath = clipPath;
-        el.style.webkitClipPath = clipPath;
-    } else {
-        el.style.clipPath = "none";
-        el.style.webkitClipPath = "none";
-    }
+    applyHTMLCornerGeometry(el, corners, scale);
 
     el.style.backgroundColor = Array.isArray(paintData.fill) ? toRGBA(paintData.fill) : (paintData.fill || "transparent");
 
@@ -101,12 +108,12 @@ export function applyHTMLTheme(el, paintData, scale = 1.0) {
     // --- Standard Shadow Layer with 3-state clipping ---
     const shadowClip = paintData.shadowClip || "c_shadowOutside";
     if (shadow) {
-        const sX = (shadow.offsetX * DERP_OFFSET_FACTOR) * scale;
-        const sY = (shadow.offsetY * DERP_OFFSET_FACTOR) * scale;
-        const sB = (shadow.blur * DERP_BLUR_FACTOR) * scale;
+        const sX = (shadow.offsetX * DERP_HTML_OFFSET_FACTOR) * scale;
+        const sY = (shadow.offsetY * DERP_HTML_OFFSET_FACTOR) * scale;
+        const sB = (shadow.blur * DERP_HTML_BLUR_FACTOR) * scale;
 
         // THE FIX: Use scaleAlpha to safely modify the pre-compiled string
-        const sCol = scaleAlpha(shadow.color, DERP_ALPHA_FACTOR);
+        const sCol = scaleAlpha(shadow.color, DERP_HTML_ALPHA_FACTOR);
 
         if (shadowClip === "c_shadowInside") {
             shadowLayers.push(`inset ${sX}px ${sY}px ${sB}px ${sCol}`);
@@ -125,22 +132,22 @@ export function applyHTMLTheme(el, paintData, scale = 1.0) {
 
     if (glow) {
         if (glowClip === "c_glowInside") {
-            const gX = (glow.offsetX * DERP_OFFSET_FACTOR) * scale;
-            const gY = (glow.offsetY * DERP_OFFSET_FACTOR) * scale;
-            const gB = (glow.blur * DERP_BLUR_FACTOR) * scale;
+            const gX = (glow.offsetX * DERP_HTML_OFFSET_FACTOR) * scale;
+            const gY = (glow.offsetY * DERP_HTML_OFFSET_FACTOR) * scale;
+            const gB = (glow.blur * DERP_HTML_BLUR_FACTOR) * scale;
 
             // THE FIX: Use scaleAlpha to safely modify the pre-compiled string
-            const gCol = scaleAlpha(glow.color, DERP_ALPHA_FACTOR);
+            const gCol = scaleAlpha(glow.color, DERP_HTML_ALPHA_FACTOR);
 
             shadowLayers.push(`inset ${gX}px ${gY}px ${gB}px ${gCol}`);
             el.style.overflow = "hidden";
         } else {
-            const gX = (glow.offsetX * DERP_OFFSET_FACTOR) * scale;
-            const gY = (glow.offsetY * DERP_OFFSET_FACTOR) * scale;
-            const gB = (glow.blur * DERP_BLUR_FACTOR) * scale;
+            const gX = (glow.offsetX * DERP_HTML_OFFSET_FACTOR) * scale;
+            const gY = (glow.offsetY * DERP_HTML_OFFSET_FACTOR) * scale;
+            const gB = (glow.blur * DERP_HTML_BLUR_FACTOR) * scale;
 
             // THE FIX: Use scaleAlpha to safely modify the pre-compiled string
-            const gCol = scaleAlpha(glow.color, DERP_ALPHA_FACTOR);
+            const gCol = scaleAlpha(glow.color, DERP_HTML_ALPHA_FACTOR);
 
             shadowLayers.push(`${gX}px ${gY}px ${gB}px ${gCol}`);
         }

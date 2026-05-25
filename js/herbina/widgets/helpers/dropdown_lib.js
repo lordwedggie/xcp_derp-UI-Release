@@ -3,6 +3,13 @@
  * ROLE: Shared Hybrid HTML overlay engine for Dropdown and FileBrowser widgets.
  */
 import { getNextZIndex } from "../../utils/widgetsUtils.js";
+import {
+    applyHTMLCornerGeometry,
+    DERP_HTML_ALPHA_FACTOR,
+    DERP_HTML_BLUR_FACTOR,
+    DERP_HTML_CORNER_SCALE,
+    DERP_HTML_OFFSET_FACTOR
+} from "../../masterPainterHTML.js";
 
 const pickerHoverId = "derp-picker-hover-style";
 if (!document.getElementById(pickerHoverId)) {
@@ -41,6 +48,67 @@ export function resolveHybridThemeKeys(themeKey) {
         pickerKey: parts.length >= 3 ? parts[1] : null,
         textKey: parts.length >= 3 ? (parts[2] || "t_textsystem") : (parts[1] || parts[0] || "t_textsystem")
     };
+}
+
+function toBorderRadius(corners, scale) {
+    if (corners == null) return "0px";
+    const values = Array.isArray(corners)
+        ? corners.slice(0, 4)
+        : [corners, corners, corners, corners];
+    while (values.length < 4) values.push(values[values.length - 1] ?? 0);
+    return values.map((c) => `${Math.max(0, Math.abs(Number(c) || 0) * scale)}px`).join(" ");
+}
+
+const DERP_PICKER_CORNER_SCALE = DERP_HTML_CORNER_SCALE;
+
+function scaleAlpha(colorStr, factor) {
+    if (!colorStr) return "transparent";
+    const match = String(colorStr).match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+    if (!match) return colorStr;
+    const r = match[1];
+    const g = match[2];
+    const b = match[3];
+    const a = match[4] !== undefined ? parseFloat(match[4]) : 1;
+    return `rgba(${r}, ${g}, ${b}, ${a * factor})`;
+}
+
+function buildBoxShadowLayers(listPaint, scale) {
+    const layers = [];
+    const shadowClip = listPaint?.shadowClip || "c_shadowNone";
+    const glowClip = listPaint?.glowClip || "c_glowNone";
+
+    if (listPaint?.shadow) {
+        const s = listPaint.shadow;
+        const sX = (Number(s.offsetX) || 0) * DERP_HTML_OFFSET_FACTOR * scale;
+        const sY = (Number(s.offsetY) || 0) * DERP_HTML_OFFSET_FACTOR * scale;
+        const sB = (Number(s.blur) || 0) * DERP_HTML_BLUR_FACTOR * scale;
+        const sCol = scaleAlpha(s.color, DERP_HTML_ALPHA_FACTOR);
+        layers.push(`${shadowClip === "c_shadowInside" ? "inset " : ""}${sX}px ${sY}px ${sB}px ${sCol}`);
+    }
+
+    if (listPaint?.glow) {
+        const g = listPaint.glow;
+        const gX = (Number(g.offsetX) || 0) * DERP_HTML_OFFSET_FACTOR * scale;
+        const gY = (Number(g.offsetY) || 0) * DERP_HTML_OFFSET_FACTOR * scale;
+        const gB = (Number(g.blur) || 0) * DERP_HTML_BLUR_FACTOR * scale;
+        const gCol = scaleAlpha(g.color, DERP_HTML_ALPHA_FACTOR);
+        const outside = `${gX}px ${gY}px ${gB}px ${gCol}`;
+        const inside = `inset ${gX}px ${gY}px ${gB}px ${gCol}`;
+        if (glowClip === "c_glowInside") layers.push(inside);
+        else if (glowClip === "c_glowOutside") layers.push(outside);
+        else layers.push(outside, inside);
+    }
+
+    if (listPaint?.border) {
+        const b = listPaint.border;
+        const width = (Number(b.width) || 0) * scale;
+        const color = b.color || "transparent";
+        const placement = b.placement ?? 0;
+        if (placement === 1) layers.push(`inset 0 0 0 ${width}px ${color}`);
+        else if (placement === 2) layers.push(`0 0 0 ${width}px ${color}`);
+    }
+
+    return layers;
 }
 
 export function initializeHybridPicker(picker, sourceEl, config, currentWidth, anchorHeight, offsetY, visibleLimit, hideScrollbar, listPaint, scale) {
@@ -82,20 +150,18 @@ function applyInlineTheme(picker, listPaint, scale) {
     const fill = listPaint?.fill;
     const bg = Array.isArray(fill) ? `rgba(${fill[0]}, ${fill[1]}, ${fill[2]}, ${fill[3] ?? 1})` : (fill || "transparent");
     picker.style.background = bg;
-    if (listPaint?.stroke) {
+    picker.style.boxSizing = "border-box";
+    picker.style.border = "none";
+    if (listPaint?.border && (listPaint.border.placement ?? 0) === 0) {
+        const border = listPaint.border;
         picker.style.borderStyle = "solid";
-        picker.style.borderColor = toCssColor(listPaint.stroke);
-        picker.style.borderWidth = `${(listPaint.lineWidth || 1) * scale}px`;
+        picker.style.borderColor = toCssColor(border.color);
+        picker.style.borderWidth = `${(Number(border.width) || 1) * scale}px`;
     } else {
         picker.style.borderWidth = "0px";
     }
-    if (listPaint?.corners) {
-        const corners = Array.isArray(listPaint.corners) ? listPaint.corners : [listPaint.corners, listPaint.corners, listPaint.corners, listPaint.corners];
-        picker.style.borderRadius = corners.map((c) => `${(c || 0) * scale}px`).join(" ");
-    }
-    if (listPaint?.boxShadow) {
-        picker.style.boxShadow = listPaint.boxShadow;
-    }
+    applyHTMLCornerGeometry(picker, listPaint?.corners, scale, DERP_PICKER_CORNER_SCALE);
+    picker.style.boxShadow = buildBoxShadowLayers(listPaint, scale).join(", ");
 }
 
 export function isWidgetAnimationEnabled(config, node, app) {

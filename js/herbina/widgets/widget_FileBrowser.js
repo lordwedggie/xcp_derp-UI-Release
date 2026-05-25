@@ -225,7 +225,8 @@ function openFilePicker(sourceEl, config, node, callbacks) {
     const hasIndicator = shouldShowFileBrowserIndicator(config);
 
     const { bodyKey, pickerKey, textKey: labelKey } = resolveHybridThemeKeys(config.themeKey);
-    const listPaint = resolvePaintData(node, bodyKey, "_OFF") || node._panelPaintData_OFF;
+    const resolvedPickerKey = pickerKey || bodyKey;
+    const listPaint = resolvePaintData(node, resolvedPickerKey, "_OFF") || resolvePaintData(node, bodyKey, "_OFF") || node._panelPaintData_OFF;
     const rowPaintOFF = resolvePaintData(node, labelKey, "_OFF") || node._t_textnormalPaintData_OFF;
     const rowTextON = resolvePaintData(node, labelKey, "_ON") || rowPaintOFF;
     const rowPaintON = resolvePaintData(node, bodyKey, "_ON") || node._t_textnormalPaintData_ON;
