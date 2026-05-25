@@ -113,6 +113,7 @@ export function bindEffectEvents(node, updateThemeLayoutFn) {
 
     const openDesignerProxy = (exactKey, persistentKey) => {
         const safeHost = Object.create(node);
+        safeHost._designerEditHost = node;
         safeHost.themeToEdit = node.themeToEdit;
         safeHost._selectedKeyName = node._selectedKeyName;
         safeHost._selectedThemeName = "__PALETTE_LOCAL__";

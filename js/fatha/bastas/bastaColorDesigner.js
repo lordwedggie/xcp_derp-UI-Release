@@ -21,6 +21,10 @@ export const cdState = {
     applyPressed: false
 };
 
+function getDesignerEditHost(host = cdState.hostNode) {
+    return host?._designerEditHost || host;
+}
+
 function updateHostThemeColor(basta) {
     const state = cdState;
     if (!state.hostNode || !state.activeStateSuffix) return;
@@ -42,7 +46,7 @@ function updateHostThemeColor(basta) {
         }
     }
 
-    const node = state.hostNode;
+    const node = getDesignerEditHost();
     const keyName = node._selectedKeyName;
 
     if (node.themeToEdit) {
@@ -87,7 +91,8 @@ function updateHostThemeColor(basta) {
             }
         }
         if (node.requestDerpSync) node.requestDerpSync();
-        if (typeof node.onPaletteEdit === "function") node.onPaletteEdit();
+        if (typeof state.hostNode?.onPaletteEdit === "function") state.hostNode.onPaletteEdit();
+        if (typeof node.onPaletteEdit === "function" && node !== state.hostNode) node.onPaletteEdit();
     }
 
     if (basta) {
@@ -100,7 +105,7 @@ function revertHostThemeColor() {
     const state = cdState;
     if (state.applyPressed) return;
 
-    const node = state.hostNode;
+    const node = getDesignerEditHost();
     if (node && state.originalKeyData) {
         const keyName = node._selectedKeyName;
         const target = node.themeToEdit[keyName];
@@ -139,8 +144,10 @@ export function showBastaColorDesigner(host, exactKey = "_OFF", targetRegion = n
     cdState._nestedPath = null;
     let startColor = [128, 128, 128, 1];
 
-    if (host && host.themeToEdit && host._selectedKeyName) {
-        const targetObj = host.themeToEdit[host._selectedKeyName];
+    const editHost = getDesignerEditHost(host);
+
+    if (editHost && editHost.themeToEdit && editHost._selectedKeyName) {
+        const targetObj = editHost.themeToEdit[editHost._selectedKeyName];
         // THE CATASTROPHIC FIX: Backup the ENTIRE theme block so revertHostThemeColor can fully restore it
         cdState.originalKeyData = (targetObj !== undefined) ? JSON.parse(JSON.stringify(targetObj)) : null;
 
@@ -344,7 +351,7 @@ export function showBastaColorDesigner(host, exactKey = "_OFF", targetRegion = n
                         width: "auto", height: "auto",
                         objectAlign: ["right", "middle"], labelAlign: ["center", "middle"],
                         onPress: () => {
-                            const node = cdState.hostNode;
+                            const node = getDesignerEditHost();
                             if (node && node.themeToEdit && node._selectedKeyName) {
                                 const cfg = window.xcpDerpThemeConfig;
                                 const keyName = node._selectedKeyName;

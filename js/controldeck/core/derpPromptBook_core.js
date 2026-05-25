@@ -52,7 +52,7 @@ function normalizePromptBookName(name) {
 
 function showPromptBookSystemSaveMessage(node, prefix, bookName, targetRegion = null) {
     const cleanName = normalizePromptBookName(bookName);
-    showBastaSystemMessage(node, prefix, 3000, { fade: true, grow: true }, targetRegion, "success", null, cleanName);
+    showBastaSystemMessage(node, prefix, 3000, { fade: true, grow: true }, targetRegion, "warning", "success", cleanName);
 }
 
 function showPromptBookMissingBookMessage(node, bookName, targetRegion = null) {

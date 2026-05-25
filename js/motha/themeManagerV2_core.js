@@ -287,6 +287,7 @@ export function bindThemeEvents(node) {
     // THE BASTA TRANSITION: Re-bind effect-level Color Designer triggers (Main is handled by specialist)
     const openDesignerProxy = (exactKey, persistentKey) => {
         const safeHost = Object.create(node);
+        safeHost._designerEditHost = node;
         safeHost.themeToEdit = node.themeToEdit;
         safeHost._selectedKeyName = node._selectedKeyName;
         safeHost._selectedThemeName = "__PALETTE_LOCAL__";

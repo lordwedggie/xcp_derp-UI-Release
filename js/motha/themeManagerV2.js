@@ -93,7 +93,14 @@ app.registerExtension({
             this._layoutMapHash = layoutHash;
             if (mapChanged) this._lastUISyncHash = "";
 
-            const { mW, mH, sW, sH, oX, oY, pW, pH } = this.getDerpVars(this);
+            const cfg = window.xcpDerpThemeConfig;
+            const applyName = (this.properties?.selectedTheme && this.properties.selectedTheme !== "") ? this.properties.selectedTheme : (cfg?.activeTheme || "Template_Standard_v02");
+            const applyTheme = cfg?.themes?.[applyName];
+            const applyLayout = applyTheme?._layout || [0, 0, 2, 2, 0, 0, 2, 4];
+            const mW = Number(applyLayout[0] ?? 0), mH = Number(applyLayout[1] ?? 0);
+            const sW = Number(applyLayout[2] ?? 2), sH = Number(applyLayout[3] ?? 2);
+            const oX = Number(applyLayout[4] ?? 0), oY = Number(applyLayout[5] ?? 0);
+            const pW = Number(applyLayout[6] ?? 2), pH = Number(applyLayout[7] ?? 4);
             const tLayout = this.themeToEdit?._layout || [4, 2, 2, 2, 2, 4, 2, 4];
 
             // THE REFRESH FIX: Ensure items list is never empty during the initial boot sequence

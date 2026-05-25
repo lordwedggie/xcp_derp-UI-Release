@@ -62,16 +62,25 @@ function getSystemMessageVars(fallbackHost = null) {
     return { pW: 2, pH: 2 };
 }
 
-function getSystemMessagePaints(themeNode) {
+function resolveSystemMessageThemePaint(themeNode, baseKey, mode, fallbackPaint = null) {
+    const variantKey = mode ? `${baseKey}_${mode}` : baseKey;
+    return resolvePaintData(themeNode, variantKey, "_OFF")
+        || themeNode[`_${variantKey}PaintData_OFF`]
+        || resolvePaintData(themeNode, baseKey, "_OFF")
+        || themeNode[`_${baseKey}PaintData_OFF`]
+        || fallbackPaint;
+}
+
+function getSystemMessagePaints(themeNode, mode = "info") {
     return {
-        bodyPaint: resolvePaintData(themeNode, "systemMessage_background", "_OFF") || themeNode._systemMessage_backgroundPaintData_OFF || { fill: "rgba(20,20,20,0.92)", corners: [8, 8, 8, 8] },
-        labelPaint: resolvePaintData(themeNode, "t_systemTextNormal", "_OFF") || themeNode._t_systemTextNormalPaintData_OFF || { textColor: "rgba(255,255,255,1)", font: "Arial", fontSize: 12 },
-        accentPaint: resolvePaintData(themeNode, "t_systemTextAccent", "_OFF") || themeNode._t_systemTextAccentPaintData_OFF || null,
+        bodyPaint: resolveSystemMessageThemePaint(themeNode, "systemMessage_background", mode, { fill: "rgba(20,20,20,0.92)", corners: [8, 8, 8, 8] }),
+        labelPaint: resolveSystemMessageThemePaint(themeNode, "t_systemTextNormal", mode, { textColor: "rgba(255,255,255,1)", font: "Arial", fontSize: 12 }),
+        accentPaint: resolveSystemMessageThemePaint(themeNode, "t_systemTextAccent", mode, null),
     };
 }
 
-function getSystemMessageDimensions(themeNode, text, accentText, fixedW, pW, pH) {
-    const { bodyPaint, labelPaint, accentPaint } = getSystemMessagePaints(themeNode);
+function getSystemMessageDimensions(themeNode, text, accentText, fixedW, pW, pH, mode = "info") {
+    const { bodyPaint, labelPaint, accentPaint } = getSystemMessagePaints(themeNode, mode);
     const fontData = labelPaint || { fontSize: 12, font: "Arial" };
     const fontSize = parseFloat(fontData.fontSize) || 12;
     const fontName = (fontData.font || "Arial").replace(/[0-9]+px/ig, "").trim() || "Arial";
@@ -79,7 +88,7 @@ function getSystemMessageDimensions(themeNode, text, accentText, fixedW, pW, pH)
     const accentFontName = (accentPaint?.font || labelPaint.font || fontName || "Arial").replace(/[0-9]+px/ig, "").trim() || "Arial";
     const accentFontSize = parseFloat(accentPaint?.fontSize) || fontSize;
     const accentFontWeight = accentPaint?.fontWeight || fontWeight;
-    const cacheKey = [fixedW || 0, pW, pH, fontSize, fontName, fontWeight, accentFontSize, accentFontName, accentFontWeight, String(text || ""), String(accentText || "")].join("|");
+    const cacheKey = [mode, fixedW || 0, pW, pH, fontSize, fontName, fontWeight, accentFontSize, accentFontName, accentFontWeight, String(text || ""), String(accentText || "")].join("|");
 
     const cached = systemMessageMeasureCache.get(cacheKey);
     if (cached) return { ...cached, bodyPaint, labelPaint, accentPaint };
@@ -107,7 +116,7 @@ function applySystemMessageThemeToRecord(record, themeNode) {
     const freshVars = getSystemMessageVars();
     record.pW = Number(freshVars.pW || 6);
     record.pH = Number(freshVars.pH || 4);
-    const dims = getSystemMessageDimensions(themeNode, record.text, record.accentText, record.fixedW, record.pW, record.pH);
+    const dims = getSystemMessageDimensions(themeNode, record.text, record.accentText, record.fixedW, record.pW, record.pH, record.mode);
     const { bodyPaint, labelPaint, accentPaint, fontName, fontSize, fontWeight, accentFontName, accentFontSize, accentFontWeight } = dims;
 
     record.fontName = fontName;
@@ -282,7 +291,7 @@ function spawnBastaSystemMessage(host, text, duration = 3000, animations = {}, t
     const pH = Number(vars.pH || 4);
     const fixedW = Number(animations?.width || 0);
 
-    const dims = getSystemMessageDimensions(themeNode, text, accentText, fixedW, pW, pH);
+    const dims = getSystemMessageDimensions(themeNode, text, accentText, fixedW, pW, pH, mode);
     const { bodyPaint, labelPaint, accentPaint, fontSize, fontName, fontWeight, accentFontName, accentFontSize, accentFontWeight, width, height } = dims;
 
     const positions = getSystemMessagePositions(width, height);
@@ -376,6 +385,7 @@ function spawnBastaSystemMessage(host, text, duration = 3000, animations = {}, t
         isRemoved: false,
         text: String(text || ""),
         accentText: String(accentText || ""),
+        mode,
         fixedW,
         pW,
         pH,

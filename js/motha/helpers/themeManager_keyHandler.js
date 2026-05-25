@@ -84,6 +84,7 @@ export function bindKeyMainEvents(node, updateThemeLayoutFn) {
         // THE BASTA TRANSITION: Use the new canvas-based color designer for the main key
         mReg.mainColorEdit.onColorClick = (base, exactKey) => {
             const safeHost = Object.create(node);
+            safeHost._designerEditHost = node;
             safeHost.themeToEdit = node.themeToEdit;
             safeHost._selectedKeyName = node._selectedKeyName;
             safeHost._selectedThemeName = "__PALETTE_LOCAL__";
