@@ -128,6 +128,7 @@ function buildPassiveWholeWallCacheState(node, passiveCacheScale) {
             cacheReg &&
             !node._forceSync &&
             !node._layoutDirty &&
+            !(Number(node._pendingImageLoads || 0) > 0) &&
             performance.now() >= suspendUntil &&
             !node._dragTrig &&
             !node._dragThresholdMet &&

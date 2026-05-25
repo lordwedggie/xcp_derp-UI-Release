@@ -65,6 +65,16 @@ export function syncImageHTML(ctx, node, app, config, overlayPass = false) {
 
     if (alpha <= 0) return;
 
+    const markImageLoadSettled = (imgObj) => {
+        if (!imgObj || imgObj._loadSettled) return;
+        imgObj._loadSettled = true;
+        node._pendingImageLoads = Math.max(0, Number(node._pendingImageLoads || 0) - 1);
+        node._passiveWholeWallCacheSuspendUntil = Math.max(
+            Number(node._passiveWholeWallCacheSuspendUntil || 0),
+            performance.now() + 260
+        );
+    };
+
     const resolvePlaceholderTextPaint = () => {
         const themeParts = String(config.themeKey || "").split(",").map((p) => p.trim()).filter(Boolean);
         const explicitTextKey = props?.textKey || themeParts[1] || themeParts[0] || "t_textNormal";
@@ -149,9 +159,12 @@ export function syncImageHTML(ctx, node, app, config, overlayPass = false) {
                     localObj._lastUrl = url;
                     localObj._isLoaded = false;
                     localObj._loadFailed = false;
+                    localObj._loadSettled = false;
+                    node._pendingImageLoads = Math.max(0, Number(node._pendingImageLoads || 0)) + 1;
                     localObj.onload = () => {
                         localObj._isLoaded = true;
                         localObj._loadFailed = false;
+                        markImageLoadSettled(localObj);
                         if (node.setDirtyCanvas) {
                             node._derpAwakeFrames = 5;
                             node._forceSync = true;
@@ -161,6 +174,7 @@ export function syncImageHTML(ctx, node, app, config, overlayPass = false) {
                     localObj.onerror = () => {
                         localObj._isLoaded = false;
                         localObj._loadFailed = true;
+                        markImageLoadSettled(localObj);
                         if (node.setDirtyCanvas) {
                             node._derpAwakeFrames = 5;
                             node._forceSync = true;
@@ -176,6 +190,7 @@ export function syncImageHTML(ctx, node, app, config, overlayPass = false) {
                             localObj._isLoaded = false;
                             localObj._loadFailed = true;
                         }
+                        markImageLoadSettled(localObj);
                     }
                     node._imageInstanceCache[cacheKey] = localObj;
                 }
