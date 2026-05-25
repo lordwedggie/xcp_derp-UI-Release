@@ -15,7 +15,6 @@ import { getVirtualNodeLayoutMap } from "./helpers/fathaLayoutMaps.js";
 import { transmitBypassedDerpSignals, transmitDerpSignal, purgeDerpSignal } from "./core/masterSignalEngine.js";
 import { animateRecoil } from "../herbina/masterAnimator.js";
 import { initPerfOverlay, togglePerfOverlay } from "./helpers/fathaPerfOverlay.js";
-import { ensureFileBrowserBinding } from "../herbina/widgets/widget_FileBrowser.js";
 
 const FATHA_OVERLAY_WINDOW_MS = 4000;
 
@@ -165,10 +164,6 @@ function ensurePassiveCacheInteractionBindings(node, app) {
     if (!node?.layout?.regions) return;
     for (const [key, reg] of Object.entries(node.layout.regions)) {
         if (!reg?.type) continue;
-        if (reg.type === UI_TYPES.DROPDOWN_DERP || reg.type === UI_TYPES.DROPDOWN) {
-            ensureFileBrowserBinding(node, app, { ...reg, key, geometry: { x: reg.x, y: reg.y, w: reg.w, h: reg.h } });
-            continue;
-        }
         if (reg.type === UI_TYPES.SLIDER) {
             if (!reg._xcpPassiveCacheWrappedDragStart) {
                 const originalOnDragStart = reg.onDragStart;

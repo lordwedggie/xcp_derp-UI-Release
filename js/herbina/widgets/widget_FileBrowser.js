@@ -139,6 +139,43 @@ function forceFileBrowserResync(node, config, sourceEl) {
     }
 }
 
+function isDropdownFileBrowser(config, sourceEl) {
+    return config?.icon === "dropdown" || (sourceEl?._glyphs && sourceEl._glyphs[0] === "▶" && sourceEl._glyphs[1] === "▼");
+}
+
+function getFileBrowserItemValue(item) {
+    return typeof item === "string" ? item : (item?.path ?? item?.value ?? item?.name ?? "");
+}
+
+function getFileBrowserLeafDisplay(value) {
+    return String(value || "")
+        .replace(/[\\]/g, "/")
+        .split("/")
+        .pop()
+        .replace(/\.(safetensors|json)$/i, "");
+}
+
+function stripFileBrowserHTML(value) {
+    return String(value || "").replace(/<[^>]*>/g, "").replace(/&nbsp;/gi, " ").trim();
+}
+
+function getFileBrowserCurrentDisplay(config, items = []) {
+    if (!isDropdownFileBrowser(config)) return null;
+
+    const selectedValue = String(config?.value || "");
+    const selectedItem = items.find(item => String(getFileBrowserItemValue(item)) === selectedValue);
+
+    if (selectedItem && typeof selectedItem === "object") {
+        const labelText = stripFileBrowserHTML(selectedItem.label);
+        const displayText = String(selectedItem.display || "");
+        return (labelText || displayText)
+            ? `${labelText}${displayText}`.trim()
+            : getFileBrowserLeafDisplay(getFileBrowserItemValue(selectedItem));
+    }
+
+    return getFileBrowserLeafDisplay(selectedValue || getFileBrowserItemValue(items[0]));
+}
+
 // THE GLOBAL HOOK: Allow the framework to force-close pickers during major state transitions (like Basta switches)
 window._xcpCloseActiveFileBrowser = () => {
     if (activeFilePicker) {
@@ -155,32 +192,6 @@ export function createFileBrowser(callbacks = {}) {
         ? iconEntry
         : FILEBROWSER_ICON_MAP.fallback;
     const el = createHybridDropdownHTML(callbacks, glyphs);
-    el._iconName = iconName;
-    return el;
-}
-
-export function ensureFileBrowserBinding(node, app, config) {
-    if (!node || !config?.key) return null;
-    if (!node._derpDomElements) node._derpDomElements = {};
-    let el = node._derpDomElements[config.key];
-    if (!el) {
-        el = createFileBrowser({ ...(config.callbacks || {}), icon: config.icon });
-        node._derpDomElements[config.key] = el;
-    }
-
-    let liveReg = node.layout?.regions?.[config.key];
-    if (!liveReg) return el;
-
-    liveReg.onPress = (e) => {
-        if (e && e.stopPropagation) e.stopPropagation();
-        executeShieldedInteraction(node, app, config.geometry.x, config.geometry.y, config.geometry.w, config.geometry.h, () => {
-            if (activeFilePicker && activeFilePicker._sourceEl === el) closeFilePicker();
-            else openFilePicker(el, config, node, config);
-            node.setDirtyCanvas(true, true);
-        });
-        return true;
-    };
-
     return el;
 }
 
@@ -297,11 +308,11 @@ function openFilePicker(sourceEl, config, node, callbacks) {
         });
 
         const list = [];
-        const isDropdownMode = sourceEl._glyphs && sourceEl._glyphs[0] === "▶" && sourceEl._glyphs[1] === "▼";
+        const isDropdownMode = isDropdownFileBrowser(config, sourceEl);
 
         if (isDropdownMode) {
             // Dropdown mode — show current value header with open arrow, then flat items
-            const displayVal = config.value || (items.length > 0 ? (typeof items[0] === "string" ? items[0] : (items[0].value || items[0].name || "")) : "");
+            const displayVal = getFileBrowserCurrentDisplay(config, items);
             list.push({ name: displayVal, type: "select_current", path: displayVal });
             files.forEach(file => list.push({ name: file.name, path: file.path, type: "file", item: file.item }));
         } else {
@@ -647,6 +658,7 @@ export function syncFileBrowser(context, node, app, config) {
             masterPainter(ctx, { width: w, height: h, posX: snapToScreenGrid(x, dsScale), posY: snapToScreenGrid(y, dsScale), paintData: bodyPaint, color: animatedFillColor });
         }
 
+        const dropdownDisplay = getFileBrowserCurrentDisplay(safeConfig, safeConfig.items || []);
         const rootDisplayName = t(safeConfig.rootName || (safeConfig.mode === "folder" ? "/" : ""));
         const isSelection = safeConfig.value && safeConfig.value !== "/" && (safeConfig.mode === "folder" || (safeConfig.items || []).some(item => {
             const itemValue = typeof item === "string" ? item : (item?.path ?? item?.value ?? item?.name);
@@ -659,7 +671,7 @@ export function syncFileBrowser(context, node, app, config) {
             currentVal = `${rootDisplayName}${sep}${cleanPath}`;
         }
 
-        const labelStr = (safeConfig.mode === "folder" || (safeConfig.mode === "file" && isSelection)) ? currentVal : (props.displayText || "Browse Files...");
+        const labelStr = dropdownDisplay || ((safeConfig.mode === "folder" || (safeConfig.mode === "file" && isSelection)) ? currentVal : (props.displayText || "Browse Files..."));
 
         if (labelPaint) {
             const pX = props.padding[0];
@@ -697,6 +709,7 @@ export function syncFileBrowser(context, node, app, config) {
     if (scale === null) return;
 
     // THE FAST-HASH GATING: Prevent layout thrashing and theme resolution unless state or content changes
+    const dropdownDisplay = getFileBrowserCurrentDisplay(safeConfig, safeConfig.items || []);
     const rootDisplayName = t(safeConfig.rootName || (safeConfig.mode === "folder" ? "/" : ""));
     const isSelection = safeConfig.value && safeConfig.value !== "/" && (safeConfig.mode === "folder" || (safeConfig.items || []).some(item => {
         const itemValue = typeof item === "string" ? item : (item?.path ?? item?.value ?? item?.name);
@@ -708,7 +721,7 @@ export function syncFileBrowser(context, node, app, config) {
         const sep = rootDisplayName && rootDisplayName !== "/" ? "\\" : "";
         currentVal = `${rootDisplayName}${sep}${cleanPath}`;
     }
-    const labelStr = (safeConfig.mode === "folder" || (safeConfig.mode === "file" && isSelection)) ? currentVal : (props.displayText || "Browse Files...");
+    const labelStr = dropdownDisplay || ((safeConfig.mode === "folder" || (safeConfig.mode === "file" && isSelection)) ? currentVal : (props.displayText || "Browse Files..."));
 
     const htmlSyncKey = `${scale}_${stateStr}_${animatedFillColor}_${animatedTextColor}_${labelStr}_${fs}_${isAwake}`;
     if (el._lastSyncKey !== htmlSyncKey || node._forceSync) {

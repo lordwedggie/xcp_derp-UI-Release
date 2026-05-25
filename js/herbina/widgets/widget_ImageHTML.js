@@ -83,6 +83,10 @@ export function syncImageHTML(ctx, node, app, config, overlayPass = false) {
         const minFontSize = Math.max(6, Number(config.placeholderMinFontSize ?? 6));
 
         ctx.save();
+        ctx.beginPath();
+        if (ctx.roundRect && cornerRadius > 0) ctx.roundRect(x, y, w, h, cornerRadius);
+        else ctx.rect(x, y, w, h);
+        ctx.clip();
         ctx.fillStyle = textColor;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
@@ -144,14 +148,35 @@ export function syncImageHTML(ctx, node, app, config, overlayPass = false) {
                     localObj = new Image();
                     localObj._lastUrl = url;
                     localObj._isLoaded = false;
+                    localObj._loadFailed = false;
                     localObj.onload = () => {
                         localObj._isLoaded = true;
+                        localObj._loadFailed = false;
                         if (node.setDirtyCanvas) {
                             node._derpAwakeFrames = 5;
-                            node.setDirtyCanvas(true);
+                            node._forceSync = true;
+                            node.setDirtyCanvas(true, true);
+                        }
+                    };
+                    localObj.onerror = () => {
+                        localObj._isLoaded = false;
+                        localObj._loadFailed = true;
+                        if (node.setDirtyCanvas) {
+                            node._derpAwakeFrames = 5;
+                            node._forceSync = true;
+                            node.setDirtyCanvas(true, true);
                         }
                     };
                     localObj.src = url;
+                    if (localObj.complete) {
+                        if (localObj.naturalWidth > 0) {
+                            localObj._isLoaded = true;
+                            localObj._loadFailed = false;
+                        } else {
+                            localObj._isLoaded = false;
+                            localObj._loadFailed = true;
+                        }
+                    }
                     node._imageInstanceCache[cacheKey] = localObj;
                 }
                 return localObj;
@@ -230,8 +255,8 @@ export function syncImageHTML(ctx, node, app, config, overlayPass = false) {
                 drew = drawImageObject(currentObj, 1) || drew;
             }
 
-            if (!drew && !config.suppressPlaceholder && !config.isSelected && currentObj && currentObj.complete) {
-                // THE FALLBACK FIX: Display placeholder text if the image asset failed to load
+            if (!drew && !config.suppressPlaceholder && !config.isSelected && currentObj?._loadFailed) {
+                // Only display the missing-image fallback after a confirmed load failure.
                 drawPlaceholderText("No image found");
             }
         } else {
