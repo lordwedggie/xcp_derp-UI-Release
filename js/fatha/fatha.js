@@ -795,14 +795,18 @@ if (!window._xcp_DerpVirtualLoader_Loaded) {
                         }
                     }
 
-                    if (typeof drawDerpSysPanelGlobal === "function") drawDerpSysPanelGlobal(ctx);
-                    if (typeof drawDeckPreviewGlobal === "function") drawDeckPreviewGlobal(ctx);
-                    // THE RENDER FIX: Actually call the Basta layer during the global draw pass
-                    if (typeof drawDerpSignalOutGlobalWires === "function") drawDerpSignalOutGlobalWires(ctx);
-                    if (typeof drawBastaLayer === "function") drawBastaLayer(ctx);
-                };
-            },
-        });
+                     if (typeof drawDerpSysPanelGlobal === "function") drawDerpSysPanelGlobal(ctx);
+                     if (typeof drawDeckPreviewGlobal === "function") drawDeckPreviewGlobal(ctx);
+                     // THE RENDER FIX: Actually call the Basta layer during the global draw pass
+                     if (typeof drawDerpSignalOutGlobalWires === "function") drawDerpSignalOutGlobalWires(ctx);
+                     if (typeof drawBastaLayer === "function") drawBastaLayer(ctx);
+                    const fileBrowserBlueprint = COMPONENT_BLUEPRINTS[UI_TYPES.FILEBROWSER];
+                    if (typeof fileBrowserBlueprint?.drawGlobalOverlay === "function") {
+                        fileBrowserBlueprint.drawGlobalOverlay(ctx, app);
+                    }
+                 };
+             },
+         });
     } catch (e) {
         console.warn("xcp.DerpVirtualLoader extension already registered.");
     }

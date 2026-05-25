@@ -168,8 +168,7 @@ export function applyHTMLTheme(el, paintData, scale = 1.0) {
     // --- Glow Layer with 3-state clipping ---
     const glowClip = paintData.glowClip || "c_glowNone";
 
-    // Reset masking and overflow state before re-evaluation
-    el.style.overflow = "visible";
+    // Reset masking state before re-evaluation
     el.style.webkitMaskImage = "none";
     el.style.maskImage = "none";
 
@@ -177,7 +176,6 @@ export function applyHTMLTheme(el, paintData, scale = 1.0) {
         if (glowClip === "c_glowInside") {
             const layer = buildBoxShadowLayer(glow, scale, DERP_HTML_ALPHA_FACTOR, DERP_HTML_BLUR_FACTOR, DERP_HTML_OFFSET_FACTOR, true);
             if (layer) shadowLayers.push(layer);
-            el.style.overflow = "hidden";
         } else if (glowClip === "c_glowOutside") {
             if (hasChamfer) {
                 const layer = buildDropShadowLayer(glow, scale, DERP_HTML_ALPHA_FACTOR, DERP_HTML_BLUR_FACTOR, DERP_HTML_OFFSET_FACTOR);
@@ -199,6 +197,13 @@ export function applyHTMLTheme(el, paintData, scale = 1.0) {
             if (innerLayer) shadowLayers.push(innerLayer);
         }
     }
+
+    const needsOutsideShadow =
+        shadowClip === "c_shadowOutside" ||
+        shadowClip === "c_shadowNone" ||
+        glowClip === "c_glowOutside" ||
+        glowClip === "c_glowNone";
+    el.style.overflow = needsOutsideShadow ? "visible" : "hidden";
 
     // 3. STROKE (BORDER) LOGIC
     if (border) {
@@ -222,7 +227,9 @@ export function applyHTMLTheme(el, paintData, scale = 1.0) {
 
     // Apply combined shadow layers to the box
     el.style.boxShadow = shadowLayers.join(", ");
-    el.style.filter = dropShadowLayers.join(" ");
+    const themeFilter = dropShadowLayers.join(" ");
+    el._derpThemeFilter = themeFilter || "none";
+    el.style.filter = el._derpThemeFilter;
 
     // FIX: Ensure text remains crisp. Box shadows should not inherit onto text glyphs.
     el.style.textShadow = "none";

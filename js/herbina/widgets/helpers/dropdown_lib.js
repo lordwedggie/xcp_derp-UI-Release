@@ -201,7 +201,7 @@ export function createHybridDropdownHTML(callbacks = {}, glyphs = ["▼", "▲"]
     label.style.boxSizing = "border-box";
     label.style.pointerEvents = "none";
     label.style.whiteSpace = "nowrap";
-    label.style.overflow = "hidden";
+    label.style.overflow = "visible";
     el.appendChild(label);
     el._label = label;
 

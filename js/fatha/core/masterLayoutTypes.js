@@ -21,6 +21,7 @@ import {
     syncLineBreak,
     createFileBrowser,
     syncFileBrowser,
+    drawActiveFilePickerGlobal,
     syncDerpToggle,
     syncDerpToggleV2,
     syncDerpTrigger,
@@ -143,7 +144,9 @@ export const COMPONENT_BLUEPRINTS = {
         padding: [2, 2],
         isHtml: false,
         isHybrid: true,
-        sync: (ctx, node, app, props) => syncFileBrowser(ctx, node, app, props)
+        strokeZIndex: true,
+        drawGlobalOverlay: drawActiveFilePickerGlobal,
+        sync: (ctx, node, app, props, overlayPass) => syncFileBrowser(ctx, node, app, props, overlayPass)
     },
     [UI_TYPES.IMAGE_HTML]: {
         themeKey: "panel",

@@ -640,9 +640,9 @@ export function applyInteractionStyles(el, config, state) {
     el.style.pointerEvents = isDisabled ? "none" : "auto";
 
     // 2. Visual Filtering (Standard hover/active brightness)
-    // THE THEME FIX: Removed hardcoded CSS filters for disabled states.
-    // Elements MUST rely strictly on the _DIS state key from the theme for styling.
-    el.style.filter = "none";
+    // Preserve theme-provided drop-shadow filters (outside glow/shadow),
+    // while still clearing legacy interaction filters.
+    el.style.filter = el._derpThemeFilter || "none";
 
     // 3. Native Disabled Property (for <select>, <input>, etc.)
     if ('disabled' in el) {

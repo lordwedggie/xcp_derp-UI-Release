@@ -21,7 +21,7 @@ export { createDerpSlider, syncDerpSliderCanvas, syncDerpSliderHTML } from "./wi
 export { createTextLabel, syncTextLabel, syncTextLabelHTML } from "./widgets/textLabel.js";
 export { createColorKeyEdit, syncColorKeyEdit } from "./widgets/widget_ColorKey.js";
 export { createLineBreak, syncLineBreak } from "./widgets/widget_LineBreak.js";
-export { createFileBrowser, syncFileBrowser } from "./widgets/widget_FileBrowser.js";
+export { createFileBrowser, syncFileBrowser, drawActiveFilePickerGlobal } from "./widgets/widget_FileBrowser.js";
 export { syncDerpToggle } from "./widgets/widget_Toggle.js";
 export { syncDerpToggleV2 } from "./widgets/widget_ToggleV2.js";
 export { syncImageHTML } from "./widgets/widget_ImageHTML.js";
