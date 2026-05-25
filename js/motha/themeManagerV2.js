@@ -439,6 +439,7 @@ app.registerExtension({
         nodeType.prototype.onNodeCreated = function() {
             if (onCreated) onCreated.apply(this, arguments);
             this.properties.selectedThemeName = this.properties.selectedThemeName || "";
+            this.properties.selectedSystemTheme = this.properties.selectedSystemTheme || this.properties.selectedTheme || "";
             initThemeManager(this);
             this.properties.padding = this.properties.padding || [2, 4];
             this.refreshNodeLayoutMap();
@@ -487,6 +488,7 @@ app.registerExtension({
         const onConfigure = nodeType.prototype.onConfigure;
         nodeType.prototype.onConfigure = function() {
             if (onConfigure) onConfigure.apply(this, arguments);
+            this.properties.selectedSystemTheme = this.properties.selectedSystemTheme || this.properties.selectedTheme || "";
             if (this.properties.selectedThemeName) {
                 this._selectedThemeName = this.properties.selectedThemeName;
                 initThemeManager(this);
@@ -496,7 +498,7 @@ app.registerExtension({
         };
 
         nodeType.prototype.onThemeUpdate = function(config) {
-            const explicitSelectedTheme = this.properties?.selectedTheme || "";
+            const explicitSelectedTheme = this.properties?.selectedSystemTheme || this.properties?.selectedTheme || "";
             const forceImmediateApply = !!explicitSelectedTheme && explicitSelectedTheme !== this._selectedThemeName;
             const preservedSelectedThemeName = this._selectedThemeName;
             const preservedSelectedThemeProp = this.properties?.selectedThemeName || "";
@@ -551,7 +553,10 @@ app.registerExtension({
         nodeType.prototype.getDerpVars = function(...args) {
             const savedName = this._selectedThemeName;
             const savedPropName = this.properties?.selectedThemeName;
-            this._selectedThemeName = (this.properties?.selectedTheme && this.properties.selectedTheme !== "") ? this.properties.selectedTheme : "Template_Standard_v02";
+            const systemTheme = (this.properties?.selectedSystemTheme && this.properties.selectedSystemTheme !== "")
+                ? this.properties.selectedSystemTheme
+                : ((this.properties?.selectedTheme && this.properties.selectedTheme !== "") ? this.properties.selectedTheme : "Template_Standard_v02");
+            this._selectedThemeName = systemTheme;
             this.properties.selectedThemeName = this._selectedThemeName;
             const result = _getDerpVars.apply(this, args);
             this._selectedThemeName = savedName;

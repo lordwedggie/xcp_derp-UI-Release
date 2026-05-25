@@ -135,7 +135,10 @@ export async function loadDerpPaletteImpl(paletteName = "Derp_Default_v01") {
 export function handleThemeUpdateImpl(node, config, deps = {}) {
     const { loadDerpPalette } = deps;
     if (!config || !config.themes) return;
-    const themeName = node.properties?.selectedTheme || node.properties?.selectedThemeName || node._selectedThemeName || config.activeTheme || "Template_Standard_v02";
+    const isThemeManagerV2 = node?.comfyClass === "derpThemeManagerV2";
+    const themeName = isThemeManagerV2
+        ? (node.properties?.selectedSystemTheme || node.properties?.selectedTheme || config.activeTheme || "Template_Standard_v02")
+        : (node.properties?.selectedTheme || node.properties?.selectedThemeName || node._selectedThemeName || config.activeTheme || "Template_Standard_v02");
     const resolvedThemeKey = findCaseInsensitiveKey(config.themes, themeName) || themeName;
     let theme = config.themes[resolvedThemeKey];
     const defaultTheme = "_Templates/DerpTheme_Default";
@@ -156,8 +159,12 @@ export function handleThemeUpdateImpl(node, config, deps = {}) {
                 );
                 theme = fallbackTheme;
                 if (node.properties?.selectedTheme !== undefined) node.properties.selectedTheme = resolvedDefaultTheme;
-                if (node.properties?.selectedThemeName !== undefined) node.properties.selectedThemeName = resolvedDefaultTheme;
-                if (node._selectedThemeName !== undefined) node._selectedThemeName = resolvedDefaultTheme;
+                if (isThemeManagerV2) {
+                    if (node.properties?.selectedSystemTheme !== undefined) node.properties.selectedSystemTheme = resolvedDefaultTheme;
+                } else {
+                    if (node.properties?.selectedThemeName !== undefined) node.properties.selectedThemeName = resolvedDefaultTheme;
+                    if (node._selectedThemeName !== undefined) node._selectedThemeName = resolvedDefaultTheme;
+                }
             } else {
                 showPerNodeThemeStatusMessage(node, "missing", themeName, "");
             }
@@ -166,8 +173,12 @@ export function handleThemeUpdateImpl(node, config, deps = {}) {
 
     if (theme) {
         if (node.properties?.selectedTheme !== undefined) node.properties.selectedTheme = resolvedThemeKey;
-        if (node.properties?.selectedThemeName !== undefined) node.properties.selectedThemeName = resolvedThemeKey;
-        if (node._selectedThemeName !== undefined) node._selectedThemeName = resolvedThemeKey;
+        if (isThemeManagerV2) {
+            if (node.properties?.selectedSystemTheme !== undefined) node.properties.selectedSystemTheme = resolvedThemeKey;
+        } else {
+            if (node.properties?.selectedThemeName !== undefined) node.properties.selectedThemeName = resolvedThemeKey;
+            if (node._selectedThemeName !== undefined) node._selectedThemeName = resolvedThemeKey;
+        }
         Object.entries(theme).forEach(([key, val]) => {
             if (key.startsWith("_") || typeof val !== "object" || Array.isArray(val)) return;
             invalidateCompiledThemeCache(val);

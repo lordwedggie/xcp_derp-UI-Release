@@ -85,4 +85,6 @@ The registry reads metadata from `pyproject.toml` `[project.urls]`:
 1. Think Before Coding — state assumptions, surface tradeoffs, ask when unclear
 2. Simplicity First — minimum code, no speculation, no unasked features
 3. Surgical Changes — touch only what you must, match existing style
-14. Goal-Driven Execution — define success criteria, verify, loop until done
+4. Goal-Driven Execution — define success criteria, verify, loop until done
+
+**5. Commit Message Style:** derpy, witty, and funny — but still technically accurate. Think "fixed the godamn REGION overlay" energy. No corporate-speak, no dry bullet lists. Each commit should feel like a developer cackling at 3am after finally squashing a bug that's been haunting them for weeks.

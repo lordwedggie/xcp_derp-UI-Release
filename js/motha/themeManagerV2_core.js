@@ -19,6 +19,15 @@ import { getSystemPaletteDisplayName } from "./helpers/themeManager_paletteUtils
 
 const THEME_META_KEYS = new Set(["_category", "_layout", "_palette"]);
 
+const getThemeManagerSystemTheme = (node, cfg) => {
+    const availableThemes = Object.keys(cfg?.themes || {});
+    return node.properties.selectedSystemTheme
+        || node.properties.selectedTheme
+        || cfg?.activeTheme
+        || availableThemes[0]
+        || "Template_Standard_v02";
+};
+
 let _lastClickTime = 0;
 export const safeClick = (fn) => {
     return (e) => {
@@ -104,6 +113,7 @@ export function initThemeManager(node) {
     node.properties.pushChanges = true;
     node.properties.autoWidth = false;
     node.properties.selectedThemeName = node.properties.selectedThemeName || "";
+    node.properties.selectedSystemTheme = node.properties.selectedSystemTheme || "";
 
     node._selectedKeyName = node._selectedKeyName || null;
 
@@ -112,6 +122,8 @@ export function initThemeManager(node) {
     node.inputs = [];
 
     const cfg = window.xcpDerpThemeConfig;
+    const systemTheme = getThemeManagerSystemTheme(node, cfg);
+    node.properties.selectedSystemTheme = systemTheme;
     const themeName = node.properties.selectedThemeName || node._selectedThemeName || cfg?.activeTheme || Object.keys(cfg?.themes || {})[0];
 
     if (themeName && cfg?.themes?.[themeName]) {

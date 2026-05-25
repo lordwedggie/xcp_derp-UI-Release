@@ -485,14 +485,15 @@ export function getPanelBaseMap(hostNode, app, sysState) {
     const cfg = window.xcpDerpThemeConfig;
     const allThemes = cfg?.themes || {};
     const availableThemes = Object.keys(allThemes);
-    const requestedTheme = hostNode.properties?.selectedTheme || cfg?.activeTheme || (availableThemes.length > 0 ? availableThemes[0] : "Default");
+    const themePropertyName = hostNode?.comfyClass === "derpThemeManagerV2" ? "selectedSystemTheme" : "selectedTheme";
+    const requestedTheme = hostNode.properties?.[themePropertyName] || cfg?.activeTheme || (availableThemes.length > 0 ? availableThemes[0] : "Default");
     const fallbackTheme = cfg?.activeTheme || (availableThemes.includes("Template_Standard_v02") ? "Template_Standard_v02" : (availableThemes[0] || "Default"));
     const activeTheme = availableThemes.includes(requestedTheme) ? requestedTheme : fallbackTheme;
 
     if (requestedTheme && requestedTheme !== activeTheme && hostNode._lastMissingThemeDropdownWarning !== requestedTheme) {
         hostNode._lastMissingThemeDropdownWarning = requestedTheme;
         showBastaSystemMessage(hostNode, "Theme File Missing", 3200, { fade: true, grow: true }, null, "error", null, requestedTheme);
-        hostNode.properties.selectedTheme = activeTheme;
+        hostNode.properties[themePropertyName] = activeTheme;
     } else if (requestedTheme === activeTheme && hostNode._lastMissingThemeDropdownWarning === requestedTheme) {
         hostNode._lastMissingThemeDropdownWarning = "";
     }
@@ -530,7 +531,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                     const sysCfg = window.xcpDerpThemeConfig;
                     if (node && sysCfg) {
                         sysCfg.activeTheme = val;
-                        node.properties.selectedTheme = val;
+                        node.properties[themePropertyName] = val;
 
                         if (sysState.sysLayoutMap?.sysHeaderRegion?.dropdownThemes) {
                             sysState.sysLayoutMap.sysHeaderRegion.dropdownThemes.value = val;
