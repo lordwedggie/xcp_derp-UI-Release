@@ -18,7 +18,8 @@ import {
     handleSaveBook,
     handleNewBook,
     handleRenameBook,
-    handleCopyBook
+    handleCopyBook,
+    handleDeleteBook
 } from "./core/derpPromptBook_core.js";
 
 function tLocale(key, fallback = key) {
@@ -177,6 +178,12 @@ app.registerExtension({
                                     console.error("Prompt Book folder open failed:", e);
                                 }
                             }
+                        },
+                        btnDeleteBook: {
+                            type: this.UI_TYPES.ICONBUTTON, icon: "trash", themeKey: "button, t_textBig",
+                            width: "match", height: "full", iconScale: 0.5, padding: [pW, pH], spacing: [sW, 0], objectAlign: ["left", "middle"],
+                            labelAlign: ["center", "middle"],
+                            onPress: () => handleDeleteBook(this)
                         },
                     } : {})
                 },

@@ -697,6 +697,46 @@ export function handleCopyBook(node) {
     });
 }
 
+export function handleDeleteBook(node) {
+    const bookName = normalizePromptBookName(node.properties.bookName);
+    if (!bookName) return;
+
+    showBastaFileHandler(node, "derpPromptBook", "btnDeleteBook", {
+        title: tLocale("$derp_prompt_book.dialogs.delete_book.title", "Delete Book"),
+        mode: "delete",
+        message: `${tLocale("$derp_prompt_book.dialogs.delete_book.message_prefix", "Delete book")} '${bookName}'?`,
+        onConfirm: async () => {
+            try {
+                const response = await fetch("/xcp/delete/derpPromptBook", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name: bookName })
+                });
+                if (response.ok) {
+                    showBastaSystemMessage(node, tLocale("$derp_prompt_book.messages.book_deleted_prefix", "Book Deleted: "), 2400, { fade: true, grow: true }, "btnDeleteBook", "critical", null, bookName);
+                    if (node.fetchRemoteBooks) await node.fetchRemoteBooks();
+                    const availableBooks = Array.isArray(node._availableBooks) ? node._availableBooks : [];
+                    const nextBook = availableBooks[0] || "";
+                    if (nextBook) {
+                        await handleBookChange(node, nextBook);
+                    } else {
+                        node.properties.bookName = tLocale("$derp_prompt_book.book.untitled_name", "Untitled Book");
+                        node._lastSavedBookName = node.properties.bookName;
+                        node.properties.derpBook = createDefaultDerpBook();
+                        node.properties.currentPageIndex = 0;
+                        node.properties.prompt = node.properties.derpBook[0]?.content || "";
+                        if (node.refreshNodeLayoutMap) node.refreshNodeLayoutMap();
+                        node.updateDerpPromptBookUI();
+                    }
+                    node.requestDerpSync();
+                }
+            } catch (err) {
+                console.error("Book delete error:", err);
+            }
+        }
+    });
+}
+
 export function getPageLabel(node, idx, title) {
     const isCover = idx === 0 && node.properties.coverPage !== false;
     if (isCover) return `${tLocale("$derp_prompt_book.page.cover", "Cover")}: ${title}`;
