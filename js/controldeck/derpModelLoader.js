@@ -252,6 +252,7 @@ app.registerExtension({
                             width: "full", height: "auto",
                             fontSize: t_textNormal_size,
                             themeKey: "dialog, t_textNormal", canvasShield: true,
+                            searchThemeKey: "panel, t_textSystem",
                             spacing: [sW, 0], padding: [pW, pH],
                             onChange: (v) => {
                                 if (!this.properties.modelDeck) this.properties.modelDeck = [];

@@ -198,7 +198,7 @@ export function playKaboom() {
     filter.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.4);
 
     const noiseGain = audioCtx.createGain();
-    noiseGain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+    noiseGain.gain.setValueAtTime(0.5, audioCtx.currentTime);
     noiseGain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.5);
 
     noise.connect(filter);
@@ -207,127 +207,113 @@ export function playKaboom() {
 
     osc.start(audioCtx.currentTime);
     noise.start(audioCtx.currentTime);
-    osc.stop(audioCtx.currentTime + 0.6);
-    noise.stop(audioCtx.currentTime + 0.6);
+
+    osc.stop(audioCtx.currentTime + 0.8);
+    noise.stop(audioCtx.currentTime + 0.8);
 }
 
 /**
- * Synthesizes a 'power up' rising frequency sound.
+ * Synthesizes a 'power up' rising pitch sound.
+ * A synthesized sine wave that sweeps upward in frequency.
  */
 export function playPowerUp() {
     const audioCtx = getAudioContext();
-    // THE SYNCHRONOUS TIME FIX: Cache currentTime to prevent ticks mid-scheduling which silently breaks audio ramps
-    const t = audioCtx.currentTime;
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
+
     osc.type = "sine";
-    osc.frequency.setValueAtTime(400, t);
-    osc.frequency.exponentialRampToValueAtTime(1200, t + 0.15);
-    gain.gain.setValueAtTime(0, t);
-    // THE VOLUME FIX: Match the microwave notification's 0.3 baseline for consistent audibility
-    gain.gain.linearRampToValueAtTime(0.3, t + 0.01);
-    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+    osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.3);
+
+    gain.gain.setValueAtTime(0.01, audioCtx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.05);
+    gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.3);
+
     osc.connect(gain);
     gain.connect(audioCtx.destination);
-    osc.start(t);
-    osc.stop(t + 0.3);
+    osc.start(audioCtx.currentTime);
+    osc.stop(audioCtx.currentTime + 0.3);
 }
 
 /**
- * Synthesizes a 'power down' falling frequency sound.
+ * Synthesizes a 'power down' falling pitch sound.
+ * An inverted version of the power-up sound.
  */
 export function playPowerDown() {
     const audioCtx = getAudioContext();
-    // THE SYNCHRONOUS TIME FIX: Cache currentTime to prevent ticks mid-scheduling which silently breaks audio ramps
-    const t = audioCtx.currentTime;
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
+
     osc.type = "sine";
-    osc.frequency.setValueAtTime(1200, t);
-    osc.frequency.exponentialRampToValueAtTime(400, t + 0.2);
-    gain.gain.setValueAtTime(0, t);
-    // THE VOLUME FIX: Match the microwave notification's 0.3 baseline for consistent audibility
-    gain.gain.linearRampToValueAtTime(0.3, t + 0.01);
-    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
+    osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(200, audioCtx.currentTime + 0.3);
+
+    gain.gain.setValueAtTime(0.01, audioCtx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.05);
+    gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.3);
+
     osc.connect(gain);
     gain.connect(audioCtx.destination);
-    osc.start(t);
-    osc.stop(t + 0.4);
+    osc.start(audioCtx.currentTime);
+    osc.stop(audioCtx.currentTime + 0.3);
 }
 
-/**
- * Synthesizes a 'shuffle' sound using quick bursts of filtered noise.
- */
+// Sound for reordering, filtering, randomizing lists.
 export function playShuffle() {
     const audioCtx = getAudioContext();
-    const t = audioCtx.currentTime;
-    const noise = (delay) => {
-        const source = audioCtx.createBufferSource();
-        source.buffer = getNoiseBuffer(audioCtx);
-        const filter = audioCtx.createBiquadFilter();
-        filter.type = "bandpass";
-        filter.frequency.setValueAtTime(1200, t + delay);
-        filter.Q.setValueAtTime(0.5, t + delay);
-        const gain = audioCtx.createGain();
-        gain.gain.setValueAtTime(0, t + delay);
-        gain.gain.linearRampToValueAtTime(0.15, t + delay + 0.01);
-        gain.gain.exponentialRampToValueAtTime(0.0001, t + delay + 0.08);
-        source.connect(filter);
-        filter.connect(gain);
-        gain.connect(audioCtx.destination);
-        source.start(t + delay);
-        source.stop(t + delay + 0.1);
-    };
-    for(let i = 0; i < 4; i++) noise(i * 0.06);
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+    osc.frequency.linearRampToValueAtTime(400, audioCtx.currentTime + 0.15);
+
+    gain.gain.setValueAtTime(0, audioCtx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.25, audioCtx.currentTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.2);
+
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(audioCtx.currentTime);
+    osc.stop(audioCtx.currentTime + 0.25);
 }
 
 export function playPickup() {
     const audioCtx = getAudioContext();
-    const t = audioCtx.currentTime;
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
+
     osc.type = "sine";
-    osc.frequency.setValueAtTime(600, t);
-    osc.frequency.exponentialRampToValueAtTime(1200, t + 0.08);
-    gain.gain.setValueAtTime(0, t);
-    gain.gain.linearRampToValueAtTime(0.2, t + 0.005);
-    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.1);
+    osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+    osc.frequency.linearRampToValueAtTime(600, audioCtx.currentTime + 0.12);
+
+    gain.gain.setValueAtTime(0, audioCtx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.2, audioCtx.currentTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.15);
+
     osc.connect(gain);
     gain.connect(audioCtx.destination);
-    osc.start(t);
-    osc.stop(t + 0.1);
+    osc.start(audioCtx.currentTime);
+    osc.stop(audioCtx.currentTime + 0.2);
 }
 
 export function playDropdown() {
     const audioCtx = getAudioContext();
-    const t = audioCtx.currentTime;
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
+
     osc.type = "sine";
-    osc.frequency.setValueAtTime(450, t);
-    osc.frequency.exponentialRampToValueAtTime(150, t + 0.1);
-    gain.gain.setValueAtTime(0, t);
-    gain.gain.linearRampToValueAtTime(0.3, t + 0.005);
-    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.15);
+    osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(300, audioCtx.currentTime + 0.15);
+
+    gain.gain.setValueAtTime(0, audioCtx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.15, audioCtx.currentTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.2);
+
     osc.connect(gain);
     gain.connect(audioCtx.destination);
-
-    const noise = audioCtx.createBufferSource();
-    noise.buffer = getNoiseBuffer(audioCtx);
-    const filter = audioCtx.createBiquadFilter();
-    filter.type = "lowpass";
-    filter.frequency.setValueAtTime(250, t);
-    const nGain = audioCtx.createGain();
-    nGain.gain.setValueAtTime(0.12, t);
-    nGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.1);
-    noise.connect(filter);
-    filter.connect(nGain);
-    nGain.connect(audioCtx.destination);
-
-    osc.start(t);
-    noise.start(t);
-    osc.stop(t + 0.2);
-    noise.stop(t + 0.2);
+    osc.start(audioCtx.currentTime);
+    osc.stop(audioCtx.currentTime + 0.25);
 }
 
 export function playSystemOn() {
@@ -372,6 +358,9 @@ export function playUndocked() {
 const _SOUND_LIBRARY = {
     "microwave": playMicrowaveDing,
     "success": playKaChing,
+    "warning": playKaChing,
+    "error": playKaboom,
+    "critical": playKaboom,
     "delete": playKaboom,
     "powerup": playPowerUp,
     "powerdown": playPowerDown,
@@ -392,24 +381,9 @@ export const SOUND_INDEX = new Proxy(_SOUND_LIBRARY, {
             const fn = target[prop.toLowerCase()];
             if (!fn) return undefined;
             return (...args) => {
-                if (window.DERP_GLOBAL_SETTINGS?.playSound === false) return;
-                const ctx = getAudioContext();
-
-                // If already running, play immediately.
-                if (ctx.state === "running") {
-                    fn(...args);
-                    return;
-                }
-
-                // On first interaction after refresh, resume is async.
-                // Replay once after resume to guarantee first audible sound.
-                ensureAudioReady()
-                    .then(() => {
-                        requestAnimationFrame(() => fn(...args));
-                    })
-                    .catch(() => {});
+                ensureAudioReady().then(() => fn(...args));
             };
         }
-        return target[prop];
+        return undefined;
     }
 });

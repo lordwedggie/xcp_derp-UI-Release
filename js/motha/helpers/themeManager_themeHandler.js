@@ -107,7 +107,7 @@ export const handleThemeRenameAction = (node, updateThemeLayoutFn) => {
                     const dropdown = node.layoutMap?.themeManagementRegion?.dropdownTheme;
                     if (dropdown) dropdown.items = Object.keys(cfg.themes);
                     handleThemeDropdownChange(node, newName, updateThemeLayoutFn);
-                    showBastaSystemMessage(node, "Theme Renamed: ", 2000, { fade: true, grow: true }, "btnThemeRename", "warning", null, newName);
+                    showBastaSystemMessage(node, "Theme Renamed: ", 2000, { fade: true, grow: true }, "btnThemeRename", "success", null, newName);
                 } catch (err) {
                     showBastaSystemMessage(node, "Rename Failed", 3000, { fade: true, grow: true }, "btnThemeRename", "error", null, "");
                     console.error("Theme Rename Error:", err);

@@ -217,7 +217,7 @@ export const handleKeyRenameAction = (node, updateThemeLayoutFn) => {
                 node.themeToEdit[newName] = node.themeToEdit[currentKey];
                 delete node.themeToEdit[currentKey];
                 await syncAndPersistKey(node, newName, updateThemeLayoutFn);
-                showBastaSystemMessage(node, "Key Renamed: ", 2000, { fade: true, grow: true }, "btnKeyRename", "warning", null, newName);
+                showBastaSystemMessage(node, "Key Renamed: ", 2000, { fade: true, grow: true }, "btnKeyRename", "success", null, newName);
             }
             node.requestDerpSync();
         }

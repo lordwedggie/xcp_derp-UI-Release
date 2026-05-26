@@ -51,7 +51,7 @@ export function compileThemeData(themeMain, keyName = "Unknown", state = "OFF") 
     let shadowData = null;
     if (Array.isArray(themeMain.shadow)) {
         const physics = themeMain.shadow;
-        const colorRaw = themeMain[`shadow_${state}`] || themeMain.shadow_ON || [0,0,0,1];
+        const colorRaw = themeMain[`shadow_${state}`] || themeMain.shadow_ON || themeMain.shadow_OFF || [0,0,0,1];
         const color = resolvePaletteColor(colorRaw);
         shadowData = {
             color: `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${color[3] ?? 1})`,
@@ -65,7 +65,7 @@ export function compileThemeData(themeMain, keyName = "Unknown", state = "OFF") 
     let borderData = null;
     if (Array.isArray(themeMain.stroke)) {
         const physics = themeMain.stroke;
-        const colorRaw = themeMain[`stroke_${state}`] || themeMain.stroke_ON || [0,0,0,1];
+        const colorRaw = themeMain[`stroke_${state}`] || themeMain.stroke_ON || themeMain.stroke_OFF || [0,0,0,1];
         const color = resolvePaletteColor(colorRaw);
         borderData = {
             color: `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${color[3] ?? 1})`,
@@ -78,7 +78,7 @@ export function compileThemeData(themeMain, keyName = "Unknown", state = "OFF") 
     let glowData = null;
     if (Array.isArray(themeMain.glow)) {
         const physics = themeMain.glow;
-        const colorRaw = themeMain[`glow_${state}`] || themeMain.glow_ON || [255,255,255,1];
+        const colorRaw = themeMain[`glow_${state}`] || themeMain.glow_ON || themeMain.glow_OFF || [255,255,255,1];
         const color = resolvePaletteColor(colorRaw);
         glowData = {
             color: `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${color[3] ?? 1})`,
@@ -103,6 +103,14 @@ export function compileThemeData(themeMain, keyName = "Unknown", state = "OFF") 
 
     perTheme.set(cacheKey, compiled);
     return compiled;
+}
+
+function isTransparentColor(colorStr) {
+    if (!colorStr) return true;
+    const match = String(colorStr).match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+    if (!match) return false;
+    const a = match[4] !== undefined ? parseFloat(match[4]) : 1.0;
+    return a <= 0.001;
 }
 
 // Helper to safely multiply the alpha of an already-compiled rgba() string
@@ -315,7 +323,7 @@ export function masterPainter(ctx, options) {
     }
 
     // --- LAYER 5: BORDER ---
-    if (paintData?.border) {
+    if (paintData?.border && paintData.border.width > 0 && !isTransparentColor(paintData.border.color)) {
         const b = paintData.border;
         ctx.save();
         ctx.strokeStyle = b.color;

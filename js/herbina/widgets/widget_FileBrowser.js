@@ -7,6 +7,7 @@ import {
     resolveWidgetEnv,
     resolvePaintData,
     measureTextHeight,
+    measureTextWidth,
     clampText,
     snapToScreenGrid
 } from "../utils/widgetsUtils.js";
@@ -28,7 +29,6 @@ const FILEBROWSER_ICON_MAP = {
 
 const BROWSER_ICONS = {
     DIR: "📁 ",
-    UP: "⮤ ",
     FILE: "🖺 ",
     PALETTE: "❖ ",
     LORA: "🖺 ",
@@ -43,6 +43,9 @@ const PICKER_SCROLLBAR_WIDTH = 6;
 const PICKER_SCROLLBAR_INSET = 2;
 const PICKER_SCROLLBAR_MIN_THUMB = 18;
 const OUTSIDE_DRAG_CLOSE_THRESHOLD_PX = 4;
+const PICKER_PREFIX_GAP_PX = 0;
+const PICKER_BREADCRUMB_PADDING = [2, 1];
+const PICKER_BREADCRUMB_TEXT_KEY = "t_textSystem";
 
 const DROPDOWN_ANIM_SETTINGS = {
     lerpFactor: 0.325,
@@ -138,9 +141,39 @@ function normalizePickerSearchValue(value) {
 }
 
 function pickerRowMatchesSearch(row, searchNeedle) {
-    if (!searchNeedle) return true;
-    if (!row || (row.type !== "file" && row.type !== "dir" && row.type !== "up" && row.type !== "select_folder")) return true;
+    if (!searchNeedle) return false;
+    if (!row || (row.type !== "file" && row.type !== "dir" && row.type !== "select_folder")) return false;
     return String(row.name || row.path || "").toLowerCase().includes(searchNeedle);
+}
+
+function getSearchMatchScrollTarget(state) {
+    const needle = normalizePickerSearchValue(state?.searchQuery);
+    if (!state || !needle || !state.scrollRows.length) return null;
+    const matchIndex = state.scrollRows.findIndex((row) => pickerRowMatchesSearch(row, needle));
+    if (matchIndex < 0) return null;
+    const viewportRows = Math.max(0, state.renderedScrollRows ?? state.visibleScrollRows ?? 0);
+    const viewportHeight = viewportRows * state.rowHeight;
+    if (viewportHeight <= 0) return 0;
+    const itemCenter = (matchIndex * state.rowHeight) + (state.rowHeight / 2);
+    const target = itemCenter - (viewportHeight / 2);
+    const maxScroll = Math.max(0, (state.scrollRows.length * state.rowHeight) - viewportHeight);
+    return Math.max(0, Math.min(target, maxScroll));
+}
+
+function syncPickerSearchScroll(state, forceInstant = false) {
+    if (!state) return;
+    const target = getSearchMatchScrollTarget(state);
+    if (target == null) return;
+    const useAnim = !forceInstant && window.DERP_GLOBAL_SETTINGS?.useAnimation !== false;
+    if (!useAnim) {
+        state.scrollOffset = target;
+        clampPickerScroll(state);
+        return;
+    }
+    const nextOffset = lerpTo(state.scrollOffset || 0, target, 0.28, true);
+    state.scrollOffset = nextOffset.value;
+    clampPickerScroll(state);
+    if (nextOffset.isAnimating) markNodeDirty(state.node, 8);
 }
 
 function stripFileBrowserHTML(value) {
@@ -192,7 +225,6 @@ function getFileRowPrefix(config, node, entry) {
         return { prefix: shouldShowFileBrowserIndicator(config) ? getFileBrowserGlyphs(config?.icon)[1] : null, prefixColor: null };
     }
     if (entry.type === "dir") return { prefix: BROWSER_ICONS.DIR, prefixColor: null };
-    if (entry.type === "up") return { prefix: BROWSER_ICONS.UP, prefixColor: null };
     if (config.fileType === "palette") return { prefix: BROWSER_ICONS.PALETTE, prefixColor: null };
 
     if (config.fileType === "lora") {
@@ -242,6 +274,25 @@ function clampPickerScroll(state) {
     state.scrollOffset = Math.max(0, Math.min(state.scrollOffset || 0, maxScroll));
 }
 
+function computePickerPrefixSlotWidth(state, ctx, labelPaint) {
+    if (!state || !ctx) return 0;
+    const fontSize = state.rowPaintOFF?.fontSize || labelPaint?.fontSize || 10;
+    const fallback = fontSize * 1.2;
+    const rows = [
+        ...(state.headerRows || []),
+        ...(state.scrollRows || []),
+        ...(state.footerRow ? [state.footerRow] : []),
+    ];
+    let maxWidth = fallback;
+    for (const row of rows) {
+        if (!row?.prefix) continue;
+        const prefixText = String(row.prefix).replace(/\s+$/, "");
+        const measured = ctx.measureText?.(prefixText).width || fallback;
+        if (measured > maxWidth) maxWidth = measured;
+    }
+    return maxWidth;
+}
+
 function getPickerScrollMetrics(state) {
     const viewportRows = Math.max(0, state.renderedScrollRows ?? state.visibleScrollRows ?? 0);
     const viewportHeight = viewportRows * state.rowHeight;
@@ -273,8 +324,6 @@ function rebuildFilePickerRows(state) {
     const { config, node } = state;
     const items = config.items || [];
     const dropdownMode = isDropdownFileBrowser(config);
-    const searchNeedle = normalizePickerSearchValue(state.searchQuery);
-
     if (dropdownMode) {
         const headerRows = [];
         const scrollRows = [];
@@ -289,7 +338,7 @@ function rebuildFilePickerRows(state) {
                 type: "file",
                 item,
             };
-            if (pickerRowMatchesSearch(row, searchNeedle)) scrollRows.push(row);
+            scrollRows.push(row);
         });
 
         state.headerRows = headerRows.map((entry) => ({ ...entry, ...getFileRowPrefix(config, node, entry) }));
@@ -330,16 +379,13 @@ function rebuildFilePickerRows(state) {
         const sep = rootDisplayName && rootDisplayName !== "/" ? "\\" : "";
         currentPathDisplay = `${rootDisplayName}${sep}${cleanDir}`;
     }
-    headerRows.push({ id: "current", name: currentPathDisplay, type: "select_current", path: dir || "/" });
-    if (dir) headerRows.push({ id: "up", name: t("$widgets.back") || ".. [Back]", type: "up" });
+    headerRows.push({ id: "current", name: currentPathDisplay, type: "select_current", path: dir || "/", hidePrefix: true });
     Array.from(entries).sort().forEach((folder) => {
-        const row = { id: `dir:${folder}`, name: folder, type: "dir" };
-        if (pickerRowMatchesSearch(row, searchNeedle)) scrollRows.push(row);
+        scrollRows.push({ id: `dir:${folder}`, name: folder, type: "dir" });
     });
     if (config.mode !== "folder") {
         files.sort((a, b) => a.name.localeCompare(b.name)).forEach((file) => {
-            const row = { id: `file:${file.path}`, name: file.name, path: file.path, type: "file", item: file.item };
-            if (pickerRowMatchesSearch(row, searchNeedle)) scrollRows.push(row);
+            scrollRows.push({ id: `file:${file.path}`, name: file.name, path: file.path, type: "file", item: file.item });
         });
     }
 
@@ -394,9 +440,11 @@ function openFilePicker(config, node) {
         panelScreenRect: null,
         scrollScreenRect: null,
         rowHitboxes: [],
+        breadcrumbHitboxes: [],
         itemsHash: JSON.stringify(config.items || []),
         bottomMarginUnits: mW || 0,
         offsetY: oY || 0,
+        prefixGap: PICKER_PREFIX_GAP_PX,
         footerRow: null,
         headerRows: [],
         scrollRows: [],
@@ -420,6 +468,7 @@ function openFilePicker(config, node) {
 
     rebuildFilePickerRows(activeFilePicker);
     ensurePickerSelectionVisible(activeFilePicker);
+    syncPickerSearchScroll(activeFilePicker, true);
     window.__xcpHasActiveFileBrowser = true;
     showBastaSearchTab(node, config.key, {
         value: activeFilePicker.searchQuery,
@@ -430,9 +479,8 @@ function openFilePicker(config, node) {
         onInput: (value) => {
             if (!activeFilePicker || activeFilePicker.node !== node || activeFilePicker.key !== config.key) return;
             activeFilePicker.searchQuery = String(value || "");
-            activeFilePicker.scrollOffset = 0;
             rebuildFilePickerRows(activeFilePicker);
-            ensurePickerSelectionVisible(activeFilePicker);
+            syncPickerSearchScroll(activeFilePicker, false);
             activeFilePicker.viewportFollowFrames = 4;
             activeFilePicker.lastViewportWarpHash = "";
             markNodeDirty(node, 12);
@@ -451,18 +499,6 @@ function consumeEvent(event) {
 function handlePickerRowAction(row) {
     const state = activeFilePicker;
     if (!state || !row) return;
-
-    if (row.type === "up") {
-        const parts = String(state.currentDir || "").split("/");
-        parts.pop();
-        state.currentDir = parts.join("/");
-        state.scrollOffset = 0;
-        rebuildFilePickerRows(state);
-        state.viewportFollowFrames = 8;
-        state.lastViewportWarpHash = "";
-        markNodeDirty(state.node, 16);
-        return;
-    }
 
     if (row.type === "dir") {
         state.currentDir = state.currentDir ? `${state.currentDir}/${row.name}` : row.name;
@@ -489,9 +525,23 @@ function handlePickerRowAction(row) {
     }
 }
 
+function handleBreadcrumbRowAction(path) {
+    const state = activeFilePicker;
+    if (!state) return;
+    state.currentDir = path || "";
+    state.scrollOffset = 0;
+    rebuildFilePickerRows(state);
+    state.viewportFollowFrames = 8;
+    state.lastViewportWarpHash = "";
+    markNodeDirty(state.node, 16);
+}
+
 function findPickerHit(clientX, clientY) {
     const state = activeFilePicker;
     if (!state) return null;
+    for (const crumb of state.breadcrumbHitboxes || []) {
+        if (isPointInRect(clientX, clientY, crumb.rect)) return { type: "breadcrumb", path: crumb.path, id: crumb.id };
+    }
     for (const hitbox of state.rowHitboxes || []) {
         if (isPointInRect(clientX, clientY, hitbox.rect)) return hitbox.row;
     }
@@ -573,11 +623,19 @@ function ensureFilePickerListeners() {
             scrollPickerToTrackPosition(clientY);
             return;
         }
-        if (insideAnchor) {
+        if (insideSearchTab) {
             state.pendingOutsidePointerId = null;
             return;
         }
-        if (insideSearchTab) {
+        if (insidePanel) {
+            state.pendingOutsidePointerId = null;
+            state.suppressNextOutsidePointerUp = true;
+            consumeEvent(event);
+            if (row?.type === "breadcrumb") handleBreadcrumbRowAction(row.path);
+            else handlePickerRowAction(row);
+            return;
+        }
+        if (insideAnchor) {
             state.pendingOutsidePointerId = null;
             return;
         }
@@ -588,9 +646,6 @@ function ensureFilePickerListeners() {
             state.pendingOutsidePointerDragged = false;
             return;
         }
-        state.pendingOutsidePointerId = null;
-        consumeEvent(event);
-        handlePickerRowAction(row);
     }, true);
 
     window.addEventListener("pointermove", (event) => {
@@ -693,7 +748,10 @@ function drawPickerRow(ctx, state, row, rect, labelPaint, scale) {
 
     const pX = state.config.padding?.[0] || 4;
     const fontSize = state.rowPaintOFF?.fontSize || labelPaint?.fontSize || 10;
-    const iconOffset = row.prefix ? fontSize * 1.2 : 0;
+    const prefixText = (!row.hidePrefix && row.prefix) ? String(row.prefix).replace(/\s+$/, "") : "";
+    const normalizedPrefixW = state.prefixSlotWidth || (fontSize * 1.2);
+    const iconGap = state.prefixGap || 0;
+    const iconOffset = prefixText ? (normalizedPrefixW + iconGap) : 0;
     const maxTextWidth = Math.max(0, rect.w - (pX * 2) - iconOffset);
     const label = row.type === "file" ? row.name.replace(/\.(safetensors|json)$/i, "") : row.name;
     const drawLabel = clampText(label, maxTextWidth, fontSize, labelPaint?.font || "Arial", labelPaint?.fontWeight || "normal", state.config.displayMode === "ellipsis");
@@ -703,9 +761,9 @@ function drawPickerRow(ctx, state, row, rect, labelPaint, scale) {
     ctx.rect(rect.x, rect.y, rect.w, rect.h);
     ctx.clip();
 
-    if (row.prefix) {
+    if (prefixText) {
         masterPainterText(ctx, {
-            text: row.prefix,
+            text: prefixText,
             x: snapToScreenGrid(rect.x + pX, scale),
             y: snapToScreenGrid(rect.y + (rect.h / 2), scale),
             align: "left",
@@ -732,6 +790,103 @@ function drawPickerRow(ctx, state, row, rect, labelPaint, scale) {
     });
 
     ctx.restore();
+}
+
+function drawBreadcrumbHeaderRow(ctx, state, row, rect, labelPaint, scale) {
+    const cfg = state.config || {};
+    if (isDropdownFileBrowser(cfg) || cfg.mode === "folder") {
+        drawPickerRow(ctx, state, row, rect, labelPaint, scale);
+        return;
+    }
+
+    const rootLabel = String(t(cfg.rootName || "/") || "/");
+    const dir = String(state.currentDir || "").replace(/^\/+|\/+$/g, "");
+    const segs = dir ? dir.split("/") : [];
+    const crumbs = [{ label: rootLabel, path: "" }];
+    let accum = "";
+    for (const seg of segs) {
+        accum = accum ? `${accum}/${seg}` : seg;
+        crumbs.push({ label: seg, path: accum });
+    }
+
+    masterPainter(ctx, {
+        width: rect.w,
+        height: rect.h,
+        posX: rect.x,
+        posY: rect.y,
+        paintData: { ...state.listPaint, corners: inheritPickerCorners(state.listPaint, state.listPaint) },
+        color: state.listPaint?.fill || "transparent"
+    });
+
+    const pX = state.config.padding?.[0] || 4;
+    const [crumbPadX, crumbPadY] = PICKER_BREADCRUMB_PADDING;
+    const fontSize = state.rowPaintOFF?.fontSize || labelPaint?.fontSize || 10;
+    const font = labelPaint?.font || "Arial";
+    const fontWeight = labelPaint?.fontWeight || "normal";
+    const btnPaintOFF = resolvePaintData(state.node, "button", "_OFF") || state.listPaint;
+    const btnPaintON = resolvePaintData(state.node, "button", "_ON") || state.rowPaintON || btnPaintOFF;
+    const btnTextOFF = resolvePaintData(state.node, PICKER_BREADCRUMB_TEXT_KEY, "_OFF") || labelPaint;
+    const btnTextON = resolvePaintData(state.node, PICKER_BREADCRUMB_TEXT_KEY, "_ON") || state.rowTextON || btnTextOFF;
+    const sep = "\\";
+    const sepW = measureTextWidth(sep, fontSize, font, fontWeight) || (fontSize * 0.6);
+    const gap = Math.max(1, state.prefixGap || 0);
+    const maxX = rect.x + rect.w - pX;
+    let cursorX = rect.x + pX;
+
+    for (let i = 0; i < crumbs.length; i += 1) {
+        const crumb = crumbs[i];
+        const text = String(crumb.label || "");
+        const textW = Math.max(8, measureTextWidth(text, fontSize, font, fontWeight) || 8);
+        const btnW = textW + (crumbPadX * 2);
+        if (cursorX + btnW > maxX) break;
+
+        const hovered = state.hoverRowId === `crumb:${i}:${crumb.path}`;
+        const btnPaint = hovered ? btnPaintON : btnPaintOFF;
+        const btnTextPaint = hovered ? btnTextON : btnTextOFF;
+        const txtColor = btnTextPaint?.textColor || btnTextPaint?.fill || "#ffffff";
+
+        masterPainter(ctx, {
+            width: btnW,
+            height: rect.h,
+            posX: cursorX,
+            posY: rect.y,
+            paintData: { ...btnPaint, corners: inheritPickerCorners(btnPaint, state.listPaint) },
+            color: btnPaint?.fill || "transparent"
+        });
+        masterPainterText(ctx, {
+            text,
+            x: snapToScreenGrid(cursorX + (btnW / 2), scale),
+            y: snapToScreenGrid(rect.y + (rect.h / 2), scale),
+            align: "center",
+            baseline: "middle",
+            paintData: { ...btnTextPaint, fontSize, fill: txtColor }
+        });
+
+        state.breadcrumbHitboxes.push({
+            id: `crumb:${i}:${crumb.path}`,
+            path: crumb.path,
+            rect: {
+                left: state.panelScreenRect.left + ((cursorX - rect.x) * scale),
+                top: state.panelScreenRect.top + ((rect.y - state.panelY) * scale),
+                width: btnW * scale,
+                height: rect.h * scale,
+            },
+        });
+
+        cursorX += btnW;
+        if (i < crumbs.length - 1) {
+            if (cursorX + sepW > maxX) break;
+            masterPainterText(ctx, {
+                text: sep,
+                x: snapToScreenGrid(cursorX + (sepW / 2), scale),
+                y: snapToScreenGrid(rect.y + (rect.h / 2), scale),
+                align: "center",
+                baseline: "middle",
+                paintData: { ...btnTextOFF, fontSize, fill: btnTextOFF?.textColor || btnTextOFF?.fill || "#ffffff" }
+            });
+            cursorX += sepW + gap;
+        }
+    }
 }
 
 function drawActiveFilePicker(ctx, node, app, config, scale) {
@@ -770,13 +925,14 @@ function drawActiveFilePicker(ctx, node, app, config, scale) {
         : false;
 
     const panelX = config.geometry.x;
-    const panelY = openUpward ? (config.geometry.y - state.currentSize[1]) : (config.geometry.y + config.geometry.h);
+    const panelY = openUpward ? (config.geometry.y + config.geometry.h - state.currentSize[1]) : config.geometry.y;
     const panelW = config.geometry.w;
     const panelH = state.currentSize[1];
+    state.panelY = panelY;
 
     state.panelScreenRect = {
         left: anchorRect.left,
-        top: openUpward ? (anchorRect.top - pickerHeightPx) : (anchorRect.top + anchorRect.height),
+        top: openUpward ? (anchorRect.top + anchorRect.height - pickerHeightPx) : anchorRect.top,
         width: anchorRect.width,
         height: pickerHeightPx,
     };
@@ -807,14 +963,17 @@ function drawActiveFilePicker(ctx, node, app, config, scale) {
     });
 
     const labelPaint = state.rowPaintOFF || state.rowTextON;
+    state.prefixSlotWidth = computePickerPrefixSlotWidth(state, ctx, labelPaint);
     let cursorY = panelY;
     state.rowHitboxes = [];
+    state.breadcrumbHitboxes = [];
     state.scrollbarScreenRect = null;
     state.scrollbarThumbScreenRect = null;
 
     for (const row of state.headerRows) {
         const rect = { x: panelX, y: cursorY, w: panelW, h: state.rowHeight };
-        drawPickerRow(ctx, state, row, rect, labelPaint, scale);
+        if (row.type === "select_current") drawBreadcrumbHeaderRow(ctx, state, row, rect, labelPaint, scale);
+        else drawPickerRow(ctx, state, row, rect, labelPaint, scale);
         state.rowHitboxes.push({ row, rect: {
             left: state.panelScreenRect.left,
             top: state.panelScreenRect.top + ((cursorY - panelY) * scale),
@@ -986,6 +1145,9 @@ export function syncFileBrowser(context, node, app, config, overlayPass = false)
     const isPressed = node._pressedRegionKey === safeConfig.key;
     const isHovered = safeConfig.mouseOver !== false && node._hoveredRegionKey === safeConfig.key;
     const isAwake = !!(activeFilePicker && activeFilePicker.node === node && activeFilePicker.key === safeConfig.key);
+
+    if (isAwake) return;
+
     const itemsHash = JSON.stringify(safeConfig.items || []);
     const stateHash = `${isPressed}_${isHovered}_${node.mode}_${window._xcpDerpSession}_${safeConfig.value}_${itemsHash}_${isAwake}`;
 
