@@ -259,6 +259,25 @@ export const getVirtualNodeLayoutMap = (node) => {
                 btnColor: headerPaletteFill,
                 margin: [2, p.contentCollapsed ? COLLAPSED_HEADER_VERTICAL_MARGIN : 2, 2, p.contentCollapsed ? COLLAPSED_HEADER_VERTICAL_MARGIN : 0],
                 padding: [headerSideInsetBoost.left, 0, headerSideInsetBoost.right, 0],
+                btnCollapse: {
+                    type: UI_TYPES.ICONBUTTON,
+                    themeKey: "buttonNode, t_textSystem",
+                    icon: collapseIcon,
+                    ...HEADER_ICON_SIZE, spacing: [sW, 0],
+                    playSound: p.contentCollapsed ? "collapseoff" : "collapseon",
+                    onPress: () => {
+                        const wasCollapsed = !!node.properties.contentCollapsed;
+                        handleDerpCollapse(node);
+                        if (wasCollapsed) {
+                            ensureNodeVisibleInViewport(node, {
+                                axis: "y",
+                                durationMs: 220,
+                                easing: "easeOutQuad",
+                                followFrames: 8,
+                            });
+                        }
+                    }
+                },
                 titleLabel: {
                     type: UI_TYPES.EDITOR, skipBackground: true, mouseOver: false,
                     themeKey: "dialog, t_textBig",

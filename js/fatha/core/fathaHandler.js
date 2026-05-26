@@ -632,6 +632,8 @@ function handleVerticalHeaderClick(entity, localMouse, data) {
     if (shiftKey) {
         const wasCollapsed = !!entity.properties?.contentCollapsed;
         const members = getDeckMembers(entity, graph);
+        const soundKey = wasCollapsed ? "collapseoff" : "collapseon";
+        if (SOUND_INDEX?.[soundKey]) SOUND_INDEX[soundKey]();
         if (wasCollapsed) {
             members.forEach(member => {
                 if (member !== entity && member.properties?.contentCollapsed !== true) {

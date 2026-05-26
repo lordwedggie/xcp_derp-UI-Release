@@ -20,6 +20,7 @@ import { app } from "../../../../scripts/app.js";
 import { renderHitboxDebug } from "../helpers/debugPainter.js";
 import { getNodeOnDeckEdge, isLinearDeckGroup } from "./masterDockEngine.js";
 import { clearEntityTooltip } from "./fathaHandler.js";
+import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
 
 // DEBUG_MODE is now dynamically handled via node.properties.debugMode
 
@@ -438,6 +439,9 @@ export function createDerpShield(node) {
         const graph = app.graph || node.graph || null;
         const headerCollapseEnabled = window.DERP_GLOBAL_SETTINGS?.verticalDockHeaderCollapse ?? true;
         if (headerCollapseEnabled && headerRegion && node.layout?.hitTest?.(localMouse, headerRegion)) {
+            const wasCollapsed = !!node.properties?.contentCollapsed;
+            const soundKey = wasCollapsed ? "collapseoff" : "collapseon";
+            if (SOUND_INDEX?.[soundKey]) SOUND_INDEX[soundKey]();
             if (typeof node.collapse === "function") {
                 node.collapse();
             } else {
