@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Path: ./Herbina/widgets/widget_Slider.js
  * ROLE: Canvas-based rendering and factory for Slider widgets.
  * COMPATIBILITY: Proxies HTML logic to widget_SliderHTML.js
@@ -15,6 +15,8 @@
  * - `themeKey`: Main theme string used to resolve body and label paint data. Defaults to `"panel, t_textsmall"`.
  * - `fillStrength`: If `true` (default), interpolates the fill color between theme states based on the slider value. If `false`, uses a single `_ON` / `_OFF` paint state.
  * - `fillPadding`: Optional `[top, right, bottom, left]` inset array shrinking the progress fill bar inside the track.
+ * - `fillbarHeight`: Optional height override for the fillBar. Integer (e.g. `6`) = exact px.
+ *   Float (e.g. `0.5`) = ratio of the track height. FillBar is vertically centered. Defaults to unset (fills track).
  * - `fillKey`: Optional theme-key override for the progress fill. When set, fillStrength interpolation uses `<fillKey>` as the base. Falls back to `bodyKey` when absent.
  * - `bodyKey`: Theme key used for fill-paint resolution when `fillKey` is not set.
  * - `onChange`: Callback fired as `onChange(newValue)` whenever the slider value changes.
@@ -28,7 +30,7 @@
  * - `displayText`: Override string for the label drawn on the slider. When set, this is drawn instead of `label` / `text`.
  * - `alpha`: Optional opacity override for the entire widget (`0`–`1`). Defaults to `1`.
  * - `fontSize`: Optional font-size override for the label text. Falls back to the theme's label `fontSize` or `10`.
- * - `style`: Drawing style variant. Currently `"default"` (the only style). Defaults to `"default"` when omitted.
+ * - `style`: Drawing style variant. Accepted values: `"default"`, `"knob"`. Defaults to `"default"`.
  *
  * Terminology — named parts of the Slider widget:
  * - `Track`: The full-width background rounded rect that spans the entire widget. Drawn first.
@@ -36,6 +38,10 @@
  *   left edge in proportion to (value - min) / (max - min). Also called "Progress Fill" in comments.
  * - `fillPadding`: Optional [top, right, bottom, left] inset that shrinks the fillBar inside the
  *   Track without shrinking the Track itself.
+ * - `fillbarHeight`: Optional height override for the fillBar. Integer = exact px, float = ratio of h.
+ *   FillBar centers vertically. When unset, fillBar fills the track minus fillPadding.
+ * - `knob`: (style "knob" only) A small square rect overlaid on the fillBar at its right edge.
+ *   Drawn after the fillBar using the same paint data. Width/height equal to fillH.
  * - `btnLR`: The - / + stepper buttons rendered on the left and right edges of the Track. Sized
  *   relative to the fillBar height (BTN_LR_RATIO). Toggled by config.btnLR.
  * - `label`: The text string drawn on top of the Track. Uses displayText (preferred) or label/text.
@@ -84,6 +90,7 @@ export function createDerpSlider(callbacks = {}) {
         themeKey: callbacks.themeKey || "panel, t_textsmall",
         fillStrength: callbacks.fillStrength ?? true,
         fillPadding: callbacks.fillPadding || null,
+        fillbarHeight: callbacks.fillbarHeight ?? null,
         onChange: callbacks.onChange || null,
         btnColor: callbacks.btnColor || null,
         labelColor: callbacks.labelColor || null,
@@ -106,7 +113,7 @@ export function syncDerpSliderCanvas(ctx, node, config) {
     const { x, y, w, h } = config.geometry;
 
     const style = config.style ?? "default";
-    if (style !== "default") return;
+    if (style !== "default" && style !== "knob") return;
 
     // 1. Resolve Environment
     const { props, stateStr, bodyPaint: paintData, labelPaint: labelData, alpha } = resolveWidgetEnv(node, config);
@@ -151,9 +158,18 @@ export function syncDerpSliderCanvas(ctx, node, config) {
     const percent = Math.max(0, Math.min(1, (value - min) / (max - min)));
 
     const ins = props.fillPadding || [0, 0, 0, 0];
-    const fillH = Math.max(0, h - ins[0] - ins[2]);
-    // btnLR: button width = 75% of fill bar height
-    const btnInset = config.btnLR ? Math.round(fillH * BTN_LR_RATIO) + BTN_LR_MARGIN : 0;
+    const fullFillH = Math.max(0, h - ins[0] - ins[2]);
+    let fillH, fillY;
+    if (props.fillbarHeight != null) {
+        const baseH = Number.isInteger(props.fillbarHeight) ? props.fillbarHeight : h * props.fillbarHeight;
+        fillH = Math.max(0, baseH - ins[0] - ins[2]);
+        fillY = y + (h - baseH) / 2 + ins[0];
+    } else {
+        fillH = fullFillH;
+        fillY = y + ins[0];
+    }
+    // btnLR: button width = 75% of FULL fill bar height (unaffected by fillbarHeight)
+    const btnInset = config.btnLR ? Math.round(fullFillH * BTN_LR_RATIO) + BTN_LR_MARGIN : 0;
 
     // THE FILL STRENGTH FIX: If active, interpolate between states based on value.
     const fillKey = props.fillKey || props.bodyKey;
@@ -165,15 +181,32 @@ export function syncDerpSliderCanvas(ctx, node, config) {
             (resolvePaintData(node, fillKey, fillSuffix, config.btnColor) || paintData)
     );
 
-    if (activeData && percent > 0) {
-        const fillW = Math.max(0, w - ins[1] - ins[3] - btnInset * 2);
-        const progressW = fillW * percent;
+    const knobStyleW = (style === "knob") ? fullFillH : 0;
+    const knobHalfW = knobStyleW / 2;
+    const fillW = Math.max(0, w - ins[1] - ins[3] - btnInset * 2 - knobStyleW);
+    const fillStartX = x + ins[3] + btnInset + knobHalfW;
+    const progressW = fillW * Math.max(0, percent);
 
+    if (activeData && percent > 0) {
         masterPainter(ctx, {
-            posX: x + ins[3] + btnInset,
-            posY: y + ins[0],
+            posX: fillStartX,
+            posY: fillY,
             width: progressW,
             height: fillH,
+            paintData: activeData, color: activeData.fill
+        });
+    }
+
+    // Knob: center on right edge of fillBar
+    if (style === "knob" && activeData) {
+        const knobW = fullFillH;
+        const knobCenterX = fillStartX + progressW;
+        const knobX = knobCenterX - knobW / 2;
+        masterPainter(ctx, {
+            posX: knobX,
+            posY: y + ins[0],
+            width: knobW,
+            height: fullFillH,
             paintData: activeData, color: activeData.fill
         });
     }
@@ -197,9 +230,9 @@ export function syncDerpSliderCanvas(ctx, node, config) {
     }
     // 4. Draw btnLR Buttons
     if (config.btnLR) {
-        const btnW = Math.round(fillH * BTN_LR_RATIO);
+        const btnW = Math.round(fullFillH * BTN_LR_RATIO);
         const btnY = y + ins[0];
-        const btnH = fillH;
+        const btnH = fullFillH;
         const btnFill = activeData?.fill || paintData?.fill || config.btnColor || "#555";
         const btnPaint = { ...(activeData || paintData) };
         const btnTextPaint = { ...(labelData || {}), fill: iconColor, fontSize: BTN_LR_FONTSIZE };
@@ -272,4 +305,4 @@ window.handleDerpSliderBtnLR = function(node, reg, targetKey, type, localX, conf
         return { handled: true, newVal: Math.max(cMin, Math.min(cMax, Math.round(rawVal / cStep) * cStep)) };
     }
     return { handled: false };
-}
+};

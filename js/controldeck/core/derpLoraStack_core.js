@@ -820,16 +820,17 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                     if (type === "resize") this._isDerpResizing = true;
                     if (type === "click" || type === "dragEnd") {
                         if (type === "dragEnd" && this._pendingSliderDraft && isSliderKey(this._pendingSliderDraft.targetKey)) {
-                            const { targetKey, idx, sType, value } = this._pendingSliderDraft;
+                            const { targetKey, idx, sType, value, cStep, cMin, cMax } = this._pendingSliderDraft;
+                            const snappedVal = Math.max(cMin, Math.min(cMax, Math.round(value / cStep) * cStep));
                             const stackData = this.properties.stackData || [];
                             if (stackData[idx]) {
-                                if (sType === "sldModel") stackData[idx][1] = value;
-                                else if (sType === "sldClip") stackData[idx][2] = value;
+                                if (sType === "sldModel") stackData[idx][1] = snappedVal;
+                                else if (sType === "sldClip") stackData[idx][2] = snappedVal;
 
-                                const finalValStr = value.toFixed(2);
+                                const finalValStr = snappedVal.toFixed(2);
                                 this.properties.stackData = stackData;
-                                if (this.layout?.regions?.[targetKey]) this.layout.regions[targetKey].value = value;
-                                if (this._compDataCache?.[targetKey]) this._compDataCache[targetKey].value = value;
+                                if (this.layout?.regions?.[targetKey]) this.layout.regions[targetKey].value = snappedVal;
+                                if (this._compDataCache?.[targetKey]) this._compDataCache[targetKey].value = snappedVal;
 
                                 const valKey = targetKey.replace("sld", "val");
                                 if (this.layout?.regions?.[valKey]) {
@@ -886,6 +887,11 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                         const wasHoveringPreview = this._hoveredRegionKey && this._hoveredRegionKey.startsWith("loraPreview_");
                         const isHoveringPreview = foundKey && foundKey.startsWith("loraPreview_");
                         this._hoveredRegionKey = foundKey;
+
+                        // Suppress hover tooltips while actively dragging a slider
+                        if (this._activeSliderKey && type === "hover") {
+                            this._hoveredRegionKey = null;
+                        }
 
                         if (wasHoveringPreview !== isHoveringPreview) {
                             if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
@@ -986,7 +992,7 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                                             const trackW = Math.max(1, reg.w - (btnW + mrg) * 2);
                                             const percent = Math.max(0, Math.min(1, (localX - trackX) / trackW));
                                             const rawVal = cMin + (percent * (cMax - cMin));
-                                            newVal = Math.round(rawVal / cStep) * cStep;
+                                            newVal = (type === "drag") ? rawVal : Math.round(rawVal / cStep) * cStep;
                                         }
                                         newVal = Math.max(cMin, Math.min(cMax, newVal));
 
@@ -1005,7 +1011,7 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                                         }
 
                                         if (type === "drag") {
-                                            this._pendingSliderDraft = { targetKey, idx, sType, value: newVal };
+                                            this._pendingSliderDraft = { targetKey, idx, sType, value: newVal, cStep, cMin, cMax };
                                             this.setDirtyCanvas(true);
                                             return true;
                                         }

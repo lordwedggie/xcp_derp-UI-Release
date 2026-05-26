@@ -596,6 +596,7 @@ export function interpretLayoutProps(config, context = {}) {
         fillKey: fillKey,
         fillStrength: fillStrength,
         fillPadding: fillPadding,
+        fillbarHeight: config.fillbarHeight ?? null,
         labelKey: labelKey,
         fontSize: fontSize,
         fontOffset: fontOffset,

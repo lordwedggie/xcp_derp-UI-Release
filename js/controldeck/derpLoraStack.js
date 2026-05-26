@@ -478,9 +478,9 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                     alpha: rowAlpha,
                                     dir: "row", width: "full", height: "auto", spacing: [sW, sH], margin: [0, 0, -mW + sW, 0],
                                     [`sldModel_${i}`]: {
-                                        type: this.UI_TYPES.SLIDER, mouseOver: false,
+                                        type: this.UI_TYPES.SLIDER, style: "knob", mouseOver: false,
                                         text: nameDisplay === "Slider" ? loraName : tLocale("$derp_lora_stack.labels.strength", "Strength"),
-                                        padding: [pW, pH], fillPadding: [1, 1],
+                                        padding: [pW, pH], fillPadding: [1, 1], fillbarHeight: .5,
                                         displayMode: "cutoff", alpha: rowAlpha,
                                         measureText: nameDisplay === "Slider" ? loraName : tLocale("$derp_lora_stack.labels.strength", "Strength"),
                                         value: lora[1],
@@ -540,8 +540,8 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                     hidden: this.properties.attentionMode === "Joint-Attention" || this.properties.showCLIP === false,
                                     dir: "row", width: "full", height: "auto", spacing: [sW, sH], alpha: rowAlpha, margin: [0, 0, -mW + sW, 0],
                                     [`sldClip_${i}`]: {
-                                        type: this.UI_TYPES.SLIDER, mouseOver: false,
-                                        text: tLocale("$derp_lora_stack.labels.clip", "Clip"), padding: [pW, pH], fillPadding: [1, 1],
+                                        type: this.UI_TYPES.SLIDER, style: "knob", mouseOver: false,
+                                        text: tLocale("$derp_lora_stack.labels.clip", "Clip"), padding: [pW, pH], fillPadding: [1, 1], fillbarHeight: 8,
                                         displayMode: "cutoff", alpha: rowAlpha,
                                         measureText: tLocale("$derp_lora_stack.labels.clip", "Clip"),
                                         value: lora[2],
