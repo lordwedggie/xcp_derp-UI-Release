@@ -544,6 +544,10 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                  */
                 nodeType.prototype.updateReceivedSignals = function() {
                     if (this._xcpSyncing) return;
+                    // Throttle: skip if called within 200ms of last invocation
+                    const now = performance.now();
+                    if (this._xcpLastSignalUpdate && (now - this._xcpLastSignalUpdate) < 200) return;
+                    this._xcpLastSignalUpdate = now;
                     this._xcpSyncing = true;
                     try {
                         const globalSignals = window.xcpDerpSignals || {};
