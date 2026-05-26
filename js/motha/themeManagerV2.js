@@ -96,11 +96,13 @@ app.registerExtension({
             const dirtyKeys = new Set();
             if (cfg && this.themeToEdit && this._selectedThemeName) {
                 const baselines = cfg._allBaselines?.[this._selectedThemeName] || {};
+                const hasBaselineData = Object.keys(baselines).length > 0;
+                if (hasBaselineData) {
                 for (const key of Object.keys(this.themeToEdit)) {
                     if (THEME_META_KEYS.has(key)) continue;
                     const currentHash = generateKeyHash(this.themeToEdit[key]);
                     const baseHash = baselines[key];
-                    if (currentHash !== baseHash) {
+                    if (baseHash !== undefined && currentHash !== baseHash) {
                         dirtyKeys.add(key);
                         if (key === this._selectedKeyName) { isSelectedKeyDirty = true; isThemeDirty = true; }
                     }
@@ -108,11 +110,12 @@ app.registerExtension({
                 // Meta keys (_layout, _palette) use JSON.stringify — not theme key structure
                 for (const meta of THEME_META_KEYS) {
                     if (this.themeToEdit[meta] !== undefined) {
-                        if (JSON.stringify(this.themeToEdit[meta]) !== baselines[meta]) {
+                        if (baselines[meta] !== undefined && JSON.stringify(this.themeToEdit[meta]) !== baselines[meta]) {
                             isThemeDirty = true;
                             break;
                         }
                     }
+                }
                 }
             }
             this._isSelectedKeyDirty = isSelectedKeyDirty;
@@ -152,22 +155,6 @@ app.registerExtension({
                 themeManagementRegion: {
                     anchor: { target: "headerRegion", axis: "y" }, objectAlign: ["left", "top"], dir: "row",
                     width: "full", height: "auto", margin: [mW, mH], padding: [0, 0],
-                    btnThemeDelete: {
-                        type: UI_TYPES.ICONBUTTON, themeKey: "button, t_textNormal", noHover: false,
-                        state: "OFF", icon: "trash", width: "match", height: "fill", objectAlign: ["left", "middle"],
-                        spacing: [sW, 0],
-                    },
-                    dropdownTheme: {
-                        type: UI_TYPES.FILEBROWSER, themeKey: "dialog, t_textNormal", canvasShield: true,
-                        indicator: true, mode: "file", fileType: "theme", rootName: "themes",
-                        displayText: "Select Theme...", mouseOver: false,
-                        width: "full", height: "auto", minWidth: 80,
-                        items: themeList.length > 0 ? themeList : [this._selectedThemeName || "Default"],
-                        value: this._selectedThemeName, objectAlign: ["left", "middle"], padding: [pW, pH], spacing: [sW, 0],
-                        onChange: (val) => {
-                            handleThemeDropdownChange(this, val, updateThemeLayout);
-                        }
-                    },
                     btnThemeRename: {
                         type: UI_TYPES.ICONBUTTON, themeKey: "button, t_textNormal", noHover: false,
                         state: "OFF", icon: "rename", width: "match", height: "fill", objectAlign: ["left", "middle"],
@@ -182,6 +169,22 @@ app.registerExtension({
                         type: UI_TYPES.ICONBUTTON, themeKey: "button, t_textNormal", noHover: false,
                         state: "OFF", icon: "save", width: "match", height: "fill", objectAlign: ["left", "middle"],
                         pulse: this._isThemeDirty,
+                    },
+                    dropdownTheme: {
+                        type: UI_TYPES.FILEBROWSER, themeKey: "dialog, t_textNormal", canvasShield: true,
+                        indicator: true, mode: "file", fileType: "theme", rootName: "themes",
+                        displayText: "Select Theme...", mouseOver: false,
+                        width: "full", height: "auto", minWidth: 80,
+                        items: themeList.length > 0 ? themeList : [this._selectedThemeName || "Default"],
+                        value: this._selectedThemeName, objectAlign: ["left", "middle"], padding: [pW, pH], spacing: [sW, 0],
+                        onChange: (val) => {
+                            handleThemeDropdownChange(this, val, updateThemeLayout);
+                        }
+                    },
+                    btnThemeDelete: {
+                        type: UI_TYPES.ICONBUTTON, themeKey: "button, t_textNormal", noHover: false,
+                        state: "OFF", icon: "trash", width: "match", height: "fill", objectAlign: ["left", "middle"],
+                        spacing: [sW, 0],
                     },
                 },
                 themeLayoutRegion: {
@@ -255,10 +258,21 @@ app.registerExtension({
                 keyManagementRegion: {
                     anchor: { target: "previewRegion", axis: "y", offset: oY }, objectAlign: ["left", "top"], dir: "row",
                     width: "full", height: "auto", margin: [mW, mH], padding: [0, 0],
-                    btnKeyDelete: {
-                        type: UI_TYPES.ICONBUTTON, themeKey: "button, t_textNormal", objectAlign: ["left", "middle"],
-                        noHover: false, state: "OFF", icon: "trash",
-                        width: "match", height: "fill", spacing: [sW, 0],
+                    btnKeyRename: {
+                        type: UI_TYPES.ICONBUTTON, themeKey: "button, t_textNormal", noHover: false,
+                        state: "OFF", icon: "rename", width: "match", height: "fill", objectAlign: ["left", "middle"],
+                        spacing: [sW, 0],
+                    },
+                    btnKeyCopy: {
+                        type: UI_TYPES.ICONBUTTON, themeKey: "button, t_textNormal", noHover: false,
+                        state: "OFF", icon: "copy", width: "match", height: "fill", objectAlign: ["left", "middle"],
+                        spacing: [sW, 0],
+                    },
+                    btnKeySave: {
+                        type: UI_TYPES.ICONBUTTON, themeKey: "button, t_textNormal", noHover: false,
+                        state: "OFF", icon: "save", width: "match", height: "fill", objectAlign: ["left", "middle"],
+                        spacing: [0, 0],
+                        pulse: this._isSelectedKeyDirty,
                     },
                     dropdownKey: {
                         type: UI_TYPES.FILEBROWSER,
@@ -277,21 +291,10 @@ app.registerExtension({
                             this.requestDerpSync();
                         }
                     },
-                    btnKeyRename: {
-                        type: UI_TYPES.ICONBUTTON, themeKey: "button, t_textNormal", noHover: false,
-                        state: "OFF", icon: "rename", width: "match", height: "fill", objectAlign: ["left", "middle"],
-                        spacing: [sW, 0],
-                    },
-                    btnKeyCopy: {
-                        type: UI_TYPES.ICONBUTTON, themeKey: "button, t_textNormal", noHover: false,
-                        state: "OFF", icon: "copy", width: "match", height: "fill", objectAlign: ["left", "middle"],
-                        spacing: [sW, 0],
-                    },
-                    btnKeySave: {
-                        type: UI_TYPES.ICONBUTTON, themeKey: "button, t_textNormal", noHover: false,
-                        state: "OFF", icon: "save", width: "match", height: "fill", objectAlign: ["left", "middle"],
-                        spacing: [0, 0],
-                        pulse: this._isSelectedKeyDirty,
+                    btnKeyDelete: {
+                        type: UI_TYPES.ICONBUTTON, themeKey: "button, t_textNormal", objectAlign: ["left", "middle"],
+                        noHover: false, state: "OFF", icon: "trash",
+                        width: "match", height: "fill", spacing: [sW, 0],
                     },
                 },
                 mainEditRegion: {

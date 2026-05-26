@@ -161,7 +161,7 @@ app.registerExtension({
                         },
                         dropdownBooks: {
                             type: this.UI_TYPES.FILEBROWSER, canvasShield: true, skipBackground: false, themeKey: "dialog, t_textNormal",
-                            indicator: "on", mouseOver: false,
+                            indicator: "on", mouseOver: false, searchTab: true,
                             items: this._availableBooks || [], value: this.properties.bookName || tLocale("$derp_prompt_book.book.untitled_name", "Untitled Book"),
                             mode: "file", fileType: "promptBook", displayText: tLocale("$derp_prompt_book.browser.select", "Select Book..."),
                             minWidth: 200, width: "full", height: "auto", padding: [pW, pH], spacing: [sW, 0],
@@ -238,7 +238,7 @@ app.registerExtension({
                         onPress: () => handlePageRename(this)
                     },
                     dropdownPages: {
-                        type: this.UI_TYPES.FILEBROWSER,
+                        type: this.UI_TYPES.FILEBROWSER, searchTab: true,
                         icon: "dropdown",
                         canvasShield: true, themeKey: "panel, t_textNormal",
                         items: book.map((page, idx) => ({

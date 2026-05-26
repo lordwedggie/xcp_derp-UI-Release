@@ -329,7 +329,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                     }
                 },
                 loraLoader: {
-                    type: UI_TYPES.FILEBROWSER,
+                    type: UI_TYPES.FILEBROWSER, searchTab: true,
                     displayMode: "cutoff",
                     indicator: true,
                     minWidth: 50,
@@ -828,7 +828,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 },
                 dropdownTrigger: {
                     type: UI_TYPES.FILEBROWSER,
-                    icon: "dropdown",
+                    icon: "dropdown", 
                     themeKey: "button, t_textSmall",
                     state: (triggerItems && triggerItems.length > 0) ? "OFF" : "DIS", mouseOver: false,
                     canvasShield: true, width: "full", height: "auto", padding: [pW, pH], spacing: [sW, 0],

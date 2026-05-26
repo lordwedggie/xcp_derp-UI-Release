@@ -320,7 +320,7 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                 dir: "row", width: "full", height: "auto",
                                 margin: [0, mH, 0, 0], spacing: [0, sH],
                                 dropdownSignalSelect: {
-                                    type: UI_TYPES.FILEBROWSER,
+                                    type: UI_TYPES.FILEBROWSER, searchTab: true,
                                     icon: "dropdown",
                                     themeKey: "dialog, t_textNormal",
                                     canvasShield: true,

@@ -245,7 +245,7 @@ app.registerExtension({
                             }
                         },
                         browserModels: {
-                            type: this.UI_TYPES.FILEBROWSER,
+                            type: this.UI_TYPES.FILEBROWSER, searchTab: true,
                             items: (this._modelList || []).filter(name => !deck.some(m => m.name === name)),
                             mode: "file", rootName: tLocale("$derp_model_loader.browser.root_name", "models"), fileType: "model", mouseOver: false,
                             value: tLocale("$derp_model_loader.browser.select", "Select Model..."),

@@ -15,6 +15,7 @@
  * - `indicator`: Controls whether the trigger/current-row indicator glyph is shown. Set false-like values to hide it.
  * - `themeKey`: Main widget theme string. Used for trigger body, picker body, and picker text theme resolution.
  * - `searchThemeKey`: Optional theme string for the `bastaSearchTab` editor. Defaults to `"dialog, t_textSmall"`. Ignored in `folder` mode.
+ * - `searchTab`: Set to `true` to enable the search tab (bastaSearchTab). Defaults to `false`.
  * - `padding`: Optional `[x, y]` inner padding used for trigger text and picker row sizing.
  * - `displayMode`: Text overflow mode passed to `clampText`; use `"ellipsis"` when truncation should show ellipsis.
  * - `mouseOver`: Set to `false` to disable hover-state styling on the trigger.
@@ -366,7 +367,7 @@ function getPickerScrollMetrics(state) {
 
 function ensurePickerSelectionVisible(state) {
     if (!state || !state.scrollRows.length) return;
-    const selectedIndex = state.scrollRows.findIndex((row) => row.type === "file" && (row.path || "").replace(/\\/g, "/") === (state.config.value || "").replace(/\\/g, "/"));
+    const selectedIndex = state.scrollRows.findIndex((row) => row.type === "file" && String(row.path ?? "").replace(/\\/g, "/") === String(state.config.value ?? "").replace(/\\/g, "/"));
     if (selectedIndex === -1) return;
 
     const viewportH = Math.max(0, (state.renderedScrollRows ?? state.visibleScrollRows ?? 0) * state.rowHeight);
@@ -457,6 +458,70 @@ function rebuildFilePickerRows(state) {
     clampPickerScroll(state);
 }
 
+function loadPreviewImageForRow(state, row) {
+    if (!state || !row) return;
+    let imgUrl = row?.item?.imageUrl;
+    if ((!imgUrl || typeof imgUrl !== "string") && row?.type === "file" && state?.config?.fileType === "lora" && state?.config?.previewList && row?.path) {
+        const normPath = String(row.path).replace(/\\/g, "/");
+        const inPreview = state.config.previewList.some(p => String(p).replace(/\\/g, "/") === normPath);
+        if (inPreview) {
+            imgUrl = `/xcp/get_lora_preview?name=${encodeURIComponent(row.path)}&v=${window._xcpDerpSession || Date.now()}`;
+        }
+    }
+    if (!imgUrl || typeof imgUrl !== "string") {
+        if (state._activePreviewRowId !== null) {
+            state._activePreviewRowId = null;
+            state._activePreviewUrl = null;
+            state._activePreviewAspect = null;
+            state._previewToken = (state._previewToken || 0) + 1;
+            markNodeDirty(state.node, 8);
+        }
+        return;
+    }
+
+    const cache = state._previewImageCache;
+    const cached = cache[imgUrl];
+    if (cached && cached.loaded) {
+        state._activePreviewRowId = row.id;
+        state._activePreviewUrl = imgUrl;
+        state._activePreviewAspect = cached.aspectRatio;
+        markNodeDirty(state.node, 8);
+        return;
+    }
+
+    if (cached && cached.loading) return;
+
+    cache[imgUrl] = { loading: true, loaded: false, image: null, aspectRatio: null };
+    state._activePreviewRowId = row.id;
+    state._activePreviewUrl = imgUrl;
+    state._activePreviewAspect = null;
+    state._previewToken = (state._previewToken || 0) + 1;
+    const token = state._previewToken;
+    markNodeDirty(state.node, 8);
+
+    const img = new Image();
+    img.onload = () => {
+        if (state._previewToken !== token) return;
+        const ratio = img.naturalWidth / Math.max(1, img.naturalHeight);
+        cache[imgUrl] = { loading: false, loaded: true, image: img, aspectRatio: ratio };
+        if (state._activePreviewRowId === row.id) {
+            state._activePreviewAspect = ratio;
+            markNodeDirty(state.node, 8);
+        }
+    };
+    img.onerror = () => {
+        if (state._previewToken !== token) return;
+        cache[imgUrl] = { loading: false, loaded: false, image: null, aspectRatio: null };
+        if (state._activePreviewRowId === row.id) {
+            state._activePreviewRowId = null;
+            state._activePreviewUrl = null;
+            state._activePreviewAspect = null;
+            markNodeDirty(state.node, 8);
+        }
+    };
+    img.src = imgUrl;
+}
+
 function openFilePicker(config, node) {
     if (activeFilePicker && (activeFilePicker.node !== node || activeFilePicker.key !== config.key)) {
         closeFilePicker();
@@ -525,6 +590,11 @@ function openFilePicker(config, node) {
         searchMatchRowId: null,
         searchScrollTarget: null,
         searchBastaId: getBastaSearchTabId(node, config.key),
+        _previewImageCache: {},
+        _previewToken: 0,
+        _activePreviewRowId: null,
+        _activePreviewUrl: null,
+        _activePreviewAspect: null,
     };
 
     rebuildFilePickerRows(activeFilePicker);
@@ -533,7 +603,7 @@ function openFilePicker(config, node) {
         syncPickerSearchScroll(activeFilePicker, true);
     }
     window.__xcpHasActiveFileBrowser = true;
-    if (mode !== "folder") {
+    if (mode !== "folder" && config.searchTab === true) {
         showBastaSearchTab(node, config.key, {
             value: activeFilePicker.searchQuery,
             width: config.geometry?.w || 180,
@@ -578,7 +648,7 @@ function handlePickerRowAction(row) {
         state.currentDir = state.currentDir ? `${state.currentDir}/${row.name}` : row.name;
         state.scrollOffset = 0;
         rebuildFilePickerRows(state);
-        if (state.callbacks.onChange) state.callbacks.onChange(state.currentDir || "/");
+        if (getFileBrowserMode(state.config) === "folder" && state.callbacks.onChange) state.callbacks.onChange(state.currentDir || "/");
         state.viewportFollowFrames = 8;
         state.lastViewportWarpHash = "";
         markNodeDirty(state.node, 16);
@@ -611,7 +681,7 @@ function handleBreadcrumbRowAction(path) {
     state.currentDir = path || "";
     state.scrollOffset = 0;
     rebuildFilePickerRows(state);
-    if (state.callbacks.onChange) state.callbacks.onChange(state.currentDir || "/");
+    if (getFileBrowserMode(state.config) === "folder" && state.callbacks.onChange) state.callbacks.onChange(state.currentDir || "/");
     state.viewportFollowFrames = 8;
     state.lastViewportWarpHash = "";
     markNodeDirty(state.node, 16);
@@ -757,6 +827,7 @@ function ensureFilePickerListeners() {
         const nextHoverId = row?.id || null;
         if (activeFilePicker.hoverRowId !== nextHoverId) {
             activeFilePicker.hoverRowId = nextHoverId;
+            loadPreviewImageForRow(activeFilePicker, row);
             markNodeDirty(activeFilePicker.node, 8);
         }
     }, true);
@@ -812,7 +883,7 @@ function ensureFilePickerListeners() {
 
 function drawPickerRow(ctx, state, row, rect, labelPaint, scale) {
     const hovered = state.hoverRowId === row.id;
-    const selected = row.type === "file" && (row.path || "").replace(/\\/g, "/") === (state.config.value || "").replace(/\\/g, "/");
+    const selected = row.type === "file" && String(row.path ?? "").replace(/\\/g, "/") === String(state.config.value ?? "").replace(/\\/g, "/");
     const searchMatched = !!(state.searchMatchRowId && row.id === state.searchMatchRowId);
     const emphasized = hovered || selected || searchMatched;
     const rowPaint = emphasized ? state.rowPaintON : state.listPaint;
@@ -1213,6 +1284,49 @@ function drawActiveFilePicker(ctx, node, app, config, scale) {
         }});
     }
 
+    const previewAspect = state._activePreviewAspect;
+    const previewCache = state._previewImageCache || {};
+    const previewUrl = state._activePreviewUrl;
+    if (previewAspect && previewUrl && previewCache[previewUrl]?.loaded) {
+        const s = (state.node && typeof getDerpVars === "function") ? (getDerpVars(state.node).sH || 4) : 4;
+        const previewW = panelW;
+        const previewH = Math.min(previewW / previewAspect, panelW);
+        const previewX = panelX;
+
+        const panelScreenTop = state.panelScreenRect?.top || 0;
+        const previewScreenH = previewH * scale;
+        const gapScreen = s * scale;
+        const previewAboveScreenTop = panelScreenTop - previewScreenH - gapScreen;
+        const roomAbove = previewAboveScreenTop - 4;
+        const previewBelowScreenTop = panelScreenTop + (panelH * scale) + gapScreen;
+        const roomBelow = window.innerHeight - previewBelowScreenTop - previewScreenH - 4;
+        const placeBelow = roomAbove < 8 && roomBelow > roomAbove;
+        const previewY = placeBelow ? (panelY + panelH + s) : (panelY - previewH - s);
+
+        ctx.save();
+        ctx.globalAlpha = state.itemAlpha;
+        masterPainter(ctx, {
+            width: previewW,
+            height: previewH,
+            posX: previewX,
+            posY: previewY,
+            paintData: { corners: [4, 4, 4, 4], border: 1, borderFill: "rgba(0,0,0,0.5)" },
+            color: "rgba(0,0,0,0.8)"
+        });
+        const img = previewCache[previewUrl].image;
+        if (img) {
+            const imgW = img.naturalWidth;
+            const imgH = img.naturalHeight;
+            const fitScale = Math.min(previewW / imgW, previewH / imgH);
+            const drawW = imgW * fitScale;
+            const drawH = imgH * fitScale;
+            const drawX = previewX + (previewW - drawW) / 2;
+            const drawY = previewY + (previewH - drawH) / 2;
+            ctx.drawImage(img, drawX, drawY, drawW, drawH);
+        }
+        ctx.restore();
+    }
+
     ctx.restore();
     markNodeDirty(node, 4);
 }
@@ -1337,7 +1451,7 @@ export function syncFileBrowser(context, node, app, config, overlayPass = false)
     const dropdownDisplay = getFileBrowserCurrentDisplay(safeConfig, safeConfig.items || []);
     const mode = getFileBrowserMode(safeConfig);
     const rootDisplayName = t(safeConfig.rootName || (mode === "folder" ? "/" : ""));
-    const isSelection = safeConfig.value && safeConfig.value !== "/" && (mode === "folder" || (safeConfig.items || []).some((item) => getFileBrowserItemValue(item) === safeConfig.value));
+    const isSelection = typeof safeConfig.value === "string" && safeConfig.value !== "/" && (mode === "folder" || (safeConfig.items || []).some((item) => getFileBrowserItemValue(item) === safeConfig.value));
     let currentVal = rootDisplayName;
     if (isSelection) {
         const cleanPath = safeConfig.value.replace(/\.(safetensors|json)$/i, "").replace(/\/$/, "").replace(/\//g, "\\");

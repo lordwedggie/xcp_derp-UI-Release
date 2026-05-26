@@ -677,7 +677,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                 margin: [0, mH, 0, mH],
                                 loraSelector: {
                                     type: this.UI_TYPES.FILEBROWSER, items: this._loraList || [],
-                                    mode: "file", mouseOver: false,
+                                    mode: "file", mouseOver: false, searchTab: true,
                                     rootName: "loras",
                                     previewList: this._loraPreviewList,
                                     ratingsList: this._loraRatings || {}, // THE RATING PASS: Provide the node's rating cache to the browser
