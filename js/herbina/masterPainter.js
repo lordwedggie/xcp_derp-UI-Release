@@ -375,10 +375,21 @@ export function masterPainterText(ctx, options) {
     ctx.textAlign = align;
     ctx.textBaseline = baseline;
 
+    let displayText = text;
+    if (options.cutoff && options.width > 0) {
+        const cutoffMargin = Number(options.cutoffMargin) || 0;
+        const maxWidth = Math.max(0, options.width - cutoffMargin);
+        if (maxWidth > 0 && ctx.measureText(displayText).width > maxWidth) {
+            while (displayText.length > 0 && ctx.measureText(displayText).width > maxWidth) {
+                displayText = displayText.slice(0, -1);
+            }
+        }
+    }
+
     const renderShape = () => {
         if (paintData.fill) {
             ctx.fillStyle = paintData.fill;
-            ctx.fillText(text, x, y);
+            ctx.fillText(displayText, x, y);
         }
     };
 

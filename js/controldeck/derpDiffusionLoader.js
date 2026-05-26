@@ -73,7 +73,7 @@ function buildDeckRegions(node, deck, deckKey, rowPrefix, togglePrefix, removePr
             },
             regionOffset: [0, 0],
             [`${togglePrefix}${idx}`]: {
-                type: node.UI_TYPES.TOGGLE_V2, iconAlign: "left", isTextOnly: true, mouseOver: true, cutoff: true,
+                type: node.UI_TYPES.TOGGLE_V2, iconAlign: "left", isTextOnly: true, mouseOver: true, cutoff: true, cutoffMargin: (pH * 2 + 12),
                 text: stripModelName(m.name, node.properties.showFolderNames !== false),
                 value: m.active,
                 playSound: m.active ? null : "powerUp",

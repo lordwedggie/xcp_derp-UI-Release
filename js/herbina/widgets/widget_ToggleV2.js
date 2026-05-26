@@ -140,7 +140,7 @@ export function syncDerpToggleV2(ctx, node, app, config) {
                 paintData: { ...finalLabelPaint, fontSize: themeFontSize, fontWeight: props.fontWeight },
                 align: "left",
                 baseline: props.labelAlign?.[1] || "middle",
-                cutoff: true
+                cutoff: true, cutoffMargin: config.cutoffMargin
             });
             ctx.restore();
         }
@@ -207,7 +207,7 @@ export function syncDerpToggleV2(ctx, node, app, config) {
                 paintData: { ...finalLabelPaint, fontSize: themeFontSize, fontWeight: props.fontWeight },
                 align: "left",
                 baseline: props.labelAlign?.[1] || "middle",
-                cutoff: true
+                cutoff: true, cutoffMargin: config.cutoffMargin
             });
             ctx.restore();
         }

@@ -699,14 +699,13 @@ export async function toggleDerpSysPanel(hostNode) {
     sysPanel._pendingViewportFitFrames = 6;
     sysPanel._viewportFitStarted = false;
 
-    if (sysPanel._outsidePointerHandler) {
-        window.removeEventListener("pointerdown", sysPanel._outsidePointerHandler, true);
-    }
-    sysPanel._outsidePointerHandler = (e) => {
-        if (window.DERP_GLOBAL_SETTINGS?.closeSysPanelOnOutsideClick === false) return;
-        if (!sysPanel.isVisible || !sysPanel.layout?.regions?.panelBackground) return;
-        if (window.__xcpHasActiveDropdown || window.__xcpHasActiveFileBrowser) return;
-        if (sysPanel.interactionShield?.contains(e.target)) return;
+    const SYS_PANEL_OUTSIDE_DRAG_THRESHOLD = 4;
+
+    function isOutsideSysPanel(e) {
+        if (window.DERP_GLOBAL_SETTINGS?.closeSysPanelOnOutsideClick === false) return false;
+        if (!sysPanel.isVisible || !sysPanel.layout?.regions?.panelBackground) return false;
+        if (window.__xcpHasActiveDropdown || window.__xcpHasActiveFileBrowser) return false;
+        if (sysPanel.interactionShield?.contains(e.target)) return false;
         if (sysPanel.hostNode?.interactionShield?.contains?.(e.target)) {
             const host = sysPanel.hostNode;
             const sysBtn = host.layout?.regions?.systemBtn;
@@ -717,10 +716,10 @@ export async function toggleDerpSysPanel(hostNode) {
                 const canvasY = (e.clientY - rect.top) / ds.scale - ds.offset[1];
                 const localMouse = [canvasX - host.pos[0], canvasY - host.pos[1]];
                 const isOnSystemBtn = host.layout?.hitTest ? host.layout.hitTest(localMouse, sysBtn) : false;
-                if (isOnSystemBtn) return;
+                if (isOnSystemBtn) return false;
             }
         }
-        if (Object.values(sysPanel.dynamicElements || {}).some((el) => el?.contains?.(e.target))) return;
+        if (Object.values(sysPanel.dynamicElements || {}).some((el) => el?.contains?.(e.target))) return false;
 
         const rect = app.canvas.canvas.getBoundingClientRect();
         const ds = app.canvas.ds;
@@ -728,11 +727,51 @@ export async function toggleDerpSysPanel(hostNode) {
         const canvasY = (e.clientY - rect.top) / ds.scale - ds.offset[1];
         const localMouse = [canvasX - sysPanel.pos[0], canvasY - sysPanel.pos[1]];
 
-        if (!sysPanel.layout.hitTest(localMouse, sysPanel.layout.regions.panelBackground)) {
+        return !sysPanel.layout.hitTest(localMouse, sysPanel.layout.regions.panelBackground);
+    }
+
+    if (sysPanel._outsidePointerDownHandler) {
+        window.removeEventListener("pointerdown", sysPanel._outsidePointerDownHandler, true);
+    }
+    if (sysPanel._outsidePointerMoveHandler) {
+        window.removeEventListener("pointermove", sysPanel._outsidePointerMoveHandler, true);
+    }
+    if (sysPanel._outsidePointerUpHandler) {
+        window.removeEventListener("pointerup", sysPanel._outsidePointerUpHandler, true);
+    }
+
+    sysPanel._pendingOutsidePointerId = null;
+    sysPanel._pendingOutsidePointerDragged = false;
+
+    sysPanel._outsidePointerDownHandler = (e) => {
+        if (!isOutsideSysPanel(e)) return;
+        sysPanel._pendingOutsidePointerId = e.pointerId;
+        sysPanel._pendingOutsidePointerStartX = e.clientX;
+        sysPanel._pendingOutsidePointerStartY = e.clientY;
+        sysPanel._pendingOutsidePointerDragged = false;
+    };
+    window.addEventListener("pointerdown", sysPanel._outsidePointerDownHandler, true);
+
+    sysPanel._outsidePointerMoveHandler = (e) => {
+        if (sysPanel._pendingOutsidePointerId !== e.pointerId) return;
+        const dx = e.clientX - sysPanel._pendingOutsidePointerStartX;
+        const dy = e.clientY - sysPanel._pendingOutsidePointerStartY;
+        if (Math.hypot(dx, dy) >= SYS_PANEL_OUTSIDE_DRAG_THRESHOLD) {
+            sysPanel._pendingOutsidePointerDragged = true;
+        }
+    };
+    window.addEventListener("pointermove", sysPanel._outsidePointerMoveHandler, true);
+
+    sysPanel._outsidePointerUpHandler = (e) => {
+        if (sysPanel._pendingOutsidePointerId !== e.pointerId) return;
+        const wasDragged = sysPanel._pendingOutsidePointerDragged;
+        sysPanel._pendingOutsidePointerId = null;
+        sysPanel._pendingOutsidePointerDragged = false;
+        if (!wasDragged) {
             closeDerpSysPanel();
         }
     };
-    window.addEventListener("pointerdown", sysPanel._outsidePointerHandler, true);
+    window.addEventListener("pointerup", sysPanel._outsidePointerUpHandler, true);
 
     // THE OPTIMIZATION FIX: Purge the cache on open to force an immediate fresh sync
     sysPanel._prevDerpState = null;
@@ -835,10 +874,20 @@ export function closeDerpSysPanel() {
         sysPanel.dynamicElements = {};
     }
 
-    if (sysPanel._outsidePointerHandler) {
-        window.removeEventListener("pointerdown", sysPanel._outsidePointerHandler, true);
-        sysPanel._outsidePointerHandler = null;
+    if (sysPanel._outsidePointerDownHandler) {
+        window.removeEventListener("pointerdown", sysPanel._outsidePointerDownHandler, true);
+        sysPanel._outsidePointerDownHandler = null;
     }
+    if (sysPanel._outsidePointerMoveHandler) {
+        window.removeEventListener("pointermove", sysPanel._outsidePointerMoveHandler, true);
+        sysPanel._outsidePointerMoveHandler = null;
+    }
+    if (sysPanel._outsidePointerUpHandler) {
+        window.removeEventListener("pointerup", sysPanel._outsidePointerUpHandler, true);
+        sysPanel._outsidePointerUpHandler = null;
+    }
+    sysPanel._pendingOutsidePointerId = null;
+    sysPanel._pendingOutsidePointerDragged = false;
 
     removeDerpShield(sysPanel);
 
