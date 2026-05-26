@@ -28,6 +28,42 @@
  * - `ratingsList`: For `fileType: "lora"`, per-path rating map used to draw rating glyphs.
  * - `ratingsPalette`: For `fileType: "lora"`, palette source used to tint rating glyphs.
  *
+ *
+ * Terminology — named parts of the FileBrowser widget:
+ * - `Trigger`: The compact clickable bar rendered inline in the node. Shows the current selected value
+ *   and an optional indicator glyph. Clicking it spawns the Picker.
+ * - `Picker`: The dropdown overlay panel that opens above or below the Trigger. Contains header rows,
+ *   a scrollable pane of file/folder rows, an optional footer, and a scrollbar. Auto-flips direction
+ *   based on available screen space.
+ * - `Row`: A single list item inside the Picker. Types include: `"file"`, `"folder"`, `"select_folder"`,
+ *   `"select_current"`, `"back"`, `"search_tab"`. Each row has a rect hitbox for pointer interaction.
+ * - `Breadcrumb`: The clickable path-navigation header row at the top of the Picker. For browser mode,
+ *   it shows segmented path parts that jump to parent directories. For folder mode, it shows a
+ *   confirmation button ("select current folder").
+ * - `HeaderRows`: The rows pinned at the top of the Picker, typically the Breadcrumb and a
+ *   "select_current" row. Always visible, not scrolled.
+ * - `FooterRow`: An optional row pinned at the bottom of the Picker. Used for "back" navigation
+ *   or search-tab spawn triggers in browser mode.
+ * - `Scrollbar`: A custom vertical scrollbar with a draggable thumb, rendered on the right edge
+ *   of the Picker's scrollable pane. Sized by PICKER_SCROLLBAR_WIDTH, PICKER_SCROLLBAR_INSET,
+ *   and PICKER_SCROLLBAR_MIN_THUMB.
+ * - `Indicator`: The toggle-able open/closed icon glyph on the right side of the Trigger (e.g.,
+ *   ▼ for closed, ▲ for open). Controlled by the `indicator` config parameter.
+ * - `Icon` / `Glyph`: The Trigger/Picker icon style set by the `icon` config. Maps to named
+ *   glyph sets: `"folder"`, `"dropdown"`, `"palette"`, `"file"`, `"settings"`. Each set has
+ *   an open and closed variant.
+ * - `Prefix`: The per-row icon character drawn before the row text (e.g., 📁 for folders,
+ *   🖺 for files, ❖ for palettes, 🖻 for LoRA preview images). Controlled by `fileType`.
+ * - `Ratings` / `RatingGlyph`: For `fileType: "lora"`, per-row rating bars drawn from
+ *   `ratingsList` and tinted by `ratingsPalette`.
+ * - `SearchTab`: An optional search input spawned via `bastaSearchTab` in browser mode.
+ *   Controlled by `searchTab` config. Uses `searchThemeKey` for theming.
+ * - `Pane`: The scrollable area containing the file/folder rows, positioned between the
+ *   HeaderRows and FooterRow (or the panel bottom).
+ * - `Mode`: The browser behavior mode — `"browser"` (full navigation + search tab),
+ *   `"folder"` (navigation without search tab + explicit confirmation), or `"file"`
+ *   (legacy single-file picker).
+ *
  * Maintenance rule:
  * - Keep this parameter list in sync whenever this widget gains, removes, or changes accepted config parameters.
  */
@@ -84,6 +120,24 @@ const DROPDOWN_ANIM_SETTINGS = {
 let activeFilePicker = null;
 let filePickerListenersInstalled = false;
 
+function getFileBrowserItemsFingerprint(items) {
+    if (!Array.isArray(items) || items.length === 0) return "0:";
+    const parts = new Array(items.length);
+    for (let i = 0; i < items.length; i += 1) {
+        const item = items[i];
+        if (typeof item === "string") {
+            parts[i] = item;
+            continue;
+        }
+        const value = getFileBrowserItemValue(item);
+        const display = typeof item === "object"
+            ? String(item.display ?? item.text ?? item.name ?? item.title ?? item.label ?? "")
+            : "";
+        parts[i] = `${value}|${display}`;
+    }
+    return `${items.length}:${parts.join("\u0001")}`;
+}
+
 function getFileBrowserMode(config) {
     const mode = String(config?.mode || "browser").trim().toLowerCase();
     if (mode === "folder") return "folder";
@@ -96,6 +150,14 @@ function syncActiveFilePickerConfig(node, config) {
     if (activeFilePicker.node !== node || activeFilePicker.key !== config?.key) return;
     activeFilePicker.config = config;
     activeFilePicker.callbacks = getFileBrowserCallbacks(config);
+    const theme = resolvePickerTheme(config, node);
+    activeFilePicker.listPaint = theme.listPaint;
+    activeFilePicker.rowPaintOFF = theme.rowPaintOFF;
+    activeFilePicker.rowPaintON = theme.rowPaintON;
+    activeFilePicker.rowTextON = theme.rowTextON;
+    activeFilePicker.rowHeight = measureTextHeight("Hgyj", 0, theme.rowPaintOFF) + ((config.padding?.[1] || 2) * 2);
+    activeFilePicker.glyphs = getFileBrowserGlyphs(config?.icon);
+    activeFilePicker.itemsHash = getFileBrowserItemsFingerprint(config.items || []);
 }
 
 function getFileBrowserGlyphs(iconName) {
@@ -565,7 +627,7 @@ function openFilePicker(config, node) {
         scrollScreenRect: null,
         rowHitboxes: [],
         breadcrumbHitboxes: [],
-        itemsHash: JSON.stringify(config.items || []),
+        itemsHash: getFileBrowserItemsFingerprint(config.items || []),
         bottomMarginUnits: mW || 0,
         offsetY: oY || 0,
         prefixGap: PICKER_PREFIX_GAP_PX,
@@ -1082,10 +1144,17 @@ function drawActiveFilePicker(ctx, node, app, config, scale) {
     const state = activeFilePicker;
     if (!state || state.node !== node || state.key !== config.key) return;
 
-    const nextItemsHash = JSON.stringify(config.items || []);
-    if (state.itemsHash !== nextItemsHash || state.config.value !== config.value) {
+    const nextItemsHash = getFileBrowserItemsFingerprint(config.items || []);
+    if (state.itemsHash !== nextItemsHash || state.config.value !== config.value || state.rowHeight !== (measureTextHeight("Hgyj", 0, state.rowPaintOFF) + ((config.padding?.[1] || 2) * 2))) {
         state.config = config;
         state.callbacks = getFileBrowserCallbacks(config);
+        const theme = resolvePickerTheme(config, node);
+        state.listPaint = theme.listPaint;
+        state.rowPaintOFF = theme.rowPaintOFF;
+        state.rowPaintON = theme.rowPaintON;
+        state.rowTextON = theme.rowTextON;
+        state.rowHeight = measureTextHeight("Hgyj", 0, theme.rowPaintOFF) + ((config.padding?.[1] || 2) * 2);
+        state.glyphs = getFileBrowserGlyphs(config?.icon);
         state.itemsHash = nextItemsHash;
         rebuildFilePickerRows(state);
         ensurePickerSelectionVisible(state);
@@ -1288,7 +1357,7 @@ function drawActiveFilePicker(ctx, node, app, config, scale) {
     const previewCache = state._previewImageCache || {};
     const previewUrl = state._activePreviewUrl;
     if (previewAspect && previewUrl && previewCache[previewUrl]?.loaded) {
-        const s = (state.node && typeof getDerpVars === "function") ? (getDerpVars(state.node).sH || 4) : 4;
+        const s = state.offsetY || 4;
         const previewW = panelW;
         const previewH = Math.min(previewW / previewAspect, panelW);
         const previewX = panelX;
@@ -1328,7 +1397,14 @@ function drawActiveFilePicker(ctx, node, app, config, scale) {
     }
 
     ctx.restore();
-    markNodeDirty(node, 4);
+
+    const heightAnimating = Math.abs((state.currentSize?.[1] || 0) - targetHeight) > 0.5;
+    const alphaAnimating = Math.abs((state.itemAlpha || 0) - 1) > 0.01;
+    const previewPending = !!previewUrl && !previewCache[previewUrl]?.loaded;
+    const shouldStayAwake = heightAnimating || alphaAnimating || (state.viewportFollowFrames || 0) > 0 || previewPending;
+    if (shouldStayAwake) {
+        markNodeDirty(node, 4);
+    }
 }
 
 export function drawActiveFilePickerGlobal(ctx, app) {
@@ -1393,7 +1469,7 @@ export function syncFileBrowser(context, node, app, config, overlayPass = false)
 
     if (isAwake) return;
 
-    const itemsHash = JSON.stringify(safeConfig.items || []);
+    const itemsHash = getFileBrowserItemsFingerprint(safeConfig.items || []);
     const stateHash = `${isPressed}_${isHovered}_${node.mode}_${window._xcpDerpSession}_${safeConfig.value}_${itemsHash}_${isAwake}`;
 
     const cache = node._fileBrowserCache || (node._fileBrowserCache = {});

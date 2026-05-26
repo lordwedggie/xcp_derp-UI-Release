@@ -28,6 +28,9 @@ export function syncDerpSliderHTML(el, node, app, config) {
     const coords = calculateScreenCoords(node, app, x, y, w, h);
     if (!coords) return;
 
+    const style = config.style ?? "default";
+    if (style !== "default") return;
+
     // 1. Resolve Environment
     const { props, stateStr, bodyPaint: paintData, labelPaint: labelData } = resolveWidgetEnv(node, config);
 
