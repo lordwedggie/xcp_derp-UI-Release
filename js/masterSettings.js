@@ -12,6 +12,7 @@ function makeDerpCategory(group, leaf) {
 }
 const DERP_GROUPS = {
     general: (leaf) => makeDerpCategory("General", leaf),
+    ui: (leaf) => makeDerpCategory("User Interface", leaf),
     docking: (leaf) => makeDerpCategory("Docking", leaf),
     sound: (leaf) => makeDerpCategory("Sound", leaf),
     debugging: (leaf) => makeDerpCategory("Debugging", leaf),
@@ -19,6 +20,7 @@ const DERP_GROUPS = {
 };
 const DERP_GROUP_SORT_ORDER = {
     general: 400,
+    ui: 350,
     docking: 300,
     sound: 200,
     debugging: 150,
@@ -161,8 +163,22 @@ app.registerExtension({
 
         // REGISTER GLOBAL SETTINGS IN THE COMFYUI MENU
         app.ui.settings.addSetting({
+            id: "Derp.StickyDrag",
+            name: "stickyDrag: Enable Derp Sticky Drag, click and hold on a node to move it.",
+            category: DERP_GROUPS.ui("Sticky Drag"),
+            sortOrder: DERP_GROUP_SORT_ORDER.ui,
+            type: "boolean",
+            default: true,
+            onChange: (v) => {
+                window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
+                window.DERP_GLOBAL_SETTINGS.stickyDrag = normalizeBooleanSetting(v, true);
+                if (app.canvas) app.canvas.setDirty(true, true);
+            }
+        });
+
+        app.ui.settings.addSetting({
             id: "Derp.PlaySound",
-            name: "Derp Nodes: Play Sound",
+            name: "Play Sound",
             category: DERP_GROUPS.sound("Play Sound"),
             sortOrder: DERP_GROUP_SORT_ORDER.sound,
             type: "boolean",
@@ -176,9 +192,10 @@ app.registerExtension({
 
         app.ui.settings.addSetting({
             id: "Derp.UseAnimation",
-            name: "Derp Nodes: Use Animation",
+            name: "Use Animation",
             category: DERP_GROUPS.general("Use Animation"),
             sortOrder: DERP_GROUP_SORT_ORDER.general,
+
             type: "boolean",
             default: true,
             onChange: (v) => {
@@ -207,9 +224,10 @@ app.registerExtension({
 
         app.ui.settings.addSetting({
             id: "Derp.CloseSysPanelOnOutsideClick",
-            name: "Derp Nodes: Close System Panel On Outside Click",
-            category: DERP_GROUPS.general("Close System Panel On Outside Click"),
-            sortOrder: DERP_GROUP_SORT_ORDER.general,
+            name: "Close System Panel On Outside Click",
+            category: DERP_GROUPS.ui("Close System Panel On Outside Click"),
+            sortOrder: DERP_GROUP_SORT_ORDER.ui,
+
             type: "boolean",
             default: true,
             onChange: (v) => {
@@ -221,9 +239,10 @@ app.registerExtension({
 
         app.ui.settings.addSetting({
             id: "Derp.BackgroundImage",
-            name: "Derp Nodes: Background Image",
+            name: "Background Image",
             category: DERP_GROUPS.general("Background Image"),
             sortOrder: DERP_GROUP_SORT_ORDER.general,
+
             type: "combo",
             options: [{ value: "none", text: "None" }],
             default: "none",
@@ -280,7 +299,7 @@ app.registerExtension({
 
         registerHotkeySetting({
             id: "Derp.PerfOverlayHotkey",
-            name: "Derp Nodes: Perf Overlay Hotkey",
+            name: "Perf Overlay Hotkey",
             defaultValue: "Alt+Shift+P",
             category: DERP_GROUPS.hotkeys("Perf Overlay Hotkey"),
             sortOrder: DERP_GROUP_SORT_ORDER.hotkeys,
@@ -292,7 +311,7 @@ app.registerExtension({
 
         app.ui.settings.addSetting({
             id: "Derp.SystemBypassSoundIndex",
-            name: "Derp Nodes: Bypass Sound Variant (0-4)",
+            name: "Bypass Sound Variant (0-4)",
             category: DERP_GROUPS.sound("Bypass Sound Variant"),
             sortOrder: DERP_GROUP_SORT_ORDER.sound,
             type: "number",
@@ -306,7 +325,7 @@ app.registerExtension({
 
         app.ui.settings.addSetting({
             id: "Derp.SystemCollapseSoundIndex",
-            name: "Derp Nodes: Collapse Sound Variant (0-4)",
+            name: "Collapse Sound Variant (0-4)",
             category: DERP_GROUPS.sound("Collapse Sound Variant"),
             sortOrder: DERP_GROUP_SORT_ORDER.sound,
             type: "number",
@@ -320,7 +339,7 @@ app.registerExtension({
 
         app.ui.settings.addSetting({
             id: "Derp.SystemDockSoundIndex",
-            name: "Derp Nodes: Dock Sound Variant (0-4)",
+            name: "Dock Sound Variant (0-4)",
             category: DERP_GROUPS.sound("Dock Sound Variant"),
             sortOrder: DERP_GROUP_SORT_ORDER.sound,
             type: "number",
@@ -364,6 +383,7 @@ app.registerExtension({
 
         // Initialize global object for immediate access by nodes
         window.DERP_GLOBAL_SETTINGS = {
+            stickyDrag: normalizeBooleanSetting(app.ui.settings.getSettingValue("Derp.StickyDrag", true), true),
             playSound: app.ui.settings.getSettingValue("Derp.PlaySound", true),
             useAnimation: app.ui.settings.getSettingValue("Derp.UseAnimation", true),
             closeSysPanelOnOutsideClick: normalizeBooleanSetting(app.ui.settings.getSettingValue("Derp.CloseSysPanelOnOutsideClick", true), true),
