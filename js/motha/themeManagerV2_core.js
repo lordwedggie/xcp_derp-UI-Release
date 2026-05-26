@@ -98,6 +98,22 @@ export const safePersist = (cfg, targetTheme = null) => {
                 themeObj[keyName] = sortedData;
             }
         });
+
+        // Sort top-level keys: meta (_) first, then non-text, then text (t_) — each group alphabetical
+        const sortedTheme = {};
+        const metaKeys = [], nonTextKeys = [], textKeys = [];
+        Object.keys(themeObj).forEach(k => {
+            if (k.startsWith("_")) metaKeys.push(k);
+            else if (k.startsWith("t_")) textKeys.push(k);
+            else nonTextKeys.push(k);
+        });
+        metaKeys.sort((a, b) => a.localeCompare(b));
+        nonTextKeys.sort((a, b) => a.localeCompare(b));
+        textKeys.sort((a, b) => a.localeCompare(b));
+        [...metaKeys, ...nonTextKeys, ...textKeys].forEach(k => {
+            sortedTheme[k] = themeObj[k];
+        });
+        cfg.themes[themeName] = sortedTheme;
     });
 
     const alphabetizedThemes = {};
@@ -231,6 +247,14 @@ export function bindThemeEvents(node) {
                         if (cfg.notifyTheme) cfg.notifyTheme(node._selectedThemeName);
                         if (cfg.markDirty) cfg.markDirty();
                     }
+
+                    // Compute actual dirty status for layout changes
+                    const baselines = cfg._allBaselines?.[node._selectedThemeName] || {};
+                    const currentLayout = JSON.stringify(node.themeToEdit._layout);
+                    const isLayoutDirty = (currentLayout !== baselines["_layout"]);
+                    node._isThemeDirty = isLayoutDirty;
+                    const tm = node.layoutMap?.themeManagementRegion;
+                    if (tm?.btnThemeSave) tm.btnThemeSave.pulse = isLayoutDirty;
                 }
 
                 // Internal UI refresh logic remains optimized to run during typing

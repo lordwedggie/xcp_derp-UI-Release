@@ -292,6 +292,15 @@ export const handleKeySaveAction = (node, updateThemeLayoutFn) => {
                 const themeName = node._selectedThemeName;
                 cfg.themes[themeName] = JSON.parse(JSON.stringify(node.themeToEdit));
                 safePersist(cfg, themeName);
+
+                // Re-capture baseline and clear dirty state after save
+                if (cfg.refreshBaselines) cfg.refreshBaselines(true, themeName);
+                node._isSelectedKeyDirty = false;
+                node._isThemeDirty = false;
+                node._dirtyKeyNames = new Set();
+                node._layoutMapHash = null;
+                if (node.refreshNodeLayoutMap) node.refreshNodeLayoutMap();
+
                 if (node.layout) node.layout._lastCacheKey = "";
                 showBastaSystemMessage(node, "Key Saved: ", 2000, { fade: true, grow: true }, "btnKeySave", "warning", null, currentKey);
             } catch (err) {

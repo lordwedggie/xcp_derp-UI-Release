@@ -168,6 +168,15 @@ export const handleThemeSaveAction = (node, updateThemeLayoutFn) => {
             try {
                 cfg.themes[themeName] = JSON.parse(JSON.stringify(node.themeToEdit));
                 safePersist(cfg, themeName);
+
+                // Re-capture baseline and clear dirty state after save
+                if (cfg.refreshBaselines) cfg.refreshBaselines(true, themeName);
+                node._isSelectedKeyDirty = false;
+                node._isThemeDirty = false;
+                node._dirtyKeyNames = new Set();
+                node._layoutMapHash = null;
+                if (node.refreshNodeLayoutMap) node.refreshNodeLayoutMap();
+
                 showBastaSystemMessage(node, "Configuration Saved: ", 2000, { fade: true, grow: true }, "btnThemeSave", "warning", null, themeName);
             } catch (err) {
                 showBastaSystemMessage(node, "Save Failed", 3000, { fade: true, grow: true }, "btnThemeSave", "error", null, "");
