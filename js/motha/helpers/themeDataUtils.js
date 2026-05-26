@@ -139,7 +139,7 @@ export function generateKeyHash(keyObj) {
         "_Stroke", "_Stroke_OFF", "_Stroke_DIS",
         "_Glow", "_Glow_OFF", "_Glow_DIS",
         "shadow", "shadowDisabled", "shadowClip",
-        "stroke", "strokeDisabled", "glow", "glowDisabled", "glowClip"
+        "stroke", "strokeDisabled", "glow", "glowDisabled", "glowClip", "_palette"
     ];
     relevantKeys.forEach(prop => {
         if (keyObj[prop] !== undefined) {

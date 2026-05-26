@@ -55,6 +55,13 @@ export const handleThemeDropdownChange = (node, val, updateThemeLayoutFn) => {
         node.themeToEdit = JSON.parse(JSON.stringify(source));
         if (!node.themeToEdit._layout) node.themeToEdit._layout = [4, 2, 2, 2, 2, 4, 2, 4];
         node.properties.systemPaletteName = node.themeToEdit._palette || "";
+
+        // Re-capture baseline for the newly-selected theme
+        const cfg = window.xcpDerpThemeConfig;
+        if (cfg?.refreshBaselines) cfg.refreshBaselines(true, val);
+        node._isSelectedKeyDirty = false;
+        node._dirtyKeyNames = new Set();
+
         if (node.layoutMap?.themeLayoutRegion?.dropdownPalette) {
             node.layoutMap.themeLayoutRegion.dropdownPalette.value = node.properties.systemPaletteName || "None";
             node.layoutMap.themeLayoutRegion.dropdownPalette.text = node.properties.systemPaletteName

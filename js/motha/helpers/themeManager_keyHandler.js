@@ -9,6 +9,7 @@ import { activeBastas } from "../../fatha/basta.js";
 import { showBastaFileHandler } from "../../fatha/bastas/bastaFileHandler.js";
 import { showBastaSystemMessage } from "../../fatha/bastas/bastaSystemMessage.js";
 import { playKaChing } from "../../herbina/masterSoundEffects.js";
+import { generateKeyHash } from "./themeDataUtils.js";
 import { safeClick, safePersist, playSuccessSound } from "../themeManagerV2_core.js";
 
 const THEME_META_KEYS = new Set(["_category", "_layout", "_palette"]);
@@ -21,6 +22,30 @@ export function pushThemeUpdate(node, key, prop, val) {
 
     cfg.themes[node._selectedThemeName][key][prop] = val;
     if (cfg.touchTheme) cfg.touchTheme(node._selectedThemeName);
+
+    // Directly update save button pulse state
+    const isMeta = THEME_META_KEYS.has(key);
+    const editKey = isMeta ? key : node._selectedKeyName;
+    const currentData = isMeta ? cfg.themes[node._selectedThemeName]?.[key] : node.themeToEdit?.[editKey];
+    const baselines = cfg._allBaselines?.[node._selectedThemeName] || {};
+    const baseHash = baselines[editKey];
+    const currentHash = currentData ? generateKeyHash(currentData) : "";
+    const isDirty = (currentHash !== baseHash);
+
+    if (isMeta || editKey === node._selectedKeyName) {
+        node._isSelectedKeyDirty = isDirty;
+        if (isDirty) {
+            if (node._dirtyKeyNames) node._dirtyKeyNames.add(editKey);
+        } else {
+            if (node._dirtyKeyNames) node._dirtyKeyNames.delete(editKey);
+        }
+        const tm = node.layoutMap?.themeManagementRegion;
+        if (tm?.btnThemeSave) tm.btnThemeSave.pulse = isDirty;
+        if (!isMeta) {
+            const km = node.layoutMap?.keyManagementRegion;
+            if (km?.btnKeySave) km.btnKeySave.pulse = isDirty;
+        }
+    }
 
     // FATHA FIX: Clear local and global layout caches to allow for text-driven expansion
     if (node.layout) node.layout._lastCacheKey = "";

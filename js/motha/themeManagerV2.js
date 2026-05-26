@@ -17,7 +17,8 @@
  */
 import { app } from "../../../scripts/app.js";
 import { fatha, initDerpGlobalListener } from "../fatha/fatha.js"; //
-import { UI_TYPES } from "../fatha/core/masterLayoutTypes.js"; //
+import { UI_TYPES } from "../fatha/core/masterLayoutTypes.js";
+import { generateKeyHash } from "./helpers/themeDataUtils.js"; //
 import { getPaletteId, showBastaPalette } from "../fatha/bastas/bastaPalette.js";
 import { activeBastas } from "../fatha/basta.js";
 import {
@@ -86,6 +87,27 @@ app.registerExtension({
             // THE STRUCTURAL HASH FIX: Include the active theme to ensure
             // the map re-binds correctly when the global state shifts.
             // THE THRASHING FIX: Removed volatile _forceSync from hash which was causing infinite map rebuilds.
+            const cfg = window.xcpDerpThemeConfig;
+
+            // Check for unsaved key changes (pulse save buttons + star prefix on dirty keys)
+            const THEME_META_KEYS = new Set(["_category", "_layout", "_palette"]);
+            let isSelectedKeyDirty = false;
+            const dirtyKeys = new Set();
+            if (cfg && this.themeToEdit && this._selectedThemeName) {
+                for (const key of Object.keys(this.themeToEdit)) {
+                    if (THEME_META_KEYS.has(key)) continue;
+                    const baselines = cfg._allBaselines?.[this._selectedThemeName] || {};
+                    const currentHash = generateKeyHash(this.themeToEdit[key]);
+                    const baseHash = baselines[key];
+                    if (currentHash !== baseHash) {
+                        dirtyKeys.add(key);
+                        if (key === this._selectedKeyName) isSelectedKeyDirty = true;
+                    }
+                }
+            }
+            this._isSelectedKeyDirty = isSelectedKeyDirty;
+            this._dirtyKeyNames = dirtyKeys;
+
             const layoutHash = `${this._selectedThemeName}_${this._selectedKeyName}_${this._cachedFonts?.length || 0}_${this._systemPaletteList?.length || 0}_${this._systemPaletteListLoaded ? 1 : 0}_${this.properties.systemPaletteName || ""}_${isPaletteOpen}_${window.xcpDerpThemeConfig?.activeTheme}`;
 
             if (this._layoutMapHash === layoutHash && this.layoutMap) return;
@@ -93,7 +115,6 @@ app.registerExtension({
             this._layoutMapHash = layoutHash;
             if (mapChanged) this._lastUISyncHash = "";
 
-            const cfg = window.xcpDerpThemeConfig;
             const applyName = (this.properties?.selectedTheme && this.properties.selectedTheme !== "") ? this.properties.selectedTheme : (cfg?.activeTheme || "Template_Standard_v02");
             const applyTheme = cfg?.themes?.[applyName];
             const applyLayout = applyTheme?._layout || [0, 0, 2, 2, 0, 0, 2, 4];
@@ -149,6 +170,7 @@ app.registerExtension({
                     btnThemeSave: {
                         type: UI_TYPES.ICONBUTTON, themeKey: "button, t_textNormal", noHover: false,
                         state: "OFF", icon: "save", width: "match", height: "fill", objectAlign: ["left", "middle"],
+                        pulse: this._isSelectedKeyDirty,
                     },
                 },
                 themeLayoutRegion: {
@@ -234,7 +256,9 @@ app.registerExtension({
                         width: "full", height: "auto", minWidth: 80,
                         mode: "file",
                         rootName: "keys",
-                        items: keyList.length > 0 ? keyList : [this._selectedKeyName || "None"],
+                        items: keyList.length > 0
+                            ? keyList.map(k => (this._dirtyKeyNames?.has(k) ? "* " : "") + k)
+                            : [this._selectedKeyName || "None"],
                         value: this._selectedKeyName, padding: [pW, pH], spacing: [sW, 0],
                         onChange: (val) => {
                             this._selectedKeyName = val;
@@ -256,6 +280,7 @@ app.registerExtension({
                         type: UI_TYPES.ICONBUTTON, themeKey: "button, t_textNormal", noHover: false,
                         state: "OFF", icon: "save", width: "match", height: "fill", objectAlign: ["left", "middle"],
                         spacing: [0, 0],
+                        pulse: this._isSelectedKeyDirty,
                     },
                 },
                 mainEditRegion: {

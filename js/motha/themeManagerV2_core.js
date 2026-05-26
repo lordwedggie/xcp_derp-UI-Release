@@ -131,6 +131,11 @@ export function initThemeManager(node) {
         node.properties.selectedThemeName = themeName;
         node.themeToEdit = JSON.parse(JSON.stringify(cfg.themes[themeName]));
 
+        // Capture baseline so dirty check works against the freshly-loaded theme
+        if (cfg.refreshBaselines) cfg.refreshBaselines(true, themeName);
+        node._isSelectedKeyDirty = false;
+        node._dirtyKeyNames = new Set();
+
         if (!node.themeToEdit._layout) node.themeToEdit._layout = [4, 2, 2, 2, 2, 4, 2, 4];
         node.properties.systemPaletteName = node.themeToEdit._palette || "";
 
