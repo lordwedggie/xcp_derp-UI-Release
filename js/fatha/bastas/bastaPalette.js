@@ -295,8 +295,8 @@ export function showBastaPalette(host, targetRegion = null) {
 
             contentRegions.paletteHandling = {
                 dir: "row", width: "full", height: "auto", margin: [0, mH], spacing: [sW, 0],
-                btnRename: { type: UI_TYPES.ICONBUTTON, themeKey: "button, t_textBig",
-                    icon: "rename", width: "match", height: "fill", spacing: [sW, 0],
+                btnRename: { type: UI_TYPES.ICONBUTTON, themeKey: "button, t_textNormal",
+                    icon: "rename", width: "match", height: "auto", spacing: [sW, 0], 
                     state: hasFile ? "OFF" : "DIS",
                     onPress: () => showBastaFileHandler(basta, "palettes", "btnRename", {
                         title: `Rename palette ${basta.properties.activePaletteName || ""}`,
@@ -307,7 +307,7 @@ export function showBastaPalette(host, targetRegion = null) {
                     })
                 },
                 btnCopy: { type: UI_TYPES.ICONBUTTON, themeKey: "button, t_textNormal",
-                    icon: "copy", width: "match", height: "fill", spacing: [sW, 0],
+                    icon: "copy", width: "match", height: "auto", spacing: [sW, 0],
                     state: hasFile ? "OFF" : "DIS",
                     onPress: () => showBastaFileHandler(basta, "palettes", "btnCopy", {
                         title: `Duplicate palette ${basta.properties.activePaletteName || ""}`,
@@ -318,14 +318,15 @@ export function showBastaPalette(host, targetRegion = null) {
                     })
                 },
                 btnOpenFolder: { type: UI_TYPES.ICONBUTTON, themeKey: "button, t_textNormal",
-                    icon: "file", width: "match", height: "fill", spacing: [sW, 0],
+                    icon: "file", width: "match", height: "auto", spacing: [sW, 0],
                     state: "OFF",
                     onPress: () => fetch("/xcp/open_folder?name=palettes")
                 },
                 browserPalette: {
-                    type: UI_TYPES.FILEBROWSER, themeKey: "dialog, t_textNormal",  displayMode: "cutoff",
+                    type: UI_TYPES.FILEBROWSER, themeKey: "dialog, t_textSmall", displayMode: "cutoff", 
+                    width: "full", height: "auto", padding: [pW, pH], canvasShield: true,
                     text: (basta.properties.activePaletteName || "Load Palette File...").split(/[\\/]/).pop().replace(/\.json$/i, ""),
-                    value: basta.properties.activePaletteName || "",
+                    value: basta.properties.activePaletteName || "", 
                     fileType: "palette", // THE ICON HINT: Enables the ❖ glyph in the browser list
                     items: basta._paletteList || [],
                     onChange: async (selectedFile) => {
@@ -368,11 +369,9 @@ export function showBastaPalette(host, targetRegion = null) {
                         }
                         refreshPaletteLayout(basta);
                     },
-                    width: "full", height: 20, padding: [pW, pH],
-                    canvasShield: true, spacing: [sW, 0],
                 },
                 btnDelete: { type: UI_TYPES.ICONBUTTON, themeKey: "button, t_textNormal",
-                    icon: "trash", width: "match", height: "fill", spacing: [sW, 0],
+                    icon: "trash", width: "match", height: "auto", spacing: [sW, 0],
                     state: hasFile ? "OFF" : "DIS",
                     onPress: () => {
                         const targetFile = basta.properties.activePaletteName;
@@ -414,8 +413,8 @@ export function showBastaPalette(host, targetRegion = null) {
 
             contentRegions.keysHandling = {
                 dir: "row", width: "full", height: "auto", margin: [0, mH], spacing: [sW, 0],
-                btnRenameKey: { type: UI_TYPES.ICONBUTTON, themeKey: "button, t_textBig",
-                    icon: "rename", width: "match", height: "fill", spacing: [sW, 0],
+                btnRenameKey: { type: UI_TYPES.ICONBUTTON, themeKey: "button, t_textNormal",
+                    icon: "rename", width: "match", height: "auto", spacing: [sW, 0],
                     state: (hasFile && basta.properties.activePaletteId) ? "OFF" : "DIS",
                     onPress: () => showBastaFileHandler(basta, "none", "btnRenameKey", {
                         title: `Rename Entry: ${currentPal?.name || ""}`,
@@ -432,7 +431,7 @@ export function showBastaPalette(host, targetRegion = null) {
                     })
                 },
                 btnCopyKey: { type: UI_TYPES.ICONBUTTON, themeKey: "button, t_textNormal",
-                    icon: "copy", width: "match", height: "fill", spacing: [sW, 0],
+                    icon: "copy", width: "match", height: "auto", spacing: [sW, 0],
                     state: (hasFile && basta.properties.activePaletteId) ? "OFF" : "DIS",
                     onPress: () => showBastaFileHandler(basta, "none", "btnCopyKey", {
                         title: `Duplicate Entry: ${currentPal?.name || ""}`,
@@ -457,7 +456,7 @@ export function showBastaPalette(host, targetRegion = null) {
                     })
                 },
                 btnSaveKey: { type: UI_TYPES.ICONBUTTON, themeKey: "button, t_textNormal",
-                    icon: "save", width: "match", height: "fill", spacing: [sW, 0],
+                    icon: "save", width: "match", height: "auto", spacing: [sW, 0],
                     state: (hasFile && basta.properties.activePaletteId && hasChanges) ? "OFF" : "DIS",
                     btnColor: pulsedSaveColor,
                     onPress: async () => {
@@ -511,9 +510,9 @@ export function showBastaPalette(host, targetRegion = null) {
                 dropdownKeys: {
                     type: UI_TYPES.FILEBROWSER,
                     icon: "dropdown",
-                    themeKey: "button, t_textNormal",
+                    themeKey: "button, t_textSmall",
                     displayMode: "cutoff",
-                    width: "full", height: 20, padding: [pW, pH], spacing: [sW, 0],
+                    width: "full", height: "auto", padding: [pW, pH], spacing: [sW, 0],
                     mode: "file",
                     rootName: "palettes",
                     state: basta.properties.activePaletteName ? "OFF" : "DIS",
@@ -532,7 +531,7 @@ export function showBastaPalette(host, targetRegion = null) {
                     canvasShield: true
                 },
                 btnDeleteKey: { type: UI_TYPES.ICONBUTTON, themeKey: "button, t_textNormal",
-                    icon: "trash", width: "match", height: "fill", spacing: [sW, 0],
+                    icon: "trash", width: "match", height: "auto", spacing: [sW, 0],
                     state: (hasFile && basta.properties.activePaletteId) ? "OFF" : "DIS",
                     onPress: () => showBastaFileHandler(basta, "none", "btnDeleteKey", {
                         title: `Delete Entry: ${currentPal?.name || ""}`,
