@@ -1,6 +1,34 @@
 /**
  * Specialist: ./herbina/widgets/widget_FileBrowser.js
  * ROLE: Canvas-only file browser widget for file and folder navigation.
+ *
+ * Accepted config parameters:
+ * - `key`: Unique region/widget key used to bind picker state to the live layout region.
+ * - `geometry`: Required `{ x, y, w, h }` canvas rect for the trigger and picker anchoring.
+ * - `items`: Source list for files, folders, or dropdown entries.
+ * - `value`: Current selected path/value shown in the trigger and used for selection state.
+ * - `onChange`: Selection callback fired with the chosen file path, folder path, or dropdown value.
+ * - `callbacks.onChange`: Alternate place for the same selection callback if the caller uses nested callbacks.
+ * - `mode`: Browser behavior mode. Use `"browser"` for the full file browser flow, `"folder"` for the same navigation flow without search-tab spawn plus explicit folder confirmation, or `"file"` for legacy file-style behavior.
+ * - `rootName`: Optional root label shown in the trigger and breadcrumb/current-path header.
+ * - `icon`: Trigger/picker glyph style. Supports mapped names like `folder`, `dropdown`, `palette`, `file`, `settings`.
+ * - `indicator`: Controls whether the trigger/current-row indicator glyph is shown. Set false-like values to hide it.
+ * - `themeKey`: Main widget theme string. Used for trigger body, picker body, and picker text theme resolution.
+ * - `searchThemeKey`: Optional theme string for the `bastaSearchTab` editor. Defaults to `"dialog, t_textSmall"`. Ignored in `folder` mode.
+ * - `padding`: Optional `[x, y]` inner padding used for trigger text and picker row sizing.
+ * - `displayMode`: Text overflow mode passed to `clampText`; use `"ellipsis"` when truncation should show ellipsis.
+ * - `mouseOver`: Set to `false` to disable hover-state styling on the trigger.
+ * - `skipBackground`: Set to `true` to skip drawing the trigger background panel.
+ * - `btnColor`: Optional trigger background override used by the animated trigger paint.
+ * - `textColor`: Optional trigger text/icon color override.
+ * - `alpha`: Optional trigger alpha override.
+ * - `fileType`: Optional file-row prefix mode. Special handling exists for `"palette"` and `"lora"`.
+ * - `previewList`: For `fileType: "lora"`, paths in this list render with the preview-image prefix glyph.
+ * - `ratingsList`: For `fileType: "lora"`, per-path rating map used to draw rating glyphs.
+ * - `ratingsPalette`: For `fileType: "lora"`, palette source used to tint rating glyphs.
+ *
+ * Maintenance rule:
+ * - Keep this parameter list in sync whenever this widget gains, removes, or changes accepted config parameters.
  */
 import { masterPainter, masterPainterText } from "../masterPainter.js";
 import {
@@ -55,6 +83,13 @@ const DROPDOWN_ANIM_SETTINGS = {
 let activeFilePicker = null;
 let filePickerListenersInstalled = false;
 
+function getFileBrowserMode(config) {
+    const mode = String(config?.mode || "browser").trim().toLowerCase();
+    if (mode === "folder") return "folder";
+    if (mode === "file") return "file";
+    return "browser";
+}
+
 function syncActiveFilePickerConfig(node, config) {
     if (!activeFilePicker) return;
     if (activeFilePicker.node !== node || activeFilePicker.key !== config?.key) return;
@@ -93,6 +128,13 @@ function computeScreenAnchorRect(node, app, geometry) {
         width: geometry.w * scale,
         height: geometry.h * scale,
     };
+}
+
+function getEventClientPoint(event, interactionData = null) {
+    const clientX = Number(event?.clientX ?? interactionData?.clientX);
+    const clientY = Number(event?.clientY ?? interactionData?.clientY);
+    if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) return null;
+    return { clientX, clientY };
 }
 
 function isPointInRect(x, y, rect) {
@@ -146,10 +188,21 @@ function pickerRowMatchesSearch(row, searchNeedle) {
     return String(row.name || row.path || "").toLowerCase().includes(searchNeedle);
 }
 
-function getSearchMatchScrollTarget(state) {
+function getPickerSearchMatch(state) {
     const needle = normalizePickerSearchValue(state?.searchQuery);
     if (!state || !needle || !state.scrollRows.length) return null;
-    const matchIndex = state.scrollRows.findIndex((row) => pickerRowMatchesSearch(row, needle));
+
+    const searchableRows = state.scrollRows.filter((row) => pickerRowMatchesSearch(row, needle));
+    if (!searchableRows.length) return null;
+
+    const startsWithMatch = searchableRows.find((row) => String(row.name || row.path || "").toLowerCase().startsWith(needle));
+    return startsWithMatch || searchableRows[0] || null;
+}
+
+function getSearchMatchScrollTarget(state) {
+    const matchRow = getPickerSearchMatch(state);
+    if (!state || !matchRow || !state.scrollRows.length) return null;
+    const matchIndex = state.scrollRows.findIndex((row) => row.id === matchRow.id);
     if (matchIndex < 0) return null;
     const viewportRows = Math.max(0, state.renderedScrollRows ?? state.visibleScrollRows ?? 0);
     const viewportHeight = viewportRows * state.rowHeight;
@@ -162,18 +215,21 @@ function getSearchMatchScrollTarget(state) {
 
 function syncPickerSearchScroll(state, forceInstant = false) {
     if (!state) return;
+    state.searchMatchRowId = getPickerSearchMatch(state)?.id || null;
     const target = getSearchMatchScrollTarget(state);
-    if (target == null) return;
+    state.searchScrollTarget = target;
+    if (target == null) return false;
     const useAnim = !forceInstant && window.DERP_GLOBAL_SETTINGS?.useAnimation !== false;
     if (!useAnim) {
         state.scrollOffset = target;
         clampPickerScroll(state);
-        return;
+        return false;
     }
     const nextOffset = lerpTo(state.scrollOffset || 0, target, 0.28, true);
     state.scrollOffset = nextOffset.value;
     clampPickerScroll(state);
     if (nextOffset.isAnimating) markNodeDirty(state.node, 8);
+    return nextOffset.isAnimating;
 }
 
 function stripFileBrowserHTML(value) {
@@ -323,6 +379,7 @@ function ensurePickerSelectionVisible(state) {
 function rebuildFilePickerRows(state) {
     const { config, node } = state;
     const items = config.items || [];
+    const mode = getFileBrowserMode(config);
     const dropdownMode = isDropdownFileBrowser(config);
     if (dropdownMode) {
         const headerRows = [];
@@ -372,7 +429,7 @@ function rebuildFilePickerRows(state) {
 
     const headerRows = [];
     const scrollRows = [];
-    const rootDisplayName = t(config.rootName || (config.mode === "folder" ? "/" : ""));
+    const rootDisplayName = t(config.rootName || (mode === "folder" ? "/" : ""));
     let currentPathDisplay = rootDisplayName;
     if (dir && dir !== "/") {
         const cleanDir = dir.replace(/\.(safetensors|json)$/i, "").replace(/\/$/, "").replace(/\//g, "\\");
@@ -383,7 +440,7 @@ function rebuildFilePickerRows(state) {
     Array.from(entries).sort().forEach((folder) => {
         scrollRows.push({ id: `dir:${folder}`, name: folder, type: "dir" });
     });
-    if (config.mode !== "folder") {
+    if (mode !== "folder") {
         files.sort((a, b) => a.name.localeCompare(b.name)).forEach((file) => {
             scrollRows.push({ id: `file:${file.path}`, name: file.name, path: file.path, type: "file", item: file.item });
         });
@@ -391,7 +448,7 @@ function rebuildFilePickerRows(state) {
 
     state.headerRows = headerRows.map((entry) => ({ ...entry, ...getFileRowPrefix(config, node, entry) }));
     state.scrollRows = scrollRows.map((entry) => ({ ...entry, ...getFileRowPrefix(config, node, entry) }));
-    state.footerRow = config.mode === "folder"
+    state.footerRow = mode === "folder"
         ? { id: "select-folder", name: "Select Folder", type: "select_folder", prefix: null, prefixColor: null }
         : null;
     state.visibleScrollRows = Math.max(0, state.visibleLimit - state.headerRows.length - (state.footerRow ? 1 : 0));
@@ -406,13 +463,14 @@ function openFilePicker(config, node) {
 
     const { oY, mW } = getDerpVars(node);
     const theme = resolvePickerTheme(config, node);
+    const mode = getFileBrowserMode(config);
     const rowHeight = measureTextHeight("Hgyj", 0, theme.rowPaintOFF) + ((config.padding?.[1] || 2) * 2);
     const glyphs = getFileBrowserGlyphs(config?.icon);
 
     let currentDir = "";
     if (config.value && typeof config.value === "string") {
         const normalized = config.value.replace(/[\\]/g, "/");
-        if (config.mode === "folder") {
+        if (mode === "folder") {
             currentDir = normalized === "/" ? "" : normalized;
         } else if (normalized.includes("/")) {
             currentDir = normalized.substring(0, normalized.lastIndexOf("/"));
@@ -463,29 +521,44 @@ function openFilePicker(config, node) {
         pendingOutsidePointerStartY: 0,
         pendingOutsidePointerDragged: false,
         searchQuery: "",
+        searchMatchRowId: null,
+        searchScrollTarget: null,
         searchBastaId: getBastaSearchTabId(node, config.key),
     };
 
     rebuildFilePickerRows(activeFilePicker);
     ensurePickerSelectionVisible(activeFilePicker);
-    syncPickerSearchScroll(activeFilePicker, true);
+    if (mode !== "folder") {
+        syncPickerSearchScroll(activeFilePicker, true);
+    }
     window.__xcpHasActiveFileBrowser = true;
-    showBastaSearchTab(node, config.key, {
-        value: activeFilePicker.searchQuery,
-        width: config.geometry?.w || 180,
-        height: config.geometry?.h || 20,
-        themeKey: "dialog, t_textSystem",
-        backgroundThemeKey: "dialog",
-        onInput: (value) => {
-            if (!activeFilePicker || activeFilePicker.node !== node || activeFilePicker.key !== config.key) return;
-            activeFilePicker.searchQuery = String(value || "");
-            rebuildFilePickerRows(activeFilePicker);
-            syncPickerSearchScroll(activeFilePicker, false);
-            activeFilePicker.viewportFollowFrames = 4;
-            activeFilePicker.lastViewportWarpHash = "";
-            markNodeDirty(node, 12);
-        },
-    });
+    if (mode !== "folder") {
+        showBastaSearchTab(node, config.key, {
+            value: activeFilePicker.searchQuery,
+            width: config.geometry?.w || 180,
+            height: config.geometry?.h || 20,
+            themeKey: config.searchThemeKey || "dialog, t_textSmall",
+            backgroundThemeKey: "dialog",
+            onInput: (value) => {
+                if (!activeFilePicker || activeFilePicker.node !== node || activeFilePicker.key !== config.key) return;
+                activeFilePicker.searchQuery = String(value || "");
+                rebuildFilePickerRows(activeFilePicker);
+                syncPickerSearchScroll(activeFilePicker, false);
+                activeFilePicker.viewportFollowFrames = 4;
+                activeFilePicker.lastViewportWarpHash = "";
+                markNodeDirty(node, 12);
+            },
+            onEnter: () => {
+                if (!activeFilePicker || activeFilePicker.node !== node || activeFilePicker.key !== config.key) return;
+                const row = getPickerSearchMatch(activeFilePicker);
+                if (!row) return;
+
+                if (row.type === "file" || row.type === "select_folder") {
+                    handlePickerRowAction(row);
+                }
+            },
+        });
+    }
     if (window.app?.canvas?.bringToFront) window.app.canvas.bringToFront(node);
     markNodeDirty(node, 24);
 }
@@ -504,6 +577,7 @@ function handlePickerRowAction(row) {
         state.currentDir = state.currentDir ? `${state.currentDir}/${row.name}` : row.name;
         state.scrollOffset = 0;
         rebuildFilePickerRows(state);
+        if (state.callbacks.onChange) state.callbacks.onChange(state.currentDir || "/");
         state.viewportFollowFrames = 8;
         state.lastViewportWarpHash = "";
         markNodeDirty(state.node, 16);
@@ -531,6 +605,7 @@ function handleBreadcrumbRowAction(path) {
     state.currentDir = path || "";
     state.scrollOffset = 0;
     rebuildFilePickerRows(state);
+    if (state.callbacks.onChange) state.callbacks.onChange(state.currentDir || "/");
     state.viewportFollowFrames = 8;
     state.lastViewportWarpHash = "";
     markNodeDirty(state.node, 16);
@@ -732,8 +807,10 @@ function ensureFilePickerListeners() {
 function drawPickerRow(ctx, state, row, rect, labelPaint, scale) {
     const hovered = state.hoverRowId === row.id;
     const selected = row.type === "file" && (row.path || "").replace(/\\/g, "/") === (state.config.value || "").replace(/\\/g, "/");
-    const rowPaint = hovered ? state.rowPaintON : state.listPaint;
-    const textColor = (hovered || selected)
+    const searchMatched = !!(state.searchMatchRowId && row.id === state.searchMatchRowId);
+    const emphasized = hovered || selected || searchMatched;
+    const rowPaint = emphasized ? state.rowPaintON : state.listPaint;
+    const textColor = emphasized
         ? (state.rowTextON?.textColor || state.rowTextON?.fill || labelPaint?.textColor || labelPaint?.fill || "#ffffff")
         : (labelPaint?.textColor || labelPaint?.fill || "#ffffff");
 
@@ -794,7 +871,7 @@ function drawPickerRow(ctx, state, row, rect, labelPaint, scale) {
 
 function drawBreadcrumbHeaderRow(ctx, state, row, rect, labelPaint, scale) {
     const cfg = state.config || {};
-    if (isDropdownFileBrowser(cfg) || cfg.mode === "folder") {
+    if (isDropdownFileBrowser(cfg)) {
         drawPickerRow(ctx, state, row, rect, labelPaint, scale);
         return;
     }
@@ -832,30 +909,33 @@ function drawBreadcrumbHeaderRow(ctx, state, row, rect, labelPaint, scale) {
     const gap = Math.max(1, state.prefixGap || 0);
     const maxX = rect.x + rect.w - pX;
     let cursorX = rect.x + pX;
+    const lastCrumb = crumbs[crumbs.length - 1] || null;
+    const minLastTextW = Math.max(fontSize * 4, 32);
+    const minLastBtnW = minLastTextW + (crumbPadX * 2);
 
-    for (let i = 0; i < crumbs.length; i += 1) {
-        const crumb = crumbs[i];
-        const text = String(crumb.label || "");
-        const textW = Math.max(8, measureTextWidth(text, fontSize, font, fontWeight) || 8);
-        const btnW = textW + (crumbPadX * 2);
-        if (cursorX + btnW > maxX) break;
-
-        const hovered = state.hoverRowId === `crumb:${i}:${crumb.path}`;
+    const drawCrumbButton = (crumb, idx, x, width, allowClamp = false) => {
+        if (!crumb || width <= 0) return 0;
+        const hovered = state.hoverRowId === `crumb:${idx}:${crumb.path}`;
         const btnPaint = hovered ? btnPaintON : btnPaintOFF;
         const btnTextPaint = hovered ? btnTextON : btnTextOFF;
         const txtColor = btnTextPaint?.textColor || btnTextPaint?.fill || "#ffffff";
+        const textLimit = Math.max(0, width - (crumbPadX * 2));
+        const drawText = allowClamp
+            ? clampText(String(crumb.label || ""), textLimit, fontSize, font, fontWeight, true)
+            : String(crumb.label || "");
+        if (!drawText) return 0;
 
         masterPainter(ctx, {
-            width: btnW,
+            width,
             height: rect.h,
-            posX: cursorX,
+            posX: x,
             posY: rect.y,
             paintData: { ...btnPaint, corners: inheritPickerCorners(btnPaint, state.listPaint) },
             color: btnPaint?.fill || "transparent"
         });
         masterPainterText(ctx, {
-            text,
-            x: snapToScreenGrid(cursorX + (btnW / 2), scale),
+            text: drawText,
+            x: snapToScreenGrid(x + (width / 2), scale),
             y: snapToScreenGrid(rect.y + (rect.h / 2), scale),
             align: "center",
             baseline: "middle",
@@ -863,19 +943,49 @@ function drawBreadcrumbHeaderRow(ctx, state, row, rect, labelPaint, scale) {
         });
 
         state.breadcrumbHitboxes.push({
-            id: `crumb:${i}:${crumb.path}`,
+            id: `crumb:${idx}:${crumb.path}`,
             path: crumb.path,
             rect: {
-                left: state.panelScreenRect.left + ((cursorX - rect.x) * scale),
+                left: state.panelScreenRect.left + ((x - rect.x) * scale),
                 top: state.panelScreenRect.top + ((rect.y - state.panelY) * scale),
-                width: btnW * scale,
+                width: width * scale,
                 height: rect.h * scale,
             },
         });
+        return width;
+    };
 
+    for (let i = 0; i < crumbs.length; i += 1) {
+        const crumb = crumbs[i];
+        const isLastCrumb = i === crumbs.length - 1;
+        const text = String(crumb.label || "");
+        const textW = Math.max(8, measureTextWidth(text, fontSize, font, fontWeight) || 8);
+        const btnW = textW + (crumbPadX * 2);
+        if (isLastCrumb) {
+            const remainingW = Math.max(0, maxX - cursorX);
+            drawCrumbButton(crumb, i, cursorX, Math.min(btnW, remainingW), btnW > remainingW);
+            break;
+        }
+
+        const reserveForLast = lastCrumb ? (sepW + gap + minLastBtnW) : 0;
+        if (cursorX + btnW + reserveForLast > maxX) {
+            if (lastCrumb) {
+                const remainingW = Math.max(0, maxX - cursorX);
+                drawCrumbButton(lastCrumb, crumbs.length - 1, cursorX, remainingW, true);
+            }
+            break;
+        }
+
+        drawCrumbButton(crumb, i, cursorX, btnW, false);
         cursorX += btnW;
         if (i < crumbs.length - 1) {
-            if (cursorX + sepW > maxX) break;
+            if (cursorX + sepW + minLastBtnW > maxX) {
+                const remainingW = Math.max(0, maxX - cursorX);
+                if (remainingW > 0 && lastCrumb) {
+                    drawCrumbButton(lastCrumb, crumbs.length - 1, cursorX, remainingW, true);
+                }
+                break;
+            }
             masterPainterText(ctx, {
                 text: sep,
                 x: snapToScreenGrid(cursorX + (sepW / 2), scale),
@@ -900,6 +1010,13 @@ function drawActiveFilePicker(ctx, node, app, config, scale) {
         state.itemsHash = nextItemsHash;
         rebuildFilePickerRows(state);
         ensurePickerSelectionVisible(state);
+    }
+
+    if (getFileBrowserMode(state.config) !== "folder" && state.searchQuery) {
+        syncPickerSearchScroll(state, false);
+    } else {
+        state.searchMatchRowId = null;
+        state.searchScrollTarget = null;
     }
 
     const anchorRect = computeScreenAnchorRect(node, app, config.geometry);
@@ -1135,6 +1252,12 @@ export function syncFileBrowser(context, node, app, config, overlayPass = false)
         const originalOnPress = liveReg.onPress;
         liveReg.onPress = (event, interactionData) => {
             if (typeof originalOnPress === "function") originalOnPress(event, interactionData);
+            if (activeFilePicker && activeFilePicker.node === node && activeFilePicker.key === safeConfig.key) {
+                const point = getEventClientPoint(event, interactionData);
+                if (point && isPointInRect(point.clientX, point.clientY, activeFilePicker.panelScreenRect)) {
+                    return true;
+                }
+            }
             return togglePicker(event, interactionData);
         };
         liveReg._fileBrowserOnPressWrapped = true;
@@ -1204,8 +1327,9 @@ export function syncFileBrowser(context, node, app, config, overlayPass = false)
     }
 
     const dropdownDisplay = getFileBrowserCurrentDisplay(safeConfig, safeConfig.items || []);
-    const rootDisplayName = t(safeConfig.rootName || (safeConfig.mode === "folder" ? "/" : ""));
-    const isSelection = safeConfig.value && safeConfig.value !== "/" && (safeConfig.mode === "folder" || (safeConfig.items || []).some((item) => getFileBrowserItemValue(item) === safeConfig.value));
+    const mode = getFileBrowserMode(safeConfig);
+    const rootDisplayName = t(safeConfig.rootName || (mode === "folder" ? "/" : ""));
+    const isSelection = safeConfig.value && safeConfig.value !== "/" && (mode === "folder" || (safeConfig.items || []).some((item) => getFileBrowserItemValue(item) === safeConfig.value));
     let currentVal = rootDisplayName;
     if (isSelection) {
         const cleanPath = safeConfig.value.replace(/\.(safetensors|json)$/i, "").replace(/\/$/, "").replace(/\//g, "\\");
@@ -1213,7 +1337,7 @@ export function syncFileBrowser(context, node, app, config, overlayPass = false)
         currentVal = `${rootDisplayName}${sep}${cleanPath}`;
     }
 
-    const labelStr = dropdownDisplay || ((safeConfig.mode === "folder" || (safeConfig.mode === "file" && isSelection)) ? currentVal : (props.displayText || "Browse Files..."));
+    const labelStr = dropdownDisplay || ((mode === "folder" || ((mode === "file" || mode === "browser") && isSelection)) ? currentVal : (props.displayText || "Browse Files..."));
     const glyphs = getFileBrowserGlyphs(safeConfig?.icon);
 
     if (labelPaint) {

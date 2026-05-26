@@ -9,6 +9,7 @@ import { measureTextWidth } from "../../herbina/utils/widgetsUtils.js";
 const SEARCH_TAB_HEIGHT = 20;
 const SEARCH_TAB_WIDTH = 180;
 const SEARCH_GLYPH = "⌕";
+const SEARCH_THEME_KEY = "dialog, t_textSmall";
 const SEARCH_GLYPH_MARGIN_PX = 4;
 const SEARCH_TEXT_MARGIN_PX = 1;
 const SEARCH_GLYPH_SCALE = 1.5;
@@ -153,7 +154,7 @@ export function showBastaSearchTab(host, targetRegion = null, params = {}) {
             snapHeight: false,
             useAnimations,
             bastaBackgroundKey: params.backgroundThemeKey || "dialog",
-            searchThemeKey: params.themeKey || "dialog, t_textSmall",
+            searchThemeKey: params.themeKey || SEARCH_THEME_KEY,
             searchValue: String(params.value || ""),
         },
         layoutMap: (basta, vars) => {

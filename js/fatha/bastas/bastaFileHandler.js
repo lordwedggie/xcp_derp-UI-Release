@@ -2,6 +2,22 @@
  * Path: ./js/fatha/bastas/bastaFileHandler.js
  * ROLE: A specialized file management utility for xcpDerp.
  * INTEGRATION: Inherits Header/Footer logic and theme variables from the core engine.
+ *
+ * Accepted config parameters:
+ * - `title`: Optional dialog title override.
+ * - `message`: Optional body message shown in non-folder, non-delete flows.
+ * - `confirm`: Optional confirm button label override.
+ * - `warning`: Optional duplicate/warning text override.
+ * - `mode`: Handler mode such as `rename`, `duplicate`, `delete`, `save`, `new`, `create`, or `folder`.
+ * - `onConfirm`: Optional async/sync callback invoked on confirm. In `folder` mode it receives the selected folder path.
+ * - `fileList`: Optional preloaded file/folder list to avoid server fetch.
+ * - `originalName`: Optional original file name/path used by rename-like flows.
+ * - `initialSize`: Optional `[w, h]` starting dialog size.
+ * - `properties`: Extra Basta properties merged into the handler instance.
+ * - `playSound`: Optional sound key override used when confirm is pressed.
+ *
+ * Maintenance rule:
+ * - Keep this parameter list in sync whenever this Basta gains, removes, or changes accepted config parameters.
  */
 import { spawnBasta, activeBastas } from "../basta.js";
 import { UI_TYPES } from "../core/masterLayoutTypes.js";
@@ -14,6 +30,95 @@ import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
  * THE ID PROTOCOL: Ensures this basta acts as a singleton.
  */
 export const getHandlerId = () => `basta_file_handler_global_singleton`;
+
+function getFileHandlerTextMeasureTheme(host) {
+    const fontData = host?._t_textnormalPaintData
+        || host?._t_textNormalPaintData
+        || host?._t_textsystemPaintData_OFF
+        || host?._t_textSystemPaintData_OFF
+        || { fontSize: 12, font: "arial", fontWeight: "normal" };
+    return {
+        fontSize: parseFloat(fontData.fontSize) || 12,
+        fontName: String(fontData.font || "arial").replace(/[0-9]+px/ig, "").trim() || "arial",
+        fontWeight: fontData.fontWeight || "normal",
+    };
+}
+
+function getFolderDisplayLabel(category, selectedFolder = "/") {
+    const rootDisplayName = String(category || "/") || "/";
+    const normalized = String(selectedFolder || "/");
+    if (!normalized || normalized === "/") return rootDisplayName;
+    const cleanPath = normalized.replace(/\/$/, "").replace(/^\/+/, "").replace(/\//g, "\\");
+    const sep = rootDisplayName && rootDisplayName !== "/" ? "\\" : "";
+    return `${rootDisplayName}${sep}${cleanPath}`;
+}
+
+function getFileHandlerBaseWidth(mode, initialSize, host, message, id, properties = {}) {
+    let finalWidth = initialSize[0];
+    if (mode === "delete" && message) {
+        const { fontSize, fontName, fontWeight } = getFileHandlerTextMeasureTheme(host);
+        const textW = Math.ceil(measureTextWidth(message, fontSize, fontName, fontWeight));
+        finalWidth = textW + ((host?.getDerpVars ? host.getDerpVars(host) : { mW: 4 }).mW * 2) + 10;
+        if (!properties.messageAlign) properties.messageAlign = ["center", "middle"];
+        if (!properties.messageWidth) properties.messageWidth = "full";
+
+        if (host?.properties) {
+            delete host.properties[`bastaSize_${id}`];
+        }
+    }
+    return finalWidth;
+}
+
+function getFileHandlerRequiredWidth(host, category, baseWidth, selectedFolder = "/") {
+    const vars = host?.getDerpVars ? host.getDerpVars(host) : { mW: 4, sW: 4, pW: 4 };
+    const { mW, sW, pW } = vars;
+    const { fontSize, fontName, fontWeight } = getFileHandlerTextMeasureTheme(host);
+    const folderLabel = getFolderDisplayLabel(category, selectedFolder);
+    const labelW = Math.ceil(measureTextWidth(folderLabel, fontSize, fontName, fontWeight));
+    const fileBrowserMinW = labelW + Math.ceil(fontSize * 1.2) + (pW * 2) + 8;
+    const refreshGlyphW = Math.ceil(measureTextWidth("↺", fontSize, fontName, fontWeight));
+    const refreshBtnW = Math.max(20, refreshGlyphW + (pW * 2) + 10);
+    const rowMinW = fileBrowserMinW + sW + refreshBtnW;
+    return Math.max(baseWidth, rowMinW + (mW * 2));
+}
+
+function getFileHandlerFolderWidthParts(host, category, selectedFolder = "/") {
+    const vars = host?.getDerpVars ? host.getDerpVars(host) : { mW: 4, sW: 4, pW: 4 };
+    const { mW, sW, pW } = vars;
+    const { fontSize, fontName, fontWeight } = getFileHandlerTextMeasureTheme(host);
+    const folderLabel = getFolderDisplayLabel(category, selectedFolder);
+    const labelW = Math.ceil(measureTextWidth(folderLabel, fontSize, fontName, fontWeight));
+    const triggerGlyphW = Math.ceil(fontSize * 1.2);
+    const fileBrowserMinW = labelW + triggerGlyphW + (pW * 2) + 8;
+    const refreshGlyphW = Math.ceil(measureTextWidth("↺", fontSize, fontName, fontWeight));
+    const refreshBtnW = Math.max(20, refreshGlyphW + (pW * 2) + 10);
+    return {
+        dialogMinW: fileBrowserMinW + sW + refreshBtnW + (mW * 2),
+        rowMinW: fileBrowserMinW + sW + refreshBtnW,
+        fileBrowserMinW,
+        refreshBtnW,
+    };
+}
+
+function syncFileHandlerWidth(instance) {
+    if (!instance?.properties) return;
+    const baseWidth = Number(instance.properties.baseWidth) || Number(instance.targetSize?.[0]) || 250;
+    const folderWidthParts = instance.properties.showFolderBrowser
+        ? getFileHandlerFolderWidthParts(instance.hostNode, instance.properties.category, instance.properties.selectedFolder || "/")
+        : null;
+    const nextWidth = instance.properties.showFolderBrowser
+        ? Math.max(baseWidth, folderWidthParts.dialogMinW)
+        : baseWidth;
+
+    instance.properties.minWidth = nextWidth;
+    instance.properties.folderRowMinWidth = folderWidthParts?.rowMinW || 0;
+    instance.properties.folderBrowserMinWidth = folderWidthParts?.fileBrowserMinW || 0;
+    instance.properties.folderRefreshMinWidth = folderWidthParts?.refreshBtnW || 0;
+    instance.properties.nodeSize = instance.properties.nodeSize || [...(instance.targetSize || [nextWidth, 100])];
+    instance.properties.nodeSize[0] = nextWidth;
+    instance.targetSize[0] = nextWidth;
+    instance.size[0] = nextWidth;
+}
 
 function resolveFileHandlerTargetRegion(host, targetRegion) {
     const key = String(targetRegion || "").trim();
@@ -82,23 +187,11 @@ export function showBastaFileHandler(host, category = "settings", targetRegion =
             });
     };
 
-    let finalWidth = initialSize[0];
-    if (mode === "delete" && message) {
-        const fontData = host._t_textnormalPaintData || host._t_textNormalPaintData || { fontSize: 12 };
-        const fontSize = parseFloat(fontData.fontSize) || 12;
-        const fontName = (fontData.font || "arial").replace(/[0-9]+px/ig, "").trim();
-        const fontWeight = fontData.fontWeight || "normal";
-
-        const textW = Math.ceil(measureTextWidth(message, fontSize, fontName, fontWeight));
-
-        finalWidth = textW + (mW * 2) + 10;
-        if (!properties.messageAlign) properties.messageAlign = ["center", "middle"];
-        if (!properties.messageWidth) properties.messageWidth = "full";
-
-        if (host.properties) {
-            delete host.properties[`bastaSize_${id}`];
-        }
-    }
+    const baseWidth = getFileHandlerBaseWidth(mode, initialSize, host, message, id, properties);
+    const initialSelectedFolder = properties.selectedFolder || "/";
+    const finalWidth = mode === "folder"
+        ? Math.max(baseWidth, getFileHandlerFolderWidthParts(host, category, initialSelectedFolder).dialogMinW)
+        : baseWidth;
 
     const config = {
         host: host,
@@ -121,6 +214,7 @@ export function showBastaFileHandler(host, category = "settings", targetRegion =
             bastaSingleton: true,
             autoWidth: false,
             snapHeight: false,
+            baseWidth,
             playSound: playSound, // THE STATE SYNC: Preserving the sound key in properties for deferred playback
             ...properties
         },
@@ -136,7 +230,7 @@ export function showBastaFileHandler(host, category = "settings", targetRegion =
             const currentName = basta.properties.pendingName || "";
             const isFolderMode = mode === "folder";
             // THE PATH-AWARE DUPLICATE CHECK: If folder browser is active, check against the target directory
-            const selectedDir = (basta.properties.showFolderBrowser && basta.properties.selectedFolder !== "/") ? basta.properties.selectedFolder : "";
+            const selectedDir = basta.properties.showFolderBrowser ? (basta.properties.selectedFolder || "/") : "";
             const fullCheckPath = selectedDir ? `${selectedDir}/${currentName}` : currentName;
 
             const isDuplicate = isFolderMode ? false : (basta._fileList || []).some(f => {
@@ -153,7 +247,7 @@ export function showBastaFileHandler(host, category = "settings", targetRegion =
             const isInvalid = currentName.trim() === "";
 
             const btnState = isFolderMode
-                ? (selectedDir ? "OFF" : "DIS")
+                ? "OFF"
                 : (isDelete ? "OFF" : (isInvalid ? "DIS" : "OFF"));
             // THE DETECTION FIX: Clashes trigger 'Overwrite' even if identical to source. Save/Duplicate/New now correctly detect collisions.
             const showWarning = !isDelete && isDuplicate && (mode === "rename" ? !isSame : true);
@@ -176,21 +270,19 @@ export function showBastaFileHandler(host, category = "settings", targetRegion =
                     regionFolder: {
                         hidden: basta.properties.showFolderBrowser !== true,
                         anchor: { target: "contentRegion", axis: "y", offset: oY },
-                        dir: "row", width: "full",
+                        dir: "row", width: "full", minWidth: basta.properties.folderRowMinWidth || 0,
                         dropdownFolder: {
                             type: UI_TYPES.FILEBROWSER || "fileBrowser", themeKey: "dialog, t_textNormal",
                             width: "full", height: 20, padding: [pW, pH], spacing: [0, sH],
+                            minWidth: basta.properties.folderBrowserMinWidth || 0,
                             items: basta._fileList || [],
                             value: basta.properties.selectedFolder || "/",
                             mode: "folder",
                             rootName: category,
                             onChange: (v) => {
                                 basta.properties.selectedFolder = v;
+                                syncFileHandlerWidth(basta);
                                 basta.requestDerpSync();
-                                if (basta.properties.mode === "folder" && basta.properties.onConfirm) {
-                                    basta.properties.onConfirm(v);
-                                    basta.close();
-                                }
                             }
                         },
                         btnRefreshFolder: {
@@ -199,6 +291,7 @@ export function showBastaFileHandler(host, category = "settings", targetRegion =
                             icon: "revert",
                             width: "match",
                             height: 20,
+                            minWidth: basta.properties.folderRefreshMinWidth || 0,
                             padding: [pW, pH],
                             spacing: [sW, sH],
                             mouseOver: true,
@@ -318,7 +411,7 @@ export function showBastaFileHandler(host, category = "settings", targetRegion =
                                 }
 
                                 const oldName = basta.properties.originalName;
-                                const selectedDir = (basta.properties.showFolderBrowser && basta.properties.selectedFolder !== "/") ? basta.properties.selectedFolder : "";
+                                const selectedDir = basta.properties.showFolderBrowser ? (basta.properties.selectedFolder || "/") : "";
                                 const newName = selectedDir ? `${selectedDir}/${basta.properties.pendingName}` : basta.properties.pendingName;
                                 const mode = basta.properties.mode || "rename";
                                 const isDelete = mode === "delete";
@@ -405,8 +498,10 @@ export function showBastaFileHandler(host, category = "settings", targetRegion =
         existing.properties.mode = mode;
         existing.properties.category = category;
         existing.properties.showFolderBrowser = mode === "folder";
+        existing.properties.baseWidth = baseWidth;
         existing.targetSize = [...config.initialSize];
         existing.size = [...config.initialSize];
+        syncFileHandlerWidth(existing);
         existing._fileList = [];
         existing._compDataCache = {};
         existing._fileBrowserCache = {};
@@ -424,6 +519,7 @@ export function showBastaFileHandler(host, category = "settings", targetRegion =
     }
 
     const bastaInstance = spawnBasta(id, config);
+    syncFileHandlerWidth(bastaInstance);
     logLoraStackFileHandlerAnchor(host, "afterSpawnFileHandler", {
         targetRegion,
         resolvedTargetRegion,
