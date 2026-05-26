@@ -161,19 +161,7 @@ function applyInlineTheme(picker, listPaint, scale) {
         picker.style.borderWidth = "0px";
     }
     applyHTMLCornerGeometry(picker, listPaint?.corners, scale, DERP_PICKER_CORNER_SCALE);
-
-    const layers = buildBoxShadowLayers(listPaint, scale);
-    picker.style.boxShadow = layers.join(", ");
-
-    // Chamfer corners: move border from box-shadow to drop-shadow filter
-    const corners = listPaint?.corners;
-    const hasChamfer = Array.isArray(corners) && corners.some(c => Number(c) < 0);
-    if (hasChamfer && listPaint?.border) {
-        const b = listPaint.border;
-        const bw = (Number(b.width) || 0) * scale;
-        const bc = b.color || "transparent";
-        picker.style.filter = `drop-shadow(0 0 0 ${bw}px ${bc})`;
-    }
+    picker.style.boxShadow = buildBoxShadowLayers(listPaint, scale).join(", ");
 }
 
 export function isWidgetAnimationEnabled(config, node, app) {
@@ -213,7 +201,7 @@ export function createHybridDropdownHTML(callbacks = {}, glyphs = ["▼", "▲"]
     label.style.boxSizing = "border-box";
     label.style.pointerEvents = "none";
     label.style.whiteSpace = "nowrap";
-    label.style.overflow = "hidden";
+    label.style.overflow = "visible";
     el.appendChild(label);
     el._label = label;
 
@@ -288,30 +276,12 @@ export function buildPickerDOMContainer(picker, listPaint, scale, sH) {
     picker.appendChild(scrollBounds);
     picker._scrollBounds = scrollBounds;
 
-    const previewHeight = 100;
-    const previewBox = document.createElement("div");
-    previewBox.style.width = "100%";
-    previewBox.style.height = `${previewHeight * scale}px`;
-    previewBox.style.flexShrink = "0";
-    previewBox.style.display = "none";
-    previewBox.style.overflow = "hidden";
-    const previewImg = document.createElement("img");
-    previewImg.style.width = "100%";
-    previewImg.style.height = "100%";
-    previewImg.style.objectFit = "contain";
-    previewBox.appendChild(previewImg);
-    picker.appendChild(previewBox);
-    picker._previewBox = previewBox;
-    picker._previewImg = previewImg;
-
     const contentWrapper = document.createElement("div");
     contentWrapper.style.display = "flex";
     contentWrapper.style.flexDirection = "column";
     contentWrapper.style.width = "100%";
     contentWrapper.style.position = "relative";
-    contentWrapper.style.flex = "1 1 auto";
-    contentWrapper.style.overflowY = "auto";
-    contentWrapper.style.overflowX = "hidden";
+    contentWrapper.style.overflow = "visible";
     contentWrapper.style.userSelect = "none";
     contentWrapper.style.webkitUserSelect = "none";
     contentWrapper.style.MozUserSelect = "none";
@@ -320,7 +290,42 @@ export function buildPickerDOMContainer(picker, listPaint, scale, sH) {
     scrollBounds.appendChild(contentWrapper);
     picker._contentWrapper = contentWrapper;
 
+    const previewBox = document.createElement("div");
+    previewBox.style.position = "fixed";
+    previewBox.style.display = "none";
+    previewBox.style.pointerEvents = "none";
+    previewBox.style.zIndex = getNextZIndex() + 3000;
+    previewBox.style.overflow = "hidden";
+    previewBox.style.backgroundColor = "rgba(0,0,0,0.8)";
+    previewBox.style.border = `${1 * scale}px solid rgba(0, 0, 0, 0.5)`;
+    previewBox.style.borderRadius = `${4 * scale}px`;
+    previewBox.style.boxShadow = "0 4px 15px rgba(0,0,0,0.5)";
+
+    const previewImg = document.createElement("img");
+    previewImg.style.width = "100%";
+    previewImg.style.height = "auto";
+    previewImg.style.objectFit = "contain";
+    previewBox.appendChild(previewImg);
+    picker._previewBox = previewBox;
+    picker._previewImg = previewImg;
+    document.body.appendChild(previewBox);
+
     return { headerWrapper, separator, scrollBounds, contentWrapper, previewBox, previewImg };
+}
+
+export function handleHybridPickerClosePhase(activePicker, lastOpenTime, app) {
+    if (!activePicker) return false;
+    if (Date.now() - lastOpenTime < 150) return true;
+    return false;
+}
+
+export function finalizeHybridPickerCleanup(activePicker, toggleShieldCallback, closeCallback) {
+    if (activePicker) {
+        if (activePicker._cleanupScrollEvents) activePicker._cleanupScrollEvents();
+        if (activePicker._previewBox) activePicker._previewBox.remove();
+        activePicker.remove();
+        toggleShieldCallback(false, closeCallback);
+    }
 }
 
 export function appendHybridPickerRow(container, sourceEl, paintOFF, paintON, scale, dynamicRowHeight, glyph, contentHTML, isSelected = false, pX = 8, iconOffset = 0, glyphSpacing = 0, glyphSizeMult = 1, sideMargin = 0) {
@@ -402,25 +407,21 @@ export function syncHybridScroll(picker, scale) {
     const viewportH = (picker._currentSize[1] - (headerCount * dRowH) - sepHeightLocal);
     picker._scrollBounds.style.height = `${(viewportH * scale) + 1}px`;
 
-    const contentH = Math.max(viewportH, (scrollCount * dRowH));
-    picker._contentWrapper.style.minHeight = `${(contentH * scale).toFixed(2)}px`;
-    picker._contentWrapper.style.height = `${(contentH * scale).toFixed(2)}px`;
-}
+    const isShort = (scrollCount <= (visibleLimit - headerCount));
 
-export function handleHybridPickerClosePhase(picker, closeCallback) {
-    if (!picker || picker._isClosing) return;
-    picker._isClosing = true;
-    if (picker._closeTimeout) clearTimeout(picker._closeTimeout);
-    picker._closeTimeout = setTimeout(() => {
-        finalizeHybridPickerCleanup(picker, closeCallback);
-    }, 50);
-}
-
-export function finalizeHybridPickerCleanup(picker, closeCallback) {
-    if (!picker) return;
-    if (picker._closeTimeout) clearTimeout(picker._closeTimeout);
-    if (picker._cleanupScrollEvents) picker._cleanupScrollEvents();
-    if (picker._previewBox) picker._previewBox.remove();
-    picker.remove();
-    if (typeof closeCallback === "function") closeCallback();
+    if (isShort) {
+        picker._scrollBounds.style.overflowY = "hidden";
+        if (picker._contentWrapper) {
+            picker._contentWrapper.style.maxHeight = "none";
+            picker._contentWrapper.style.overflow = "visible";
+            picker._contentWrapper.style.paddingBottom = "0px";
+        }
+    } else {
+        picker._scrollBounds.style.overflowY = "auto";
+        if (picker._contentWrapper) {
+            picker._contentWrapper.style.maxHeight = "none";
+            picker._contentWrapper.style.overflow = "visible";
+            picker._contentWrapper.style.paddingBottom = `${bottomMarginUnits * scale}px`;
+        }
+    }
 }
