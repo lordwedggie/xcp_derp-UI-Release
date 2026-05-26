@@ -588,6 +588,31 @@ class BastaInstance {
             if (widthAnim.isAnimating) this._derpAwakeFrames = Math.max(this._derpAwakeFrames || 0, 6);
         }
 
+        if (this._searchTabAnchorRegion && this.hostNode?.layout?.regions?.[this._searchTabAnchorRegion] && !this._isDraggingBasta) {
+            const target = this.hostNode.layout.regions[this._searchTabAnchorRegion];
+            this._searchTabFinalOffset = [
+                Math.round(target.x),
+                Math.round(target.y - this.targetSize[1])
+            ];
+        }
+
+        if (Array.isArray(this._searchTabFinalOffset) && !this._isDraggingBasta) {
+            const useAnim = window.DERP_GLOBAL_SETTINGS?.useAnimation !== false && this.properties.useAnimations !== false;
+            const nextX = lerpTo(this.offset[0], this._searchTabFinalOffset[0], 0.28, useAnim);
+            const nextY = lerpTo(this.offset[1], this._searchTabFinalOffset[1], 0.28, useAnim);
+            this.offset[0] = nextX.value;
+            this.offset[1] = nextY.value;
+            this.pos[0] = this.hostNode.pos[0] + this.offset[0];
+            this.pos[1] = this.hostNode.pos[1] + this.offset[1];
+            if (nextX.isAnimating || nextY.isAnimating) {
+                this._derpAwakeFrames = Math.max(this._derpAwakeFrames || 0, 6);
+            } else if (!this._searchTabAnchorRegion) {
+                this.offset[0] = this._searchTabFinalOffset[0];
+                this.offset[1] = this._searchTabFinalOffset[1];
+                this._searchTabFinalOffset = null;
+            }
+        }
+
         if (this.isClosing && this.alpha <= 0.01) {
             this.alpha = 0;
             this.destroy();

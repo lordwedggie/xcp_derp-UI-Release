@@ -14,6 +14,8 @@ import { lerpTo, animateAlpha, animateWidgetColors } from "../masterAnimator.js"
 import { getDerpVars } from "../../fatha/fatha.js";
 import { t } from "../../fatha/core/masterLayoutEngine.js";
 import { ensureScreenRectVisible } from "../../fatha/core/fathaWarp.js";
+import { activeBastas } from "../../fatha/basta.js";
+import { showBastaSearchTab, closeBastaSearchTab, getBastaSearchTabId } from "../../fatha/bastas/bastaSearchTab.js";
 
 const FILEBROWSER_ICON_MAP = {
     folder: ["📁", "📂"],
@@ -131,6 +133,16 @@ function getDropdownItemDisplay(item) {
     return getFileBrowserLeafDisplay(getFileBrowserItemValue(item));
 }
 
+function normalizePickerSearchValue(value) {
+    return String(value || "").trim().toLowerCase();
+}
+
+function pickerRowMatchesSearch(row, searchNeedle) {
+    if (!searchNeedle) return true;
+    if (!row || (row.type !== "file" && row.type !== "dir" && row.type !== "up" && row.type !== "select_folder")) return true;
+    return String(row.name || row.path || "").toLowerCase().includes(searchNeedle);
+}
+
 function stripFileBrowserHTML(value) {
     return String(value || "").replace(/<[^>]*>/g, "").replace(/&nbsp;/gi, " ").trim();
 }
@@ -206,6 +218,7 @@ function getFileRowPrefix(config, node, entry) {
 function closeFilePicker() {
     if (!activeFilePicker) return;
     const node = activeFilePicker.node;
+    closeBastaSearchTab(activeFilePicker.node, activeFilePicker.key, "implicit");
     activeFilePicker = null;
     window.__xcpHasActiveFileBrowser = false;
     markNodeDirty(node, 8);
@@ -260,6 +273,7 @@ function rebuildFilePickerRows(state) {
     const { config, node } = state;
     const items = config.items || [];
     const dropdownMode = isDropdownFileBrowser(config);
+    const searchNeedle = normalizePickerSearchValue(state.searchQuery);
 
     if (dropdownMode) {
         const headerRows = [];
@@ -268,13 +282,14 @@ function rebuildFilePickerRows(state) {
         headerRows.push({ id: "current", name: displayVal, type: "select_current", path: displayVal });
         items.forEach((item, idx) => {
             const itemValue = getFileBrowserItemValue(item);
-            scrollRows.push({
+            const row = {
                 id: `file:${idx}:${itemValue}`,
                 name: getDropdownItemDisplay(item),
                 path: itemValue,
                 type: "file",
                 item,
-            });
+            };
+            if (pickerRowMatchesSearch(row, searchNeedle)) scrollRows.push(row);
         });
 
         state.headerRows = headerRows.map((entry) => ({ ...entry, ...getFileRowPrefix(config, node, entry) }));
@@ -317,9 +332,15 @@ function rebuildFilePickerRows(state) {
     }
     headerRows.push({ id: "current", name: currentPathDisplay, type: "select_current", path: dir || "/" });
     if (dir) headerRows.push({ id: "up", name: t("$widgets.back") || ".. [Back]", type: "up" });
-    Array.from(entries).sort().forEach((folder) => scrollRows.push({ id: `dir:${folder}`, name: folder, type: "dir" }));
+    Array.from(entries).sort().forEach((folder) => {
+        const row = { id: `dir:${folder}`, name: folder, type: "dir" };
+        if (pickerRowMatchesSearch(row, searchNeedle)) scrollRows.push(row);
+    });
     if (config.mode !== "folder") {
-        files.sort((a, b) => a.name.localeCompare(b.name)).forEach((file) => scrollRows.push({ id: `file:${file.path}`, name: file.name, path: file.path, type: "file", item: file.item }));
+        files.sort((a, b) => a.name.localeCompare(b.name)).forEach((file) => {
+            const row = { id: `file:${file.path}`, name: file.name, path: file.path, type: "file", item: file.item };
+            if (pickerRowMatchesSearch(row, searchNeedle)) scrollRows.push(row);
+        });
     }
 
     state.headerRows = headerRows.map((entry) => ({ ...entry, ...getFileRowPrefix(config, node, entry) }));
@@ -393,11 +414,30 @@ function openFilePicker(config, node) {
         pendingOutsidePointerStartX: 0,
         pendingOutsidePointerStartY: 0,
         pendingOutsidePointerDragged: false,
+        searchQuery: "",
+        searchBastaId: getBastaSearchTabId(node, config.key),
     };
 
     rebuildFilePickerRows(activeFilePicker);
     ensurePickerSelectionVisible(activeFilePicker);
     window.__xcpHasActiveFileBrowser = true;
+    showBastaSearchTab(node, config.key, {
+        value: activeFilePicker.searchQuery,
+        width: config.geometry?.w || 180,
+        height: config.geometry?.h || 20,
+        themeKey: "dialog, t_textSystem",
+        backgroundThemeKey: "dialog",
+        onInput: (value) => {
+            if (!activeFilePicker || activeFilePicker.node !== node || activeFilePicker.key !== config.key) return;
+            activeFilePicker.searchQuery = String(value || "");
+            activeFilePicker.scrollOffset = 0;
+            rebuildFilePickerRows(activeFilePicker);
+            ensurePickerSelectionVisible(activeFilePicker);
+            activeFilePicker.viewportFollowFrames = 4;
+            activeFilePicker.lastViewportWarpHash = "";
+            markNodeDirty(node, 12);
+        },
+    });
     if (window.app?.canvas?.bringToFront) window.app.canvas.bringToFront(node);
     markNodeDirty(node, 24);
 }
@@ -468,6 +508,26 @@ function isPointInScrollbarTrack(clientX, clientY) {
     return !!state?.scrollbarScreenRect && isPointInRect(clientX, clientY, state.scrollbarScreenRect);
 }
 
+function isEventInsideSearchTab(event, state = activeFilePicker) {
+    if (!state?.searchBastaId) return false;
+    const basta = activeBastas.get(state.searchBastaId);
+    if (!basta) return false;
+    if (basta.interactionShield?.contains?.(event.target)) return true;
+    if (Object.values(basta._derpDomElements || {}).some((el) => el?.contains?.(event.target))) return true;
+
+    const ds = window.app?.canvas?.ds;
+    const canvasRect = window.app?.canvas?.canvas?.getBoundingClientRect?.();
+    if (!ds || !canvasRect) return false;
+    const scale = Number(ds.scale) || 1;
+    const screenRect = {
+        left: canvasRect.left + (((basta.pos?.[0] || 0) + (Number(ds.offset?.[0]) || 0)) * scale),
+        top: canvasRect.top + (((basta.pos?.[1] || 0) + (Number(ds.offset?.[1]) || 0)) * scale),
+        width: Math.max(1, (basta.size?.[0] || 0) * scale),
+        height: Math.max(1, (basta.size?.[1] || 0) * scale),
+    };
+    return isPointInRect(event.clientX, event.clientY, screenRect);
+}
+
 function scrollPickerToTrackPosition(clientY) {
     const state = activeFilePicker;
     if (!state?.scrollbarScreenRect) return;
@@ -497,6 +557,7 @@ function ensureFilePickerListeners() {
         const onScrollbarTrack = isPointInScrollbarTrack(clientX, clientY);
         const insideAnchor = isPointInRect(clientX, clientY, state.screenAnchorRect);
         const insidePanel = isPointInRect(clientX, clientY, state.panelScreenRect);
+        const insideSearchTab = isEventInsideSearchTab(event, state);
         const row = findPickerHit(clientX, clientY);
 
         if (onScrollbarThumb) {
@@ -513,6 +574,10 @@ function ensureFilePickerListeners() {
             return;
         }
         if (insideAnchor) {
+            state.pendingOutsidePointerId = null;
+            return;
+        }
+        if (insideSearchTab) {
             state.pendingOutsidePointerId = null;
             return;
         }
@@ -598,11 +663,12 @@ function ensureFilePickerListeners() {
 
         const insideAnchor = isPointInRect(event.clientX, event.clientY, state.screenAnchorRect);
         const insidePanel = isPointInRect(event.clientX, event.clientY, state.panelScreenRect);
+        const insideSearchTab = isEventInsideSearchTab(event, state);
         if (state.suppressNextOutsidePointerUp) {
             state.suppressNextOutsidePointerUp = false;
             return;
         }
-        if (!insideAnchor && !insidePanel) {
+        if (!insideAnchor && !insidePanel && !insideSearchTab) {
             closeFilePicker();
         }
     }, true);
