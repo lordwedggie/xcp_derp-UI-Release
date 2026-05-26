@@ -246,7 +246,7 @@ app.registerExtension({
                             }
                         },
                         browserVaes: {
-                            type: this.UI_TYPES.FILEBROWSER,
+                            type: this.UI_TYPES.FILEBROWSER, searchTab: true,
                             items: (this._vaeList || []).filter(name => !deck.some(m => m.name === name)),
                             mode: "file", rootName: this.properties.extractFromModel ? "models" : "vaes", fileType: "vae", mouseOver: false,
                             value: tLocale("$derp_vae_loader.browser.select", "Select Vae..."),

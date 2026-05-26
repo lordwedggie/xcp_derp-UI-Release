@@ -647,7 +647,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 },
                 btnDeleteImage: {
                     type: UI_TYPES.BUTTON,
-                    themeKey: "button, t_textSystem", palette: btnPal,
+                    themeKey: "button, t_textSystem", palette: btnPal, 
                     text: tLocale("$widgets.delete", "Delete"), labelAlign: ["center", "middle"],
                     alpha: basta._navAlpha,
                     state: (loraData.currentImageIndex === -1 || (loraData.images || []).length === 0) ? "DIS" : "OFF",
@@ -691,7 +691,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                     type: UI_TYPES.ICONBUTTON, icon: "rightarrow", themeKey: "button, t_textSystem", palette: btnPal,
                     alpha: basta._navAlpha,
                     objectAlign: ["right", "middle"],
-                    width: "match", height: "full", margin: [0, sH, -sW * 2 - sW, sH],
+                    width: "match", height: "full", margin: [0, sH, -sW, sH],
                     onPress: () => {
                         if (basta._navAlpha < 0.5) return;
                         switchLoraImage(basta, "next");
