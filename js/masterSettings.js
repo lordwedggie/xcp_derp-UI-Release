@@ -168,10 +168,27 @@ app.registerExtension({
             category: DERP_GROUPS.ui("Sticky Drag"),
             sortOrder: DERP_GROUP_SORT_ORDER.ui,
             type: "boolean",
-            default: true,
+            default: false,
             onChange: (v) => {
                 window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
-                window.DERP_GLOBAL_SETTINGS.stickyDrag = normalizeBooleanSetting(v, true);
+                window.DERP_GLOBAL_SETTINGS.stickyDrag = normalizeBooleanSetting(v, false);
+
+                // THE WORKFLOW SYNC: Update all existing nodes to match the global setting
+                if (app.graph && app.graph._nodes) {
+                    app.graph._nodes.forEach(node => {
+                        if (node.isFathaNode || node.isUncleNode) {
+                            node.properties.stickyDrag = normalizeBooleanSetting(v, false);
+                        }
+                    });
+                }
+
+                // THE BASTA SYNC: Update all active floating panels
+                if (window.xcpActiveBastas) {
+                    window.xcpActiveBastas.forEach(basta => {
+                        basta.properties.stickyDrag = normalizeBooleanSetting(v, false);
+                    });
+                }
+
                 if (app.canvas) app.canvas.setDirty(true, true);
             }
         });
@@ -369,7 +386,7 @@ app.registerExtension({
 
         app.ui.settings.addSetting({
             id: "Derp.PerfOverlayShowRanking",
-            name: "Perf Overlay: Show Ranking",
+            name: "Perf overlay shows the top slowests derp Nodes",
             category: DERP_GROUPS.debugging("Perf Overlay Ranking"),
             sortOrder: DERP_GROUP_SORT_ORDER.debugging,
             type: "boolean",
@@ -383,7 +400,7 @@ app.registerExtension({
 
         // Initialize global object for immediate access by nodes
         window.DERP_GLOBAL_SETTINGS = {
-            stickyDrag: normalizeBooleanSetting(app.ui.settings.getSettingValue("Derp.StickyDrag", true), true),
+            stickyDrag: normalizeBooleanSetting(app.ui.settings.getSettingValue("Derp.StickyDrag", false), false),
             playSound: app.ui.settings.getSettingValue("Derp.PlaySound", true),
             useAnimation: app.ui.settings.getSettingValue("Derp.UseAnimation", true),
             closeSysPanelOnOutsideClick: normalizeBooleanSetting(app.ui.settings.getSettingValue("Derp.CloseSysPanelOnOutsideClick", true), true),

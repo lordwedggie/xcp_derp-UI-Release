@@ -722,7 +722,7 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
         if (!this.layout) this.layout = new masterLayoutEngine(this);
         createDerpShield(this);
         const useAnimations = window.DERP_GLOBAL_SETTINGS?.useAnimation ?? true;
-        this.properties = { titleLabel: "Virtual Node", ...(this.properties || {}), minWidth: minWidth, nodeSize: [minWidth, 50], drawHeader: true, drawSignalBtn: false, drawSettingBtn: false, settingActive: false, contentCollapsed: false, collapseMinimal: false, stickyDrag: true, useAnimations };
+        this.properties = { titleLabel: "Virtual Node", ...(this.properties || {}), minWidth: minWidth, nodeSize: [minWidth, 50], drawHeader: true, drawSignalBtn: false, drawSettingBtn: false, settingActive: false, contentCollapsed: false, collapseMinimal: false, stickyDrag: window.DERP_GLOBAL_SETTINGS?.stickyDrag ?? false, useAnimations };
         this.size = [...this.properties.nodeSize];
 
         // THE SIGNAL NAME COMPATIBILITY: Ensure virtual outputs have a valid name for masterSignalEngine
