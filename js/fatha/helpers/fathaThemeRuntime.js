@@ -124,7 +124,9 @@ export async function loadDerpPaletteImpl(paletteName = "Derp_Default_v01") {
         if (window._xcpPaletteMissingWarnings?.[normalizedName] !== true) {
             window._xcpPaletteMissingWarnings = window._xcpPaletteMissingWarnings || {};
             window._xcpPaletteMissingWarnings[normalizedName] = true;
-            showFallbackStatusMessage(null, "palette", normalizedName, "missing");
+            const requester = window._xcpPaletteRequesters?.[normalizedName] || "";
+            const displayName = requester ? `${normalizedName} (requested by ${requester})` : normalizedName;
+            showFallbackStatusMessage(null, "palette", displayName, "missing");
         }
         console.error(`❌ [xcpDerp] Palette Load Error:`, e);
     } finally {
@@ -193,7 +195,11 @@ export function handleThemeUpdateImpl(node, config, deps = {}) {
         });
         const paletteName = typeof theme._palette === "string" ? theme._palette.trim() : "";
         node._headerPaletteName = normalizePaletteName(paletteName);
-        if (node._headerPaletteName && typeof loadDerpPalette === "function") loadDerpPalette(node._headerPaletteName);
+        if (node._headerPaletteName && typeof loadDerpPalette === "function") {
+            window._xcpPaletteRequesters = window._xcpPaletteRequesters || {};
+            window._xcpPaletteRequesters[node._headerPaletteName] = resolvedThemeKey || themeName;
+            loadDerpPalette(node._headerPaletteName);
+        }
     }
 
     if (node._derpBgCache) {
