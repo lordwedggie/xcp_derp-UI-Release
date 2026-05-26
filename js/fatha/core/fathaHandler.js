@@ -42,7 +42,7 @@ import {
 
 const COLLAPSED_NODE_MAX_CORNER = 5;
 const TOOLTIP_DELAY_MS = 650;
-const TOOLTIP_DURATION_MS = 3000;
+const TOOLTIP_DURATION_MS = 0; // 0 = infinite, stays until mouse moves
 const TOOLTIP_MOVE_THRESHOLD = 5;
 const DERP_BACKGROUND_SETTING_ID = "Derp.BackgroundImage";
 
@@ -169,12 +169,6 @@ function scheduleTooltip(entity, regionKey, tooltipText) {
         state.activeKey = regionKey;
         state.activeText = tooltipText;
         state.shownSinceMoveToken = scheduledMoveToken;
-        setTimeout(() => {
-            if (state.activeKey === regionKey && state.activeText === tooltipText) {
-                state.activeKey = null;
-                state.activeText = "";
-            }
-        }, TOOLTIP_DURATION_MS + 50);
     }, TOOLTIP_DELAY_MS);
 }
 
