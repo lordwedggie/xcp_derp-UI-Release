@@ -621,22 +621,35 @@ function handlePressedRegionActivation(entity, key, data) {
     return true;
 }
 
-function handleVerticalHeaderClick(entity, localMouse) {
+function handleVerticalHeaderClick(entity, localMouse, data) {
     const header = entity.layout?.regions?.headerRegion;
     const graph = app.graph || entity.graph || null;
     const headerCollapseEnabled = window.DERP_GLOBAL_SETTINGS?.verticalDockHeaderCollapse ?? true;
     const isVerticalDockHeaderHit = headerCollapseEnabled && header && graph && isLinearDeckGroup(entity, graph, "vertical") && entity.layout.hitTest(localMouse, header);
     if (!isVerticalDockHeaderHit) return false;
-    if (isPointerOverEditableTitleText(entity, localMouse)) {
-        return false;
-    }
 
-    const wasCollapsed = !!entity.properties?.contentCollapsed;
-    playRegionSound(entity.layout?.regions?.btnCollapse);
-    if (typeof entity.collapse === "function") entity.collapse();
-    else handleDerpCollapse(entity);
-    if (wasCollapsed) {
-        entity._derpAwakeFrames = Math.max(Number(entity._derpAwakeFrames || 0), 8);
+    const shiftKey = data?.originalEvent?.shiftKey;
+    if (shiftKey) {
+        const wasCollapsed = !!entity.properties?.contentCollapsed;
+        const members = getDeckMembers(entity, graph);
+        if (wasCollapsed) {
+            members.forEach(member => {
+                if (member !== entity && member.properties?.contentCollapsed !== true) {
+                    if (typeof member.collapse === "function") member.collapse(true);
+                    else member.properties.contentCollapsed = true;
+                    member.setDirtyCanvas?.(true, true);
+                }
+            });
+            if (typeof entity.collapse === "function") entity.collapse(false);
+            else entity.properties.contentCollapsed = false;
+            entity._derpAwakeFrames = Math.max(Number(entity._derpAwakeFrames || 0), 8);
+        } else {
+            if (typeof entity.collapse === "function") entity.collapse(true);
+            else entity.properties.contentCollapsed = true;
+        }
+    } else {
+        // Plain left-click no longer toggles — use shift+left-click or right-click
+        return false;
     }
     entity.setDirtyCanvas(true, true);
     if (app.graph && app.graph.change) app.graph.change();
@@ -664,7 +677,7 @@ function handleShieldClickOrPointerUp(entity, type, data, localMouse) {
     const handledRegion = handlePressedRegionActivation(entity, key, data);
     if (handledRegion !== null) return handledRegion;
 
-    return handleVerticalHeaderClick(entity, localMouse);
+    return handleVerticalHeaderClick(entity, localMouse, data);
 }
 
 function handleHeaderRenameDblClick(entity, localMouse) {

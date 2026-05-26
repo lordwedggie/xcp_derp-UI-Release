@@ -432,6 +432,22 @@ export function createDerpShield(node) {
         if (typeof e.stopImmediatePropagation === "function") e.stopImmediatePropagation();
         const scale = app.canvas?.ds?.scale || 1;
         const localMouse = [e.offsetX / scale, e.offsetY / scale];
+
+        // Right-click on header in vertical dock stack toggles collapse (no title exclusion)
+        const headerRegion = node.layout?.regions?.headerRegion;
+        const graph = app.graph || node.graph || null;
+        const headerCollapseEnabled = window.DERP_GLOBAL_SETTINGS?.verticalDockHeaderCollapse ?? true;
+        if (headerCollapseEnabled && headerRegion && node.layout?.hitTest?.(localMouse, headerRegion)) {
+            if (typeof node.collapse === "function") {
+                node.collapse();
+            } else {
+                node.properties.contentCollapsed = !node.properties.contentCollapsed;
+            }
+            node.setDirtyCanvas?.(true, true);
+            if (app.graph && app.graph.change) app.graph.change();
+            return false;
+        }
+
         const regionEntries = Object.entries(node.layout?.regions || {}).reverse();
         for (const [, reg] of regionEntries) {
             if (!reg || typeof reg.onContextMenu !== "function") continue;
