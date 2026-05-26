@@ -253,8 +253,9 @@ export function initThemeConfig() {
             for (const key in theme) {
                 const kData = theme[key];
                 if (kData && typeof kData === 'object') {
-                    // THE FIX: Baseline now represents the exact data state, including alpha
-                    newBaselines[key] = generateKeyHash(kData);
+                    // Meta keys (_category, _layout, _palette) use JSON.stringify — not theme key structure
+                    const isMeta = key === '_category' || key === '_layout' || key === '_palette';
+                    newBaselines[key] = isMeta ? JSON.stringify(kData) : generateKeyHash(kData);
                 }
             }
 

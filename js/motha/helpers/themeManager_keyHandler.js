@@ -25,26 +25,32 @@ export function pushThemeUpdate(node, key, prop, val) {
 
     // Directly update save button pulse state
     const isMeta = THEME_META_KEYS.has(key);
-    const editKey = isMeta ? key : node._selectedKeyName;
-    const currentData = isMeta ? cfg.themes[node._selectedThemeName]?.[key] : node.themeToEdit?.[editKey];
     const baselines = cfg._allBaselines?.[node._selectedThemeName] || {};
-    const baseHash = baselines[editKey];
-    const currentHash = currentData ? generateKeyHash(currentData) : "";
-    const isDirty = (currentHash !== baseHash);
 
-    if (isMeta || editKey === node._selectedKeyName) {
+    if (isMeta) {
+        // Meta keys: compare with JSON.stringify, pulse theme save only
+        const currentData = cfg.themes[node._selectedThemeName]?.[key];
+        const currentHash = currentData ? JSON.stringify(currentData) : "";
+        const isDirty = (currentHash !== baselines[key]);
+        node._isThemeDirty = isDirty;
+        const tm = node.layoutMap?.themeManagementRegion;
+        if (tm?.btnThemeSave) tm.btnThemeSave.pulse = isDirty;
+    } else if (key === node._selectedKeyName) {
+        // Regular keys: compare with generateKeyHash, pulse both buttons
+        const currentData = node.themeToEdit?.[key];
+        const currentHash = currentData ? generateKeyHash(currentData) : "";
+        const isDirty = (currentHash !== baselines[key]);
         node._isSelectedKeyDirty = isDirty;
+        node._isThemeDirty = isDirty;
         if (isDirty) {
-            if (node._dirtyKeyNames) node._dirtyKeyNames.add(editKey);
+            if (node._dirtyKeyNames) node._dirtyKeyNames.add(key);
         } else {
-            if (node._dirtyKeyNames) node._dirtyKeyNames.delete(editKey);
+            if (node._dirtyKeyNames) node._dirtyKeyNames.delete(key);
         }
         const tm = node.layoutMap?.themeManagementRegion;
         if (tm?.btnThemeSave) tm.btnThemeSave.pulse = isDirty;
-        if (!isMeta) {
-            const km = node.layoutMap?.keyManagementRegion;
-            if (km?.btnKeySave) km.btnKeySave.pulse = isDirty;
-        }
+        const km = node.layoutMap?.keyManagementRegion;
+        if (km?.btnKeySave) km.btnKeySave.pulse = isDirty;
     }
 
     // FATHA FIX: Clear local and global layout caches to allow for text-driven expansion

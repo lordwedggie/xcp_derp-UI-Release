@@ -92,20 +92,31 @@ app.registerExtension({
             // Check for unsaved key changes (pulse save buttons + star prefix on dirty keys)
             const THEME_META_KEYS = new Set(["_category", "_layout", "_palette"]);
             let isSelectedKeyDirty = false;
+            let isThemeDirty = false;
             const dirtyKeys = new Set();
             if (cfg && this.themeToEdit && this._selectedThemeName) {
+                const baselines = cfg._allBaselines?.[this._selectedThemeName] || {};
                 for (const key of Object.keys(this.themeToEdit)) {
                     if (THEME_META_KEYS.has(key)) continue;
-                    const baselines = cfg._allBaselines?.[this._selectedThemeName] || {};
                     const currentHash = generateKeyHash(this.themeToEdit[key]);
                     const baseHash = baselines[key];
                     if (currentHash !== baseHash) {
                         dirtyKeys.add(key);
-                        if (key === this._selectedKeyName) isSelectedKeyDirty = true;
+                        if (key === this._selectedKeyName) { isSelectedKeyDirty = true; isThemeDirty = true; }
+                    }
+                }
+                // Meta keys (_layout, _palette) use JSON.stringify — not theme key structure
+                for (const meta of THEME_META_KEYS) {
+                    if (this.themeToEdit[meta] !== undefined) {
+                        if (JSON.stringify(this.themeToEdit[meta]) !== baselines[meta]) {
+                            isThemeDirty = true;
+                            break;
+                        }
                     }
                 }
             }
             this._isSelectedKeyDirty = isSelectedKeyDirty;
+            this._isThemeDirty = isThemeDirty || isSelectedKeyDirty;
             this._dirtyKeyNames = dirtyKeys;
 
             const layoutHash = `${this._selectedThemeName}_${this._selectedKeyName}_${this._cachedFonts?.length || 0}_${this._systemPaletteList?.length || 0}_${this._systemPaletteListLoaded ? 1 : 0}_${this.properties.systemPaletteName || ""}_${isPaletteOpen}_${window.xcpDerpThemeConfig?.activeTheme}`;
@@ -170,7 +181,7 @@ app.registerExtension({
                     btnThemeSave: {
                         type: UI_TYPES.ICONBUTTON, themeKey: "button, t_textNormal", noHover: false,
                         state: "OFF", icon: "save", width: "match", height: "fill", objectAlign: ["left", "middle"],
-                        pulse: this._isSelectedKeyDirty,
+                        pulse: this._isThemeDirty,
                     },
                 },
                 themeLayoutRegion: {
