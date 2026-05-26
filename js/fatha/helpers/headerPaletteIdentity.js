@@ -4,8 +4,8 @@ export function buildHeaderPaletteAliases(name) {
 
     const aliases = [];
     if (value.startsWith("xcpDerp")) aliases.push(value.replace(/^xcp/, ""));
-    if (/^Derp.+Node$/.test(value)) {
-        const withoutSuffix = value.replace(/Node$/, "");
+    if (/^Derp.+Node$/i.test(value)) {
+        const withoutSuffix = value.replace(/Node$/i, "");
         aliases.push(withoutSuffix.charAt(0).toLowerCase() + withoutSuffix.slice(1));
     }
     return aliases;
@@ -51,17 +51,19 @@ function paletteColorToCss(value) {
 
 function resolvePaletteStateColor(entry, key, state = "_OFF") {
     if (!entry) return null;
-    const normalizedState = String(state || "_OFF").toUpperCase();
+    const normalizedState = String(state || "_OFF");
     const variants = [
-        `${key}${normalizedState}`,
-        normalizedState === "_ON" ? `${key}_ACTIVE` : null,
-        normalizedState === "_DIS" ? `${key}_DISABLED` : null,
-        key,
+        normalizedState,
+        normalizedState === "_ON" ? "ACTIVE" : null,
+        normalizedState === "_DIS" ? "DISABLED" : null,
     ].filter(Boolean);
+    const ents = entry.entries || entry;
+    const keyData = ents[key];
+    if (!keyData) return null;
     for (const variant of variants) {
-        if (entry[variant] !== undefined && entry[variant] !== null) return entry[variant];
+        if (keyData[variant] !== undefined && keyData[variant] !== null) return keyData[variant];
     }
-    return null;
+    return keyData;
 }
 
 export function findNodePaletteEntry(entity, entryName, getPaletteCache) {
