@@ -128,7 +128,8 @@ export function applyHTMLTheme(el, paintData, scale = 1.0) {
     const shadow = paintData.shadow;
 
     // 1. BASE GEOMETRY
-    applyHTMLCornerGeometry(el, corners, effectiveScale);
+    // Use raw scale for corners — CSS transform already handles visual scaling of border-radius
+    applyHTMLCornerGeometry(el, corners, scale);
 
     el.style.backgroundColor = Array.isArray(paintData.fill) ? toRGBA(paintData.fill) : (paintData.fill || "transparent");
 
@@ -208,10 +209,14 @@ export function applyHTMLTheme(el, paintData, scale = 1.0) {
     // 3. STROKE (BORDER) LOGIC
     if (border) {
         const bW = border.width * scale;
-        const bColor = border.color; // Border is usually opaque, no need to scale alpha here
+        const bColor = border.color;
         const placement = border.placement ?? 0; // 0=Center, 1=Inside, 2=Outside
 
-        if (placement === 1) { // INSIDE
+        if (hasChamfer) {
+            // Chamfer corners: all placements use drop-shadow — CSS border/box-shadow don't follow clip-path
+            el.style.border = "none";
+            dropShadowLayers.push(`0 0 0 ${bW}px ${bColor}`);
+        } else if (placement === 1) { // INSIDE
             el.style.border = "none";
             shadowLayers.push(`inset 0 0 0 ${bW}px ${bColor}`);
         } else if (placement === 2) { // OUTSIDE
