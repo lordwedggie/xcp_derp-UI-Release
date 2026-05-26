@@ -293,7 +293,7 @@ export const handleKeySaveAction = (node, updateThemeLayoutFn) => {
                 cfg.themes[themeName] = JSON.parse(JSON.stringify(node.themeToEdit));
                 safePersist(cfg, themeName);
                 if (node.layout) node.layout._lastCacheKey = "";
-                showBastaSystemMessage(node, "Keys Saved", 2000, { fade: true, grow: true }, "btnKeySave", "success", null, "");
+                showBastaSystemMessage(node, "Key Saved: ", 2000, { fade: true, grow: true }, "btnKeySave", "warning", null, currentKey);
             } catch (err) {
                 showBastaSystemMessage(node, "Save Failed", 3000, { fade: true, grow: true }, "btnKeySave", "error", null, "");
                 console.error("Key Save Error:", err);

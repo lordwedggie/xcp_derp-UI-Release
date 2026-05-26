@@ -283,6 +283,13 @@ export function showBastaFileHandler(host, category = "settings", targetRegion =
                                 basta.properties.selectedFolder = v;
                                 syncFileHandlerWidth(basta);
                                 basta.requestDerpSync();
+                            },
+                            onFolderConfirm: (v) => {
+                                basta.properties.selectedFolder = v;
+                                if (basta.properties.onConfirm) {
+                                    basta.properties.onConfirm(v);
+                                }
+                                basta.close();
                             }
                         },
                         btnRefreshFolder: {
@@ -399,6 +406,7 @@ export function showBastaFileHandler(host, category = "settings", targetRegion =
                             onPress: () => basta.close()
                         },
                         btnConfirm: {
+                            hidden: isFolderMode,
                             type: UI_TYPES.BUTTON, themeKey: "buttonNode, t_textSystem",
                             text: isFolderMode ? "Select" : (showWarning ? "Overwrite" : (basta.properties.confirmMessage || (isDelete ? "Delete" : (isSave ? "Save" : (isNew ? "Create" : "Apply"))))),
                             width: "auto", height: "auto",

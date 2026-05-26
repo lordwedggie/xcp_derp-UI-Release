@@ -154,6 +154,7 @@ function isDropdownFileBrowser(config) {
 function getFileBrowserCallbacks(config) {
     return {
         onChange: config?.onChange || config?.callbacks?.onChange || null,
+        onFolderConfirm: config?.onFolderConfirm || config?.callbacks?.onFolderConfirm || null,
     };
 }
 
@@ -593,6 +594,11 @@ function handlePickerRowAction(row) {
 
     if (row.type === "select_folder") {
         const finalPath = state.currentDir || "/";
+        if (state.callbacks.onFolderConfirm) {
+            state.callbacks.onFolderConfirm(finalPath);
+            closeFilePicker();
+            return;
+        }
         forceFileBrowserResync(state.node, state.config);
         if (state.callbacks.onChange) state.callbacks.onChange(finalPath);
         closeFilePicker();
@@ -855,9 +861,11 @@ function drawPickerRow(ctx, state, row, rect, labelPaint, scale) {
 
     masterPainterText(ctx, {
         text: drawLabel,
-        x: snapToScreenGrid(rect.x + pX + iconOffset, scale),
+        x: row.type === "select_folder"
+            ? snapToScreenGrid(rect.x + (rect.w / 2), scale)
+            : snapToScreenGrid(rect.x + pX + iconOffset, scale),
         y: snapToScreenGrid(rect.y + (rect.h / 2), scale),
-        align: "left",
+        align: row.type === "select_folder" ? "center" : "left",
         baseline: "middle",
         paintData: {
             ...labelPaint,
