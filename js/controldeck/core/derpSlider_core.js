@@ -261,6 +261,9 @@ export function setupDerpSliderCore(nodeType) {
     // --- INTERACTION ---
     const baseHandleInteraction = nodeType.prototype.handleShieldInteraction;
     nodeType.prototype.handleShieldInteraction = function(type, data) {
+        const sliderDragSessionActive =
+            this._activeSliderIndex !== null && this._activeSliderIndex !== undefined;
+
         if (type === "resize") this._isDerpResizing = true;
         if (type === "dragEnd") {
             this._activeSliderIndex = null;
@@ -285,7 +288,15 @@ export function setupDerpSliderCore(nodeType) {
             }
 
             if (type === "dragStart" || type === "click" || type === "dblclick") { this._activeSliderIndex = foundIdx; }
-            const targetIdx = this._activeSliderIndex !== null ? this._activeSliderIndex : foundIdx;
+            const interactionDuringDrag = type === "drag" || type === "hover" || type === "move";
+            const effectiveFoundIdx = (sliderDragSessionActive && interactionDuringDrag)
+                ? this._activeSliderIndex
+                : foundIdx;
+            const targetIdx = this._activeSliderIndex !== null ? this._activeSliderIndex : effectiveFoundIdx;
+
+            if (sliderDragSessionActive && interactionDuringDrag) {
+                this._hoveredRegionKey = `dynamicSlider_${this._activeSliderIndex}`;
+            }
 
             // btnLR: intercept on dragStart/click before position-based handling
             if ((type === "dragStart" || type === "click" || type === "dblclick") && targetIdx !== null && !isNaN(targetIdx)) {
@@ -419,6 +430,11 @@ export function setupDerpSliderCore(nodeType) {
                 }
             }
         }
+
+        if (sliderDragSessionActive && (type === "hover" || type === "move" || type === "drag")) {
+            return true;
+        }
+
         if (baseHandleInteraction) return baseHandleInteraction.apply(this, arguments);
         return false;
     };

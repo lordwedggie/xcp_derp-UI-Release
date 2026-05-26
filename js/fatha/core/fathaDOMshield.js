@@ -403,6 +403,17 @@ export function createDerpShield(node) {
     };
 
     shield.onmouseenter = () => {
+        const sliderDragSessionActive =
+            node._pressedRegionType === "SLIDER" ||
+            node._activeSliderIndex !== null && node._activeSliderIndex !== undefined ||
+            node._activeSliderKey !== null && node._activeSliderKey !== undefined;
+
+        if (sliderDragSessionActive) {
+            // Avoid one-frame re-enter flicker by skipping enter-time sync churn
+            // while slider drag ownership is active.
+            return;
+        }
+
         const isBasta = node?.properties?.bastaSingleton !== undefined || node?.properties?.bastaMovalbe !== undefined;
         node._uiHovered = true;
         node._derpAwakeFrames = 5;
@@ -412,6 +423,17 @@ export function createDerpShield(node) {
         if (window.app && window.app.canvas) window.app.canvas.setDirty(true, true);
     };
     shield.onmouseleave = () => {
+        const sliderDragSessionActive =
+            node._pressedRegionType === "SLIDER" ||
+            node._activeSliderIndex !== null && node._activeSliderIndex !== undefined ||
+            node._activeSliderKey !== null && node._activeSliderKey !== undefined;
+
+        if (sliderDragSessionActive) {
+            // Keep hover/interaction ownership stable while dragging a slider,
+            // even if pointer temporarily leaves the node shield bounds.
+            return;
+        }
+
         const isBasta = node?.properties?.bastaSingleton !== undefined || node?.properties?.bastaMovalbe !== undefined;
         clearEntityTooltip(node, true);
         node._uiHovered = false;

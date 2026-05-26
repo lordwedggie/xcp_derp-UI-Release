@@ -561,6 +561,7 @@ function handleShieldDragStart(entity, data, localMouse, scale, deckEngine) {
     const hit = findHitRegion(entity.layout, localMouse, { allowDisabledDrag: true });
     if (hit && !hit.reg.noDragLock) {
         entity._pressedRegionKey = hit.key;
+        entity._pressedRegionType = hit.reg?.type || null;
         if (hit.reg.onDragStart) hit.reg.onDragStart(data.originalEvent, data);
         entity._derpAwakeFrames = 15;
         entity.setDirtyCanvas(true);
@@ -661,6 +662,7 @@ function handleShieldClickOrPointerUp(entity, type, data, localMouse) {
 
     const key = entity._pressedRegionKey;
     entity._pressedRegionKey = null;
+    entity._pressedRegionType = null;
 
     if (key === "systemBtn") {
         if (type === "click") {
@@ -713,6 +715,23 @@ function handleShieldDblClick(entity, data, localMouse) {
 }
 
 function handleShieldHover(entity, localMouse, scale) {
+    const sliderDragActive = entity._pressedRegionType === UI_TYPES.SLIDER && !!entity._pressedRegionKey;
+
+    if (sliderDragActive) {
+        const lockedKey = entity._pressedRegionKey;
+        if (entity.interactionShield) {
+            entity.interactionShield.style.cursor = "pointer";
+        }
+        if (entity._hoveredRegionKey !== lockedKey) {
+            entity._hoveredRegionKey = lockedKey;
+            entity._derpAwakeFrames = 1;
+            if (typeof entity.setDirtyCanvas === "function") entity.setDirtyCanvas(true, false);
+            if (window.app && window.app.canvas) window.app.canvas.setDirty(true, false);
+        }
+        handleTooltipHover(entity, lockedKey, localMouse);
+        return;
+    }
+
     const isOverSys = isSystemButtonHit(entity, localMouse, scale);
     const hit = findHitRegion(entity.layout, localMouse);
     const hitType = hit?.reg?.type;
@@ -748,6 +767,7 @@ function handleShieldHover(entity, localMouse, scale) {
 }
 
 function handleShieldDragEnd(entity, data, deckEngine) {
+    entity._pressedRegionType = null;
     endDockDrag(entity, deckEngine, data);
 }
 

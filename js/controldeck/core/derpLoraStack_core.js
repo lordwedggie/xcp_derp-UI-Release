@@ -784,6 +784,7 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                 nodeType.prototype.handleShieldInteraction = function(type, data) {
                     const isRowControlKey = (key) => key.startsWith("btnEnable_") || key.startsWith("btnEnableLeft_");
                     const isSliderKey = (key) => key && (key.startsWith("sldModel_") || key.startsWith("sldClip_"));
+                    const sliderDragSessionActive = !!(this._activeSliderKey && isSliderKey(this._activeSliderKey));
                     const isInteractiveRowKey = (key) =>
                         key.startsWith("dropTrigger_") ||
                         key.startsWith("lblLoraNameTop_") ||
@@ -884,17 +885,22 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                             }
                         }
 
+                        const sliderDragActive = !!(this._activeSliderKey && isSliderKey(this._activeSliderKey) && (type === "drag" || type === "hover" || type === "move"));
+                        const effectiveFoundKey = sliderDragActive ? this._activeSliderKey : foundKey;
                         const wasHoveringPreview = this._hoveredRegionKey && this._hoveredRegionKey.startsWith("loraPreview_");
-                        const isHoveringPreview = foundKey && foundKey.startsWith("loraPreview_");
-                        this._hoveredRegionKey = foundKey;
+                        const isHoveringPreview = effectiveFoundKey && effectiveFoundKey.startsWith("loraPreview_");
 
-                        // Suppress hover tooltips while actively dragging a slider
-                        if (this._activeSliderKey && type === "hover") {
-                            this._hoveredRegionKey = null;
-                        }
-
-                        if (wasHoveringPreview !== isHoveringPreview) {
-                            if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
+                        if (sliderDragActive) {
+                            this._hoveredRegionKey = this._activeSliderKey;
+                        } else {
+                            this._hoveredRegionKey = foundKey;
+                            // Suppress hover tooltips while actively dragging a slider
+                            if (this._activeSliderKey && type === "hover") {
+                                this._hoveredRegionKey = null;
+                            }
+                            if (wasHoveringPreview !== isHoveringPreview) {
+                                if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
+                            }
                         }
 
                         if (type === "dragStart" || type === "click" || type === "dblclick") {
@@ -1032,6 +1038,9 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                                 } catch(e) {}
                             }
                         }
+                    }
+                    if (sliderDragSessionActive && (type === "hover" || type === "move" || type === "drag")) {
+                        return true;
                     }
                     if (baseHandleInteraction) return baseHandleInteraction.apply(this, arguments);
                     return false;
