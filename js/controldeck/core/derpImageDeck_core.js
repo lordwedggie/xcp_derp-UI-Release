@@ -86,6 +86,27 @@ function parseImageList(payload) {
     return [];
 }
 
+function getImageDeckListFingerprint(list) {
+    if (!Array.isArray(list) || list.length === 0) return "0:";
+    const parts = new Array(list.length);
+    for (let i = 0; i < list.length; i += 1) {
+        const item = list[i];
+        if (typeof item === "string") {
+            parts[i] = item;
+            continue;
+        }
+        if (!item || typeof item !== "object") {
+            parts[i] = String(item || "");
+            continue;
+        }
+        const filename = String(item.filename || item.image || "");
+        const type = String(item.type || "output");
+        const subfolder = String(item.subfolder || "");
+        parts[i] = `${filename}|${type}|${subfolder}`;
+    }
+    return `${list.length}:${parts.join("\u0001")}`;
+}
+
 function resolveSignalById(signalId) {
     if (!signalId) return null;
     const signals = window.xcpDerpSignals || {};
@@ -190,7 +211,7 @@ function clampPreviewIndex(node) {
     if (node._derpImageDeckIndex >= count) node._derpImageDeckIndex = count - 1;
 }
 
-export function initDerpImageDeckCore(nodeType) {
+function initDerpImageDeckCore(nodeType) {
     const proto = nodeType.prototype;
     const baseOnExecuted = proto.onExecuted;
 
@@ -268,7 +289,7 @@ export function initDerpImageDeckCore(nodeType) {
 
     proto.applyDerpImageDeckList = function(list) {
         if (!Array.isArray(list) || list.length === 0) return;
-        const nextHash = JSON.stringify(list);
+        const nextHash = getImageDeckListFingerprint(list);
         if (this._lastWirelessImageHash === nextHash) return;
 
         this._lastWirelessImageHash = nextHash;
@@ -355,3 +376,5 @@ export function initDerpImageDeckCore(nodeType) {
         this.applyDerpImageDeckList(list);
     };
 }
+
+export { initDerpImageDeckCore };

@@ -514,8 +514,74 @@ app.registerExtension({
             };
             syncDerpImageDeckLocaleLabels(this);
 
+            this._imageDeckSyncBurst = this._imageDeckSyncBurst || null;
+            this._imageDeckSyncRetry120 = this._imageDeckSyncRetry120 || null;
+            this._imageDeckSyncRetry400 = this._imageDeckSyncRetry400 || null;
+            this._imageDeckHeartbeatBurst = this._imageDeckHeartbeatBurst || null;
+
             if (!this._imageDeckExecHooksBound && app.api) {
                 this._imageDeckExecHooksBound = true;
+                const clearSyncRetryTimers = () => {
+                    if (this._imageDeckSyncRetry120) {
+                        clearTimeout(this._imageDeckSyncRetry120);
+                        this._imageDeckSyncRetry120 = null;
+                    }
+                    if (this._imageDeckSyncRetry400) {
+                        clearTimeout(this._imageDeckSyncRetry400);
+                        this._imageDeckSyncRetry400 = null;
+                    }
+                };
+                const runHeartbeatOnce = (sourceNode, burstKey) => {
+                    if (!sourceNode || sourceNode.properties?.isWirelessTransmitter !== true) return;
+                    if (this._imageDeckHeartbeatBurst === burstKey) return;
+                    this._imageDeckHeartbeatBurst = burstKey;
+                    runWirelessHeartbeat(sourceNode, { forceIndexedSingleOutput: true });
+                };
+                const scheduleSignalSyncBurst = (sourceNode, burstKey) => {
+                    if (typeof this.syncDerpOutputs !== "function") return;
+
+                    // During active image crossfade, disable burst coalescing and
+                    // use eager sync retries so animation updates are not delayed.
+                    if (this._derpImageDeckCrossfading === true) {
+                        clearSyncRetryTimers();
+                        runWirelessHeartbeat(sourceNode, { forceIndexedSingleOutput: true });
+                        this.syncDerpOutputs();
+
+                        this._imageDeckSyncRetry120 = setTimeout(() => {
+                            runWirelessHeartbeat(sourceNode, { forceIndexedSingleOutput: true });
+                            this.syncDerpOutputs();
+                        }, 120);
+
+                        this._imageDeckSyncRetry400 = setTimeout(() => {
+                            runWirelessHeartbeat(sourceNode, { forceIndexedSingleOutput: true });
+                            this.syncDerpOutputs();
+                            this._imageDeckSyncRetry120 = null;
+                            this._imageDeckSyncRetry400 = null;
+                        }, 400);
+                        return;
+                    }
+
+                    if (this._imageDeckSyncBurst === burstKey) return;
+                    this._imageDeckSyncBurst = burstKey;
+
+                    clearSyncRetryTimers();
+                    runHeartbeatOnce(sourceNode, burstKey);
+                    this.syncDerpOutputs();
+
+                    this._imageDeckSyncRetry120 = setTimeout(() => {
+                        runHeartbeatOnce(sourceNode, burstKey);
+                        this.syncDerpOutputs();
+                    }, 120);
+
+                    this._imageDeckSyncRetry400 = setTimeout(() => {
+                        runHeartbeatOnce(sourceNode, burstKey);
+                        this.syncDerpOutputs();
+                        this._imageDeckSyncBurst = null;
+                        this._imageDeckHeartbeatBurst = null;
+                        this._imageDeckSyncRetry120 = null;
+                        this._imageDeckSyncRetry400 = null;
+                    }, 400);
+                };
                 const syncFromSignal = (e) => {
                     const ids = this.properties && this.properties.multiSignalIds ? this.properties.multiSignalIds : {};
                     const signalId = ids[0] || ids["0"];
@@ -533,28 +599,16 @@ app.registerExtension({
                                 : [];
 
                     if (eventNodeId && String(baseId) === eventNodeId && eventImages.length > 0 && typeof this.applyDerpImageDeckList === "function") {
+                        clearSyncRetryTimers();
+                        this._imageDeckSyncBurst = null;
+                        this._imageDeckHeartbeatBurst = null;
                         this.applyDerpImageDeckList(eventImages, "execution-event");
                         return;
                     }
 
-                    if (sourceNode && sourceNode.properties && sourceNode.properties.isWirelessTransmitter) {
-                        runWirelessHeartbeat(sourceNode, { forceIndexedSingleOutput: true });
-                    }
-
-                    if (typeof this.syncDerpOutputs !== "function") return;
-                    this.syncDerpOutputs();
-                    setTimeout(() => {
-                        if (sourceNode && sourceNode.properties && sourceNode.properties.isWirelessTransmitter) {
-                            runWirelessHeartbeat(sourceNode, { forceIndexedSingleOutput: true });
-                        }
-                        this.syncDerpOutputs();
-                    }, 120);
-                    setTimeout(() => {
-                        if (sourceNode && sourceNode.properties && sourceNode.properties.isWirelessTransmitter) {
-                            runWirelessHeartbeat(sourceNode, { forceIndexedSingleOutput: true });
-                        }
-                        this.syncDerpOutputs();
-                    }, 400);
+                    const eventType = String(e?.type || "signal");
+                    const burstKey = `${String(baseId || "none")}:${eventType}`;
+                    scheduleSignalSyncBurst(sourceNode, burstKey);
                 };
                 const applyExecutedOutput = (e) => {
                     const ids = this.properties && this.properties.multiSignalIds ? this.properties.multiSignalIds : {};
@@ -573,6 +627,9 @@ app.registerExtension({
                                 : [];
 
                     if (images.length > 0 && typeof this.applyDerpImageDeckList === "function") {
+                        clearSyncRetryTimers();
+                        this._imageDeckSyncBurst = null;
+                        this._imageDeckHeartbeatBurst = null;
                         this.applyDerpImageDeckList(images, "executed-event");
                     }
                 };
@@ -681,19 +738,29 @@ app.registerExtension({
             }
 
             this._lastContentCollapsed = isCollapsed;
+            this._derpImageDeckFrameFadeAlpha = 1;
+            const wasCrossfading = this._derpImageDeckCrossfading === true;
             if (typeof this.getDerpImageDeckCrossfadeAlpha === "function") {
                 const alpha = this.getDerpImageDeckCrossfadeAlpha();
+                this._derpImageDeckFrameFadeAlpha = alpha;
                 if (alpha < 1) {
                     this._layoutMapHash = null;
-                    if (typeof this.refreshNodeLayoutMap === "function") this.refreshNodeLayoutMap();
+                    if (typeof this.refreshNodeLayoutMap === "function") this.refreshNodeLayoutMap(false);
                     if (typeof this.setDirtyCanvas === "function") this.setDirtyCanvas(true);
+                    if (typeof this.requestDerpSync === "function") this.requestDerpSync();
+                } else if (wasCrossfading && this._derpImageDeckCrossfading !== true) {
+                    this._layoutMapHash = null;
+                    if (typeof this.refreshNodeLayoutMap === "function") this.refreshNodeLayoutMap(false);
+                    if (typeof this.setDirtyCanvas === "function") this.setDirtyCanvas(true);
+                    if (typeof this.requestDerpSync === "function") this.requestDerpSync();
                 }
             }
             if (baseOnDrawForeground) baseOnDrawForeground.apply(this, arguments);
+            this._derpImageDeckFrameFadeAlpha = null;
             restoreImageDeckRefreshAnchor(refreshAnchor);
         };
 
-        nodeType.prototype.refreshNodeLayoutMap = function() {
+        nodeType.prototype.refreshNodeLayoutMap = function(scheduleSync = true) {
             if (this.flags.collapsed || this.size[0] <= 0) return;
             this.properties.drawSettingBtn = false;
 
@@ -706,7 +773,10 @@ app.registerExtension({
             const count = Array.isArray(this._derpImageDeckList) ? this._derpImageDeckList.length : 0;
             const imageUrl = this.getDerpImageDeckCurrentUrl ? this.getDerpImageDeckCurrentUrl() : null;
             const prevImageUrl = this._derpImageDeckPrevDisplayUrl || null;
-            const fadeAlpha = this.getDerpImageDeckCrossfadeAlpha ? this.getDerpImageDeckCrossfadeAlpha() : 1;
+            const frameFadeAlpha = Number(this._derpImageDeckFrameFadeAlpha);
+            const fadeAlpha = Number.isFinite(frameFadeAlpha)
+                ? frameFadeAlpha
+                : (this.getDerpImageDeckCrossfadeAlpha ? this.getDerpImageDeckCrossfadeAlpha() : 1);
             const filenameText = this.getImageDeckFilenameText ? this.getImageDeckFilenameText() : "";
             const structureHash = `${count}_${imageUrl || "none"}_${prevImageUrl || "none"}_${fadeAlpha.toFixed(3)}_${this.size[0].toFixed(2)}_${(this.size[1] || 0).toFixed(2)}_${mW}_${mH}_${sW}_${sH}_${pW}_${pH}_${this.titleLabel}_${filenameText}`;
             if (this._layoutMapHash === structureHash && this.layoutMap) return;
@@ -844,7 +914,7 @@ app.registerExtension({
             };
 
             if (this.layout) this.layout._lastCacheKey = "";
-            this.requestDerpSync();
+            if (scheduleSync && typeof this.requestDerpSync === "function") this.requestDerpSync();
         };
 
         nodeType.prototype.refreshDerpImageDeckSysMap = function() {
