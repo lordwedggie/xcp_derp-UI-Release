@@ -29,6 +29,17 @@ const HEADER_ICON_SIZE = { width: "match", height: "auto" };
 const HEADER_CORNER_MARGIN_THRESHOLD = 5;
 const HEADER_CORNER_MARGIN_PER_POINT = 1;
 
+function tLocale(key, fallback = key) {
+    if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
+    const path = key.substring(1).split(".");
+    let target = window.xcpDerpLocaleData || {};
+    for (const segment of path) {
+        target = target?.[segment];
+        if (target === undefined) return fallback;
+    }
+    return target;
+}
+
 function paletteColorToCss(color) {
     if (!Array.isArray(color) || color.length < 3) return null;
     const r = Math.round(Number(color[0]) || 0);
@@ -262,7 +273,7 @@ export const getVirtualNodeLayoutMap = (node) => {
                 btnCollapse: {
                     type: UI_TYPES.ICONBUTTON,
                     themeKey: "buttonNode, t_textSystem",
-                    toolTip: "Collapse and un-collapses the node",
+                    toolTip: tLocale("$fatha_layout.tooltips.collapse_node", "Collapse or un-collapse the node"),
                     icon: collapseIcon,
                     ...HEADER_ICON_SIZE, spacing: [sW, 0],
                     playSound: p.contentCollapsed ? "collapseoff" : "collapseon",
@@ -283,7 +294,7 @@ export const getVirtualNodeLayoutMap = (node) => {
                     type: UI_TYPES.EDITOR, skipBackground: true, mouseOver: false,
                     themeKey: "dialog, t_textBig",
                     width: "full", height: "auto", padding: [pW, 0],
-                    toolTip: "Double click to change. Used also as signal source name in Derp Router",
+                    toolTip: tLocale("$fatha_layout.tooltips.title_label", "Double-click to rename. Also used as the signal source name in Derp Router"),
                     text: node.titleLabel || "Virtual Node",
                     noDragLock: true, spacing: [sW, 0],
                     onPress: () => false,
@@ -320,7 +331,7 @@ export const getVirtualNodeLayoutMap = (node) => {
                     hidden: !isNodeDocked(node, node.graph || null),
                     themeKey: "buttonNode, t_textSystem",
                     objectAlign: ["left", "middle"],
-                    toolTip: "Disconnects the node from a Docked Stack",
+                    toolTip: tLocale("$fatha_layout.tooltips.undock_node", "Disconnect this node from its docked stack"),
                     icon: resolveDockGlyph(node),
                     playSound: "undocked",
                     ...HEADER_ICON_SIZE, spacing: [sW, 0],
@@ -335,7 +346,7 @@ export const getVirtualNodeLayoutMap = (node) => {
                     hidden: !isVerticalDockedGroup(node),
                     themeKey: "buttonNode, t_textSystem",
                     objectAlign: ["left", "middle"],
-                    toolTip: "Pin the node as the Docked Stack's anchor, this node's position will not move when collapsing",
+                    toolTip: tLocale("$fatha_layout.tooltips.pin_anchor", "Pin this node as the docked stack anchor so it stays in place when the stack collapses"),
                     icon: "pin",
                     ...HEADER_ICON_SIZE, spacing: [sW, 0],
                     state: p.pinActive === true ? "ON" : "OFF",
@@ -348,7 +359,7 @@ export const getVirtualNodeLayoutMap = (node) => {
                     type: UI_TYPES.ICONBUTTON, hidden: !p.drawSettingBtn,
                     themeKey: "buttonNode, t_textSystem",
                     objectAlign: ["left", "middle"],
-                    toolTip: "Legacy button, report if you actually see this",
+                    toolTip: tLocale("$fatha_layout.tooltips.legacy_settings_button", "Legacy button. Report it if you still see this"),
                     icon: "settings",
                     ...HEADER_ICON_SIZE, spacing: [sW, 0],
                     state: p.settingActive ? "ON" : "OFF",
@@ -362,7 +373,7 @@ export const getVirtualNodeLayoutMap = (node) => {
                     type: UI_TYPES.ICONBUTTON, hidden: !p.drawSignalBtn,
                     themeKey: "buttonNode, t_textSystem",
                     objectAlign: ["left", "middle"],
-                    toolTip: "Configure wireless signals to be received by this node, same as setting up input links in default comfyUI",
+                    toolTip: tLocale("$fatha_layout.tooltips.configure_wireless", "Configure wireless signals received by this node, similar to setting up input links in default ComfyUI"),
                     icon: "wireless",
                     ...HEADER_ICON_SIZE, spacing: [sW, 0],
                     state: activeBastas.get(getSignalReceiverId())?.hostNode === node && !activeBastas.get(getSignalReceiverId())?.isClosing ? "ON" : "OFF",
@@ -392,7 +403,7 @@ export const getVirtualNodeLayoutMap = (node) => {
                     type: UI_TYPES.ICONBUTTON, hidden: false,
                     themeKey: "buttonNode, t_textSystem",
                     objectAlign: ["left", "middle"],
-                    toolTip: "Bypass the node, works the same as default comfyUI, takes the same shortcut key too",
+                    toolTip: tLocale("$fatha_layout.tooltips.bypass_node", "Bypass the node. Works the same as default ComfyUI and uses the same shortcut"),
                     icon: "power",
                     ...HEADER_ICON_SIZE,
                     playSound: node.mode === 4 ? "systemoff" : "systemon",
@@ -436,7 +447,7 @@ export const getVirtualNodeLayoutMap = (node) => {
             systemBtn: {
                 type: UI_TYPES.ICONBUTTON, noHover: false,
                 themeKey: "buttonNode, t_textSystem, 3",
-                toolTip: "Opens the node's system panel where advanced settings for the node can be found, similar to comfyUI's right-click Properties",
+                toolTip: tLocale("$fatha_layout.tooltips.open_system_panel", "Open the node system panel for advanced settings, similar to ComfyUI right-click Properties"),
                 objectAlign: ["center", "bottom"],
                 width: 32, height: 6,
                 corners: [2, 2, 0, 0]
@@ -523,7 +534,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
             dropdownThemes: {
                 type: UI_TYPES.FILEBROWSER,
                 themeKey: "dialog, t_textNormal",
-                toolTip: "Select a new theme for the node",
+                toolTip: tLocale("$fatha_layout.tooltips.select_theme", "Select a new theme for the node"),
                 canvasShield: true,
                 indicator: true,
                 displayMode: "cutoff",
@@ -561,7 +572,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
             btnWarp: {
                 type: UI_TYPES.BUTTON,
                 themeKey: "button, t_textSystem",
-                toolTip: "Adds a Warp Point hot key for this node, pressing the hotkey will automatically center the canvas on the node",
+                toolTip: tLocale("$fatha_layout.tooltips.add_warp_point", "Assign a Warp Point hotkey to this node so the canvas can center on it"),
                 text: "$fatha_layout.add_warp_point",
                 labelAlign: ["center", "middle"],
                 width: "auto", height: "fill",
@@ -581,7 +592,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
             btnWarpDelete: {
                 type: UI_TYPES.BUTTON,
                 themeKey: "button, t_textSystem",
-                toolTip: "Deletes the Warp Point for the node and free up the shortcut key",
+                toolTip: tLocale("$fatha_layout.tooltips.delete_warp_point", "Remove this node's Warp Point and free the shortcut key"),
                 text: "$fatha_layout.delete_warp_point",
                 labelAlign: ["center", "middle"],
                 width: "auto", height: "fill",
@@ -686,7 +697,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
             btnAutoWidth: {
                 type: UI_TYPES.TOGGLE_V2,
                 textThemeKey: "dialog, button, t_textSystem", skipBackground: true,
-                toolTip: "If false, allow manual node width resizing",
+                toolTip: tLocale("$fatha_layout.tooltips.auto_width", "If disabled, the node width can be resized manually"),
                 spacing: [sW, 0],
                 value: hostNode.properties?.autoWidth !== false,
                 state: isDocked ? "DIS" : "OFF",
@@ -703,7 +714,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
             btnAutoHeight: {
                 type: UI_TYPES.TOGGLE_V2,
                 textThemeKey: "dialog, button, t_textSystem", skipBackground: true,
-                toolTip: "If false, allow manual node height resizing",
+                toolTip: tLocale("$fatha_layout.tooltips.auto_height", "If disabled, the node height can be resized manually"),
                 spacing: [sW, 0],
                 value: hostNode.properties?.autoHeight !== false,
                 state: isDocked ? "DIS" : "OFF",
@@ -720,7 +731,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
             btnHideTitle: {
                 type: UI_TYPES.TOGGLE_V2,
                 textThemeKey: "dialog, button, t_textSystem", skipBackground: true,
-                toolTip: "Hides the node's header. Note you cannot hide the header when vertically docked",
+                toolTip: tLocale("$fatha_layout.tooltips.hide_header", "Hide the node header. Headers cannot be hidden while vertically docked"),
                 spacing: [sW, 0],
                 value: isVerticalDocked || hostNode.properties?.drawHeader !== false,
                 state: isVerticalDocked ? "DIS" : "OFF",
@@ -739,7 +750,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                 textThemeKey: "dialog, button, t_textSystem", skipBackground: true,
                 value: hostNode.properties?.useAnimations !== false,
                 objectAlign: ["left", "top"], labelAlign: ["left", "middle"],
-                toolTip: "I think I might remove this...toggles individual node's animation setting",
+                toolTip: tLocale("$fatha_layout.tooltips.animation_toggle", "Toggle this node's individual animation setting"),
                 label: "$system.animation",
                 width: "auto", height: "fill",
                 padding: [pW, pH],
@@ -789,7 +800,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                 icon: "dropdown",
                 canvasShield: true,
                 themeKey: "dialog, t_textSystem",
-                toolTip: "Select a saved Profile and loads the node's settings from it",
+                toolTip: tLocale("$fatha_layout.tooltips.load_profile", "Select a saved profile and load this node's settings from it"),
                 width: "full", minWidth: 80,
                 mode: "file",
                 rootName: "profiles",
@@ -805,7 +816,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
             btnRename: {
                 type: UI_TYPES.ICONBUTTON, icon: "rename", width: "match", height: "fill", themeKey: "systemButton, t_textSystem", spacing: [sW, 0], labelAlign: ["center", "middle"],
                 state: (hostNode._currentProfileName && hostNode._currentProfileName !== "(No Profiles Found)") ? "OFF" : "DIS",
-                toolTip: "Renames the currently selected Profile",
+                toolTip: tLocale("$fatha_layout.tooltips.rename_profile", "Rename the currently selected profile"),
                 onPress: () => {
                     if (hostNode.onDerpRenamePress) return hostNode.onDerpRenamePress();
                     const profileName = hostNode._currentProfileName;
@@ -858,7 +869,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
             btnCopy: {
                 type: UI_TYPES.ICONBUTTON, icon: "copy", width: "match", height: "fill", themeKey: "systemButton, t_textSystem", spacing: [sW, 0], labelAlign: ["center", "middle"],
                 state: (hostNode._currentProfileName && hostNode._currentProfileName !== "(No Profiles Found)") ? "OFF" : "DIS",
-                toolTip: "Copies the currently selected Profile as a new Profile",
+                toolTip: tLocale("$fatha_layout.tooltips.copy_profile", "Copy the currently selected profile into a new profile"),
                 onPress: () => {
                     if (hostNode.onDerpCopyPress) return hostNode.onDerpCopyPress();
                     const profileName = hostNode._currentProfileName;
@@ -911,7 +922,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
             btnSave: {
                 type: UI_TYPES.ICONBUTTON, icon: "save", width: "match", height: "fill", themeKey: "systemButton, t_textSystem", spacing: [sW, 0], labelAlign: ["center", "middle"],
                 state: (hostNode._currentProfileName && hostNode._currentProfileName !== "(No Profiles Found)") ? "OFF" : "DIS",
-                toolTip: "Saves current state of the node to the Profile",
+                toolTip: tLocale("$fatha_layout.tooltips.save_profile", "Save the node's current state into the profile"),
                 get onPress() {
                     if (typeof this._overrideOnPress === "function") return this._overrideOnPress;
                     return () => {

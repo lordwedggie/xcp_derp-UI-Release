@@ -81,6 +81,16 @@ The registry reads metadata from `pyproject.toml` `[project.urls]`:
 - `origin` uses HTTPS and is frequently unreachable; retry or use SSH (`github` remote)
 - The Comfy Registry may leave versions in "Pending" status — this is a registry-side issue requiring support contact
 
+## Localization: fathaLayoutMaps.js Tooltips
+
+`masterLayoutEngine` auto-localizes `text`, `label`, and `measureText` but **not** `toolTip`. Every tooltip in `js/fatha/helpers/fathaLayoutMaps.js` must use:
+
+```js
+toolTip: tLocale("$fatha_layout.tooltips.<key>", "English fallback")
+```
+
+Follow `derpLatent` as the reference implementation. Always update all three locale files (`en-US`, `zh-CN`, `ru-RU`). Never leave raw `"$..."` keys as tooltip values. Full rules in `.deepseek/pastes/fatha-layout-localization.md`.
+
 **4 Working Rules:**
 1. Think Before Coding — state assumptions, surface tradeoffs, ask when unclear
 2. Simplicity First — minimum code, no speculation, no unasked features

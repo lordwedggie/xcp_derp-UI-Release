@@ -36,7 +36,6 @@ export function syncDerpSliderHTML(el, node, app, config) {
 
     // 2. Centralized Animated Colors & Alpha
     const rawBg = paintData?.fill || config.btnColor || "transparent";
-    // THE THEME FIX: Removed hardcoded DIS alpha override so the _DIS theme key is strictly respected
     let rawIc = labelData?.textColor || labelData?.fill || "red";
 
     const useAnim = (config.showAnim !== false) && (window.xcpDerpSettings?.useAnimations !== false);
@@ -70,7 +69,6 @@ export function syncDerpSliderHTML(el, node, app, config) {
     const value = Math.max(min, Math.min(max, config.value || 0));
     const percent = (value - min) / (max - min);
 
-    // THE FILL STRENGTH FIX: If active, interpolate between states based on value.
     const fillKey = props.fillKey || props.bodyKey;
     const fillSuffix = props.fillKey ? "_OFF" : "_ON";
 
@@ -82,13 +80,11 @@ export function syncDerpSliderHTML(el, node, app, config) {
 
     const ins = props.fillPadding || [0, 0, 0, 0];
     const fillH = Math.max(0, h - ins[0] - ins[2]);
-    // btnLR: button width = 75% of fill bar height
     const btnW = config.btnLR ? Math.round(fillH * BTN_LR_RATIO * coords.scale) : 0;
     const btnInset = btnW + BTN_LR_MARGIN * coords.scale;
     const btnTop = ins[0] * coords.scale;
     const btnH = fillH * coords.scale;
 
-    // THE FILL PADDING FIX: Inset the fill bar using absolute positioning and calc-width
     const s = coords.scale;
     Object.assign(fill.style, {
         top: `${ins[0] * s}px`,

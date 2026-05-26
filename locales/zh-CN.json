@@ -27,7 +27,28 @@
     "warp_shortcut": "Warp 快捷键：",
     "ctrl": "Ctrl",
     "zoom": "缩放：",
-    "load_settings": "加载设置："
+    "load_settings": "加载设置：",
+    "tooltips": {
+      "collapse_node": "折叠或展开该节点",
+      "title_label": "双击可重命名。该名称也会作为 Derp Router 中的信号源名称",
+      "undock_node": "将该节点从停靠堆栈中断开",
+      "pin_anchor": "将该节点固定为停靠堆栈的锚点，这样堆栈折叠时它不会移动",
+      "legacy_settings_button": "旧版按钮。如果你还能看到它，请反馈",
+      "configure_wireless": "配置该节点接收的无线信号，类似默认 ComfyUI 中设置输入链接",
+      "bypass_node": "旁路该节点。行为与默认 ComfyUI 一致，并使用相同快捷键",
+      "open_system_panel": "打开节点系统面板以访问高级设置，类似 ComfyUI 右键菜单中的 Properties",
+      "select_theme": "为该节点选择新主题",
+      "add_warp_point": "为该节点分配一个传送点快捷键，按下后会自动将画布居中到该节点",
+      "delete_warp_point": "删除该节点的传送点并释放对应快捷键",
+      "auto_width": "关闭后，可手动调整节点宽度",
+      "auto_height": "关闭后，可手动调整节点高度",
+      "hide_header": "隐藏节点标题栏。垂直停靠时无法隐藏标题栏",
+      "animation_toggle": "切换该节点自身的动画设置",
+      "load_profile": "选择一个已保存的配置，并从中加载该节点设置",
+      "rename_profile": "重命名当前选中的配置",
+      "copy_profile": "将当前选中的配置复制为一个新配置",
+      "save_profile": "将节点当前状态保存到该配置中"
+    }
   },
   "nodes": {
     "virtual_node": "虚拟节点",
