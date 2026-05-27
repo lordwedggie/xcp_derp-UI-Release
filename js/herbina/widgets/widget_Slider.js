@@ -209,12 +209,13 @@ export function syncDerpSliderCanvas(ctx, node, config) {
     const isDraggingSlider = (stateStr === "ON")
         || config._isDraggingSlider
         || (config._sliderLastChange && performance.now() - config._sliderLastChange < 2000);
-    const knobSuffix = isDraggingSlider ? "_ON" : "_OFF";
+    const knobSuffix = (stateStr === "DIS") ? "_DIS" : (isDraggingSlider ? "_ON" : "_OFF");
     const knobData = (style === "knob")
         ? (resolvePaintData(node, fillKey, knobSuffix, config.btnColor) || paintData)
         : null;
+    const btnLRSuffix = (stateStr === "DIS") ? "_DIS" : "_OFF";
     const btnLRData = (style === "knob")
-        ? (resolvePaintData(node, fillKey, "_OFF", config.btnColor) || paintData)
+        ? (resolvePaintData(node, fillKey, btnLRSuffix, config.btnColor) || paintData)
         : null;
 
     // Knob + fillBar positioning: exactly 1px spacing from btnLR at min/max
@@ -271,24 +272,24 @@ export function syncDerpSliderCanvas(ctx, node, config) {
         const btnH = fullFillH;
         // Knob style: btnLR uses fixed _ON state (ignoring fillStrength)
         const btnSource = (style === "knob") ? (btnLRData || paintData) : (activeData || paintData);
-        const btnFill = btnSource?.fill || config.btnColor || "#555";
+        // Per-button state: _OFF at boundaries, _ON otherwise
+        const atMin = (value <= min);
+        const atMax = (value >= max);
+        const boundarySuffix = "_DIS";  // always use disabled-look at boundaries
+        const leftBtnData  = (stateStr === "DIS" || atMin) ? (resolvePaintData(node, fillKey, boundarySuffix, config.btnColor) || paintData) : btnSource;
+        const rightBtnData = (stateStr === "DIS" || atMax) ? (resolvePaintData(node, fillKey, boundarySuffix, config.btnColor) || paintData) : btnSource;
         const btnTextPaint = { ...(labelData || {}), fill: iconColor, fontSize: BTN_LR_FONTSIZE };
 
-        // Flat corners on the sides facing the fill bar
-        const srcCorners = btnSource?.corners;
-        const leftBtnCorners = Array.isArray(srcCorners)
-            ? [srcCorners[0] || 0, 1, 1, srcCorners[3] || 0]   // flat right side
-            : [srcCorners || 0, 0, 0, srcCorners || 0];
-        const rightBtnCorners = Array.isArray(srcCorners)
-            ? [1, srcCorners[1] || 0, srcCorners[2] || 0, 1]   // flat left side
-            : [0, srcCorners || 0, srcCorners || 0, 0];
-
-        // Left button (-)
-        masterPainter(ctx, {
-            posX: x + btnMargin, posY: btnY,
-            width: btnW, height: btnH,
-            paintData: { ...btnSource, corners: leftBtnCorners }, color: btnFill
-        });
+        // Left button (-): flat right corners, _OFF at min
+        {
+            const src = leftBtnData?.corners;
+            const corners = Array.isArray(src) ? [src[0] || 0, 1, 1, src[3] || 0] : [src || 0, 0, 0, src || 0];
+            masterPainter(ctx, {
+                posX: x + btnMargin, posY: btnY,
+                width: btnW, height: btnH,
+                paintData: { ...leftBtnData, corners }, color: leftBtnData?.fill || config.btnColor || "#555"
+            });
+        }
         masterPainterText(ctx, {
             x: x + BTN_LR_MARGIN + btnW / 2, y: btnY + btnH / 2,
             text: "-",
@@ -296,12 +297,16 @@ export function syncDerpSliderCanvas(ctx, node, config) {
             align: "center", baseline: "middle"
         });
 
-        // Right button (+)
-        masterPainter(ctx, {
-            posX: x + w - btnW - btnMargin, posY: btnY,
-            width: btnW, height: btnH,
-            paintData: { ...btnSource, corners: rightBtnCorners }, color: btnFill
-        });
+        // Right button (+): flat left corners, _OFF at max
+        {
+            const src = rightBtnData?.corners;
+            const corners = Array.isArray(src) ? [1, src[1] || 0, src[2] || 0, 1] : [0, src || 0, src || 0, 0];
+            masterPainter(ctx, {
+                posX: x + w - btnW - btnMargin, posY: btnY,
+                width: btnW, height: btnH,
+                paintData: { ...rightBtnData, corners }, color: rightBtnData?.fill || config.btnColor || "#555"
+            });
+        }
         masterPainterText(ctx, {
             x: x + w - btnW / 2 - BTN_LR_MARGIN, y: btnY + btnH / 2,
             text: "+",
