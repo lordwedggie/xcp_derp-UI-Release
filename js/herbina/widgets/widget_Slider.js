@@ -346,12 +346,9 @@ window.handleDerpSliderBtnLR = function(node, reg, targetKey, type, localX, conf
     if (type === "click") {
         const cMin = parseFloat(config.min ?? 0);
         const cMax = parseFloat(config.max ?? 1);
-        const curVal = parseFloat(config.value ?? cMin);
-        const fillPercent = Math.max(0, Math.min(1, (curVal - cMin) / (cMax - cMin)));
         const trackX = reg.x + mrg + btnW;
         const trackW = Math.max(0, reg.w - (btnW + mrg) * 2);
-        const fillRight = trackX + fillPercent * trackW;
-        if (localX < trackX || localX > fillRight) return { handled: true };
+        if (localX < trackX || localX > trackX + trackW) return { handled: true };
         const cStep = parseFloat(config.step ?? 0.05);
         const percent = Math.max(0, Math.min(1, (localX - trackX) / trackW));
         const rawVal = cMin + (percent * (cMax - cMin));
