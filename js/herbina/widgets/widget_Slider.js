@@ -33,29 +33,29 @@
  * - `style`: Drawing style variant. Accepted values: `"default"`, `"knob"`. Defaults to `"default"`.
  *
  * Terminology — named parts of the Slider widget:
- * - `Track`: The full-width background rounded rect that spans the entire widget. Drawn first.
- * - `fillBar`: The colored progress portion of the track, inset by fillPadding. Grows from the
+ * - `Background`: The full-width background rounded rect that spans the entire widget. Drawn first.
+ * - `fillBar`: The colored progress portion of the background, inset by fillPadding. Grows from the
  *   left edge in proportion to (value - min) / (max - min). Also called "Progress Fill" in comments.
  * - `fillPadding`: Optional [top, right, bottom, left] inset that shrinks the fillBar inside the
- *   Track without shrinking the Track itself.
+ *   Background without shrinking the Background itself.
  * - `fillbarHeight`: Optional height override for the fillBar. Integer = exact px, float = ratio of h.
  *   FillBar centers vertically. When unset, fillBar fills the track minus fillPadding.
  * - `knob`: (style "knob" only) A small square rect overlaid on the fillBar at its right edge.
  *   Drawn after the fillBar using the same paint data. Width/height equal to fillH.
- * - `btnLR`: The - / + stepper buttons rendered on the left and right edges of the Track. Sized
+ * - `btnLR`: The - / + stepper buttons rendered on the left and right edges of the Background. Sized
  *   relative to the fillBar height (BTN_LR_RATIO). Toggled by config.btnLR.
- * - `label`: The text string drawn on top of the Track. Uses displayText (preferred) or label/text.
+ * - `label`: The text string drawn on top of the Background. Uses displayText (preferred) or label/text.
  *   Positioned by labelAlign and padding.
  * - `fillStrength`: A boolean mode flag controlling fillBar color resolution. When true, the fill
  *   color is interpolated between theme states based on the slider value. When false, a single
  *   _ON / _OFF paint state is used.
  * - `fillKey` / `bodyKey`: Theme keys used to resolve which paint data colors the fillBar.
  *   fillKey takes precedence; bodyKey is the fallback.
- * - `themeKey`: The main theme string ("panel, t_textsmall") that resolves body paint (Track) and
+ * - `themeKey`: The main theme string ("panel, t_textsmall") that resolves body paint (Background) and
  *   label paint (label) for the entire widget.
- * - `paintData`: Resolved theme paint object for the Track background (body paint).
+ * - `paintData`: Resolved theme paint object for the Background (body paint).
  * - `labelData`: Resolved theme paint object for the label text (label paint).
- * - `corners`: Rounded corner radii applied to the Track, read from paintData.corners.
+ * - `corners`: Rounded corner radii applied to the Background, read from paintData.corners.
  * - `step`: The increment/decrement value used by btnLR clicks and track-click value snapping.
  *
  * Maintenance rule:
@@ -108,6 +108,25 @@ export function syncDerpSliderHTML(el, node, app, config) {
 /**
  * Canvas-based Slider Painter
  */
+
+/**
+ * Draw the knob marker for "knob" style sliders.
+ * Renders a small square at the right edge of the fill bar.
+ */
+function drawSliderKnob(ctx, style, activeData, fullFillH, fillStartX, progressW, y, ins) {
+    if (style !== "knob" || !activeData) return;
+    const knobW = fullFillH;
+    // Knob left edge aligns flush with fillBar right edge
+    const knobX = fillStartX + progressW;
+    masterPainter(ctx, {
+        posX: knobX,
+        posY: y + ins[0],
+        width: knobW,
+        height: fullFillH,
+        paintData: activeData, color: activeData.fill
+    });
+}
+
 export function syncDerpSliderCanvas(ctx, node, config) {
     if (!config.geometry) return;
     const { x, y, w, h } = config.geometry;
@@ -143,7 +162,7 @@ export function syncDerpSliderCanvas(ctx, node, config) {
         fill: iconColor
     };
 
-    // 1. Draw Background Track (Animated)
+    // 1. Draw Background (Animated)
     if (paintData) {
         masterPainter(ctx, {
             posX: x, posY: y, width: w, height: h,
@@ -181,35 +200,51 @@ export function syncDerpSliderCanvas(ctx, node, config) {
             (resolvePaintData(node, fillKey, fillSuffix, config.btnColor) || paintData)
     );
 
+    // Knob: _OFF normally, _ON when awake (dragging/interacting). btnLR: always _OFF
+        // Drag state: handler sets/clears _isDraggingSlider on dragStart/dragEnd
+    // If handler isn't called for track drags, fall back to value-change detection (2s window)
+    const curVal = parseFloat(config.value ?? 0);
+    const prevVal = config._sliderPrevVal;
+    if (prevVal !== undefined && Math.abs(curVal - prevVal) > 0.0001) {
+        config._sliderLastChange = performance.now();
+    }
+    config._sliderPrevVal = curVal;
+    const isDraggingSlider = (stateStr === "ON")
+        || config._isDraggingSlider
+        || (config._sliderLastChange && performance.now() - config._sliderLastChange < 2000);
+    const knobSuffix = isDraggingSlider ? "_ON" : "_OFF";
+    const knobData = (style === "knob")
+        ? (resolvePaintData(node, fillKey, knobSuffix, config.btnColor) || paintData)
+        : null;
+    const btnLRData = (style === "knob")
+        ? (resolvePaintData(node, fillKey, "_OFF", config.btnColor) || paintData)
+        : null;
+
     const knobStyleW = (style === "knob") ? fullFillH : 0;
     const knobHalfW = knobStyleW / 2;
     const fillW = Math.max(0, w - ins[1] - ins[3] - btnInset * 2 - knobStyleW);
     const fillStartX = x + ins[3] + btnInset + knobHalfW;
-    const progressW = fillW * Math.max(0, percent);
+    // FillBar right edge = knob left edge (subtract half-knob so it stops before center)
+    const progressW = fillW * Math.max(0, percent) - knobHalfW + 2;
 
     if (activeData && percent > 0) {
+        // Zero right corners so fillBar meets knob flush
+        const themeCorners = activeData.corners;
+        const fillCorners = Array.isArray(themeCorners)
+            ? [themeCorners[0] || 0, 0, 0, themeCorners[3] || 0]
+            : [themeCorners || 0, 0, 0, themeCorners || 0];
         masterPainter(ctx, {
             posX: fillStartX,
             posY: fillY,
             width: progressW,
             height: fillH,
-            paintData: activeData, color: activeData.fill
+            paintData: { ...activeData, corners: fillCorners },
+            color: activeData.fill
         });
     }
 
-    // Knob: center on right edge of fillBar
-    if (style === "knob" && activeData) {
-        const knobW = fullFillH;
-        const knobCenterX = fillStartX + progressW;
-        const knobX = knobCenterX - knobW / 2;
-        masterPainter(ctx, {
-            posX: knobX,
-            posY: y + ins[0],
-            width: knobW,
-            height: fullFillH,
-            paintData: activeData, color: activeData.fill
-        });
-    }
+    // Knob: left edge aligns with fillBar right edge
+    drawSliderKnob(ctx, style, knobData, fullFillH, fillStartX, progressW, y, ins);
 
     // 3. Draw Optional Label
     const sliderLabel = (props.label !== "") ? props.displayText : null;
@@ -234,15 +269,25 @@ export function syncDerpSliderCanvas(ctx, node, config) {
         const btnW = Math.round(fullFillH * BTN_LR_RATIO);
         const btnY = y + ins[0];
         const btnH = fullFillH;
-        const btnFill = activeData?.fill || paintData?.fill || config.btnColor || "#555";
-        const btnPaint = { ...(activeData || paintData) };
+        // Knob style: btnLR uses fixed _ON state (ignoring fillStrength)
+        const btnSource = (style === "knob") ? (btnLRData || paintData) : (activeData || paintData);
+        const btnFill = btnSource?.fill || config.btnColor || "#555";
         const btnTextPaint = { ...(labelData || {}), fill: iconColor, fontSize: BTN_LR_FONTSIZE };
+
+        // Flat corners on the sides facing the fill bar
+        const srcCorners = btnSource?.corners;
+        const leftBtnCorners = Array.isArray(srcCorners)
+            ? [srcCorners[0] || 0, 1, 1, srcCorners[3] || 0]   // flat right side
+            : [srcCorners || 0, 0, 0, srcCorners || 0];
+        const rightBtnCorners = Array.isArray(srcCorners)
+            ? [1, srcCorners[1] || 0, srcCorners[2] || 0, 1]   // flat left side
+            : [0, srcCorners || 0, srcCorners || 0, 0];
 
         // Left button (-)
         masterPainter(ctx, {
             posX: x + BTN_LR_MARGIN, posY: btnY,
             width: btnW, height: btnH,
-            paintData: btnPaint, color: btnFill
+            paintData: { ...btnSource, corners: leftBtnCorners }, color: btnFill
         });
         masterPainterText(ctx, {
             x: x + BTN_LR_MARGIN + btnW / 2, y: btnY + btnH / 2,
@@ -255,7 +300,7 @@ export function syncDerpSliderCanvas(ctx, node, config) {
         masterPainter(ctx, {
             posX: x + w - btnW - BTN_LR_MARGIN, posY: btnY,
             width: btnW, height: btnH,
-            paintData: btnPaint, color: btnFill
+            paintData: { ...btnSource, corners: rightBtnCorners }, color: btnFill
         });
         masterPainterText(ctx, {
             x: x + w - btnW / 2 - BTN_LR_MARGIN, y: btnY + btnH / 2,
@@ -268,9 +313,11 @@ export function syncDerpSliderCanvas(ctx, node, config) {
 }
 
 window.handleDerpSliderBtnLR = function(node, reg, targetKey, type, localX, config) {
-    if ((config?.style ?? "default") !== "default") return { handled: false };
     const btnLR = config?.btnLR;
     if (!btnLR) return { handled: false };
+    // Track drag state for knob _ON/_OFF switching
+    if (type === "dragStart" || type === "drag" || type === "dragging") config._isDraggingSlider = true;
+    if (type === "dragEnd" || type === "dragAbort" || type === "mouseup" || type === "pointerup") config._isDraggingSlider = false;
     const btnW = Math.round((reg.h || 14) * BTN_LR_RATIO);
     const mrg = BTN_LR_MARGIN;
     if (type === "dblclick") {
