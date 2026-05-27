@@ -264,7 +264,8 @@
     "drop_here": "拖到这里",
     "fuse_qkv": "融合 QKV",
     "tooltips": {
-      "preview_image": "点击预览图可打开更多 LoRA 控制选项"
+      "preview_image": "点击预览图可打开更多 LoRA 控制选项",
+      "fuse_qkv": "{{t_toolTip_highlight::ZIT}} LoRA 补丁，可能会{{t_toolTip_warning::（也可能不会）}}修正意外结果或改善输出。由老登 {{t_toolTip_Accent::Capitan01R@civitai.com}} 制作"
     },
     "labels": {
       "strength": "强度",

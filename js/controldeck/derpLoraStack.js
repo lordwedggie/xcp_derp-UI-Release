@@ -607,7 +607,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                         label: tLocale("$derp_lora_stack.fuse_qkv", "Fuse QKV"), icon: "ring", width: "auto", height: "match", padding: [pW, pH], spacing: [0, 0], margin: [0, 0, -mH * 2, 0],
                                         isTextOnly: true, mouseOver: false, alpha: rowAlpha,
                                         state: (i === this._activeDetailSlot) ? "ON" : (isBypassed ? "DIS" : "OFF"),
-                                        toolTip: "ZIT lora patch, may (or may not) fix undesired results or improve the output. Made by Capitan01R@civitai.com",
+                                        toolTip: tLocale("$derp_lora_stack.tooltips.fuse_qkv", "{{t_toolTip_highlight::ZIT}} lora patch, may (or may not) fix undesired results or improve the output. Made by {{t_toolTip_Accent::Capitan01R@civitai.com}}"),
                                         value: !!lora[6],
                                         onPress: () => {
                                             lora[6] = !lora[6];

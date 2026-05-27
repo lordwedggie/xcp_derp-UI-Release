@@ -264,7 +264,8 @@
     "drop_here": "Drop here",
     "fuse_qkv": "Fuse QKV",
     "tooltips": {
-      "preview_image": "Click on the preview image for more Lora control options"
+      "preview_image": "Click on the preview image for more Lora control options",
+      "fuse_qkv": "{{t_toolTip_highlight::ZIT}} lora patch, may (or may not) fix undesired results or improve the output. Made by {{t_toolTip_Accent::Capitan01R@civitai.com}}"
     },
     "labels": {
       "strength": "Strength",
