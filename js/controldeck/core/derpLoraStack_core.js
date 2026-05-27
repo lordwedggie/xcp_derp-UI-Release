@@ -820,6 +820,13 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
 
                     if (type === "resize") this._isDerpResizing = true;
                     if (type === "click" || type === "dragEnd") {
+                        if (type === "dragEnd" && isSliderKey(this._activeSliderKey)) {
+                            const activeSliderConfig = this.layout?.regions?.[this._activeSliderKey];
+                            if (activeSliderConfig) activeSliderConfig._isDraggingSlider = false;
+                            if (this._compDataCache?.[this._activeSliderKey]) {
+                                this._compDataCache[this._activeSliderKey]._isDraggingSlider = false;
+                            }
+                        }
                         if (type === "dragEnd" && this._pendingSliderDraft && isSliderKey(this._pendingSliderDraft.targetKey)) {
                             const { targetKey, idx, sType, value, cStep, cMin, cMax } = this._pendingSliderDraft;
                             const snappedVal = Math.max(cMin, Math.min(cMax, Math.round(value / cStep) * cStep));
@@ -954,6 +961,10 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                                         if (type === "click" && this._btnLRHandledKey === targetKey) { this._btnLRHandledKey = null; return true; }
                                         if (type === "dragStart") this._btnLRHandledKey = null;
                                         const sliderConfig = regions[targetKey];
+                                        if (sliderConfig) sliderConfig._isDraggingSlider = (type === "dragStart" || type === "drag");
+                                        if (this._compDataCache?.[targetKey]) {
+                                            this._compDataCache[targetKey]._isDraggingSlider = (type === "dragStart" || type === "drag");
+                                        }
                                         if ((type === "dragStart" || type === "click" || type === "dblclick") && sliderConfig) {
                                             const btnResult = handleDerpSliderBtnLR(this, reg, targetKey, type, localX, sliderConfig);
                                                 if (btnResult.handled) {

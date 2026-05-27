@@ -298,6 +298,11 @@ export function setupDerpSliderCore(nodeType) {
         if (type === "dragStart") this._sliderInteractionMoved = false;
         if (type === "drag") this._sliderInteractionMoved = true;
         if (type === "dragEnd") {
+            const activeIdx = this._activeSliderIndex;
+            const activeCfg = Number.isInteger(activeIdx) ? this.properties.sliderContainer?.[activeIdx] : null;
+            if (activeCfg) activeCfg._isDraggingSlider = false;
+            const activeKey = Number.isInteger(activeIdx) ? `dynamicSlider_${activeIdx}` : null;
+            if (activeKey && this._compDataCache?.[activeKey]) this._compDataCache[activeKey]._isDraggingSlider = false;
             this._activeSliderIndex = null;
             this._isDerpResizing = false;
             // THE FINAL SYNC: Finalize the wireless signal and Python registry state upon mouse release.
@@ -411,6 +416,11 @@ export function setupDerpSliderCore(nodeType) {
                     try {
                         const dataArr = this.properties.sliderContainer;
                         const config = dataArr[targetIdx];
+                        if (config) config._isDraggingSlider = (type === "dragStart" || type === "drag");
+                        const targetKey = `dynamicSlider_${targetIdx}`;
+                        if (this._compDataCache?.[targetKey]) {
+                            this._compDataCache[targetKey]._isDraggingSlider = (type === "dragStart" || type === "drag");
+                        }
 
                         const cMin = parseFloat(config.min ?? 0);
                         const cMax = parseFloat(config.max ?? 1);
