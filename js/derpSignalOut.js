@@ -6,6 +6,7 @@ import { app } from "../../../scripts/app.js";
 import { UI_TYPES } from "./fatha/core/masterLayoutTypes.js";
 import { startStackDrag, updateStackDrag, endStackDrag } from "./fatha/helpers/fathaDragDrop.js";
 import { showBastaFileHandler } from "./fatha/bastas/bastaFileHandler.js";
+import { previewDerpSignalSourceNode } from "./fatha/core/masterSignalEngine.js";
 
 function tLocale(key, fallback = key) {
     if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
@@ -284,6 +285,7 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                             cancelSignalOutRowDrag(this);
                                             const newSigId = resolveSignalIdFromLabel(val);
                                             if (newSigId) {
+                                                previewDerpSignalSourceNode(newSigId);
                                                 const newSig = (this.receivedSignals || []).find(s => String(s.nodeId) === newSigId);
                                                 if (newSig) {
                                                     this.activeOutputs[idx] = newSig;
@@ -339,6 +341,7 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                     onChange: (val) => {
                                         const signalId = resolveSignalIdFromLabel(val);
                                         if (signalId) {
+                                            previewDerpSignalSourceNode(signalId);
                                             this.properties.selectedSignalId = signalId;
                                             this.addDerpOutput();
                                         }

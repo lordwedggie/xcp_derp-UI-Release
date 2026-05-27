@@ -81,6 +81,7 @@ import { lerpTo, animateAlpha, animateWidgetColors } from "../masterAnimator.js"
 import { getDerpVars } from "../../fatha/fatha.js";
 import { t } from "../../fatha/core/masterLayoutEngine.js";
 import { ensureScreenRectVisible } from "../../fatha/core/fathaWarp.js";
+import { isLinearDeckGroup } from "../../fatha/core/masterDockEngine.js";
 import { activeBastas } from "../../fatha/basta.js";
 import { showBastaSearchTab, closeBastaSearchTab, getBastaSearchTabId } from "../../fatha/bastas/bastaSearchTab.js";
 
@@ -1194,7 +1195,10 @@ function drawActiveFilePicker(ctx, node, app, config, scale) {
     const availableBelow = window.innerHeight - (anchorRect.top + anchorRect.height) - 8;
     const availableAbove = anchorRect.top - 8;
     const pickerHeightPx = state.currentSize[1] * scale;
-    const openUpward = AUTO_FLIP_DROPDOWN_BY_SPACE
+    const node = state.node;
+    const graph = node?.graph || window.app?.graph || null;
+    const inHorizontalDeck = isLinearDeckGroup(node, graph, "horizontal");
+    const openUpward = AUTO_FLIP_DROPDOWN_BY_SPACE || inHorizontalDeck
         ? (pickerHeightPx > availableBelow && availableAbove > availableBelow)
         : false;
 
