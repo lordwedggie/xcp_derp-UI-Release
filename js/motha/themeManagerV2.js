@@ -235,7 +235,7 @@ app.registerExtension({
                     },
                     dropdownPalette: {
                         type: UI_TYPES.FILEBROWSER,
-                        icon: "palette",
+                        icon: "dropdown",
                         themeKey: "dialog, t_textSmall", canvasShield: true,
                         width: "fit", height: "auto", minWidth: 120,
                         mode: "file",
@@ -243,7 +243,17 @@ app.registerExtension({
                         rootName: "palettes",
                         items: systemPaletteList,
                         value: selectedSystemPalette,
-                        padding: [pW, pH], spacing: [sW, 0]
+                        padding: [pW, pH], spacing: [sW, 0],
+                        onChange: (val) => {
+                            if (val === "None") {
+                                this.properties.systemPaletteName = "";
+                                if (this.themeToEdit) delete this.themeToEdit._palette;
+                            } else {
+                                this.properties.systemPaletteName = val;
+                            }
+                            this._layoutMapHash = "";
+                            this.requestDerpSync();
+                        }
                     },
                 },
                 previewRegion: {

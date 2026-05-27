@@ -109,8 +109,8 @@ const PICKER_SCROLLBAR_WIDTH = 6;
 const PICKER_SCROLLBAR_INSET = 2;
 const PICKER_SCROLLBAR_MIN_THUMB = 18;
 const OUTSIDE_DRAG_CLOSE_THRESHOLD_PX = 4;
-const PICKER_PREFIX_GAP_PX = 0;
-const PICKER_BREADCRUMB_PADDING = [4, 1];
+const PICKER_PREFIX_GAP_PX = 4;
+const PICKER_BREADCRUMB_PADDING = [4, 2];
 const PICKER_BREADCRUMB_TEXT_KEY = "t_textSystem";
 
 const DROPDOWN_ANIM_SETTINGS = {
@@ -346,7 +346,7 @@ function getFileRowPrefix(config, node, entry) {
         return { prefix: shouldShowFileBrowserIndicator(config) ? getFileBrowserGlyphs(config?.icon)[1] : null, prefixColor: null };
     }
     if (entry.type === "dir") return { prefix: BROWSER_ICONS.DIR, prefixColor: null };
-    if (config.fileType === "palette") return { prefix: BROWSER_ICONS.PALETTE, prefixColor: null };
+    if (config.fileType === "palette" && entry.path !== "None") return { prefix: BROWSER_ICONS.PALETTE, prefixColor: null };
 
     if (config.fileType === "lora") {
         const ratings = config.ratingsList || node?._loraRatings || {};
