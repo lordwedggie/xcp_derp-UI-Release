@@ -636,7 +636,7 @@ export function interpretLayoutProps(config, context = {}) {
             const allowWidgetShrink = typeLower.includes("simplebtn") && config.noShrink !== true;
 
 
-            if (innerW > 0 && !isWrapping && !isAutoW && (context.originalWidth > 20)) {
+            if (innerW > 0 && !isWrapping && !isAutoW && (context.originalWidth > 20) && !/\{\{/.test(contentString)) {
                 const targetW = isCutoff ? Math.max(0, clampW) : Math.max(0, innerW);
                 resolvedText = allowWidgetShrink
                     ? contentString

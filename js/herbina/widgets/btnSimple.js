@@ -80,7 +80,7 @@ export function syncBtnSimple(ctx, node, config) {
     }
 
     // 1. Resolve Text-Only state
-    const isTextOnly = config.themeKey && !config.themeKey.includes(",");
+    const isTextOnly = config.skipBackground || (config.themeKey && !config.themeKey.includes(","));
 
     // 2. Draw Checker Pattern BELOW background
     if (config.drawChecker && !isTextOnly) {
@@ -187,7 +187,7 @@ export function syncBtnSimpleHTML(element, node, app, config) {
     if (!coords) return;
     const scale = coords.scale;
 
-    const isTextOnly = config.themeKey && !config.themeKey.includes(",");
+    const isTextOnly = config.skipBackground || (config.themeKey && !config.themeKey.includes(","));
 
     // 1. Resolve Colors (Strict Theme Compliance)
     const rawBg = paintData?.fill || config.btnColor || (isTextOnly ? "transparent" : "red");

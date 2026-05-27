@@ -11,7 +11,7 @@ import { COMPONENT_BLUEPRINTS } from "./core/masterLayoutTypes.js";
 import { handleShieldInteraction, getDerpVars, handleThemeUpdate, handleDrawCTX } from "./core/fathaHandler.js";
 import { animateAlpha, lerpTo } from "../herbina/masterAnimator.js";
 import { masterPainterText } from "../herbina/masterPainter.js";
-import { resolvePaintData } from "../herbina/utils/widgetsUtils.js";
+import { resolvePaintData, parseColorKeyText } from "../herbina/utils/widgetsUtils.js";
 import { getBastaBaseMap } from "./helpers/bastaLayoutMaps.js";
 import { ensureScreenRectVisible, isWarping } from "./core/fathaWarp.js";
 
@@ -91,6 +91,11 @@ function drawAnimatedTooltipLabel(ctx, basta, region) {
     );
     ctx.clip();
 
+    const tipColor = rawTheme.textColor || rawTheme.fill || "rgba(180,180,180,0.6)";
+    const { segments: tipSegs, hasColorKeys: tipKeys } = parseColorKeyText(
+        text, basta, "_OFF", tipColor
+    );
+
     masterPainterText(ctx, {
         x: region.x + Math.round((Number(region.w) || 0) / 2),
         y: region.y + Math.round(region.h / 2) + Math.round(paddingY / 2),
@@ -99,10 +104,11 @@ function drawAnimatedTooltipLabel(ctx, basta, region) {
             ...rawTheme,
             fontSize,
             fontWeight,
-            fill: rawTheme.textColor || rawTheme.fill || "red"
+            fill: tipColor
         },
         align: "center",
-        baseline: "middle"
+        baseline: "middle",
+        segments: (tipKeys && tipSegs) ? tipSegs : null
     });
     ctx.restore();
     return true;

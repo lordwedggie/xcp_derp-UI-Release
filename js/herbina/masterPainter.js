@@ -402,6 +402,7 @@ export function masterPainterText(ctx, options) {
         if (align === "center") cursorX = x - totalWidth / 2;
         else if (align === "right") cursorX = x - totalWidth;
         else cursorX = x;
+        ctx.textAlign = "left";
         for (const seg of segments) {
             const segWidth = ctx.measureText(seg.text).width;
             if (seg.color) {

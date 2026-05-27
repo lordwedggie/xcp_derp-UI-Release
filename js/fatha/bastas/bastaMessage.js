@@ -3,7 +3,7 @@
  */
 import { spawnBasta, activeBastas } from "../basta.js";
 import { UI_TYPES } from "../core/masterLayoutTypes.js";
-import { measureTextWidth, resolvePaintData } from "../../herbina/utils/widgetsUtils.js";
+import { measureTextWidth, resolvePaintData, parseColorKeyText } from "../../herbina/utils/widgetsUtils.js";
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
 
 export const TOOLTIP_EXPAND_START_WIDTH = 1;
@@ -57,6 +57,8 @@ export function showBastaMessage(host, text, duration = 3000, animations = {}, t
         || host._t_textSystemPaintData_OFF
         || host._t_textsystemPaintData_OFF;
     const tooltipLabelFallback = sysTextPaint?.textColor || sysTextPaint?.fill || "rgba(180,180,180,0.6)";
+    // Pre-parse tooltip text for color keys so the widget doesn't need to
+    const tooltipParsed = isTooltipMessage ? parseColorKeyText(String(text || ""), host, "_OFF", tooltipLabelFallback) : null;
     const BASTA_HEADER_H = 20;
 
     let initialW = 50;
@@ -65,7 +67,12 @@ export function showBastaMessage(host, text, duration = 3000, animations = {}, t
     } else {
         const fontName = (fontData.font || "arial").replace(/[0-9]+px/ig, "").trim();
         const fontWeight = fontData.fontWeight || "normal";
-        initialW = Math.ceil(measureTextWidth(text, fontSize, fontName, fontWeight)) + (pW * 2) + 10;
+        if (isTooltipMessage && tooltipParsed?.segments) {
+            const displayText = tooltipParsed.segments.map(s => s.text).join("");
+            initialW = Math.ceil(measureTextWidth(displayText, fontSize, fontName, fontWeight)) + (pW * 2) + 10;
+        } else {
+            initialW = Math.ceil(measureTextWidth(text, fontSize, fontName, fontWeight)) + (pW * 2) + 10;
+        }
     }
 
     const initialH = fontSize + (pH * 2) + (drawHeader ? BASTA_HEADER_H : 0) + (mH * 2);

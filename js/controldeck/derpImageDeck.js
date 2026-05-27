@@ -837,6 +837,7 @@ app.registerExtension({
                             spacing: [sW, 0], padding: [pW, pH],
                             mouseOver: true,
                             state: "OFF",
+                            toolTip: `Selects {{t_toolTip_highlight::Folder Path}} where the image will be saved to disk`,
                             onPress: () => {
                                 fetch("/xcp/list/output")
                                     .then(async (r) => {
