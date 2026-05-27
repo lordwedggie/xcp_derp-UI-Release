@@ -67,7 +67,7 @@ import {
     resolvePaintData,
     resolveInterpolatedPaint
 } from "../utils/widgetsUtils.js";
-import { animateWidgetColors } from "../masterAnimator.js";
+import { animateWidgetColors, lerpTo } from "../masterAnimator.js";
 
 // Import the HTML painter logic for the compatibility proxy
 import { syncDerpSliderHTML as syncHTML } from "./widget_SliderHTML.js";
@@ -75,6 +75,7 @@ import { syncDerpSliderHTML as syncHTML } from "./widget_SliderHTML.js";
 var BTN_LR_RATIO = 0.75;
 var BTN_LR_FONTSIZE = 6;
 var BTN_LR_MARGIN = 1;
+var SLIDER_POS_LERP = 0.07;  // knob position lerp speed on track click
 
 /**
  * Default properties for the Slider widget.
@@ -171,7 +172,7 @@ export function syncDerpSliderCanvas(ctx, node, config) {
     const value = parseFloat(config.value) || 0;
     const min = config.min ?? 0;
     const max = config.max ?? 1;
-    const percent = Math.max(0, Math.min(1, (value - min) / (max - min)));
+    const targetPercent = Math.max(0, Math.min(1, (value - min) / (max - min)));
 
     const ins = props.fillPadding || [0, 0, 0, 0];
     const fullFillH = Math.max(0, h - ins[0] - ins[2]);
@@ -188,16 +189,6 @@ export function syncDerpSliderCanvas(ctx, node, config) {
     const btnW = config.btnLR ? Math.round(fullFillH * BTN_LR_RATIO) : 0;
     const btnMargin = BTN_LR_MARGIN;
 
-    // THE FILL STRENGTH FIX: If active, interpolate between states based on value.
-    const fillKey = props.fillKey || props.bodyKey;
-    const fillSuffix = props.fillKey ? "_OFF" : "_ON";
-
-    const activeData = (stateStr === "DIS") ? paintData : (
-        props.fillStrength ?
-            resolveInterpolatedPaint(node, fillKey, percent, config.btnColor, config.palette) :
-            (resolvePaintData(node, fillKey, fillSuffix, config.btnColor) || paintData)
-    );
-
     // Drag state: handler sets/clears _isDraggingSlider on dragStart/dragEnd
     // Fall back to value-change detection (2s window) if handler isn't called for track drags
     const curVal = parseFloat(config.value ?? 0);
@@ -209,6 +200,26 @@ export function syncDerpSliderCanvas(ctx, node, config) {
     const isDraggingSlider = (stateStr === "ON")
         || config._isDraggingSlider
         || (config._sliderLastChange && performance.now() - config._sliderLastChange < 2000);
+    // Lerp knob into position on click (not during drag)
+    const svpKey = "_svp_" + (config.key || "0");
+    const prevVis = node[svpKey] !== undefined ? node[svpKey] : targetPercent;
+    const doLerp = useAnim && !isDraggingSlider;
+    const visPercent = doLerp ? (prevVis + (targetPercent - prevVis) * SLIDER_POS_LERP) : targetPercent;
+    node[svpKey] = visPercent;
+    if (doLerp && Math.abs(visPercent - targetPercent) > 0.001) {
+        node._derpAwakeFrames = Math.max(node._derpAwakeFrames || 0, 3);
+    }
+    const percent = isDraggingSlider ? targetPercent : visPercent;
+
+    // THE FILL STRENGTH FIX: If active, interpolate between states based on value.
+    const fillKey = props.fillKey || props.bodyKey;
+    const fillSuffix = props.fillKey ? "_OFF" : "_ON";
+    const activeData = (stateStr === "DIS") ? paintData : (
+        props.fillStrength ?
+            resolveInterpolatedPaint(node, fillKey, percent, config.btnColor, config.palette) :
+            (resolvePaintData(node, fillKey, fillSuffix, config.btnColor) || paintData)
+    );
+
     const knobSuffix = (stateStr === "DIS") ? "_DIS" : (isDraggingSlider ? "_ON" : "_OFF");
     const knobData = (style === "knob")
         ? (resolvePaintData(node, fillKey, knobSuffix, config.btnColor) || paintData)
