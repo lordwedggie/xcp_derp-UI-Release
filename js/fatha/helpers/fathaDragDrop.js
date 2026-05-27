@@ -21,6 +21,9 @@ function activateStackDrag(node) {
     }
 
     node._dragThresholdMet = true;
+    if (!Number.isInteger(node._dropPreviewIdx) && Number.isInteger(node._dragTrig?.index)) {
+        node._dropPreviewIdx = node._dragTrig.index;
+    }
     if (node._dragTrig?.regionKey) node._pressedRegionKey = node._dragTrig.regionKey;
     if (window.DERP_GLOBAL_SETTINGS?.playSound && SOUND_INDEX.pickup) SOUND_INDEX.pickup();
     if (node.refreshNodeLayoutMap) node.refreshNodeLayoutMap();
