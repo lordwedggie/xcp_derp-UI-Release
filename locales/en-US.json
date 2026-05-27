@@ -254,6 +254,9 @@
       "folder_list_failed_status_prefix": "Folder list failed (",
       "no_output_subfolders": "No output subfolders found",
       "folder_list_request_failed": "Folder list request failed"
+    },
+    "tooltips": {
+      "folder_selector": "Selects {{t_toolTip_highlight::Folder Path}} where the image will be saved to disk"
     }
   },
   "derp_lora_stack": {

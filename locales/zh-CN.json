@@ -254,6 +254,9 @@
       "folder_list_failed_status_prefix": "文件夹列表加载失败（",
       "no_output_subfolders": "未找到输出子文件夹",
       "folder_list_request_failed": "文件夹列表请求失败"
+    },
+    "tooltips": {
+      "folder_selector": "选择 {{t_toolTip_highlight::文件夹路径}} 图像将保存到磁盘的位置"
     }
   },
   "derp_lora_stack": {
