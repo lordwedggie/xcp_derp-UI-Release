@@ -7,7 +7,7 @@
 import { spawnBasta } from "../basta.js";
 import { UI_TYPES } from "../core/masterLayoutTypes.js";
 import { showBastaColorDesigner } from "./bastaColorDesigner.js";
-import { showBastaMessage } from "./bastaMessage.js";
+import { showBastaSystemMessage } from "./bastaSystemMessage.js";
 import { showBastaFileHandler } from "./bastaFileHandler.js";
 import { getPulsedColor, parseColor } from "../../herbina/masterAnimator.js";
 import { resolvePaintData } from "../../herbina/utils/widgetsUtils.js";
@@ -156,7 +156,7 @@ async function refreshPaletteFileList(basta, options = {}) {
         applyPaletteFileList(basta, data.items, options);
     } catch (e) {
         console.error("[Palette Manager] Palette List Error:", e);
-        if (options.showError) showBastaMessage(basta, "Palette List Error", 3000, { width: 250 }, options.anchor || false, false, "error");
+        if (options.showError) showBastaSystemMessage(basta, "Palette List Error", 3000, { width: 250 }, options.anchor || false, "error", null, "");
     }
 }
 
@@ -295,6 +295,39 @@ export function showBastaPalette(host, targetRegion = null) {
 
             contentRegions.paletteHandling = {
                 dir: "row", width: "full", height: "auto", margin: [0, mH], spacing: [sW, 0],
+                btnNewFile: { type: UI_TYPES.ICONBUTTON, themeKey: "button, t_textNormal",
+                    icon: "new", width: "match", height: "auto", spacing: [sW, 0],
+                    state: "OFF",
+                    onPress: () => showBastaFileHandler(basta, "palettes", "btnNewFile", {
+                        title: "New Palette File",
+                        message: "Enter name for new palette:",
+                        confirm: "Create",
+                        warning: "File already exists!",
+                        mode: "new",
+                        originalName: "",
+                        onConfirm: async (newName) => {
+                            try {
+                                const res = await fetch(`/xcp/save/palettes`, {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({
+                                        name: newName,
+                                        data: { effects: false, palettes: [] }
+                                    })
+                                });
+                                if (res.ok) {
+                                    showBastaSystemMessage(basta, "Palette Created: ", 3000, { fade: true, grow: true }, "btnNewFile", "success", null, newName);
+                                    refreshPaletteFileList(basta, { showError: true, anchor: "btnNewFile" });
+                                } else {
+                                    showBastaSystemMessage(basta, "Palette Create Failed", 3000, { width: 250 }, "btnNewFile", "error", null, "");
+                                }
+                            } catch (e) {
+                                console.error("[Palette Manager] Create File Error:", e);
+                                showBastaSystemMessage(basta, "Server Error", 3000, { width: 250 }, "btnNewFile", "error", null, "");
+                            }
+                        }
+                    })
+                },
                 btnRename: { type: UI_TYPES.ICONBUTTON, themeKey: "button, t_textNormal",
                     icon: "rename", width: "match", height: "auto", spacing: [sW, 0], 
                     state: hasFile ? "OFF" : "DIS",
@@ -361,11 +394,18 @@ export function showBastaPalette(host, targetRegion = null) {
                             basta._lastFileHash = getPaletteHash(basta._availablePalettes, basta.properties.includeEffectKeys);
                             basta._paletteDirty = false;
 
-                            basta.properties.activePaletteId = null;
-                            basta._selectedPaletteEntry = null;
+                            // THE AUTO-SELECT: Jump to the first entry so the preview region populates immediately
+                            if (basta._availablePalettes.length > 0) {
+                                const firstEntry = basta._availablePalettes[0];
+                                basta.properties.activePaletteId = firstEntry.id;
+                                basta._selectedPaletteEntry = firstEntry;
+                            } else {
+                                basta.properties.activePaletteId = null;
+                                basta._selectedPaletteEntry = null;
+                            }
                         } catch (e) {
                             console.error("[Palette Manager] Collection Load Error:", e);
-                            showBastaMessage(basta, "Load Failed", 3000, { width: 250 }, "browserPalette", false, "error");
+                            showBastaSystemMessage(basta, "Palette Load Failed", 3000, { width: 250 }, "browserPalette", "error", null, "");
                         }
                         refreshPaletteLayout(basta);
                     },
@@ -391,11 +431,11 @@ export function showBastaPalette(host, targetRegion = null) {
                                     if (res.ok) {
                                         if (basta.onDeleteSuccess) basta.onDeleteSuccess(nameToDelete);
                                     } else {
-                                        showBastaMessage(basta, "Delete Failed", 3000, { width: 250 }, "btnDelete", false, "error");
+                                        showBastaSystemMessage(basta, "Palette Delete Failed", 3000, { width: 250 }, "btnDelete", "error", null, "");
                                     }
                                 } catch (e) {
                                     console.error("[Palette Manager] Delete Error:", e);
-                                    showBastaMessage(basta, "Server Error", 3000, { width: 250 }, "btnDelete", false, "error");
+                                    showBastaSystemMessage(basta, "Server Error", 3000, { width: 250 }, "btnDelete", "error", null, "");
                                 }
                             }
                         });
@@ -413,6 +453,40 @@ export function showBastaPalette(host, targetRegion = null) {
 
             contentRegions.keysHandling = {
                 dir: "row", width: "full", height: "auto", margin: [0, mH], spacing: [sW, 0],
+                btnNewKey: { type: UI_TYPES.ICONBUTTON, themeKey: "button, t_textNormal",
+                    icon: "new", width: "match", height: "auto", spacing: [sW, 0],
+                    state: hasFile ? "OFF" : "DIS",
+                    onPress: () => showBastaFileHandler(basta, "none", "btnNewKey", {
+                        title: "New Entry",
+                        message: "Enter name for new color key entry:",
+                        confirm: "Create",
+                        warning: "Entry name already exists!",
+                        mode: "new",
+                        originalName: "",
+                        fileList: (basta._availablePalettes || []).map(p => p.name),
+                        onConfirm: async (newName) => {
+                            const maxId = Math.max(0, ...(basta._availablePalettes || []).map(p => parseInt(p.id) || 0));
+                            const newEntry = {
+                                id: maxId + 1,
+                                name: newName,
+                                entries: {
+                                    main: { _ON: [255, 255, 255, 1], _OFF: [128, 128, 128, 1], _DIS: [64, 64, 64, 1] },
+                                    shadow: JSON.parse(JSON.stringify(DEFAULT_SHADOW)),
+                                    stroke: JSON.parse(JSON.stringify(DEFAULT_STROKE)),
+                                    glow: JSON.parse(JSON.stringify(DEFAULT_GLOW))
+                                },
+                                showShadow: false,
+                                showStroke: false,
+                                showGlow: false
+                            };
+                            basta._availablePalettes.push(newEntry);
+                            basta.properties.activePaletteId = newEntry.id;
+                            basta._selectedPaletteEntry = newEntry;
+                            showBastaSystemMessage(basta, "Entry Created: ", 3000, { fade: true, grow: true }, "btnNewKey", "success", null, newName);
+                            markPaletteDirty(basta);
+                        }
+                    })
+                },
                 btnRenameKey: { type: UI_TYPES.ICONBUTTON, themeKey: "button, t_textNormal",
                     icon: "rename", width: "match", height: "auto", spacing: [sW, 0],
                     state: (hasFile && basta.properties.activePaletteId) ? "OFF" : "DIS",
@@ -424,7 +498,7 @@ export function showBastaPalette(host, targetRegion = null) {
                         onConfirm: async (newName) => {
                             if (currentPal) {
                                 currentPal.name = newName;
-                                showBastaMessage(basta, `Entry Renamed: ${newName}`, 3000, { fade: true, grow: true }, "btnRenameKey", false, "success");
+                                showBastaSystemMessage(basta, "Entry Renamed: ", 3000, { fade: true, grow: true }, "btnRenameKey", "success", null, newName);
                                 markPaletteDirty(basta);
                             }
                         }
@@ -449,7 +523,7 @@ export function showBastaPalette(host, targetRegion = null) {
                                 basta._availablePalettes.push(newEntry);
                                 basta.properties.activePaletteId = newEntry.id;
                                 basta._selectedPaletteEntry = newEntry;
-                                showBastaMessage(basta, `Entry Duplicated: ${newName}`, 3000, { fade: true, grow: true }, "btnCopyKey", false, "success");
+                                showBastaSystemMessage(basta, "Entry Duplicated: ", 3000, { fade: true, grow: true }, "btnCopyKey", "warning", null, newName);
                                 markPaletteDirty(basta);
                             }
                         }
@@ -496,14 +570,14 @@ export function showBastaPalette(host, targetRegion = null) {
                             if (res.ok) {
                                 basta._lastFileHash = getPaletteHash(basta._availablePalettes, basta.properties.includeEffectKeys);
                                 basta._paletteDirty = false;
-                                showBastaMessage(basta, `Collection Saved`, 3000, { fade: true, grow: true }, "btnSaveKey", false, "success");
+                                showBastaSystemMessage(basta, "Palette Saved: ", 3000, { fade: true, grow: true }, "btnSaveKey", "warning", null, String(basta.properties.activePaletteName || "").split(/[\\/]/).pop().replace(/\.json$/i, ""));
                                 refreshPaletteLayout(basta);
                             } else {
-                                showBastaMessage(basta, "Save Failed", 3000, { fade: true, grow: true }, "btnSaveKey", false, "error");
+                                showBastaSystemMessage(basta, "Palette Save Failed", 3000, { fade: true, grow: true }, "btnSaveKey", "error", null, "");
                             }
                         } catch (e) {
                             console.error(e);
-                            showBastaMessage(basta, "Save Error", 3000, { fade: true, grow: true }, "btnSaveKey", false, "error");
+                            showBastaSystemMessage(basta, "Palette Save Error", 3000, { fade: true, grow: true }, "btnSaveKey", "error", null, "");
                         }
                     }
                 },
@@ -542,7 +616,7 @@ export function showBastaPalette(host, targetRegion = null) {
                                 basta._availablePalettes = basta._availablePalettes.filter(p => p.id !== currentPal.id);
                                 basta.properties.activePaletteId = null;
                                 basta._selectedPaletteEntry = null;
-                                showBastaMessage(basta, "Entry Deleted", 3000, { fade: true, grow: true }, "btnDeleteKey", false, "success");
+                                showBastaSystemMessage(basta, "Entry Deleted: ", 3000, { fade: true, grow: true }, "btnDeleteKey", "critical", null, currentPal.name);
                                 markPaletteDirty(basta);
                             }
                         }
@@ -681,17 +755,17 @@ export function showBastaPalette(host, targetRegion = null) {
 
     // THE SUCCESS FEEDBACK: Handle UI updates and messaging after a successful file rename
     bastaInstance.onRenameSuccess = (newName) => {
-        showBastaMessage(bastaInstance, `Renamed to: ${newName}`, 3000, { fade: true, grow: true }, "btnRename", false, "success");
+        showBastaSystemMessage(bastaInstance, "Palette Renamed: ", 3000, { fade: true, grow: true }, "btnRename", "success", null, newName);
         refreshPaletteFileList(bastaInstance, { showError: true, anchor: "btnRename" });
     };
 
     bastaInstance.onDuplicateSuccess = (newName) => {
-        showBastaMessage(bastaInstance, `Duplicated to: ${newName}`, 3000, { fade: true, grow: true }, "btnCopy", false, "success");
+        showBastaSystemMessage(bastaInstance, "Palette Duplicated: ", 3000, { fade: true, grow: true }, "btnCopy", "warning", null, newName);
         refreshPaletteFileList(bastaInstance, { showError: true, anchor: "btnCopy" });
     };
 
     bastaInstance.onDeleteSuccess = (deletedName) => {
-        showBastaMessage(bastaInstance, `Deleted: ${deletedName}`, 3000, { fade: true, grow: true }, "btnDelete", false, "success");
+        showBastaSystemMessage(bastaInstance, "Palette Deleted: ", 3000, { fade: true, grow: true }, "btnDelete", "critical", null, deletedName);
         if (normalizePaletteName(bastaInstance.properties.activePaletteName) === normalizePaletteName(deletedName)) {
             bastaInstance.properties.activePaletteName = "";
             bastaInstance.properties.activePaletteId = null;
