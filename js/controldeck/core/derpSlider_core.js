@@ -7,6 +7,28 @@ import { transmitDerpSignal } from "../../fatha/core/masterSignalEngine.js";
 var BTN_LR_RATIO = 0.75;
 var BTN_LR_FONTSIZE = 6;
 var BTN_LR_MARGIN = 1;
+var SLIDER_SIGNAL_POST_DEBOUNCE_MS = 250;
+var SLIDER_SIGNAL_OUT_REFRESH_DEBOUNCE_MS = 250;
+
+function debugSliderClick(node, payload) {
+    if (!window.__xcpSliderLerpDebug) return;
+    console.log("[xcp slider click]", {
+        nodeId: node?.id,
+        nodeType: node?.type,
+        ...payload,
+    });
+}
+
+function wakeSliderNode(node) {
+    if (!node) return;
+    node._derpAwakeFrames = Math.max(Number(node._derpAwakeFrames || 0), 5);
+    if (window.__xcpSliderLerpDebug && String(node?.type || "").toLowerCase().includes("derpslidernode")) {
+        node._xcpLastForceSyncReason = "derpSlider.wakeSliderNode.light";
+        node._xcpLastForceSyncTs = performance.now();
+    }
+    if (typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, true);
+    if (window.app?.canvas?.setDirty) window.app.canvas.setDirty(true, true);
+}
 
 function tLocale(key, fallback = key) {
     if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
@@ -27,6 +49,7 @@ export function setupDerpSliderCore(nodeType) {
     // --- WIRELESS SIGNAL PROTOCOL ---
     nodeType.prototype.broadcastWirelessSignal = function(dataArray) {
         if (!this.transmitDerpSignal || this.id === -1 || !Array.isArray(dataArray) || dataArray.length === 0) return;
+        if (!this._signalPostTimers) this._signalPostTimers = {};
 
         const isBypassed = this.mode === 4 || this.mode === 2 || this._derpSpoofedBypass;
 
@@ -63,13 +86,15 @@ export function setupDerpSliderCore(nodeType) {
                     timestamp: Date.now()
                 };
 
-                setTimeout(() => {
+                if (this._signalPostTimers[signalId]) clearTimeout(this._signalPostTimers[signalId]);
+                this._signalPostTimers[signalId] = setTimeout(() => {
+                    delete this._signalPostTimers[signalId];
                     fetch("/xcp/update_signal", {
                         method: "POST",
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ node_id: signalId, value: finalValue })
                     });
-                }, 50);
+                }, SLIDER_SIGNAL_POST_DEBOUNCE_MS);
             }
         });
 
@@ -86,9 +111,13 @@ export function setupDerpSliderCore(nodeType) {
 
         // 3. Notify Signal Out nodes to update their dropdown lists
         if (window.app?.graph) {
-            window.app.graph._nodes.forEach(n => {
-                if (n.type === "xcpDerpSignalOut" && n.updateReceivedSignals) n.updateReceivedSignals();
-            });
+            if (this._signalOutRefreshTimer) clearTimeout(this._signalOutRefreshTimer);
+            this._signalOutRefreshTimer = setTimeout(() => {
+                this._signalOutRefreshTimer = null;
+                window.app.graph._nodes.forEach(n => {
+                    if (n.type === "xcpDerpSignalOut" && n.updateReceivedSignals) n.updateReceivedSignals();
+                });
+            }, SLIDER_SIGNAL_OUT_REFRESH_DEBOUNCE_MS);
         }
     };
 
@@ -261,15 +290,19 @@ export function setupDerpSliderCore(nodeType) {
     // --- INTERACTION ---
     const baseHandleInteraction = nodeType.prototype.handleShieldInteraction;
     nodeType.prototype.handleShieldInteraction = function(type, data) {
+        const interactionStartTs = (type === "click" || type === "dblclick") ? performance.now() : 0;
         const sliderDragSessionActive =
             this._activeSliderIndex !== null && this._activeSliderIndex !== undefined;
 
         if (type === "resize") this._isDerpResizing = true;
+        if (type === "dragStart") this._sliderInteractionMoved = false;
+        if (type === "drag") this._sliderInteractionMoved = true;
         if (type === "dragEnd") {
             this._activeSliderIndex = null;
             this._isDerpResizing = false;
             // THE FINAL SYNC: Finalize the wireless signal and Python registry state upon mouse release.
-            if (this.syncDerpOutputs) this.syncDerpOutputs();
+            if (this._sliderInteractionMoved && this.syncDerpOutputs) this.syncDerpOutputs();
+            this._sliderInteractionMoved = false;
         }
 
         if (type === "hover" || type === "drag" || type === "dragStart" || type === "click" || type === "dblclick") {
@@ -353,9 +386,19 @@ export function setupDerpSliderCore(nodeType) {
                             this.properties.sliderContainer = dataArr;
                             if (this.updateDerpSliderVisualValue) this.updateDerpSliderVisualValue(targetIdx, cfg.value);
                             if (this.broadcastWirelessSignal) this.broadcastWirelessSignal(dataArr);
-                            if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
+                            if (type !== "click" && type !== "dblclick" && this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
                             this._shouldSync = true;
-                            this.setDirtyCanvas(true);
+                            wakeSliderNode(this);
+                            if (interactionStartTs) {
+                                debugSliderClick(this, {
+                                    event: "handled",
+                                    interactionType: type,
+                                    sliderIndex: targetIdx,
+                                    path: "btnLR",
+                                    value: cfg.value,
+                                    durationMs: Math.round(performance.now() - interactionStartTs),
+                                });
+                            }
                             if (type === "dragStart") this._btnLRHandledIdx = targetIdx;
                             return true;
                         }
@@ -415,16 +458,27 @@ export function setupDerpSliderCore(nodeType) {
                         this.properties.sliderContainer = dataArr;
 
                         if (this.updateDerpSliderVisualValue) this.updateDerpSliderVisualValue(targetIdx, config.value);
-
                         if (type !== "drag" && this.broadcastWirelessSignal) {
+                            this.broadcastWirelessSignal(dataArr);
+                        } else if (this.broadcastWirelessSignal) {
                             this.broadcastWirelessSignal(dataArr);
                         }
 
                         // During drag, keep the current component cache hot and defer structural sync until dragEnd.
-                        if (type !== "drag" && this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
+                        if (type !== "drag" && type !== "click" && type !== "dblclick" && this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
 
                         this._shouldSync = true;
-                        this.setDirtyCanvas(true);
+                        wakeSliderNode(this);
+                        if (interactionStartTs) {
+                            debugSliderClick(this, {
+                                event: "handled",
+                                interactionType: type,
+                                sliderIndex: targetIdx,
+                                path: config?.btnLR ? "track-fill" : "track",
+                                value: config.value,
+                                durationMs: Math.round(performance.now() - interactionStartTs),
+                            });
+                        }
                         return true;
                     } catch(e) {}
                 }

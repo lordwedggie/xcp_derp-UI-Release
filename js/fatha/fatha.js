@@ -446,6 +446,44 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
         const collapseStateChanged = this._prevContentCollapsed !== this.properties.contentCollapsed;
         if (this._layoutDirty) this._layoutDirty = false;
 
+        if (window.__xcpSliderLerpDebug && String(this?.type || "").toLowerCase().includes("derpslidernode") && this._sliderLerpDebugState) {
+            for (const state of Object.values(this._sliderLerpDebugState)) {
+                if (!state?.active) continue;
+                if (!Array.isArray(state.drawSamples)) state.drawSamples = [];
+                const forceReason = this._xcpLastForceSyncReason || "";
+                if (this._forceSync && forceReason && state._lastLoggedForceReason !== forceReason) {
+                    state._lastLoggedForceReason = forceReason;
+                    console.log("[xcp slider force]", {
+                        nodeId: this?.id,
+                        nodeType: this?.type,
+                        elapsedMs: Math.round(performance.now() - Number(state.startTs || 0)),
+                        reason: forceReason,
+                    });
+                }
+                if (state.drawSamples.length < 6) {
+                    state.drawSamples.push({
+                        draw: state.drawSamples.length + 1,
+                        elapsedMs: Math.round(performance.now() - Number(state.startTs || 0)),
+                        awakeFrames: Number(this._derpAwakeFrames || 0),
+                        shouldSync: !!this._shouldSync,
+                        forceSync: !!this._forceSync,
+                        forceSyncReason: this._xcpLastForceSyncReason || "",
+                    });
+                    if (state.drawSamples.length === 6) {
+                        const summary = state.drawSamples
+                            .map((sample) => `d${sample.draw}:${sample.elapsedMs}ms[a${sample.awakeFrames}|s${sample.shouldSync ? 1 : 0}|f${sample.forceSync ? 1 : 0}|r${sample.forceSyncReason || "-"}]`)
+                            .join(" | ");
+                        console.log("[xcp slider draw]", {
+                            nodeId: this?.id,
+                            nodeType: this?.type,
+                            summary,
+                            samples: state.drawSamples,
+                        });
+                    }
+                }
+            }
+        }
+
         if (this._prevContentCollapsed !== this.properties.contentCollapsed) {
             this._prevContentCollapsed = this.properties.contentCollapsed;
             if (this.layout) this.layout._lastCacheKey = "";

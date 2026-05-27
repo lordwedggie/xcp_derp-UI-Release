@@ -67,7 +67,7 @@ import {
     resolvePaintData,
     resolveInterpolatedPaint
 } from "../utils/widgetsUtils.js";
-import { animateWidgetColors, lerpTo } from "../masterAnimator.js";
+import { animateWidgetColors } from "../masterAnimator.js";
 
 // Import the HTML painter logic for the compatibility proxy
 import { syncDerpSliderHTML as syncHTML } from "./widget_SliderHTML.js";
@@ -75,7 +75,7 @@ import { syncDerpSliderHTML as syncHTML } from "./widget_SliderHTML.js";
 var BTN_LR_RATIO = 0.75;
 var BTN_LR_FONTSIZE = 6;
 var BTN_LR_MARGIN = 1;
-var SLIDER_POS_LERP = 0.07;  // knob position lerp speed on track click
+var SLIDER_POS_LERP = 0.1;  // knob position lerp speed on track click
 
 /**
  * Default properties for the Slider widget.
@@ -205,7 +205,9 @@ export function syncDerpSliderCanvas(ctx, node, config) {
     const doLerp = useAnim && !isDraggingSlider;
     const visPercent = doLerp ? (prevVis + (targetPercent - prevVis) * SLIDER_POS_LERP) : targetPercent;
     node[svpKey] = visPercent;
-    if (doLerp && Math.abs(visPercent - targetPercent) > 0.001) {
+    const lerpAnimating = doLerp && Math.abs(visPercent - targetPercent) > 0.001;
+
+    if (lerpAnimating) {
         node._derpAwakeFrames = Math.max(node._derpAwakeFrames || 0, 5);
         const typeName = String(node?.type || "").toLowerCase();
         if (typeName.includes("derplorastack")) {
@@ -215,6 +217,9 @@ export function syncDerpSliderCanvas(ctx, node, config) {
             );
             if (typeof node.requestDerpSync === "function") node.requestDerpSync();
             if (typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, true);
+        } else if (typeName.includes("derpslidernode")) {
+            if (typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, true);
+            if (window.app?.canvas?.setDirty) window.app.canvas.setDirty(true, true);
         } else if (typeof node.setDirtyCanvas === "function") {
             node.setDirtyCanvas(true);
         }

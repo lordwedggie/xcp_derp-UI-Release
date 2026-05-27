@@ -464,6 +464,10 @@ export function handleDerpRequestSync(entity) {
     if (app.canvas && entity._lastSyncFrame === app.canvas.frame) return;
     if (app.canvas) entity._lastSyncFrame = app.canvas.frame;
 
+    if (window.__xcpSliderLerpDebug && String(entity?.type || "").toLowerCase().includes("derpslidernode")) {
+        entity._xcpLastForceSyncReason = "handleDerpRequestSync";
+        entity._xcpLastForceSyncTs = performance.now();
+    }
     entity._forceSync = true;
     if (sysPanel.isVisible && sysPanel.hostNode?.id === entity.id) {
         sysPanel._layoutDirty = true;

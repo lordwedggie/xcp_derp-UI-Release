@@ -417,7 +417,13 @@ export function createDerpShield(node) {
         const isBasta = node?.properties?.bastaSingleton !== undefined || node?.properties?.bastaMovalbe !== undefined;
         node._uiHovered = true;
         node._derpAwakeFrames = 5;
-        if (!isBasta) node._forceSync = true;
+        if (!isBasta) {
+            if (window.__xcpSliderLerpDebug && String(node?.type || "").toLowerCase().includes("derpslidernode")) {
+                node._xcpLastForceSyncReason = "shield.mouseenter";
+                node._xcpLastForceSyncTs = performance.now();
+            }
+            node._forceSync = true;
+        }
         if (typeof node.requestDerpSync === "function") node.requestDerpSync();
         if (typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, true);
         if (window.app && window.app.canvas) window.app.canvas.setDirty(true, true);
@@ -443,7 +449,13 @@ export function createDerpShield(node) {
         if (shield) shield.style.cursor = "default";
 
         node._derpAwakeFrames = 5;
-        if (!isBasta) node._forceSync = true;
+        if (!isBasta) {
+            if (window.__xcpSliderLerpDebug && String(node?.type || "").toLowerCase().includes("derpslidernode")) {
+                node._xcpLastForceSyncReason = "shield.mouseleave";
+                node._xcpLastForceSyncTs = performance.now();
+            }
+            node._forceSync = true;
+        }
         if (typeof node.requestDerpSync === "function") node.requestDerpSync();
         if (typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, true);
         if (window.app && window.app.canvas) window.app.canvas.setDirty(true, true);
