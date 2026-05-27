@@ -81,7 +81,9 @@ export function startStackDrag(node, data, index, regionKey, options = {}) {
     node._dragTrig = {
         index,
         regionKey,
-        holdOnly: options?.holdOnly === true
+        // Default to hold-first activation for row/list DnD.
+        // Callers that truly want movement-armed drag must opt in with holdOnly: false.
+        holdOnly: options?.holdOnly !== false
     };
     node._dragMouse = [data.localX, data.localY];
     node._dragOffset = [data.localX - reg.x, data.localY - reg.y];
@@ -105,9 +107,20 @@ export function updateStackDrag(node, data, regionPrefix, itemCount) {
     if (!node._dragTrig) return;
 
     if (!node._dragThresholdMet) {
-        if (node._dragTrig?.holdOnly) return;
         const driftX = Math.abs(data.localX - node._dragMouse[0]);
         const driftY = Math.abs(data.localY - node._dragMouse[1]);
+        if (node._dragTrig?.holdOnly) {
+            // True click-and-hold: any meaningful pointer drift before the timer
+            // completes cancels hold activation for this press.
+            if (driftX > STACK_DRAG_HOLD_BOX_HALF || driftY > STACK_DRAG_HOLD_BOX_HALF) {
+                if (node._dragHoldTimer) {
+                    clearTimeout(node._dragHoldTimer);
+                    node._dragHoldTimer = null;
+                }
+                node._dragTrig.holdCancelled = true;
+            }
+            return;
+        }
         if (driftX > STACK_DRAG_HOLD_BOX_HALF || driftY > STACK_DRAG_HOLD_BOX_HALF) {
             activateStackDrag(node);
         }

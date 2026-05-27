@@ -107,6 +107,7 @@ export function createDerpShield(node) {
     let startMouseX = 0, startMouseY = 0;
     let isResizing = false;
     let longPressed = false, holdTimer = null;
+    let pendingNodeHoldDrag = false;
     let lastClickTime = 0; // THE FIX: Track manual double clicks
 
     // --- HELPERS ---
@@ -149,6 +150,7 @@ export function createDerpShield(node) {
         window.removeEventListener("pointerup", onWindowPointerUp);
         window.removeEventListener("pointercancel", onWindowPointerUp);
         if (holdTimer) clearTimeout(holdTimer);
+        pendingNodeHoldDrag = false;
         setVisualActive(false);
     };
 
@@ -190,6 +192,44 @@ export function createDerpShield(node) {
                 originalEvent: e
             });
             return;
+        }
+
+        // MODE 2.5: Node-local hold drag is armed, but not active yet.
+        // Keep feeding drag events into the node so helpers like stack DnD
+        // can advance their own hold/threshold logic without letting the
+        // canvas start panning underneath.
+        if (pendingNodeHoldDrag) {
+            const localPos = getLocalCoords(e);
+            const rect = shield.getBoundingClientRect();
+            node.handleShieldInteraction("drag", {
+                dx, dy,
+                x: e.clientX - rect.left,
+                y: e.clientY - rect.top,
+                localX: localPos.x,
+                localY: localPos.y,
+                originalEvent: e
+            });
+
+            if (node._dragThresholdMet) {
+                pendingNodeHoldDrag = false;
+                longPressed = true;
+                app.canvas.dragging_canvas = false;
+                setVisualActive(true);
+                return;
+            }
+
+            const holdWasCancelled = !!node._dragTrig?.holdOnly && !!node._dragTrig?.holdCancelled;
+            if (holdWasCancelled) {
+                pendingNodeHoldDrag = false;
+
+                // Hold-based DnD was invalidated by pointer movement, so this
+                // gesture should fall through to normal canvas pan/drag.
+                const canvasRect = app.canvas.canvas.getBoundingClientRect();
+                app.canvas.last_mouse = [e.clientX - canvasRect.left, e.clientY - canvasRect.top];
+                app.canvas.dragging_canvas = true;
+            } else {
+                return;
+            }
         }
 
         // MODE 3: PASS-THROUGH (Standard Canvas Drag)
@@ -366,8 +406,15 @@ export function createDerpShield(node) {
         if (app.canvas.bringToFront) app.canvas.bringToFront(node);
 
         if (handled) {
-            longPressed = true;
-            app.canvas.dragging_canvas = false;
+            const isPendingHoldDrag = !!node._dragTrig && !node._dragThresholdMet;
+            if (isPendingHoldDrag) {
+                pendingNodeHoldDrag = true;
+                longPressed = false;
+                app.canvas.dragging_canvas = false;
+            } else {
+                longPressed = true;
+                app.canvas.dragging_canvas = false;
+            }
         } else {
             // THE STICKY GRAB FIX: Read directly from the node's properties instead of a missing global config
             const isSticky = node.properties?.stickyDrag === true;
