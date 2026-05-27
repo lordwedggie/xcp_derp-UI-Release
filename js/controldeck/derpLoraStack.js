@@ -5,6 +5,7 @@
 import { app } from "../../../scripts/app.js";
 import { showBastaLoraDetail } from "../fatha/bastas/bastaLoraDetail.js";
 import { showBastaMessage } from "../fatha/bastas/bastaMessage.js";
+import { showBastaFileHandler } from "../fatha/bastas/bastaFileHandler.js";
 import { startStackDrag, updateStackDrag, endStackDrag } from "../fatha/helpers/fathaDragDrop.js";
 import {
     resolveRatingColor,
@@ -395,7 +396,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                 allowDragWhenDisabled: isBypassed,
                                 dragProxyKey: `loraRow_${i}`,
                                 grayscale: isBypassed, margin: [-mW * 2 + sW, 0, 0, 0],
-                                width: "match", height: "fill", spacing: [ sW , 0],
+                                width: "match", height: "fill", spacing: [ 4 , 0],
                                 toolTip: tLocale("$derp_lora_stack.tooltips.preview_image", "Click on the preview image for more Lora control options"),
                                 onDragStart: (e, data) => startStackDrag(this, data, i, `loraRow_${i}`),
                                 onDrag: (e, data) => { updateStackDrag(this, data, "loraRow_", stack.length); },
@@ -419,7 +420,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                             },
                             [`loraMiddle_${i}`]: {
                                 alpha: rowAlpha,
-                                dir: "col", width: "full", height: "auto", spacing: [0, sH], margin: [0, 0, 0, 0],
+                                dir: "col", width: "full", height: "auto", spacing: [0, sH], margin: [0, 0, -mW, 0],
                                 minWidth: 10,
                                 [`topRow_${i}`]: {
                                     alpha: rowAlpha,
@@ -457,15 +458,25 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                         playSound: "delete",
                                         state: "OFF",
                                         onPress: () => {
-                                            const bId = "basta_lora_detail_global_unique_id";
-                                            if (window.xcpActiveBastas?.has(bId)) window.xcpActiveBastas.get(bId).close();
-
-                                            const currentStack = [...this.properties.stackData];
-                                            currentStack.splice(i, 1);
-                                            this.properties.stackData = currentStack;
-                                            if (this.syncDerpOutputs) this.syncDerpOutputs();
-                                            this.refreshNodeLayoutMap();
-                                            if (this.syncLoraStackStructureHeight) this.syncLoraStackStructureHeight();
+                                            const loraName = this.properties.stackData[i]?.[0] || "";
+                                            const loraDisplay = loraName.split(/[\\/]/).pop().replace(/\.(safetensors|pt|ckpt)$/i, "");
+                                            showBastaFileHandler(this, "none", `btnRemoveTop_${i}`, {
+                                                title: tLocale("$derp_lora_stack.dialogs.remove_lora.title", "Remove LoRA"),
+                                                message: `${tLocale("$derp_lora_stack.dialogs.remove_lora.message_prefix", "Remove")} ${loraDisplay} ${tLocale("$derp_lora_stack.dialogs.remove_lora.message_suffix", "from stack?")}`,
+                                                confirm: tLocale("$derp_lora_stack.dialogs.remove_lora.confirm", "Remove"),
+                                                mode: "delete",
+                                                playSound: "delete",
+                                                onConfirm: () => {
+                                                    const bId = "basta_lora_detail_global_unique_id";
+                                                    if (window.xcpActiveBastas?.has(bId)) window.xcpActiveBastas.get(bId).close();
+                                                    const currentStack = [...this.properties.stackData];
+                                                    currentStack.splice(i, 1);
+                                                    this.properties.stackData = currentStack;
+                                                    if (this.syncDerpOutputs) this.syncDerpOutputs();
+                                                    this.refreshNodeLayoutMap();
+                                                    if (this.syncLoraStackStructureHeight) this.syncLoraStackStructureHeight();
+                                                }
+                                            });
                                         }
                                     }
                                 },
@@ -519,15 +530,25 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                         playSound: "delete",
                                         state: "OFF",
                                         onPress: () => {
-                                            const bId = "basta_lora_detail_global_unique_id";
-                                            if (window.xcpActiveBastas?.has(bId)) window.xcpActiveBastas.get(bId).close();
-
-                                            const currentStack = [...this.properties.stackData];
-                                            currentStack.splice(i, 1);
-                                            this.properties.stackData = currentStack;
-                                            if (this.syncDerpOutputs) this.syncDerpOutputs();
-                                            this.refreshNodeLayoutMap();
-                                            if (this.syncLoraStackStructureHeight) this.syncLoraStackStructureHeight();
+                                            const loraName = this.properties.stackData[i]?.[0] || "";
+                                            const loraDisplay = loraName.split(/[\\/]/).pop().replace(/\.(safetensors|pt|ckpt)$/i, "");
+                                            showBastaFileHandler(this, "none", `btnRemoveSlider_${i}`, {
+                                                title: tLocale("$derp_lora_stack.dialogs.remove_lora.title", "Remove LoRA"),
+                                                message: `${tLocale("$derp_lora_stack.dialogs.remove_lora.message_prefix", "Remove")} ${loraDisplay} ${tLocale("$derp_lora_stack.dialogs.remove_lora.message_suffix", "from stack?")}`,
+                                                confirm: tLocale("$derp_lora_stack.dialogs.remove_lora.confirm", "Remove"),
+                                                mode: "delete",
+                                                playSound: "delete",
+                                                onConfirm: () => {
+                                                    const bId = "basta_lora_detail_global_unique_id";
+                                                    if (window.xcpActiveBastas?.has(bId)) window.xcpActiveBastas.get(bId).close();
+                                                    const currentStack = [...this.properties.stackData];
+                                                    currentStack.splice(i, 1);
+                                                    this.properties.stackData = currentStack;
+                                                    if (this.syncDerpOutputs) this.syncDerpOutputs();
+                                                    this.refreshNodeLayoutMap();
+                                                    if (this.syncLoraStackStructureHeight) this.syncLoraStackStructureHeight();
+                                                }
+                                            });
                                         }
                                     }
                                 },
@@ -564,7 +585,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                     }
                                 },
                                 [`triggerRow_${i}`]: {
-                                    dir: "row", width: "full", height: "auto", spacing: [sW, 0], alpha: rowAlpha, margin: [0, 0, 0, 0],
+                                    dir: "row", width: "full", height: "auto", spacing: [sW, 0], alpha: rowAlpha, margin: [0, 0, -mW + sW, 0],
                                     [`dropTrigger_${i}`]: {
                                         type: this.UI_TYPES.FILEBROWSER,
                                         icon: "dropdown",
@@ -604,7 +625,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                     [`toggleFuseQKV_${i}`]: {
                                         hidden: nameDisplay !== "Top" || this.properties.attentionMode !== "Joint-Attention",
                                         type: this.UI_TYPES.TOGGLE_V2, themeKey: "panel, button, t_textSmall",
-                                        label: tLocale("$derp_lora_stack.fuse_qkv", "Fuse QKV"), icon: "ring", width: "auto", height: "match", padding: [pW, pH], spacing: [0, 0], margin: [0, 0, -mH * 2, 0],
+                                        label: tLocale("$derp_lora_stack.fuse_qkv", "Fuse QKV"), icon: "ring", width: "auto", height: "match", padding: [pW, pH], spacing: [0, 0], margin: [0, 0, -mH, 0],
                                         isTextOnly: true, mouseOver: false, alpha: rowAlpha,
                                         state: (i === this._activeDetailSlot) ? "ON" : (isBypassed ? "DIS" : "OFF"),
                                         toolTip: tLocale("$derp_lora_stack.tooltips.fuse_qkv", "{{t_toolTip_highlight::ZIT}} lora patch, may (or may not) fix undesired results or improve the output. Made by {{t_toolTip_Accent::Capitan01R@civitai.com}}"),

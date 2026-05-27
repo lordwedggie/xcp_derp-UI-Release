@@ -275,6 +275,14 @@
       "add": "将 LoRA 添加到堆栈...",
       "refresh": "刷新"
     },
+    "dialogs": {
+      "remove_lora": {
+        "title": "移除 LoRA",
+        "message_prefix": "移除",
+        "message_suffix": "从堆栈中？",
+        "confirm": "移除"
+      }
+    },
     "trigger": {
       "none": "无",
       "select": "选择触发词..."

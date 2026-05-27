@@ -1081,9 +1081,10 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
                 // so position is correct before first hover interaction.
                 if (!this._externalReady) {
                     const navH = this.layout?.regions?.imageHandlingRegion?.h || 0;
-                    if (navH > 5) {
+                    const previewH = this.layout?.regions?.loraPreview?.h || 0;
+                    if (navH > 5 || previewH > 5) {
                         this._externalReady = true;
-                        this._navH = navH;
+                        this._navH = navH > 5 ? navH : 0;
                         markBLDDirty(this, true);
                         this._layoutDirty = true;
                         this._forceSync = true;

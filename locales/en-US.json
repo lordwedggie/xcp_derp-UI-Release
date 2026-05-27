@@ -275,6 +275,14 @@
       "add": "Add Lora to Stack...",
       "refresh": "Refresh"
     },
+    "dialogs": {
+      "remove_lora": {
+        "title": "Remove LoRA",
+        "message_prefix": "Remove",
+        "message_suffix": "from stack?",
+        "confirm": "Remove"
+      }
+    },
     "trigger": {
       "none": "None",
       "select": "Select Trigger..."

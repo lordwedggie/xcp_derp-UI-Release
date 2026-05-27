@@ -85,7 +85,7 @@ import { activeBastas } from "../../fatha/basta.js";
 import { showBastaSearchTab, closeBastaSearchTab, getBastaSearchTabId } from "../../fatha/bastas/bastaSearchTab.js";
 
 const FILEBROWSER_ICON_MAP = {
-    folder: ["📁", "📂"],
+    folder: ["🗀", "🗁"],
     dropdown: ["▶", "▼"],
     palette: ["❖", "❖"],
     file: ["🖺", "🖺"],
@@ -94,7 +94,7 @@ const FILEBROWSER_ICON_MAP = {
 };
 
 const BROWSER_ICONS = {
-    DIR: "📁 ",
+    DIR: "🗀 ",
     FILE: "🖺 ",
     PALETTE: "❖ ",
     LORA: "🖺 ",
