@@ -258,6 +258,34 @@ export const getVirtualNodeLayoutMap = (node) => {
         ? Number(p.footerGapHeight)
         : (suppressHiddenHeaderDockGap ? 0 : oY);
     const titleVisible = isVerticalDocked || p.contentCollapsed || p.drawHeader !== false;
+    const focusTitleEditor = (reg, data) => {
+        const paintData = resolvePaintData(node, "t_textBig");
+        const fontSize = paintData?.fontSize || 14;
+        const font = paintData?.font || "arial";
+        const textW = measureTextWidth(node.titleLabel || "Virtual Node", fontSize, font, paintData?.fontWeight || "normal");
+        const startX = reg.x + pW;
+
+        if (data?.localX < startX || data?.localX > startX + textW) return false;
+
+        const el = node._derpDomElements?.titleLabel;
+        if (!el) return false;
+        el._isAwake = true;
+        el.style.pointerEvents = "auto";
+        el.style.opacity = "1";
+        el.focus();
+        requestAnimationFrame(() => {
+            if (document.activeElement !== el) el.focus();
+            const sel = window.getSelection?.();
+            if (!sel) return;
+            try {
+                const range = document.createRange();
+                range.selectNodeContents(el);
+                sel.removeAllRanges();
+                sel.addRange(range);
+            } catch (_) {}
+        });
+        return true;
+    };
     return {
         headerRegion: {
             dir: "col", width: "full", height: "auto",
@@ -297,24 +325,10 @@ export const getVirtualNodeLayoutMap = (node) => {
                     toolTip: tLocale("$fatha_layout.tooltips.title_label", "Double-click to rename. Also used as the signal source name in Derp Router"),
                     text: node.titleLabel || "Virtual Node",
                     noDragLock: true, spacing: [sW, 0],
-                    onPress: () => false,
-                    onClick: () => false,
+                    onPress: (e, data) => focusTitleEditor(data?.reg || node.layout?.regions?.titleLabel, data),
+                    onClick: (e, reg, data) => focusTitleEditor(reg, data),
                     onDblClick: (e, reg, data) => {
-                        const paintData = resolvePaintData(node, "t_textBig");
-                        const fontSize = paintData?.fontSize || 14;
-                        const font = paintData?.font || "arial";
-                        const textW = measureTextWidth(node.titleLabel || "Virtual Node", fontSize, font, paintData?.fontWeight || "normal");
-                        const startX = reg.x + pW;
-
-                        if (data.localX < startX || data.localX > startX + textW) return;
-
-                        const el = node._derpDomElements?.titleLabel;
-                        if (el) {
-                            el._isAwake = true;
-                            el.style.pointerEvents = "auto";
-                            el.style.opacity = "1";
-                            el.focus();
-                        }
+                        focusTitleEditor(reg, data);
                     },
                     onBlur: (newVal) => {
                         if (newVal !== undefined) {

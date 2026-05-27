@@ -51,8 +51,9 @@ const ICON_MAP = {
     delete: "✕️",
     new: "🗋",
     copy: "❐",
-    rename: "✎",
+    rename: "✎", // 🖌
     revert: "↺",
+    refresh: "⟲",
     save: "🖫",
     trash: "⊝",
     close: "✕",

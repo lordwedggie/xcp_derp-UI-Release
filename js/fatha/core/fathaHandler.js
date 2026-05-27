@@ -695,6 +695,7 @@ function handleHeaderRenameDblClick(entity, localMouse) {
     }
 
     const currentTitle = entity.titleLabel || entity.type || "Node";
+
     const newTitle = prompt("Rename Node:", currentTitle);
 
     if (newTitle !== null && newTitle !== currentTitle) {
@@ -709,6 +710,7 @@ function handleHeaderRenameDblClick(entity, localMouse) {
         entity.setDirtyCanvas(true, true);
         if (app.graph && app.graph.change) app.graph.change();
     }
+
     return true;
 }
 
