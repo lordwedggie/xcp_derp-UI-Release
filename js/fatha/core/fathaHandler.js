@@ -161,8 +161,7 @@ function scheduleTooltip(entity, regionKey, tooltipText) {
         closeBastaMessage(host, regionKey, "tooltip-refresh");
         const basta = showBastaMessage(host, tooltipText, TOOLTIP_DURATION_MS, {
             fade: true,
-            backgroundThemeKey: "systemBackground",
-            textThemeKey: "t_textSystem",
+            textThemeKey: "background, t_toolTip_normal",
             tooltipExpand: true
         }, regionKey, false, "info", false);
         if (!basta) return;

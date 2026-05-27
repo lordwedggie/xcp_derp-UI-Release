@@ -343,12 +343,39 @@ export function resolvePaintData(node, key, suffix = "", overrideColor = null, p
         data = owner[matchedFull] || owner[matchedBase];
     }
 
-    if (!data) return null;
+    // 1. Clone theme data (geometry source: font, fontSize, corners, etc.)
+    // If key not found, try to inherit geometry from a fallback theme key
+    if (!data) {
+        // Fallback geometry: use t_textSystem for text keys, background for body keys
+        const isTextKey = key.toLowerCase().includes("text") || key.toLowerCase().includes("tooltip");
+        const fallbackKey = isTextKey ? "t_textSystem" : "background";
+        if (fallbackKey !== key) {
+            const fallbackFull = `_${fallbackKey}PaintData${suffix}`.toLowerCase();
+            const fallbackBase = `_${fallbackKey}PaintData`.toLowerCase();
+            let fOwner = owner;
+            let fKeys = Object.keys(fOwner);
+            let fMatch = fKeys.find(k => k.toLowerCase() === fallbackFull) || fKeys.find(k => k.toLowerCase() === fallbackBase);
+            let fData = fOwner[fMatch];
+            if (!fData && node.hostNode) {
+                fOwner = node.hostNode;
+                fKeys = Object.keys(fOwner);
+                fMatch = fKeys.find(k => k.toLowerCase() === fallbackFull) || fKeys.find(k => k.toLowerCase() === fallbackBase);
+                fData = fOwner[fMatch];
+            }
+            if (fData) data = { ...fData };
+        }
+    }
+    if (data) data = { ...data };
+    else data = null;
 
-    // 1. Structural Clone to protect master theme
-    data = { ...data };
+    // Apply manual override first (palette injection below takes priority)
+    if (overrideColor && data) {
+        const colorStr = Array.isArray(overrideColor) ? toRGBA(overrideColor) : overrideColor;
+        data.fill = colorStr;
+        data.textColor = colorStr;
+    }
 
-    // 2. Palette Injection
+    // 2. Palette Injection (colors only — overwrites fill/textColor from theme)
     // THE INHERITANCE FIX: Automatically inherit palette from the node/basta properties if not provided in the widget config
     const activePalette = palette || node.properties?.palette;
 
@@ -382,6 +409,7 @@ export function resolvePaintData(node, key, suffix = "", overrideColor = null, p
                 return val;
             };
 
+            if (!data) data = {};
             if (e.main?.[s]) {
                 const c = extractColor(e.main[s]);
                 data.fill = c;
@@ -417,11 +445,10 @@ export function resolvePaintData(node, key, suffix = "", overrideColor = null, p
         }
     }
 
-    // 3. Manual Override Priority (e.g., Save button pulse)
-    if (overrideColor) {
-        const colorStr = Array.isArray(overrideColor) ? toRGBA(overrideColor) : overrideColor;
-        data.fill = colorStr;
-        data.textColor = colorStr;
+    // 3. If still no data but overrideColor is set, return minimal paint
+    if (!data && overrideColor) {
+        const c = Array.isArray(overrideColor) ? toRGBA(overrideColor) : overrideColor;
+        return { fill: c, textColor: c, font: "Arial", fontSize: 10 };
     }
 
     return data;

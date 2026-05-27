@@ -64,11 +64,20 @@ function drawAnimatedTooltipLabel(ctx, basta, region) {
     const clipH = Math.max(0, Number(region.h) || 0);
     if (clipW <= 0 || clipH <= 0) return true;
 
-    const paintKey = basta.properties.messageThemeKey || "t_textNormal";
-    const rawTheme = resolvePaintData(basta, paintKey, "_OFF")
+    const rawKey = basta.properties.messageThemeKey || "t_textNormal";
+    // Parse compound key: "bodyKey, labelKey" → use labelKey for text
+    const parts = String(rawKey).split(",").map(p => p.trim());
+    const paintKey = parts.length > 1 ? (parts[1] || parts[0]) : parts[0];
+    const tooltipPalette = { path: "_system/_toolTip.json" };
+    const sysFallback = resolvePaintData(basta, "t_textSystem", "_OFF")
+        || basta.hostNode?._t_textSystemPaintData_OFF
+        || basta.hostNode?._t_textsystemPaintData_OFF;
+    const rawTheme = resolvePaintData(basta, paintKey, "_OFF", null, tooltipPalette)
+        || resolvePaintData(basta, paintKey, "_OFF")
         || basta[`_${paintKey}PaintData`]
         || basta.hostNode?.[`_${paintKey}PaintData`]
-        || { fontSize: 12, font: "arial", fill: "red" };
+        || sysFallback
+        || { fontSize: 12, font: "arial", fill: "rgba(180,180,180,0.6)" };
     const fontSize = parseFloat(rawTheme.fontSize) || 12;
     const fontWeight = rawTheme.fontWeight || "normal";
 
@@ -381,10 +390,17 @@ class BastaInstance {
             const bMap = getBastaBaseMap(this);
             if (this.properties.drawHeader === false) {
                 if (bMap.headerRegion) bMap.headerRegion.hidden = true;
-                if (bMap.footerRegion) bMap.footerRegion.hidden = true;
+                if (bMap.footerRegion) {
+                    bMap.footerRegion.hidden = true;
+                    bMap.footerRegion.anchor = null;
+                }
             }
-            const measureThemeKey = this.properties.messageThemeKey || "t_textNormal";
-            const tTheme = resolvePaintData(this, measureThemeKey, "_OFF")
+            const rawMeasureKey = this.properties.messageThemeKey || "t_textNormal";
+            const measureParts = String(rawMeasureKey).split(",").map(p => p.trim());
+            const measureThemeKey = measureParts.length > 1 ? (measureParts[1] || measureParts[0]) : measureParts[0];
+            const tooltipPal = { path: "_system/_toolTip.json" };
+            const tTheme = resolvePaintData(this, measureThemeKey, "_OFF", null, tooltipPal)
+                || resolvePaintData(this, measureThemeKey, "_OFF")
                 || this.hostNode?._t_textsystemPaintData_OFF
                 || this.hostNode?._t_textSystemPaintData_OFF
                 || this.hostNode?._t_textnormalPaintData

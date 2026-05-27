@@ -37,9 +37,14 @@ export function showBastaMessage(host, text, duration = 3000, animations = {}, t
     }
 
     const hasFixedW = animations && animations.width;
-    const textThemeKey = animations?.textThemeKey || animations?.messageThemeKey || "t_textnormal";
-    const backgroundThemeKey = animations?.backgroundThemeKey || null;
     const isTooltipMessage = animations?.tooltipExpand === true;
+    // Tooltip uses _toolTip palette with background rect and dedicated text key
+    const textThemeKey = isTooltipMessage
+        ? (animations?.textThemeKey || "background, t_toolTip_normal")
+        : (animations?.textThemeKey || animations?.messageThemeKey || "t_textnormal");
+    const backgroundThemeKey = isTooltipMessage
+        ? "background"
+        : (animations?.backgroundThemeKey || null);
     const fontData = resolvePaintData(host, textThemeKey, "_OFF")
         || host._t_textsystemPaintData_OFF
         || host._t_textSystemPaintData_OFF
@@ -47,6 +52,11 @@ export function showBastaMessage(host, text, duration = 3000, animations = {}, t
         || host._t_textNormalPaintData
         || { fontSize: 12 };
     const fontSize = parseFloat(fontData.fontSize) || 12;
+    // Fallback text color when _toolTip palette isn't loaded yet
+    const sysTextPaint = resolvePaintData(host, "t_textSystem", "_OFF")
+        || host._t_textSystemPaintData_OFF
+        || host._t_textsystemPaintData_OFF;
+    const tooltipLabelFallback = sysTextPaint?.textColor || sysTextPaint?.fill || "rgba(180,180,180,0.6)";
     const BASTA_HEADER_H = 20;
 
     let initialW = 50;
@@ -91,6 +101,7 @@ export function showBastaMessage(host, text, duration = 3000, animations = {}, t
                 lblMessage: {
                     type: isTooltipMessage ? UI_TYPES.BUTTON : UI_TYPES.TEXT,
                     themeKey: textThemeKey,
+                    palette: isTooltipMessage ? { path: "_system/_toolTip.json" } : undefined,
                     text: text,
                     width: isTooltipMessage ? "full" : (hasFixedW ? "full" : "auto"),
                     height: "auto",
@@ -99,7 +110,8 @@ export function showBastaMessage(host, text, duration = 3000, animations = {}, t
                     displayMode: isTooltipMessage ? "cutoff" : undefined,
                     skipBackground: true,
                     noShrink: true,
-                    mouseOver: false
+                    mouseOver: false,
+                    labelColor: isTooltipMessage ? tooltipLabelFallback : null
                 }
             }
         }
@@ -111,6 +123,7 @@ export function showBastaMessage(host, text, duration = 3000, animations = {}, t
         basta.properties.tooltipText = text;
         basta.properties.messageThemeKey = textThemeKey;
         if (backgroundThemeKey) basta.properties.bastaBackgroundKey = backgroundThemeKey;
+        if (isTooltipMessage) basta.properties.palette = { path: "_system/_toolTip.json" };
         if (isTooltipMessage) {
             basta.properties.nodeSize = [initialW, initialH];
             basta.targetSize = [initialW, initialH];
