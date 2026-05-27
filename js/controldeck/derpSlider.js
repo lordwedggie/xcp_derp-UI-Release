@@ -161,7 +161,7 @@ app.registerExtension({
                                 }
                             },
                             [`dynamicSlider_${i}`]: {
-                                type: this.UI_TYPES.SLIDER,
+                                type: this.UI_TYPES.SLIDER, style: "knob",
                                 themeKey: "panel, button, t_textSmall", labelAlign: ["center", "middle"], mouseOver: false,
                                 width: "full", height: "auto", minWidth: 100, padding: [pW, pH],
                                 fillPadding: [1, 1],

@@ -111,18 +111,15 @@ export function syncDerpSliderHTML(el, node, app, config) {
 
 /**
  * Draw the knob marker for "knob" style sliders.
- * Renders a small square at the right edge of the fill bar.
+ * knobX is the absolute left-edge position (pre-computed by caller).
  */
-function drawSliderKnob(ctx, style, activeData, fullFillH, fillStartX, progressW, y, ins) {
-    if (style !== "knob" || !activeData) return;
-    const knobW = fullFillH;
-    // Knob left edge aligns flush with fillBar right edge
-    const knobX = fillStartX + progressW;
+function drawSliderKnobAbs(ctx, style, activeData, knobW, knobX, y, insTop) {
+    if (style !== "knob" || !activeData || knobW <= 0) return;
     masterPainter(ctx, {
         posX: knobX,
-        posY: y + ins[0],
+        posY: y + insTop,
         width: knobW,
-        height: fullFillH,
+        height: knobW,
         paintData: activeData, color: activeData.fill
     });
 }
@@ -187,8 +184,9 @@ export function syncDerpSliderCanvas(ctx, node, config) {
         fillH = fullFillH;
         fillY = y + ins[0];
     }
-    // btnLR: button width = 75% of FULL fill bar height (unaffected by fillbarHeight)
-    const btnInset = config.btnLR ? Math.round(fullFillH * BTN_LR_RATIO) + BTN_LR_MARGIN : 0;
+    // btnLR button dimensions
+    const btnW = config.btnLR ? Math.round(fullFillH * BTN_LR_RATIO) : 0;
+    const btnMargin = BTN_LR_MARGIN;
 
     // THE FILL STRENGTH FIX: If active, interpolate between states based on value.
     const fillKey = props.fillKey || props.bodyKey;
@@ -200,9 +198,8 @@ export function syncDerpSliderCanvas(ctx, node, config) {
             (resolvePaintData(node, fillKey, fillSuffix, config.btnColor) || paintData)
     );
 
-    // Knob: _OFF normally, _ON when awake (dragging/interacting). btnLR: always _OFF
-        // Drag state: handler sets/clears _isDraggingSlider on dragStart/dragEnd
-    // If handler isn't called for track drags, fall back to value-change detection (2s window)
+    // Drag state: handler sets/clears _isDraggingSlider on dragStart/dragEnd
+    // Fall back to value-change detection (2s window) if handler isn't called for track drags
     const curVal = parseFloat(config.value ?? 0);
     const prevVal = config._sliderPrevVal;
     if (prevVal !== undefined && Math.abs(curVal - prevVal) > 0.0001) {
@@ -220,15 +217,19 @@ export function syncDerpSliderCanvas(ctx, node, config) {
         ? (resolvePaintData(node, fillKey, "_OFF", config.btnColor) || paintData)
         : null;
 
+    // Knob + fillBar positioning: exactly 1px spacing from btnLR at min/max
     const knobStyleW = (style === "knob") ? fullFillH : 0;
-    const knobHalfW = knobStyleW / 2;
-    const fillW = Math.max(0, w - ins[1] - ins[3] - btnInset * 2 - knobStyleW);
-    const fillStartX = x + ins[3] + btnInset + knobHalfW;
-    // FillBar right edge = knob left edge (subtract half-knob so it stops before center)
-    const progressW = fillW * Math.max(0, percent) - knobHalfW + 2;
+    const leftBtnRight = x + btnMargin + btnW;
+    const rightBtnLeft = x + w - btnW - btnMargin;
+    const trackStart = config.btnLR ? leftBtnRight + 1 : x + ins[3];
+    const trackEnd   = config.btnLR ? rightBtnLeft - 1 : x + w - ins[1];
+    const trackW = Math.max(0, trackEnd - trackStart);
+    const knobTravelW = Math.max(0, trackW - knobStyleW);
+    const knobX = trackStart + knobTravelW * Math.max(0, percent);
+    const fillStartX = trackStart;
+    const fillProgressW = Math.max(0, (knobX + 1) - fillStartX);
 
     if (activeData && percent > 0) {
-        // Zero right corners so fillBar meets knob flush
         const themeCorners = activeData.corners;
         const fillCorners = Array.isArray(themeCorners)
             ? [themeCorners[0] || 0, 0, 0, themeCorners[3] || 0]
@@ -236,15 +237,15 @@ export function syncDerpSliderCanvas(ctx, node, config) {
         masterPainter(ctx, {
             posX: fillStartX,
             posY: fillY,
-            width: progressW,
+            width: fillProgressW,
             height: fillH,
             paintData: { ...activeData, corners: fillCorners },
             color: activeData.fill
         });
     }
 
-    // Knob: left edge aligns with fillBar right edge
-    drawSliderKnob(ctx, style, knobData, fullFillH, fillStartX, progressW, y, ins);
+    // Knob
+    drawSliderKnobAbs(ctx, style, knobData, knobStyleW, knobX, y, ins[0]);
 
     // 3. Draw Optional Label
     const sliderLabel = (props.label !== "") ? props.displayText : null;
@@ -266,7 +267,6 @@ export function syncDerpSliderCanvas(ctx, node, config) {
     }
     // 4. Draw btnLR Buttons
     if (config.btnLR) {
-        const btnW = Math.round(fullFillH * BTN_LR_RATIO);
         const btnY = y + ins[0];
         const btnH = fullFillH;
         // Knob style: btnLR uses fixed _ON state (ignoring fillStrength)
@@ -285,7 +285,7 @@ export function syncDerpSliderCanvas(ctx, node, config) {
 
         // Left button (-)
         masterPainter(ctx, {
-            posX: x + BTN_LR_MARGIN, posY: btnY,
+            posX: x + btnMargin, posY: btnY,
             width: btnW, height: btnH,
             paintData: { ...btnSource, corners: leftBtnCorners }, color: btnFill
         });
@@ -298,7 +298,7 @@ export function syncDerpSliderCanvas(ctx, node, config) {
 
         // Right button (+)
         masterPainter(ctx, {
-            posX: x + w - btnW - BTN_LR_MARGIN, posY: btnY,
+            posX: x + w - btnW - btnMargin, posY: btnY,
             width: btnW, height: btnH,
             paintData: { ...btnSource, corners: rightBtnCorners }, color: btnFill
         });
