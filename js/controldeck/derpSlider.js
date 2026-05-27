@@ -92,12 +92,50 @@ app.registerExtension({
             ].map(v => Number(v.toFixed(2)));
 
             const sliderData = this.properties.sliderContainer || [];
-            const structureHash = `${sliderData.length}_${this.properties.nameDisplay}_${sliderData.map(s => `${s.name}:${s.value}:${s.btnLR||false}`).join("|")}_${window._xcpDerpSession}_${mW}_${mH}_${(this.size?.[0] || 0).toFixed(2)}`;
+            const structureHash = `${sliderData.length}_${this.properties.nameDisplay}_${sliderData.map(s => `${s.name}:${s.btnLR||false}:${s.min}:${s.max}:${s.step}:${s.decimal}`).join("|")}_${window._xcpDerpSession}_${mW}_${mH}_${(this.size?.[0] || 0).toFixed(2)}`;
+            const valueHash = sliderData.map(s => `${s.value}`).join("|");
 
             if (this._lastMapStructure === structureHash && this.layoutMap) {
+                if (this._lastSliderValues === valueHash) {
+                    return;
+                }
+                this._lastSliderValues = valueHash;
+
+                sliderData.forEach((item, i) => {
+                    const sliderKey = `dynamicSlider_${i}`;
+                    const valueKey = `dynamicSliderValue_${i}`;
+                    const sliderValue = parseFloat(item?.value ?? 0.5);
+                    const dec = item?.decimal !== undefined ? parseInt(item.decimal) : 2;
+                    const valueText = sliderValue.toFixed(dec);
+
+                    if (this.layoutMap?.sysContentRegion?.[`dynamicSliderRegion_${i}`]?.[sliderKey]) {
+                        this.layoutMap.sysContentRegion[`dynamicSliderRegion_${i}`][sliderKey].value = sliderValue;
+                    }
+                    if (this.layout?.regions?.[sliderKey]) {
+                        this.layout.regions[sliderKey].value = sliderValue;
+                    }
+                    if (this._compDataCache?.[sliderKey]) {
+                        this._compDataCache[sliderKey].value = sliderValue;
+                    }
+
+                    if (this.layoutMap?.sysContentRegion?.[`dynamicSliderRegion_${i}`]?.[valueKey]) {
+                        this.layoutMap.sysContentRegion[`dynamicSliderRegion_${i}`][valueKey].text = valueText;
+                        this.layoutMap.sysContentRegion[`dynamicSliderRegion_${i}`][valueKey].value = valueText;
+                    }
+                    if (this.layout?.regions?.[valueKey]) {
+                        this.layout.regions[valueKey].text = valueText;
+                        this.layout.regions[valueKey].value = valueText;
+                    }
+                    if (this._compDataCache?.[valueKey]) {
+                        this._compDataCache[valueKey].text = valueText;
+                        this._compDataCache[valueKey].value = valueText;
+                    }
+                });
+
                 return;
             }
             this._lastMapStructure = structureHash;
+            this._lastSliderValues = valueHash;
 
             let labelWidthSmall = 10;
             let labelWidthNormal = 10;

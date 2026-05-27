@@ -197,9 +197,8 @@ export function syncDerpSliderCanvas(ctx, node, config) {
         config._sliderLastChange = performance.now();
     }
     config._sliderPrevVal = curVal;
-    const isDraggingSlider = (stateStr === "ON")
-        || config._isDraggingSlider
-        || (config._sliderLastChange && performance.now() - config._sliderLastChange < 2000);
+    const isDraggingSlider = !!config._isDraggingSlider;
+    const isPressedVisualState = (stateStr === "ON") || isDraggingSlider;
     // Lerp knob into position on click (not during drag)
     const svpKey = "_svp_" + (config.key || "0");
     const prevVis = node[svpKey] !== undefined ? node[svpKey] : targetPercent;
@@ -207,7 +206,18 @@ export function syncDerpSliderCanvas(ctx, node, config) {
     const visPercent = doLerp ? (prevVis + (targetPercent - prevVis) * SLIDER_POS_LERP) : targetPercent;
     node[svpKey] = visPercent;
     if (doLerp && Math.abs(visPercent - targetPercent) > 0.001) {
-        node._derpAwakeFrames = Math.max(node._derpAwakeFrames || 0, 3);
+        node._derpAwakeFrames = Math.max(node._derpAwakeFrames || 0, 5);
+        const typeName = String(node?.type || "").toLowerCase();
+        if (typeName.includes("derplorastack")) {
+            node._passiveWholeWallCacheSuspendUntil = Math.max(
+                Number(node._passiveWholeWallCacheSuspendUntil || 0),
+                performance.now() + 80
+            );
+            if (typeof node.requestDerpSync === "function") node.requestDerpSync();
+            if (typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, true);
+        } else if (typeof node.setDirtyCanvas === "function") {
+            node.setDirtyCanvas(true);
+        }
     }
     const percent = isDraggingSlider ? targetPercent : visPercent;
 
@@ -220,7 +230,7 @@ export function syncDerpSliderCanvas(ctx, node, config) {
             (resolvePaintData(node, fillKey, fillSuffix, config.btnColor) || paintData)
     );
 
-    const knobSuffix = (stateStr === "DIS") ? "_DIS" : (isDraggingSlider ? "_ON" : "_OFF");
+    const knobSuffix = (stateStr === "DIS") ? "_DIS" : (isPressedVisualState ? "_ON" : "_OFF");
     const knobData = (style === "knob")
         ? (resolvePaintData(node, fillKey, knobSuffix, config.btnColor) || paintData)
         : null;

@@ -956,13 +956,13 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                                         const sliderConfig = regions[targetKey];
                                         if ((type === "dragStart" || type === "click" || type === "dblclick") && sliderConfig) {
                                             const btnResult = handleDerpSliderBtnLR(this, reg, targetKey, type, localX, sliderConfig);
-                                            if (btnResult.handled) {
-                                                if (type === "dragStart") this._btnLRHandledKey = targetKey;
-                                                if (btnResult.newVal !== undefined) {
-                                                    const fv = btnResult.newVal.toFixed(2);
-                                                    if (regions[targetKey]) regions[targetKey].value = btnResult.newVal;
-                                                    if (this._compDataCache?.[targetKey]) this._compDataCache[targetKey].value = btnResult.newVal;
-                                                    const valKey = targetKey.replace("sld", "val");
+                                                if (btnResult.handled) {
+                                                    if (type === "dragStart") this._btnLRHandledKey = targetKey;
+                                                    if (btnResult.newVal !== undefined) {
+                                                        const fv = btnResult.newVal.toFixed(2);
+                                                        if (regions[targetKey]) regions[targetKey].value = btnResult.newVal;
+                                                        if (this._compDataCache?.[targetKey]) this._compDataCache[targetKey].value = btnResult.newVal;
+                                                        const valKey = targetKey.replace("sld", "val");
                                                     if (regions[valKey]) { regions[valKey].value = fv; regions[valKey].text = fv; }
                                                     if (this._compDataCache?.[valKey]) { this._compDataCache[valKey].value = fv; this._compDataCache[valKey].text = fv; }
                                                     sType === "sldModel" ? stackData[idx][1] = btnResult.newVal : stackData[idx][2] = btnResult.newVal;
