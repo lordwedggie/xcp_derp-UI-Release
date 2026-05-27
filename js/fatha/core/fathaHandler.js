@@ -570,6 +570,10 @@ function handleShieldDragStart(entity, data, localMouse, scale, deckEngine) {
         entity.setDirtyCanvas(true);
         return true;
     }
+    if (hit && hit.reg.noDragLock && (hit.reg.onDblClick || hit.reg.onPress || hit.reg.onClick)) {
+        entity._pressedRegionKey = hit.key;
+        entity._pressedRegionType = hit.reg?.type || null;
+    }
 
     beginDockDrag(entity, deckEngine);
     return false;
@@ -578,8 +582,10 @@ function handleShieldDragStart(entity, data, localMouse, scale, deckEngine) {
 function handleShieldDrag(entity, data, scale, deckEngine) {
     if (entity._pressedRegionKey) {
         const reg = entity.layout?.regions[entity._pressedRegionKey];
-        if (reg && reg.onDrag) reg.onDrag(data.originalEvent, data);
-        return false;
+        if (reg && !reg.noDragLock && reg.onDrag) {
+            reg.onDrag(data.originalEvent, data);
+            return false;
+        }
     }
 
     updateDockDrag(entity, deckEngine, data, scale);
@@ -609,14 +615,15 @@ function handlePressedRegionActivation(entity, key, data) {
         if (reg.onChange) reg.onChange(reg.value, data.originalEvent, data);
     }
 
+    let handled = false;
     if (reg.onPress) {
-        reg.onPress(data.originalEvent, data);
+        handled = reg.onPress(data.originalEvent, data) !== false;
     } else if (reg.onClick) {
-        reg.onClick(data.originalEvent, data);
+        handled = reg.onClick(data.originalEvent, data) !== false;
     }
     entity.setDirtyCanvas(true);
     if (app.graph && app.graph.change) app.graph.change();
-    return true;
+    return handled;
 }
 
 function handleVerticalHeaderClick(entity, localMouse, data) {
