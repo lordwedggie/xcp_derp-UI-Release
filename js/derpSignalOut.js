@@ -213,6 +213,9 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                     dir: "row", width: "full", height: item.isPreviewGhost ? dragPlaceholderHeight : "auto",
                                     outSlotIdx: idx, // GENERIC SLOT TAG: Allows uncleSlotHelper to find this region
                                     state: item.isPreviewGhost ? "DIS" : (isPickedUp ? "ON" : "OFF"),
+                                    pulseStates: isPickedUp,
+                                    pulseFromState: "_ON",
+                                    pulseToState: "_DIS",
                                     alpha: rowAlpha,
                                     onDragStart: (e, data) => startStackDrag(this, data, idx, rowKey, { holdOnly: true }),
                                     onDrag: (e, data) => { updateStackDrag(this, data, "outputsRegion_display_", activeOuts.length); this.refreshNodeLayoutMap(); },

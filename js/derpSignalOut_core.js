@@ -853,7 +853,7 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
 
                     if (this._dragTrig && Number.isInteger(this._dragTrig.index) && this.layout?.regions) {
                         const dragRowKey = `outputsRegion_display_${this._dragTrig.index}`;
-                        if (this._dragThresholdMet && (!this._signalOutFloatingSnapshot || this._signalOutFloatingSnapshot.rowKey !== dragRowKey)) {
+                        if (!this._signalOutFloatingSnapshot || this._signalOutFloatingSnapshot.rowKey !== dragRowKey) {
                             this._signalOutFloatingSnapshot = captureSignalOutFloatingSnapshot(this, dragRowKey);
                         }
                     } else {
@@ -891,7 +891,10 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                                         key: `${rowKey}_ghostPlate`,
                                         geometry: { x: baseReg.x - 1, y: baseReg.y - 1, w: baseReg.w + 2, h: baseReg.h + 2 },
                                         themeKey: rowCfg?.themeKey || "canvas",
-                                        state: rowCfg?.state || "OFF",
+                                        state: "ON",
+                                        pulseStates: true,
+                                        pulseFromState: "_ON",
+                                        pulseToState: "_DIS",
                                         alpha: 1.0,
                                         hidden: false,
                                         mouseOver: false,
@@ -924,7 +927,7 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                                         geometry: { x: item.reg.x, y: item.reg.y, w: item.reg.w, h: item.reg.h },
                                         alpha: 1.0,
                                         hidden: false,
-                                        state: item.cfg?.state ?? item.reg?.state ?? "OFF",
+                                        state: item.reg.type === this.UI_TYPES.FILEBROWSER ? "ON" : (item.cfg?.state ?? item.reg?.state ?? "OFF"),
                                         mouseOver: false,
                                     };
 
@@ -944,7 +947,7 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                                         geometry: { x: item.reg.x, y: item.reg.y, w: item.reg.w, h: item.reg.h },
                                         alpha: 1.0,
                                         hidden: false,
-                                        state: item.cfg?.state ?? item.reg?.state ?? "OFF",
+                                        state: item.reg.type === this.UI_TYPES.FILEBROWSER ? "ON" : (item.cfg?.state ?? item.reg?.state ?? "OFF"),
                                         mouseOver: false,
                                     };
                                     bp.sync(ctx, this, app, ghostData, true);
