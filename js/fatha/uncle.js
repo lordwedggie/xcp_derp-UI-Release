@@ -155,6 +155,12 @@ export function uncle(nodeType, nodeData, minWidth = 100) {
             this._lastMode = this.mode;
         }
 
+        // Update wireless registry if the title changed
+        if (this._lastTitleLabel !== this.titleLabel) {
+            this._lastTitleLabel = this.titleLabel;
+            if (typeof this.syncDerpOutputs === "function") this.syncDerpOutputs();
+        }
+
         if (this.flags?.collapsed) {
             if (this.interactionShield) this.interactionShield.style.display = "none";
             this.syncUncleSlots(); // THE FIX: Keep slots pinned while collapsed

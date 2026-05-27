@@ -412,11 +412,6 @@ app.registerExtension({
         nodeType.prototype.onDrawForeground = function(ctx) {
             if (this.flags.collapsed || this.size[0] <= 0) return;
             if (onDrawForeground) onDrawForeground.apply(this, arguments);
-
-            if (this._lastTitleLabel !== this.titleLabel) {
-                this._lastTitleLabel = this.titleLabel;
-                this.broadcastLatentState();
-            }
         };
 
         nodeType.prototype.onDerpSysPanelOpen = function(panel) {

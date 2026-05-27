@@ -329,11 +329,6 @@ export function initDerpSamplerLoaderCore(nodeType) {
             this._lastDerpW = currentW;
             this.refreshNodeLayoutMap();
         }
-
-        if (this._lastTitleLabel !== this.titleLabel) {
-            this._lastTitleLabel = this.titleLabel;
-            if (this.broadcastWirelessSignal) this.broadcastWirelessSignal();
-        }
     };
 
     proto.handleSamplerResize = function(size) {

@@ -363,11 +363,6 @@ export function initDerpVaeLoaderCore(nodeType) {
 
         // ZERO-INFERENCE OPTIMIZATION: Eliminate the high-frequency polling loop.
         // Signals are now strictly handled by the fingerprint gate inside broadcastWirelessSignal.
-        if (this._lastTitleLabel !== this.titleLabel) {
-            this._lastTitleLabel = this.titleLabel;
-            if (this.broadcastWirelessSignal) this.broadcastWirelessSignal();
-        }
-
         const currentW = Math.round(this.size[0]);
         if (this._lastDerpW !== currentW) {
             this._lastDerpW = currentW;

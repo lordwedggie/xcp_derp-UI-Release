@@ -776,11 +776,6 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                         if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
                     }
 
-                    if (this._lastTitleLabel !== this.titleLabel) {
-                        this._lastTitleLabel = this.titleLabel;
-                        if (this.updateReceivedSignals) this.updateReceivedSignals();
-                        if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
-                    }
 
                     const hideSlotsKey = `${!!this.properties.hideLinkSlots}:${!!(this._xcpTrueSelected !== undefined ? this._xcpTrueSelected : (this.selected || this._xcpTrueInMap))}:${this.mode}:${this.outputs?.length || 0}:${this._xcpTrueOutputs?.length || 0}`;
                     if (this._lastHideSlotsKey !== hideSlotsKey) {

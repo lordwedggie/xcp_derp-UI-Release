@@ -275,7 +275,7 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                             upstream_ids: [...new Set(upstreamIds.map(id => String(id).split(":")[0]).filter(id => id && id !== String(this.id)))]
                         };
 
-                        const signalHash = `${isBypassed ? "bypass" : "live"}__${JSON.stringify(packageValue)}`;
+                        const signalHash = `${isBypassed ? "bypass" : "live"}__${this.titleLabel || ""}__${JSON.stringify(packageValue)}`;
                         if (this._lastBroadcastHash === signalHash) {
                             this._xcpSyncing = false;
                             return;
@@ -732,13 +732,6 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                         this._lastDerpW = currentW;
                         if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
                     }
-
-                    // Update wireless registry if the title changed
-                    if (this._lastTitleLabel !== this.titleLabel) {
-                        this._lastTitleLabel = this.titleLabel;
-                        if (this.syncDerpOutputs) this.syncDerpOutputs();
-                    }
-
                     // ZERO-INFERENCE GATING: Increased cull loop to 15 frames for smoother idle performance
                     if (this._xcpSigCull === undefined) this._xcpSigCull = 0;
                     if (this._xcpSigCull++ % 15 !== 0) return;

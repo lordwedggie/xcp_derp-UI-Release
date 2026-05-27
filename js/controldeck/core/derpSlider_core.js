@@ -213,11 +213,6 @@ export function setupDerpSliderCore(nodeType) {
             this._lastDerpW = currentW;
             this.refreshNodeLayoutMap();
         }
-
-        if (this._lastTitleLabel !== this.titleLabel) {
-            this._lastTitleLabel = this.titleLabel;
-            if (this.broadcastWirelessSignal) this.broadcastWirelessSignal(this.properties.sliderContainer);
-        }
     };
 
     nodeType.prototype.handleSliderResize = function(size) {

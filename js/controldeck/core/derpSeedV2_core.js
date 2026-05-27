@@ -253,12 +253,6 @@ export function attachDerpSeedLogic(nodeType) {
 
         if (this.flags?.collapsed) return;
 
-        // THE TITLE REFRESH FIX: Update wireless registry if the title label changed (e.g. after rename)
-        if (this._lastTitleLabel !== this.titleLabel) {
-            this._lastTitleLabel = this.titleLabel;
-            if (typeof broadcastSeedSignal === "function") broadcastSeedSignal(this);
-        }
-
         const useAnim = this.properties.useAnimations !== false;
 
         if (this._seedAnimStates && this.layoutMap?.mainRow?.dynamicRegion) {

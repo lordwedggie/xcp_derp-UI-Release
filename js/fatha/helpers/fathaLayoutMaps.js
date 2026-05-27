@@ -314,10 +314,13 @@ export const getVirtualNodeLayoutMap = (node) => {
                             el.style.pointerEvents = "auto";
                             el.style.opacity = "1";
                             el.focus();
+                            el.select();
                         }
                     },
                     onBlur: (newVal) => {
                         if (newVal !== undefined) {
+                            const el = node._derpDomElements?.titleLabel;
+                            if (el) el._isAwake = false;
                             node.titleLabel = newVal;
                             node.properties.titleLabel = newVal;
                             if (node.refreshNodeLayoutMap) node.refreshNodeLayoutMap();

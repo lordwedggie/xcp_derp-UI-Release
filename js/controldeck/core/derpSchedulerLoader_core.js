@@ -326,11 +326,6 @@ export function initDerpSchedulerLoaderCore(nodeType) {
             this._lastDerpW = currentW;
             this.refreshNodeLayoutMap();
         }
-
-        if (this._lastTitleLabel !== this.titleLabel) {
-            this._lastTitleLabel = this.titleLabel;
-            if (this.broadcastWirelessSignal) this.broadcastWirelessSignal();
-        }
     };
 
     proto.handleSchedulerResize = function(size) {

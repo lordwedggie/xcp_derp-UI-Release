@@ -286,11 +286,6 @@ export function triggerWall_onDrawForeground(node, ctx, originalCallback) {
     if (originalCallback) originalCallback.apply(node, [ctx]);
 
     if (node.flags?.collapsed) return;
-
-    if (node._lastTitleLabel !== node.titleLabel) {
-        node._lastTitleLabel = node.titleLabel;
-        if (node.syncDerpOutputs) node.syncDerpOutputs();
-    }
 }
 
 export function triggerWall_onDeselected(node) {

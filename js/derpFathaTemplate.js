@@ -203,11 +203,6 @@ app.registerExtension({
                 this.refreshNodeLayoutMap();
             }
 
-            // THE TITLE REFRESH FIX: Update wireless registry if the title label changed
-            if (this._lastTitleLabel !== this.titleLabel) {
-                this._lastTitleLabel = this.titleLabel;
-                if (this.syncDerpOutputs) this.syncDerpOutputs();
-            }
         };
     }
 });

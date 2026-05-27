@@ -86,12 +86,6 @@ app.registerExtension({
                 this.requestDerpSync();
             }
 
-            // THE TITLE REFRESH FIX: Update wireless registry if the title label changed (e.g. after rename)
-            if (this._lastTitleLabel !== this.titleLabel) {
-                this._lastTitleLabel = this.titleLabel;
-                // THE SIGNAL TYPE FIX: Sync STRING type on rename by broadcasting a string value
-                if (this.transmitDerpSignal) this.transmitDerpSignal("");
-            }
         };
 
         // --- 3. LAYOUT MAPS ---
