@@ -281,7 +281,7 @@ export function syncDerpEditor(context, node, app, config) {
     const needsFullSync = node._shouldSync || el._lastStateHash !== stateHash || (el._isAnimating && (window.xcpDerpSettings?.useAnimations !== false));
 
     if (!needsFullSync && el._lastProps) {
-        var { props, bodyPaint, labelPaint, effectiveState, content, alignments, coords, textAnchor } = el._lastProps;
+        var { props, bodyPaint, labelPaint, effectiveState, content, alignments, coords, textAnchor, colorSegments, hasColorKeys } = el._lastProps;
     } else {
         const themeParts = (safeConfig.themeKey || "").split(",").map(p => p.trim());
         const bodyKey = themeParts.length > 1 ? themeParts[0] : "panel";
@@ -325,6 +325,8 @@ export function syncDerpEditor(context, node, app, config) {
         displayVal = node.properties?.[safeConfig.propertyName] ?? "";
     }
     const valToSync = (displayVal !== undefined ? displayVal : "").toString().replace(/\r/g, "");
+    // Strip {{}} color-key syntax for DOM display (canvas handles colors via segments)
+    const domVal = valToSync.replace(/\{\{[^}]+\}\}/g, "");
     if (isCanvas && node.layout?.regions?.[safeConfig.key]) {
         const liveReg = node.layout.regions[safeConfig.key];
 
@@ -837,15 +839,15 @@ export function syncDerpEditor(context, node, app, config) {
     // THE THEME FIX: Removed hardcoded opacity multipliers for DIS state.
     // The theme's _DIS key handles transparency via its own fill/textColor.
     if (isCanvas && useCanvasShield && !isAwake) {
-        el.style.opacity = "0";
-        el.style.pointerEvents = "none";
+        el.style.display = "none";
     } else {
+        el.style.display = safeConfig.isSysPanel ? "flex" : "block";
         el.style.opacity = String(baseAlpha);
         el.style.pointerEvents = (effectiveState === "DIS") ? "none" : "auto";
     }
 
-    if (!isAwake && document.activeElement !== el && valToSync !== undefined && el.value !== valToSync) {
-        el.value = valToSync;
+    if (!isAwake && document.activeElement !== el && domVal !== undefined && el.value !== domVal) {
+        el.value = domVal;
     }
 
     // THE SCROLL FIX: Only force the HTML element to match the node's scroll state

@@ -468,7 +468,9 @@ app.registerExtension({
             const displayName = `${baseName}${extension}`;
             const customFolder = normalizeImageDeckFolderPath(this.properties.imageDeckCustomFolder || "");
             if (!customFolder) return displayName;
-            return `\\${customFolder.replace(/\//g, "\\")}\\${displayName}`;
+            // Two-color display: path in _DIS, filename in _OFF
+            const folderPath = `\\${customFolder.replace(/\//g, "\\")}\\`;
+            return `{{t_textNormal:_DIS::${folderPath}}}${displayName}`;
         };
 
         nodeType.prototype.applyPalette = function() {
@@ -879,7 +881,7 @@ app.registerExtension({
                             }
                         },
                         editorImageFilename: {
-                            type: this.UI_TYPES.EDITOR, mouseOver: false,
+                            type: this.UI_TYPES.EDITOR, mouseOver: false, canvasShield: true,
                             themeKey: "dialog, t_textNormal",
                             displayMode: "cutoff",
                             width: "full",
