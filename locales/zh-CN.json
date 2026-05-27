@@ -537,6 +537,10 @@
       "select": "选择信号...",
       "none_detected": "未检测到信号..."
     },
+    "messages": {
+      "received_title_change_middle": " 的信号源已将名称改为：",
+      "received_title_change_suffix": " 已重命名为 "
+    },
     "system": {
       "properties": "老登路由器属性：",
       "signal_id": "信号 ID",

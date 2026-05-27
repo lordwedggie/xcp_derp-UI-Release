@@ -314,7 +314,7 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
 
                         if (window.app?.graph?._nodes) {
                             window.app.graph._nodes.forEach(n => {
-                                if (n.type === "xcpDerpSignalOut" && n.updateReceivedSignals) n.updateReceivedSignals();
+                                if (n.type === "xcpDerpSignalOut" && n.updateReceivedSignals) n.updateReceivedSignals(true);
                             });
                             app.canvas.setDirty(true, true);
                         }

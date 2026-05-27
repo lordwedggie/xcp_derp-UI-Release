@@ -6,6 +6,7 @@ import { app } from "../../../scripts/app.js";
 import { uncle } from "./fatha/uncle.js";
 import { handleInitDerpGlobalListener } from "./fatha/core/fathaHandler.js";
 import { COMPONENT_BLUEPRINTS } from "./fatha/core/masterLayoutTypes.js";
+import { showBastaSystemMessage } from "./fatha/bastas/bastaSystemMessage.js";
 
 function tLocale(key, fallback = key) {
     if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
@@ -75,6 +76,49 @@ function syncDerpRouterDisplayLabels(node) {
     if (liveSignal) {
         node.properties.selectedSignalLabel = formatDerpRouterSignalLabel(node, liveSignal);
     }
+}
+
+function extractSignalSourceTitle(signal) {
+    const rawName = String(signal?.nodeName || "");
+    return rawName.replace(/\s*\[[^\]]+\]\s*$/, "").trim();
+}
+
+function getRegisteredSignalSourceTitle(sourceNode) {
+    if (!sourceNode) return "Signal Source";
+
+    const localizedTitle = [
+        sourceNode._lastLocalizedDerpSliderTitle,
+        sourceNode._lastLocalizedDerpModelLoaderTitle,
+        sourceNode._lastLocalizedDerpVaeLoaderTitle,
+        sourceNode._lastLocalizedDerpSchedulerLoaderTitle,
+        sourceNode._lastLocalizedDerpSamplerLoaderTitle,
+        sourceNode._lastLocalizedDerpDiffusionLoaderTitle,
+        sourceNode._lastLocalizedDerpLoraStackTitle,
+        sourceNode._lastLocalizedDerpLatentTitle,
+        sourceNode._lastLocalizedDerpToggleTitle,
+        sourceNode._lastLocalizedDerpImageDeckTitle,
+        sourceNode._lastLocalizedDerpPromptBookTitle,
+        sourceNode._lastLocalizedDerpTriggerWallTitle,
+        sourceNode._lastLocalizedDerpRouterTitle,
+    ].find((value) => typeof value === "string" && value.trim());
+    if (localizedTitle) return localizedTitle;
+
+    const typeName = String(sourceNode.type || sourceNode.comfyClass || "").toLowerCase();
+    if (typeName.includes("derpslidernode")) return tLocale("$derp_slider.title", "Derp Slider");
+    if (typeName.includes("modelloader")) return tLocale("$derp_model_loader.title", "Derp Model Loader");
+    if (typeName.includes("vaeloader")) return tLocale("$derp_vae_loader.title", "Derp Vae Loader");
+    if (typeName.includes("schedulerloader")) return tLocale("$derp_scheduler_loader.title", "Derp Scheduler Loader");
+    if (typeName.includes("samplerloader")) return tLocale("$derp_sampler_loader.title", "Derp Sampler Loader");
+    if (typeName.includes("diffusionloader")) return tLocale("$derp_diffusion_loader.title", "Derp Diffusion Loader");
+    if (typeName.includes("derplorastack")) return tLocale("$derp_lora_stack.title", "Derp Lora Stack");
+    if (typeName.includes("derplatent")) return tLocale("$derp_latent.title", "Derp Latent");
+    if (typeName.includes("togglenode")) return tLocale("$derp_toggle.title", "Derp Toggle");
+    if (typeName.includes("imagedeck")) return tLocale("$derp_image_deck.title", "Derp Image Deck");
+    if (typeName.includes("promptbook")) return tLocale("$derp_prompt_book.title", "Derp Prompt Book");
+    if (typeName.includes("triggerwall")) return tLocale("$derp_trigger_wall.title", "Derp Trigger Wall");
+    if (typeName.includes("signalout")) return tLocale("$derp_router.title", "Derp Router");
+
+    return sourceNode.title || sourceNode.comfyClass || sourceNode.type || "Signal Source";
 }
 
 const DERP_ROUTER_LINK_PAD_RIGHT = 15;
@@ -542,11 +586,11 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                 /**
                  * Signal Data Synchronization
                  */
-                nodeType.prototype.updateReceivedSignals = function() {
+                nodeType.prototype.updateReceivedSignals = function(force = false) {
                     if (this._xcpSyncing) return;
                     // Throttle: skip if called within 200ms of last invocation
                     const now = performance.now();
-                    if (this._xcpLastSignalUpdate && (now - this._xcpLastSignalUpdate) < 200) return;
+                    if (!force && this._xcpLastSignalUpdate && (now - this._xcpLastSignalUpdate) < 200) return;
                     this._xcpLastSignalUpdate = now;
                     this._xcpSyncing = true;
                     try {
@@ -558,10 +602,32 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                             this.activeOutputs.forEach((sig, i) => {
                                 const freshSig = globalSignals[String(sig.nodeId)];
                                 if (freshSig) {
+                                    const previousSourceTitle = extractSignalSourceTitle(sig);
+                                    const nextSourceTitle = extractSignalSourceTitle(freshSig);
+                                    const sourceBaseId = String(freshSig.nodeId || sig.nodeId || "").split(":")[0];
+                                    const sourceNode = window.app?.graph?.getNodeById?.(parseInt(sourceBaseId, 10)) || null;
+                                    const registeredSourceTitle = getRegisteredSignalSourceTitle(sourceNode);
                                     this.activeOutputs[i] = sanitizeDerpSignal(freshSig);
                                     if (sig.isOrphaned) {
                                         this.activeOutputs[i].isOrphaned = false;
                                         orphanStateChanged = true;
+                                    }
+                                    if (
+                                        previousSourceTitle &&
+                                        nextSourceTitle &&
+                                        previousSourceTitle !== nextSourceTitle &&
+                                        typeof showBastaSystemMessage === "function"
+                                    ) {
+                                        showBastaSystemMessage(
+                                            this,
+                                            `${this.titleLabel || this.title || tLocale("$derp_router.title", "Derp Router")}${tLocale("$derp_router.messages.received_title_change_middle", "'s signal source has changed its name to: ")}${registeredSourceTitle}${tLocale("$derp_router.messages.received_title_change_suffix", " renamed to ")}`,
+                                            3000,
+                                            { fade: true, grow: true },
+                                            null,
+                                            "warning",
+                                            null,
+                                            nextSourceTitle
+                                        );
                                     }
                                 } else if (!sig.isOrphaned) {
                                     const sourceBaseId = String(sig.nodeId).split(":")[0];
