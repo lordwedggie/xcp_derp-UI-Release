@@ -74,7 +74,8 @@ import {
     measureTextHeight,
     measureTextWidth,
     clampText,
-    snapToScreenGrid
+    snapToScreenGrid,
+    parseColorKeyText
 } from "../utils/widgetsUtils.js";
 import { lerpTo, animateAlpha, animateWidgetColors } from "../masterAnimator.js";
 import { getDerpVars } from "../../fatha/fatha.js";
@@ -449,12 +450,14 @@ function rebuildFilePickerRows(state) {
         const headerRows = [];
         const scrollRows = [];
         const displayVal = getFileBrowserCurrentDisplay(config, items);
-        headerRows.push({ id: "current", name: displayVal, type: "select_current", path: displayVal });
+        const selectedItem = items.find((item) => String(getFileBrowserItemValue(item)) === String(config?.value || ""));
+        const triggerDisplay = (selectedItem && typeof selectedItem === "object" && selectedItem._triggerDisplay) ? selectedItem._triggerDisplay : null;
+        headerRows.push({ id: "current", name: triggerDisplay || displayVal, type: "select_current", path: displayVal });
         items.forEach((item, idx) => {
             const itemValue = getFileBrowserItemValue(item);
             const row = {
                 id: `file:${idx}:${itemValue}`,
-                name: getDropdownItemDisplay(item),
+                name: (item && typeof item === "object" && item._triggerDisplay) ? item._triggerDisplay : getDropdownItemDisplay(item),
                 path: itemValue,
                 type: "file",
                 item,
@@ -969,8 +972,13 @@ function drawPickerRow(ctx, state, row, rect, labelPaint, scale) {
     const iconGap = state.prefixGap || 0;
     const iconOffset = prefixText ? (normalizedPrefixW + iconGap) : 0;
     const maxTextWidth = Math.max(0, rect.w - (pX * 2) - iconOffset);
-    const label = row.type === "file" ? row.name.replace(/\.(safetensors|json)$/i, "") : row.name;
-    const drawLabel = clampText(label, maxTextWidth, fontSize, labelPaint?.font || "Arial", labelPaint?.fontWeight || "normal", state.config.displayMode === "ellipsis");
+    const rawLabel = row.type === "file" ? row.name.replace(/\.(safetensors|json)$/i, "") : row.name;
+    const { segments: pickerSegments, hasColorKeys: pickerHasKeys } = parseColorKeyText(
+        rawLabel, state.node, "_OFF", textColor
+    );
+    const drawLabel = (pickerHasKeys && pickerSegments)
+        ? rawLabel
+        : clampText(rawLabel, maxTextWidth, fontSize, labelPaint?.font || "Arial", labelPaint?.fontWeight || "normal", state.config.displayMode === "ellipsis");
 
     ctx.save();
     ctx.beginPath();
@@ -1004,7 +1012,8 @@ function drawPickerRow(ctx, state, row, rect, labelPaint, scale) {
             ...labelPaint,
             fontSize,
             fill: textColor,
-        }
+        },
+        segments: (pickerHasKeys && pickerSegments) ? pickerSegments : null
     });
 
     ctx.restore();
@@ -1535,15 +1544,29 @@ export function syncFileBrowser(context, node, app, config, overlayPass = false)
         currentVal = `${rootDisplayName}${sep}${cleanPath}`;
     }
 
-    const labelStr = dropdownDisplay || ((mode === "folder" || ((mode === "file" || mode === "browser") && isSelection)) ? currentVal : (props.displayText || "Browse Files..."));
+    // Check if the selected item carries a _triggerDisplay with {{}} color-key syntax
+    const selectedValue = String(safeConfig?.value || "");
+    const selectedItem = (safeConfig.items || []).find((item) => String(getFileBrowserItemValue(item)) === selectedValue);
+    const triggerDisplay = (selectedItem && typeof selectedItem === "object" && selectedItem._triggerDisplay)
+        ? selectedItem._triggerDisplay
+        : null;
+    const labelStr = triggerDisplay || dropdownDisplay || ((mode === "folder" || ((mode === "file" || mode === "browser") && isSelection)) ? currentVal : (props.displayText || "Browse Files..."));
     const glyphs = getFileBrowserGlyphs(safeConfig?.icon);
+
+    // Parse labelStr for color keys (may differ from props.displayText when items carry {{}} syntax)
+    const suffix = stateStr === "DIS" ? "_DIS" : (stateStr === "ON" ? "_ON" : "_OFF");
+    const { segments: labelSegments, hasColorKeys: labelHasKeys } = parseColorKeyText(
+        labelStr, node, suffix, labelPaint?.textColor || labelPaint?.fill
+    );
 
     if (labelPaint) {
         const pX = props.padding[0];
         const iconOffset = fs * 1.2;
         const indicatorOffset = shouldShowFileBrowserIndicator(safeConfig) ? iconOffset : 0;
         const textLimit = Math.max(0, w - (pX * 2) - indicatorOffset);
-        const drawLabel = clampText(labelStr, textLimit, fs, labelPaint?.font || "Arial", labelPaint?.fontWeight || "normal", safeConfig.displayMode === "ellipsis");
+        const drawLabel = (labelHasKeys && labelSegments)
+            ? labelStr
+            : clampText(labelStr, textLimit, fs, labelPaint?.font || "Arial", labelPaint?.fontWeight || "normal", safeConfig.displayMode === "ellipsis");
 
         ctx.save();
         ctx.beginPath();
@@ -1567,7 +1590,8 @@ export function syncFileBrowser(context, node, app, config, overlayPass = false)
             y: snapToScreenGrid(y + (h / 2), dsScale),
             align: "left",
             baseline: "middle",
-            paintData: { ...labelPaint, fontSize: fs, fill: animatedTextColor }
+            paintData: { ...labelPaint, fontSize: fs, fill: animatedTextColor },
+            segments: (labelHasKeys && labelSegments) ? labelSegments : null
         });
 
         ctx.restore();

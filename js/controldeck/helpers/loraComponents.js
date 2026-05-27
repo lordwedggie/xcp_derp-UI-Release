@@ -53,13 +53,19 @@ export function getMatchedTrigger(triggers, selectedKey) {
 }
 
 export function buildTriggerDropdownItems(loraName, triggers) {
-    const mapped = (triggers || []).map(t => ({
-        ...t,
-        name: (t.tag && t.tag !== t.name) ? `${t.name}:\u00A0${t.tag}` : t.name,
-        display: (t.tag && t.tag !== t.name) ? `${t.name}:\u00A0${t.tag}` : t.name,
-        value: t.key,
-        imageUrl: t.image ? getLoraImageUrl(loraName, t.image) : null
-    }));
+    const mapped = (triggers || []).map(t => {
+        const hasTag = t.tag && t.tag !== t.name;
+        const cleanName = hasTag ? `${t.name}:\u00A0${t.tag}` : t.name;
+        return {
+            ...t,
+            name: cleanName,
+            display: cleanName,
+            // _triggerDisplay carries {{}} syntax for two-color trigger rendering
+            _triggerDisplay: hasTag ? `{{t_textSmall:_ON::${t.name}:\u00A0}}${t.tag}` : t.name,
+            value: t.key,
+            imageUrl: t.image ? getLoraImageUrl(loraName, t.image) : null
+        };
+    });
     return mapped.length > 0 ? mapped : ["None"];
 }
 

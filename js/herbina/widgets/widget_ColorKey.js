@@ -56,7 +56,7 @@ export function syncColorKeyEdit(ctx, node, config) {
 // --- DISABLED MODE: Bypass all logic and draw placeholder ---
     if (stateStr === "DIS") {
         const { x, y, w, h } = geometry;
-        const { props, bodyPaint, labelPaint } = resolveWidgetEnv(node, config);
+        const { props, bodyPaint, labelPaint, colorSegments, hasColorKeys } = resolveWidgetEnv(node, config);
 
         const fillColor = bodyPaint?.fill || "red";
         const cStr = Array.isArray(fillColor) ? `rgba(${fillColor[0]},${fillColor[1]},${fillColor[2]},${fillColor[3]})` : fillColor;
@@ -77,7 +77,8 @@ export function syncColorKeyEdit(ctx, node, config) {
                 fontSize: props.fontSize || labelPaint?.fontSize || 10,
                 fontWeight: props.fontWeight || "normal",
                 fill: labelPaint?.textColor || labelPaint?.fill || "red"
-            }
+            },
+            segments: hasColorKeys ? colorSegments : null
         });
 
         if (config.key && node.layout?.regions?.[config.key]) {

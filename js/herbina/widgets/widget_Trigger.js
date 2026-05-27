@@ -159,7 +159,7 @@ export function syncDerpTrigger(ctx, node, app, config) {
     }
 
     const {
-        props, bodyPaint, labelPaint, content, textAnchor, suffix, useAnim, playSound
+        props, bodyPaint, labelPaint, content, textAnchor, suffix, useAnim, playSound, colorSegments, hasColorKeys
     } = resolveWidgetEnv(node, config, app);
 
     const guardNoFx = triggerWallNode && window.DERP_TW_GUARD_NO_FX === true;
@@ -362,7 +362,8 @@ export function syncDerpTrigger(ctx, node, app, config) {
                 paintData: { ...labelPaintOut, fontSize: themeFontSize, fontWeight: props.fontWeight },
                 align: "left",
                 baseline: props.labelAlign?.[1] || "middle",
-                cutoff: true
+                cutoff: true,
+                segments: hasColorKeys ? colorSegments : null
             });
         }
         ctx.restore();

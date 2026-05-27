@@ -12,7 +12,7 @@ export function syncDerpToggleV2(ctx, node, app, config) {
     const { x, y, w, h } = config.geometry;
 
     const {
-        props, bodyPaint, labelPaint, content, textAnchor, suffix, useAnim, playSound, alpha
+        props, bodyPaint, labelPaint, content, textAnchor, suffix, useAnim, playSound, alpha, colorSegments, hasColorKeys
     } = resolveWidgetEnv(node, config, app);
 
     const isTextOnly = config.isTextOnly === true || config.skipBackground === true;
@@ -140,7 +140,8 @@ export function syncDerpToggleV2(ctx, node, app, config) {
                 paintData: { ...finalLabelPaint, fontSize: themeFontSize, fontWeight: props.fontWeight },
                 align: "left",
                 baseline: props.labelAlign?.[1] || "middle",
-                cutoff: true, cutoffMargin: config.cutoffMargin
+                cutoff: true, cutoffMargin: config.cutoffMargin,
+                segments: hasColorKeys ? colorSegments : null
             });
             ctx.restore();
         }
@@ -207,7 +208,8 @@ export function syncDerpToggleV2(ctx, node, app, config) {
                 paintData: { ...finalLabelPaint, fontSize: themeFontSize, fontWeight: props.fontWeight },
                 align: "left",
                 baseline: props.labelAlign?.[1] || "middle",
-                cutoff: true, cutoffMargin: config.cutoffMargin
+                cutoff: true, cutoffMargin: config.cutoffMargin,
+                segments: hasColorKeys ? colorSegments : null
             });
             ctx.restore();
         }

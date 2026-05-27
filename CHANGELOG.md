@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Multi-Color-Key Text Framework**: Every widget now supports `{{keyName}}` syntax in text strings for per-segment color from themes or palettes. Extended syntax supports `{{key:_ON::displayText}}` for state-specific coloring with custom display text. Framework-level — all widgets inherit automatically via `resolveWidgetEnv`.
+- **Two-color trigger display in derpLoraStack**: Trigger names render in `_ON` state colors, trigger tags in `_OFF` state colors, both in the collapsed trigger and the picker dropdown.
+- **bastaSystemMessage color-key support**: System messages now detect `{{...}}` in message text and render colored segments via `colorSegmentsToHTML`.
+
+### Changed
+- `masterPainterText` upgraded with optional `segments` parameter for per-segment colored Canvas rendering.
+- `resolveWidgetEnv` now auto-parses display text for color keys and returns `colorSegments` + `hasColorKeys`.
+- Cleaned up dead `widget_Dropdown` remnants from `derpLoraStack.js`.
+
+### Added
 - Major refactor of `xcp_file_server.py` — the very long messy file server code now lives in dedicated route modules (`xcp_file_asset_routes.py`, `xcp_file_categories.py`, `xcp_file_common.py`, `xcp_file_image_routes.py`, `xcp_file_json_routes.py`, `xcp_file_prompt_book_routes.py`).
 - Added Diffusion model loader for ZIT, Wan, and Flux.
 - Added CHANGELOG.md to keep versioned change logs.

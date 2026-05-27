@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Herbina Master Painter & Theme Compiler
  * Path: ./Herbina/masterPainter.js
  */
@@ -350,8 +350,8 @@ const _fontCache = new Map();
  * Path: ./Herbina/masterPainter.js
  */
 export function masterPainterText(ctx, options) {
-    const { text, x, y, paintData, align = "left", baseline = "middle" } = options;
-    if (!paintData || text === null || text === undefined) return;
+    const { text, x, y, paintData, align = "left", baseline = "middle", segments = null } = options;
+    if (!paintData || ((text === null || text === undefined) && (!segments || segments.length === 0))) return;
 
     const requestedFont = paintData.font || "Arial";
     let safeFont = _fontCache.get(requestedFont);
@@ -394,38 +394,56 @@ export function masterPainterText(ctx, options) {
         }
     }
 
-    const renderShape = () => {
-        if (paintData.fill) {
-            ctx.fillStyle = paintData.fill;
-            ctx.fillText(displayText, x, y);
+    // --- SEGMENTED COLOR-KEY RENDERING ---
+    if (segments && segments.length > 0) {
+        let totalWidth = 0;
+        for (const seg of segments) totalWidth += ctx.measureText(seg.text).width;
+        let cursorX;
+        if (align === "center") cursorX = x - totalWidth / 2;
+        else if (align === "right") cursorX = x - totalWidth;
+        else cursorX = x;
+        for (const seg of segments) {
+            const segWidth = ctx.measureText(seg.text).width;
+            if (seg.color) {
+                ctx.fillStyle = seg.color;
+                ctx.fillText(seg.text, cursorX, y);
+            }
+            cursorX += segWidth;
         }
-    };
+    } else {
+        const renderShape = () => {
+            if (paintData.fill) {
+                ctx.fillStyle = paintData.fill;
+                ctx.fillText(displayText, x, y);
+            }
+        };
 
-    if (paintData.glow) {
-        ctx.save();
-        ctx.shadowColor = paintData.glow.color;
-        ctx.shadowBlur = paintData.glow.blur;
-        ctx.shadowOffsetX = paintData.glow.offsetX;
-        ctx.shadowOffsetY = paintData.glow.offsetY;
+        if (paintData.glow) {
+            ctx.save();
+            ctx.shadowColor = paintData.glow.color;
+            ctx.shadowBlur = paintData.glow.blur;
+            ctx.shadowOffsetX = paintData.glow.offsetX;
+            ctx.shadowOffsetY = paintData.glow.offsetY;
+            renderShape();
+            ctx.restore();
+        }
+
+        if (paintData.shadow) {
+            ctx.save();
+            ctx.shadowColor = paintData.shadow.color;
+            ctx.shadowBlur = paintData.shadow.blur;
+            ctx.shadowOffsetX = paintData.shadow.offsetX;
+            ctx.shadowOffsetY = paintData.shadow.offsetY;
+            renderShape();
+            ctx.restore();
+        }
+
+        ctx.shadowColor = "transparent";
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
         renderShape();
-        ctx.restore();
     }
-
-    if (paintData.shadow) {
-        ctx.save();
-        ctx.shadowColor = paintData.shadow.color;
-        ctx.shadowBlur = paintData.shadow.blur;
-        ctx.shadowOffsetX = paintData.shadow.offsetX;
-        ctx.shadowOffsetY = paintData.shadow.offsetY;
-        renderShape();
-        ctx.restore();
-    }
-
-    ctx.shadowColor = "transparent";
-    ctx.shadowBlur = 0;
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 0;
-    renderShape();
 
     ctx.restore();
 }

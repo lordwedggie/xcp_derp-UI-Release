@@ -49,7 +49,7 @@ export function syncDerpToggle(ctx, node, app, config) {
     }
 
     // 2. Resolve Base Environment
-    const { props, stateStr: state, bodyPaint: envBodyPaint, labelPaint: envLabelPaint, content, textAnchor } = resolveWidgetEnv(node, { ...config, state: activeState }, app);
+    const { props, stateStr: state, bodyPaint: envBodyPaint, labelPaint: envLabelPaint, content, textAnchor, colorSegments, hasColorKeys } = resolveWidgetEnv(node, { ...config, state: activeState }, app);
     if (!props || node.flags?.collapsed || props.width === 0 || node._isDerpCulled) return;
 
     // 3. Resolve Dual Theme Data
@@ -170,7 +170,8 @@ export function syncDerpToggle(ctx, node, app, config) {
             text: labelText,
             paintData: { ...finalLabelPaint, fill: iconColor, textColor: iconColor, fontSize: themeFontSize, fontWeight: props.fontWeight },
             align: "left",
-            baseline: props.labelAlign?.[1] || "middle"
+            baseline: props.labelAlign?.[1] || "middle",
+            segments: hasColorKeys ? colorSegments : null
         });
     }
     ctx.restore();

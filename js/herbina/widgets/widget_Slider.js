@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Path: ./Herbina/widgets/widget_Slider.js
  * ROLE: Canvas-based rendering and factory for Slider widgets.
  * COMPATIBILITY: Proxies HTML logic to widget_SliderHTML.js
@@ -116,7 +116,7 @@ export function syncDerpSliderCanvas(ctx, node, config) {
     if (style !== "default" && style !== "knob") return;
 
     // 1. Resolve Environment
-    const { props, stateStr, bodyPaint: paintData, labelPaint: labelData, alpha } = resolveWidgetEnv(node, config);
+    const { props, stateStr, bodyPaint: paintData, labelPaint: labelData, alpha, colorSegments, hasColorKeys } = resolveWidgetEnv(node, config);
 
     // 2. Centralized Animated Colors & Alpha
     const rawBg = paintData?.fill || config.btnColor || "transparent";
@@ -225,7 +225,8 @@ export function syncDerpSliderCanvas(ctx, node, config) {
             y: (alignY === "middle") ? y + (h / 2) : (alignY === "bottom" ? y + h - pY : y + pY),
             text: sliderLabel,
             paintData: { ...finalPaint, fill: iconColor },
-            align: alignX, baseline: alignY
+            align: alignX, baseline: alignY,
+            segments: hasColorKeys ? colorSegments : null
         });
     }
     // 4. Draw btnLR Buttons

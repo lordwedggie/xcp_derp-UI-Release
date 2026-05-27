@@ -5,7 +5,7 @@
 import { masterPainter, masterPainterText } from "../masterPainter.js";
 import { applyHTMLTheme } from "../masterPainterHTML.js";
 import { toRGBA } from "../utils/colorMath.js";
-import { resolveWidgetEnv, measureTextWidth, resolvePaintData } from "../utils/widgetsUtils.js";
+import { resolveWidgetEnv, measureTextWidth, resolvePaintData, colorSegmentsToHTML } from "../utils/widgetsUtils.js";
 import { animateWidgetColors, getPulsedColor, parseColor } from "../masterAnimator.js";
 
 export function createTextLabel(callbacks = {}) {
@@ -36,9 +36,9 @@ export function syncTextLabel(ctx, node, config) {
     const itemCache = cache[config.key] || (cache[config.key] = {});
 
     if (itemCache.hash === stateHash && itemCache.res && !node._forceSync) {
-        var { props, stateStr, bodyPaint: envBodyPaint, labelPaint: labelPaintData, alpha } = itemCache.res;
+        var { props, stateStr, bodyPaint: envBodyPaint, labelPaint: labelPaintData, alpha, colorSegments, hasColorKeys } = itemCache.res;
     } else {
-        var { props, stateStr, bodyPaint: envBodyPaint, labelPaint: labelPaintData, alpha } = resolveWidgetEnv(node, config);
+        var { props, stateStr, bodyPaint: envBodyPaint, labelPaint: labelPaintData, alpha, colorSegments, hasColorKeys } = resolveWidgetEnv(node, config);
         itemCache.hash = stateHash;
         itemCache.res = { props, stateStr, bodyPaint: envBodyPaint, labelPaint: labelPaintData, alpha };
     }
@@ -176,7 +176,8 @@ export function syncTextLabel(ctx, node, config) {
             text: line,
             paintData: finalPaint,
             align: alignX,
-            baseline: "middle"
+            baseline: "middle",
+            segments: (!config.wrap && hasColorKeys) ? colorSegments : null
         });
     });
 
@@ -196,10 +197,10 @@ export function syncTextLabelHTML(element, node, app, config) {
     const needsFullSync = node._shouldSync || element._lastStateHash !== stateHash || (element._isAnimating && (window.xcpDerpSettings?.useAnimations !== false));
 
     if (!needsFullSync && element._lastProps && !node._forceSync) {
-        var { props, stateStr, bodyPaint: envBodyPaint, labelPaint: labelPaintData, alignments, coords, textAnchor, alpha } = element._lastProps;
+        var { props, stateStr, bodyPaint: envBodyPaint, labelPaint: labelPaintData, alignments, coords, textAnchor, alpha, colorSegments, hasColorKeys } = element._lastProps;
     } else {
-        var { props, stateStr, bodyPaint: envBodyPaint, labelPaint: labelPaintData, alignments, coords, textAnchor, alpha } = resolveWidgetEnv(node, config, app, element);
-        element._lastProps = { props, stateStr, bodyPaint: envBodyPaint, labelPaint: labelPaintData, alignments, coords, textAnchor, alpha };
+        var { props, stateStr, bodyPaint: envBodyPaint, labelPaint: labelPaintData, alignments, coords, textAnchor, alpha, colorSegments, hasColorKeys } = resolveWidgetEnv(node, config, app, element);
+        element._lastProps = { props, stateStr, bodyPaint: envBodyPaint, labelPaint: labelPaintData, alignments, coords, textAnchor, alpha, colorSegments, hasColorKeys };
         element._lastStateHash = stateHash;
     }
 
@@ -262,7 +263,9 @@ export function syncTextLabelHTML(element, node, app, config) {
         element._lastSyncKey = syncKey;
 
         // THE FIX: Move Content Handling INSIDE the thrash gate to prevent constant DOM invalidation
-        if (displayText.includes("<") && displayText.includes(">")) {
+        if (hasColorKeys && colorSegments) {
+            element.innerHTML = colorSegmentsToHTML(colorSegments);
+        } else if (displayText.includes("<") && displayText.includes(">")) {
             element.innerHTML = displayText;
         } else {
             element.innerText = displayText;

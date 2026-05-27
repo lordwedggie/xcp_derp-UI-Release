@@ -265,16 +265,11 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                         if (trigRow[`dropTrigger_${i}`]) {
                                             const widget = trigRow[`dropTrigger_${i}`];
                                             widget.value = matched ? matched.key : (lora[3] || "None");
-                                            widget.label = matched ? `${matched.display}:\u00A0` : "";
                                             const triggerNoneText = tLocale("$derp_lora_stack.trigger.none", "None");
-                                            const triggerSelectText = tLocale("$derp_lora_stack.trigger.select", "Select Trigger...");
                                             const fallbackTriggerKey = lora[3] || "None";
                                             const fallbackTriggerText = fallbackTriggerKey === "None" ? triggerNoneText : fallbackTriggerKey;
                                             widget.text = (lora[4] && lora[4] !== "") ? lora[4] : (matched ? (matched.tag || matched.name) : fallbackTriggerText);
-                                            widget.dropdownHeaderText = matched ? matched.display : (fallbackTriggerKey === "None" ? triggerSelectText : fallbackTriggerText);
-                                            // THE BYPASS SYNC: Ensure the widget state matches the bypass flag to trigger the widget_Dropdown fix
                                             widget.state = isBypassed ? "DIS" : (isSelected ? "ON" : "OFF");
-                                            widget.labelState = isBypassed ? "DIS" : (isSelected ? "ON" : "OFF");
                                         }
                                         if (trigRow[`toggleFuseQKV_${i}`]) {
                                             trigRow[`toggleFuseQKV_${i}`].state = (i === activeSlot) ? "ON" : (isBypassed ? "DIS" : "OFF");

@@ -293,10 +293,10 @@ export function syncDerpEditor(context, node, app, config) {
 
         var {
             props, bodyPaint, labelPaint, stateStr: effectiveState,
-            content, alignments, coords, textAnchor
+            content, alignments, coords, textAnchor, colorSegments, hasColorKeys
         } = resolveWidgetEnv(node, envConfig, app, isCanvas ? null : el);
 
-        el._lastProps = { props, bodyPaint, labelPaint, effectiveState, content, alignments, coords, textAnchor };
+        el._lastProps = { props, bodyPaint, labelPaint, effectiveState, content, alignments, coords, textAnchor, colorSegments, hasColorKeys };
         el._lastStateHash = stateHash;
     }
 
@@ -649,7 +649,8 @@ export function syncDerpEditor(context, node, app, config) {
                                 x: textX, y: lineY,
                                 align: canvasAlignMap[alignX] || "left",
                                 baseline: "middle",
-                                paintData: {...labelPaint, font, fontSize, fontWeight, fill: textColor}
+                                paintData: {...labelPaint, font, fontSize, fontWeight, fill: textColor},
+                                segments: hasColorKeys ? colorSegments : null
                             });
                         }
                         currentY += uiLineHeight;

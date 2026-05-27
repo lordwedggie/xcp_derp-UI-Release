@@ -4,7 +4,7 @@
  */
 import { masterPainter, masterPainterText, compileThemeData } from "../masterPainter.js";
 import { applyHTMLTheme } from "../masterPainterHTML.js";
-import { resolveWidgetEnv, parseThemeKey, resolvePaletteEntry, resolvePaintData, compileAnimatedPaint, measureTextWidth } from "../utils/widgetsUtils.js";
+import { resolveWidgetEnv, parseThemeKey, resolvePaletteEntry, resolvePaintData, compileAnimatedPaint, measureTextWidth, colorSegmentsToHTML } from "../utils/widgetsUtils.js";
 import { animateWidgetColors } from "../masterAnimator.js";
 
 // --- CHECKERBOARD FINETUNING VARIABLES ---
@@ -64,9 +64,9 @@ export function syncBtnSimple(ctx, node, config) {
     const itemCache = cache[config.key] || (cache[config.key] = {});
 
     if (itemCache.hash === stateHash && itemCache.res && !node._forceSync) {
-        var { props, stateStr, bodyPaint: paintData, labelPaint: labelData, content, textAnchor } = itemCache.res;
+        var { props, stateStr, bodyPaint: paintData, labelPaint: labelData, content, textAnchor, colorSegments, hasColorKeys } = itemCache.res;
     } else {
-        var { props, stateStr, bodyPaint: paintData, labelPaint: labelData, content, textAnchor } = resolveWidgetEnv(node, config);
+        var { props, stateStr, bodyPaint: paintData, labelPaint: labelData, content, textAnchor, colorSegments, hasColorKeys } = resolveWidgetEnv(node, config);
 
         // THE PALETTE TEXT FIX: If a palette is used, re-resolve labelPaint from the theme
         // to prevent palette colors from overwriting the native text color.
@@ -76,7 +76,7 @@ export function syncBtnSimple(ctx, node, config) {
         }
 
         itemCache.hash = stateHash;
-        itemCache.res = { props, stateStr, bodyPaint: paintData, labelPaint: labelData, content, textAnchor };
+        itemCache.res = { props, stateStr, bodyPaint: paintData, labelPaint: labelData, content, textAnchor, colorSegments, hasColorKeys };
     }
 
     // 1. Resolve Text-Only state
@@ -147,7 +147,8 @@ export function syncBtnSimple(ctx, node, config) {
         masterPainterText(ctx, {
             x: textX, y: textAnchor.y, width: w, height: h, text: btnText,
             paintData: { ...labelData, fill: iconColor, fontSize: fontSize, fontWeight: props.fontWeight },
-            align: alignX, baseline: props.labelAlign?.[1] || "middle"
+            align: alignX, baseline: props.labelAlign?.[1] || "middle",
+            segments: hasColorKeys ? colorSegments : null
         });
         ctx.restore();
     }
@@ -169,9 +170,9 @@ export function syncBtnSimpleHTML(element, node, app, config) {
     const needsFullSync = node._shouldSync || element._lastStateHash !== stateHash || (element._isAnimating && (window.xcpDerpSettings?.useAnimations !== false));
 
     if (!needsFullSync && element._lastProps) {
-        var { props, stateStr, bodyPaint: paintData, labelPaint: labelData, content, callbacks, alignments, coords, textAnchor } = element._lastProps;
+        var { props, stateStr, bodyPaint: paintData, labelPaint: labelData, content, callbacks, alignments, coords, textAnchor, colorSegments, hasColorKeys } = element._lastProps;
     } else {
-        var { props, stateStr, bodyPaint: paintData, labelPaint: labelData, content, callbacks, alignments, coords, textAnchor } = resolveWidgetEnv(node, config, app, element);
+        var { props, stateStr, bodyPaint: paintData, labelPaint: labelData, content, callbacks, alignments, coords, textAnchor, colorSegments, hasColorKeys } = resolveWidgetEnv(node, config, app, element);
 
         // THE PALETTE TEXT FIX: Re-resolve labelPaint from theme to bypass palette text-color injection.
         if (config.palette) {
@@ -179,7 +180,7 @@ export function syncBtnSimpleHTML(element, node, app, config) {
             labelData = resolvePaintData(node, props.labelKey, suffix, config.labelColor);
         }
 
-        element._lastProps = { props, stateStr, bodyPaint: paintData, labelPaint: labelData, content, callbacks, alignments, coords, textAnchor };
+        element._lastProps = { props, stateStr, bodyPaint: paintData, labelPaint: labelData, content, callbacks, alignments, coords, textAnchor, colorSegments, hasColorKeys };
         element._lastStateHash = stateHash;
     }
 
@@ -244,7 +245,11 @@ export function syncBtnSimpleHTML(element, node, app, config) {
             element.style.fontStyle = (props.fontWeight === "italic" || props.fontWeight === "both") ? "italic" : "normal";
         }
 
-        element.innerText = displayText;
+        if (hasColorKeys && colorSegments) {
+            element.innerHTML = colorSegmentsToHTML(colorSegments);
+        } else {
+            element.innerText = displayText;
+        }
 
         if (!config.wrap) {
             element.style.whiteSpace = "nowrap";

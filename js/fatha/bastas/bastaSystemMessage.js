@@ -4,7 +4,7 @@
 import { app } from "../../../../scripts/app.js";
 import { activeBastas } from "../basta.js";
 import { handleThemeUpdate } from "../core/fathaHandler.js";
-import { measureTextWidth, resolvePaintData } from "../../herbina/utils/widgetsUtils.js";
+import { measureTextWidth, resolvePaintData, parseColorKeyText, colorSegmentsToHTML } from "../../herbina/utils/widgetsUtils.js";
 import { applyHTMLTheme } from "../../herbina/masterPainterHTML.js";
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
 import { lerpTo, animateAlpha } from "../../herbina/masterAnimator.js";
@@ -149,7 +149,7 @@ function applySystemMessageThemeToRecord(record, themeNode) {
     record.label.style.setProperty("color", labelPaint.textColor || labelPaint.fill || "rgba(255,255,255,1)", "important");
     record.label.style.height = `${record.height}px`;
 
-    if (record.accentEl) {
+    if (record.accentEl && record.accentEl.parentNode) {
         record.accentEl.style.setProperty("font-family", accentPaint?.font || accentFontName, "important");
         record.accentEl.style.setProperty("font-size", `${accentFontSize}px`, "important");
         record.accentEl.style.setProperty("font-weight", accentFontWeight, "important");
@@ -310,10 +310,20 @@ function spawnBastaSystemMessage(host, text, duration = 3000, animations = {}, t
     const label = document.createElement("div");
     const prefixEl = document.createElement("span");
     const accentEl = document.createElement("span");
-    prefixEl.innerText = String(text || "");
-    accentEl.innerText = String(accentText || "");
-    label.appendChild(prefixEl);
-    if (accentText) label.appendChild(accentEl);
+    const hasColorKeys = /\{\{/.test(String(text || ""));
+    if (hasColorKeys) {
+        const { segments } = parseColorKeyText(String(text || ""), themeNode, "_OFF", labelPaint?.textColor || labelPaint?.fill || "rgba(255,255,255,1)");
+        if (segments) {
+            label.innerHTML = colorSegmentsToHTML(segments);
+        } else {
+            label.innerText = String(text || "");
+        }
+    } else {
+        prefixEl.innerText = String(text || "");
+        accentEl.innerText = String(accentText || "");
+        label.appendChild(prefixEl);
+        if (accentText) label.appendChild(accentEl);
+    }
     bgEl.appendChild(label);
     el.appendChild(bgEl);
     el.className = "derp-system-message";

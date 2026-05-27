@@ -28,7 +28,8 @@ function showPaletteWarning(node, path, status) {
     const prefix = status === "fallback"
         ? "Palette fallback found: "
         : "Palette missing, no fallback: ";
-    showBastaSystemMessage(getPaletteWarningHost(node), prefix, 3200, { fade: true, grow: true }, null, status === "fallback" ? "info" : "error", null, path || "");
+    const msgText = prefix + "{{" + (path || "") + "}}";
+    showBastaSystemMessage(getPaletteWarningHost(node), msgText, 3200, { fade: true, grow: true }, null, status === "fallback" ? "info" : "error", null, "");
 }
 
 /**
@@ -116,6 +117,78 @@ export function resolvePaletteEntry(node, path, entryName) {
 
     const data = _paletteCache[cacheKey];
     return (data && data !== "LOADING" && data !== "NOT_FOUND" && data !== "ERROR") ? data : null;
+}
+
+// --- UNIFIED COLOR-KEY TEXT PARSER ---
+// Parses {{keyName}} tokens in widget text strings and resolves them to colors
+// from the active palette or theme paint data. Framework-level: all widgets inherit.
+
+const COLOR_KEY_REGEX = /\{\{([a-zA-Z0-9_]+)(?::(_[A-Z]+))?(?:::([^}]*))?\}\}/g;
+
+function resolveColorKey(node, keyName, stateSuffix = "_OFF") {
+    const palette = window.xcpActivePalette;
+    const keyLower = keyName.toLowerCase();
+    if (palette?.palettes) {
+        for (const entry of palette.palettes) {
+            if (String(entry?.name || "").toLowerCase() === keyLower) {
+                const mainColor = entry?.entries?.main?.[stateSuffix] || entry?.entries?.main?._OFF;
+                if (mainColor && Array.isArray(mainColor)) {
+                    return `rgba(${Math.round(mainColor[0])},${Math.round(mainColor[1])},${Math.round(mainColor[2])},${mainColor[3] ?? 1})`;
+                }
+                if (typeof mainColor === 'string') return mainColor;
+            }
+        }
+    }
+    if (palette && palette[keyName] !== undefined) {
+        const val = palette[keyName];
+        if (Array.isArray(val)) return toRGBA(val);
+        if (typeof val === 'string') return val;
+    }
+    if (node) {
+        const paintData = resolvePaintData(node, keyName, stateSuffix);
+        if (paintData?.fill) {
+            if (Array.isArray(paintData.fill)) return toRGBA(paintData.fill);
+            return paintData.fill;
+        }
+    }
+    return null;
+}
+
+export function parseColorKeyText(text, node, stateSuffix = "_OFF", fallbackColor = null) {
+    if (!text || typeof text !== 'string') return { segments: null, hasColorKeys: false };
+    // Normalize fallback to a valid CSS color string
+    if (Array.isArray(fallbackColor)) fallbackColor = toRGBA(fallbackColor);
+    else if (fallbackColor && typeof fallbackColor !== 'string') fallbackColor = null;
+    COLOR_KEY_REGEX.lastIndex = 0;
+    const raw = [];
+    let lastIndex = 0, match, found = false;
+    while ((match = COLOR_KEY_REGEX.exec(text)) !== null) {
+        found = true;
+        if (match.index > lastIndex) raw.push({ text: text.slice(lastIndex, match.index), color: fallbackColor });
+        const tokenState = match[2] || stateSuffix;
+        const displayText = match[3] !== undefined ? match[3] : match[0];
+        raw.push({ text: displayText, color: resolveColorKey(node, match[1], tokenState) || fallbackColor });
+        lastIndex = COLOR_KEY_REGEX.lastIndex;
+    }
+    if (lastIndex < text.length) raw.push({ text: text.slice(lastIndex), color: fallbackColor });
+    if (!found) return { segments: null, hasColorKeys: false };
+    const segments = [];
+    for (const seg of raw) {
+        const prev = segments[segments.length - 1];
+        if (prev && prev.color === seg.color) prev.text += seg.text;
+        else segments.push(seg);
+    }
+    return { segments, hasColorKeys: true };
+}
+
+export function colorSegmentsToHTML(segments) {
+    if (!segments || segments.length === 0) return "";
+    const div = document.createElement("div");
+    return segments.map(seg => {
+        div.textContent = seg.text;
+        const escaped = div.innerHTML;
+        return seg.color ? `<span style="color:${seg.color}">${escaped}</span>` : escaped;
+    }).join('');
 }
 
 // --- UNIFIED DERP TEXT METRICS ---
@@ -737,6 +810,13 @@ export function resolveWidgetEnv(node, config, app = null, element = null) {
     const bodyPaint = resolvePaintData(node, props.bodyKey, suffix, config.btnColor, config.palette);
     const labelPaint = resolvePaintData(node, props.labelKey, suffix, config.labelColor, config.palette);
 
+    // --- COLOR-KEY TEXT PARSING ---
+    const defaultTextColor = labelPaint?.textColor || labelPaint?.fill;
+    const resolvedDisplayText = props.displayText || "";
+    const { segments: colorSegments, hasColorKeys } = parseColorKeyText(
+        resolvedDisplayText, node, suffix, defaultTextColor
+    );
+
     // --- CONSOLIDATED UTILITY HANDLING ---
     // Handle Content, Callbacks, and Maps internally
     const content = getWidgetContent(config);
@@ -796,6 +876,8 @@ export function resolveWidgetEnv(node, config, app = null, element = null) {
 
     return {
         props, stateStr, suffix, bodyPaint, labelPaint,
-        content, callbacks, alignments, coords, textAnchor, useAnim, playSound, alpha
+        content, callbacks, alignments, coords, textAnchor,
+        colorSegments, hasColorKeys,
+        useAnim, playSound, alpha
     };
 }
