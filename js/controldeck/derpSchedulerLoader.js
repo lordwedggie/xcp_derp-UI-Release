@@ -228,14 +228,14 @@ app.registerExtension({
                     regionSchedulerLoader: {
                         dir: "row", width: "full", height: "auto", spacing: [sW, 0],
                         margin: [0, mH, 0, 0],
-                        btnNew: {
-                            type: this.UI_TYPES.ICONBUTTON,
-                            icon: "new",
-                            iconScale: 0.5,
-                            width: "match", height: "fill", padding: [pW, pH], spacing: [sW, 0],
-                            themeKey: "button, t_textNormal",
+                        btnClear: {
+                            type: this.UI_TYPES.BUTTON,
+                            text: "Clear",
+                            width: "auto", height: "fill", padding: [pW, pH], spacing: [sW, 0],
+                            labelAlign: ["center", "middle"],
+                            themeKey: "button, t_textSmall",
                             onPress: () => {
-                                showBastaFileHandler(this, "none", "btnNew", {
+                                showBastaFileHandler(this, "none", "btnClear", {
                                     title: tLocale("$derp_scheduler_loader.dialogs.clear_deck.title", "Clear Scheduler Deck"),
                                     message: tLocale("$derp_scheduler_loader.dialogs.clear_deck.message", "Clear the Scheduler deck?"),
                                     confirm: tLocale("$derp_scheduler_loader.dialogs.clear_deck.confirm", "Clear"),
@@ -280,13 +280,10 @@ app.registerExtension({
                             }
                         },
                         btnRefreshSchedulers: {
-                            type: this.UI_TYPES.BUTTON,
-                            text: tLocale("$derp_scheduler_loader.browser.refresh", "Refresh"),
-                            width: "auto", height: "fill",
-                            padding: [pW, pH],
-                            fontSize: t_textNormal_size,
-                            labelAlign: ["center", "middle"],
-                            themeKey: "button, t_textSmall",
+                            type: this.UI_TYPES.ICONBUTTON,
+                            icon: "refresh",
+                            width: "match", height: "fill", objectAlign: ["left", "middle"], spacing: [sW, 0],
+                            themeKey: "button, t_textNormal",
                             onPress: () => {
                                 window._xcpDerpSession = Date.now();
                                 this.fetchSchedulerData(true);

@@ -716,9 +716,10 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                     }
                                 },
                                 btnRefresh: {
-                                    type: this.UI_TYPES.BUTTON, text: tLocale("$derp_lora_stack.browser.refresh", "Refresh"),
-                                    width: "auto", height: "fill", padding: [pW, pH],
-                                    labelAlign: ["center", "middle"], themeKey: "button, t_textSmall",
+                                    type: this.UI_TYPES.ICONBUTTON,
+                                    icon: "refresh",
+                                    width: "match", height: "fill", objectAlign: ["left", "middle"], spacing: [sW, 0],
+                                    themeKey: "button, t_textNormal",
                                     onPress: () => {
                                         const bId = "basta_lora_detail_global_unique_id";
                                         if (window.xcpActiveBastas?.has(bId)) window.xcpActiveBastas.get(bId).close();

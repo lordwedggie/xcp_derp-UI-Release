@@ -236,14 +236,14 @@ app.registerExtension({
                     regionDiffusionLoader: {
                         dir: "row", width: "full", height: "auto", spacing: [sW, 0],
                         margin: [0, mH, 0, 0],
-                        btnNewDiffusion: {
-                            type: this.UI_TYPES.ICONBUTTON,
-                            iconScale: 0.5,
-                            icon: "new",
-                            width: "match", height: "fill", padding: [pW, pH], spacing: [sW, 0],
-                            themeKey: "button, t_textNormal",
+                        btnClearDiffusions: {
+                            type: this.UI_TYPES.BUTTON,
+                            text: "Clear",
+                            width: "auto", height: "fill", padding: [pW, pH], spacing: [sW, 0],
+                            labelAlign: ["center", "middle"],
+                            themeKey: "button, t_textSmall",
                             onPress: () => {
-                                showBastaFileHandler(this, "none", "btnNewDiffusion", {
+                                showBastaFileHandler(this, "none", "btnClearDiffusions", {
                                     title: tLocale("$derp_diffusion_loader.dialogs.clear_diffusion_deck.title", "Clear Diffusion Deck"),
                                     message: tLocale("$derp_diffusion_loader.dialogs.clear_diffusion_deck.message", "Clear the diffusion deck?"),
                                     confirm: tLocale("$derp_diffusion_loader.dialogs.clear_diffusion_deck.confirm", "Clear"),
@@ -281,10 +281,10 @@ app.registerExtension({
                             }
                         },
                         btnRefreshDiffusions: {
-                            type: this.UI_TYPES.BUTTON, text: tLocale("$derp_diffusion_loader.browser.refresh", "Refresh"),
-                            width: "auto", height: "fill", padding: [pW, pH],
-                            fontSize: t_textNormal_size,
-                            labelAlign: ["center", "middle"], themeKey: "button, t_textSmall",
+                            type: this.UI_TYPES.ICONBUTTON,
+                            icon: "refresh",
+                            width: "match", height: "fill", objectAlign: ["left", "middle"], spacing: [sW, 0],
+                            themeKey: "button, t_textNormal",
                             onPress: () => {
                                 window._xcpDerpSession = Date.now();
                                 this.fetchDiffusionData(true);
@@ -300,11 +300,11 @@ app.registerExtension({
                     regionTextEncoderLoader: {
                         dir: "row", width: "full", height: "auto", spacing: [sW, 0],
                         btnClearTextEncoders: {
-                            type: this.UI_TYPES.ICONBUTTON,
-                            iconScale: 0.5,
-                            icon: "new",
-                            width: "match", height: "fill", padding: [pW, pH], spacing: [sW, 0],
-                            themeKey: "button, t_textNormal",
+                            type: this.UI_TYPES.BUTTON,
+                            text: "Clear",
+                            width: "auto", height: "fill", padding: [pW, pH], spacing: [sW, 0],
+                            labelAlign: ["center", "middle"],
+                            themeKey: "button, t_textSmall",
                             onPress: () => {
                                 showBastaFileHandler(this, "none", "btnClearTextEncoders", {
                                     title: tLocale("$derp_diffusion_loader.dialogs.clear_text_encoder_deck.title", "Clear Text Encoder Deck"),

@@ -216,21 +216,22 @@ app.registerExtension({
                     width: "full", height: "auto", dir: "col",
                     margin: [mW, mH, mW, mH],
                     regionModelDeck: {
-                        width: "full", height: "auto", dir: "col", spacing: [0, sH],
+                        width: "full", height: "auto", dir: "col", spacing: [sW, sH],
                         hidden: deck.length === 0,
                         margin: [0, 0, 0, mH],
                         ...deckRegions
                     },
                     regionModelLoader: {
-                        dir: "row", width: "full", height: "auto", spacing: [sW, 0],
+                        dir: "row", width: "full", height: "auto", 
                         margin: [0, mH, 0, 0],
-                        btnNew: {
-                            type: this.UI_TYPES.ICONBUTTON,
-                            icon: "new",
-                            width: "match", height: "fill", padding: [pW, pH], spacing: [sW, 0],
-                            themeKey: "button, t_textNormal",
+                        btnClear: {
+                            type: this.UI_TYPES.BUTTON,
+                            text: "Clear",
+                            width: "auto", height: "fill", padding: [pW, pH], spacing: [sW, 0],
+                            labelAlign: ["center", "middle"],
+                            themeKey: "button, t_textSmall",
                             onPress: () => {
-                                showBastaFileHandler(this, "none", "btnNew", {
+                                showBastaFileHandler(this, "none", "btnClear", {
                                     title: tLocale("$derp_model_loader.dialogs.clear_deck.title", "Clear Model Deck"),
                                     message: tLocale("$derp_model_loader.dialogs.clear_deck.message", "Clear the Model deck?"),
                                     confirm: tLocale("$derp_model_loader.dialogs.clear_deck.confirm", "Clear"),
@@ -272,10 +273,10 @@ app.registerExtension({
                             }
                         },
                         btnRefreshModels: {
-                            type: this.UI_TYPES.BUTTON, text: tLocale("$derp_model_loader.browser.refresh", "Refresh"),
-                            width: "auto", height: "fill", padding: [pW, pH],
-                            fontSize: t_textNormal_size,
-                            labelAlign: ["center", "middle"], themeKey: "button, t_textSmall",
+                            type: this.UI_TYPES.ICONBUTTON,
+                            icon: "refresh",
+                            width: "match", height: "fill", objectAlign: ["left", "middle"], spacing: [sW, 0],
+                            themeKey: "button, t_textNormal",
                             onPress: () => {
                                 window._xcpDerpSession = Date.now();
                                 this.fetchModelData(true);
