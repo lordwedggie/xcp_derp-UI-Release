@@ -30,7 +30,6 @@
     "load_settings": "加载设置：",
     "tooltips": {
       "collapse_node": "折叠或展开该节点",
-      "title_label": "双击可重命名。该名称也会作为 Derp Router 中的信号源名称",
       "undock_node": "将该节点从停靠堆栈中断开",
       "pin_anchor": "将该节点固定为停靠堆栈的锚点，这样堆栈折叠时它不会移动",
       "legacy_settings_button": "旧版按钮。如果你还能看到它，请反馈",

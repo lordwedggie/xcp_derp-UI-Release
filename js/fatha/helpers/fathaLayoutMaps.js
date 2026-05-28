@@ -322,7 +322,7 @@ export const getVirtualNodeLayoutMap = (node) => {
                     type: UI_TYPES.EDITOR, skipBackground: true, mouseOver: false,
                     themeKey: "dialog, t_textBig",
                     width: "full", height: "auto", padding: [pW, 0],
-                    toolTip: tLocale("$fatha_layout.tooltips.title_label", "Double-click to rename. Also used as the signal source name in Derp Router"),
+                    
                     text: node.titleLabel || "Virtual Node",
                     noDragLock: true, spacing: [sW, 0],
                     onPress: (e, data) => focusTitleEditor(data?.reg || node.layout?.regions?.titleLabel, data),

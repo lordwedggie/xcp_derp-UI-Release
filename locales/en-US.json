@@ -30,7 +30,6 @@
     "load_settings": "Load settings:",
     "tooltips": {
       "collapse_node": "Collapse or un-collapse the node",
-      "title_label": "Double-click to rename. Also used as the signal source name in Derp Router",
       "undock_node": "Disconnect this node from its docked stack",
       "pin_anchor": "Pin this node as the docked stack anchor so it stays in place when the stack collapses",
       "legacy_settings_button": "Legacy button. Report it if you still see this",

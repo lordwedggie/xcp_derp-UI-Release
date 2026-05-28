@@ -177,16 +177,16 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                         contentRegion: {
                             anchor: { target: "headerRegion", axis: "y", offset: oY },
                             dir: "col", width: "full", height: "auto",
-                            margin: [mW, 0, mW, 0], padding: [pW, pH],
+                            margin: [mW, mW, mW, 0], padding: [pW, pH], 
                             lblContent: {
                                 type: UI_TYPES.TEXT, themeKey: "t_textsystem",
-                                text: "$derp_router.signals.select_detected",
-                                labelAlign: ["left", "middle"], width: "full", height: "auto"
+                                text: `${(this.receivedSignals || []).length} signals detected. ${activeOuts.length} added.`,
+                                labelAlign: ["left", "middle"], width: "full", height: "auto", 
                             },
                             // THE DYNAMIC REPETITION: Generate indexed regions to repeat the outputsRegion
                             outputsRegion: {
-                                anchor: { target: "lblContent", axis: "y", offset: oY },
-                                dir: "row", width: "full", height: 0,
+                                anchor: { target: "lblContent", axis: "y"}, 
+                                dir: "row", width: "full", height: 0, margin: [0, sH],
                                 hidden: activeOuts.length === 0,
                                 outSlotIdx: -1 // THE TAG FIX: Recognize base anchor as a slot container
                             },
@@ -321,7 +321,7 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                             signalRegion: {
                                 anchor: { target: activeOuts.length > 0 ? `outputsRegion_display_${activeOuts.length - 1}` : "lblContent", axis: "y", offset: sH },
                                 dir: "row", width: "full", height: "auto",
-                                margin: [0, mH, 0, 0], spacing: [0, sH],
+                                spacing: [0, sH],
                                 dropdownSignalSelect: {
                                     type: UI_TYPES.FILEBROWSER, searchTab: true,
                                     icon: "dropdown",

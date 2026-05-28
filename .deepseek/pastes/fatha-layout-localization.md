@@ -20,10 +20,9 @@ Follow `derpLatent` (in the controldeck) as the pattern for tooltip localization
 
 1. For every new or changed tooltip in `fathaLayoutMaps.js`, wrap it with `tLocale(key, fallback)`.
 2. Use locale keys under `$fatha_layout.tooltips.*`.
-3. Always update all three locale files together:
+3. Always update both locale files together:
    - `locales/en-US.json`
    - `locales/zh-CN.json`
-   - `locales/ru-RU.json`
 4. Do not hardcode final tooltip text in the layout config unless it is the fallback inside `tLocale(...)`.
 
 ## Verification

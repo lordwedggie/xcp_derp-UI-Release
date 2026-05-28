@@ -89,7 +89,7 @@ The registry reads metadata from `pyproject.toml` `[project.urls]`:
 toolTip: tLocale("$fatha_layout.tooltips.<key>", "English fallback")
 ```
 
-Follow `derpLatent` as the reference implementation. Always update all three locale files (`en-US`, `zh-CN`, `ru-RU`). Never leave raw `"$..."` keys as tooltip values. Full rules in `.deepseek/pastes/fatha-layout-localization.md`.
+Follow `derpLatent` as the reference implementation. Always update both locale files (`en-US`, `zh-CN`). Never leave raw `"$..."` keys as tooltip values. Full rules in `.deepseek/pastes/fatha-layout-localization.md`.
 
 **4 Working Rules:**
 1. Think Before Coding — state assumptions, surface tradeoffs, ask when unclear
