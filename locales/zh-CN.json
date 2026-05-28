@@ -532,7 +532,6 @@
   "derp_router": {
     "title": "老登路由器",
     "signals": {
-      "select_detected": "选择一个已检测到的信号：",
       "select": "选择信号...",
       "none_detected": "未检测到信号..."
     },
