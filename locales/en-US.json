@@ -539,7 +539,9 @@
     },
     "messages": {
       "received_title_change_middle": " signal source update: ",
-      "received_title_change_suffix": " renamed to "
+      "received_title_change_suffix": " renamed to ",
+      "signal_source_deleted": " has lost its signal from ",
+      "signal_link_broken": ". Link is broken!"
     },
     "system": {
       "properties": "Derp Router properties:",

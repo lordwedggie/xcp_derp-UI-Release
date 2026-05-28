@@ -43,6 +43,7 @@ app.registerExtension({
             // THE LIVE REGISTRY FIX: "Heavy" guard removed.
             // All nodes (Models, Images, Latents) are now allowed to broadcast their metadata or filenames wirelessly.
             // Real tensors are intercepted and handled by the Python Global Registry.
+            if (this.isFathaNode || this.isUncleNode) return;
             const isTransmitting = this.properties?.isWirelessTransmitter;
             // Standard nodes use .title, Derp nodes use .titleLabel
             const titleProp = (this.titleLabel !== undefined) ? "titleLabel" : "title";

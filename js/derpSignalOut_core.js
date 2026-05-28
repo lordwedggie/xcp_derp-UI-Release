@@ -633,20 +633,37 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                                     const sourceBaseId = String(sig.nodeId).split(":")[0];
                                     const nodeExists = !!window.app?.graph?.getNodeById(parseInt(sourceBaseId));
 
-                                    if (!nodeExists) {
+                                    if (!nodeExists || !globalSignals[String(sig.nodeId)]) {
                                         if (this.outputs && this.outputs[i] && this.outputs[i].links && window.app?.graph) {
                                             [...this.outputs[i].links].forEach(lId => {
                                                 if (window.app.graph.links[lId]) window.app.graph.removeLink(lId);
                                             });
                                         }
-                                        const preservedId = sig.nodeId;
-                                        this.activeOutputs[i] = sanitizeDerpSignal({ ...sig, nodeId: preservedId, nodeName: "⚠️ Signal source deleted", isOrphaned: true });
                                         orphanStateChanged = true;
+                                        if (typeof showBastaSystemMessage === "function") {
+                                            const routerName = this.titleLabel || this.title || "Derp Router";
+                                            const sourceName = sig.nodeName || String(sig.nodeId);
+                                            const suffix = tLocale("$derp_router.messages.signal_link_broken", ", link is broken!");
+                                            showBastaSystemMessage(
+                                                this,
+                                                `${routerName}${tLocale("$derp_router.messages.signal_source_deleted", " has lost its signal from ")}`,
+                                                6000,
+                                                { fade: true, grow: true },
+                                                null,
+                                                "critical",
+                                                null,
+                                                `${sourceName}${suffix}`
+                                            );
+                                        }
+                                        // Remove the broken link from active outputs
+                                        this.activeOutputs[i] = null;
                                     }
                                 }
                             });
 
                             if (orphanStateChanged) {
+                                this.activeOutputs = this.activeOutputs.filter(s => s !== null);
+                                this.properties.activeOutputs = this.activeOutputs.length;
                                 this.manageDerpOutputs();
                                 if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
                             }
@@ -656,6 +673,8 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                             .filter(sig => {
                                 if (!sig) return false;
                                 if (sig.isPureVirtual && (sig.value === null || sig.value === undefined)) return false;
+                                const sourceId = String(sig.nodeId || "").split(":")[0];
+                                if (!window.app?.graph?.getNodeById(parseInt(sourceId, 10))) return false;
                                 return true;
                             })
                             .map(sanitizeDerpSignal)

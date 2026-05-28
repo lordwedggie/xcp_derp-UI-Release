@@ -539,7 +539,9 @@
     },
     "messages": {
       "received_title_change_middle": " 的信号源已将名称改为：",
-      "received_title_change_suffix": " 已重命名为 "
+      "received_title_change_suffix": " 已重命名为 ",
+      "signal_source_deleted": " 丢失了来自 ",
+      "signal_link_broken": "。链接已断开！"
     },
     "system": {
       "properties": "老登路由器属性：",

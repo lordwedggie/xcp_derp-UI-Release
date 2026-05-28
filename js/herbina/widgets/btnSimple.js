@@ -5,7 +5,7 @@
 import { masterPainter, masterPainterText, compileThemeData } from "../masterPainter.js";
 import { applyHTMLTheme } from "../masterPainterHTML.js";
 import { resolveWidgetEnv, parseThemeKey, resolvePaletteEntry, resolvePaintData, compileAnimatedPaint, measureTextWidth, colorSegmentsToHTML } from "../utils/widgetsUtils.js";
-import { animateWidgetColors } from "../masterAnimator.js";
+import { animateWidgetColors, getPulsedColor, parseColor } from "../masterAnimator.js";
 
 // --- CHECKERBOARD FINETUNING VARIABLES ---
 const CHECKER_SIZE = 10;
@@ -58,12 +58,12 @@ export function syncBtnSimple(ctx, node, config) {
     const palStatus = config.palette ? !!resolvePaletteEntry(node, config.palette.path, config.palette.entry || config.key) : false;
     const geo = config.geometry || { x: 0, y: 0, w: 0, h: 0 };
     const geoHash = `${geo.x}|${geo.y}|${geo.w}|${geo.h}`;
-    const stateHash = `${isPressed}_${isHovered}_${node.mode}_${window._xcpDerpSession}_${config.text || config.label}_${palStatus}_${geoHash}_${config.alpha ?? 1}`;
+    const stateHash = `${isPressed}_${isHovered}_${node.mode}_${window._xcpDerpSession}_${config.text || config.label}_${palStatus}_${geoHash}_${config.alpha ?? 1}_${config.pulse ? 1 : 0}`;
 
     const cache = node._btnSimpleCache || (node._btnSimpleCache = {});
     const itemCache = cache[config.key] || (cache[config.key] = {});
 
-    if (itemCache.hash === stateHash && itemCache.res && !node._forceSync) {
+    if (!config.pulse && itemCache.hash === stateHash && itemCache.res && !node._forceSync) {
         var { props, stateStr, bodyPaint: paintData, labelPaint: labelData, content, textAnchor, colorSegments, hasColorKeys } = itemCache.res;
     } else {
         var { props, stateStr, bodyPaint: paintData, labelPaint: labelData, content, textAnchor, colorSegments, hasColorKeys } = resolveWidgetEnv(node, config);
@@ -88,7 +88,17 @@ export function syncBtnSimple(ctx, node, config) {
     }
 
     // 3. Resolve Background & Text Colors
-    const rawBg = paintData?.fill || config.btnColor || "red";
+    let rawBg = paintData?.fill || config.btnColor || "red";
+    // Pulse support for orphaned/warning states (ignores global animation toggle)
+    if (config.pulse) {
+        const paintOFF = resolvePaintData(node, props.bodyKey, "_OFF");
+        const paintON = resolvePaintData(node, props.bodyKey, "_ON");
+        const a = parseColor(paintOFF?.fill) || [128, 128, 128, 0.3];
+        const b = parseColor(paintON?.fill) || [255, 60, 60, 1];
+        const speed = config.pulseSpeed || 0.008;
+        rawBg = getPulsedColor(a, b, speed);
+        node._derpAwakeFrames = 3;
+    }
     const rawIc = labelData?.textColor || labelData?.fill || "red";
 
     const useAnim = (config.showAnim !== false) && (window.xcpDerpSettings?.useAnimations !== false);
@@ -165,7 +175,7 @@ export function syncBtnSimpleHTML(element, node, app, config) {
     const palStatus = config.palette ? !!resolvePaletteEntry(node, config.palette.path, config.palette.entry || config.key) : false;
     const geo = config.geometry || { x: 0, y: 0, w: 0, h: 0 };
     const geoHash = `${geo.x}|${geo.y}|${geo.w}|${geo.h}`;
-    const stateHash = `${isPressed}_${isHovered}_${node.mode}_${window._xcpDerpSession}_${config.text || config.label}_${palStatus}_${geoHash}_${config.alpha ?? 1}`;
+    const stateHash = `${isPressed}_${isHovered}_${node.mode}_${window._xcpDerpSession}_${config.text || config.label}_${palStatus}_${geoHash}_${config.alpha ?? 1}_${config.pulse ? 1 : 0}`;
 
     const needsFullSync = node._shouldSync || element._lastStateHash !== stateHash || (element._isAnimating && (window.xcpDerpSettings?.useAnimations !== false));
 

@@ -7,6 +7,9 @@ import { UI_TYPES } from "./fatha/core/masterLayoutTypes.js";
 import { startStackDrag, updateStackDrag, endStackDrag } from "./fatha/helpers/fathaDragDrop.js";
 import { showBastaFileHandler } from "./fatha/bastas/bastaFileHandler.js";
 
+// Orphaned signal pulse animation speed
+const ORPHAN_PULSE_SPEED = 0.004;
+
 function tLocale(key, fallback = key) {
     if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
     const path = key.substring(1).split(".");
@@ -244,6 +247,8 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                         state: isPickedUp ? "ON" : ((isBypassed || !isConnected) ? "DIS" : "OFF"),
                                         alpha: rowAlpha,
                                         onPress: () => handleSignalOutEntryPress(this),
+                                        pulse: sig.isOrphaned === true,
+                                        pulseSpeed: ORPHAN_PULSE_SPEED,
                                     },
                                     [`btnOutputDelete_${idx}`]: {
                                         type: UI_TYPES.ICONBUTTON, themeKey: "buttonNode, t_textSystem",
