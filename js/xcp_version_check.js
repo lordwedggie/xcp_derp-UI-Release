@@ -34,6 +34,7 @@ app.registerExtension({
                 console.warn("[xcpDerp] Version check failed:", data.error || response.statusText);
                 return;
             }
+            if (data.notify === false) return;
 
             if (data.status === "outdated") {
                 showVersionMessage("xcpDerpNodes update available: ", `${data.local} -> ${data.remote}`, "warning");

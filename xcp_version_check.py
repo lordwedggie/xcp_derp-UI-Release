@@ -13,6 +13,7 @@ from aiohttp import web
 
 REMOTE_PYPROJECT_URL = "https://raw.githubusercontent.com/lordwedggie/xcpDerpNodes_release/main/pyproject.toml"
 VERSION_RE = re.compile(r'^\s*version\s*=\s*["\']([^"\']+)["\']', re.MULTILINE)
+_version_notice_sent = False
 
 
 def parse_version_text(text):
@@ -61,14 +62,18 @@ def fetch_remote_version():
 
 
 async def check_version(request):
+    global _version_notice_sent
     try:
         local_version = get_local_version()
         remote_version = await asyncio.to_thread(fetch_remote_version)
+        notify = not _version_notice_sent
+        _version_notice_sent = True
         return web.json_response({
             "local": local_version,
             "remote": remote_version,
             "status": compare_versions(local_version, remote_version),
             "url": REMOTE_PYPROJECT_URL,
+            "notify": notify,
         })
     except (HTTPError, URLError, TimeoutError, OSError, ValueError) as exc:
         return web.json_response({"error": str(exc), "url": REMOTE_PYPROJECT_URL}, status=502)
