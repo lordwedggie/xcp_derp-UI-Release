@@ -580,6 +580,23 @@ function isEventInsideSearchTab(event, state = activeFilePicker) {
     return isPointInRect(event.clientX, event.clientY, screenRect);
 }
 
+function getSearchTabScreenRect(state = activeFilePicker) {
+    if (!state?.searchBastaId) return null;
+    const basta = activeBastas.get(state.searchBastaId);
+    if (!basta) return null;
+
+    const ds = window.app?.canvas?.ds;
+    const canvasRect = window.app?.canvas?.canvas?.getBoundingClientRect?.();
+    if (!ds || !canvasRect) return null;
+    const scale = Number(ds.scale) || 1;
+    return {
+        left: canvasRect.left + (((basta.pos?.[0] || 0) + (Number(ds.offset?.[0]) || 0)) * scale),
+        top: canvasRect.top + (((basta.pos?.[1] || 0) + (Number(ds.offset?.[1]) || 0)) * scale),
+        width: Math.max(1, (basta.size?.[0] || 0) * scale),
+        height: Math.max(1, (basta.size?.[1] || 0) * scale),
+    };
+}
+
 function scrollPickerToTrackPosition(clientY) {
     const state = activeFilePicker;
     if (!state?.scrollbarScreenRect) return;
@@ -806,6 +823,7 @@ function drawActiveFilePicker(ctx, node, app, config, scale) {
     });
     state.panelY = panelY;
     state.panelScreenRect = panelScreenRect;
+    state.previewAvoidScreenRect = getSearchTabScreenRect(state);
 
     syncPickerViewportFollow(state, scale, {
         ensureScreenRectVisible,

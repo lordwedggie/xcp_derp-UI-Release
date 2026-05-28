@@ -1,8 +1,8 @@
 import { app } from "../../../../scripts/app.js";
 
 export const MASTER_Z = {
-    nodeShieldBase: 1000,
-    nodeHtmlBase: 2000,
+    nodeShieldBase: 5,
+    nodeHtmlBase: 105,
     activeHtmlLift: 500,
     bastaBase: 10000,
     systemMessage: 10020,

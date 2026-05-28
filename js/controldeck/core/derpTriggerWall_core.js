@@ -603,7 +603,12 @@ export function triggerWall_itemPress(node, e, data, gIdx, tIdx, group, isBypass
     if (isBypassed || item.trig.disabled === true) return;
     const key = `triggerItem_${gIdx}_${item.idx}`;
     if (e?.shiftKey) {
-        openTriggerWallModal(node, key);
+        const targetActive = !item.trig.active;
+        node._suppressTriggerSounds = true;
+        group.triggers.forEach((t) => { t.active = targetActive; });
+        node._triggerWallCacheSuspendUntil = performance.now() + 220;
+        refreshAndSync(node, true, true);
+        node._suppressTriggerSounds = false;
         return;
     }
     item.trig.active = !item.trig.active;

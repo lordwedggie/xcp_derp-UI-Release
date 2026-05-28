@@ -1,3 +1,5 @@
+const PREVIEW_NODE_GAP = 0;
+
 export function loadPreviewImageForRow(state, row, deps = {}) {
     const { markNodeDirty = () => {} } = deps;
     if (!state || !row) return;
@@ -73,7 +75,7 @@ export function drawPreviewImagePanel(ctx, state, panelGeometry, deps = {}) {
     if (!previewAspect || !previewUrl || !previewCache[previewUrl]?.loaded) return false;
 
     const { panelX, panelY, panelW, panelH } = panelGeometry;
-    const s = state.offsetY || 4;
+    const s = PREVIEW_NODE_GAP;
     const previewW = panelW;
     const previewH = Math.min(previewW / previewAspect, panelW);
     const previewX = panelX;
@@ -81,12 +83,20 @@ export function drawPreviewImagePanel(ctx, state, panelGeometry, deps = {}) {
     const panelScreenTop = state.panelScreenRect?.top || 0;
     const previewScreenH = previewH * panelGeometry.scale;
     const gapScreen = s * panelGeometry.scale;
-    const previewAboveScreenTop = panelScreenTop - previewScreenH - gapScreen;
+    const avoidRect = state.previewAvoidScreenRect || null;
+    let previewAboveScreenTop = panelScreenTop - previewScreenH - gapScreen;
+    const previewAboveScreenBottom = previewAboveScreenTop + previewScreenH;
+    if (avoidRect && previewAboveScreenBottom > avoidRect.top && previewAboveScreenTop < avoidRect.top + avoidRect.height) {
+        previewAboveScreenTop = avoidRect.top - previewScreenH - gapScreen;
+    }
     const roomAbove = previewAboveScreenTop - 4;
     const previewBelowScreenTop = panelScreenTop + (panelH * panelGeometry.scale) + gapScreen;
     const roomBelow = window.innerHeight - previewBelowScreenTop - previewScreenH - 4;
     const placeBelow = roomAbove < 8 && roomBelow > roomAbove;
-    const previewY = placeBelow ? (panelY + panelH + s) : (panelY - previewH - s);
+    const avoidOffsetUnits = avoidRect
+        ? Math.max(0, ((panelScreenTop - previewScreenH - gapScreen) - previewAboveScreenTop) / Math.max(0.0001, panelGeometry.scale))
+        : 0;
+    const previewY = placeBelow ? (panelY + panelH + s) : (panelY - previewH - s - avoidOffsetUnits);
 
     ctx.save();
     ctx.globalAlpha = state.itemAlpha;

@@ -21,6 +21,7 @@ import { getDeckCornerOverride } from "../core/masterDockEngine.js";
 const DEBUG_OPTIONS = ["None", "Layout", "Hitbox", "Widgets Hitbox"];
 const TITLE_LABEL_DEFAULT = "$fatha_layout.title_default";
 const DEFAULT_WARP_SHORTCUT_ZOOM = 1.5;
+const WARP_SHORTCUT_TRAVEL_DURATION_MS = 600;
 const WARP_SHORTCUT_ITEMS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
 // Collapsed nodes use a fixed compact header so theme margins do not skew top/bottom spacing.
 const COLLAPSED_HEADER_HEIGHT = 20;
@@ -217,7 +218,7 @@ if (!window._xcpDerpWarpShortcutBound) {
                 }, {
                     zoomMode: "absolute",
                     targetZoom: warpZoom,
-                    durationMs: 260,
+                    durationMs: WARP_SHORTCUT_TRAVEL_DURATION_MS,
                     easing: "easeOutQuad",
                 });
                 break;

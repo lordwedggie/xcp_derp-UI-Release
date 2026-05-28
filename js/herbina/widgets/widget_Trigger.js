@@ -174,8 +174,8 @@ export function syncDerpTrigger(ctx, node, app, config) {
     const validatedActive = !!config.value;
     if (node[lastValKey] !== undefined && node[lastValKey] !== validatedActive) {
         if (playSound) {
-            if (validatedActive) playPowerUp();
-            else playPowerDown();
+            if (validatedActive && !node._suppressTriggerSounds) playPowerUp();
+            else if (!validatedActive && !node._suppressTriggerSounds) playPowerDown();
         }
     }
     node[lastValKey] = validatedActive;

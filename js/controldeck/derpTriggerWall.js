@@ -647,7 +647,7 @@ app.registerExtension({
                                 return [triggerItemKey, {
                                     type: this.UI_TYPES.COMPOSITE_TRIGGER, themeKey: "panel, button, t_textsmall",
                                     text: item.trig.label || "$derp_trigger_wall.trigger.placeholder", mouseOver: false,
-                                    toolTip: tLocale("$derp_trigger_wall.tooltips.trigger", "Left click to toggle the trigger. Right click to open trigger's detail panel"),
+                                    toolTip: tLocale("$derp_trigger_wall.tooltips.trigger", "Left click to toggle. Shift+click to toggle all triggers in the group. Right click to open detail panel"),
                                     width: "auto", height: "auto", padding: [triggerPadW, triggerPadH, triggerPadW, triggerPadH], margin: [0, 0], spacing: [sW, 0],
                                     showWeight: this.properties.showWeight, weight: item.trig.weight ?? 1.0,
                                     alpha: groupWidgetAlpha,

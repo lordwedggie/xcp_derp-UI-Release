@@ -319,7 +319,7 @@
       "placeholder": "触发词示例"
     },
     "tooltips": {
-      "trigger": "左键切换触发词开关。右键打开该触发词的详情面板",
+      "trigger": "{{t_toolTip_highlight::左键}}开关触发词。{{t_toolTip_highlight::Shift+左键}}开关该组所有触发词。{{t_toolTip_highlight::右键}}打开详情面板",
       "new_group": "新增一个触发词组。记得把它保存到预设中，否则加载新工作流时它会丢失！",
       "save_preset": "保存当前选中的触发词组预设，并包含其触发词组上的所有修改。",
       "load_preset": "加载一个触发词组预设。预设中包含之后可以加入到牌组中的触发词组。",

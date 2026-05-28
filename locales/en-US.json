@@ -319,7 +319,7 @@
       "placeholder": "Trigger Test"
     },
     "tooltips": {
-      "trigger": "Left click to toggle the trigger. Right click to open trigger's detail panel",
+      "trigger": "{{t_toolTip_highlight::Left click}} to toggle. {{t_toolTip_highlight::Shift+click}} to toggle all triggers in the group. {{t_toolTip_highlight::Right click}} to open detail panel",
       "new_group": "Adds a new Trigger Group. Remember to save it to a Preset or it will be lost when loading a new workflow!",
       "save_preset": "Saves the currently selected Trigger Group preset with all changes made to its Trigger Groups.",
       "load_preset": "Load a Trigger Group preset. A preset contains Trigger Groups that can then be added to the deck.",
