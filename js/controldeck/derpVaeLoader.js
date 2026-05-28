@@ -57,6 +57,17 @@ app.registerExtension({
                 if (this.broadcastWirelessSignal) this.broadcastWirelessSignal();
             };
 
+            const activateVaeEntry = (vae, idx) => {
+                endStackDrag(this, "vaeDeck");
+                if (!vae.active) {
+                    this.properties.vaeDeck.forEach((item, i) => { item.active = (i === idx); });
+                    sendSignal();
+                    this.refreshNodeLayoutMap();
+                    this.requestDerpSync();
+                }
+                return true;
+            };
+
             const deckRegions = {};
             const deckItems = deck.map((m, idx) => ({ m, idx }));
             let floatingItem = null;
@@ -88,15 +99,7 @@ app.registerExtension({
                     onDragStart: (e, data) => startStackDrag(this, data, idx, rowKey),
                     onDrag: (e, data) => { updateStackDrag(this, data, "vaeRow_", deck.length); this.refreshNodeLayoutMap(); },
                     onDragEnd: () => endStackDrag(this, "vaeDeck"),
-                    onPress: () => {
-                        endStackDrag(this, "vaeDeck");
-                        if (!m.active) {
-                            this.properties.vaeDeck.forEach((item, i) => { item.active = (i === idx); });
-                            sendSignal();
-                            this.refreshNodeLayoutMap();
-                            this.requestDerpSync();
-                        }
-                    },
+                    onPress: () => activateVaeEntry(m, idx),
                     regionOffset: [0, 0],
                     [`vaeToggle_${idx}`]: {
                         type: this.UI_TYPES.TOGGLE_V2, iconAlign: "left", isTextOnly: true, mouseOver: true, cutoff: true,
@@ -110,6 +113,7 @@ app.registerExtension({
                         onDragStart: (e, data) => startStackDrag(this, data, idx, rowKey),
                         onDrag: (e, data) => { updateStackDrag(this, data, "vaeRow_", deck.length); this.refreshNodeLayoutMap(); },
                         onDragEnd: () => endStackDrag(this, "vaeDeck"),
+                        onPress: () => activateVaeEntry(m, idx),
                         onChange: (v) => {
                             endStackDrag(this, "vaeDeck");
                             if (!v) {

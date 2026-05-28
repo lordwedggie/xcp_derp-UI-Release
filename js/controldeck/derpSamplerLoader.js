@@ -58,6 +58,17 @@ app.registerExtension({
                 if (this.broadcastWirelessSignal) this.broadcastWirelessSignal();
             };
 
+            const activateSamplerEntry = (sampler, idx) => {
+                endStackDrag(this, "samplerDeck");
+                if (!sampler.active) {
+                    this.properties.samplerDeck.forEach((item, i) => { item.active = (i === idx); });
+                    sendSignal();
+                    this.refreshNodeLayoutMap();
+                    this.requestDerpSync();
+                }
+                return true;
+            };
+
             const deckRegions = {};
             const deckItems = deck.map((m, idx) => ({ m, idx }));
             let floatingItem = null;
@@ -86,15 +97,7 @@ app.registerExtension({
                     onDragStart: (e, data) => startStackDrag(this, data, idx, rowKey),
                     onDrag: (e, data) => { updateStackDrag(this, data, "samplerRow_", deck.length); this.refreshNodeLayoutMap(); },
                     onDragEnd: () => endStackDrag(this, "samplerDeck"),
-                    onPress: () => {
-                        endStackDrag(this, "samplerDeck");
-                        if (!m.active) {
-                            this.properties.samplerDeck.forEach((item, i) => { item.active = (i === idx); });
-                            sendSignal();
-                            this.refreshNodeLayoutMap();
-                            this.requestDerpSync();
-                        }
-                    },
+                    onPress: () => activateSamplerEntry(m, idx),
                     regionOffset: [0, 0],
                     [`samplerToggle_${idx}`]: {
                         type: this.UI_TYPES.TOGGLE_V2,
@@ -114,6 +117,7 @@ app.registerExtension({
                         onDragStart: (e, data) => startStackDrag(this, data, idx, rowKey),
                         onDrag: (e, data) => { updateStackDrag(this, data, "samplerRow_", deck.length); this.refreshNodeLayoutMap(); },
                         onDragEnd: () => endStackDrag(this, "samplerDeck"),
+                        onPress: () => activateSamplerEntry(m, idx),
                         onChange: (v) => {
                             endStackDrag(this, "samplerDeck");
                             if (!v) {

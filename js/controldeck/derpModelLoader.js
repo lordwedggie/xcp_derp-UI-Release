@@ -57,6 +57,17 @@ app.registerExtension({
                 if (this.broadcastWirelessSignal) this.broadcastWirelessSignal();
             };
 
+            const activateModelEntry = (model, idx) => {
+                endStackDrag(this, "modelDeck");
+                if (!model.active) {
+                    this.properties.modelDeck.forEach((item, i) => { item.active = (i === idx); });
+                    sendSignal();
+                    this.refreshNodeLayoutMap();
+                    this.requestDerpSync();
+                }
+                return true;
+            };
+
             const deckRegions = {};
             const deckItems = deck.map((m, idx) => ({ m, idx }));
             let floatingItem = null;
@@ -89,16 +100,8 @@ app.registerExtension({
                     onDragStart: (e, data) => startStackDrag(this, data, idx, rowKey),
                     onDrag: (e, data) => { updateStackDrag(this, data, "modelRow_", deck.length); this.refreshNodeLayoutMap(); },
                     onDragEnd: () => endStackDrag(this, "modelDeck"),
-                    onPress: () => {
-                        // CLEANUP FIX: Purge ghost state if the user clicks the 1px gap without dragging
-                        endStackDrag(this, "modelDeck");
-                        if (!m.active) {
-                            this.properties.modelDeck.forEach((item, i) => { item.active = (i === idx); });
-                            sendSignal();
-                            this.refreshNodeLayoutMap();
-                            this.requestDerpSync();
-                        }
-                    },
+                    // CLEANUP FIX: Purge ghost state if the user clicks the 1px gap without dragging.
+                    onPress: () => activateModelEntry(m, idx),
                     regionOffset: [0, 0],
                     [`modelToggle_${idx}`]: {
                         type: this.UI_TYPES.TOGGLE_V2, iconAlign: "left", isTextOnly: true, mouseOver: true, cutoff: true,
@@ -113,6 +116,7 @@ app.registerExtension({
                         onDragStart: (e, data) => startStackDrag(this, data, idx, rowKey),
                         onDrag: (e, data) => { updateStackDrag(this, data, "modelRow_", deck.length); this.refreshNodeLayoutMap(); },
                         onDragEnd: () => endStackDrag(this, "modelDeck"),
+                        onPress: () => activateModelEntry(m, idx),
                         onChange: (v) => {
                             endStackDrag(this, "modelDeck");
                             if (!v) {

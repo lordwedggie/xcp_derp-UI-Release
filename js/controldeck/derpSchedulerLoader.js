@@ -56,6 +56,17 @@ app.registerExtension({
                 if (this.broadcastWirelessSignal) this.broadcastWirelessSignal();
             };
 
+            const activateSchedulerEntry = (scheduler, idx) => {
+                endStackDrag(this, "schedulerDeck");
+                if (!scheduler.active) {
+                    this.properties.schedulerDeck.forEach((item, i) => { item.active = (i === idx); });
+                    sendSignal();
+                    this.refreshNodeLayoutMap();
+                    this.requestDerpSync();
+                }
+                return true;
+            };
+
             const deckRegions = {};
             const deckItems = deck.map((m, idx) => ({ m, idx }));
             let floatingItem = null;
@@ -84,15 +95,7 @@ app.registerExtension({
                     onDragStart: (e, data) => startStackDrag(this, data, idx, rowKey),
                     onDrag: (e, data) => { updateStackDrag(this, data, "schedulerRow_", deck.length); this.refreshNodeLayoutMap(); },
                     onDragEnd: () => endStackDrag(this, "schedulerDeck"),
-                    onPress: () => {
-                        endStackDrag(this, "schedulerDeck");
-                        if (!m.active) {
-                            this.properties.schedulerDeck.forEach((item, i) => { item.active = (i === idx); });
-                            sendSignal();
-                            this.refreshNodeLayoutMap();
-                            this.requestDerpSync();
-                        }
-                    },
+                    onPress: () => activateSchedulerEntry(m, idx),
                     regionOffset: [0, 0],
                     [`schedulerToggle_${idx}`]: {
                         type: this.UI_TYPES.TOGGLE_V2,
@@ -112,6 +115,7 @@ app.registerExtension({
                         onDragStart: (e, data) => startStackDrag(this, data, idx, rowKey),
                         onDrag: (e, data) => { updateStackDrag(this, data, "schedulerRow_", deck.length); this.refreshNodeLayoutMap(); },
                         onDragEnd: () => endStackDrag(this, "schedulerDeck"),
+                        onPress: () => activateSchedulerEntry(m, idx),
                         onChange: (v) => {
                             endStackDrag(this, "schedulerDeck");
                             if (!v) {

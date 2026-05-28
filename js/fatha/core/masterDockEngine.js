@@ -343,7 +343,9 @@ function normalizeSharedEdgePair(a, b, side, graph, snap = DEFAULT_DECK_SNAP) {
         if (leftColumn.length === 0 || rightColumn.length === 0) return false;
         const leftWidth = getNodeAxisSize(leftSeed, "width");
         const rightWidth = getNodeAxisSize(rightSeed, "width");
-        const totalHeight = Math.max(getNodeAxisSize(leftSeed, "height"), getNodeAxisSize(rightSeed, "height"));
+        const totalHeight = Math.max(
+            ...leftColumn.concat(rightColumn).map((node) => getNodeAxisSize(node, "height"))
+        );
         const leftHeights = fitSizesToTotal(leftColumn, "height", totalHeight, snap);
         const rightHeights = fitSizesToTotal(rightColumn, "height", totalHeight, snap);
         const topY = Math.min(...leftColumn.concat(rightColumn).map((node) => Number(node.pos?.[1]) || 0));

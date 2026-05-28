@@ -202,7 +202,7 @@ app.registerExtension({
 
                     latentMode: {
                         type: this.UI_TYPES.BUTTON,
-                        themeKey: "systemButton, t_textNormal", labelAlign: ["center", "middle"],
+                        themeKey: "Button, t_textNormal", labelAlign: ["center", "middle"],
                         state: isPortrait,
                         text: mode === "Portrait" ? portraitLabel : landscapeLabel, measureText: `${landscapeLabel} `,
                         width: "auto", height: "fill",

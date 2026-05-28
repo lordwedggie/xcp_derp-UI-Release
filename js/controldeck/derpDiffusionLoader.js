@@ -27,6 +27,18 @@ function buildDeckRegions(node, deck, deckKey, rowPrefix, togglePrefix, removePr
         if (node.broadcastWirelessSignal) node.broadcastWirelessSignal();
     };
 
+    const activateDeckEntry = (entry, idx) => {
+        endStackDrag(node, deckKey);
+        node._dragDeckKey = null;
+        if (!entry.active) {
+            node.properties[deckKey].forEach((item, i) => { item.active = (i === idx); });
+            sendSignal();
+            node.refreshNodeLayoutMap();
+            node.requestDerpSync();
+        }
+        return true;
+    };
+
     const deckRegions = {};
     const deckItems = deck.map((m, idx) => ({ m, idx }));
     let floatingItem = null;
@@ -61,16 +73,7 @@ function buildDeckRegions(node, deck, deckKey, rowPrefix, togglePrefix, removePr
                 endStackDrag(node, deckKey);
                 node._dragDeckKey = null;
             },
-            onPress: () => {
-                endStackDrag(node, deckKey);
-                node._dragDeckKey = null;
-                if (!m.active) {
-                    node.properties[deckKey].forEach((entry, i) => { entry.active = (i === idx); });
-                    sendSignal();
-                    node.refreshNodeLayoutMap();
-                    node.requestDerpSync();
-                }
-            },
+            onPress: () => activateDeckEntry(m, idx),
             regionOffset: [0, 0],
             [`${togglePrefix}${idx}`]: {
                 type: node.UI_TYPES.TOGGLE_V2, iconAlign: "left", isTextOnly: true, mouseOver: true, cutoff: true, cutoffMargin: (pH * 2 + 12),
@@ -92,6 +95,7 @@ function buildDeckRegions(node, deck, deckKey, rowPrefix, togglePrefix, removePr
                     endStackDrag(node, deckKey);
                     node._dragDeckKey = null;
                 },
+                onPress: () => activateDeckEntry(m, idx),
                 onChange: (v) => {
                     endStackDrag(node, deckKey);
                     node._dragDeckKey = null;
