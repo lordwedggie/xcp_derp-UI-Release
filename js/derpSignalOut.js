@@ -42,6 +42,11 @@ function cancelSignalOutRowDrag(node) {
     if (node) node._signalOutFloatingSnapshot = null;
 }
 
+function handleSignalOutEntryPress(node) {
+    cancelSignalOutRowDrag(node);
+    return true;
+}
+
 if (!window._xcp_derpSignalOut_Layout_Loaded) {
     window._xcp_derpSignalOut_Layout_Loaded = true;
     try {
@@ -228,9 +233,7 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                             this.reorderDerpOutputs(fromIdx, toIdx);
                                         }
                                     },
-                                    onPress: () => {
-                                        cancelSignalOutRowDrag(this);
-                                    },
+                                    onPress: () => handleSignalOutEntryPress(this),
                                     [`lblOutputInfo_${idx}`]: {
                                         type: UI_TYPES.BUTTON,
                                         themeKey: "panel, t_textNormal",
@@ -240,6 +243,7 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                         width: "full", padding: [pW, pH], spacing: [sW, 0],
                                         state: isPickedUp ? "ON" : ((isBypassed || !isConnected) ? "DIS" : "OFF"),
                                         alpha: rowAlpha,
+                                        onPress: () => handleSignalOutEntryPress(this),
                                     },
                                     [`btnOutputDelete_${idx}`]: {
                                         type: UI_TYPES.ICONBUTTON, themeKey: "buttonNode, t_textSystem",
