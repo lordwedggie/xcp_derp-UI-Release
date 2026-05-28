@@ -67,7 +67,7 @@ const ICON_MAP = {
     leftarrow: "❮",
     rightarrow: "❯",
     wireless: "ᯤ",
-    preview: "🖻",
+    preview: "🖺", //🖺, 🖻
     file: "🗀",
     clean: "⌬", //⏚,
     folder: "🗀",
