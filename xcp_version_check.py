@@ -1,84 +1,79 @@
 """
-xcpDerpNodes version checker.
-Pulls latest version from the public release repo and compares.
+xcpDerpNodes version check route.
 """
-import json
-import os
+
+import asyncio
 import re
-import toml
-from server import PromptServer
+from pathlib import Path
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
+
 from aiohttp import web
 
-EXT_ROOT = os.path.dirname(os.path.abspath(__file__))
-RELEASE_REPO_TOML = "https://raw.githubusercontent.com/lordwedggie/xcp_derpNodes-release/main/pyproject.toml"
+
+REMOTE_PYPROJECT_URL = "https://raw.githubusercontent.com/lordwedggie/xcpDerpNodes_release/main/pyproject.toml"
+VERSION_RE = re.compile(r'^\s*version\s*=\s*["\']([^"\']+)["\']', re.MULTILINE)
 
 
-def _read_local_version():
-    """Read version from local pyproject.toml."""
+def parse_version_text(text):
+    match = VERSION_RE.search(text or "")
+    return match.group(1).strip() if match else None
+
+
+def version_tuple(version):
+    parts = []
+    for part in re.split(r"[.\-+]", str(version or "")):
+        if part.isdigit():
+            parts.append(int(part))
+        else:
+            break
+    return tuple(parts)
+
+
+def compare_versions(local, remote):
+    local_tuple = version_tuple(local)
+    remote_tuple = version_tuple(remote)
+    max_len = max(len(local_tuple), len(remote_tuple), 1)
+    local_tuple = local_tuple + (0,) * (max_len - len(local_tuple))
+    remote_tuple = remote_tuple + (0,) * (max_len - len(remote_tuple))
+    if local_tuple < remote_tuple:
+        return "outdated"
+    return "latest"
+
+
+def get_local_version():
+    pyproject_path = Path(__file__).resolve().parent / "pyproject.toml"
+    text = pyproject_path.read_text(encoding="utf-8")
+    version = parse_version_text(text)
+    if not version:
+        raise ValueError("Local pyproject.toml does not contain a version field")
+    return version
+
+
+def fetch_remote_version():
+    request = Request(REMOTE_PYPROJECT_URL, headers={"User-Agent": "xcpDerpNodes-version-check"})
+    with urlopen(request, timeout=8) as response:
+        text = response.read().decode("utf-8", errors="replace")
+    version = parse_version_text(text)
+    if not version:
+        raise ValueError("Remote pyproject.toml does not contain a version field")
+    return version
+
+
+async def check_version(request):
     try:
-        with open(os.path.join(EXT_ROOT, "pyproject.toml"), "r", encoding="utf-8") as f:
-            data = toml.load(f)
-            return str(data.get("project", {}).get("version", "0.0.0"))
-    except Exception:
-        return "0.0.0"
-
-
-@PromptServer.instance.routes.get("/xcp/check_version")
-async def check_version_api(request):
-    """Check if installed version is up to date with the release repo."""
-    local = _read_local_version()
-
-    try:
-        import aiohttp
-        async with aiohttp.ClientSession() as session:
-            async with session.get(RELEASE_REPO_TOML, timeout=aiohttp.ClientTimeout(total=10)) as resp:
-                if resp.status != 200:
-                    return web.json_response({
-                        "local": local,
-                        "remote": None,
-                        "status": "error",
-                        "message": f"Could not fetch release info (HTTP {resp.status})"
-                    })
-                raw = await resp.text()
-    except Exception as e:
+        local_version = get_local_version()
+        remote_version = await asyncio.to_thread(fetch_remote_version)
         return web.json_response({
-            "local": local,
-            "remote": None,
-            "status": "error",
-            "message": str(e)
+            "local": local_version,
+            "remote": remote_version,
+            "status": compare_versions(local_version, remote_version),
+            "url": REMOTE_PYPROJECT_URL,
         })
+    except (HTTPError, URLError, TimeoutError, OSError, ValueError) as exc:
+        return web.json_response({"error": str(exc), "url": REMOTE_PYPROJECT_URL}, status=502)
 
-    # Parse remote version from TOML
-    remote = "0.0.0"
-    for line in raw.split("\n"):
-        m = re.match(r'^\s*version\s*=\s*["\']([^"\']+)["\']', line)
-        if m:
-            remote = m.group(1)
-            break
 
-    if not remote or remote == "0.0.0":
-        return web.json_response({
-            "local": local,
-            "remote": None,
-            "status": "error",
-            "message": "Could not parse remote version"
-        })
-
-    # Compare versions (simple semver comparison)
-    local_parts = [int(x) for x in local.split(".")]
-    remote_parts = [int(x) for x in remote.split(".")]
-
-    outdated = False
-    for l, r in zip(local_parts, remote_parts):
-        if r > l:
-            outdated = True
-            break
-        elif l > r:
-            break
-
-    return web.json_response({
-        "local": local,
-        "remote": remote,
-        "status": "outdated" if outdated else "latest",
-        "outdated": outdated
-    })
+def register_routes(safe_get, _safe_post=None):
+    safe_get("/xcp/check_version", check_version)
+    print("[xcpDerp] Version check route registered: /xcp/check_version")

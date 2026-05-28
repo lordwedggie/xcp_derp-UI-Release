@@ -11,12 +11,12 @@ import server
 from aiohttp import web
 
 from .xcp_file_asset_routes import register_routes as register_asset_routes
-from . import xcp_version_check  # registers /xcp/check_version route
 from .xcp_file_categories import get_category_dir
 from .xcp_file_common import resolve_case_insensitive_path
 from .xcp_file_image_routes import register_routes as register_image_routes
 from .xcp_file_json_routes import register_routes as register_json_routes
 from .xcp_file_prompt_book_routes import register_routes as register_prompt_book_routes
+from .xcp_version_check import register_routes as register_version_check_routes
 from .xcp_loraStack import (
     handle_check_lora_files,
     handle_delete_lora_image,
@@ -62,6 +62,7 @@ register_json_routes(safe_get, safe_post)
 register_image_routes(safe_get, safe_post)
 register_prompt_book_routes(safe_get, safe_post)
 register_asset_routes(safe_get, safe_post)
+register_version_check_routes(safe_get, safe_post)
 
 
 async def get_loras(request):

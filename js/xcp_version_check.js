@@ -1,43 +1,47 @@
+import { app } from "../../../scripts/app.js";
 import { showBastaSystemMessage } from "./fatha/bastas/bastaSystemMessage.js";
+
+const VERSION_CHECK_HOST = {
+    id: "xcp_version_check",
+    title: "xcpDerpNodes",
+    titleLabel: "xcpDerpNodes",
+    properties: {},
+};
+
+function showVersionMessage(prefix, accentText, mode = "info") {
+    showBastaSystemMessage(
+        VERSION_CHECK_HOST,
+        prefix,
+        5000,
+        { fade: true, grow: true, silent: true },
+        null,
+        mode,
+        false,
+        accentText
+    );
+}
 
 app.registerExtension({
     name: "xcp.VersionCheck",
     async setup() {
-        if (window._xcpVersionCheckDone) return;
-        window._xcpVersionCheckDone = true;
+        if (window.__xcpVersionCheckStarted) return;
+        window.__xcpVersionCheckStarted = true;
 
         try {
-            const resp = await fetch("/xcp/check_version");
-            const data = await resp.json();
+            const response = await fetch("/xcp/check_version", { cache: "no-store" });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                console.warn("[xcpDerp] Version check failed:", data.error || response.statusText);
+                return;
+            }
 
             if (data.status === "outdated") {
-                const msg = `⚠️ xcpDerpNodes v${data.local} is outdated — v${data.remote} available on GitHub.`;
-                setTimeout(() => {
-                    showBastaSystemMessage(
-                        { title: "xcpDerpNodes", titleLabel: "xcpDerpNodes" },
-                        msg,
-                        8000,
-                        { fade: true, grow: true },
-                        null,
-                        "warning",
-                        null
-                    );
-                }, 3000);
+                showVersionMessage("xcpDerpNodes update available: ", `${data.local} -> ${data.remote}`, "warning");
             } else if (data.status === "latest") {
-                setTimeout(() => {
-                    showBastaSystemMessage(
-                        { title: "xcpDerpNodes", titleLabel: "xcpDerpNodes" },
-                        `✅ xcpDerpNodes v${data.local} is up to date.`,
-                        4000,
-                        { fade: true, grow: true },
-                        null,
-                        "success",
-                        null
-                    );
-                }, 4000);
+                showVersionMessage("xcpDerpNodes is up to date: ", data.local || "unknown", "success");
             }
-        } catch (e) {
-            console.debug("xcpDerpNodes version check failed:", e);
+        } catch (error) {
+            console.warn("[xcpDerp] Version check request failed:", error);
         }
-    }
+    },
 });
