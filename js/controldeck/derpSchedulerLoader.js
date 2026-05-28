@@ -134,7 +134,7 @@ app.registerExtension({
                         iconScale: 0.5,
                         hidden: !m.active,
                         alpha: item.isPreviewGhost ? 0 : 1.0,
-                        width: "match", height: "full", padding: [pW, pH], margin: [0, sH, sW, sH],
+                        width: "match", height: "fill", objectAlign: ["left", "middle"], spacing: [sW, 0],
                         themeKey: "button, t_textNormal",
                         onPress: () => {
                             showBastaFileHandler(this, "none", `btnRemoveScheduler_${idx}`, {

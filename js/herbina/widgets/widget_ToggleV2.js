@@ -125,7 +125,7 @@ export function syncDerpToggleV2(ctx, node, app, config) {
 
         // 3. Draw Label
         if (labelText.length > 0) {
-            const availW = Math.max(0, labelW || (w - (startX - x) - indicatorBuffer - pW));
+            const availW = Math.max(0, w - (startX - x) - indicatorBuffer - pW);
             // THE DROPDOWN CUTOFF FIX: Apply manual context clipping to prevent text overflow
             ctx.save();
             ctx.beginPath();
@@ -193,7 +193,7 @@ export function syncDerpToggleV2(ctx, node, app, config) {
 
         // 3. Draw Label
         if (labelText.length > 0) {
-            const availW = Math.max(0, labelW || (w - (startX - x) - indicatorBuffer - pW));
+            const availW = Math.max(0, w - (startX - x) - indicatorBuffer - pW);
             // THE DROPDOWN CUTOFF FIX: Apply manual context clipping to prevent text overflow
             ctx.save();
             ctx.beginPath();
