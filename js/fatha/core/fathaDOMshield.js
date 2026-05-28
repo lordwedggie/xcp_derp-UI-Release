@@ -162,6 +162,14 @@ export function createDerpShield(node) {
         });
     };
 
+    const clearBrowserSelection = () => {
+        const sel = window.getSelection?.();
+        if (!sel) return;
+        try {
+            sel.removeAllRanges();
+        } catch (_) {}
+    };
+
     // --- HANDLERS ---
     const onWindowPointerMove = (e) => {
         if (e._isProxyEvent || e.buttons === 0) { onWindowPointerUp(e); return; }
@@ -390,6 +398,7 @@ export function createDerpShield(node) {
                 localY: localPos.y,
                 originalEvent: e
             });
+            clearBrowserSelection();
             lastClickTime = 0; // Reset
             return;
         }
@@ -411,6 +420,12 @@ export function createDerpShield(node) {
                 pendingNodeHoldDrag = true;
                 longPressed = false;
                 app.canvas.dragging_canvas = false;
+            } else if (node.properties?.stickyDrag === true && !node._pressedRegionIsDragHandle) {
+                holdTimer = setTimeout(() => {
+                    longPressed = true;
+                    holdTimer = null;
+                    setVisualActive(true);
+                }, 500);
             } else {
                 longPressed = true;
                 app.canvas.dragging_canvas = false;
@@ -447,6 +462,14 @@ export function createDerpShield(node) {
             localX: localPos.x,
             localY: localPos.y
         });
+    };
+
+    shield.ondblclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof e.stopImmediatePropagation === "function") e.stopImmediatePropagation();
+        clearBrowserSelection();
+        return false;
     };
 
     shield.onmouseenter = () => {

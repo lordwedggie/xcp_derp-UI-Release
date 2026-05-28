@@ -565,6 +565,7 @@ function handleShieldDragStart(entity, data, localMouse, scale, deckEngine) {
     if (hit && !hit.reg.noDragLock) {
         entity._pressedRegionKey = hit.key;
         entity._pressedRegionType = hit.reg?.type || null;
+        entity._pressedRegionIsDragHandle = !!hit.reg.onDragStart || !!hit.reg.onDrag;
         if (hit.reg.onDragStart) hit.reg.onDragStart(data.originalEvent, data);
         entity._derpAwakeFrames = 15;
         entity.setDirtyCanvas(true);
@@ -573,6 +574,7 @@ function handleShieldDragStart(entity, data, localMouse, scale, deckEngine) {
     if (hit && hit.reg.noDragLock && (hit.reg.onDblClick || hit.reg.onPress || hit.reg.onClick)) {
         entity._pressedRegionKey = hit.key;
         entity._pressedRegionType = hit.reg?.type || null;
+        entity._pressedRegionIsDragHandle = false;
     }
 
     beginDockDrag(entity, deckEngine);
@@ -667,12 +669,14 @@ function handleShieldClickOrPointerUp(entity, type, data, localMouse) {
     if (type === "click" && entity._suppressClickAfterDrag) {
         entity._suppressClickAfterDrag = false;
         entity._pressedRegionKey = null;
+        entity._pressedRegionIsDragHandle = false;
         return true;
     }
 
     const key = entity._pressedRegionKey;
     entity._pressedRegionKey = null;
     entity._pressedRegionType = null;
+    entity._pressedRegionIsDragHandle = false;
 
     if (key === "systemBtn") {
         if (type === "click") {
@@ -780,6 +784,7 @@ function handleShieldHover(entity, localMouse, scale) {
 
 function handleShieldDragEnd(entity, data, deckEngine) {
     entity._pressedRegionType = null;
+    entity._pressedRegionIsDragHandle = false;
     endDockDrag(entity, deckEngine, data);
 }
 
