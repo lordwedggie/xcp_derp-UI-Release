@@ -112,7 +112,7 @@ export function syncDerpTrigger(ctx, node, app, config) {
     const triggerWallNode = isTriggerWallNode(node);
     const profileStart = triggerWallNode ? performance.now() : 0;
     const triggerWallCacheSuspended = triggerWallNode && performance.now() < Number(node._triggerWallCacheSuspendUntil || 0);
-    const isHovered = node._hoveredRegionKey === config.key;
+    const isHovered = config.mouseOver !== false && node._hoveredRegionKey === config.key;
     const isPressed = node._pressedRegionKey === config.key;
     if (!config.geometry) return;
     let { x, y, w, h } = config.geometry;
@@ -191,7 +191,7 @@ export function syncDerpTrigger(ctx, node, app, config) {
     const requestedSuffix = config.suffix;
     const triggerSuffix = requestedSuffix === "_ON" || requestedSuffix === "_OFF" || requestedSuffix === "_DIS"
         ? requestedSuffix
-        : (suffix === "_ON" ? "_ON" : (suffix === "_DIS" ? "_DIS" : (isActive ? "_OFF" : "_DIS")));
+        : (suffix === "_ON" ? "_ON" : (suffix === "_DIS" ? "_DIS" : (isActive ? "_ON" : "_OFF")));
 
     const styleRaw = config.style || "default";
     const style = Array.isArray(styleRaw) ? styleRaw[0] : styleRaw;

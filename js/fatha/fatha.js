@@ -104,6 +104,7 @@ function buildPassiveWholeWallCacheState(node, passiveCacheScale) {
             node.properties?.contentCollapsed === true ? 1 : 0,
             node.properties?.settingActive === true ? 1 : 0,
             node.properties?.drawHeader === false ? 0 : 1,
+            node._triggerWallVisualHash || "",
             node._hoveredRegionKey || "",
             node._pressedRegionKey || "",
             passiveCacheScale,

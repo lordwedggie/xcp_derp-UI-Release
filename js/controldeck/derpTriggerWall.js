@@ -461,6 +461,7 @@ app.registerExtension({
                 drawHeader: !!this.properties.drawHeader,
                 settingActive: !!this.properties.settingActive,
             });
+            this._triggerWallVisualHash = currentHash;
 
             const layoutHashChanged = this._layoutMapHash !== currentHash;
             if (!layoutHashChanged && this.layoutMap) {
@@ -652,7 +653,7 @@ app.registerExtension({
                                     alpha: groupWidgetAlpha,
                                     value: item.trig.active,
                                     suffix: triggerSuffix,
-                                    state: isModalActive ? "ON" : ((isBypassed || item.trig.disabled === true) ? "DIS" : "OFF"),
+                                    state: triggerSuffix === "_DIS" ? "DIS" : (triggerSuffix === "_ON" ? "ON" : "OFF"),
                                     disabled: item.trig.disabled === true,
                                     bodyPaint: item.isTriggerPreviewGhost ? this._buttonPaintData_DIS : ((isBypassed || item.trig.disabled === true) ? this._panelPaintData_DIS : (isModalActive || triggerActive ? this._panelPaintData_ON : this._panelPaintData_OFF)),
                                     slotPaint: (isBypassed || item.trig.disabled === true) ? this._buttonPaintData_DIS : (isModalActive || triggerActive ? this._buttonPaintData_ON : this._buttonPaintData_OFF),

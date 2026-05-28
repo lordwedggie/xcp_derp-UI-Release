@@ -66,6 +66,9 @@ export function ensureTriggerGroupData(node, force = false) {
 
 function refreshAndSync(node, syncOutputs = true, dirtyFull = false, settleOptions = {}) {
     syncTriggerGroupToProperties(node);
+    node._compDataCache = {};
+    node._triggerStaticCache?.clear?.();
+    node._triggerBitmapCache?.clear?.();
     node.refreshNodeLayoutMap();
     if (typeof settleDerpSizeBeforeDraw === "function") settleDerpSizeBeforeDraw(node, settleOptions);
     if (syncOutputs && node.syncDerpOutputs) node.syncDerpOutputs();
