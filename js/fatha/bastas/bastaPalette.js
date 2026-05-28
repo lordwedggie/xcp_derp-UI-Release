@@ -9,7 +9,6 @@ import { UI_TYPES } from "../core/masterLayoutTypes.js";
 import { showBastaColorDesigner } from "./bastaColorDesigner.js";
 import { showBastaSystemMessage } from "./bastaSystemMessage.js";
 import { showBastaFileHandler } from "./bastaFileHandler.js";
-import { getPulsedColor, parseColor } from "../../herbina/masterAnimator.js";
 import { resolvePaintData } from "../../herbina/utils/widgetsUtils.js";
 
 // THE DEFAULT EFFECT KEYS: Fallback values if the loaded JSON is missing effect data
@@ -203,17 +202,7 @@ export function showBastaPalette(host, targetRegion = null) {
             const currentHash = getPaletteHash(basta._availablePalettes, basta.properties.includeEffectKeys);
             const hasChanges = !!basta._paletteDirty || (basta._lastFileHash && (basta._lastFileHash !== currentHash));
 
-            // THE SAVE PULSE: Pulse logic for save buttons if changes are detected
-            let pulsedSaveColor = null;
-            if (hasChanges && (window.xcpDerpSettings?.useAnimations !== false)) {
-                if (!basta._savePulseColors) {
-                    const paintDIS = resolvePaintData(basta, "button", "_DIS");
-                    const paintON = resolvePaintData(basta, "button", "_ON");
-                    basta._savePulseColors = { a: parseColor(paintDIS?.fill), b: parseColor(paintON?.fill) };
-                }
-                pulsedSaveColor = getPulsedColor(basta._savePulseColors.a, basta._savePulseColors.b, 0.005);
-                basta._derpAwakeFrames = 2;
-            }
+            // THE SAVE PULSE: Button pulses when changes are detected (handled internally by btnIcon via config.pulse)
             const openDesigner = (targetTheme, keyName, exactKey, persistentKey) => {
                 const safeHost = Object.create(host || basta); // FIXED: Changed hostNode to host
                 safeHost.themeToEdit = targetTheme;
@@ -532,7 +521,7 @@ export function showBastaPalette(host, targetRegion = null) {
                 btnSaveKey: { type: UI_TYPES.ICONBUTTON, themeKey: "button, t_textNormal",
                     icon: "save", width: "match", height: "auto", spacing: [sW, 0],
                     state: (hasFile && basta.properties.activePaletteId && hasChanges) ? "OFF" : "DIS",
-                    btnColor: pulsedSaveColor,
+                    pulse: hasChanges,
                     onPress: async () => {
                         const fileName = basta.properties.activePaletteName;
                         if (!fileName || !basta._availablePalettes) return;

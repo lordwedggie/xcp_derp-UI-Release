@@ -403,9 +403,16 @@ export async function manageLoraTrigger(node, basta, action, params) {
  */
 export function getRatingColor(palette, rating, key = "_OFF") {
     if (!palette || !palette.palettes) return null;
+    // Try exact rating match first
     const pal = palette.palettes.find(p => parseInt(p.id, 10) === parseInt(rating || 0, 10));
     if (pal && pal.entries?.main) {
         const c = pal.entries.main[key] || pal.entries.main["_OFF"];
+        if (c) return `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${c[3] !== undefined ? c[3] : 1.0})`;
+    }
+    // Fall back to _default for unrated items
+    const defaultPal = palette.palettes.find(p => String(p.id) === "_default");
+    if (defaultPal && defaultPal.entries?.main) {
+        const c = defaultPal.entries.main[key] || defaultPal.entries.main["_OFF"];
         if (c) return `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${c[3] !== undefined ? c[3] : 1.0})`;
     }
     return null;

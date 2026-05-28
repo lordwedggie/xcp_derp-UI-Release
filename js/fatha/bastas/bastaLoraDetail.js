@@ -261,7 +261,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
         delete basta._savePulseColors;
     }
 
-    const ratingBorder = getRatingColor(loraData.ratingsPalette, loraData.rating || 1, "_OFF");
+    const ratingBorder = getRatingColor(loraData.ratingsPalette, loraData.rating, "_OFF");
 
     return {
         contentRegion: {
