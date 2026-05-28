@@ -232,68 +232,14 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                         cancelSignalOutRowDrag(this);
                                     },
                                     [`lblOutputInfo_${idx}`]: {
-                                        type: UI_TYPES.FILEBROWSER,
-                                        icon: "dropdown",
+                                        type: UI_TYPES.BUTTON,
                                         themeKey: "panel, t_textNormal",
-                                        minWidth: 100,
-                                        canvasShield: true,
-                                        bypassHashOptimization: true,
-                                        mode: "file",
-                                        rootName: "signals",
                                         mouseOver: true,
-                                        items: sortSignals((this.receivedSignals || [])
-                                            .filter(s => {
-                                                const sType = normalizeSignalType(s.type);
-                                                if (sType !== normalizeSignalType(sig.type)) return false;
-                                                const sigIdStr = String(s.nodeId);
-                                                const sigBaseId = sigIdStr.split(":")[0];
-                                                const isAlreadyActive = activeIds.has(sigIdStr);
-                                                const isOwnSignal = sigBaseId === callerId;
-                                                const isWrapperSignal = isPlainWrapperSignalId(sigIdStr);
-                                                const isSignalOutSignal = s.nodeType === "xcpDerpSignalOut";
-
-                                                // THE LOOP GUARD: Block signals that are physically downstream or contain this node in their upstream chain
-                                                const isDownstream = downstreamIds.has(sigBaseId) || (Array.isArray(s.upstreamIds) && s.upstreamIds.some(id => String(id) === callerId));
-
-                                                return (sigIdStr === String(sig.nodeId)) || (!isWrapperSignal && !isSignalOutSignal && !isAlreadyActive && !isOwnSignal && !isDownstream);
-                                            }))
-                                            .map(s => {
-                                                const label = formatSignalLabel(s);
-                                                this._signalLabelToId.set(label, String(s.nodeId));
-                                                return label;
-                                            }),
                                         hidden: shouldGhostHideChildren,
-                                        value: formatSignalLabel(sig),
+                                        text: formatSignalLabel(sig),
                                         width: "full", padding: [pW, pH], spacing: [sW, 0],
                                         state: isPickedUp ? "ON" : ((isBypassed || !isConnected) ? "DIS" : "OFF"),
-                                        allowOpenWhenDisabled: true,
-                                        canOpenPicker: true,
-                                        onPress: () => cancelSignalOutRowDrag(this),
-                                        onDragStart: (e, data) => startStackDrag(this, data, idx, rowKey, { holdOnly: true }),
-                                        onDrag: (e, data) => { updateStackDrag(this, data, "outputsRegion_display_", activeOuts.length); this.refreshNodeLayoutMap(); },
-                                        onDragEnd: () => {
-                                            const fromIdx = this._dragTrig?.index;
-                                            const toIdx = this._dropPreviewIdx;
-                                            cancelSignalOutRowDrag(this);
-                                            if (fromIdx !== undefined && toIdx !== undefined && fromIdx !== toIdx && this.reorderDerpOutputs) {
-                                                this.reorderDerpOutputs(fromIdx, toIdx);
-                                            }
-                                        },
                                         alpha: rowAlpha,
-                                        onChange: (val) => {
-                                            cancelSignalOutRowDrag(this);
-                                            const newSigId = resolveSignalIdFromLabel(val);
-                                            if (newSigId) {
-                                                const newSig = (this.receivedSignals || []).find(s => String(s.nodeId) === newSigId);
-                                                if (newSig) {
-                                                    this.activeOutputs[idx] = newSig;
-                                                    this.updateReceivedSignals();
-                                                    this.manageDerpOutputs();
-                                                    this.refreshNodeLayoutMap();
-                                                    this.requestDerpSync();
-                                                }
-                                            }
-                                        }
                                     },
                                     [`btnOutputDelete_${idx}`]: {
                                         type: UI_TYPES.ICONBUTTON, themeKey: "buttonNode, t_textSystem",

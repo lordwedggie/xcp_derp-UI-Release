@@ -787,7 +787,7 @@ export function applyDockResizeResult(entity, dockResizeResult) {
         entity._dockResizeSession = null;
     }
 
-    if (dockResizeResult.handledWidth) {
+    if (dockResizeResult.handledWidth && isLinearDeckGroup(entity, app.graph || entity.graph || null, "vertical")) {
         dockResizeResult.counterparts.forEach((node) => {
             node.pos[0] = entity.pos[0];
         });
