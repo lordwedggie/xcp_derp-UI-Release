@@ -34,6 +34,7 @@ import {
 import { animateWidgetColors } from "../masterAnimator.js";
 
 const BYPASS_BRIGHTNESS = 0.6;
+const SINGLE_LINE_EDIT_BASELINE_NUDGE = 0.08;
 
 function resolveDerpEditorImageSrc(src) {
     const rawSrc = String(src || "").trim();
@@ -113,6 +114,18 @@ export function createDerpEditorHTML(callbacks = {}) {
     if (!el._hasDerpHandlers) {
         el.addEventListener("keydown", (e) => {
             e.stopPropagation();
+            if (e.key === "Escape") {
+                e.preventDefault();
+                const originalValue = el._editStartValue ?? "";
+                el._cancelEdit = true;
+                el.value = originalValue;
+                if (el._config) {
+                    el._config.value = originalValue;
+                    el._config.text = originalValue;
+                }
+                el.blur();
+                return;
+            }
             if (e.key === "Enter") {
                 if (!el._isMultiline) {
                     e.preventDefault();
@@ -148,6 +161,8 @@ export function createDerpEditorHTML(callbacks = {}) {
 
     el.addEventListener("focus", () => {
         el._isAwake = true;
+        el._editStartValue = el.value;
+        el._cancelEdit = false;
         if (el._nodeRef) {
             el._nodeRef._derpAwakeFrames = 10;
             if (el._nodeRef.requestDerpSync) el._nodeRef.requestDerpSync();
@@ -177,13 +192,15 @@ export function createDerpEditorHTML(callbacks = {}) {
     });
 
     el.addEventListener("blur", () => {
+        const finalValue = el._cancelEdit ? (el._editStartValue ?? "") : el.value;
         el._isAwake = false;
         if (el._config) {
-            el._config.value = el.value;
-            el._config.text = el.value;
+            el._config.value = finalValue;
+            el._config.text = finalValue;
         }
         const cb = el._config?.onBlur || callbacks.onBlur;
-        if (cb) cb(el.value);
+        if (cb) cb(finalValue);
+        el._cancelEdit = false;
         if (el._nodeRef) {
             el._nodeRef._derpAwakeFrames = 5;
             if (el._nodeRef.requestDerpSync) el._nodeRef.requestDerpSync();
@@ -341,7 +358,20 @@ export function syncDerpEditor(context, node, app, config) {
                 if (e && e.stopPropagation) e.stopPropagation();
                 if (liveReg.state === "DIS") return;
 
+                const ds = app?.canvas?.ds || { scale: 1, offset: [0,0] };
+                const canvasRect = app?.canvas?.canvas?.getBoundingClientRect() || { left: 0, top: 0 };
+                const physL = Math.round(canvasRect.left + (node.pos[0] + ds.offset[0] + x) * ds.scale);
+                const physT = Math.round(canvasRect.top + (node.pos[1] + ds.offset[1] + y) * ds.scale);
+
+                el.style.left = `${physL}px`;
+                el.style.top = `${physT}px`;
+                el.style.width = `${w}px`;
+                el.style.height = `${h}px`;
+                el.style.transformOrigin = "0 0";
+                el.style.transform = `scale(${ds.scale})`;
+
                 el._isAwake = true;
+                el.style.display = "block";
                 el.style.opacity = "1";
                 el.style.pointerEvents = "auto";
 
@@ -353,13 +383,19 @@ export function syncDerpEditor(context, node, app, config) {
                 void el.offsetHeight;
 
                 // THE MATH FIX: Reconstruct physical screen coordinates PRECISELY using Fatha's local coordinates.
-                const ds = app?.canvas?.ds || { scale: 1, offset: [0,0] };
-                const canvasRect = app?.canvas?.canvas?.getBoundingClientRect() || { left: 0, top: 0 };
                 const cx = (e && e.clientX !== undefined) ? e.clientX : (data && data.localX !== undefined ? canvasRect.left + (node.pos[0] + ds.offset[0] + data.localX) * ds.scale : null);
                 const cy = (e && e.clientY !== undefined) ? e.clientY : (data && data.localY !== undefined ? canvasRect.top + (node.pos[1] + ds.offset[1] + data.localY) * ds.scale : null);
 
                 // Synchronous focus works now because the element is always 'display: block'
                 el.focus();
+
+                // Some node layouts update focus back to the canvas later in the same
+                // pointer cycle. Restore editor focus after that cycle so the first
+                // click actually accepts keyboard input instead of only selecting text.
+                setTimeout(() => {
+                    if (!el.isConnected || !el._isAwake) return;
+                    if (document.activeElement !== el) el.focus({ preventScroll: true });
+                }, 0);
 
                 if (entryMode === "precise" && cx !== null && cy !== null) {
                     // THE HIT-TEST FIX: 30ms timeout ensures the browser's hit-test tree registers the new
@@ -757,9 +793,11 @@ export function syncDerpEditor(context, node, app, config) {
 
     // HTML natively scrolls, so we use the base (unscrolled) padding value!
     const finalPadY = Math.max(0, baseRelativeStartY);
+    const editBaselineNudge = (!isMultiline && isAwake) ? (fontSize * SINGLE_LINE_EDIT_BASELINE_NUDGE) : 0;
+    const htmlPadTop = finalPadY + editBaselineNudge;
     const htmlPadX = padX;
     const htmlPadRight = htmlPadX + cutoffRightPad;
-    const syncKey = `${ds.scale}-${effectiveState}-${rawIc}-${rawBg}-${valToSync}-${finalPadY}-${htmlPadX}-${htmlPadRight}-${scaledFS}-${isMultiline}-${isAwake}-${safeConfig.btnColor}`;
+    const syncKey = `${ds.scale}-${effectiveState}-${rawIc}-${rawBg}-${valToSync}-${finalPadY}-${htmlPadTop}-${htmlPadX}-${htmlPadRight}-${scaledFS}-${isMultiline}-${isAwake}-${safeConfig.btnColor}`;
 
     if (el._lastSyncKey !== syncKey) {
         el._lastSyncKey = syncKey;
@@ -784,15 +822,14 @@ export function syncDerpEditor(context, node, app, config) {
         el.style.fontWeight = fontWeight;
 
         el.style.textAlign = textAnchor ? textAnchor.align : alignX;
-        if (props.numberOnly && alignY === "middle") {
-            el.style.display = "flex";
-            el.style.alignItems = "center";
-        }
+        el.style.display = "block";
+        el.style.alignItems = "";
+        el.style.justifyContent = "";
 
         el.style.outline = "none";
         el.style.boxSizing = "border-box";
         el.style.margin = "0";
-        el.style.padding = `${finalPadY}px ${htmlPadRight}px 0px ${htmlPadX}px`;
+        el.style.padding = `${htmlPadTop}px ${htmlPadRight}px 0px ${htmlPadX}px`;
         el.style.lineHeight = `${uiLineHeight}px`;
         el.style.overflowX = "hidden";
         el.style.overflowY = isMultiline ? "auto" : "hidden";

@@ -868,6 +868,7 @@ app.registerExtension({
                         },
                         edtiorFilenamePrefix: {
                             type: this.UI_TYPES.EDITOR,
+                            canvasShield: true,
                             themeKey: "dialog, t_textNormal",
                             width: "fit",
                             height: "auto",
@@ -882,7 +883,8 @@ app.registerExtension({
                             }
                         },
                         editorImageFilename: {
-                            type: this.UI_TYPES.EDITOR, mouseOver: false, canvasShield: true,
+                            type: this.UI_TYPES.EDITOR,
+                            canvasShield: true,
                             themeKey: "dialog, t_textNormal",
                             displayMode: "cutoff",
                             width: "full",

@@ -56,7 +56,8 @@ export function showBastaSignalReceiver(host, targetRegion = null, params = {}) 
             bastaMovalbe: true,
             bastaSingleton: true,
             autoWidth: true,
-            snapHeight: false
+            snapHeight: false,
+            bastaBackgroundKey: "systemBackground"
         },
         initialSize: [250, 100],
 
@@ -132,7 +133,7 @@ export function showBastaSignalReceiver(host, targetRegion = null, params = {}) 
                     type: UI_TYPES.FILEBROWSER,
                     icon: "dropdown",
                     canvasShield: true,
-                    themeKey: "dialog, t_textNormal",
+                    themeKey: "dialog, t_textSmall",
                     mode: "file",
                     rootName: "signals",
                     mouseOver: canOpenPicker,

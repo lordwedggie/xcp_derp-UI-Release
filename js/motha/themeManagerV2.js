@@ -168,6 +168,7 @@ app.registerExtension({
                     btnThemeSave: {
                         type: UI_TYPES.ICONBUTTON, themeKey: "button, t_textNormal", noHover: false,
                         state: "OFF", icon: "save", width: "match", height: "fill", objectAlign: ["left", "middle"],
+                        spacing: [sW, 0],
                         pulse: this._isThemeDirty,
                     },
                     dropdownTheme: {
@@ -235,7 +236,7 @@ app.registerExtension({
                     },
                     dropdownPalette: {
                         type: UI_TYPES.FILEBROWSER,
-                        icon: "dropdown",
+                        icon: "palette",
                         themeKey: "dialog, t_textSmall", canvasShield: true,
                         width: "fit", height: "auto", minWidth: 120,
                         mode: "file",
@@ -243,17 +244,7 @@ app.registerExtension({
                         rootName: "palettes",
                         items: systemPaletteList,
                         value: selectedSystemPalette,
-                        padding: [pW, pH], spacing: [sW, 0],
-                        onChange: (val) => {
-                            if (val === "None") {
-                                this.properties.systemPaletteName = "";
-                                if (this.themeToEdit) delete this.themeToEdit._palette;
-                            } else {
-                                this.properties.systemPaletteName = val;
-                            }
-                            this._layoutMapHash = "";
-                            this.requestDerpSync();
-                        }
+                        padding: [pW, pH], spacing: [sW, 0]
                     },
                 },
                 previewRegion: {
@@ -281,7 +272,7 @@ app.registerExtension({
                     btnKeySave: {
                         type: UI_TYPES.ICONBUTTON, themeKey: "button, t_textNormal", noHover: false,
                         state: "OFF", icon: "save", width: "match", height: "fill", objectAlign: ["left", "middle"],
-                        spacing: [0, 0],
+                        spacing: [sW, 0],
                         pulse: this._isSelectedKeyDirty,
                     },
                     dropdownKey: {
@@ -323,7 +314,7 @@ app.registerExtension({
                         type: UI_TYPES.BUTTON, themeKey: "button, t_textSmall", noHover: false,
                         text: "Send to Palette",
                         width: "auto", height: "fill", objectAlign: ["left", "middle"], labelAlign: ["center", "middle"],
-                        padding:[pW, pH], spacing: [0, 0],
+                        padding:[pW, pH], spacing: [sW, 0],
                         // THE SINGLETON STATE: Disable button if the palette is already alive for this node
                         state: activeBastas.has(getPaletteId(this)) ? "DIS" : "OFF",
                         onClick: () => {

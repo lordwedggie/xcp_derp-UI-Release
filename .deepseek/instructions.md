@@ -91,6 +91,10 @@ toolTip: tLocale("$fatha_layout.tooltips.<key>", "English fallback")
 
 Follow `derpLatent` as the reference implementation. Always update both locale files (`en-US`, `zh-CN`). Never leave raw `"$..."` keys as tooltip values. Full rules in `.deepseek/pastes/fatha-layout-localization.md`.
 
+## EDITOR Widget Activation
+
+Remember this for future `UI_TYPES.EDITOR` work: do not replace the default `derpEditor` activation/focus path with local node `onPress` handlers. Canvas-hosted editors should normally use `canvasShield: true`. If an editor needs two clicks before typing works, check `js/herbina/widgets/derpEditor.js` for same-click canvas focus stealing and fix the shared activation path.
+
 **4 Working Rules:**
 1. Think Before Coding — state assumptions, surface tradeoffs, ask when unclear
 2. Simplicity First — minimum code, no speculation, no unasked features
