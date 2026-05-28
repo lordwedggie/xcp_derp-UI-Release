@@ -147,14 +147,8 @@ export function initDerpDiffusionLoaderCore(nodeType) {
         if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
         if (!suppressSignal && this.broadcastWirelessSignal) this.broadcastWirelessSignal();
 
-        if (showNotification || missingDiffusions.length || healedDiffusions.length || missingTextEncoders.length || healedTextEncoders.length) {
+        if (showNotification || missingDiffusions.length || missingTextEncoders.length) {
             if (typeof playMicrowaveDing === "function") playMicrowaveDing();
-            if (healedDiffusions.length && typeof showBastaSystemMessage === "function") {
-                queueRelinkMessages(this, healedDiffusions, "$derp_diffusion_loader.messages.relinked_diffusions_prefix", "Diffusions Re-linked: ");
-            }
-            if (healedTextEncoders.length && typeof showBastaSystemMessage === "function") {
-                queueRelinkMessages(this, healedTextEncoders, "$derp_diffusion_loader.messages.relinked_text_encoders_prefix", "Text Encoders Re-linked: ");
-            }
             if ((missingDiffusions.length || missingTextEncoders.length) && typeof showBastaMessage === "function") {
                 const parts = [];
                 if (missingDiffusions.length) parts.push(`${tLocale("$derp_diffusion_loader.messages.missing_diffusions_prefix", "Missing Diffusions Purged: ")}${missingDiffusions.join(", ")}`);

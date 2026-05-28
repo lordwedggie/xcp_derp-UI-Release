@@ -6,7 +6,6 @@ import { app } from "../../../scripts/app.js";
 import { uncle } from "./fatha/uncle.js";
 import { handleInitDerpGlobalListener } from "./fatha/core/fathaHandler.js";
 import { COMPONENT_BLUEPRINTS } from "./fatha/core/masterLayoutTypes.js";
-import { showBastaSystemMessage } from "./fatha/bastas/bastaSystemMessage.js";
 
 function tLocale(key, fallback = key) {
     if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
@@ -76,49 +75,6 @@ function syncDerpRouterDisplayLabels(node) {
     if (liveSignal) {
         node.properties.selectedSignalLabel = formatDerpRouterSignalLabel(node, liveSignal);
     }
-}
-
-function extractSignalSourceTitle(signal) {
-    const rawName = String(signal?.nodeName || "");
-    return rawName.replace(/\s*\[[^\]]+\]\s*$/, "").trim();
-}
-
-function getRegisteredSignalSourceTitle(sourceNode) {
-    if (!sourceNode) return "Signal Source";
-
-    const localizedTitle = [
-        sourceNode._lastLocalizedDerpSliderTitle,
-        sourceNode._lastLocalizedDerpModelLoaderTitle,
-        sourceNode._lastLocalizedDerpVaeLoaderTitle,
-        sourceNode._lastLocalizedDerpSchedulerLoaderTitle,
-        sourceNode._lastLocalizedDerpSamplerLoaderTitle,
-        sourceNode._lastLocalizedDerpDiffusionLoaderTitle,
-        sourceNode._lastLocalizedDerpLoraStackTitle,
-        sourceNode._lastLocalizedDerpLatentTitle,
-        sourceNode._lastLocalizedDerpToggleTitle,
-        sourceNode._lastLocalizedDerpImageDeckTitle,
-        sourceNode._lastLocalizedDerpPromptBookTitle,
-        sourceNode._lastLocalizedDerpTriggerWallTitle,
-        sourceNode._lastLocalizedDerpRouterTitle,
-    ].find((value) => typeof value === "string" && value.trim());
-    if (localizedTitle) return localizedTitle;
-
-    const typeName = String(sourceNode.type || sourceNode.comfyClass || "").toLowerCase();
-    if (typeName.includes("derpslidernode")) return tLocale("$derp_slider.title", "Derp Slider");
-    if (typeName.includes("modelloader")) return tLocale("$derp_model_loader.title", "Derp Model Loader");
-    if (typeName.includes("vaeloader")) return tLocale("$derp_vae_loader.title", "Derp Vae Loader");
-    if (typeName.includes("schedulerloader")) return tLocale("$derp_scheduler_loader.title", "Derp Scheduler Loader");
-    if (typeName.includes("samplerloader")) return tLocale("$derp_sampler_loader.title", "Derp Sampler Loader");
-    if (typeName.includes("diffusionloader")) return tLocale("$derp_diffusion_loader.title", "Derp Diffusion Loader");
-    if (typeName.includes("derplorastack")) return tLocale("$derp_lora_stack.title", "Derp Lora Stack");
-    if (typeName.includes("derplatent")) return tLocale("$derp_latent.title", "Derp Latent");
-    if (typeName.includes("togglenode")) return tLocale("$derp_toggle.title", "Derp Toggle");
-    if (typeName.includes("imagedeck")) return tLocale("$derp_image_deck.title", "Derp Image Deck");
-    if (typeName.includes("promptbook")) return tLocale("$derp_prompt_book.title", "Derp Prompt Book");
-    if (typeName.includes("triggerwall")) return tLocale("$derp_trigger_wall.title", "Derp Trigger Wall");
-    if (typeName.includes("signalout")) return tLocale("$derp_router.title", "Derp Router");
-
-    return sourceNode.title || sourceNode.comfyClass || sourceNode.type || "Signal Source";
 }
 
 const DERP_ROUTER_LINK_PAD_RIGHT = 15;
@@ -586,11 +542,11 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                 /**
                  * Signal Data Synchronization
                  */
-                nodeType.prototype.updateReceivedSignals = function(force = false) {
+                nodeType.prototype.updateReceivedSignals = function() {
                     if (this._xcpSyncing) return;
                     // Throttle: skip if called within 200ms of last invocation
                     const now = performance.now();
-                    if (!force && this._xcpLastSignalUpdate && (now - this._xcpLastSignalUpdate) < 200) return;
+                    if (this._xcpLastSignalUpdate && (now - this._xcpLastSignalUpdate) < 200) return;
                     this._xcpLastSignalUpdate = now;
                     this._xcpSyncing = true;
                     try {
@@ -600,71 +556,37 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                         if (this.activeOutputs) {
                             let orphanStateChanged = false;
                             this.activeOutputs.forEach((sig, i) => {
-                                if (!sig) { this.activeOutputs[i] = null; orphanStateChanged = true; return; }
                                 const freshSig = globalSignals[String(sig.nodeId)];
                                 if (freshSig) {
-                                    const previousSourceTitle = extractSignalSourceTitle(sig);
-                                    const nextSourceTitle = extractSignalSourceTitle(freshSig);
-                                    const sourceBaseId = String(freshSig.nodeId || sig.nodeId || "").split(":")[0];
-                                    const sourceNode = window.app?.graph?.getNodeById?.(parseInt(sourceBaseId, 10)) || null;
-                                    const registeredSourceTitle = getRegisteredSignalSourceTitle(sourceNode);
                                     this.activeOutputs[i] = sanitizeDerpSignal(freshSig);
                                     if (sig.isOrphaned) {
                                         this.activeOutputs[i].isOrphaned = false;
                                         orphanStateChanged = true;
                                     }
-                                    if (
-                                        previousSourceTitle &&
-                                        nextSourceTitle &&
-                                        previousSourceTitle !== nextSourceTitle &&
-                                        typeof showBastaSystemMessage === "function"
-                                    ) {
-                                        showBastaSystemMessage(
-                                            this,
-                                            `${this.titleLabel || this.title || tLocale("$derp_router.title", "Derp Router")}${tLocale("$derp_router.messages.received_title_change_middle", "'s signal source has changed its name to: ")}${registeredSourceTitle}${tLocale("$derp_router.messages.received_title_change_suffix", " renamed to ")}`,
-                                            3000,
-                                            { fade: true, grow: true },
-                                            null,
-                                            "warning",
-                                            null,
-                                            nextSourceTitle
-                                        );
-                                    }
                                 } else if (!sig.isOrphaned) {
                                     const sourceBaseId = String(sig.nodeId).split(":")[0];
                                     const nodeExists = !!window.app?.graph?.getNodeById(parseInt(sourceBaseId));
 
-                                    if (!nodeExists || !globalSignals[String(sig.nodeId)]) {
+                                    if (!nodeExists) {
                                         if (this.outputs && this.outputs[i] && this.outputs[i].links && window.app?.graph) {
                                             [...this.outputs[i].links].forEach(lId => {
                                                 if (window.app.graph.links[lId]) window.app.graph.removeLink(lId);
                                             });
                                         }
+                                        const preservedId = sig.nodeId;
+                                        this.activeOutputs[i] = sanitizeDerpSignal({ ...sig, nodeId: preservedId, nodeName: "⚠️ Signal source deleted", isOrphaned: true });
                                         orphanStateChanged = true;
-                                        if (typeof showBastaSystemMessage === "function") {
-                                            const routerName = this.titleLabel || this.title || "Derp Router";
-                                            const sourceName = sig.nodeName || String(sig.nodeId);
-                                            const suffix = tLocale("$derp_router.messages.signal_link_broken", ", link is broken!");
-                                            showBastaSystemMessage(
-                                                this,
-                                                `${routerName}${tLocale("$derp_router.messages.signal_source_deleted", " has lost its signal from ")}`,
-                                                6000,
-                                                { fade: true, grow: true },
-                                                null,
-                                                "critical",
-                                                null,
-                                                `${sourceName}${suffix}`
-                                            );
+                                    } else {
+                                        const sourceNode = window.app?.graph?.getNodeById(parseInt(sourceBaseId));
+                                        if (sourceNode && !sourceNode.properties?.isWirelessTransmitter) {
+                                            orphanStateChanged = true;
+                                            this.activeOutputs[i] = null;
                                         }
-                                        // Remove the broken link from active outputs
-                                        this.activeOutputs[i] = null;
                                     }
                                 }
                             });
 
                             if (orphanStateChanged) {
-                                this.activeOutputs = this.activeOutputs.filter(s => s !== null);
-                                this.properties.activeOutputs = this.activeOutputs.length;
                                 this.manageDerpOutputs();
                                 if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
                             }
@@ -674,8 +596,6 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                             .filter(sig => {
                                 if (!sig) return false;
                                 if (sig.isPureVirtual && (sig.value === null || sig.value === undefined)) return false;
-                                const sourceId = String(sig.nodeId || "").split(":")[0];
-                                if (!window.app?.graph?.getNodeById(parseInt(sourceId, 10))) return false;
                                 return true;
                             })
                             .map(sanitizeDerpSignal)

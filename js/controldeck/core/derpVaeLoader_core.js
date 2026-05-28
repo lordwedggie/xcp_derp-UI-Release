@@ -128,31 +128,20 @@ export function initDerpVaeLoaderCore(nodeType) {
 
                 if (!suppressSignal && this.broadcastWirelessSignal) this.broadcastWirelessSignal();
 
-                if (showNotification || missing.length > 0 || healed.length > 0) {
+                if (showNotification || missing.length > 0) {
                     if (typeof playMicrowaveDing === "function") playMicrowaveDing();
 
                     let msg = tLocale("$derp_vae_loader.messages.list_updated", "VAE list updated");
                     let mode = "info";
 
-                    // THE WARNING ENGINE: Explicit mode mapping for BastaMessage
                     if (missing.length > 0) {
                         msg = `${tLocale("$derp_vae_loader.messages.missing_purged_prefix", "Missing VAEs Purged: ")}${missing.join(", ")}`;
                         mode = "error"; // Triggers error styling and playKaboom()
-                    } else if (healed.length > 0) {
-                        msg = `${tLocale("$derp_vae_loader.messages.relinked_prefix", "VAEs Re-linked: ")}${healed.join(", ")}`;
-                        mode = "success"; // Triggers success styling and playKaChing()
                     }
 
-                    if (missing.length > 0 && healed.length > 0) {
-                        msg = tLocale("$derp_vae_loader.messages.deck_synced", "VAE deck synced: items repaired or removed.");
-                        mode = "info";
-                    }
-
-                    if (healed.length > 0 && missing.length === 0 && typeof showBastaSystemMessage === "function") {
-                        queueVaeRelinkMessages(this, healed);
-                    } else if (typeof showBastaMessage === "function") {
+                    if (typeof showBastaMessage === "function") {
                         if (typeof playMicrowaveDing === "function") playMicrowaveDing();
-                        const duration = (missing.length > 0 || healed.length > 0) ? 6000 : 3000;
+                        const duration = (missing.length > 0) ? 6000 : 3000;
                         showBastaMessage(this, msg, duration, { fade: true, grow: true }, "btnRefreshVaes", false, mode);
                     }
                 }

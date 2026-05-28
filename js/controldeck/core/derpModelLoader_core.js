@@ -185,7 +185,7 @@ export function initDerpModelLoaderCore(nodeType) {
 
                 if (!suppressSignal && this.broadcastWirelessSignal) this.broadcastWirelessSignal();
 
-                if (showNotification || missing.length > 0 || healed.length > 0) {
+                if (showNotification || missing.length > 0) {
                     if (typeof playMicrowaveDing === "function") playMicrowaveDing();
 
                     let msg = tLocale("$derp_model_loader.messages.list_updated", "Model list updated");
@@ -195,22 +195,11 @@ export function initDerpModelLoaderCore(nodeType) {
                     if (missing.length > 0) {
                         msg = `${tLocale("$derp_model_loader.messages.missing_purged_prefix", "Missing Models Purged: ")}${missing.join(", ")}`;
                         mode = "error"; // Triggers error styling and playKaboom()
-                    } else if (healed.length > 0) {
-                        msg = `${tLocale("$derp_model_loader.messages.relinked_prefix", "Models Re-linked: ")}${healed.join(", ")}`;
-                        mode = "success"; // Triggers success styling and playKaChing()
                     }
 
-                    if (missing.length > 0 && healed.length > 0) {
-                        msg = tLocale("$derp_model_loader.messages.deck_synced", "Model deck synced: items repaired or removed.");
-                        mode = "info";
-                    }
-
-                    if (healed.length > 0 && missing.length === 0 && typeof showBastaSystemMessage === "function") {
-                        queueModelRelinkMessages(this, healed);
-                    } else if (typeof showBastaMessage === "function") {
+                    if (missing.length > 0 && typeof showBastaMessage === "function") {
                         if (typeof playMicrowaveDing === "function") playMicrowaveDing();
-                        const duration = (missing.length > 0 || healed.length > 0) ? 6000 : 3000;
-                        showBastaMessage(this, msg, duration, { fade: true, grow: true }, "btnRefreshModels", false, mode);
+                        showBastaMessage(this, msg, 6000, { fade: true, grow: true }, "btnRefreshModels", false, mode);
                     }
                 }
 
