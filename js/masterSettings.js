@@ -398,6 +398,20 @@ app.registerExtension({
             }
         });
 
+        app.ui.settings.addSetting({
+            id: "Derp.PerfOverlayShowZOrder",
+            name: "Perf overlay shows Derp z-order diagnostics",
+            category: DERP_GROUPS.debugging("Perf Overlay Z-Order"),
+            sortOrder: DERP_GROUP_SORT_ORDER.debugging,
+            type: "boolean",
+            default: false,
+            onChange: (v) => {
+                window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
+                window.DERP_GLOBAL_SETTINGS.perfOverlayShowZOrder = normalizeBooleanSetting(v, false);
+                if (app.canvas) app.canvas.setDirty(true, true);
+            }
+        });
+
         // Initialize global object for immediate access by nodes
         window.DERP_GLOBAL_SETTINGS = {
             stickyDrag: normalizeBooleanSetting(app.ui.settings.getSettingValue("Derp.StickyDrag", false), false),
@@ -412,7 +426,8 @@ app.registerExtension({
             systemCollapseSoundIndex: normalizeVariantIndex(app.ui.settings.getSettingValue("Derp.SystemCollapseSoundIndex", 0), 0),
             systemDockSoundIndex: normalizeVariantIndex(app.ui.settings.getSettingValue("Derp.SystemDockSoundIndex", 0), 0),
             perfOverlayFontSize: Number(app.ui.settings.getSettingValue("Derp.PerfOverlayFontSize", 12)) || 12,
-            perfOverlayShowRanking: normalizeBooleanSetting(app.ui.settings.getSettingValue("Derp.PerfOverlayShowRanking", true), true)
+            perfOverlayShowRanking: normalizeBooleanSetting(app.ui.settings.getSettingValue("Derp.PerfOverlayShowRanking", true), true),
+            perfOverlayShowZOrder: normalizeBooleanSetting(app.ui.settings.getSettingValue("Derp.PerfOverlayShowZOrder", false), false)
         };
 
         hydrateDerpBackgroundSetting().then((options) => {

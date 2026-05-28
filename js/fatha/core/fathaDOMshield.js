@@ -21,6 +21,7 @@ import { renderHitboxDebug } from "../helpers/debugPainter.js";
 import { getNodeOnDeckEdge, isLinearDeckGroup } from "./masterDockEngine.js";
 import { clearEntityTooltip } from "./fathaHandler.js";
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
+import { MASTER_Z, promoteMasterZ } from "./masterZ.js";
 
 // DEBUG_MODE is now dynamically handled via node.properties.debugMode
 
@@ -291,7 +292,7 @@ export function createDerpShield(node) {
                 app.canvas.selectNode(node, e.shiftKey || node.selected);
                 app.canvas.current_node = node;
                 app.canvas.canvas.focus(); // THE FOCUS FIX: Ensure keyboard events reach the canvas
-                if (app.canvas.bringToFront) app.canvas.bringToFront(node);
+                promoteMasterZ(node, app.graph || node.graph || null);
             }
         }
 
@@ -353,7 +354,7 @@ export function createDerpShield(node) {
             localY: localPos.y,
             originalEvent: e
         });
-        if (app.canvas.bringToFront) app.canvas.bringToFront(node);
+        promoteMasterZ(node, app.graph || node.graph || null);
 
         // THE DYNAMIC CURSOR FIX: Determine the global drag cursor based on auto-resize states
         const vars = node.getDerpVars ? node.getDerpVars(node) : { autoWidth: false, autoHeight: false };
@@ -379,6 +380,7 @@ export function createDerpShield(node) {
     shield.onpointerdown = (e) => {
         if (e.button !== 0) return;
         e.stopPropagation(); e.preventDefault(); cleanup();
+        promoteMasterZ(node, app.graph || node.graph || null);
         app.canvas.canvas.focus();
         const now = Date.now();
         const isDblClick = (now - lastClickTime) < 300;
@@ -412,7 +414,7 @@ export function createDerpShield(node) {
             originalEvent: e
         });
 
-        if (app.canvas.bringToFront) app.canvas.bringToFront(node);
+        promoteMasterZ(node, app.graph || node.graph || null);
 
         if (handled) {
             const isPendingHoldDrag = !!node._dragTrig && !node._dragThresholdMet;
@@ -576,7 +578,7 @@ export function createDerpShield(node) {
         app.canvas.selectNode(node);
         app.canvas.current_node = node;
         app.canvas.canvas.focus(); // THE FOCUS FIX: Ensure keyboard events reach the canvas
-        if (app.canvas.bringToFront) app.canvas.bringToFront(node);
+        promoteMasterZ(node, app.graph || node.graph || null);
         const options = app.canvas.getNodeMenuOptions(node);
         if (options) new LiteGraph.ContextMenu(options, { event: e });
         return false;
@@ -652,7 +654,7 @@ export function syncDerpShield(node) {
     s.transform = `translate3d(${shieldX}px, ${shieldY}px, 0)`;
     // THE Z-INDEX FIX: Respect the base zIndex of the entity (essential for Bastas)
     const baseZ = node.baseZIndex || "5";
-    s.zIndex = (dMode === "Hitbox" || dMode === "Widgets Hitbox") ? "200000" : baseZ;
+    s.zIndex = (dMode === "Hitbox" || dMode === "Widgets Hitbox") ? String(MASTER_Z.debugHitbox) : baseZ;
     s.display = node.flags?.collapsed ? "none" : "block";
 
     // THE DYNAMIC RESIZE CURSOR FIX:

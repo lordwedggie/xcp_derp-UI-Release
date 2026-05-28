@@ -244,6 +244,7 @@ app.registerExtension({
         if (!nodeName.includes("imagedeck")) return;
 
         fatha(nodeType, nodeData, 220);
+        nodeType.prototype.baseZIndex = "2";
         initDerpImageDeckCore(nodeType);
 
         const _baseApplyList = nodeType.prototype.applyDerpImageDeckList;

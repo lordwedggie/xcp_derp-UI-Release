@@ -8,6 +8,7 @@ import { measureTextWidth, resolvePaintData, parseColorKeyText, colorSegmentsToH
 import { applyHTMLTheme } from "../../herbina/masterPainterHTML.js";
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
 import { lerpTo, animateAlpha } from "../../herbina/masterAnimator.js";
+import { MASTER_Z } from "../core/masterZ.js";
 
 const SYSTEM_MESSAGE_THEME_NAME = "_System/_bastaSystemMessage";
 const SYSTEM_MESSAGE_ENTRY_OFFSET_Y = 90;
@@ -335,7 +336,7 @@ function spawnBastaSystemMessage(host, text, duration = 3000, animations = {}, t
     el.style.minHeight = `${height}px`;
     el.style.boxSizing = "border-box";
     el.style.pointerEvents = "auto";
-    el.style.zIndex = "10020";
+    el.style.zIndex = String(MASTER_Z.systemMessage);
     el.style.display = "block";
     el.style.overflow = "visible";
     el.style.opacity = "1";

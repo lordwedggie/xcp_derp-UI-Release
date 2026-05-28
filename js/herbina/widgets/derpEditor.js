@@ -747,7 +747,8 @@ export function syncDerpEditor(context, node, app, config) {
     const physL = Math.round(rect.left + (node.pos[0] + ds.offset[0] + x) * ds.scale);
     const physT = Math.round(rect.top + (node.pos[1] + ds.offset[1] + y) * ds.scale);
 
-    const geoKey = `${physL}-${physT}-${w}-${h}-${ds.scale}-${isAwake}`;
+    const masterZ = node?._masterZHtml || 10000;
+    const geoKey = `${physL}-${physT}-${w}-${h}-${ds.scale}-${isAwake}-${masterZ}`;
     if (el._lastGeoKey !== geoKey) {
         el._lastGeoKey = geoKey;
         el.style.left = `${physL}px`;
@@ -755,7 +756,7 @@ export function syncDerpEditor(context, node, app, config) {
 
         const shouldExpand = safeConfig.inputExpand === true;
 
-        let baseZ = 10000;
+        let baseZ = masterZ;
         if (safeConfig.zIndex !== undefined) {
             baseZ = parseInt(safeConfig.zIndex);
         } else if (el.style.zIndex) {

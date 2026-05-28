@@ -15,6 +15,7 @@ import { getVirtualNodeLayoutMap } from "./helpers/fathaLayoutMaps.js";
 import { transmitBypassedDerpSignals, transmitDerpSignal, purgeDerpSignal } from "./core/masterSignalEngine.js";
 import { animateRecoil } from "../herbina/masterAnimator.js";
 import { initPerfOverlay, togglePerfOverlay } from "./helpers/fathaPerfOverlay.js";
+import { promoteMasterZ, syncMasterZ } from "./core/masterZ.js";
 
 const FATHA_OVERLAY_WINDOW_MS = 4000;
 
@@ -311,6 +312,28 @@ if (!window._xcpFathaGlobalHijack) {
             return originalRenderLink.call(this, ctx, a, b, link, skip_border, flow, color, start_dir, end_dir);
         };
         window._xcpLinkColorHijack = true;
+    }
+
+    if (!window._xcpMasterZSelectionHijack && app.canvas) {
+        const originalSelectNode = app.canvas.selectNode;
+        app.canvas.selectNode = function(node) {
+            const result = originalSelectNode.apply(this, arguments);
+            if (node?.isFathaNode || node?.isUncleNode) promoteMasterZ(node, app.graph || node.graph || null);
+            return result;
+        };
+
+        const originalSelectNodes = app.canvas.selectNodes;
+        if (typeof originalSelectNodes === "function") {
+            app.canvas.selectNodes = function(nodes) {
+                const result = originalSelectNodes.apply(this, arguments);
+                const list = Array.isArray(nodes) ? nodes : Object.values(nodes || {});
+                const target = list.find(node => node?.isFathaNode || node?.isUncleNode);
+                if (target) promoteMasterZ(target, app.graph || target.graph || null);
+                return result;
+            };
+        }
+
+        window._xcpMasterZSelectionHijack = true;
     }
 }
 
@@ -815,6 +838,7 @@ if (!window._xcp_DerpVirtualLoader_Loaded) {
                 const orgOnDrawForeground = app.canvas.onDrawForeground;
                 app.canvas.onDrawForeground = function(ctx) {
                     if (orgOnDrawForeground) orgOnDrawForeground.apply(this, arguments);
+                    syncMasterZ(app.graph || null);
 
                     // Global Cull Sweeper (Hide DOM for off-screen nodes)
                     if (app.graph && app.graph._nodes) {

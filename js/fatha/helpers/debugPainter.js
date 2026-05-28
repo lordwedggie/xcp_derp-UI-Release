@@ -4,6 +4,7 @@
  */
 import { app } from "../../../../scripts/app.js";
 import { applyHTMLTheme } from "../../herbina/masterPainterHTML.js";
+import { MASTER_Z } from "../core/masterZ.js";
 
 const debugPaints = {
     Hitbox: { fill: "rgba(255, 0, 0, 0.2)", border: { width: 1, color: "rgba(255, 0, 0, 0.8)", placement: "Inside" }, corners: 4 },
@@ -16,7 +17,7 @@ export function renderHitboxDebug(shieldEl, regions, debugMode, scale, config = 
 
     if (!shieldEl._debugLayer) {
         shieldEl._debugLayer = document.createElement("div");
-        shieldEl._debugLayer.style.cssText = "position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:200001;";
+        shieldEl._debugLayer.style.cssText = `position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:${MASTER_Z.debugHitboxLayer};`;
         shieldEl.appendChild(shieldEl._debugLayer);
     }
     const dbg = shieldEl._debugLayer;
@@ -87,7 +88,7 @@ export function renderLayoutDebug(engine, node, regions) {
         engine._debugContainer.className = "derp-debug-layer";
         engine._debugContainer.style.position = "absolute";
         engine._debugContainer.style.pointerEvents = "none";
-        engine._debugContainer.style.zIndex = "100000";
+        engine._debugContainer.style.zIndex = String(MASTER_Z.layoutDebug);
         engine._debugContainer.style.transformOrigin = "0 0";
         document.body.appendChild(engine._debugContainer);
     }

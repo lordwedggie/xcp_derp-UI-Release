@@ -1,4 +1,5 @@
 import { app } from "../../../../scripts/app.js";
+import { MASTER_Z, getMasterZDebugSnapshot } from "../core/masterZ.js";
 
 const WINDOW_MS = 4000;
 const OVERLAY_ID = "xcp-derp-perf-overlay";
@@ -104,6 +105,10 @@ function getOverlayFontSize() {
 
 function formatMetricLine(label, value) {
     return `${String(label).padEnd(11, " ")} ${value}`;
+}
+
+function isZOrderDebugEnabled() {
+    return window.DERP_GLOBAL_SETTINGS?.perfOverlayShowZOrder === true;
 }
 
 function collectStats(samples) {
@@ -283,7 +288,7 @@ function ensureOverlay(state) {
     el.style.position = "fixed";
     el.style.left = "12px";
     el.style.bottom = "12px";
-    el.style.zIndex = "99999";
+    el.style.zIndex = String(MASTER_Z.perfOverlay);
     el.style.pointerEvents = "none";
     el.style.padding = "8px 10px";
     el.style.borderRadius = "8px";
@@ -321,6 +326,7 @@ function updateOverlayText(state) {
     const selected = app?.canvas?.selected_nodes ? Object.keys(app.canvas.selected_nodes).length : 0;
     const topNodes = collectTopPerfNodes();
     const showRanking = window.DERP_GLOBAL_SETTINGS?.perfOverlayShowRanking !== false;
+    const zSnapshot = isZOrderDebugEnabled() ? getMasterZDebugSnapshot(app?.graph || null, 5) : null;
     const rankingBlock = showRanking ? [
         "",
         "",
@@ -332,6 +338,21 @@ function updateOverlayText(state) {
             color: getPerfRowColor(row.score),
         })) : [{ text: "(none)", color: "#d7e3ff" }]),
     ] : [];
+    const zBlock = zSnapshot ? [
+        "",
+        "",
+        { text: "Z-order diagnostics:", color: OVERLAY_SECTION_COLOR },
+        formatMetricLine("Derp", `${zSnapshot.derpNodes}/${zSnapshot.totalGraphNodes}`),
+        formatMetricLine("Selected", zSnapshot.selectedDerpNodes),
+        {
+            text: formatMetricLine("Mismatch", zSnapshot.mismatches.length),
+            color: zSnapshot.mismatches.length ? "#ff6b57" : "#7CFF6B",
+        },
+        ...(zSnapshot.top.length ? zSnapshot.top.map((row, idx) => ({
+            text: `${idx + 1}. #${row.graphIndex} z:${row.shieldZ ?? "?"}/${row.domZ ?? "?"}${row.selected ? " *" : ""} ${row.title}`.slice(0, 80),
+            color: row.domZ !== null && String(row.domZ) !== String(row.shieldZ) ? "#ff6b57" : "#d7e3ff",
+        })) : [{ text: "(no derp nodes)", color: "#d7e3ff" }]),
+    ] : [];
     const lines = [
         { text: "Derp perfrmance tracker:", color: OVERLAY_SECTION_COLOR },
         { text: formatMetricLine("FPS", formatFps(s.fps)), color: getFpsColor(s.fps) },
@@ -341,6 +362,7 @@ function updateOverlayText(state) {
         { text: formatMetricLine("Max", formatMs(s.maxMs)), color: getMsColor(s.maxMs) },
         formatMetricLine("Zoom", scale.toFixed(2)),
         ...rankingBlock,
+        ...zBlock,
     ];
 
     const text = lines.map(line => typeof line === "string" ? line : line.text).join("\n");

@@ -4,6 +4,7 @@
  */
 import { spawnBasta, activeBastas } from "../basta.js";
 import { UI_TYPES } from "../core/masterLayoutTypes.js";
+import { MASTER_Z } from "../core/masterZ.js";
 import { measureTextWidth } from "../../herbina/utils/widgetsUtils.js";
 
 const SEARCH_TAB_HEIGHT = 20;
@@ -29,7 +30,7 @@ function ensureSearchGlyphOverlay(basta, el) {
     overlay.style.position = "fixed";
     overlay.style.pointerEvents = "none";
     overlay.style.userSelect = "none";
-    overlay.style.zIndex = "999999";
+    overlay.style.zIndex = String(MASTER_Z.searchGlyphOverlay);
     overlay.style.opacity = "0.9";
     overlay.style.boxSizing = "border-box";
     overlay.style.display = "flex";

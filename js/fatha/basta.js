@@ -14,6 +14,7 @@ import { masterPainterText } from "../herbina/masterPainter.js";
 import { resolvePaintData, parseColorKeyText } from "../herbina/utils/widgetsUtils.js";
 import { getBastaBaseMap } from "./helpers/bastaLayoutMaps.js";
 import { ensureScreenRectVisible, isWarping } from "./core/fathaWarp.js";
+import { MASTER_Z } from "./core/masterZ.js";
 
 const BASTA_FADE_SPEED = 0.4;
 const BLD_ID = "basta_lora_detail_global_unique_id";
@@ -477,7 +478,7 @@ class BastaInstance {
         this._warpOnOpen = config?.warpOnOpen !== false;
         this._pendingViewportFitFrames = this._warpOnOpen ? 10 : 0;
 
-        this.baseZIndex = "10000";
+        this.baseZIndex = String(MASTER_Z.bastaBase);
         createDerpShield(this);
         if (this.interactionShield) {
             this.interactionShield.style.zIndex = this.baseZIndex;
