@@ -600,6 +600,7 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                         if (this.activeOutputs) {
                             let orphanStateChanged = false;
                             this.activeOutputs.forEach((sig, i) => {
+                                if (!sig) { this.activeOutputs[i] = null; orphanStateChanged = true; return; }
                                 const freshSig = globalSignals[String(sig.nodeId)];
                                 if (freshSig) {
                                     const previousSourceTitle = extractSignalSourceTitle(sig);

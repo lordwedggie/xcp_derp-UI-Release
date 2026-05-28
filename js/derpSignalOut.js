@@ -130,7 +130,7 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                         }
                     }
 
-                    const activeOuts = this.activeOutputs || [];
+                    const activeOuts = (this.activeOutputs || []).filter(s => s != null);
                     const activeIds = new Set(activeOuts.map(s => String(s.nodeId)));
                     this._signalLabelToId = new Map();
                     const signalItems = sortSignals((this.receivedSignals || [])
