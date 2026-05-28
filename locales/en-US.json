@@ -533,7 +533,9 @@
     "title": "Derp Router",
     "signals": {
       "select": "Select signal...",
-      "none_detected": "No signals detected..."
+      "none_detected": "No signals detected...",
+      "signals_detected": "{count} signals detected.",
+      "signals_added": "{count} added."
     },
     "messages": {
       "received_title_change_middle": " signal source update: ",

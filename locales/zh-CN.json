@@ -533,7 +533,9 @@
     "title": "老登路由器",
     "signals": {
       "select": "选择信号...",
-      "none_detected": "未检测到信号..."
+      "none_detected": "未检测到信号...",
+      "signals_detected": "检测到 {count} 个信号。",
+      "signals_added": "已添加 {count} 个。"
     },
     "messages": {
       "received_title_change_middle": " 的信号源已将名称改为：",

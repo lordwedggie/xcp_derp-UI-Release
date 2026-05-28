@@ -180,7 +180,7 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                             margin: [mW, mW, mW, 0], padding: [pW, pH], 
                             lblContent: {
                                 type: UI_TYPES.TEXT, themeKey: "t_textsystem",
-                                text: `${(this.receivedSignals || []).length} signals detected. ${activeOuts.length} added.`,
+                                text: `${tLocale("$derp_router.signals.signals_detected", "{count} signals detected.").replace("{count}", (this.receivedSignals || []).length)} ${tLocale("$derp_router.signals.signals_added", "{count} added.").replace("{count}", activeOuts.length)}`,
                                 labelAlign: ["left", "middle"], width: "full", height: "auto", 
                             },
                             // THE DYNAMIC REPETITION: Generate indexed regions to repeat the outputsRegion
