@@ -11,6 +11,7 @@ import server
 from aiohttp import web
 
 from .xcp_file_asset_routes import register_routes as register_asset_routes
+from . import xcp_version_check  # registers /xcp/check_version route
 from .xcp_file_categories import get_category_dir
 from .xcp_file_common import resolve_case_insensitive_path
 from .xcp_file_image_routes import register_routes as register_image_routes
