@@ -485,7 +485,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                     dir: "row", width: "full", height: "auto", spacing: [sW, sH], margin: [0, 0, -mW + sW, 0],
                                     [`sldModel_${i}`]: {
                                         type: this.UI_TYPES.SLIDER, style: "knob", mouseOver: false,
-                                        text: nameDisplay === "Slider" ? loraName : tLocale("$derp_lora_stack.labels.strength", "Strength"),
+                                        text: nameDisplay === "Slider" ? loraName : "",
                                         padding: [pW, pH], fillPadding: [1, 1], fillbarHeight: .5,
                                         displayMode: "cutoff", alpha: rowAlpha,
                                         measureText: nameDisplay === "Slider" ? loraName : tLocale("$derp_lora_stack.labels.strength", "Strength"),
@@ -726,7 +726,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
 
                                         window._xcpDerpSession = Date.now();
                                         if (this.fetchDerpLoraData) this.fetchDerpLoraData(true);
-                                        showBastaMessage(this, tLocale("$derp_lora_stack.messages.refreshing_metadata", "Refreshing Metadata..."), 2000, { width: this.size[0] }, null, false, "info", "microwave");
+
                                     }
                                 }
                             },

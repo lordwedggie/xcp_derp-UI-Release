@@ -708,7 +708,7 @@ export function fetchLoraData(node, showNotification = false) {
             // during reload (e.g., onConfigure + onNodeCreated fetch sequence).
             if (node._loraDataHash === dataHash) {
                 if (showNotification) {
-                    showBastaMessage(node, "Lora list updated", 3000, { fade: true, grow: true }, "btnRefreshModels", false, "info", "microwave");
+                    showBastaMessage(node, "Lora list updated", 3000, { fade: true, grow: true }, "btnRefresh", false, "info", "microwave");
                 }
                 return;
             }
@@ -756,7 +756,7 @@ export function fetchLoraData(node, showNotification = false) {
             if (node.refreshNodeLayoutMap) node.refreshNodeLayoutMap();
 
             if (showNotification) {
-                showBastaMessage(node, "Lora list updated", 3000, { fade: true, grow: true }, "btnRefreshModels", false, "info", "microwave");
+                showBastaMessage(node, "Lora list updated", 3000, { fade: true, grow: true }, "btnRefresh", false, "info", "microwave");
             }
         }).catch(err => console.warn("[xcpDerp] LoRA data fetch failed:", err))
         .finally(() => {

@@ -130,6 +130,7 @@ export function showBastaMessage(host, text, duration = 3000, animations = {}, t
         basta.properties.tooltipText = text;
         basta.properties.messageThemeKey = textThemeKey;
         if (backgroundThemeKey) basta.properties.bastaBackgroundKey = backgroundThemeKey;
+        basta.offset[1] -= sH; // default gap above target region
         if (isTooltipMessage) basta.properties.palette = { path: "_system/_toolTip.json" };
         if (isTooltipMessage) {
             basta.properties.nodeSize = [initialW, initialH];
@@ -138,7 +139,6 @@ export function showBastaMessage(host, text, duration = 3000, animations = {}, t
             basta._tooltipExpandCurrentWidth = TOOLTIP_EXPAND_START_WIDTH;
             basta._tooltipExpandTargetWidth = initialW;
             basta._tooltipExpandPaddingX = pW;
-            basta.offset[1] -= sH * TOOLTIP_EXPAND_Y_SHIFT_ROWS;
             basta._tooltipExpandAnchorCenterX = basta.offset[0] + (initialW / 2);
             basta._tooltipExpandBaseOffsetY = basta.offset[1];
             basta.offset[0] = basta._tooltipExpandAnchorCenterX - (TOOLTIP_EXPAND_START_WIDTH / 2);
