@@ -124,6 +124,7 @@ const FILEBROWSER_ICON_MAP = {
     palette: ["❖", "❖"],
     file: ["🖺", "🖺"],
     settings: ["⛯", "⛯"],
+    signal: ["ᯤ", "ᯤ"],
     fallback: ["📁", "📂"],
 };
 
@@ -133,6 +134,7 @@ const BROWSER_ICONS = {
     PALETTE: "❖ ",
     LORA: "🖺 ",
     LORAIMAGE: "🖻 ",
+    SIGNAL: "ᯤ ",
 };
 
 const lineTop = "rgba(0, 0, 0, 0.2)";
@@ -1054,13 +1056,13 @@ export function syncFileBrowser(context, node, app, config, overlayPass = false)
 
     const dropdownDisplay = getFileBrowserCurrentDisplay(safeConfig, safeConfig.items || [], isDropdownFileBrowser(safeConfig));
     const mode = getFileBrowserMode(safeConfig);
-    const rootDisplayName = t(safeConfig.rootName || (mode === "folder" ? "/" : ""));
+    const rootDisplayName = String(safeConfig.icon || "").toLowerCase() === "signal" ? "" : t(safeConfig.rootName || (mode === "folder" ? "/" : ""));
     const isSelection = typeof safeConfig.value === "string" && safeConfig.value !== "/" && (mode === "folder" || (safeConfig.items || []).some((item) => getFileBrowserItemValue(item) === safeConfig.value));
     let currentVal = rootDisplayName;
     if (isSelection) {
         const cleanPath = safeConfig.value.replace(/\.(safetensors|json)$/i, "").replace(/\/$/, "").replace(/\//g, "\\");
         const sep = rootDisplayName && rootDisplayName !== "/" ? "\\" : "";
-        currentVal = `${rootDisplayName}${sep}${cleanPath}`;
+        currentVal = String(safeConfig.icon || "").toLowerCase() === "signal" ? cleanPath : `${rootDisplayName}${sep}${cleanPath}`;
     }
 
     // Check if the selected item carries a _triggerDisplay with {{}} color-key syntax

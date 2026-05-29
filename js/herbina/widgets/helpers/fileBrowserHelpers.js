@@ -136,6 +136,7 @@ export function getFileRowPrefix(config, node, entry, deps) {
         return { prefix: config.previewList?.includes(entry.path) ? browserIcons.LORAIMAGE : browserIcons.LORA, prefixColor: null };
     }
 
+    if (String(config.icon || "").toLowerCase() === "signal") return { prefix: browserIcons.SIGNAL, prefixColor: null };
     return { prefix: isDropdownFileBrowser(config) ? null : browserIcons.FILE, prefixColor: null };
 }
 

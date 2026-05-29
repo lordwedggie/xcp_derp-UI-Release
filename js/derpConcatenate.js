@@ -105,7 +105,7 @@ app.registerExtension({
                             spacing: [sW, 0],
                             dropdownSignal: {
                                 type: this.UI_TYPES.FILEBROWSER,
-                                icon: "dropdown",
+                                icon: "SIGNAL",
                                 themeKey: "dialog, t_textNormal",
                                 canvasShield: true,
                                 mouseOver: true,
