@@ -51,16 +51,34 @@ app.registerExtension({
             }
 
             this._layoutMapHash = structureHash;
-            const hasStringSignal = (() => {
-                const ids = this.properties?.multiSignalIds || {};
-                const signals = window.xcpDerpSignals || {};
-                return Object.values(ids).some(id => {
-                    const rawId = String(id || "");
-                    if (!rawId) return false;
-                    if (signals[rawId]) return true;
-                    return Object.keys(signals).some(k => k.startsWith(rawId) || String(rawId).startsWith(k.split(":")[0]));
-                });
-            })();
+            // Resolve signal value once to avoid duplicate lookups
+            const resolveSignalId = (rawId) => {
+                if (!rawId) return null;
+                const directId = String(rawId);
+                if (window.xcpDerpSignals?.[directId]) return directId;
+                const baseId = directId.split(":")[0];
+                if (window.xcpDerpSignals?.[baseId]) return baseId;
+                return null;
+            };
+            const sigIds = this.properties?.multiSignalIds || {};
+            const activeSignalId = resolveSignalId(sigIds[0] || sigIds["0"] || null);
+            const signalText = activeSignalId
+                ? String(window.xcpDerpSignals?.[activeSignalId]?.value ?? "No signal received")
+                : "No signal received";
+            const hasSignal = signalText !== "No signal received";
+            // STRING signal list for dropdown
+            const allSignals = window.xcpDerpSignals || {};
+            const stringItems = Object.values(allSignals)
+                .filter(s => s && s.nodeId && String(s.type || "").toUpperCase().includes("STRING"))
+                .map(s => String(s.nodeName || s.nodeId || ""));
+            const currentSignalName = activeSignalId
+                ? (Object.values(allSignals).find(s => String(s.nodeId) === activeSignalId)?.nodeName || "")
+                : "";
+            const signalPrompt = currentSignalName || (stringItems[0] || "No signals...");
+            this._concatSignalMap = new Map();
+            Object.values(allSignals)
+                .filter(s => s && s.nodeId && String(s.type || "").toUpperCase().includes("STRING"))
+                .forEach(s => this._concatSignalMap.set(String(s.nodeName || s.nodeId || ""), String(s.nodeId)));
             this.layoutMap = {
                 sysContentRegion: {
                     anchor: { target: "headerRegion", axis: "y", offset: oY },
@@ -72,29 +90,50 @@ app.registerExtension({
                         type: this.UI_TYPES.TEXT,
                         themeKey: "t_textSystem",
                         text: "STRING type signals required. Click the wireless button in the Header.",
-                        hidden: (() => {
-                            const ids = this.properties?.multiSignalIds || {};
-                            const rawId = String(ids[0] || ids["0"] || "");
-                            return !!rawId && !!window.xcpDerpSignals?.[rawId];
-                        })(),
+                        hidden: hasSignal,
                         width: "full",
                         padding: [pW, pH],
                         labelAlign: ["left", "middle"],
                         pulseStates: true,
                     },
                     regionSignalContent: {
-                        hidden: (() => {
-                            const ids = this.properties?.multiSignalIds || {};
-                            const rawId = String(ids[0] || ids["0"] || "");
-                            return !rawId || !window.xcpDerpSignals?.[rawId];
-                        })(),
                         anchor: { target: "lblWarningConcat", axis: "y", offset: sH },
                         dir: "col", width: "full", height: "auto",
                         margin: [0, mW, 0, mW],
+                        regionHeader: {
+                            dir: "row", width: "full", height: "auto",
+                            spacing: [sW, 0],
+                            dropdownSignal: {
+                                type: this.UI_TYPES.FILEBROWSER,
+                                icon: "dropdown",
+                                themeKey: "dialog, t_textNormal",
+                                canvasShield: true,
+                                mouseOver: true,
+                                canOpenPicker: stringItems.length > 0,
+                                width: "full", height: "auto", padding: [pW, pH],
+                                mode: "file",
+                                rootName: "signals",
+                                items: stringItems,
+                                value: signalPrompt,
+                                state: stringItems.length === 0 ? "DIS" : "OFF",
+                                onChange: (val) => {
+                                    if (this._concatSyncing) return;
+                                    const id = this._concatSignalMap?.get(String(val || ""));
+                                    if (id && this.properties) {
+                                        this._concatSyncing = true;
+                                        this.properties.multiSignalIds = { 0: id };
+                                        this.refreshNodeLayoutMap();
+                                        this.requestDerpSync();
+                                        this._concatSyncing = false;
+                                    }
+                                },
+                            },
+                        },
                         textSignal: {
+                            hidden: !hasSignal,
                             type: this.UI_TYPES.TEXT,
                             themeKey: "t_textNormal",
-                            text: String((window.xcpDerpSignals?.[String(this.properties?.multiSignalIds?.[0] || this.properties?.multiSignalIds?.["0"] || "")]?.value) ?? "No signal received"),
+                            text: signalText,
                             width: "full", height: "auto",
                             padding: [pW, pH],
                             labelAlign: ["left", "top"],
@@ -141,8 +180,8 @@ app.registerExtension({
             this.properties.titleLabel = "Derp Concatenate";
             this.properties.textValue = "";
 
-            this.properties.drawSignalBtn = true;
-            this.signalFilters = { types: ["STRING"] };
+            this.properties.multiSignalIds = {};
+            this.properties.drawSignalBtn = false;
             this.properties.autoWidth = false;
             this.properties.autoHeight = true;
             this.properties.nodeSize = [150, 50];
@@ -165,8 +204,7 @@ app.registerExtension({
             this.properties.skipGenericWirelessHeartbeat = true;
             this.isPureVirtual = true;
             this.properties.isPureVirtual = true;
-            this.properties.drawSignalBtn = true;
-            this.signalFilters = { types: ["STRING"] };
+            this.properties.drawSignalBtn = false;
 
             if (this.outputs && this.outputs.length > 0) {
                 this.outputs.forEach(o => { if (o.links) o.links = null; });
