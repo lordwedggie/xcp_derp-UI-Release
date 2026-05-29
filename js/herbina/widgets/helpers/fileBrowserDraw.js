@@ -17,14 +17,16 @@ export function drawPickerRow(ctx, state, row, rect, labelPaint, scale, deps = {
         ? (state.rowTextON?.textColor || state.rowTextON?.fill || labelPaint?.textColor || labelPaint?.fill || "#ffffff")
         : (labelPaint?.textColor || labelPaint?.fill || "#ffffff");
 
-    masterPainter(ctx, {
-        width: rect.w,
-        height: rect.h,
-        posX: rect.x,
-        posY: rect.y,
-        paintData: { ...rowPaint, corners: inheritPickerCorners(rowPaint, state.listPaint) },
-        color: rowPaint?.fill || "transparent"
-    });
+    if (!state.config.skipBackground || emphasized) {
+        masterPainter(ctx, {
+            width: rect.w,
+            height: rect.h,
+            posX: rect.x,
+            posY: rect.y,
+            paintData: { ...rowPaint, corners: inheritPickerCorners(rowPaint, state.listPaint) },
+            color: rowPaint?.fill || "transparent"
+        });
+    }
 
     const pX = state.config.padding?.[0] || 4;
     const fontSize = state.rowPaintOFF?.fontSize || labelPaint?.fontSize || 10;

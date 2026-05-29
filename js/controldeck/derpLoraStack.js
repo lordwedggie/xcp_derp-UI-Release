@@ -694,7 +694,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                 loraSelector: {
                                     type: this.UI_TYPES.FILEBROWSER, items: this._loraList || [],
                                     mode: "file", mouseOver: false, searchTab: true,
-                                    rootName: "loras",
+                                    rootName: "loras", skipBackground: true,
                                     previewList: this._loraPreviewList,
                                     ratingsList: this._loraRatings || {}, // THE RATING PASS: Provide the node's rating cache to the browser
                                     ratingsPalette: this._ratingsPalette, // THE PALETTE PASS: Color the icons in the browser
