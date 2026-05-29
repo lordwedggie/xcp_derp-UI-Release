@@ -1,53 +1,49 @@
 /**
- * Path: ./js/fatha/nodes/derpFathaTemplate.js
- * STATUS: VIRTUAL FATHA COMPLIANT | FIXED: Pure Virtual Enforcer & Title Persistence
+ * Path: ./js/derpConcatenate.js
+ * STATUS: VIRTUAL FATHA COMPLIANT — Wireless concatenate node
  */
 import { app } from "../../../scripts/app.js";
 import { fatha, initDerpGlobalListener } from "./fatha/fatha.js";
+import { suppressDefaultWidgets } from "./fatha/helpers/uncleSlotHelper.js";
 
-function buildTemplateLayoutHash(node, vars) {
+function buildConcatLayoutHash(node, vars) {
     const width = (Number(node?.size?.[0]) || 0).toFixed(2);
-    const textValue = String(node?.properties?.textValue || "");
     const mW = Number(vars.mW || 0).toFixed(2);
     const mH = Number(vars.mH || 0).toFixed(2);
     const oY = Number(vars.oY || 0).toFixed(2);
-    return `${textValue}_${window._xcpDerpSession}_${node.titleLabel || ""}_${width}_${mW}_${mH}_${oY}_${node.properties?.drawHeader !== false}`;
+    return `${window._xcpDerpSession}_${node.titleLabel || ""}_${width}_${mW}_${mH}_${oY}_${node.properties?.drawHeader !== false}`;
 }
 
 app.registerExtension({
-    name: "xcp.derpTemplateV2_Extension",
+    name: "xcp.derpConcatenate_Extension",
     async setup() {
         initDerpGlobalListener();
     },
 
     async beforeRegisterNodeDef(nodeType, nodeData) {
-        if (!nodeData.name.toLowerCase().includes("templatev2")) return;
+        if (!nodeData.name.toLowerCase().includes("derpconcatenate")) return;
 
         console.log(`[Fatha] Intercepting Python Node: ${nodeData.name}`);
 
-        // Initialize the Virtual Fatha framework hijacking
         fatha(nodeType, nodeData, 120);
 
-        // --- THEME & LAYOUT REFRESH ---
         nodeType.prototype.onThemeUpdate = function(config) {
             this.handleThemeUpdate(config);
             this._layoutMapHash = null;
             this.refreshNodeLayoutMap();
-            this.refreshDerpTemplateSysMap();
         };
 
         nodeType.prototype.applyPalette = function() {
             if (window.xcpDerpThemeConfig) this.handleThemeUpdate(window.xcpDerpThemeConfig);
             this._layoutMapHash = null;
             this.refreshNodeLayoutMap();
-            this.refreshDerpTemplateSysMap();
         };
 
         // --- MAIN UI LAYOUT ---
         nodeType.prototype.refreshNodeLayoutMap = function() {
             if (this.flags?.collapsed || this.size[0] <= 0) return;
             const { mW, mH, sW, sH, oX, oY, pW, pH } = this.getDerpVars(this);
-            const structureHash = buildTemplateLayoutHash(this, { mW, mH, oY });
+            const structureHash = buildConcatLayoutHash(this, { mW, mH, oY });
 
             if (this._layoutMapHash === structureHash && this.layoutMap) {
                 this.requestDerpSync();
@@ -55,6 +51,16 @@ app.registerExtension({
             }
 
             this._layoutMapHash = structureHash;
+            const hasStringSignal = (() => {
+                const ids = this.properties?.multiSignalIds || {};
+                const signals = window.xcpDerpSignals || {};
+                return Object.values(ids).some(id => {
+                    const rawId = String(id || "");
+                    if (!rawId) return false;
+                    if (signals[rawId]) return true;
+                    return Object.keys(signals).some(k => k.startsWith(rawId) || String(rawId).startsWith(k.split(":")[0]));
+                });
+            })();
             this.layoutMap = {
                 sysContentRegion: {
                     anchor: { target: "headerRegion", axis: "y", offset: oY },
@@ -62,40 +68,43 @@ app.registerExtension({
                     dir: "col",
                     padding: [0, 0],
                     margin: this.properties?.drawHeader === true ? [mW, mH] : [0, 0],
-                    lblSample: {
+                    lblWarningConcat: {
                         type: this.UI_TYPES.TEXT,
-                        themeKey: "t_textNormal",
-                        text: "Fatha Template",
-                        width: "full", height: "auto",
+                        themeKey: "t_textSystem",
+                        text: "STRING type signals required. Click the wireless button in the Header.",
+                        hidden: (() => {
+                            const ids = this.properties?.multiSignalIds || {};
+                            const rawId = String(ids[0] || ids["0"] || "");
+                            return !!rawId && !!window.xcpDerpSignals?.[rawId];
+                        })(),
+                        width: "full",
                         padding: [pW, pH],
+                        labelAlign: ["left", "middle"],
+                        pulseStates: true,
+                    },
+                    regionSignalContent: {
+                        hidden: (() => {
+                            const ids = this.properties?.multiSignalIds || {};
+                            const rawId = String(ids[0] || ids["0"] || "");
+                            return !rawId || !window.xcpDerpSignals?.[rawId];
+                        })(),
+                        anchor: { target: "lblWarningConcat", axis: "y", offset: sH },
+                        dir: "col", width: "full", height: "auto",
+                        margin: [0, mW, 0, mW],
+                        textSignal: {
+                            type: this.UI_TYPES.TEXT,
+                            themeKey: "t_textNormal",
+                            text: String((window.xcpDerpSignals?.[String(this.properties?.multiSignalIds?.[0] || this.properties?.multiSignalIds?.["0"] || "")]?.value) ?? "No signal received"),
+                            width: "full", height: "auto",
+                            padding: [pW, pH],
+                            labelAlign: ["left", "top"],
+                            wrap: true,
+                        },
                     },
                 },
             };
             if (this.layout) this.layout._lastCacheKey = "";
             this.requestDerpSync();
-        };
-
-        // --- SYSTEM PANEL LAYOUT ---
-        nodeType.prototype.refreshDerpTemplateSysMap = function() {
-            const { mW, mH, sW, sH, oX, oY, pW, pH } = this.getDerpVars(this);
-            this.sysLayoutMap = {
-                sysContentRegion: {
-                    dir: "col", margin: [mW, sH, mW, mH],
-                    anchor: { target: "sysDefaultControlsRegion", axis: "y"},
-                    width: "full", height: "auto",
-                    lblTitle: {
-                        type: this.UI_TYPES.TEXT, mouseOver: false,
-                        themeKey: "t_textsystem",
-                        labelAlign: ["left", "middle"],
-                        text: "Custom node properties:",
-                        width: "full", padding: [pW, pH],
-                    },
-                    layoutSpacer: {
-                        anchor: { target: "mainRow", axis: "y", offset: oY },
-                    }
-                }
-            };
-            if (this._derpPanel?.setLayoutMap) this._derpPanel.setLayoutMap(this.sysLayoutMap);
         };
 
         /**
@@ -115,36 +124,31 @@ app.registerExtension({
             }
         };
 
-        nodeType.prototype.onDerpSysPanelOpen = function(panel) {
-            this._derpPanel = panel;
-            if (this.sysLayoutMap) panel.setLayoutMap(this.sysLayoutMap);
-        };
-
         // --- LIFECYCLE ---
         const onCreated = nodeType.prototype.onNodeCreated;
         nodeType.prototype.onNodeCreated = function() {
             if (onCreated) onCreated.apply(this, arguments);
 
-            // THE ANTI-PRUNING FIX: Forces the engine to run this node even with 0 outputs.
             this.properties.isWirelessTransmitter = true;
             this.properties.skipGenericWirelessHeartbeat = true;
             this.isPureVirtual = true;
             this.properties.isPureVirtual = true;
 
-            // THE OUTPUT FIX: Explicitly remove Fatha's auto-injected virtual output
             this.outputs = [];
+            suppressDefaultWidgets(this);
 
-            this.titleLabel = "Fatha Node Template";
-            this.properties.titleLabel = "Fatha Node Template"; // THE TITLE FIX
-            this.properties.textValue = "Template String Output";
+            this.titleLabel = "Derp Concatenate";
+            this.properties.titleLabel = "Derp Concatenate";
+            this.properties.textValue = "";
 
+            this.properties.drawSignalBtn = true;
+            this.signalFilters = { types: ["STRING"] };
             this.properties.autoWidth = false;
             this.properties.autoHeight = true;
             this.properties.nodeSize = [150, 50];
             this.size = [150, 50];
 
             this.refreshNodeLayoutMap();
-            this.refreshDerpTemplateSysMap();
 
             setTimeout(() => {
                 if (typeof this.syncDerpOutputs === "function" && this.id !== -1) {
@@ -161,16 +165,17 @@ app.registerExtension({
             this.properties.skipGenericWirelessHeartbeat = true;
             this.isPureVirtual = true;
             this.properties.isPureVirtual = true;
+            this.properties.drawSignalBtn = true;
+            this.signalFilters = { types: ["STRING"] };
 
-            // THE PURE VIRTUAL ENFORCER: Purge physical slots immediately on load
             if (this.outputs && this.outputs.length > 0) {
                 this.outputs.forEach(o => { if (o.links) o.links = null; });
                 this.outputs = [];
             }
+            suppressDefaultWidgets(this);
 
             this._layoutMapHash = null;
             this.refreshNodeLayoutMap();
-            this.refreshDerpTemplateSysMap();
             if (this.syncDerpOutputs) this.syncDerpOutputs();
             this.requestDerpSync();
         };
@@ -186,7 +191,6 @@ app.registerExtension({
                 this._lastBypassState = isBypassed;
                 if (this.syncDerpOutputs) this.syncDerpOutputs();
                 this.refreshNodeLayoutMap();
-                this.refreshDerpTemplateSysMap();
                 this.requestDerpSync();
             }
 
@@ -195,7 +199,6 @@ app.registerExtension({
                 this._lastDerpW = currentW;
                 this.refreshNodeLayoutMap();
             }
-
         };
     }
 });

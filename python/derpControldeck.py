@@ -283,7 +283,7 @@ NODE_CLASS_MAPPINGS = {
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "DerpTemplateV2Node": "Derp Template V2",
+    "DerpTemplateV2Node": "Fatha Template",
     "DerpLoraStackNode": "Derp Lora Stack",
     "DerpSliderNode": "Derp Slider",
     "DerpToggleNode": "Derp Toggle",

@@ -743,7 +743,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                 width: "full",
                                 height: "auto",
                                 margin: [0, mH, 0, mH],
-                                lblWarningCrossAttention: {
+                                lblWarningCrossAttention: { pulseStates: true,
                                     type: this.UI_TYPES.TEXT,
                                     themeKey: "t_textSystem",
                                     text: tLocale("$derp_lora_stack.warnings.cross_attention", "MODEL and CLIP signals required, click the wireless button in the header."),
@@ -752,7 +752,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                     padding: [pW, pH],
                                     labelAlign: ["left", "middle"],
                                 },
-                                lblWarningJointAttention: {
+                                lblWarningJointAttention: { pulseStates: true,
                                     type: this.UI_TYPES.TEXT,
                                     themeKey: "t_textSystem",
                                     text: tLocale("$derp_lora_stack.warnings.joint_attention", "MODEL signal required, click the wireless button in the header."),

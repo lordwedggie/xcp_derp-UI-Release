@@ -25,4 +25,4 @@ class derpTemplate:
         return float("NaN")
 
 NODE_CLASS_MAPPINGS = {"derpTemplate": derpTemplate}
-NODE_DISPLAY_NAME_MAPPINGS = {"derpTemplate": "Derp Template"}
+NODE_DISPLAY_NAME_MAPPINGS = {"derpTemplate": "Uncle Template"}
