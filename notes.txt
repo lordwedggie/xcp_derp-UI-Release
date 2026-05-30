@@ -197,19 +197,59 @@ Run `publish_action.yml` workflow_dispatch from `main` branch on GitHub Actions.
 ---
 ## xcpDerpNodes Release Process
 
-When publishing daily-development to the public release repo (lordwedggie/xcp_derpNodes-release):
+Remote: `release` → `git@github.com:lordwedggie/xcpDerpNodes_release.git`
 
-1. Bump version in pyproject.toml and package.json
-2. Ensure .github/workflows/publish_action.yml is present (it exists on public/main but NOT in daily-development by default)
-3. Commit with message "release vX.Y.Z"
-4. Tag: git tag -a vX.Y.Z -m "vX.Y.Z"
-5. Push release branch: git push public daily-development:refs/heads/release/vX.Y.Z
-6. Push tag: git push public vX.Y.Z
-7. Update main: git push --force-with-lease public daily-development:main
-8. Push to origin: git push --force-with-lease origin daily-development
+### Pre-release cleanup checklist
 
-CRITICAL: .github/workflows/publish_action.yml must be in the commit before pushing, or it gets deleted from the release repo.
+Before every release commit, verify:
 
+1. **`.comfyignore` exists** at repo root and covers:
+   - `_temp/` — dev files, other nodes' code (will get flagged as bundled malware)
+   - `_bump.py`, `_fix_toml.py` — dev scripts
+   - `derp_docs/` — Obsidian vault, large images
+   - `notes.txt` — dev notes
+   - `%SystemDrive/` — corrupted git tree entries
+   - Do NOT include `user/` — bundled assets (Palettes, Themes, backgrounds) must ship
+
+2. **`user/derpNodes/` is clean** — delete personal/test data:
+   - `derpLoraStack/` — keep only `Default_Profile.json`, delete all test profiles
+   - `derpTriggerWall/` — keep only `derpTriggerWall.json` + `triggers_template.json`
+   - `derpPromptBook/` — keep empty (defaults created by bundled_asset_sync)
+   - `nodeSettings/` — keep empty (personal autosave data)
+   - Check for NSFW file names — they WILL get flagged
+
+3. **No `%SystemDrive%/` garbage** in git — `git ls-files "%SystemDrive%"` should be empty
+
+### Release steps
+
+1. Bump version in `pyproject.toml` and `package.json` to X.Y.Z
+2. **Read both files back** to verify the bump
+3. Stage all changes: `git add -A`
+4. Strip excluded files:
+   ```
+   git rm --cached js/motha/themeManagerV2.js js/motha/themeManagerV2_core.js python/derpThemeManagerV2.py
+   git rm --cached -r .deepseek/
+   git rm --cached notes.txt
+   ```
+5. Verify `.github/workflows/publish_action.yml` is still staged
+6. Commit: `git commit -m "release vX.Y.Z"`
+7. Sync main: `git push --force release daily-development:main`
+8. Tag: `git tag -a vX.Y.Z -m "vX.Y.Z"` then `git push release vX.Y.Z`
+9. Push release branch: `git push release daily-development:refs/heads/release/vX.Y.Z`
+10. Restore excluded files: `git add js/motha/themeManagerV2.js js/motha/themeManagerV2_core.js python/derpThemeManagerV2.py .deepseek/ notes.txt` then `git commit -m "restore excluded files to daily-development"`
+11. Push dev: `git push --force-with-lease github daily-development`
+
+### Registry status after publish
+
+Check: `https://api.comfy.org/nodes/xcpDerpNodes/versions`
+
+| Status | Meaning |
+|--------|---------|
+| `NodeVersionStatusPending` | Normal — in review queue, wait |
+| `NodeVersionStatusActive` | Published, visible in default channel |
+| `NodeVersionStatusFlagged` | Something triggered the scanner — check `.comfyignore`, NSFW filenames, bundled code |
+
+If a version is Flagged, you CANNOT republish the same version number. Bump and try again.
 
 ---
 ## xcpDerpNodes — NEVER publish themeManagerV2
@@ -219,5 +259,4 @@ These three files must be excluded from public releases:
 - js/motha/themeManagerV2_core.js
 - python/derpThemeManagerV2.py
 
-Before pushing daily-development to public, strip them with git rm --cached, amend, push to public, then restore with git add + commit on daily-development.
-
+Stripped via `git rm --cached` during the release commit (see Release Process above).
