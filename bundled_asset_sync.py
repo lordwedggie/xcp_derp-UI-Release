@@ -12,16 +12,6 @@ SOURCE_ROOT = EXT_ROOT / "user" / "derpNodes"
 DEST_ROOT = Path(folder_paths.get_user_directory()) / "derpNodes"
 STATE_FILE = DEST_ROOT / ".xcp_sync_state.json"
 
-SYNC_FOLDERS = [
-    "Palettes",
-    "Themes",
-    "derpLoraStack",
-    "derpPromptBook",
-    "derpTriggerWall",
-    "nodeSettings",
-]
-
-
 def _is_interactive():
     try:
         return sys.stdin.isatty() and sys.stdout.isatty()
@@ -98,6 +88,10 @@ def _copy_file(source: Path, dest: Path):
     shutil.copy2(source, dest)
 
 
+def _iter_sync_folders():
+    return sorted(path for path in SOURCE_ROOT.iterdir() if path.is_dir())
+
+
 def sync_bundled_assets():
     if not SOURCE_ROOT.exists():
         print(f"[xcpDerp] Bundled asset source missing: {SOURCE_ROOT}")
@@ -117,11 +111,7 @@ def sync_bundled_assets():
     try:
         DEST_ROOT.mkdir(parents=True, exist_ok=True)
 
-        for folder_name in SYNC_FOLDERS:
-            source_dir = SOURCE_ROOT / folder_name
-            if not source_dir.exists():
-                continue
-
+        for source_dir in _iter_sync_folders():
             for source_file in sorted(source_dir.rglob("*")):
                 if not source_file.is_file():
                     continue
