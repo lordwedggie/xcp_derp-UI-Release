@@ -49,7 +49,7 @@ function ensureDerpBackgroundLayerImpl() {
 function syncDerpBackgroundCanvasZIndex(canvasEl = app?.canvas?.canvas) {
     if (!canvasEl) return;
     if (isComfyVueNodesMode()) {
-        if (canvasEl.style.zIndex === "1") canvasEl.style.zIndex = "";
+        canvasEl.style.removeProperty("z-index");
         return;
     }
 
