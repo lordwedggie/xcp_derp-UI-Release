@@ -7,6 +7,7 @@ import {
     isLinearDeckGroup,
     isNodeDocked,
     syncDeckNodeSize,
+    setDeckNodePos,
     masterDockEngine,
 } from "./masterDockEngine.js";
 import {
@@ -118,7 +119,7 @@ export function restorePinnedVerticalDeckAnchor(anchor) {
 
     anchor.members.forEach((member) => {
         if (!member?.pos) return;
-        member.pos[1] = (Number(member.pos[1]) || 0) + offsetY;
+        setDeckNodePos(member, Number(member.pos?.[0]) || 0, (Number(member.pos?.[1]) || 0) + offsetY);
     });
     dockDebug("pin-anchor-restore-after", {
         offsetY,
@@ -144,7 +145,7 @@ export function restorePinnedVerticalDeckPositionAnchor(anchor) {
 
     anchor.members.forEach((member) => {
         if (!member?.pos) return;
-        member.pos[1] = (Number(member.pos[1]) || 0) + offsetY;
+        setDeckNodePos(member, Number(member.pos?.[0]) || 0, (Number(member.pos?.[1]) || 0) + offsetY);
     });
     dockDebug("pin-position-restore-after", {
         offsetY,
@@ -188,7 +189,7 @@ export function syncHorizontalDeckHeight(node, graph = app.graph || node?.graph 
     members.forEach((member) => {
         const heightChanged = syncDeckNodeSize(member, getDockNodeWidth(member), resolvedHeight);
         const yChanged = (Number(member?.pos?.[1]) || 0) !== resolvedY;
-        if (member?.pos && yChanged) member.pos[1] = resolvedY;
+        if (member?.pos && yChanged) setDeckNodePos(member, Number(member.pos?.[0]) || 0, resolvedY);
         if (heightChanged || yChanged) {
             changed = true;
             if (typeof member.syncUncleSlots === "function") member.syncUncleSlots();
@@ -295,7 +296,7 @@ export function animateDerpSizeImpl(node, targetW, targetH, useAnim, options = {
         const skipCollapseShift = node._skipNextAnimateCollapseShift === true;
         if (skipCollapseShift) node._skipNextAnimateCollapseShift = false;
         if (!skipCollapseShift && deltaH !== 0 && shiftDirection !== 0) {
-            node.pos[1] = (Number(node.pos?.[1]) || 0) + (deltaH * shiftDirection);
+            setDeckNodePos(node, Number(node.pos?.[0]) || 0, (Number(node.pos?.[1]) || 0) + (deltaH * shiftDirection));
         }
         const isVerticalDeck = graph && isLinearDeckGroup(node, graph, "vertical");
         const heightChanged = deltaH !== 0;
@@ -527,7 +528,7 @@ function normalizeHorizontalMemberPositions(anchorNode, graph) {
 
     let cursorX = Number(members[0]?.pos?.[0]) || 0;
     members.forEach((member) => {
-        member.pos[0] = cursorX;
+        setDeckNodePos(member, cursorX, Number(member.pos?.[1]) || 0);
         cursorX += getDockNodeWidth(member);
         if (typeof member.syncUncleSlots === "function") member.syncUncleSlots();
     });
@@ -698,7 +699,7 @@ export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH,
 
         syncDeckNodeSize(leftNode, adjustedLeftW, getDockNodeHeight(leftNode));
         syncDeckNodeSize(rightNode, adjustedRightW, getDockNodeHeight(rightNode));
-        rightNode.pos[0] = leftNode.pos[0] + adjustedLeftW;
+        setDeckNodePos(rightNode, (Number(leftNode.pos?.[0]) || 0) + adjustedLeftW, Number(rightNode.pos?.[1]) || 0);
         normalizeHorizontalMemberPositions(leftNode, graph);
         if (typeof leftNode.syncUncleSlots === "function") leftNode.syncUncleSlots();
         if (typeof rightNode.syncUncleSlots === "function") rightNode.syncUncleSlots();
@@ -745,7 +746,7 @@ export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH,
 
         syncDeckNodeSize(topNode, getDockNodeWidth(topNode), adjustedTopH);
         syncDeckNodeSize(bottomNode, getDockNodeWidth(bottomNode), adjustedBottomH);
-        bottomNode.pos[1] = topNode.pos[1] + adjustedTopH;
+        setDeckNodePos(bottomNode, Number(bottomNode.pos?.[0]) || 0, (Number(topNode.pos?.[1]) || 0) + adjustedTopH);
         if (typeof topNode.syncUncleSlots === "function") topNode.syncUncleSlots();
         if (typeof bottomNode.syncUncleSlots === "function") bottomNode.syncUncleSlots();
         result.handledHeight = true;
@@ -789,7 +790,7 @@ export function applyDockResizeResult(entity, dockResizeResult) {
 
     if (dockResizeResult.handledWidth && isLinearDeckGroup(entity, app.graph || entity.graph || null, "vertical")) {
         dockResizeResult.counterparts.forEach((node) => {
-            node.pos[0] = entity.pos[0];
+            setDeckNodePos(node, Number(entity.pos?.[0]) || 0, Number(node.pos?.[1]) || 0);
         });
         if (dockResizeResult.pinnedAnchor) {
             restorePinnedVerticalDeckPositionAnchor(dockResizeResult.pinnedAnchor);
@@ -798,7 +799,7 @@ export function applyDockResizeResult(entity, dockResizeResult) {
 
     if (dockResizeResult.handledHeight) {
         dockResizeResult.counterparts.forEach((node) => {
-            node.pos[1] = entity.pos[1];
+            setDeckNodePos(node, Number(node.pos?.[0]) || 0, Number(entity.pos?.[1]) || 0);
         });
     }
 

@@ -1,7 +1,7 @@
 import { sysPanel } from "../helpers/fathaSysPanel.js";
 import { applyDockResizeResult, syncDockResizePair } from "./dockResize.js";
 import { getDockGroupAxisFromMembers, getDockNodeMinHeight, getDockNodeMinWidth, resolveDockResizeAxes } from "./dockDimensions.js";
-import { getDeckMembers } from "./masterDockEngine.js";
+import { getDeckMembers, setDeckNodePos } from "./masterDockEngine.js";
 import { dockDebug, snapshotDockNode } from "./dockDebugHelpers.js";
 
 export function handleNodeResize(entity, data, scale) {
@@ -83,11 +83,11 @@ export function handleNodeResize(entity, data, scale) {
     if (entity.size[0] === appliedW && entity.size[1] === appliedH && dockResizeResult.counterparts.length === 0) return;
 
     if (allowWidthResize && anchorMode.moveX) {
-        entity.pos[0] = entity._startPos[0] + (entity._startSize[0] - appliedW);
+        setDeckNodePos(entity, entity._startPos[0] + (entity._startSize[0] - appliedW), Number(entity.pos?.[1]) || 0);
     }
 
     if (allowHeightResize && anchorMode.moveY) {
-        entity.pos[1] = entity._startPos[1] + (entity._startSize[1] - appliedH);
+        setDeckNodePos(entity, Number(entity.pos?.[0]) || 0, entity._startPos[1] + (entity._startSize[1] - appliedH));
     }
 
     entity.size[0] = appliedW;

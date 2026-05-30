@@ -133,7 +133,6 @@ app.registerExtension({
                     [`btnRemoveSampler_${idx}`]: {
                         type: this.UI_TYPES.ICONBUTTON,
                         icon: "close",
-                        iconScale: 0.5,
                         hidden: !m.active,
                         alpha: item.isPreviewGhost ? 0 : 1.0,
                         width: "match", height: "fill", objectAlign: ["left", "middle"], spacing: [sW, 0], margin: [1, 1, 1, 1],
@@ -209,7 +208,6 @@ app.registerExtension({
                     floatingRemoveBtn: {
                         type: this.UI_TYPES.ICONBUTTON,
                         icon: "close",
-                        iconScale: 0.5,
                         hidden: !m.active,
                         width: "match",
                         height: "full",

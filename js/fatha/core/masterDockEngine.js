@@ -34,6 +34,20 @@ function getNodeSizeValue(node, index) {
     return 0;
 }
 
+export function setDeckNodePos(node, x, y) {
+    if (!node) return false;
+    const nextX = Number(x) || 0;
+    const nextY = Number(y) || 0;
+    const prevX = Number(node.pos?.[0]) || 0;
+    const prevY = Number(node.pos?.[1]) || 0;
+    if (prevX === nextX && prevY === nextY) return false;
+
+    // Node 2.0 syncs its Vue layout store through the LGraphNode.pos setter.
+    // Direct element mutation can leave native shells at stale coordinates.
+    node.pos = [nextX, nextY];
+    return true;
+}
+
 function snapValue(value, snap = DEFAULT_DECK_SNAP) {
     const safeSnap = isFiniteNumber(snap) && snap > 0 ? snap : DEFAULT_DECK_SNAP;
     return Math.round(value / safeSnap) * safeSnap;
@@ -298,8 +312,7 @@ function applyColumnLayout(nodes, x, y, width, heights) {
         );
         const resolvedH = contentH?.height || heights[index];
         syncDeckNodeSize(node, width, resolvedH);
-        node.pos[0] = x;
-        node.pos[1] = cursorY;
+        setDeckNodePos(node, x, cursorY);
         if (typeof node.syncUncleSlots === "function") node.syncUncleSlots();
         cursorY += resolvedH;
     });
@@ -309,8 +322,7 @@ function applyRowLayout(nodes, x, y, widths, height) {
     let cursorX = x;
     nodes.forEach((node, index) => {
         syncDeckNodeSize(node, widths[index], height);
-        node.pos[0] = cursorX;
-        node.pos[1] = y;
+        setDeckNodePos(node, cursorX, y);
         if (typeof node.syncUncleSlots === "function") node.syncUncleSlots();
         cursorX += widths[index];
     });
@@ -1283,8 +1295,7 @@ export function moveDeck(rootNode, graph, offsets = new Map(), snap = DEFAULT_DE
         // Keep stacked members as a rigid body relative to the snapped root.
         // Snapping each child independently introduces per-node rounding drift
         // which causes Y position shift after page refresh.
-        node.pos[0] = rootX + dx;
-        node.pos[1] = rootY + dy;
+        setDeckNodePos(node, rootX + dx, rootY + dy);
         if (typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, true);
         if (typeof node.syncUncleSlots === "function") node.syncUncleSlots();
     });
@@ -1324,8 +1335,7 @@ export function moveDeckByDelta(graph, positions = new Map(), dx = 0, dy = 0, sn
         const startY = Number(startPos?.[1]) || 0;
         // Move the whole deck as one rigid body using the root's snapped delta.
         // This preserves contact between collapsed/expanded members and avoids drift.
-        node.pos[0] = startX + snappedDx;
-        node.pos[1] = startY + snappedDy;
+        setDeckNodePos(node, startX + snappedDx, startY + snappedDy);
         if (typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, true);
         if (typeof node.syncUncleSlots === "function") node.syncUncleSlots();
         moved.push(node);
@@ -1371,17 +1381,13 @@ export function applyDeckEdgeSnap(node, targetInfo, snap = DEFAULT_DECK_SNAP) {
     const before = snapshotDockNode(node);
 
     if (side === "left") {
-        node.pos[0] = snapValue(target.x - self.w, snap);
-        node.pos[1] = snapValue(target.y, snap);
+        setDeckNodePos(node, snapValue(target.x - self.w, snap), snapValue(target.y, snap));
     } else if (side === "right") {
-        node.pos[0] = snapValue(target.x + target.w, snap);
-        node.pos[1] = snapValue(target.y, snap);
+        setDeckNodePos(node, snapValue(target.x + target.w, snap), snapValue(target.y, snap));
     } else if (side === "top") {
-        node.pos[0] = snapValue(target.x, snap);
-        node.pos[1] = snapValue(target.y - self.h, snap);
+        setDeckNodePos(node, snapValue(target.x, snap), snapValue(target.y - self.h, snap));
     } else if (side === "bottom") {
-        node.pos[0] = snapValue(target.x, snap);
-        node.pos[1] = snapValue(target.y + target.h, snap);
+        setDeckNodePos(node, snapValue(target.x, snap), snapValue(target.y + target.h, snap));
     } else {
         return false;
     }

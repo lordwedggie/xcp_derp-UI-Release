@@ -355,10 +355,9 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                 },
                                 btnRefreshSignals: {
                                     type: UI_TYPES.ICONBUTTON,
-                                    themeKey: "buttonNode, t_textsystem",
                                     icon: "refresh",
-                                    width: "auto", height: "full",
-                                    padding: [pW, pH],
+                                    width: "match", height: "fill", objectAlign: ["left", "middle"], spacing: [sW, 0],
+                                    themeKey: "button, t_textNormal",
                                     onPress: () => {
                                         if (this.forceSignalRefresh) this.forceSignalRefresh();
                                         else {

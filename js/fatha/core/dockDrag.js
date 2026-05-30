@@ -1,7 +1,7 @@
 import { app } from "../../../../scripts/app.js";
 import { syncDerpShield } from "./fathaDOMshield.js";
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
-import { isNodeDocked } from "./masterDockEngine.js";
+import { isNodeDocked, setDeckNodePos } from "./masterDockEngine.js";
 
 const DOCK_TARGET_RADIUS = 14;
 const DOCK_GHOST_THICKNESS = 10;
@@ -19,8 +19,11 @@ export function updateDockDrag(entity, deckEngine, data, scale) {
     const rootStartPos = entity._deckDragRootStartPos || entity._startPos || dragRoot.pos || [0, 0];
     const deltaX = data.dx / scale;
     const deltaY = data.dy / scale;
-    dragRoot.pos[0] = Math.round((rootStartPos[0] + deltaX) / SNAP) * SNAP;
-    dragRoot.pos[1] = Math.round((rootStartPos[1] + deltaY) / SNAP) * SNAP;
+    setDeckNodePos(
+        dragRoot,
+        Math.round((rootStartPos[0] + deltaX) / SNAP) * SNAP,
+        Math.round((rootStartPos[1] + deltaY) / SNAP) * SNAP
+    );
     deckEngine.syncDraggedDeck(dragRoot, SNAP, { dx: deltaX, dy: deltaY }).forEach((member) => {
         syncDerpShield(member);
     });
