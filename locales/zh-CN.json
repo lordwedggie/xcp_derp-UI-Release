@@ -214,6 +214,14 @@
       "load_failed": "加载调度器失败"
     }
   },
+  "derp_concatenate": {
+    "title": "老登词组拼接",
+    "signal_entry": "信号 {0}",
+    "add_signal": "添加新的 STRING 信号...",
+    "select_signal": "选择一个 STRING 信号。",
+    "concatenated_text": "已拼接文本：",
+    "concatenated_suffix": "[已拼接]"
+  },
   "derp_image_deck": {
     "title": "老登图片牌组",
     "prefix": {

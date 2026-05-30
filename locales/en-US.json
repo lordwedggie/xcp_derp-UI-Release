@@ -214,6 +214,14 @@
       "load_failed": "Failed to load scheduler"
     }
   },
+  "derp_concatenate": {
+    "title": "Derp Concatenate",
+    "signal_entry": "Signal {0}",
+    "add_signal": "Add new STRING signal...",
+    "select_signal": "Select a STRING signal.",
+    "concatenated_text": "Concatenated text:",
+    "concatenated_suffix": "[Concatenated]"
+  },
   "derp_image_deck": {
     "title": "Derp Image Deck",
     "prefix": {

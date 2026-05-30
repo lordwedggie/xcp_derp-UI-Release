@@ -7,6 +7,17 @@ import { fatha, initDerpGlobalListener } from "./fatha/fatha.js";
 import { startStackDrag, updateStackDrag, endStackDrag } from "./fatha/helpers/fathaDragDrop.js";
 import { measureTextHeight } from "./herbina/utils/widgetsUtils.js";
 
+function tLocale(key, fallback = key) {
+    if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
+    const path = key.substring(1).split(".");
+    let target = window.xcpDerpLocaleData || {};
+    for (const segment of path) {
+        target = target?.[segment];
+        if (target === undefined) return fallback;
+    }
+    return target;
+}
+
 function measureConcatPreviewHeight(text, maxWidth, fontSize, fontFamily, fontWeight, paddingY) {
     const safeFontSize = Math.max(1, Number(fontSize) || 12);
     const verticalPadding = Math.max(0, Number(paddingY) || 0) * 2;
@@ -195,6 +206,21 @@ function getConcatSignalStates(node) {
     });
 }
 
+function syncDerpConcatenateLocaleLabels(node) {
+    if (!node?.properties) return;
+    const localizedTitle = tLocale("$derp_concatenate.title", "Derp Concatenate");
+    const previousLocalizedTitle = node._lastLocalizedDerpConcatenateTitle;
+
+    if (!node.titleLabel || node.titleLabel === "Derp Concatenate" || (previousLocalizedTitle && node.titleLabel === previousLocalizedTitle)) {
+        node.titleLabel = localizedTitle;
+    }
+    if (!node.properties.titleLabel || node.properties.titleLabel === "Derp Concatenate" || (previousLocalizedTitle && node.properties.titleLabel === previousLocalizedTitle)) {
+        node.properties.titleLabel = localizedTitle;
+    }
+
+    node._lastLocalizedDerpConcatenateTitle = localizedTitle;
+}
+
 function getConcatCombinedValue(signalStates) {
     return signalStates.map((state) => state.value).join("");
 }
@@ -268,6 +294,8 @@ app.registerExtension({
             this.handleThemeUpdate(config);
             this._layoutMapHash = null;
             suppressConcatNativeWidgets(this);
+            syncDerpConcatenateLocaleLabels(this);
+            if (this.id !== -1) this.syncDerpOutputs();
             this.refreshNodeLayoutMap();
         };
 
@@ -356,7 +384,7 @@ app.registerExtension({
                         [`btnHeaderLabel_${index}`]: {
                             type: this.UI_TYPES.BUTTON,
                             themeKey: "t_textNormal",
-                            text: signalState.label || `Signal ${index + 1}`,
+                            text: signalState.label || tLocale("$derp_concatenate.signal_entry", `Signal ${index + 1}`),
                             width: "full", height: "auto",
                             padding: [pW, pH],
                             margin: [0, 0, sW, 0],
@@ -437,7 +465,7 @@ app.registerExtension({
                         floatingSignalLabel: {
                             type: this.UI_TYPES.BUTTON,
                             themeKey: "t_textNormal",
-                            text: signalState.label || `Signal ${index + 1}`,
+                            text: signalState.label || tLocale("$derp_concatenate.signal_entry", `Signal ${index + 1}`),
                             width: "full", height: "auto",
                             padding: [pW, pH],
                             margin: [0, 0, sW, 0],
@@ -469,7 +497,7 @@ app.registerExtension({
                         hidden: signalStates.length > 0,
                         type: this.UI_TYPES.TEXT,
                         themeKey: "t_textSystem",
-                        text: "Select a STRING signal.",
+                        text: tLocale("$derp_concatenate.select_signal", "Select a STRING signal."),
                         width: "full",
                         padding: [pW, pH],
                         labelAlign: ["left", "middle"],
@@ -492,7 +520,7 @@ app.registerExtension({
                         mode: "signal",
                         rootName: "signals",
                         items: signalItems,
-                        value: "Add new STRING signal...",
+                        value: tLocale("$derp_concatenate.add_signal", "Add new STRING signal..."),
                         state: (this.mode === 4 || this.mode === 2 || signalItems.length === 0) ? "DIS" : "OFF",
                         onChange: (val) => {
                             this.addDerpSelectedSignal(val);
@@ -506,7 +534,7 @@ app.registerExtension({
                         lblConcatHeader: {
                             type: this.UI_TYPES.TEXT,
                             themeKey: "t_textNormal",
-                            text: "Concatenated text:",
+                            text: tLocale("$derp_concatenate.concatenated_text", "Concatenated text:"),
                             width: "full", height: "auto",
                             padding: [pW, pH],
                             labelAlign: ["left", "middle"],
@@ -549,7 +577,7 @@ app.registerExtension({
             if (!window.xcpDerpSignals) window.xcpDerpSignals = {};
             const baseId = String(this.id);
             const signalId = `${baseId}:0`;
-            const nodeName = this.titleLabel || this.title || "Derp Concatenate";
+            const nodeName = this.titleLabel || this.title || tLocale("$derp_concatenate.title", "Derp Concatenate");
             const syncFingerprint = `${isBypassed ? "bypass" : "live"}__${nodeName}__${outContent}`;
 
             if (this._lastSyncedContent === syncFingerprint) return;
@@ -557,7 +585,7 @@ app.registerExtension({
 
             window.xcpDerpSignals[signalId] = {
                 nodeId: signalId,
-                nodeName: `${nodeName} [Concatenated]`,
+                nodeName: `${nodeName} ${tLocale("$derp_concatenate.concatenated_suffix", "[Concatenated]")}`,
                 nodeType: this.type || "Node",
                 type: "STRING",
                 value: outContent,
@@ -647,8 +675,8 @@ app.registerExtension({
             this.properties.isPureVirtual = true;
 
             this.outputs = [];
-            this.titleLabel = "Derp Concatenate";
-            this.properties.titleLabel = "Derp Concatenate";
+            this.titleLabel = tLocale("$derp_concatenate.title", "Derp Concatenate");
+            this.properties.titleLabel = tLocale("$derp_concatenate.title", "Derp Concatenate");
             this.properties.textValue = "";
             this.properties.multiSignalIds = {};
             this.properties.multiSignalLabels = {};
