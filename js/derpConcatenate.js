@@ -115,7 +115,7 @@ app.registerExtension({
         nodeType.prototype.refreshNodeLayoutMap = function() {
             if (this.flags?.collapsed || this.size[0] <= 0) return;
             const vars = this.getDerpVars(this);
-            const { mW, mH, sH, oY, pW, pH } = vars;
+            const { mW, mH, sW, sH, oY, pW, pH } = vars;
             const signalState = getConcatSignalState(this);
             const signalItems = getConcatSignalItems();
             const selectedSignalLabel = this.properties?.multiSignalLabels?.[0]
@@ -139,6 +139,35 @@ app.registerExtension({
                     dir: "col",
                     padding: [0, 0],
                     margin: this.properties?.drawHeader === true ? [mW, mH] : [0, 0],
+                    lblStatus: {
+                        anchor: { target: "regionSignalEntry", axis: "y", offset: sH },
+                        type: this.UI_TYPES.TEXT,
+                        themeKey: signalState.hasSignal ? "t_textSmall" : "t_textSystem",
+                        text: signalState.hasSignal
+                            ? `STRING signal: ${signalState.label}`
+                            : "Select a STRING signal.",
+                        width: "full",
+                        padding: [pW, pH],
+                        labelAlign: ["left", "middle"],
+                        displayMode: "cutoff",
+                        pulseStates: !signalState.hasSignal,
+                    },
+                    regionSignalEntry: {
+                        dir: "row",
+                        width: "full", height: "auto",
+                        spacing: [sW, 0],
+                        textSignal: {
+                            hidden: !signalState.hasSignal,
+                            type: this.UI_TYPES.TEXT,
+                            themeKey: "t_textNormal",
+                            text: signalState.preview,
+                            width: "full", height: "auto",
+                            padding: [pW, pH],
+                            labelAlign: ["left", "top"],
+                            displayMode: "cutoff",
+                            wrap: true,
+                        },
+                    },
                     dropdownSignal: {
                         type: this.UI_TYPES.FILEBROWSER,
                         icon: "signal",
@@ -157,31 +186,6 @@ app.registerExtension({
                         onChange: (val) => {
                             this.setDerpSelectedSignal(val, 0);
                         },
-                    },
-                    lblStatus: {
-                        anchor: { target: "dropdownSignal", axis: "y", offset: sH },
-                        type: this.UI_TYPES.TEXT,
-                        themeKey: signalState.hasSignal ? "t_textSmall" : "t_textSystem",
-                        text: signalState.hasSignal
-                            ? `STRING signal: ${signalState.label}`
-                            : "Select a STRING signal.",
-                        width: "full",
-                        padding: [pW, pH],
-                        labelAlign: ["left", "middle"],
-                        displayMode: "cutoff",
-                        pulseStates: !signalState.hasSignal,
-                    },
-                    textSignal: {
-                        anchor: { target: "lblStatus", axis: "y", offset: sH },
-                        hidden: !signalState.hasSignal,
-                        type: this.UI_TYPES.TEXT,
-                        themeKey: "t_textNormal",
-                        text: signalState.preview || " ",
-                        width: "full", height: "auto",
-                        padding: [pW, pH],
-                        labelAlign: ["left", "top"],
-                        displayMode: "cutoff",
-                        wrap: false,
                     },
                 },
             };

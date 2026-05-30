@@ -730,10 +730,11 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                     this._lastSignalValueHash = null;
                     this._layoutMapHash = null;
                     if (this.updateReceivedSignals) this.updateReceivedSignals();
+                    if (this.manageDerpOutputs) this.manageDerpOutputs();
                     if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
                     if (this.refreshDerpSignalOutSysMap) this.refreshDerpSignalOutSysMap();
-                    if (this.manageDerpOutputs) this.manageDerpOutputs();
                     syncDerpRouterLinkSlotVisibility(this);
+                    if (typeof this.syncUncleSlots === "function") this.syncUncleSlots();
                     this.requestDerpSync();
                     if (this.setDirtyCanvas) this.setDirtyCanvas(true, true);
                 };

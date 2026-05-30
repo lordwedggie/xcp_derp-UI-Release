@@ -21,9 +21,7 @@ function escapeAttrValue(value) {
 }
 
 export function isComfyVueNodesMode() {
-    if (typeof LiteGraph !== "undefined" && !!LiteGraph.vueNodesMode) return true;
-    if (!hasDocument()) return false;
-    return !!document.querySelector(".lg-node[data-node-id]");
+    return typeof LiteGraph !== "undefined" && !!LiteGraph.vueNodesMode;
 }
 
 export function shouldMutateLegacySelectionForDraw() {
@@ -67,7 +65,7 @@ function hideChildrenWithoutSlots(root) {
 }
 
 export function suppressNativeVueNodeShell(node) {
-    if (!isDerpCustomNode(node) || !isComfyVueNodesMode()) return false;
+    if (!isDerpCustomNode(node)) return false;
     const el = getNativeVueNodeElement(node);
     if (!el) return false;
 

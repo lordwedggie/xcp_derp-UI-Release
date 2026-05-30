@@ -194,40 +194,37 @@ function ensurePassiveCacheInteractionBindings(node, app) {
 // --- THE PERFECT HEIST (Ghost Slots & Selection Killer) ---
 // By caching states and temporarily lying to LiteGraph during its render pass,
 // we wipe out the native UI (dots & selection box) while keeping 100% functionality.
+function scheduleSignalOutModeRefresh() {
+    if (window._xcpSignalOutRefreshScheduled) return;
+    window._xcpSignalOutRefreshScheduled = true;
+
+    const runRefresh = () => {
+        window._xcpSignalOutRefreshScheduled = false;
+        const allNodes = app?.graph?._nodes || [];
+        allNodes.forEach((n) => {
+            if (n?.type === "xcpDerpSignalOut" && typeof n.forceSignalRefresh === "function") {
+                n.forceSignalRefresh();
+            }
+        });
+    };
+
+    if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+        window.requestAnimationFrame(() => {
+            window.requestAnimationFrame(runRefresh);
+        });
+        return;
+    }
+
+    setTimeout(runRefresh, 0);
+}
+
 if (!window._xcpFathaGlobalHijack) {
     const originalDrawNode = LGraphCanvas.prototype.drawNode;
     LGraphCanvas.prototype.drawNode = function (node, ctx) {
-        // THE NODE2 TOGGLE FIX: Detect Vue mode changes and force derpSignalOut to recompute
         const currentVueMode = !!(typeof LiteGraph !== "undefined" && LiteGraph.vueNodesMode);
         if (window._xcpLastVueNodesMode !== currentVueMode) {
             window._xcpLastVueNodesMode = currentVueMode;
-            const graph = app?.graph || app?.rootGraph;
-            if (graph?._nodes) {
-                graph._nodes.forEach((n) => {
-                    if (n?.type === "xcpDerpSignalOut") {
-                        n._layoutMapHash = null;
-                        n._lastSignalStructureHash = null;
-                        n._forceSync = true;
-                        // Restore activeOutputs from serialized data if it was cleared by onNodeCreated
-                        if (
-                            (!n.activeOutputs || n.activeOutputs.length === 0) &&
-                            n.properties?.activeOutputsData &&
-                            Array.isArray(n.properties.activeOutputsData) &&
-                            n.properties.activeOutputsData.length > 0
-                        ) {
-                            const sanitize = (sig) => {
-                                if (!sig || typeof sig !== "object") return sig;
-                                return { nodeId: sig.nodeId, nodeName: sig.nodeName, type: sig.type, isOrphaned: sig.isOrphaned };
-                            };
-                            n.activeOutputs = n.properties.activeOutputsData.map(sanitize);
-                            n.properties.activeOutputs = n.activeOutputs.length;
-                        }
-                        if (typeof n.updateReceivedSignals === "function") n.updateReceivedSignals();
-                        if (typeof n.manageDerpOutputs === "function") n.manageDerpOutputs();
-                        if (typeof n.refreshNodeLayoutMap === "function") n.refreshNodeLayoutMap();
-                    }
-                });
-            }
+            scheduleSignalOutModeRefresh();
         }
 
         // THE GLOBAL SLOT COLOR HIJACK: Apply Derp palette to ALL nodes' input/output dots
@@ -308,12 +305,12 @@ if (!window._xcpFathaGlobalHijack) {
             // UNCLE HEIST: Cache state and ghost slots (shared pattern with Fatha)
             node._xcpTrueSelected = node.selected;
             node._xcpTrueInMap = !!(app.canvas.selected_nodes && app.canvas.selected_nodes[node.id]);
-            const keepNativeSignalOutSlots = node.type === "xcpDerpSignalOut" && isComfyVueNodesMode();
+            const keepSignalOutOutputsLive = node.type === "xcpDerpSignalOut";
 
             node._xcpTrueInputs = node.inputs;
             node._xcpTrueOutputs = node.outputs;
             if (node.inputs) node.inputs = [];
-            if (node.outputs && !keepNativeSignalOutSlots) node.outputs = [];
+            if (node.outputs && !keepSignalOutOutputsLive) node.outputs = [];
 
             const isSelected = node._xcpTrueSelected || node._xcpTrueInMap;
             node._xcpGhosted = !isSelected;

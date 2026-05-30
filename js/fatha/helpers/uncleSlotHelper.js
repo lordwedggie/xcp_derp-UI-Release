@@ -11,6 +11,41 @@ const UNCLE_SLOT_FADE_OUT_SPEED = 0.40;
 const manualOffsetInput = 0;
 const manualOffsetOutput = -2;
 
+function logSignalOutSlotState(node, regionsArray, outputs) {
+    if (node?.type !== "xcpDerpSignalOut") return;
+
+    const snapshot = {
+        vueMode: !!(typeof LiteGraph !== "undefined" && LiteGraph.vueNodesMode),
+        mode: node.mode,
+        outputsLen: node.outputs?.length || 0,
+        trueOutputsLen: node._xcpTrueOutputs?.length || 0,
+        activeOutputsLen: node.activeOutputs?.length || 0,
+        padR: node._padR || 0,
+        alphaOut: node._alphaOut ?? null,
+        regs: regionsArray
+            .filter((region) => region?.outSlotIdx !== undefined)
+            .map((region) => region.outSlotIdx),
+        badPos: (outputs || [])
+            .map((slot, i) => ({ i, pos: slot?.pos }))
+            .filter((entry) => !Array.isArray(entry.pos) || entry.pos[0] === -1000 || entry.pos[1] === -1000)
+            .map((entry) => entry.i),
+        linked: (outputs || [])
+            .map((slot, i) => ({ i, links: Array.isArray(slot?.links) ? slot.links.length : 0 }))
+            .filter((entry) => entry.links > 0)
+            .map((entry) => entry.i),
+    };
+
+    const signature = JSON.stringify(snapshot);
+    if (node._xcpLastSignalOutSlotLog === signature) return;
+    node._xcpLastSignalOutSlotLog = signature;
+
+    console.warn("[xcpDerpSignalOut][syncUncleSlots]", {
+        id: node.id,
+        title: node.titleLabel || node.title,
+        ...snapshot,
+    });
+}
+
 /**
  * lerpUnclePadding: Smoothly transitions the padding values used for the Squeeze.
  * @param {Object} node - The Uncle node.
@@ -149,6 +184,7 @@ export function syncUncleSlots(node) {
             }
             applyDerpColor(slot, node._alphaOut ?? 1);
         });
+        logSignalOutSlotState(node, regionsArray, outputs);
     }
 
     if (inputs) {

@@ -6,6 +6,7 @@ import { app } from "../../../scripts/app.js";
 import { UI_TYPES } from "./fatha/core/masterLayoutTypes.js";
 import { startStackDrag, updateStackDrag, endStackDrag } from "./fatha/helpers/fathaDragDrop.js";
 import { showBastaFileHandler } from "./fatha/bastas/bastaFileHandler.js";
+import { isComfyVueNodesMode } from "./fatha/core/fathaNode2Compat.js";
 
 // Orphaned signal pulse animation speed
 const ORPHAN_PULSE_SPEED = 0.004;
@@ -157,7 +158,8 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
 
                     const activeHash = activeOuts.map((sig, idx) => `${idx}:${sig?.nodeId || ""}:${sig?.type || ""}:${sig?.nodeName || ""}:${!!sig?.isOrphaned}`).join("|");
                     const signalHash = (this.receivedSignals || []).map((sig) => `${sig?.nodeId || ""}:${sig?.type || ""}:${sig?.nodeName || ""}`).join("|");
-                    const structureHash = `${activeHash}_${signalHash}_${this.properties.settingActive}_${this.properties.showSignalIds}_${this.properties.showSlotNames}_${this.properties.showSlotTypes}_${this.properties.showVirtualLinks}_${this.properties.hideLinkSlots}_${this.properties.signalSortMode}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}_${mW}_${mH}_${this._dropPreviewIdx}_${this._dragTrig?.index}_${this._dragThresholdMet}_${this._dragMouse?.join(",")}_${this.mode}`;
+                    const keepNativeSignalOutSlots = this.type === "xcpDerpSignalOut" && isComfyVueNodesMode();
+                    const structureHash = `${activeHash}_${signalHash}_${this.properties.settingActive}_${this.properties.showSignalIds}_${this.properties.showSlotNames}_${this.properties.showSlotTypes}_${this.properties.showVirtualLinks}_${this.properties.hideLinkSlots}_${this.properties.signalSortMode}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}_${mW}_${mH}_${this._dropPreviewIdx}_${this._dragTrig?.index}_${this._dragThresholdMet}_${this._dragMouse?.join(",")}_${this.mode}_${keepNativeSignalOutSlots ? 1 : 0}`;
 
                     if (this._layoutMapHash === structureHash && this.layoutMap) {
                         this.requestDerpSync();
