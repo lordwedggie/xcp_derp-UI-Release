@@ -13,6 +13,9 @@ import { getDockNodeMinHeight, getDockNodeMinWidth, getSharedDockMinWidth, getSh
 const DEFAULT_DECK_SNAP = 10;
 const DEFAULT_DECK_RADIUS = 48;
 const DEFAULT_DECK_GHOST_THICKNESS = 10;
+let deckGraphIndexFrame = null;
+let deckGraphIndexGraph = null;
+let deckGraphIndex = null;
 
 function dockDebugLog(label, payload = {}) {
     dockDebug(`target:${label}`, payload);
@@ -32,6 +35,41 @@ function getNodeSizeValue(node, index) {
     const stored = node?.properties?.nodeSize?.[index];
     if (isFiniteNumber(stored)) return stored;
     return 0;
+}
+
+function getDeckGraphIndex(graph) {
+    if (!graph) return null;
+    const frame = Number(globalThis.app?.canvas?.frame ?? globalThis.app?.canvas?.drawCount) || 0;
+    if (deckGraphIndex && deckGraphIndexGraph === graph && deckGraphIndexFrame === frame) return deckGraphIndex;
+
+    const byId = new Map();
+    const reverseEdges = new Map();
+    const children = new Map();
+
+    getDeckNodes(graph).forEach((node) => {
+        byId.set(node.id, node);
+    });
+
+    byId.forEach((node) => {
+        const parentId = node?.properties?.deckParentId;
+        if (parentId !== null && parentId !== undefined) {
+            if (!children.has(parentId)) children.set(parentId, []);
+            children.get(parentId).push(node);
+        }
+
+        const edges = node?.properties?.deckEdges || {};
+        ["left", "right", "top", "bottom"].forEach((side) => {
+            const neighborId = edges[side];
+            if (neighborId === null || neighborId === undefined) return;
+            if (!reverseEdges.has(neighborId)) reverseEdges.set(neighborId, []);
+            reverseEdges.get(neighborId).push({ node, side });
+        });
+    });
+
+    deckGraphIndex = { byId, reverseEdges, children };
+    deckGraphIndexGraph = graph;
+    deckGraphIndexFrame = frame;
+    return deckGraphIndex;
 }
 
 export function setDeckNodePos(node, x, y) {
@@ -178,7 +216,7 @@ function getDeckAttachLeaderForSide(leader, side, graph) {
 function getPeerDeckNeighbor(node, graph, side) {
     const neighborId = node?.properties?.deckEdges?.[side];
     if (neighborId === null || neighborId === undefined) return null;
-    return getDeckNodeById(graph, neighborId);
+    return getDeckGraphIndex(graph)?.byId.get(neighborId) || getDeckNodeById(graph, neighborId);
 }
 
 function collectDeckLine(node, graph, negativeSide, positiveSide) {
@@ -464,24 +502,24 @@ function disconnectPeerDeckEdge(node, graph, side) {
 function getAdjacentDeckNodes(node, graph) {
     if (!node || !graph) return [];
     const neighbors = new Map();
+    const index = getDeckGraphIndex(graph);
 
     ["left", "right", "top", "bottom"].forEach((side) => {
         const neighbor = getPeerDeckNeighbor(node, graph, side);
         if (neighbor) neighbors.set(neighbor.id, neighbor);
     });
 
-    const parent = getDeckNodeById(graph, node?.properties?.deckParentId);
+    const parent = index?.byId.get(node?.properties?.deckParentId) || getDeckNodeById(graph, node?.properties?.deckParentId);
     if (parent) neighbors.set(parent.id, parent);
 
-    getDeckNodes(graph).forEach((candidate) => {
+    (index?.children.get(node.id) || []).forEach((candidate) => {
         if (candidate.id === node.id) return;
-        if (candidate.properties?.deckParentId === node.id) {
-            neighbors.set(candidate.id, candidate);
-            return;
-        }
-        if (["left", "right", "top", "bottom"].some((side) => candidate.properties?.deckEdges?.[side] === node.id)) {
-            neighbors.set(candidate.id, candidate);
-        }
+        neighbors.set(candidate.id, candidate);
+    });
+
+    (index?.reverseEdges.get(node.id) || []).forEach(({ node: candidate }) => {
+        if (!candidate || candidate.id === node.id) return;
+        neighbors.set(candidate.id, candidate);
     });
 
     return [...neighbors.values()];
@@ -566,13 +604,15 @@ export function getDeckParent(node, graph) {
 export function getDeckChildren(node, graph) {
     if (!node) return [];
     const children = new Map();
+    const index = getDeckGraphIndex(graph);
 
-    getDeckNodes(graph).forEach((candidate) => {
+    (index?.children.get(node.id) || []).forEach((candidate) => {
         if (candidate.id === node.id) return;
-        if (candidate.properties?.deckParentId === node.id) {
-            children.set(candidate.id, candidate);
-            return;
-        }
+        children.set(candidate.id, candidate);
+    });
+
+    (index?.reverseEdges.get(node.id) || []).forEach(({ node: candidate }) => {
+        if (!candidate || candidate.id === node.id) return;
         const dockSide = candidate.properties?.deckDockSide;
         if (!dockSide) return;
         if (candidate.properties?.deckEdges?.[getOppositeDeckSide(dockSide)] === node.id) {

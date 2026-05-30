@@ -58,6 +58,41 @@ function getDeckFrameKey(node, members) {
     return `${frame}:${ids}`;
 }
 
+function getHorizontalDeckGeometrySignature(members = [], height = 0) {
+    return (Array.isArray(members) ? members : [])
+        .map((member) => [
+            member?.id,
+            Math.round(Number(member?.pos?.[0]) || 0),
+            Math.round(Number(member?.pos?.[1]) || 0),
+            Math.round(Number(member?.size?.[0] ?? member?.properties?.nodeSize?.[0]) || 0),
+            Math.round(Number(member?.size?.[1] ?? member?.properties?.nodeSize?.[1]) || 0),
+            member?.properties?.contentCollapsed === true ? 1 : 0,
+        ].join(":"))
+        .join("|") + `|h:${Math.round(Number(height) || 0)}`;
+}
+
+function getHorizontalDeckSkipState(state) {
+    if (!state?.members?.length) return null;
+    const rootId = state.members
+        .map((member) => Number(member?.id) || 0)
+        .sort((a, b) => a - b)[0];
+    const root = state.members.find((member) => Number(member?.id) === rootId) || state.members[0];
+    if (!root) return null;
+    if (!root._horizontalDockMaintenance) root._horizontalDockMaintenance = {};
+    return root._horizontalDockMaintenance;
+}
+
+function isHorizontalDeckHeightAligned(members = [], height = 0) {
+    const targetHeight = Number(height) || 0;
+    if (targetHeight <= 0 || !Array.isArray(members) || members.length <= 1) return false;
+    const topY = Math.min(...members.map((member) => Number(member?.pos?.[1]) || 0));
+    return members.every((member) => {
+        const memberHeight = Number(member?.size?.[1] ?? member?.properties?.nodeSize?.[1]) || 0;
+        const memberY = Number(member?.pos?.[1]) || 0;
+        return Math.abs(memberHeight - targetHeight) < 0.5 && Math.abs(memberY - topY) < 0.5;
+    });
+}
+
 function getHorizontalDeckFrameState(node) {
     const graph = app.graph || node?.graph || null;
     if (!graph || !node) return null;
@@ -91,7 +126,9 @@ function getHorizontalDeckFrameState(node) {
             syncedHeight: 0,
             didNormalize: false,
             normalizedHeight: 0,
+            skipState: null,
         };
+        state.skipState = getHorizontalDeckSkipState(state);
         horizontalDeckFrameCache.set(cacheKey, state);
     }
     members.forEach((member) => {
@@ -473,25 +510,48 @@ export function syncHorizontalDeckHeight(node, targetHeight = 0) {
     if (state?.preserveHeight === true) {
         const nextHeight = Number(targetHeight) || 0;
         if (nextHeight > 0) state.sharedHeight = Math.max(Number(state.sharedHeight) || 0, nextHeight);
-        if (state.didSync && nextHeight <= (Number(state.syncedHeight) || 0)) return false;
+        const signature = getHorizontalDeckGeometrySignature(state.members, nextHeight);
+        if (nextHeight > 0 && state.skipState?.syncSignature === signature && isHorizontalDeckHeightAligned(state.members, nextHeight)) {
+            state.didSync = true;
+            state.syncedHeight = Math.max(Number(state.syncedHeight) || 0, nextHeight);
+            return false;
+        }
+        if (state.didSync && nextHeight <= (Number(state.syncedHeight) || 0)) {
+            return false;
+        }
         state.didSync = true;
         state.syncedHeight = Math.max(Number(state.syncedHeight) || 0, nextHeight);
     }
     const graph = app.graph || node?.graph || null;
-    return syncHorizontalDeckHeightForGraph(node, graph, targetHeight);
+    const changed = syncHorizontalDeckHeightForGraph(node, graph, targetHeight);
+    if (state?.skipState && Number(targetHeight) > 0 && isHorizontalDeckHeightAligned(state.members, targetHeight)) {
+        state.skipState.syncSignature = getHorizontalDeckGeometrySignature(state.members, targetHeight);
+    }
+    return changed;
 }
 
 export function normalizeDerpDockedLayout(node) {
     const state = getHorizontalDeckFrameState(node);
     if (state?.preserveHeight === true) {
         const sharedHeight = Number(state.sharedHeight) || 0;
-        if (state.didNormalize && sharedHeight <= (Number(state.normalizedHeight) || 0)) return [];
+        const signature = getHorizontalDeckGeometrySignature(state.members, sharedHeight);
+        if (sharedHeight > 0 && state.skipState?.normalizeSignature === signature) {
+            state.didNormalize = true;
+            state.normalizedHeight = Math.max(Number(state.normalizedHeight) || 0, sharedHeight);
+            return [];
+        }
+        if (state.didNormalize && sharedHeight <= (Number(state.normalizedHeight) || 0)) {
+            return [];
+        }
         state.didNormalize = true;
         state.normalizedHeight = Math.max(Number(state.normalizedHeight) || 0, sharedHeight);
     }
     const graph = app.graph || node?.graph || null;
     if (!graph || !node || !isLinearDeckGroup(node, graph, "horizontal")) return [];
     const moved = normalizeDockedLayout(node, graph, getDerpVars(node).SNAP);
+    if (state?.skipState && Number(state.sharedHeight) > 0) {
+        state.skipState.normalizeSignature = getHorizontalDeckGeometrySignature(state.members, state.sharedHeight);
+    }
     moved.forEach((member) => {
         if (typeof member.syncUncleSlots === "function") member.syncUncleSlots();
         if (typeof member.setDirtyCanvas === "function") member.setDirtyCanvas(true, true);
