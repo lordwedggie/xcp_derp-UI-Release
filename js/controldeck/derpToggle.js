@@ -100,6 +100,22 @@ function buildToggleLayoutHash(node, vars, toggleItems) {
     return `${deckHash}_${window._xcpDerpSession}_${node.titleLabel || ""}_${width}_${mW}_${mH}_${oY}_${node.properties?.drawHeader !== false}_${node._dropPreviewIdx}_${dragIndex}_${node._dragThresholdMet}_${dragMouse}`;
 }
 
+function toggleDerpToggleItem(node, idx) {
+    const now = performance.now();
+    if (node._lastDerpTogglePress && node._lastDerpTogglePress.idx === idx && now - node._lastDerpTogglePress.time < 80) return;
+    node._lastDerpTogglePress = { idx, time: now };
+
+    endStackDrag(node, "toggleItems");
+    const items = ensureToggleItems(node);
+    items[idx].value = !(items[idx].value !== false);
+    const firstSignalItem = [...items]
+        .sort((a, b) => (Number(a?.signalIndex) || 0) - (Number(b?.signalIndex) || 0))[0];
+    node.properties.signalName = firstSignalItem?.label || getDefaultToggleLabel();
+    node.properties.toggleState = firstSignalItem?.value !== false;
+    if (node.syncDerpOutputs) node.syncDerpOutputs();
+    node.refreshNodeLayoutMap();
+}
+
 app.registerExtension({
     name: "xcp.derpToggle_Extension",
     async setup() {
@@ -171,17 +187,7 @@ app.registerExtension({
                     onDragStart: (e, data) => startStackDrag(this, data, idx, rowKey),
                     onDrag: (e, data) => { updateStackDrag(this, data, "toggleRow_", toggleItems.length); this.refreshNodeLayoutMap(); },
                     onDragEnd: () => endStackDrag(this, "toggleItems"),
-                    onPress: () => {
-                        endStackDrag(this, "toggleItems");
-                        const items = ensureToggleItems(this);
-                        items[idx].value = !(items[idx].value !== false);
-                        const firstSignalItem = [...items]
-                            .sort((a, b) => (Number(a?.signalIndex) || 0) - (Number(b?.signalIndex) || 0))[0];
-                        this.properties.signalName = firstSignalItem?.label || getDefaultToggleLabel();
-                        this.properties.toggleState = firstSignalItem?.value !== false;
-                        if (this.syncDerpOutputs) this.syncDerpOutputs();
-                        this.refreshNodeLayoutMap();
-                    },
+                    onPress: () => toggleDerpToggleItem(this, idx),
                     regionOffset: [0, 0],
                     [`btnToggle_${idx}`]: {
                         type: this.UI_TYPES.BUTTON,
@@ -198,17 +204,7 @@ app.registerExtension({
                         onDragStart: (e, data) => startStackDrag(this, data, idx, rowKey),
                         onDrag: (e, data) => { updateStackDrag(this, data, "toggleRow_", toggleItems.length); this.refreshNodeLayoutMap(); },
                         onDragEnd: () => endStackDrag(this, "toggleItems"),
-                        onPress: () => {
-                            endStackDrag(this, "toggleItems");
-                            const items = ensureToggleItems(this);
-                            items[idx].value = !(items[idx].value !== false);
-                            const firstSignalItem = [...items]
-                                .sort((a, b) => (Number(a?.signalIndex) || 0) - (Number(b?.signalIndex) || 0))[0];
-                            this.properties.signalName = firstSignalItem?.label || getDefaultToggleLabel();
-                            this.properties.toggleState = firstSignalItem?.value !== false;
-                            if (this.syncDerpOutputs) this.syncDerpOutputs();
-                            this.refreshNodeLayoutMap();
-                        },
+                        onPress: () => toggleDerpToggleItem(this, idx),
                         onContextMenu: () => {
                             showBastaToggle(this, `btnToggle_${idx}`);
                             return false;
@@ -346,6 +342,7 @@ app.registerExtension({
                 }
             });
 
+            if (typeof window.xcpApplyRemoteBypassGroups === "function") window.xcpApplyRemoteBypassGroups();
             if (hasChanged) refreshWirelessSignalConsumers();
         };
 
