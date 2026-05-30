@@ -68,6 +68,15 @@ function cleanPromptBookText(text) {
     }).join('\n');
 }
 
+function compactMultilineSignalOutput(text) {
+    if (!text) return "";
+    return String(text)
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0)
+        .join("\n");
+}
+
 async function savePromptBookFile(node, fileName, bookData) {
     const cleanName = normalizePromptBookName(fileName);
     const response = await fetch("/xcp/save/derpPromptBook", {
@@ -149,8 +158,7 @@ export function bindPromptBookHooks(nodeType) {
             const activePage = this.properties.derpBook?.[this.properties.currentPageIndex || 0];
 
             const rawContent = (activePage?.content || "").replace(/\[\[IMG:[\s\S]*?\]\]/g, "");
-            // Preserve editor formatting so content edits always propagate to signal sync.
-            const outContent = isBypassed ? "" : rawContent;
+            const outContent = isBypassed ? "" : compactMultilineSignalOutput(rawContent);
             const syncFingerprint = `${isBypassed ? "bypass" : "live"}__${nodeName}__${outContent}`;
 
             if (this._lastSyncedContent === syncFingerprint) return;
