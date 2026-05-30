@@ -79,20 +79,6 @@ function syncDerpRouterDisplayLabels(node) {
 
 const DERP_ROUTER_LINK_PAD_RIGHT = 15;
 
-function logSignalOutPosition(node, label, extra = {}) {
-    if (node?.type !== "xcpDerpSignalOut") return;
-    console.warn("[xcpDerpSignalOut][pos]", label, {
-        id: node.id,
-        pos: isSignalOutPosLike(node.pos) ? [node.pos[0], node.pos[1]] : node.pos,
-        size: isSignalOutPosLike(node.size) ? [node.size[0], node.size[1]] : node.size,
-        activeOutputs: node.activeOutputs?.length,
-        outputs: node.outputs?.length,
-        trueOutputs: node._xcpTrueOutputs?.length,
-        guard: node._xcpSignalOutPosGuard ? { ...node._xcpSignalOutPosGuard } : null,
-        ...extra
-    });
-}
-
 function isSignalOutPosLike(value) {
     return !!value && typeof value === "object" && value.length >= 2;
 }
@@ -104,7 +90,6 @@ function hasStableSignalOutId(node) {
 
 function installSignalOutPositionGuard(node) {
     if (!node || !hasStableSignalOutId(node) || node._xcpSignalOutPosGuardInstalled || !isSignalOutPosLike(node.pos)) return;
-    logSignalOutPosition(node, "install guard");
     node._xcpSignalOutPosGuardInstalled = true;
 }
 
@@ -118,7 +103,6 @@ function protectSignalOutPosition(node, frames = 10) {
 
     const now = typeof performance !== "undefined" ? performance.now() : Date.now();
     node._xcpSignalOutPosGuard = { x, y, until: now + 750 };
-    logSignalOutPosition(node, "protect start", { frames, now });
 
     let remaining = frames;
     const restore = () => {
@@ -128,7 +112,6 @@ function protectSignalOutPosition(node, frames = 10) {
         if (current > guard.until) return;
 
         if (Math.abs(Number(node.pos[0]) - guard.x) > 0.01 || Math.abs(Number(node.pos[1]) - guard.y) > 0.01) {
-            logSignalOutPosition(node, "restore drift", { remaining });
             node.pos = [guard.x, guard.y];
             node.setDirtyCanvas?.(true, true);
         }
@@ -498,7 +481,6 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                 };
 
                 nodeType.prototype.addDerpOutput = function() {
-                    logSignalOutPosition(this, "addDerpOutput enter", { selectedSignalId: this.properties?.selectedSignalId });
                     protectSignalOutPosition(this);
                     const sig = (this.receivedSignals || []).find(s => String(s.nodeId) === String(this.properties.selectedSignalId));
                     if (!sig) return;
@@ -516,11 +498,9 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                     this.manageDerpOutputs();
                     if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
                     this.requestDerpSync();
-                    logSignalOutPosition(this, "addDerpOutput exit");
                 };
 
                 nodeType.prototype.removeDerpOutput = function(idx) {
-                    logSignalOutPosition(this, "removeDerpOutput enter", { idx });
                     protectSignalOutPosition(this);
                     let cachedLinks = [];
                     if (this.outputs && app.graph) {
@@ -559,11 +539,9 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                     this.updateReceivedSignals();
                     if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
                     this.requestDerpSync();
-                    logSignalOutPosition(this, "removeDerpOutput exit", { idx });
                 };
 
                 nodeType.prototype.reorderDerpOutputs = function(fromIdx, toIdx) {
-                    logSignalOutPosition(this, "reorderDerpOutputs enter", { fromIdx, toIdx });
                     protectSignalOutPosition(this);
                     const outputs = this.activeOutputs || [];
                     if (fromIdx === toIdx || fromIdx < 0 || toIdx < 0 || fromIdx >= outputs.length || toIdx >= outputs.length) return;
@@ -589,12 +567,10 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                     if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
                     this.requestDerpSync();
                     if (this.setDirtyCanvas) this.setDirtyCanvas(true, true);
-                    logSignalOutPosition(this, "reorderDerpOutputs exit", { fromIdx, toIdx });
                 };
 
                 const onThemeUpdate = nodeType.prototype.onThemeUpdate;
                 nodeType.prototype.onThemeUpdate = function(config) {
-                    logSignalOutPosition(this, "onThemeUpdate enter");
                     protectSignalOutPosition(this);
                     if (onThemeUpdate) onThemeUpdate.apply(this, arguments);
                     syncDerpRouterDisplayLabels(this);
@@ -606,7 +582,6 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                     if (this.refreshDerpSignalOutSysMap) this.refreshDerpSignalOutSysMap();
                     this.requestDerpSync();
                     setTimeout(() => {
-                        logSignalOutPosition(this, "onThemeUpdate delayed enter");
                         protectSignalOutPosition(this);
                         syncDerpRouterDisplayLabels(this);
                         if (this.updateReceivedSignals) this.updateReceivedSignals();
@@ -614,9 +589,7 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                         if (this.refreshDerpSignalOutSysMap) this.refreshDerpSignalOutSysMap();
                         this.requestDerpSync();
                         if (this.setDirtyCanvas) this.setDirtyCanvas(true, true);
-                        logSignalOutPosition(this, "onThemeUpdate delayed exit");
                     }, 0);
-                    logSignalOutPosition(this, "onThemeUpdate exit");
                 };
 
                 /**
@@ -751,7 +724,6 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                 };
 
                 nodeType.prototype.onConnectionsChange = function() {
-                    logSignalOutPosition(this, "onConnectionsChange enter");
                     protectSignalOutPosition(this);
                     this.updateReceivedSignals();
                     if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
@@ -764,7 +736,6 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                         });
                     }
                     this.requestDerpSync();
-                    logSignalOutPosition(this, "onConnectionsChange exit");
                 };
 
                 nodeType.prototype.onSerialize = function(info) {
@@ -775,7 +746,6 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
 
                 const onConf = nodeType.prototype.onConfigure;
                 nodeType.prototype.onConfigure = function(info) {
-                    logSignalOutPosition(this, "onConfigure before guard");
                     installSignalOutPositionGuard(this);
                     if (onConf) onConf.apply(this, arguments);
                     this.suppressDefaultWidgets();
@@ -794,10 +764,8 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                         if (this.refreshDerpSignalOutSysMap) this.refreshDerpSignalOutSysMap();
                         this.requestDerpSync();
                     }
-                    logSignalOutPosition(this, "onConfigure exit");
                 };
                 nodeType.prototype.forceSignalRefresh = function() {
-                    logSignalOutPosition(this, "forceSignalRefresh enter");
                     protectSignalOutPosition(this);
                     this._lastSignalStructureHash = null;
                     this._lastSignalValueHash = null;
@@ -809,7 +777,6 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                     syncDerpRouterLinkSlotVisibility(this);
                     this.requestDerpSync();
                     if (this.setDirtyCanvas) this.setDirtyCanvas(true, true);
-                    logSignalOutPosition(this, "forceSignalRefresh exit");
                 };
 
                 // --- 2. RENDER & MONITOR HOOKS ---
@@ -817,7 +784,6 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                 const onCreated = nodeType.prototype.onNodeCreated;
                 nodeType.prototype.onNodeCreated = function() {
                     if (onCreated) onCreated.apply(this, arguments);
-                    logSignalOutPosition(this, "onNodeCreated before guard");
                     installSignalOutPositionGuard(this);
                     this.vLinkDash = [8, 4];
                     this.vLinkColor = "#666";
@@ -857,7 +823,6 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                     if (this.updateReceivedSignals) this.updateReceivedSignals();
                     if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
                     if (this.refreshDerpSignalOutSysMap) this.refreshDerpSignalOutSysMap();
-                    logSignalOutPosition(this, "onNodeCreated exit");
                 };
 
                 nodeType.prototype.onResize = function(size) {

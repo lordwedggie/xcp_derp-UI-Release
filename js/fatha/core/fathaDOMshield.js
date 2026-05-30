@@ -105,6 +105,19 @@ export function createDerpShield(node) {
     shield._resizeHandleTopLeft = resizeHandleTopLeft;
     shield._resizeHandleTopRight = resizeHandleTopRight;
 
+    if (node.type === "xcpDerpSignalOut") {
+        const linkHandleLayer = document.createElement("div");
+        linkHandleLayer.style.cssText = `
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            z-index: 20;
+        `;
+        shield.appendChild(linkHandleLayer);
+        shield._signalOutLinkHandleLayer = linkHandleLayer;
+        shield._signalOutLinkHandles = [];
+    }
+
 
     // --- STATE ---
     let startMouseX = 0, startMouseY = 0;
@@ -161,8 +174,92 @@ export function createDerpShield(node) {
         return new PointerEvent(type, {
             bubbles: true, cancelable: true, view: window,
             pointerId: e.pointerId, clientX: e.clientX, clientY: e.clientY,
-            button: e.button, buttons: e.buttons, shiftKey: e.shiftKey
+            button: e.button, buttons: e.buttons,
+            altKey: e.altKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey, shiftKey: e.shiftKey
         });
+    };
+
+    const getSignalOutCanvasPointerEvent = (e, type) => {
+        const proxy = copyPointerProps(e, type);
+        proxy._isProxyEvent = true;
+        app.canvas?.adjustMouseEvent?.(proxy);
+        return proxy;
+    };
+
+    const clientToGraphPos = (clientX, clientY) => {
+        const canvas = app.canvas;
+        const rect = canvas?.canvas?.getBoundingClientRect?.();
+        const ds = canvas?.ds;
+        if (!rect || !ds) return null;
+        return [
+            (clientX - rect.left) / ds.scale - ds.offset[0],
+            (clientY - rect.top) / ds.scale - ds.offset[1]
+        ];
+    };
+
+    const getGraphNodeFromElement = (el) => {
+        const nodeEl = el?.closest?.(".lg-node[data-node-id]");
+        const nodeId = nodeEl?.dataset?.nodeId;
+        if (nodeId === undefined || nodeId === null) return null;
+        const graph = app.graph || app.rootGraph || app.canvas?.graph;
+        return graph?.getNodeById?.(nodeId) || graph?.getNodeById?.(Number(nodeId)) || null;
+    };
+
+    const getSignalOutSlotGraphPos = (slot) => {
+        if (!slot?.pos || slot.pos[0] === -1000 || slot.pos[1] === -1000) return null;
+        return [node.pos[0] + slot.pos[0], node.pos[1] + slot.pos[1]];
+    };
+
+    const forceSignalOutRenderLinkOrigin = (connector, slot) => {
+        const origin = getSignalOutSlotGraphPos(slot);
+        if (!origin) return;
+        for (const link of connector.renderLinks || []) {
+            link.fromPos = [origin[0], origin[1]];
+        }
+    };
+
+    const handleSignalOutLinkPointerDown = (handle, e) => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        e.stopPropagation();
+        beginSignalOutSlotLinkDrag(e, handle._signalOutSlotIndex);
+    };
+
+    const resolveVueInputSlotAtClientPoint = (e, connector) => {
+        const elements = document.elementsFromPoint?.(e.clientX, e.clientY) || [];
+        for (const el of elements) {
+            const slotEl = el.closest?.(".lg-slot--input");
+            if (!slotEl) continue;
+            const nativeNode = slotEl.closest?.(".lg-node[data-node-id]");
+            const targetNode = getGraphNodeFromElement(slotEl);
+            if (!nativeNode || !targetNode?.inputs) continue;
+
+            const inputSlots = Array.from(nativeNode.querySelectorAll(".lg-slot--input"));
+            const inputIndex = inputSlots.indexOf(slotEl);
+            const input = targetNode.inputs[inputIndex];
+            if (!input) continue;
+            if (connector && !connector.isInputValidDrop(targetNode, input)) continue;
+
+            const dot = slotEl.querySelector("[data-testid='slot-dot']") || slotEl.querySelector("[data-testid='slot-connection-dot']");
+            const rect = dot?.getBoundingClientRect?.() || slotEl.getBoundingClientRect?.();
+            const center = rect ? clientToGraphPos(rect.left + rect.width / 2, rect.top + rect.height / 2) : null;
+            if (!center) continue;
+            return { node: targetNode, input, inputIndex, pos: center };
+        }
+        return null;
+    };
+
+    const syncCanvasPointerState = (e, snapPos = null) => {
+        const canvas = app.canvas;
+        if (!canvas) return null;
+        const proxy = getSignalOutCanvasPointerEvent(e, e.type || "pointermove");
+        canvas.mouse[0] = e.clientX;
+        canvas.mouse[1] = e.clientY;
+        canvas.graph_mouse[0] = proxy.canvasX;
+        canvas.graph_mouse[1] = proxy.canvasY;
+        canvas.linkConnector.state.snapLinksPos = snapPos || [proxy.canvasX, proxy.canvasY];
+        canvas.setDirty?.(true, true);
+        return proxy;
     };
 
     const clearBrowserSelection = () => {
@@ -172,6 +269,89 @@ export function createDerpShield(node) {
             sel.removeAllRanges();
         } catch (_) {}
     };
+
+    const beginSignalOutSlotLinkDrag = (e, slotIndex = null) => {
+        if (node.type !== "xcpDerpSignalOut") return false;
+        const canvas = app.canvas;
+        const graph = node.graph || app.graph || app.rootGraph || canvas?.graph;
+        const connector = canvas?.linkConnector;
+        const output = Number.isInteger(slotIndex) ? node.outputs?.[slotIndex] : null;
+        if (!canvas || !graph || !connector || !output) return false;
+
+        if (connector.isConnecting) connector.reset?.(true);
+
+        try {
+            if (e.shiftKey && (output.links?.length || output._floatingLinks?.size)) {
+                connector.moveOutputLink(graph, output);
+            } else {
+                connector.dragNewFromOutput(graph, node, output);
+            }
+        } catch (_) {
+            return false;
+        }
+
+        forceSignalOutRenderLinkOrigin(connector, output);
+        syncCanvasPointerState(e);
+        let validTarget = null;
+
+        const onLinkMove = (moveEvent) => {
+            if (moveEvent.pointerId !== e.pointerId) return;
+            validTarget = resolveVueInputSlotAtClientPoint(moveEvent, connector);
+            app.canvas._highlight_pos = validTarget?.pos;
+            app.canvas._highlight_input = validTarget?.input;
+            forceSignalOutRenderLinkOrigin(connector, output);
+            syncCanvasPointerState(moveEvent, validTarget?.pos || null);
+        };
+
+        const finishLinkDrag = (upEvent) => {
+            if (upEvent.pointerId !== e.pointerId) return;
+            window.removeEventListener("pointermove", onLinkMove, true);
+            window.removeEventListener("pointerup", finishLinkDrag, true);
+            window.removeEventListener("pointercancel", finishLinkDrag, true);
+            validTarget = resolveVueInputSlotAtClientPoint(upEvent, connector) || validTarget;
+            const proxyUp = syncCanvasPointerState(upEvent, validTarget?.pos || null) || getSignalOutCanvasPointerEvent(upEvent, "pointerup");
+            forceSignalOutRenderLinkOrigin(connector, output);
+            if (connector.isConnecting && validTarget?.node && validTarget?.input) {
+                connector._dropOnInput?.(validTarget.node, validTarget.input);
+            } else if (connector.isConnecting) {
+                connector.dropLinks(graph, proxyUp);
+            }
+            app.canvas._highlight_pos = undefined;
+            app.canvas._highlight_input = undefined;
+            connector.state.snapLinksPos = undefined;
+            connector.reset?.(true);
+            canvas.setDirty?.(true, true);
+        };
+
+        window.addEventListener("pointermove", onLinkMove, true);
+        window.addEventListener("pointerup", finishLinkDrag, true);
+        window.addEventListener("pointercancel", finishLinkDrag, true);
+        return true;
+    };
+    shield._beginSignalOutSlotLinkDrag = beginSignalOutSlotLinkDrag;
+
+    const ensureSignalOutLinkHandle = (slotIndex) => {
+        if (!shield._signalOutLinkHandleLayer) return null;
+        if (!shield._signalOutLinkHandles[slotIndex]) {
+            const handle = document.createElement("div");
+            handle.style.cssText = `
+                position: absolute;
+                width: 24px;
+                height: 24px;
+                transform: translate(-12px, -12px);
+                pointer-events: auto;
+                cursor: crosshair;
+                background: transparent;
+                z-index: 1;
+            `;
+            handle._signalOutSlotIndex = slotIndex;
+            handle.onpointerdown = (e) => handleSignalOutLinkPointerDown(handle, e);
+            shield._signalOutLinkHandleLayer.appendChild(handle);
+            shield._signalOutLinkHandles[slotIndex] = handle;
+        }
+        return shield._signalOutLinkHandles[slotIndex];
+    };
+    shield._ensureSignalOutLinkHandle = ensureSignalOutLinkHandle;
 
     // --- HANDLERS ---
     const onWindowPointerMove = (e) => {
@@ -650,6 +830,26 @@ export function syncDerpShield(node) {
     const baseZ = node.baseZIndex || "5";
     s.zIndex = (dMode === "Hitbox" || dMode === "Widgets Hitbox") ? String(MASTER_Z.debugHitbox) : baseZ;
     s.display = node.flags?.collapsed ? "none" : "block";
+
+    if (node.type === "xcpDerpSignalOut" && node.interactionShield._signalOutLinkHandles) {
+        const outputs = node._xcpTrueOutputs || node.outputs || [];
+        outputs.forEach((slot, idx) => {
+            const handle = node.interactionShield._ensureSignalOutLinkHandle?.(idx);
+            if (!handle) return;
+            const pos = slot?.pos;
+            const visible = pos && pos[0] !== -1000 && pos[1] !== -1000;
+            handle.style.display = visible ? "block" : "none";
+            if (visible) {
+                handle.style.left = `${(pos[0] - padL) * scale}px`;
+                handle.style.top = `${pos[1] * scale}px`;
+            }
+        });
+
+        for (let i = outputs.length; i < node.interactionShield._signalOutLinkHandles.length; i++) {
+            const handle = node.interactionShield._signalOutLinkHandles[i];
+            if (handle) handle.style.display = "none";
+        }
+    }
 
     // THE DYNAMIC RESIZE CURSOR FIX:
     // Update the handle's cursor and interaction state based on the node's auto-resize properties.
