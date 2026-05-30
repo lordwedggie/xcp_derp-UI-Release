@@ -201,8 +201,9 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                             },
                             ...outputItems.reduce((acc, item, displayIdx) => {
                                 const { sig, idx } = item;
-                                const prev = displayIdx === 0 ? "outputsRegion" : `outputsRegion_display_${displayIdx - 1}`;
-                                const rowKey = `outputsRegion_display_${displayIdx}`;
+                                const prevItem = outputItems[displayIdx - 1];
+                                const prev = displayIdx === 0 ? "outputsRegion" : `outputsRegion_display_${prevItem.idx}`;
+                                const rowKey = `outputsRegion_display_${idx}`;
 
                                 // THE GHOST FIX: Check the 'True' slot cache from the Heist instead of the native array
                                 const outputs = this._xcpTrueOutputs || this.outputs;
@@ -216,17 +217,6 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                 const isPickupOriginRow = !!(hasDragPickup && !hasDropPreview && dragIndex === idx && !item.isPreviewGhost);
                                 const shouldGhostHideChildren = isHiddenGhost;
                                 const rowAlpha = (isHiddenGhost || isPickupOriginRow) ? 0 : 1.0;
-                                const beginOutputRowDrag = (e, data) => startStackDrag(this, data, idx, rowKey, { holdOnly: true });
-                                const updateOutputRowDrag = (e, data) => { updateStackDrag(this, data, "outputsRegion_display_", activeOuts.length); this.refreshNodeLayoutMap(); };
-                                const endOutputRowDrag = () => {
-                                    const fromIdx = this._dragTrig?.index;
-                                    const toIdx = this._dropPreviewIdx;
-                                    endStackDrag(this, "_derpSignalOutDragProxy");
-                                    this._signalOutFloatingSnapshot = null;
-                                    if (fromIdx !== undefined && toIdx !== undefined && fromIdx !== toIdx && this.reorderDerpOutputs) {
-                                        this.reorderDerpOutputs(fromIdx, toIdx);
-                                    }
-                                };
 
                                 acc[rowKey] = {
                                     anchor: { target: prev, axis: "y", offset: displayIdx === 0 ? 0 : sH },
@@ -237,9 +227,17 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                     pulseFromState: "_ON",
                                     pulseToState: "_DIS",
                                     alpha: rowAlpha,
-                                    onDragStart: beginOutputRowDrag,
-                                    onDrag: updateOutputRowDrag,
-                                    onDragEnd: endOutputRowDrag,
+                                    onDragStart: (e, data) => startStackDrag(this, data, idx, rowKey, { holdOnly: true }),
+                                    onDrag: (e, data) => { updateStackDrag(this, data, "outputsRegion_display_", activeOuts.length); this.refreshNodeLayoutMap(); },
+                                    onDragEnd: () => {
+                                        const fromIdx = this._dragTrig?.index;
+                                        const toIdx = this._dropPreviewIdx;
+                                        endStackDrag(this, "_derpSignalOutDragProxy");
+                                        this._signalOutFloatingSnapshot = null;
+                                        if (fromIdx !== undefined && toIdx !== undefined && fromIdx !== toIdx && this.reorderDerpOutputs) {
+                                            this.reorderDerpOutputs(fromIdx, toIdx);
+                                        }
+                                    },
                                     onPress: () => handleSignalOutEntryPress(this),
                                     [`lblOutputInfo_${idx}`]: {
                                         type: UI_TYPES.BUTTON,
@@ -250,9 +248,6 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                         width: "full", padding: [pW, pH], spacing: [sW, 0],
                                         state: isPickedUp ? "ON" : ((isBypassed || !isConnected) ? "DIS" : "OFF"),
                                         alpha: rowAlpha,
-                                        onDragStart: beginOutputRowDrag,
-                                        onDrag: updateOutputRowDrag,
-                                        onDragEnd: endOutputRowDrag,
                                         onPress: () => handleSignalOutEntryPress(this),
                                         pulse: sig.isOrphaned === true,
                                         pulseSpeed: ORPHAN_PULSE_SPEED,
@@ -281,7 +276,7 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                 return acc;
                             }, {}),
                             signalRegion: {
-                                anchor: { target: activeOuts.length > 0 ? `outputsRegion_display_${activeOuts.length - 1}` : "lblContent", axis: "y", offset: mH },
+                                anchor: { target: outputItems.length > 0 ? `outputsRegion_display_${outputItems[outputItems.length - 1].idx}` : "lblContent", axis: "y", offset: mH },
                                 dir: "row", width: "full", height: "auto",
                                 spacing: [0, sH],
                                 dropdownSignalSelect: {

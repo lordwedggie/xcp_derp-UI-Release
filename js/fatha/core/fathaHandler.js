@@ -544,7 +544,7 @@ function findHitRegion(layout, localMouse, options = {}) {
 
 function isSystemButtonHit(entity, localMouse, scale) {
     const sysBtn = entity.layout?.regions?.systemBtn;
-    return !!(sysBtn && entity.layout.hitTest(localMouse, sysBtn, Math.max(8, 8 / scale)));
+    return !!(sysBtn && entity.layout.hitTest(localMouse, sysBtn, 2 / Math.min(scale, 1)));
 }
 
 function handleShieldDragStart(entity, data, localMouse, scale, deckEngine) {
