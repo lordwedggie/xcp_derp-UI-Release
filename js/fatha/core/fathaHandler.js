@@ -20,7 +20,7 @@ import {
     handleDerpCollapseImpl,
     handleHorizontalDeckTitleToggleImpl,
 } from "./dockResize.js";
-import { masterDockEngine, getDeckMembers, getDeckCornerOverride, isLinearDeckGroup } from "./masterDockEngine.js";
+import { masterDockEngine, getDeckMembers, getDeckCornerOverride, isLinearDeckGroup, normalizeDockedLayout } from "./masterDockEngine.js";
 import { getDockGroupAxisFromMembers, shouldPreserveDockHeight, shouldPreserveDockWidth } from "./dockDimensions.js";
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
 import {
@@ -418,6 +418,18 @@ export function syncHorizontalDeckHeight(node, targetHeight = 0) {
     return syncHorizontalDeckHeightForGraph(node, graph, targetHeight);
 }
 
+export function normalizeDerpDockedLayout(node) {
+    const graph = app.graph || node?.graph || null;
+    if (!graph || !node || !isLinearDeckGroup(node, graph, "horizontal")) return [];
+    const moved = normalizeDockedLayout(node, graph, getDerpVars(node).SNAP);
+    moved.forEach((member) => {
+        if (typeof member.syncUncleSlots === "function") member.syncUncleSlots();
+        if (typeof member.setDirtyCanvas === "function") member.setDirtyCanvas(true, true);
+        syncDerpShield(member);
+    });
+    return moved;
+}
+
 export const getDerpVars = (node) => {
     let tLayout = [4, 2, 2, 2, 2, 4, 2, 4];
     const cfg = window.xcpDerpThemeConfig;
@@ -544,7 +556,7 @@ function findHitRegion(layout, localMouse, options = {}) {
 
 function isSystemButtonHit(entity, localMouse, scale) {
     const sysBtn = entity.layout?.regions?.systemBtn;
-    return !!(sysBtn && entity.layout.hitTest(localMouse, sysBtn, 2 / Math.min(scale, 1)));
+    return !!(sysBtn && entity.layout.hitTest(localMouse, sysBtn, Math.max(8, 8 / scale)));
 }
 
 function handleShieldDragStart(entity, data, localMouse, scale, deckEngine) {
