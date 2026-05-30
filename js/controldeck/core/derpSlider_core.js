@@ -30,6 +30,40 @@ function wakeSliderNode(node) {
     if (window.app?.canvas?.setDirty) window.app.canvas.setDirty(true, true);
 }
 
+function resolveSliderValueFromX(reg, config, localX, options = {}) {
+    const cMin = parseFloat(config.min ?? 0);
+    const cMax = parseFloat(config.max ?? 1);
+    const cStep = parseFloat(config.step ?? 0.05);
+    const cDef = parseFloat(config.default ?? 0.5);
+    const cDec = parseInt(config.decimal ?? config.decimals ?? 2);
+
+    let newVal;
+    if (options.useDefault) {
+        newVal = cDef;
+    } else {
+        let trackX = reg.x;
+        let trackW = reg.w;
+        if (config?.btnLR) {
+            const btnW = Math.round((reg.h || 14) * BTN_LR_RATIO);
+            const mrg = BTN_LR_MARGIN;
+            trackX = reg.x + mrg + btnW;
+            trackW = Math.max(1, reg.w - (btnW + mrg) * 2);
+        }
+        const percent = Math.max(0, Math.min(1, (localX - trackX) / trackW));
+        const rawVal = cMin + (percent * (cMax - cMin));
+        newVal = options.snap ? Math.round(rawVal / cStep) * cStep : rawVal;
+    }
+
+    newVal = Math.max(cMin, Math.min(cMax, newVal));
+    return {
+        value: parseFloat(newVal.toFixed(cDec)),
+        cMin,
+        cMax,
+        cStep,
+        cDec,
+    };
+}
+
 function tLocale(key, fallback = key) {
     if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
     const path = key.substring(1).split(".");
@@ -295,9 +329,16 @@ export function setupDerpSliderCore(nodeType) {
         if (type === "dragEnd") {
             const activeIdx = this._activeSliderIndex;
             const activeCfg = Number.isInteger(activeIdx) ? this.properties.sliderContainer?.[activeIdx] : null;
+            if (this._pendingSliderDraft && Number.isInteger(activeIdx) && activeCfg) {
+                const { value, cMin, cMax, cStep, cDec } = this._pendingSliderDraft;
+                const snappedVal = Math.max(cMin, Math.min(cMax, Math.round(value / cStep) * cStep));
+                activeCfg.value = parseFloat(snappedVal.toFixed(cDec));
+                if (this.updateDerpSliderVisualValue) this.updateDerpSliderVisualValue(activeIdx, activeCfg.value);
+            }
             if (activeCfg) activeCfg._isDraggingSlider = false;
             const activeKey = Number.isInteger(activeIdx) ? `dynamicSlider_${activeIdx}` : null;
             if (activeKey && this._compDataCache?.[activeKey]) this._compDataCache[activeKey]._isDraggingSlider = false;
+            this._pendingSliderDraft = null;
             this._activeSliderIndex = null;
             this._isDerpResizing = false;
             // THE FINAL SYNC: Finalize the wireless signal and Python registry state upon mouse release.
@@ -420,16 +461,8 @@ export function setupDerpSliderCore(nodeType) {
                             this._compDataCache[targetKey]._isDraggingSlider = (type === "drag");
                         }
 
-                        const cMin = parseFloat(config.min ?? 0);
-                        const cMax = parseFloat(config.max ?? 1);
-                        const cStep = parseFloat(config.step ?? 0.05);
-                        const cDef = parseFloat(config.default ?? 0.5);
-                        const cDec = parseInt(config.decimal ?? config.decimals ?? 2);
-
-                        let newVal;
-                        if (type === "dblclick") {
-                            newVal = cDef;
-                        } else if (config?.btnLR) {
+                        let valueResult;
+                        if (config?.btnLR && type !== "dblclick") {
                             // btnLR mode: track inset with margin, click restricted to fill bar
                             const btnW = Math.round((reg.h || 14) * BTN_LR_RATIO);
                             const mrg = BTN_LR_MARGIN;
@@ -438,6 +471,8 @@ export function setupDerpSliderCore(nodeType) {
 
                             // Only restrict click (not drag/dragStart) to fill bar area
                             if (type === "click") {
+                                const cMin = parseFloat(config.min ?? 0);
+                                const cMax = parseFloat(config.max ?? 1);
                                 const curVal = parseFloat(config.value ?? 0.5);
                                 const fillPercent = Math.max(0, Math.min(1, (curVal - cMin) / (cMax - cMin)));
                                 const fillRight = trackX + fillPercent * trackW;
@@ -445,35 +480,32 @@ export function setupDerpSliderCore(nodeType) {
                                     return true;
                                 }
                             }
-
-                            const percent = Math.max(0, Math.min(1, (localX - trackX) / trackW));
-                            const rawVal = cMin + (percent * (cMax - cMin));
-                            newVal = Math.round(rawVal / cStep) * cStep;
-                            newVal = Math.max(cMin, Math.min(cMax, newVal));
-                        }
-                        else {
-                            const percent = Math.max(0, Math.min(1, (localX - reg.x) / reg.w));
-                            const rawVal = cMin + (percent * (cMax - cMin));
-                            newVal = Math.round(rawVal / cStep) * cStep;
-                            newVal = Math.max(cMin, Math.min(cMax, newVal));
                         }
 
-                        const finalValStr = newVal.toFixed(cDec);
-                        config.value = parseFloat(finalValStr);
+                        valueResult = resolveSliderValueFromX(reg, config, localX, {
+                            useDefault: type === "dblclick",
+                            snap: type !== "drag",
+                        });
+                        config.value = valueResult.value;
 
                         // THE PERSISTENCE FIX: Explicitly update the node property and rebuild the layout map.
                         // This ensures that the property change is "locked in" and survives the end of the interaction.
                         this.properties.sliderContainer = dataArr;
 
                         if (this.updateDerpSliderVisualValue) this.updateDerpSliderVisualValue(targetIdx, config.value);
-                        if (type !== "drag" && this.broadcastWirelessSignal) {
-                            this.broadcastWirelessSignal(dataArr);
-                        } else if (this.broadcastWirelessSignal) {
+                        if (type === "drag") {
+                            this._pendingSliderDraft = { index: targetIdx, value: config.value, ...valueResult };
+                            this.setDirtyCanvas?.(true);
+                            return true;
+                        }
+
+                        this._pendingSliderDraft = null;
+                        if (this.broadcastWirelessSignal) {
                             this.broadcastWirelessSignal(dataArr);
                         }
 
                         // During drag, keep the current component cache hot and defer structural sync until dragEnd.
-                        if (type !== "drag" && type !== "click" && type !== "dblclick" && this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
+                        if (type !== "click" && type !== "dblclick" && this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
 
                         this._shouldSync = true;
                         wakeSliderNode(this);
