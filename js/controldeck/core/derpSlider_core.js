@@ -320,7 +320,7 @@ export function setupDerpSliderCore(nodeType) {
                 }
             }
 
-            if (type === "dragStart" || type === "click" || type === "dblclick") { this._activeSliderIndex = foundIdx; }
+            if (type === "dragStart" || type === "click" || type === "dblclick") { this._activeSliderIndex = foundIdx; this._pressedRegionIsDragHandle = true; }
             const interactionDuringDrag = type === "drag" || type === "hover" || type === "move";
             const effectiveFoundIdx = (sliderDragSessionActive && interactionDuringDrag)
                 ? this._activeSliderIndex

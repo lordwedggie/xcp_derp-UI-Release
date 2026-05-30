@@ -946,6 +946,7 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                                     if (stackData[idx] && (sType === "sldModel" || sType === "sldClip") && (type === "dragStart" || type === "click" || type === "dblclick" || type === "drag")) {
                                         if (type === "dragStart" || type === "click" || type === "dblclick") {
                                             this._pressedRegionKey = targetKey;
+                                            this._pressedRegionIsDragHandle = true;
                                             this._passiveWholeWallCacheSuspendUntil = Math.max(
                                                 Number(this._passiveWholeWallCacheSuspendUntil || 0),
                                                 performance.now() + 220
