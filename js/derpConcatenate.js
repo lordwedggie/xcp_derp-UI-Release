@@ -47,6 +47,33 @@ function getConcatSignalItems(node) {
             if (id) alreadySelected.add(String(id).split(":")[0]);
         });
     }
+
+    // THE LOOP GUARD: Traverse physical outputs to find all downstream nodes
+    const downstreamIds = new Set();
+    if (node && ownId) {
+        const visited = new Set();
+        const queue = [node];
+        while (queue.length > 0) {
+            const n = queue.shift();
+            if (!n || visited.has(n.id)) continue;
+            visited.add(n.id);
+            if (String(n.id) !== ownId) downstreamIds.add(String(n.id));
+            if (n.outputs) {
+                for (const out of n.outputs) {
+                    if (out.links) {
+                        for (const lId of out.links) {
+                            const l = app.graph.links[lId];
+                            if (l && l.target_id) {
+                                const target = app.graph.getNodeById(l.target_id);
+                                if (target) queue.push(target);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     return Object.values(window.xcpDerpSignals || {})
         .filter((sig) => {
             if (!sig || !sig.nodeId) return false;
@@ -54,6 +81,9 @@ function getConcatSignalItems(node) {
             const sid = String(sig.nodeId).split(":")[0];
             if (ownId && sid === ownId) return false;
             if (alreadySelected.has(sid)) return false;
+            // Block signals that would create a loop
+            if (downstreamIds.has(sid)) return false;
+            if (Array.isArray(sig.upstreamIds) && sig.upstreamIds.some(id => String(id) === ownId)) return false;
             return true;
         })
         .map((sig) => `${sig.nodeName || sig.nodeId} [${sig.nodeId}]`);
