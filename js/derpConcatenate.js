@@ -39,9 +39,23 @@ function normalizeConcatSignalValue(value) {
     }
 }
 
-function getConcatSignalItems() {
+function getConcatSignalItems(node) {
+    const ownId = node ? String(node.id) : null;
+    const alreadySelected = new Set();
+    if (node?.properties?.multiSignalIds) {
+        Object.values(node.properties.multiSignalIds).forEach((id) => {
+            if (id) alreadySelected.add(String(id).split(":")[0]);
+        });
+    }
     return Object.values(window.xcpDerpSignals || {})
-        .filter((sig) => sig && sig.nodeId && String(sig.type || "").toUpperCase().includes("STRING"))
+        .filter((sig) => {
+            if (!sig || !sig.nodeId) return false;
+            if (!String(sig.type || "").toUpperCase().includes("STRING")) return false;
+            const sid = String(sig.nodeId).split(":")[0];
+            if (ownId && sid === ownId) return false;
+            if (alreadySelected.has(sid)) return false;
+            return true;
+        })
         .map((sig) => `${sig.nodeName || sig.nodeId} [${sig.nodeId}]`);
 }
 
@@ -177,7 +191,7 @@ function buildConcatLayoutHash(node, vars, signalStates) {
     const mW = Number(vars.mW || 0).toFixed(2);
     const mH = Number(vars.mH || 0).toFixed(2);
     const oY = Number(vars.oY || 0).toFixed(2);
-    const signalItems = getConcatSignalItems();
+    const signalItems = getConcatSignalItems(node);
     return [
         window._xcpDerpSession || "",
         node?.titleLabel || "",
@@ -241,7 +255,7 @@ app.registerExtension({
             const vars = this.getDerpVars(this);
             const { mW, mH, sW, sH, oY, pW, pH, t_textNormal_size, t_textSmall_size } = vars;
             const signalStates = getConcatSignalStates(this);
-            const signalItems = getConcatSignalItems();
+            const signalItems = getConcatSignalItems(this);
             const previewFontSize = Number(t_textSmall_size || this._t_textSmallPaintData?.fontSize || 12);
             const previewFont = this._t_textSmallPaintData?.font || "arial";
             const previewFontWeight = this._t_textSmallPaintData?.fontWeight || "normal";
