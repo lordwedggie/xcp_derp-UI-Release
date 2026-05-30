@@ -565,7 +565,7 @@ function handleShieldDragStart(entity, data, localMouse, scale, deckEngine) {
     if (hit && !hit.reg.noDragLock) {
         entity._pressedRegionKey = hit.key;
         entity._pressedRegionType = hit.reg?.type || null;
-        entity._pressedRegionIsDragHandle = !!hit.reg.onDragStart || !!hit.reg.onDrag;
+        entity._pressedRegionIsDragHandle = !!hit.reg.onDragStart || !!hit.reg.onDrag || hit.reg.type === UI_TYPES.SLIDER;
         if (hit.reg.onDragStart) hit.reg.onDragStart(data.originalEvent, data);
         entity._derpAwakeFrames = 15;
         entity.setDirtyCanvas(true);
