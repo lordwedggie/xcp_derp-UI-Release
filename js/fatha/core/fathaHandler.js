@@ -45,6 +45,60 @@ const TOOLTIP_DELAY_MS = 650;
 const TOOLTIP_DURATION_MS = 0; // 0 = infinite, stays until mouse moves
 const TOOLTIP_MOVE_THRESHOLD = 5;
 const DERP_BACKGROUND_SETTING_ID = "Derp.BackgroundImage";
+const horizontalDeckFrameCache = new Map();
+const horizontalDeckNodeFrameCache = new Map();
+let horizontalDeckCacheFrame = null;
+
+function getDeckFrameKey(node, members) {
+    const frame = Number(app.canvas?.frame) || 0;
+    const ids = (Array.isArray(members) ? members : [node])
+        .map((member) => Number(member?.id) || 0)
+        .sort((a, b) => a - b)
+        .join(":");
+    return `${frame}:${ids}`;
+}
+
+function getHorizontalDeckFrameState(node) {
+    const graph = app.graph || node?.graph || null;
+    if (!graph || !node) return null;
+
+    const frame = Number(app.canvas?.frame) || 0;
+    if (horizontalDeckCacheFrame !== frame) {
+        horizontalDeckFrameCache.clear();
+        horizontalDeckNodeFrameCache.clear();
+        horizontalDeckCacheFrame = frame;
+    }
+    const nodeFrameKey = `${frame}:${node.id}`;
+    if (horizontalDeckNodeFrameCache.has(nodeFrameKey)) return horizontalDeckNodeFrameCache.get(nodeFrameKey);
+
+    const members = getDeckMembers(node, graph);
+    if (!Array.isArray(members) || members.length <= 1) {
+        horizontalDeckNodeFrameCache.set(nodeFrameKey, null);
+        return null;
+    }
+    const axis = getDockGroupAxisFromMembers(members);
+    const preserveHeight = shouldPreserveDockHeight(axis);
+    const cacheKey = getDeckFrameKey(node, members);
+    let state = horizontalDeckFrameCache.get(cacheKey);
+    if (!state) {
+        state = {
+            graph,
+            members,
+            axis,
+            preserveHeight,
+            sharedHeight: null,
+            didSync: false,
+            syncedHeight: 0,
+            didNormalize: false,
+            normalizedHeight: 0,
+        };
+        horizontalDeckFrameCache.set(cacheKey, state);
+    }
+    members.forEach((member) => {
+        horizontalDeckNodeFrameCache.set(`${frame}:${member.id}`, state);
+    });
+    return state;
+}
 
 export function applyDerpBackgroundImage(backgroundName = "") {
     return applyDerpBackgroundImageImpl(backgroundName);
@@ -400,9 +454,8 @@ export function shouldPreserveVerticalDeckWidth(node) {
 }
 
 export function shouldPreserveHorizontalDeckHeight(node) {
-    const graph = app.graph || node?.graph || null;
-    if (!graph || !node) return false;
-    return shouldPreserveDockHeight(getDockGroupAxisFromMembers(getDeckMembers(node, graph)));
+    const state = getHorizontalDeckFrameState(node);
+    return state?.preserveHeight === true;
 }
 
 export function resolveDerpRuntimeSize(node, measured, vars = {}) {
@@ -410,15 +463,32 @@ export function resolveDerpRuntimeSize(node, measured, vars = {}) {
 }
 
 export function resolveHorizontalDeckSharedHeight(node) {
+    const state = getHorizontalDeckFrameState(node);
+    if (state?.preserveHeight === true && Number(state.sharedHeight) > 0) return state.sharedHeight;
     return resolveHorizontalDeckSharedHeightImpl(node, { getDerpVars });
 }
 
 export function syncHorizontalDeckHeight(node, targetHeight = 0) {
+    const state = getHorizontalDeckFrameState(node);
+    if (state?.preserveHeight === true) {
+        const nextHeight = Number(targetHeight) || 0;
+        if (nextHeight > 0) state.sharedHeight = Math.max(Number(state.sharedHeight) || 0, nextHeight);
+        if (state.didSync && nextHeight <= (Number(state.syncedHeight) || 0)) return false;
+        state.didSync = true;
+        state.syncedHeight = Math.max(Number(state.syncedHeight) || 0, nextHeight);
+    }
     const graph = app.graph || node?.graph || null;
     return syncHorizontalDeckHeightForGraph(node, graph, targetHeight);
 }
 
 export function normalizeDerpDockedLayout(node) {
+    const state = getHorizontalDeckFrameState(node);
+    if (state?.preserveHeight === true) {
+        const sharedHeight = Number(state.sharedHeight) || 0;
+        if (state.didNormalize && sharedHeight <= (Number(state.normalizedHeight) || 0)) return [];
+        state.didNormalize = true;
+        state.normalizedHeight = Math.max(Number(state.normalizedHeight) || 0, sharedHeight);
+    }
     const graph = app.graph || node?.graph || null;
     if (!graph || !node || !isLinearDeckGroup(node, graph, "horizontal")) return [];
     const moved = normalizeDockedLayout(node, graph, getDerpVars(node).SNAP);
