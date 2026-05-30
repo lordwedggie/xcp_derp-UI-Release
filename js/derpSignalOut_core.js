@@ -5,7 +5,6 @@
 import { app } from "../../../scripts/app.js";
 import { uncle } from "./fatha/uncle.js";
 import { handleInitDerpGlobalListener } from "./fatha/core/fathaHandler.js";
-import { COMPONENT_BLUEPRINTS } from "./fatha/core/masterLayoutTypes.js";
 
 function tLocale(key, fallback = key) {
     if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
@@ -288,46 +287,6 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                     return {
                         ...sig,
                         type: normalizeDerpSignalType(sig.type)
-                    };
-                };
-
-                const regionBelongsToRow = (rowKey, reg, regions = {}) => {
-                    let parentKey = reg?.parentKey;
-                    while (parentKey && regions[parentKey]) {
-                        if (parentKey === rowKey) return true;
-                        parentKey = regions[parentKey]?.parentKey;
-                    }
-                    return false;
-                };
-
-                const findConfigForKey = (source, key) => {
-                    if (!source || typeof source !== "object") return null;
-                    if (source[key]) return source[key];
-                    for (const value of Object.values(source)) {
-                        if (!value || typeof value !== "object" || Array.isArray(value)) continue;
-                        const found = findConfigForKey(value, key);
-                        if (found) return found;
-                    }
-                    return null;
-                };
-
-                const captureSignalOutFloatingSnapshot = (node, rowKey) => {
-                    const regions = node?.layout?.regions || {};
-                    const baseReg = regions[rowKey];
-                    if (!baseReg) return null;
-
-                    const snapshotRegions = {};
-                    for (const [key, reg] of Object.entries(regions)) {
-                        if (key === rowKey || regionBelongsToRow(rowKey, reg, regions)) {
-                            snapshotRegions[key] = { ...reg };
-                        }
-                    }
-
-                    return {
-                        rowKey,
-                        baseReg: { ...baseReg },
-                        regions: snapshotRegions,
-                        rowConfig: node?.layoutMap?.contentRegion?.[rowKey] || null,
                     };
                 };
 
@@ -909,116 +868,7 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                         ctx.restore();
                     }
 
-                    if (this._dragTrig && Number.isInteger(this._dragTrig.index) && this.layout?.regions) {
-                        const dragRowKey = `outputsRegion_display_${this._dragTrig.index}`;
-                        if (!this._signalOutFloatingSnapshot || this._signalOutFloatingSnapshot.rowKey !== dragRowKey) {
-                            this._signalOutFloatingSnapshot = captureSignalOutFloatingSnapshot(this, dragRowKey);
-                        }
-                    } else {
-                        this._signalOutFloatingSnapshot = null;
-                    }
-
                     if (onDrawForeground) onDrawForeground.apply(this, arguments);
-
-                    if (this._dragTrig && this._dragThresholdMet) {
-                        const dragIdx = this._dragTrig.index;
-                        const rowKey = `outputsRegion_display_${dragIdx}`;
-                        const snapshot = this._signalOutFloatingSnapshot;
-                        const regions = snapshot?.regions || this.layout?.regions || {};
-                        const baseReg = snapshot?.baseReg || regions[rowKey];
-
-                        if (baseReg && this._dragMouse && this._dragOffset) {
-                            const dx = this._dragMouse[0] - this._dragOffset[0] - baseReg.x;
-                            const dy = this._dragMouse[1] - this._dragOffset[1] - baseReg.y;
-                            const rowCfg = snapshot?.rowConfig || this.layoutMap?.contentRegion?.[rowKey] || {};
-
-                            ctx.save();
-                            ctx.translate(dx, dy);
-                            this._isGhostDrawing = true;
-
-                            const oldInputs = this.inputs;
-                            const oldOutputs = this.outputs;
-                            this.inputs = null;
-                            this.outputs = null;
-
-                            try {
-                                const regionBp = COMPONENT_BLUEPRINTS[this.UI_TYPES?.REGION];
-                                if (regionBp) {
-                                    const ghostPlate = {
-                                        ...rowCfg,
-                                        key: `${rowKey}_ghostPlate`,
-                                        geometry: { x: baseReg.x - 1, y: baseReg.y - 1, w: baseReg.w + 2, h: baseReg.h + 2 },
-                                        themeKey: rowCfg?.themeKey || "canvas",
-                                        state: "ON",
-                                        pulseStates: true,
-                                        pulseFromState: "_ON",
-                                        pulseToState: "_DIS",
-                                        alpha: 1.0,
-                                        hidden: false,
-                                        mouseOver: false,
-                                        hoverEffect: false,
-                                        corners: rowCfg?.corners || baseReg?.corners,
-                                        regionOffset: rowCfg?.regionOffset || [0, 0, 0, 0],
-                                        ignoreNodeBoundsClamp: true,
-                                    };
-                                    regionBp.sync(ctx, this, ghostPlate);
-                                }
-
-                                const componentsToDraw = [];
-                                for (const [key, reg] of Object.entries(regions)) {
-                                    if (key === rowKey || regionBelongsToRow(rowKey, reg, regions)) {
-                                        if (!reg?.type || reg.type === "linebreak") continue;
-                                        const cfg = key === rowKey ? rowCfg : findConfigForKey(rowCfg, key);
-                                        if (!cfg) continue;
-                                        componentsToDraw.push({ key, reg, cfg });
-                                    }
-                                }
-
-                                componentsToDraw.sort((a, b) => (a.reg.zIndex || 0) - (b.reg.zIndex || 0));
-
-                                for (const item of componentsToDraw) {
-                                    const bp = COMPONENT_BLUEPRINTS[item.reg.type];
-                                    if (!bp) continue;
-                                    const ghostData = {
-                                        ...item.cfg,
-                                        key: item.key,
-                                        geometry: { x: item.reg.x, y: item.reg.y, w: item.reg.w, h: item.reg.h },
-                                        alpha: 1.0,
-                                        hidden: false,
-                                        state: item.reg.type === this.UI_TYPES.FILEBROWSER ? "ON" : (item.cfg?.state ?? item.reg?.state ?? "OFF"),
-                                        mouseOver: false,
-                                    };
-
-                                    if (bp.isHybrid || bp.isHtml) {
-                                        bp.sync(ctx, this, app, ghostData);
-                                    } else {
-                                        bp.sync(ctx, this, ghostData);
-                                    }
-                                }
-
-                                for (const item of componentsToDraw) {
-                                    const bp = COMPONENT_BLUEPRINTS[item.reg.type];
-                                    if (!bp || !item.reg.strokeZIndex || !bp.isHybrid) continue;
-                                    const ghostData = {
-                                        ...item.cfg,
-                                        key: item.key,
-                                        geometry: { x: item.reg.x, y: item.reg.y, w: item.reg.w, h: item.reg.h },
-                                        alpha: 1.0,
-                                        hidden: false,
-                                        state: item.reg.type === this.UI_TYPES.FILEBROWSER ? "ON" : (item.cfg?.state ?? item.reg?.state ?? "OFF"),
-                                        mouseOver: false,
-                                    };
-                                    bp.sync(ctx, this, app, ghostData, true);
-                                }
-                            } finally {
-                                this.inputs = oldInputs;
-                                this.outputs = oldOutputs;
-                                this._isGhostDrawing = false;
-                            }
-
-                            ctx.restore();
-                        }
-                    }
                 };
 
                 nodeType.prototype.onDerpSysPanelOpen = function(panel) {

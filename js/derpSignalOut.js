@@ -42,7 +42,6 @@ function normalizeSortModeLabel(value) {
 
 function cancelSignalOutRowDrag(node) {
     endStackDrag(node, "_derpSignalOutDragProxy");
-    if (node) node._signalOutFloatingSnapshot = null;
 }
 
 function handleSignalOutEntryPress(node) {
@@ -168,11 +167,11 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
 
                     const outputItems = activeOuts.map((sig, idx) => ({ sig, idx }));
                     let floatingItem = null;
-                    const dragSnapshot = this._signalOutFloatingSnapshot || null;
-                    const dragPlaceholderHeight = Math.max(1, Number(dragSnapshot?.baseReg?.h) || 30);
                     const dragIndex = this._dragTrig?.index;
                     const hasDragPickup = this._dragTrig && this._dragThresholdMet && dragIndex !== undefined;
                     const hasDropPreview = hasDragPickup && this._dropPreviewIdx !== undefined;
+                    const dragSourceReg = Number.isInteger(dragIndex) ? this.layout?.regions?.[`outputsRegion_display_${dragIndex}`] : null;
+                    const dragPlaceholderHeight = Math.max(1, Number(dragSourceReg?.h) || 30);
 
                     if (hasDropPreview) {
                         const drag = this._dragTrig;
@@ -217,6 +216,16 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                 const isPickupOriginRow = !!(hasDragPickup && !hasDropPreview && dragIndex === idx && !item.isPreviewGhost);
                                 const shouldGhostHideChildren = isHiddenGhost;
                                 const rowAlpha = (isHiddenGhost || isPickupOriginRow) ? 0 : 1.0;
+                                const beginOutputRowDrag = (e, data) => startStackDrag(this, data, idx, rowKey, { holdOnly: true });
+                                const updateOutputRowDrag = (e, data) => { updateStackDrag(this, data, "outputsRegion_display_", activeOuts.length); this.refreshNodeLayoutMap(); };
+                                const endOutputRowDrag = () => {
+                                    const fromIdx = this._dragTrig?.index;
+                                    const toIdx = this._dropPreviewIdx;
+                                    endStackDrag(this, "_derpSignalOutDragProxy");
+                                    if (fromIdx !== undefined && toIdx !== undefined && fromIdx !== toIdx && this.reorderDerpOutputs) {
+                                        this.reorderDerpOutputs(fromIdx, toIdx);
+                                    }
+                                };
 
                                 acc[rowKey] = {
                                     anchor: { target: prev, axis: "y", offset: displayIdx === 0 ? 0 : sH },
@@ -227,17 +236,9 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                     pulseFromState: "_ON",
                                     pulseToState: "_DIS",
                                     alpha: rowAlpha,
-                                    onDragStart: (e, data) => startStackDrag(this, data, idx, rowKey, { holdOnly: true }),
-                                    onDrag: (e, data) => { updateStackDrag(this, data, "outputsRegion_display_", activeOuts.length); this.refreshNodeLayoutMap(); },
-                                    onDragEnd: () => {
-                                        const fromIdx = this._dragTrig?.index;
-                                        const toIdx = this._dropPreviewIdx;
-                                        endStackDrag(this, "_derpSignalOutDragProxy");
-                                        this._signalOutFloatingSnapshot = null;
-                                        if (fromIdx !== undefined && toIdx !== undefined && fromIdx !== toIdx && this.reorderDerpOutputs) {
-                                            this.reorderDerpOutputs(fromIdx, toIdx);
-                                        }
-                                    },
+                                    onDragStart: beginOutputRowDrag,
+                                    onDrag: updateOutputRowDrag,
+                                    onDragEnd: endOutputRowDrag,
                                     onPress: () => handleSignalOutEntryPress(this),
                                     [`lblOutputInfo_${idx}`]: {
                                         type: UI_TYPES.BUTTON,
@@ -248,6 +249,9 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                         width: "full", padding: [pW, pH], spacing: [sW, 0],
                                         state: isPickedUp ? "ON" : ((isBypassed || !isConnected) ? "DIS" : "OFF"),
                                         alpha: rowAlpha,
+                                        onDragStart: beginOutputRowDrag,
+                                        onDrag: updateOutputRowDrag,
+                                        onDragEnd: endOutputRowDrag,
                                         onPress: () => handleSignalOutEntryPress(this),
                                         pulse: sig.isOrphaned === true,
                                         pulseSpeed: ORPHAN_PULSE_SPEED,
@@ -275,6 +279,54 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                 };
                                 return acc;
                             }, {}),
+                            ...(floatingItem && this._dragThresholdMet && this._dragMouse && this._dragOffset ? (() => {
+                                const { sig, idx } = floatingItem;
+                                const sourceRow = this.layout?.regions?.[`outputsRegion_display_${idx}`];
+                                const dragX = this._dragMouse[0] - this._dragOffset[0];
+                                const dragY = this._dragMouse[1] - this._dragOffset[1];
+                                return {
+                                    floatingSignalOutRow: {
+                                        type: UI_TYPES.REGION,
+                                        themeKey: "region",
+                                        dir: "row",
+                                        width: sourceRow?.w || (this.size[0] - (mW * 2)),
+                                        height: sourceRow?.h || "auto",
+                                        ignoreLayout: true,
+                                        x: dragX,
+                                        y: dragY,
+                                        zIndex: 100,
+                                        state: "ON",
+                                        pulseStates: true,
+                                        pulseFromState: "_ON",
+                                        pulseToState: "_DIS",
+                                        spacing: [0, sH],
+                                        ignoreNodeBoundsClamp: true,
+                                        corners: sourceRow?.corners,
+                                        regionOffset: [0, 0],
+                                        floatingSignalOutLabel: {
+                                            type: UI_TYPES.BUTTON,
+                                            themeKey: "panel, t_textNormal",
+                                            mouseOver: false,
+                                            text: formatSignalLabel(sig),
+                                            width: "full",
+                                            height: "auto",
+                                            padding: [pW, pH],
+                                            spacing: [sW, 0],
+                                            state: "ON",
+                                            pulse: sig.isOrphaned === true,
+                                            pulseSpeed: ORPHAN_PULSE_SPEED,
+                                        },
+                                        floatingSignalOutDelete: {
+                                            type: UI_TYPES.ICONBUTTON,
+                                            themeKey: "buttonNode, t_textSystem",
+                                            icon: "trash",
+                                            width: "match",
+                                            height: "fill",
+                                            spacing: [sW, 0],
+                                        }
+                                    }
+                                };
+                            })() : {}),
                             signalRegion: {
                                 anchor: { target: outputItems.length > 0 ? `outputsRegion_display_${outputItems[outputItems.length - 1].idx}` : "lblContent", axis: "y", offset: mH },
                                 dir: "row", width: "full", height: "auto",
