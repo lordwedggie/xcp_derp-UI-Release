@@ -9,15 +9,17 @@ export function drawPickerRow(ctx, state, row, rect, labelPaint, scale, deps = {
     } = deps;
 
     const hovered = state.hoverRowId === row.id;
-    const selected = row.type === "file" && String(row.path ?? "").replace(/\\/g, "/") === String(state.config.value ?? "").replace(/\\/g, "/");
+    const selected = (row.type === "file" && String(row.path ?? row.name ?? "").replace(/\\/g, "/") === String(state.config.value ?? "").replace(/\\/g, "/"))
+        || (row.name && String(row.name) === String(state.config.value ?? ""));
     const searchMatched = !!(state.searchMatchRowId && row.id === state.searchMatchRowId);
-    const emphasized = hovered || selected || searchMatched;
-    const rowPaint = emphasized ? state.rowPaintON : state.listPaint;
-    const textColor = emphasized
+    const emphasizeText = hovered || selected || searchMatched;
+    const emphasizeBg = hovered;
+    const rowPaint = emphasizeBg ? state.rowPaintON : state.listPaint;
+    const textColor = emphasizeText
         ? (state.rowTextON?.textColor || state.rowTextON?.fill || labelPaint?.textColor || labelPaint?.fill || "#ffffff")
         : (labelPaint?.textColor || labelPaint?.fill || "#ffffff");
 
-    if (!state.config.skipBackground || emphasized) {
+    if (!state.config.skipBackground || emphasizeBg) {
         masterPainter(ctx, {
             width: rect.w,
             height: rect.h,

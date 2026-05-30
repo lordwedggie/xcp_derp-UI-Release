@@ -524,7 +524,7 @@ export function interpretLayoutProps(config, context = {}) {
     const fontOffset = (themeParts[3] && !isNaN(themeParts[3])) ? parseFloat(themeParts[3]) : 0;
 
     // --- PADDING CALCULATIONS ---
-    const padding = config.skipBackground === true ? [0, 0, 0, 0] : parseInset(config.padding || [0, 0]);
+    const padding = parseInset(config.padding || [0, 0]);
     const padW = (padding[0] || 0) + (padding[2] || 0); // Left + Right
     const padH = (padding[1] || 0) + (padding[3] || 0); // Top + Bottom
 

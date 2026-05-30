@@ -180,6 +180,7 @@ function getFileBrowserMode(config) {
     const mode = String(config?.mode || "browser").trim().toLowerCase();
     if (mode === "folder") return "folder";
     if (mode === "file") return "file";
+    if (mode === "signal") return "signal";
     return "browser";
 }
 
@@ -264,7 +265,7 @@ function shouldShowFileBrowserIndicator(config) {
 
 function isDropdownFileBrowser(config) {
     const glyphs = getFileBrowserGlyphs(config?.icon);
-    return config?.icon === "dropdown" || glyphs[0] === "▶";
+    return config?.icon === "dropdown" || glyphs[0] === "▶" || getFileBrowserMode(config) === "signal";
 }
 
 function getFileBrowserCallbacks(config) {
@@ -400,7 +401,8 @@ function openFilePicker(config, node) {
     activeFilePicker = {
         key: config.key,
         node,
-        config,
+        config: { ...config, skipBackground: config.pickerSkipBackground || config.skipBackground },
+        _rawConfig: config,
         callbacks: getFileBrowserCallbacks(config),
         glyphs,
         listPaint: theme.listPaint,
@@ -510,7 +512,8 @@ function handlePickerRowAction(row) {
 
     if (row.type === "file") {
         forceFileBrowserResync(state.node, state.config);
-        if (state.callbacks.onChange) state.callbacks.onChange(row.path);
+        state.config.value = String(row.path ?? row.name ?? "");
+        if (state.callbacks.onChange) state.callbacks.onChange(state.config.value);
         closeFilePicker();
         return;
     }
@@ -1043,8 +1046,7 @@ export function syncFileBrowser(context, node, app, config, overlayPass = false)
 
     const ctx = context;
     const dsScale = app?.canvas?.ds?.scale || 1;
-    if (!safeConfig.skipBackground) {
-        masterPainter(ctx, {
+    masterPainter(ctx, {
             width: w,
             height: h,
             posX: snapToScreenGrid(x, dsScale),
@@ -1052,11 +1054,10 @@ export function syncFileBrowser(context, node, app, config, overlayPass = false)
             paintData: bodyPaint,
             color: animatedFillColor
         });
-    }
 
     const dropdownDisplay = getFileBrowserCurrentDisplay(safeConfig, safeConfig.items || [], isDropdownFileBrowser(safeConfig));
     const mode = getFileBrowserMode(safeConfig);
-    const rootDisplayName = String(safeConfig.icon || "").toLowerCase() === "signal" ? "" : t(safeConfig.rootName || (mode === "folder" ? "/" : ""));
+    const rootDisplayName = getFileBrowserMode(safeConfig) === "signal" ? "" : t(safeConfig.rootName || (mode === "folder" ? "/" : ""));
     const isSelection = typeof safeConfig.value === "string" && safeConfig.value !== "/" && (mode === "folder" || (safeConfig.items || []).some((item) => getFileBrowserItemValue(item) === safeConfig.value));
     let currentVal = rootDisplayName;
     if (isSelection) {
@@ -1071,7 +1072,7 @@ export function syncFileBrowser(context, node, app, config, overlayPass = false)
     const triggerDisplay = (selectedItem && typeof selectedItem === "object" && selectedItem._triggerDisplay)
         ? selectedItem._triggerDisplay
         : null;
-    const labelStr = triggerDisplay || dropdownDisplay || ((mode === "folder" || ((mode === "file" || mode === "browser") && isSelection)) ? currentVal : (props.displayText || "Browse Files..."));
+    const labelStr = triggerDisplay || dropdownDisplay || ((mode === "folder" || mode === "signal" || ((mode === "file" || mode === "browser") && isSelection)) ? currentVal : (props.displayText || "Browse Files..."));
     const glyphs = getFileBrowserGlyphs(safeConfig?.icon);
 
     // Parse labelStr for color keys (may differ from props.displayText when items carry {{}} syntax)
@@ -1083,7 +1084,7 @@ export function syncFileBrowser(context, node, app, config, overlayPass = false)
     if (labelPaint) {
         const pX = props.padding[0];
         const iconOffset = fs * 1.2;
-        const indicatorOffset = shouldShowFileBrowserIndicator(safeConfig) ? iconOffset : 0;
+        const indicatorOffset = iconOffset;
         const textLimit = Math.max(0, w - (pX * 2) - indicatorOffset);
         const drawLabel = (labelHasKeys && labelSegments)
             ? labelStr
