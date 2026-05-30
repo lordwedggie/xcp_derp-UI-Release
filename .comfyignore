@@ -1,0 +1,9 @@
+# Dev-only — never ship
+_temp/
+_bump.py
+_fix_toml.py
+derp_docs/
+notes.txt
+
+# Git garbage
+%SystemDrive/
