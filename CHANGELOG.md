@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Fixed
-- **Docked stack overlay bug (one whole day of pain)**: Rare edge case where vertically and horizontally docked nodes would completely overlap — two nodes sitting at the exact same position like one sad ghost. Root cause: a bug introduced when the Sticky Drag toggle was added. Some nodes/widgets still allowed normal drag behavior when sticky drag was active, which broke the collapse-to-docked-stack logic. Nodes would drift into each other's positions during collapse/expand cycles in docked groups. Fixed by ensuring the sticky drag gate properly blocks all normal-drag paths when the toggle is on.
+- **Docked stack overlay bug (one whole day of pain)**: Rare edge case where vertically and horizontally docked nodes would completely overlap — two nodes sitting at the exact same position like one sad ghost. Root cause: `normalizeSharedEdgePair` in the dock engine was using only the two seed nodes to calculate `totalHeight`, ignoring non-seed members in multi-column dock groups. Fixed by taking the max height across ALL column members.
 
 ### Added
 - **Multi-Color-Key Text Framework**: Every widget now supports `{{keyName}}` syntax in text strings for per-segment color from themes or palettes. Extended syntax supports `{{key:_ON::displayText}}` for state-specific coloring with custom display text. Framework-level — all widgets inherit automatically via `resolveWidgetEnv`.
