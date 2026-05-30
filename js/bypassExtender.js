@@ -7,6 +7,7 @@ import { app } from "../../../scripts/app.js";
 const REMOTE_BYPASS_MENU = "🔀 Apply Derp Remote Bypass";
 const REMOTE_BYPASS_CLEAR = "🔀 Clear Derp Remote Bypass";
 const REMOTE_BYPASS_META = "derpRemoteBypass";
+const REMOTE_BYPASS_TITLE_SUFFIX = " \uD83D\uDD1E";
 const remoteBypassGroups = new Set();
 
 function isGraphGroup(entity) {
@@ -145,18 +146,48 @@ function getRemoteBypassState(entity) {
     return entity?.properties?.[REMOTE_BYPASS_META] || null;
 }
 
+function stripRemoteBypassTitleSuffix(title) {
+    let cleanTitle = String(title || "");
+    while (cleanTitle.endsWith(REMOTE_BYPASS_TITLE_SUFFIX)) {
+        cleanTitle = cleanTitle.slice(0, -REMOTE_BYPASS_TITLE_SUFFIX.length);
+    }
+    return cleanTitle;
+}
+
+function getEntityTitleKey(entity) {
+    if (!entity) return null;
+    if (typeof entity.title === "string") return "title";
+    if (typeof entity.titleLabel === "string") return "titleLabel";
+    if (typeof entity._title === "string") return "_title";
+    if (typeof entity.name === "string") return "name";
+    return null;
+}
+
+function setRemoteBypassTitleSuffix(entity, enabled) {
+    const key = getEntityTitleKey(entity);
+    if (!key) return;
+    const baseTitle = stripRemoteBypassTitleSuffix(entity[key]);
+    entity[key] = enabled ? `${baseTitle}${REMOTE_BYPASS_TITLE_SUFFIX}` : baseTitle;
+
+    if (!isGraphGroup(entity) && entity.properties?.titleLabel && key === "titleLabel") {
+        entity.properties.titleLabel = entity[key];
+    }
+}
+
 function setRemoteBypassState(entity, nextState) {
     if (isGraphGroup(entity)) {
         remoteBypassGroups.add(entity);
         entity.flags = entity.flags || {};
         if (nextState) entity.flags[REMOTE_BYPASS_META] = nextState;
         else delete entity.flags[REMOTE_BYPASS_META];
+        setRemoteBypassTitleSuffix(entity, !!nextState);
         return;
     }
 
     entity.properties = entity.properties || {};
     if (nextState) entity.properties[REMOTE_BYPASS_META] = nextState;
     else delete entity.properties[REMOTE_BYPASS_META];
+    setRemoteBypassTitleSuffix(entity, !!nextState);
 }
 
 function getSignalById(signalId) {
@@ -506,22 +537,6 @@ app.registerExtension({
                     }
                 });
             }
-        };
-
-        const onDrawForeground = nodeType.prototype.onDrawForeground;
-        nodeType.prototype.onDrawForeground = function(ctx) {
-            if (onDrawForeground) onDrawForeground.apply(this, arguments);
-            const state = getRemoteBypassState(this);
-            if (!state?.signalId) return;
-
-            const tag = state.missing ? "RB?" : "RB";
-            ctx.save();
-            ctx.font = "10px Arial";
-            ctx.textAlign = "right";
-            ctx.textBaseline = "top";
-            ctx.fillStyle = state.missing ? "#ff9e80" : "#b3e5fc";
-            ctx.fillText(tag, (this.size?.[0] || 0) - 8, 24);
-            ctx.restore();
         };
 
         nodeType.prototype.applyRemoteBypassSignal = function() {
