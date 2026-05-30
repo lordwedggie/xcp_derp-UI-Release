@@ -97,7 +97,7 @@ export function applyDerpBackgroundImageImpl(backgroundName = "") {
 }
 
 export async function hydrateDerpBackgroundSettingImpl(settingId = "Derp.BackgroundImage") {
-    const initialValue = app.ui?.settings?.getSettingValue?.(settingId, "none") || "none";
+    const initialValue = app.ui?.settings?.getSettingValue?.(settingId, "_default") || "_default";
     applyDerpBackgroundImageImpl(initialValue);
 
     try {
@@ -105,8 +105,10 @@ export async function hydrateDerpBackgroundSettingImpl(settingId = "Derp.Backgro
         if (!response.ok) throw new Error("Failed to list backgrounds");
         const result = await response.json();
         const items = Array.isArray(result?.items) ? result.items.slice().sort((a, b) => String(a).localeCompare(String(b))) : [];
+        const hasInitialValue = initialValue.toLowerCase() === "none" || items.some((name) => String(name) === initialValue);
         window.__xcpDerpBackgroundOptions = [
             { value: "none", text: "None" },
+            ...(hasInitialValue ? [] : [{ value: initialValue, text: initialValue }]),
             ...items.map(name => ({ value: name, text: name }))
         ];
         return window.__xcpDerpBackgroundOptions;

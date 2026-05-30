@@ -6,6 +6,9 @@ import { app } from "../../../scripts/app.js";
 import { applyDerpBackgroundImage, hydrateDerpBackgroundSetting } from "./fatha/core/fathaHandler.js";
 
 const HOTKEY_SETTINGS = [];
+const CANVAS_PALETTE_SETTING_ID = "Derp.CanvasPalette";
+const DERP_DEFAULT_SELECTION = "_default";
+const CANVAS_PALETTE_NONE = "none";
 const DERP_CATEGORY = "Derp";
 function makeDerpCategory(group, leaf) {
     return [DERP_CATEGORY, group, leaf];
@@ -156,6 +159,89 @@ function normalizeBooleanSetting(value, fallback = false) {
     return fallback;
 }
 
+async function fetchDerpList(category) {
+    const response = await fetch(`/xcp/list/${encodeURIComponent(category)}?t=${Date.now()}`);
+    if (!response.ok) throw new Error(`Unable to list ${category}.`);
+    const data = await response.json();
+    return Array.isArray(data.items) ? data.items : [];
+}
+
+function makeComboOptions(items, firstOption = null) {
+    const options = items.map((item) => ({ value: item, text: item }));
+    return firstOption ? [firstOption, ...options] : options;
+}
+
+function getComfySettingStore() {
+    const workspace = app.extensionManager?.stores?.workspace;
+    return workspace?.setting || null;
+}
+
+function getComfyColorPaletteService() {
+    const workspace = app.extensionManager?.stores?.workspace;
+    return workspace?.colorPalette || null;
+}
+
+async function getComfySettingValue(id, fallback) {
+    const store = getComfySettingStore();
+    if (store?.get) {
+        const value = store.get(id);
+        if (value !== undefined) return value;
+    }
+    return app.ui?.settings?.getSettingValue?.(id, fallback) ?? fallback;
+}
+
+async function setComfySettingValue(id, value) {
+    const store = getComfySettingStore();
+    if (store?.set) {
+        await store.set(id, value);
+        return;
+    }
+    if (app.ui?.settings?.setSettingValue) {
+        app.ui.settings.setSettingValue(id, value);
+    }
+}
+
+async function applyDerpCanvasPalette(paletteName) {
+    const name = String(paletteName || CANVAS_PALETTE_NONE).trim() || CANVAS_PALETTE_NONE;
+    window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
+    window.DERP_GLOBAL_SETTINGS.canvasPalette = name;
+    if (name === CANVAS_PALETTE_NONE) return;
+
+    const response = await fetch(`/xcp/load/canvasPalette?name=${encodeURIComponent(name)}&t=${Date.now()}`);
+    if (!response.ok) throw new Error(`Canvas palette ${name} not found.`);
+    const result = await response.json();
+    const palette = result.data;
+    const paletteId = String(palette?.id || "").trim();
+    if (!paletteId) throw new Error(`Canvas palette ${name} is missing an id.`);
+
+    const colorPaletteService = getComfyColorPaletteService();
+    if (colorPaletteService?.addCustomColorPalette && colorPaletteService?.loadColorPalette) {
+        try {
+            await colorPaletteService.addCustomColorPalette(palette);
+        } catch (err) {
+            const message = String(err?.message || err || "");
+            if (!message.toLowerCase().includes("already exists")) throw err;
+        }
+        await colorPaletteService.loadColorPalette(paletteId);
+        await setComfySettingValue("Comfy.ColorPalette", paletteId);
+        if (app.canvas) app.canvas.setDirty(true, true);
+        return;
+    }
+
+    const currentPalettes = await getComfySettingValue("Comfy.CustomColorPalettes", {});
+    const nextPalettes = { ...(currentPalettes && typeof currentPalettes === "object" ? currentPalettes : {}) };
+    nextPalettes[paletteId] = palette;
+
+    await setComfySettingValue("Comfy.CustomColorPalettes", nextPalettes);
+    await setComfySettingValue("Comfy.ColorPalette", paletteId);
+    if (app.canvas) app.canvas.setDirty(true, true);
+}
+
+async function hydrateDerpCanvasPaletteSetting() {
+    const items = await fetchDerpList("canvasPalette");
+    return makeComboOptions(items.sort(), { value: CANVAS_PALETTE_NONE, text: "None" });
+}
+
 app.registerExtension({
     name: "xcp.DerpSettings",
     init() {
@@ -262,13 +348,26 @@ app.registerExtension({
 
             type: "combo",
             options: [{ value: "none", text: "None" }],
-            default: "none",
+            default: DERP_DEFAULT_SELECTION,
             onChange: (v) => {
-                const value = String(v || "none").trim() || "none";
+                const value = String(v || DERP_DEFAULT_SELECTION).trim() || DERP_DEFAULT_SELECTION;
                 window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
                 window.DERP_GLOBAL_SETTINGS.backgroundImage = value;
                 applyDerpBackgroundImage(value);
                 if (app.canvas) app.canvas.setDirty(true, true);
+            }
+        });
+
+        app.ui.settings.addSetting({
+            id: CANVAS_PALETTE_SETTING_ID,
+            name: "Canvas Color Palette",
+            category: DERP_GROUPS.general("Canvas Color Palette"),
+            sortOrder: DERP_GROUP_SORT_ORDER.general,
+            type: "combo",
+            options: [{ value: CANVAS_PALETTE_NONE, text: "None" }],
+            default: DERP_DEFAULT_SELECTION,
+            onChange: (v) => {
+                applyDerpCanvasPalette(v).catch((err) => console.error("[xcpDerp] Canvas palette load failed:", err));
             }
         });
 
@@ -418,7 +517,8 @@ app.registerExtension({
             playSound: app.ui.settings.getSettingValue("Derp.PlaySound", true),
             useAnimation: app.ui.settings.getSettingValue("Derp.UseAnimation", true),
             closeSysPanelOnOutsideClick: normalizeBooleanSetting(app.ui.settings.getSettingValue("Derp.CloseSysPanelOnOutsideClick", true), true),
-            backgroundImage: String(app.ui.settings.getSettingValue("Derp.BackgroundImage", "none") || "none"),
+            backgroundImage: String(app.ui.settings.getSettingValue("Derp.BackgroundImage", DERP_DEFAULT_SELECTION) || DERP_DEFAULT_SELECTION),
+            canvasPalette: String(app.ui.settings.getSettingValue(CANVAS_PALETTE_SETTING_ID, DERP_DEFAULT_SELECTION) || DERP_DEFAULT_SELECTION),
             verticalDockHeaderCollapse: normalizeBooleanSetting(app.ui.settings.getSettingValue("Derp.VerticalDockHeaderCollapse", true), true),
             syncedCollapse: normalizeBooleanSetting(app.ui.settings.getSettingValue("Derp.SyncedCollapse", true), true),
             perfOverlayHotkey: normalizeHotkeyString(app.ui.settings.getSettingValue("Derp.PerfOverlayHotkey", "Alt+Shift+P"), "Alt+Shift+P"),
@@ -437,6 +537,15 @@ app.registerExtension({
                 setting.options = options;
             }
             applyDerpBackgroundImage(window.DERP_GLOBAL_SETTINGS.backgroundImage);
+        });
+
+        hydrateDerpCanvasPaletteSetting().then((options) => {
+            const registry = app.ui?.settings?.settingsLookup;
+            const setting = registry?.[CANVAS_PALETTE_SETTING_ID];
+            if (setting && Array.isArray(options) && options.length) {
+                setting.options = options;
+            }
+            applyDerpCanvasPalette(window.DERP_GLOBAL_SETTINGS.canvasPalette).catch((err) => console.error("[xcpDerp] Canvas palette load failed:", err));
         });
     }
 });

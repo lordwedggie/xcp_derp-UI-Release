@@ -101,6 +101,7 @@ def resolve_derp_subdir(preferred_name, *legacy_names):
 
 THEME_DIR = resolve_derp_subdir("Themes", "themes")
 PALETTE_DIR = resolve_derp_subdir("Palettes", "palettes")
+CANVAS_PALETTE_DIR = resolve_derp_subdir("canvasPalette")
 BACKGROUNDS_DIR = resolve_derp_subdir("backgrounds")
 SETTINGS_DIR = resolve_derp_subdir("nodeSettings")
 PROMPT_BOOK_DIR = resolve_derp_subdir("derpPromptBook")

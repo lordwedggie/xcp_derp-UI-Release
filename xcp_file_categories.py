@@ -8,6 +8,7 @@ import folder_paths
 
 from .xcp_file_common import (
     BACKGROUNDS_DIR,
+    CANVAS_PALETTE_DIR,
     LOCALE_DIR,
     LORA_STACKS_DIR,
     MODEL_FILE_EXTENSIONS,
@@ -44,6 +45,13 @@ def get_background_search_dirs():
     ]
 
 
+def get_canvas_palette_search_dirs():
+    from .xcp_file_common import PRIMARY_ROOT
+    return [
+        f"{PRIMARY_ROOT}/canvasPalette",
+    ]
+
+
 CATEGORY_SPECS = {
     "themes": {
         "dir": THEME_DIR,
@@ -69,6 +77,12 @@ CATEGORY_SPECS = {
         "search_dirs": get_background_search_dirs,
         "list_extensions": BACKGROUND_FILE_EXTENSIONS,
         "preserve_extension": True,
+    },
+    "canvasPalette": {
+        "dir": CANVAS_PALETTE_DIR,
+        "file_extension": ".json",
+        "search_dirs": get_canvas_palette_search_dirs,
+        "use_search_lookup": True,
     },
     "derpPromptBook": {"dir": PROMPT_BOOK_DIR, "file_extension": ".json"},
     "books": {"dir": PROMPT_BOOK_DIR, "file_extension": ".json"},
