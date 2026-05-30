@@ -22,6 +22,7 @@ import { getNodeOnDeckEdge, isLinearDeckGroup } from "./masterDockEngine.js";
 import { clearEntityTooltip } from "./fathaHandler.js";
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
 import { MASTER_Z, promoteMasterZ } from "./masterZ.js";
+import { isComfyVueNodesMode } from "./fathaNode2Compat.js";
 
 // DEBUG_MODE is now dynamically handled via node.properties.debugMode
 
@@ -249,6 +250,44 @@ export function createDerpShield(node) {
         return null;
     };
 
+    const resolveLegacyInputSlotAtClientPoint = (e, connector) => {
+        const graph = node.graph || app.graph || app.rootGraph || app.canvas?.graph;
+        const pointer = clientToGraphPos(e.clientX, e.clientY);
+        if (!graph?._nodes || !pointer) return null;
+
+        let best = null;
+        let bestDist = Infinity;
+        const SNAP_RADIUS = 24;
+
+        for (const targetNode of graph._nodes) {
+            if (!targetNode || targetNode === node || !targetNode.inputs?.length) continue;
+
+            for (let inputIndex = 0; inputIndex < targetNode.inputs.length; inputIndex++) {
+                const input = targetNode.inputs[inputIndex];
+                if (!input) continue;
+                if (connector && !connector.isInputValidDrop(targetNode, input)) continue;
+
+                const pos = targetNode.getConnectionPos?.(true, inputIndex);
+                if (!pos) continue;
+
+                const dx = pos[0] - pointer[0];
+                const dy = pos[1] - pointer[1];
+                const dist = Math.hypot(dx, dy);
+                if (dist > SNAP_RADIUS || dist >= bestDist) continue;
+
+                bestDist = dist;
+                best = { node: targetNode, input, inputIndex, pos: [pos[0], pos[1]] };
+            }
+        }
+
+        return best;
+    };
+
+    const resolveInputSlotAtClientPoint = (e, connector) => {
+        if (isComfyVueNodesMode()) return resolveVueInputSlotAtClientPoint(e, connector);
+        return resolveLegacyInputSlotAtClientPoint(e, connector);
+    };
+
     const syncCanvasPointerState = (e, snapPos = null) => {
         const canvas = app.canvas;
         if (!canvas) return null;
@@ -296,7 +335,7 @@ export function createDerpShield(node) {
 
         const onLinkMove = (moveEvent) => {
             if (moveEvent.pointerId !== e.pointerId) return;
-            validTarget = resolveVueInputSlotAtClientPoint(moveEvent, connector);
+            validTarget = resolveInputSlotAtClientPoint(moveEvent, connector);
             app.canvas._highlight_pos = validTarget?.pos;
             app.canvas._highlight_input = validTarget?.input;
             forceSignalOutRenderLinkOrigin(connector, output);
@@ -308,7 +347,7 @@ export function createDerpShield(node) {
             window.removeEventListener("pointermove", onLinkMove, true);
             window.removeEventListener("pointerup", finishLinkDrag, true);
             window.removeEventListener("pointercancel", finishLinkDrag, true);
-            validTarget = resolveVueInputSlotAtClientPoint(upEvent, connector) || validTarget;
+            validTarget = resolveInputSlotAtClientPoint(upEvent, connector) || validTarget;
             const proxyUp = syncCanvasPointerState(upEvent, validTarget?.pos || null) || getSignalOutCanvasPointerEvent(upEvent, "pointerup");
             forceSignalOutRenderLinkOrigin(connector, output);
             if (connector.isConnecting && validTarget?.node && validTarget?.input) {
