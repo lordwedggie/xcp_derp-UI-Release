@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 - **Docked stack overlay bug (one whole day of pain)**: Rare edge case where vertically and horizontally docked nodes would completely overlap — two nodes sitting at the exact same position like one sad ghost. Root cause: `normalizeSharedEdgePair` in the dock engine was using only the two seed nodes to calculate `totalHeight`, ignoring non-seed members in multi-column dock groups. Fixed by taking the max height across ALL column members.
 
 ### Added
+- **Canvas Color Palettes**: ComfyUI's Color Palette system, now with easier loading — just pick a profile and go. Two default profiles included. No more spelunking through nested menus just to change the damn grid color.
 - **DerpNodes is now compatible with Node 2.0**: Full compatibility with ComfyUI's Vue-based Node 2.0 rendering — DOM shields, event pass-through, and native shell suppression all adapted for the new architecture.
 - **Multi-Color-Key Text Framework**: Every widget now supports `{{keyName}}` syntax in text strings for per-segment color from themes or palettes. Extended syntax supports `{{key:_ON::displayText}}` for state-specific coloring with custom display text. Framework-level — all widgets inherit automatically via `resolveWidgetEnv`.
 - **Two-color trigger display in derpLoraStack**: Trigger names render in `_ON` state colors, trigger tags in `_OFF` state colors, both in the collapsed trigger and the picker dropdown.
