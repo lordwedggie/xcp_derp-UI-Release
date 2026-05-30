@@ -397,6 +397,10 @@ function openFilePicker(config, node) {
             currentDir = normalized.substring(0, normalized.lastIndexOf("/"));
         }
     }
+    // If the resolved directory is the _Template folder, start at root instead
+    if (currentDir && (currentDir === "_Template" || currentDir === "_Templates" || currentDir.startsWith("_Template/"))) {
+        currentDir = "";
+    }
 
     activeFilePicker = {
         key: config.key,

@@ -216,6 +216,17 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                 const isPickupOriginRow = !!(hasDragPickup && !hasDropPreview && dragIndex === idx && !item.isPreviewGhost);
                                 const shouldGhostHideChildren = isHiddenGhost;
                                 const rowAlpha = (isHiddenGhost || isPickupOriginRow) ? 0 : 1.0;
+                                const beginOutputRowDrag = (e, data) => startStackDrag(this, data, idx, rowKey, { holdOnly: true });
+                                const updateOutputRowDrag = (e, data) => { updateStackDrag(this, data, "outputsRegion_display_", activeOuts.length); this.refreshNodeLayoutMap(); };
+                                const endOutputRowDrag = () => {
+                                    const fromIdx = this._dragTrig?.index;
+                                    const toIdx = this._dropPreviewIdx;
+                                    endStackDrag(this, "_derpSignalOutDragProxy");
+                                    this._signalOutFloatingSnapshot = null;
+                                    if (fromIdx !== undefined && toIdx !== undefined && fromIdx !== toIdx && this.reorderDerpOutputs) {
+                                        this.reorderDerpOutputs(fromIdx, toIdx);
+                                    }
+                                };
 
                                 acc[rowKey] = {
                                     anchor: { target: prev, axis: "y", offset: displayIdx === 0 ? 0 : sH },
@@ -226,17 +237,9 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                     pulseFromState: "_ON",
                                     pulseToState: "_DIS",
                                     alpha: rowAlpha,
-                                    onDragStart: (e, data) => startStackDrag(this, data, idx, rowKey, { holdOnly: true }),
-                                    onDrag: (e, data) => { updateStackDrag(this, data, "outputsRegion_display_", activeOuts.length); this.refreshNodeLayoutMap(); },
-                                    onDragEnd: () => {
-                                        const fromIdx = this._dragTrig?.index;
-                                        const toIdx = this._dropPreviewIdx;
-                                        endStackDrag(this, "_derpSignalOutDragProxy");
-                                        this._signalOutFloatingSnapshot = null;
-                                        if (fromIdx !== undefined && toIdx !== undefined && fromIdx !== toIdx && this.reorderDerpOutputs) {
-                                            this.reorderDerpOutputs(fromIdx, toIdx);
-                                        }
-                                    },
+                                    onDragStart: beginOutputRowDrag,
+                                    onDrag: updateOutputRowDrag,
+                                    onDragEnd: endOutputRowDrag,
                                     onPress: () => handleSignalOutEntryPress(this),
                                     [`lblOutputInfo_${idx}`]: {
                                         type: UI_TYPES.BUTTON,
@@ -247,6 +250,9 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                         width: "full", padding: [pW, pH], spacing: [sW, 0],
                                         state: isPickedUp ? "ON" : ((isBypassed || !isConnected) ? "DIS" : "OFF"),
                                         alpha: rowAlpha,
+                                        onDragStart: beginOutputRowDrag,
+                                        onDrag: updateOutputRowDrag,
+                                        onDragEnd: endOutputRowDrag,
                                         onPress: () => handleSignalOutEntryPress(this),
                                         pulse: sig.isOrphaned === true,
                                         pulseSpeed: ORPHAN_PULSE_SPEED,
