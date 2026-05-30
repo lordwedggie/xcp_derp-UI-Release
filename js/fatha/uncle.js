@@ -116,6 +116,14 @@ export function uncle(nodeType, nodeData, minWidth = 100) {
     nodeType.prototype.getConnectionPos = function(is_input, slot_number, out) {
         out = out || new Float32Array(2);
 
+        const slots = is_input ? (this._xcpTrueInputs || this.inputs) : (this._xcpTrueOutputs || this.outputs);
+        const slot = slots?.[slot_number];
+        if (slot?.pos && slot.pos[0] !== -1000 && slot.pos[1] !== -1000) {
+            out[0] = this.pos[0] + slot.pos[0];
+            out[1] = this.pos[1] + slot.pos[1];
+            return out;
+        }
+
         if (!is_input && (this.properties?.showOutputs === false || this.isPureVirtual)) {
             out[0] = this.pos[0] + this.size[0];
             out[1] = this.pos[1] + 25;

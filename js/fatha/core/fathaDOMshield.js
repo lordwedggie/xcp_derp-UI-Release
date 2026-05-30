@@ -492,10 +492,6 @@ export function createDerpShield(node) {
         node._uiHovered = true;
         node._derpAwakeFrames = 5;
         if (!isBasta) {
-            if (window.__xcpSliderLerpDebug && String(node?.type || "").toLowerCase().includes("derpslidernode")) {
-                node._xcpLastForceSyncReason = "shield.mouseenter";
-                node._xcpLastForceSyncTs = performance.now();
-            }
             node._forceSync = true;
         }
         if (typeof node.requestDerpSync === "function") node.requestDerpSync();
@@ -524,10 +520,6 @@ export function createDerpShield(node) {
 
         node._derpAwakeFrames = 5;
         if (!isBasta) {
-            if (window.__xcpSliderLerpDebug && String(node?.type || "").toLowerCase().includes("derpslidernode")) {
-                node._xcpLastForceSyncReason = "shield.mouseleave";
-                node._xcpLastForceSyncTs = performance.now();
-            }
             node._forceSync = true;
         }
         if (typeof node.requestDerpSync === "function") node.requestDerpSync();

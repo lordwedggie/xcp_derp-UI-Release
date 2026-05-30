@@ -43,6 +43,29 @@ function getGraphNodeByDomId(id) {
     return graph?.getNodeById?.(id) || graph?.getNodeById?.(Number(id)) || null;
 }
 
+function hideElement(el) {
+    if (!el?.style) return;
+    el.style.visibility = "hidden";
+    el.style.opacity = "0";
+    el.style.pointerEvents = "none";
+}
+
+function makeShellWrapperTransparent(el) {
+    if (!el?.style) return;
+    el.style.background = "transparent";
+    el.style.backgroundColor = "transparent";
+    el.style.borderColor = "transparent";
+    el.style.boxShadow = "none";
+}
+
+function hideChildrenWithoutSlots(root) {
+    if (!root?.children) return;
+    Array.from(root.children).forEach((child) => {
+        if (child.classList?.contains("lg-slot") || child.querySelector?.(".lg-slot")) return;
+        hideElement(child);
+    });
+}
+
 export function suppressNativeVueNodeShell(node) {
     if (!isDerpCustomNode(node) || !isComfyVueNodesMode()) return false;
     const el = getNativeVueNodeElement(node);
@@ -51,6 +74,33 @@ export function suppressNativeVueNodeShell(node) {
     if (!el.hasAttribute(NODE2_SUPPRESSED_ATTR)) {
         el.setAttribute(NODE2_SUPPRESSED_ATTR, "true");
         el.dataset.xcpFathaNodeId = String(node.id);
+    }
+
+    if (node.type === "xcpDerpSignalOut") {
+        el.style.removeProperty("visibility");
+        el.style.removeProperty("opacity");
+        el.style.pointerEvents = "none";
+        el.style.userSelect = "none";
+        makeShellWrapperTransparent(el);
+
+        hideChildrenWithoutSlots(el);
+
+        el.querySelectorAll("[data-testid='node-state-outline-overlay'], [data-testid='node-inner-wrapper'] > :not([data-testid^='node-body-'])")
+            .forEach(hideElement);
+
+        el.querySelectorAll("[data-testid='node-inner-wrapper'], [data-testid^='node-body-']")
+            .forEach((child) => {
+                makeShellWrapperTransparent(child);
+                hideChildrenWithoutSlots(child);
+            });
+
+        el.querySelectorAll(".lg-slot, .lg-slot *")
+            .forEach((child) => {
+                child.style.removeProperty("visibility");
+                child.style.opacity = "0";
+                child.style.pointerEvents = "none";
+            });
+        return true;
     }
 
     // Vue Nodes own a DOM shell that can retain stale outlines/position after

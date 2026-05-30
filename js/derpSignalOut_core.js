@@ -991,7 +991,8 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                             const sPos = sourceNode.getConnectionPos(false, portIdx);
                             const startX = sPos[0] - node.pos[0], startY = sPos[1] - node.pos[1];
                             const endX = 0;
-                            const reg = node.layout?.regions?.["outputsRegion_" + idx];
+                            const reg = node.layout?.regions?.[`outputsRegion_display_${idx}`]
+                                || Object.values(node.layout?.regions || {}).find((region) => region?.outSlotIdx === idx);
                             const endY = reg ? (reg.y + reg.h / 2) : (node.getConnectionPos ? (node.getConnectionPos(false, idx)[1] - node.pos[1]) : (50 + idx * 25));
                             ctx.beginPath();
                             ctx.setLineDash(node.vLinkDash || [8, 4]);

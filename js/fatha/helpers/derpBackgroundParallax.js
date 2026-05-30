@@ -37,12 +37,7 @@ function ensureDerpBackgroundLayerImpl() {
         if (!canvasEl.parentElement.style.position) {
             canvasEl.parentElement.style.position = "relative";
         }
-        canvasEl.style.position = canvasEl.style.position || "relative";
-        if (isComfyVueNodesMode()) {
-            if (canvasEl.style.zIndex === "1") canvasEl.style.zIndex = "";
-        } else {
-            canvasEl.style.zIndex = "1";
-        }
+        syncDerpBackgroundCanvasZIndex(canvasEl);
     } else {
         document.body.appendChild(layer);
     }
@@ -51,17 +46,29 @@ function ensureDerpBackgroundLayerImpl() {
     return layer;
 }
 
+function syncDerpBackgroundCanvasZIndex(canvasEl = app?.canvas?.canvas) {
+    if (!canvasEl) return;
+    if (isComfyVueNodesMode()) {
+        if (canvasEl.style.zIndex === "1") canvasEl.style.zIndex = "";
+        return;
+    }
+
+    canvasEl.style.zIndex = "1";
+}
+
+function scheduleDerpBackgroundCanvasZIndexSync() {
+    syncDerpBackgroundCanvasZIndex();
+    window.requestAnimationFrame?.(() => syncDerpBackgroundCanvasZIndex());
+    [100, 500, 1500].forEach((delay) => setTimeout(syncDerpBackgroundCanvasZIndex, delay));
+}
+
 function ensureDerpBackgroundCanvasTransparencyImpl() {
     const canvasEl = app?.canvas?.canvas;
     if (!canvasEl) return;
 
     canvasEl.style.background = "transparent";
     canvasEl.style.position = canvasEl.style.position || "relative";
-    if (isComfyVueNodesMode()) {
-        if (canvasEl.style.zIndex === "1") canvasEl.style.zIndex = "";
-    } else {
-        canvasEl.style.zIndex = "1";
-    }
+    scheduleDerpBackgroundCanvasZIndexSync();
     const layer = window.__xcpDerpBackgroundLayer;
     if (layer && canvasEl.parentElement && layer.parentElement !== canvasEl.parentElement) {
         canvasEl.parentElement.insertBefore(layer, canvasEl);

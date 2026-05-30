@@ -16,7 +16,7 @@ import { transmitBypassedDerpSignals, transmitDerpSignal, purgeDerpSignal } from
 import { animateRecoil } from "../herbina/masterAnimator.js";
 import { initPerfOverlay, togglePerfOverlay } from "./helpers/fathaPerfOverlay.js";
 import { promoteMasterZ, syncMasterZ } from "./core/masterZ.js";
-import { scheduleNativeVueNodeShellSuppression, shouldMutateLegacySelectionForDraw, suppressNativeVueNodeShell } from "./core/fathaNode2Compat.js";
+import { isComfyVueNodesMode, scheduleNativeVueNodeShellSuppression, shouldMutateLegacySelectionForDraw, suppressNativeVueNodeShell } from "./core/fathaNode2Compat.js";
 
 const FATHA_OVERLAY_WINDOW_MS = 4000;
 
@@ -275,11 +275,12 @@ if (!window._xcpFathaGlobalHijack) {
             // UNCLE HEIST: Cache state and ghost slots (shared pattern with Fatha)
             node._xcpTrueSelected = node.selected;
             node._xcpTrueInMap = !!(app.canvas.selected_nodes && app.canvas.selected_nodes[node.id]);
+            const keepNativeSignalOutSlots = node.type === "xcpDerpSignalOut" && isComfyVueNodesMode();
 
             node._xcpTrueInputs = node.inputs;
             node._xcpTrueOutputs = node.outputs;
             if (node.inputs) node.inputs = [];
-            if (node.outputs) node.outputs = [];
+            if (node.outputs && !keepNativeSignalOutSlots) node.outputs = [];
 
             const isSelected = node._xcpTrueSelected || node._xcpTrueInMap;
             node._xcpGhosted = !isSelected;
@@ -305,6 +306,19 @@ if (!window._xcpFathaGlobalHijack) {
     if (!window._xcpLinkColorHijack) {
         const originalRenderLink = LGraphCanvas.prototype.renderLink;
         LGraphCanvas.prototype.renderLink = function (ctx, a, b, link, skip_border, flow, color, start_dir, end_dir) {
+            const originId = link?.origin_id ?? link?.source_id;
+            const originSlot = Number(link?.origin_slot ?? link?.source_slot);
+            const originNode = originId !== undefined
+                ? (app?.graph?.getNodeById?.(originId) || app?.graph?.getNodeById?.(Number(originId)))
+                : null;
+            if (originNode?.type === "xcpDerpSignalOut" && Number.isFinite(originSlot)) {
+                originNode.syncUncleSlots?.();
+                const slotPos = originNode.outputs?.[originSlot]?.pos || originNode._xcpTrueOutputs?.[originSlot]?.pos;
+                if (Array.isArray(slotPos) && slotPos[0] !== -1000 && slotPos[1] !== -1000) {
+                    a = [originNode.pos[0] + slotPos[0], originNode.pos[1] + slotPos[1]];
+                }
+            }
+
             if (link && link.type) {
                 let type = String(link.type).toUpperCase();
                 // Normalization for complex types
@@ -481,44 +495,6 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
         const needsLayoutCompute = hasLayoutChanged || this._forceSync || this._layoutDirty;
         const collapseStateChanged = this._prevContentCollapsed !== this.properties.contentCollapsed;
         if (this._layoutDirty) this._layoutDirty = false;
-
-        if (window.__xcpSliderLerpDebug && String(this?.type || "").toLowerCase().includes("derpslidernode") && this._sliderLerpDebugState) {
-            for (const state of Object.values(this._sliderLerpDebugState)) {
-                if (!state?.active) continue;
-                if (!Array.isArray(state.drawSamples)) state.drawSamples = [];
-                const forceReason = this._xcpLastForceSyncReason || "";
-                if (this._forceSync && forceReason && state._lastLoggedForceReason !== forceReason) {
-                    state._lastLoggedForceReason = forceReason;
-                    console.log("[xcp slider force]", {
-                        nodeId: this?.id,
-                        nodeType: this?.type,
-                        elapsedMs: Math.round(performance.now() - Number(state.startTs || 0)),
-                        reason: forceReason,
-                    });
-                }
-                if (state.drawSamples.length < 6) {
-                    state.drawSamples.push({
-                        draw: state.drawSamples.length + 1,
-                        elapsedMs: Math.round(performance.now() - Number(state.startTs || 0)),
-                        awakeFrames: Number(this._derpAwakeFrames || 0),
-                        shouldSync: !!this._shouldSync,
-                        forceSync: !!this._forceSync,
-                        forceSyncReason: this._xcpLastForceSyncReason || "",
-                    });
-                    if (state.drawSamples.length === 6) {
-                        const summary = state.drawSamples
-                            .map((sample) => `d${sample.draw}:${sample.elapsedMs}ms[a${sample.awakeFrames}|s${sample.shouldSync ? 1 : 0}|f${sample.forceSync ? 1 : 0}|r${sample.forceSyncReason || "-"}]`)
-                            .join(" | ");
-                        console.log("[xcp slider draw]", {
-                            nodeId: this?.id,
-                            nodeType: this?.type,
-                            summary,
-                            samples: state.drawSamples,
-                        });
-                    }
-                }
-            }
-        }
 
         if (this._prevContentCollapsed !== this.properties.contentCollapsed) {
             this._prevContentCollapsed = this.properties.contentCollapsed;
