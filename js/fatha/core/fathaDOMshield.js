@@ -32,6 +32,8 @@ export function createDerpShield(node) {
 
     shield.style.cssText = `
         position: fixed; 
+        top: 0;
+        left: 0;
         z-index: 5; 
         background: transparent;
         pointer-events: auto; 

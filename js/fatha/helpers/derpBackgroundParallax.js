@@ -1,4 +1,5 @@
 import { app } from "../../../../scripts/app.js";
+import { isComfyVueNodesMode } from "../core/fathaNode2Compat.js";
 
 export const DERP_BACKGROUND_PARALLAX_CONFIG = {
     initialScale: 1.5,
@@ -37,7 +38,11 @@ function ensureDerpBackgroundLayerImpl() {
             canvasEl.parentElement.style.position = "relative";
         }
         canvasEl.style.position = canvasEl.style.position || "relative";
-        canvasEl.style.zIndex = "1";
+        if (isComfyVueNodesMode()) {
+            if (canvasEl.style.zIndex === "1") canvasEl.style.zIndex = "";
+        } else {
+            canvasEl.style.zIndex = "1";
+        }
     } else {
         document.body.appendChild(layer);
     }
@@ -52,7 +57,11 @@ function ensureDerpBackgroundCanvasTransparencyImpl() {
 
     canvasEl.style.background = "transparent";
     canvasEl.style.position = canvasEl.style.position || "relative";
-    canvasEl.style.zIndex = "1";
+    if (isComfyVueNodesMode()) {
+        if (canvasEl.style.zIndex === "1") canvasEl.style.zIndex = "";
+    } else {
+        canvasEl.style.zIndex = "1";
+    }
     const layer = window.__xcpDerpBackgroundLayer;
     if (layer && canvasEl.parentElement && layer.parentElement !== canvasEl.parentElement) {
         canvasEl.parentElement.insertBefore(layer, canvasEl);

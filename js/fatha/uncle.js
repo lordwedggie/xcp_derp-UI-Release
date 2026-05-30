@@ -15,6 +15,7 @@ import { UI_TYPES, COMPONENT_BLUEPRINTS } from "./core/masterLayoutTypes.js";
 import { getVirtualNodeLayoutMap } from "./helpers/fathaLayoutMaps.js";
 import { transmitBypassedDerpSignals, transmitDerpSignal, purgeDerpSignal } from "./core/masterSignalEngine.js";
 import { animateRecoil } from "../herbina/masterAnimator.js";
+import { scheduleNativeVueNodeShellSuppression, suppressNativeVueNodeShell } from "./core/fathaNode2Compat.js";
 
 // THE SQUEEZE CONFIG: Centralized padding values for Uncle link-dots
 const UNCLE_LINK_PAD = { LEFT: 15, RIGHT: 15 };
@@ -141,6 +142,7 @@ export function uncle(nodeType, nodeData, minWidth = 100) {
 
     nodeType.prototype.onDrawForeground = function(ctx) {
         const uncleDrawStart = performance.now();
+        suppressNativeVueNodeShell(this);
         // THE ENGINE-LEVEL BYPASS FIX: Catch mode flips at the start of the frame to purge signals globally
         if (this._lastMode !== this.mode) {
             const isBypassed = this.mode === 4 || this.mode === 2 || this._derpSpoofedBypass;
@@ -448,6 +450,7 @@ export function uncle(nodeType, nodeData, minWidth = 100) {
         this.title = "";
 
         createDerpShield(this);
+        scheduleNativeVueNodeShellSuppression(this);
         const useAnimations = window.DERP_GLOBAL_SETTINGS?.useAnimation ?? true;
         this.properties = { titleLabel: "Node", showInputs: true, showOutputs: true, ...(this.properties || {}), minWidth: minWidth, nodeSize: [minWidth, 50], drawHeader: true, drawSignalBtn: false, drawSettingBtn: false, settingActive: false, contentCollapsed: false, collapseMinimal: false, stickyDrag: window.DERP_GLOBAL_SETTINGS?.stickyDrag ?? false, useAnimations };
         this.size = [...this.properties.nodeSize];

@@ -16,6 +16,7 @@ import { transmitBypassedDerpSignals, transmitDerpSignal, purgeDerpSignal } from
 import { animateRecoil } from "../herbina/masterAnimator.js";
 import { initPerfOverlay, togglePerfOverlay } from "./helpers/fathaPerfOverlay.js";
 import { promoteMasterZ, syncMasterZ } from "./core/masterZ.js";
+import { scheduleNativeVueNodeShellSuppression, shouldMutateLegacySelectionForDraw, suppressNativeVueNodeShell } from "./core/fathaNode2Compat.js";
 
 const FATHA_OVERLAY_WINDOW_MS = 4000;
 
@@ -220,6 +221,7 @@ if (!window._xcpFathaGlobalHijack) {
 
         if (node.isFathaNode) {
             const drawStart = performance.now();
+            suppressNativeVueNodeShell(node);
             // 1. Global Cull Sweeper Rescue (Restores DOM visibility when scrolled into view)
             node._lastDerpFrame = app.canvas?.frame;
             if (node._isDerpCulled) {
@@ -245,7 +247,8 @@ if (!window._xcpFathaGlobalHijack) {
 
             // Blind the selection engine to kill the dashed green box
             if (node.selected) node.selected = false;
-            if (node._xcpTrueInMap) delete app.canvas.selected_nodes[node.id];
+            const mutateLegacySelection = shouldMutateLegacySelectionForDraw();
+            if (mutateLegacySelection && node._xcpTrueInMap) delete app.canvas.selected_nodes[node.id];
 
             const isBypassed = node.mode === 4;
             if (isBypassed) {
@@ -265,9 +268,10 @@ if (!window._xcpFathaGlobalHijack) {
             node.inputs = node._xcpTrueInputs;
             node.outputs = node._xcpTrueOutputs;
             if (node._xcpTrueSelected) node.selected = true;
-            if (node._xcpTrueInMap) app.canvas.selected_nodes[node.id] = node;
+            if (mutateLegacySelection && node._xcpTrueInMap) app.canvas.selected_nodes[node.id] = node;
             recordFathaOverlayPerf(node, performance.now() - drawStart);
         } else if (node.isUncleNode) {
+            suppressNativeVueNodeShell(node);
             // UNCLE HEIST: Cache state and ghost slots (shared pattern with Fatha)
             node._xcpTrueSelected = node.selected;
             node._xcpTrueInMap = !!(app.canvas.selected_nodes && app.canvas.selected_nodes[node.id]);
@@ -281,7 +285,8 @@ if (!window._xcpFathaGlobalHijack) {
             node._xcpGhosted = !isSelected;
 
             if (node.selected) node.selected = false;
-            if (node._xcpTrueInMap) delete app.canvas.selected_nodes[node.id];
+            const mutateLegacySelection = shouldMutateLegacySelectionForDraw();
+            if (mutateLegacySelection && node._xcpTrueInMap) delete app.canvas.selected_nodes[node.id];
 
             if (node.syncUncleSlots) node.syncUncleSlots();
 
@@ -291,7 +296,7 @@ if (!window._xcpFathaGlobalHijack) {
             node.outputs = node._xcpTrueOutputs;
             node._xcpGhosted = false;
             if (node._xcpTrueSelected) node.selected = true;
-            if (node._xcpTrueInMap) app.canvas.selected_nodes[node.id] = node;
+            if (mutateLegacySelection && node._xcpTrueInMap) app.canvas.selected_nodes[node.id] = node;
         } else {
             originalDrawNode.apply(this, arguments);
         }
@@ -400,6 +405,7 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
     };
 
     nodeType.prototype.onDrawForeground = function(ctx) {
+        suppressNativeVueNodeShell(this);
         // THE ENGINE-LEVEL BYPASS FIX: Catch mode flips at the start of the frame to purge signals globally
         if (this._lastMode !== this.mode) {
             const isBypassed = this.mode === 4 || this.mode === 2 || this._derpSpoofedBypass;
@@ -789,6 +795,7 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
 
         if (!this.layout) this.layout = new masterLayoutEngine(this);
         createDerpShield(this);
+        scheduleNativeVueNodeShellSuppression(this);
         const useAnimations = window.DERP_GLOBAL_SETTINGS?.useAnimation ?? true;
         this.properties = { titleLabel: "Virtual Node", ...(this.properties || {}), minWidth: minWidth, nodeSize: [minWidth, 50], drawHeader: true, drawSignalBtn: false, drawSettingBtn: false, settingActive: false, contentCollapsed: false, collapseMinimal: false, stickyDrag: window.DERP_GLOBAL_SETTINGS?.stickyDrag ?? false, useAnimations };
         this.size = [...this.properties.nodeSize];
