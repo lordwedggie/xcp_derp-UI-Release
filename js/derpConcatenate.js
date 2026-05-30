@@ -5,7 +5,54 @@
 import { app } from "../../../scripts/app.js";
 import { fatha, initDerpGlobalListener } from "./fatha/fatha.js";
 
-const CONCAT_PREVIEW_LIMIT = 800;
+const concatMeasureCanvas = document.createElement("canvas");
+const concatMeasureCtx = concatMeasureCanvas.getContext("2d");
+
+function buildConcatMeasureFont(fontSize, fontFamily, fontWeight = "normal") {
+    let style = "normal";
+    let weight = "normal";
+    if (fontWeight === "italic") style = "italic";
+    else if (fontWeight === "bold") weight = "bold";
+    else if (fontWeight === "both") {
+        style = "italic";
+        weight = "bold";
+    }
+
+    const baseFont = fontFamily || "arial";
+    const cleanFont = baseFont.replace(/\bpx\b/gi, "").trim();
+    const safeFont = (cleanFont.includes(",") || cleanFont.includes('"') || cleanFont.includes("'"))
+        ? cleanFont
+        : `"${cleanFont}"`;
+    return `${style} ${weight} ${fontSize}px ${safeFont}`;
+}
+
+function measureConcatPreviewHeight(text, maxWidth, fontSize, fontFamily, fontWeight, paddingY) {
+    const safeFontSize = Math.max(1, Number(fontSize) || 12);
+    const innerWidth = Math.max(1, Number(maxWidth) || 1);
+    const lines = String(text || "").split(/\r?\n/);
+    concatMeasureCtx.font = buildConcatMeasureFont(safeFontSize, fontFamily, fontWeight);
+
+    let totalLines = 0;
+    for (const rawLine of lines) {
+        const words = String(rawLine || "").split(" ");
+        let currentLine = "";
+        let wrappedLineCount = 1;
+
+        for (let i = 0; i < words.length; i++) {
+            const testLine = `${currentLine}${words[i]} `;
+            if (concatMeasureCtx.measureText(testLine).width > innerWidth && i > 0) {
+                wrappedLineCount += 1;
+                currentLine = `${words[i]} `;
+            } else {
+                currentLine = testLine;
+            }
+        }
+
+        totalLines += Math.max(1, wrappedLineCount);
+    }
+
+    return (totalLines * safeFontSize) + (Math.max(0, Number(paddingY) || 0) * 2);
+}
 
 function normalizeConcatSignalValue(value) {
     if (value === null || value === undefined) return "";
@@ -15,12 +62,6 @@ function normalizeConcatSignalValue(value) {
     } catch (_) {
         return String(value);
     }
-}
-
-function clampConcatPreview(text) {
-    const value = String(text || "");
-    if (value.length <= CONCAT_PREVIEW_LIMIT) return value;
-    return `${value.slice(0, CONCAT_PREVIEW_LIMIT)}...`;
 }
 
 function getConcatSignalItems() {
@@ -62,7 +103,7 @@ function getConcatSignalState(node) {
         activeSignalId: activeSignalId || "",
         label: signal?.nodeName || activeSignalId || "",
         value,
-        preview: clampConcatPreview(value),
+        preview: value,
         hasSignal: !!signal,
     };
 }
@@ -87,6 +128,18 @@ function buildConcatLayoutHash(node, vars, signalState) {
     ].join("|");
 }
 
+function suppressConcatNativeWidgets(node) {
+    if (!node?.widgets) return;
+    node.widgets.forEach((widget) => {
+        widget.last_y = -5000;
+        widget.hidden = true;
+        if (widget.element?.style) {
+            widget.element.style.display = "none";
+            widget.element.style.pointerEvents = "none";
+        }
+    });
+}
+
 app.registerExtension({
     name: "xcp.derpConcatenate_Extension",
     async setup() {
@@ -103,21 +156,31 @@ app.registerExtension({
         nodeType.prototype.onThemeUpdate = function(config) {
             this.handleThemeUpdate(config);
             this._layoutMapHash = null;
+            suppressConcatNativeWidgets(this);
             this.refreshNodeLayoutMap();
         };
 
         nodeType.prototype.applyPalette = function() {
             if (window.xcpDerpThemeConfig) this.handleThemeUpdate(window.xcpDerpThemeConfig);
             this._layoutMapHash = null;
+            suppressConcatNativeWidgets(this);
             this.refreshNodeLayoutMap();
         };
 
         nodeType.prototype.refreshNodeLayoutMap = function() {
             if (this.flags?.collapsed || this.size[0] <= 0) return;
+            suppressConcatNativeWidgets(this);
             const vars = this.getDerpVars(this);
-            const { mW, mH, sW, sH, oY, pW, pH } = vars;
+            const { mW, mH, sH, oY, pW, pH, t_textNormal_size } = vars;
             const signalState = getConcatSignalState(this);
             const signalItems = getConcatSignalItems();
+            const previewFontSize = Number(t_textNormal_size || this._t_textNormalPaintData?.fontSize || 12);
+            const previewFont = this._t_textNormalPaintData?.font || "arial";
+            const previewFontWeight = this._t_textNormalPaintData?.fontWeight || "normal";
+            const previewInnerWidth = Math.max(1, Number(this.size?.[0] || 0) - (mW * 2) - (pW * 2));
+            const previewHeight = signalState.hasSignal
+                ? measureConcatPreviewHeight(signalState.preview, previewInnerWidth, previewFontSize, previewFont, previewFontWeight, pH)
+                : 0;
             const selectedSignalLabel = this.properties?.multiSignalLabels?.[0]
                 || (signalState.hasSignal ? `${signalState.label} [${signalState.activeSignalId}]` : "Select STRING signal...");
             const structureHash = buildConcatLayoutHash(this, vars, signalState);
@@ -136,42 +199,36 @@ app.registerExtension({
                 sysContentRegion: {
                     anchor: { target: "headerRegion", axis: "y", offset: oY },
                     width: "full", height: "auto",
-                    dir: "col",
                     padding: [0, 0],
                     margin: this.properties?.drawHeader === true ? [mW, mH] : [0, 0],
                     lblStatus: {
-                        anchor: { target: "regionSignalEntry", axis: "y", offset: sH },
+                        hidden: signalState.hasSignal,
                         type: this.UI_TYPES.TEXT,
-                        themeKey: signalState.hasSignal ? "t_textSmall" : "t_textSystem",
-                        text: signalState.hasSignal
-                            ? `STRING signal: ${signalState.label}`
-                            : "Select a STRING signal.",
+                        themeKey: "t_textSystem",
+                        text: "Select a STRING signal.",
                         width: "full",
                         padding: [pW, pH],
                         labelAlign: ["left", "middle"],
                         displayMode: "cutoff",
-                        pulseStates: !signalState.hasSignal,
+                        pulseStates: true,
                     },
-                    regionSignalEntry: {
-                        dir: "row",
-                        width: "full", height: "auto",
-                        spacing: [sW, 0],
-                        textSignal: {
-                            hidden: !signalState.hasSignal,
-                            type: this.UI_TYPES.TEXT,
-                            themeKey: "t_textNormal",
-                            text: signalState.preview,
-                            width: "full", height: "auto",
-                            padding: [pW, pH],
-                            labelAlign: ["left", "top"],
-                            displayMode: "cutoff",
-                            wrap: true,
-                        },
+                    textSignal: {
+                        anchor: { target: "lblStatus", axis: "y", offset: sH },
+                        hidden: !signalState.hasSignal,
+                        type: this.UI_TYPES.TEXT,
+                        themeKey: "t_textNormal",
+                        text: signalState.preview || " ",
+                        width: "full", height: previewHeight,
+                        padding: [pW, pH],
+                        labelAlign: ["left", "top"],
+                        wrap: true,
                     },
                     dropdownSignal: {
+                        anchor: { target: "textSignal", axis: "y", offset: sH },
                         type: this.UI_TYPES.FILEBROWSER,
                         icon: "signal",
                         themeKey: "dialog, t_textNormal",
+                        fontSize: t_textNormal_size,
                         canvasShield: true,
                         bypassHashOptimization: true,
                         mouseOver: signalItems.length > 0,
@@ -220,17 +277,6 @@ app.registerExtension({
         nodeType.prototype.onNodeCreated = function() {
             if (onCreated) onCreated.apply(this, arguments);
 
-            if (this.widgets) {
-                this.widgets.forEach((w) => {
-                    w.hidden = true;
-                    w.last_y = -5000;
-                    if (w.element) {
-                        w.element.style.display = "none";
-                        w.element.style.pointerEvents = "none";
-                    }
-                });
-            }
-
             this.properties.isWirelessTransmitter = true;
             this.properties.skipGenericWirelessHeartbeat = true;
             this.isPureVirtual = true;
@@ -248,6 +294,7 @@ app.registerExtension({
             this.properties.nodeSize = [180, 50];
             this.size = [180, 50];
 
+            suppressConcatNativeWidgets(this);
             this.refreshNodeLayoutMap();
 
             setTimeout(() => {
@@ -261,17 +308,6 @@ app.registerExtension({
         nodeType.prototype.onConfigure = function(info) {
             if (onConfigure) onConfigure.apply(this, arguments);
 
-            if (this.widgets) {
-                this.widgets.forEach((w) => {
-                    w.hidden = true;
-                    w.last_y = -5000;
-                    if (w.element) {
-                        w.element.style.display = "none";
-                        w.element.style.pointerEvents = "none";
-                    }
-                });
-            }
-
             this.properties.isWirelessTransmitter = true;
             this.properties.skipGenericWirelessHeartbeat = true;
             this.isPureVirtual = true;
@@ -279,16 +315,25 @@ app.registerExtension({
             this.properties.drawSignalBtn = false;
             this.outputs = [];
 
+            suppressConcatNativeWidgets(this);
             this._layoutMapHash = null;
             this.refreshNodeLayoutMap();
             if (this.syncDerpOutputs) this.syncDerpOutputs();
             this.requestDerpSync();
         };
 
+        const onAdded = nodeType.prototype.onAdded;
+        nodeType.prototype.onAdded = function() {
+            if (onAdded) onAdded.apply(this, arguments);
+            suppressConcatNativeWidgets(this);
+        };
+
         const onDrawForeground = nodeType.prototype.onDrawForeground;
         nodeType.prototype.onDrawForeground = function(ctx) {
             if (onDrawForeground) onDrawForeground.apply(this, arguments);
             if (this.flags?.collapsed) return;
+
+            suppressConcatNativeWidgets(this);
 
             const signalState = getConcatSignalState(this);
             const signalHash = `${signalState.activeSignalId}|${signalState.preview}`;

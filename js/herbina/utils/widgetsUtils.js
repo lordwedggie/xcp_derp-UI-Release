@@ -683,7 +683,7 @@ export function interpretLayoutProps(config, context = {}) {
 
     if (h === 0) {
         h = 0;
-    } else if (h === "auto" || h === undefined || h === null || config.wrap) {
+    } else if (h === "auto" || h === undefined || h === null) {
         h = "auto";
     }
 
