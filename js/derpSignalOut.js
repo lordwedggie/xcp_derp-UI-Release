@@ -275,7 +275,7 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                 return acc;
                             }, {}),
                             signalRegion: {
-                                anchor: { target: activeOuts.length > 0 ? `outputsRegion_display_${activeOuts.length - 1}` : "lblContent", axis: "y", offset: sH },
+                                anchor: { target: activeOuts.length > 0 ? `outputsRegion_display_${activeOuts.length - 1}` : "lblContent", axis: "y", offset: mH },
                                 dir: "row", width: "full", height: "auto",
                                 spacing: [0, sH],
                                 dropdownSignalSelect: {
