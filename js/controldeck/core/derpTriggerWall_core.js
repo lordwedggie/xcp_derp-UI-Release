@@ -29,10 +29,10 @@ function syncDerpTriggerWallLocaleLabels(node) {
     const localizedOutput = tLocale("$derp_trigger_wall.output", "Triggers");
     const previousLocalizedOutput = node._lastLocalizedDerpTriggerWallOutput;
 
-    if (!node.titleLabel || node.titleLabel === "Derp Trigger Wall" || (previousLocalizedTitle && node.titleLabel === previousLocalizedTitle)) {
+    if (!node.titleLabel || node.titleLabel === "Virtual Node" || node.titleLabel === "Derp Trigger Wall" || (previousLocalizedTitle && node.titleLabel === previousLocalizedTitle)) {
         node.titleLabel = localizedTitle;
     }
-    if (!node.properties.titleLabel || node.properties.titleLabel === "Derp Trigger Wall" || (previousLocalizedTitle && node.properties.titleLabel === previousLocalizedTitle)) {
+    if (!node.properties.titleLabel || node.properties.titleLabel === "Virtual Node" || node.properties.titleLabel === "Derp Trigger Wall" || (previousLocalizedTitle && node.properties.titleLabel === previousLocalizedTitle)) {
         node.properties.titleLabel = localizedTitle;
     }
     if (!node.properties.outputName || node.properties.outputName === "Triggers" || (previousLocalizedOutput && node.properties.outputName === previousLocalizedOutput)) {

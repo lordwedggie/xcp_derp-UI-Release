@@ -134,29 +134,28 @@ app.registerExtension({
                     margin: [mW, mH], padding: [0, 0],
                     ...(this.properties.drawHeader !== false ? {
                         btnNewBook: {
-                            type: this.UI_TYPES.ICONBUTTON, icon: "add", themeKey: "button, t_textBig",
-                            width: "match", height: "full", iconScale: 0.5, padding: [pW, pH], spacing: [sW, 0], objectAlign: ["left", "middle"],
+                            type: this.UI_TYPES.ICONBUTTON, icon: "add", themeKey: "button, t_textNormal",
+                            width: "match", height: "fill", spacing: [sW, 0], objectAlign: ["left", "middle"],
                             onPress: () => handleNewBook(this)
                         },
                         btnRenameBook: {
-                            type: this.UI_TYPES.ICONBUTTON, icon: "rename", themeKey: "button, t_textBig",
-                            width: "match", height: "full", iconScale: 0.5, padding: [pW, pH], spacing: [sW, 0], objectAlign: ["left", "middle"],
+                            type: this.UI_TYPES.ICONBUTTON, icon: "rename", themeKey: "button, t_textNormal",
+                            width: "match", height: "fill", spacing: [sW, 0], objectAlign: ["left", "middle"],
                             onPress: () => handleRenameBook(this)
                         },
                         btnCopyBook: {
-                            type: this.UI_TYPES.ICONBUTTON, icon: "copy", themeKey: "button, t_textBig",
-                            width: "match", height: "full", iconScale: 0.5, padding: [pW, pH], spacing: [sW, 0], objectAlign: ["left", "middle"],
+                            type: this.UI_TYPES.ICONBUTTON, icon: "copy", themeKey: "button, t_textNormal",
+                            width: "match", height: "fill", spacing: [sW, 0], objectAlign: ["left", "middle"],
                             onPress: () => handleCopyBook(this)
                         },
                         btnCleanBook: {
-                            type: this.UI_TYPES.ICONBUTTON, icon: "clean", themeKey: "button, t_textBig",
-                            width: "match", height: "full", iconScale: 0.5, padding: [pW, pH], spacing: [sW, 0], objectAlign: ["left", "middle"],
+                            type: this.UI_TYPES.ICONBUTTON, icon: "clean", themeKey: "button, t_textNormal",
+                            width: "match", height: "fill", spacing: [sW, 0], objectAlign: ["left", "middle"],
                             onPress: () => handlePageClean(this)
                         },
                         btnSaveBook: {
-                            type: this.UI_TYPES.ICONBUTTON, icon: "save", themeKey: "button, t_textBig",
-                            width: "match", height: "full", iconScale: 0.5, padding: [pW, pH], spacing: [sW, 0], objectAlign: ["left", "middle"],
-                            labelAlign: ["center", "middle"],
+                            type: this.UI_TYPES.ICONBUTTON, icon: "save", themeKey: "button, t_textNormal",
+                            width: "match", height: "fill", spacing: [sW, 0], objectAlign: ["left", "middle"],
                             onPress: () => handleSaveBook(this)
                         },
                         dropdownBooks: {
@@ -168,9 +167,8 @@ app.registerExtension({
                             onChange: (val) => handleBookChange(this, val)
                         },
                         btnOpenBookFolder: {
-                            type: this.UI_TYPES.ICONBUTTON, icon: "folder", themeKey: "button, t_textBig",
-                            width: "match", height: "full", iconScale: 0.5, padding: [pW, pH], spacing: [sW, 0], objectAlign: ["left", "middle"],
-                            labelAlign: ["center", "middle"],
+                            type: this.UI_TYPES.ICONBUTTON, icon: "folder", themeKey: "button, t_textNormal",
+                            width: "match", height: "fill", spacing: [sW, 0], objectAlign: ["left", "middle"],
                             onPress: async () => {
                                 try {
                                     await fetch("/xcp/open_prompt_book_folder");
@@ -180,9 +178,8 @@ app.registerExtension({
                             }
                         },
                         btnDeleteBook: {
-                            type: this.UI_TYPES.ICONBUTTON, icon: "trash", themeKey: "button, t_textBig",
-                            width: "match", height: "full", iconScale: 0.5, padding: [pW, pH], spacing: [sW, 0], objectAlign: ["left", "middle"],
-                            labelAlign: ["center", "middle"],
+                            type: this.UI_TYPES.ICONBUTTON, icon: "trash", themeKey: "button, t_textNormal",
+                            width: "match", height: "fill", spacing: [sW, 0], objectAlign: ["left", "middle"],
                             onPress: () => handleDeleteBook(this)
                         },
                     } : {})
@@ -222,19 +219,18 @@ app.registerExtension({
                     anchor: { target: "contentRegion", axis: "y", },
                     dir: "row", width: "full", height: "auto", margin: [mW, mH, mW, mH], padding: [0, 0],
                     btnPageLeft: {
-                        type: this.UI_TYPES.ICONBUTTON, icon: "leftarrow", themeKey: "button, t_textBig",
-                        width: "match", height: "full", iconScale: 0.5, padding: [pW, pH], spacing: [sW, 0], objectAlign: ["left", "middle"],
+                        type: this.UI_TYPES.ICONBUTTON, icon: "leftarrow", themeKey: "button, t_textNormal",
+                        width: "match", height: "fill", spacing: [sW, 0], objectAlign: ["left", "middle"],
                         onPress: () => handlePageChange(this, -1)
                     },
                     btnPageAdd: {
-                        type: this.UI_TYPES.ICONBUTTON, icon: "add", themeKey: "button, t_textBig",
-                        width: "match", height: "full", iconScale: 0.5, padding: [pW, pH], spacing: [sW, 0], objectAlign: ["left", "middle"],
+                        type: this.UI_TYPES.ICONBUTTON, icon: "add", themeKey: "button, t_textNormal",
+                        width: "match", height: "fill", spacing: [sW, 0], objectAlign: ["left", "middle"],
                         onPress: () => handlePageAdd(this)
                     },
                     btnPageRename: {
-                        type: this.UI_TYPES.ICONBUTTON, icon: "rename", themeKey: "button, t_textBig",
-                        width: "match", height: "full", iconScale: 0.5, padding: [pW, pH], spacing: [sW, 0], objectAlign: ["left", "middle"],
-                        labelAlign: ["center", "middle"],
+                        type: this.UI_TYPES.ICONBUTTON, icon: "rename", themeKey: "button, t_textNormal",
+                        width: "match", height: "fill", spacing: [sW, 0], objectAlign: ["left", "middle"],
                         onPress: () => handlePageRename(this)
                     },
                     dropdownPages: {
@@ -253,14 +249,13 @@ app.registerExtension({
                         onChange: (val) => handlePageChange(this, val)
                     },
                     btnPageDelete: {
-                        type: this.UI_TYPES.ICONBUTTON, icon: "delete", themeKey: "button, t_textBig",
-                        width: "match", height: "full", iconScale: 0.5, padding: [pW, pH], spacing: [sW, 0], objectAlign: ["left", "middle"],
-                        labelAlign: ["center", "middle"],
+                        type: this.UI_TYPES.ICONBUTTON, icon: "delete", themeKey: "button, t_textNormal",
+                        width: "match", height: "fill", spacing: [sW, 0], objectAlign: ["left", "middle"],
                         onPress: () => handlePageDelete(this)
                     },
                     btnPageRight: {
-                        type: this.UI_TYPES.ICONBUTTON, icon: "rightarrow", themeKey: "button, t_textBig",
-                        width: "match", height: "full", iconScale: 0.5, padding: [pW, pH], spacing: [sW, 0], objectAlign: ["left", "middle"],
+                        type: this.UI_TYPES.ICONBUTTON, icon: "rightarrow", themeKey: "button, t_textNormal",
+                        width: "match", height: "fill", spacing: [sW, 0], objectAlign: ["left", "middle"],
                         onPress: () => handlePageChange(this, 1)
                     }
                 },
