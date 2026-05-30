@@ -197,6 +197,39 @@ function ensurePassiveCacheInteractionBindings(node, app) {
 if (!window._xcpFathaGlobalHijack) {
     const originalDrawNode = LGraphCanvas.prototype.drawNode;
     LGraphCanvas.prototype.drawNode = function (node, ctx) {
+        // THE NODE2 TOGGLE FIX: Detect Vue mode changes and force derpSignalOut to recompute
+        const currentVueMode = !!(typeof LiteGraph !== "undefined" && LiteGraph.vueNodesMode);
+        if (window._xcpLastVueNodesMode !== currentVueMode) {
+            window._xcpLastVueNodesMode = currentVueMode;
+            const graph = app?.graph || app?.rootGraph;
+            if (graph?._nodes) {
+                graph._nodes.forEach((n) => {
+                    if (n?.type === "xcpDerpSignalOut") {
+                        n._layoutMapHash = null;
+                        n._lastSignalStructureHash = null;
+                        n._forceSync = true;
+                        // Restore activeOutputs from serialized data if it was cleared by onNodeCreated
+                        if (
+                            (!n.activeOutputs || n.activeOutputs.length === 0) &&
+                            n.properties?.activeOutputsData &&
+                            Array.isArray(n.properties.activeOutputsData) &&
+                            n.properties.activeOutputsData.length > 0
+                        ) {
+                            const sanitize = (sig) => {
+                                if (!sig || typeof sig !== "object") return sig;
+                                return { nodeId: sig.nodeId, nodeName: sig.nodeName, type: sig.type, isOrphaned: sig.isOrphaned };
+                            };
+                            n.activeOutputs = n.properties.activeOutputsData.map(sanitize);
+                            n.properties.activeOutputs = n.activeOutputs.length;
+                        }
+                        if (typeof n.updateReceivedSignals === "function") n.updateReceivedSignals();
+                        if (typeof n.manageDerpOutputs === "function") n.manageDerpOutputs();
+                        if (typeof n.refreshNodeLayoutMap === "function") n.refreshNodeLayoutMap();
+                    }
+                });
+            }
+        }
+
         // THE GLOBAL SLOT COLOR HIJACK: Apply Derp palette to ALL nodes' input/output dots
         if (window.xcpDerpTypeColors) {
             const applyColors = (slots) => {
