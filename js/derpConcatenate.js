@@ -7,6 +7,7 @@ import { fatha, initDerpGlobalListener } from "./fatha/fatha.js";
 
 const concatMeasureCanvas = document.createElement("canvas");
 const concatMeasureCtx = concatMeasureCanvas.getContext("2d");
+const CONCAT_PREVIEW_BOTTOM_LINE_BUFFER = 1;
 
 function buildConcatMeasureFont(fontSize, fontFamily, fontWeight = "normal") {
     let style = "normal";
@@ -62,8 +63,15 @@ function measureConcatPreviewHeight(text, maxWidth, fontSize, fontFamily, fontWe
     const safeFontSize = Math.max(1, Number(fontSize) || 12);
     const totalLines = measureConcatWrappedLines(text, maxWidth, safeFontSize, fontFamily, fontWeight);
     const verticalPadding = Math.max(0, Number(paddingY) || 0) * 2;
-    const bottomSafety = Math.max(1, Math.ceil(safeFontSize * 0.25));
+    const bottomSafety = Math.ceil(safeFontSize * CONCAT_PREVIEW_BOTTOM_LINE_BUFFER);
     return (totalLines * safeFontSize) + verticalPadding + bottomSafety;
+}
+
+function getConcatPreviewInnerWidth(node, vars) {
+    const nodeWidth = Number(node?.size?.[0] || 0);
+    const pW = Number(vars?.pW || 0);
+    const mW = node?.properties?.drawHeader === true ? Number(vars?.mW || 0) : 0;
+    return Math.max(1, nodeWidth - (mW * 2) - (pW * 2));
 }
 
 function normalizeConcatSignalValue(value) {
@@ -229,7 +237,7 @@ app.registerExtension({
             const previewFontSize = Number(t_textSmall_size || this._t_textSmallPaintData?.fontSize || 12);
             const previewFont = this._t_textSmallPaintData?.font || "arial";
             const previewFontWeight = this._t_textSmallPaintData?.fontWeight || "normal";
-            const previewInnerWidth = Math.max(1, Number(this.size?.[0] || 0) - (pW * 2));
+            const previewInnerWidth = getConcatPreviewInnerWidth(this, vars);
             const combinedValue = getConcatCombinedValue(signalStates);
             const structureHash = buildConcatLayoutHash(this, vars, signalStates);
 
