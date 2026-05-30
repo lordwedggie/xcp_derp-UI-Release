@@ -133,7 +133,7 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                     const activeOuts = (this.activeOutputs || []).filter(s => s != null);
                     const activeIds = new Set(activeOuts.map(s => String(s.nodeId)));
                     this._signalLabelToId = new Map();
-                    const signalItems = sortSignals((this.receivedSignals || [])
+                    const selectableSignals = sortSignals((this.receivedSignals || [])
                         .filter(sig => {
                             const sigIdStr = String(sig.nodeId);
                             const sigBaseId = sigIdStr.split(":")[0];
@@ -146,7 +146,8 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                             const isDownstream = downstreamIds.has(sigBaseId) || (Array.isArray(sig.upstreamIds) && sig.upstreamIds.some(id => String(id) === callerId));
 
                             return !isWrapperSignal && !isSignalOutSignal && !isAlreadyActive && !isOwnSignal && !isDownstream;
-                        }))
+                        }));
+                    const signalItems = selectableSignals
                         .map(sig => {
                             const label = formatSignalLabel(sig);
                             this._signalLabelToId.set(label, String(sig.nodeId));
@@ -188,7 +189,7 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                             margin: [mW, mW, mW, 0], padding: [pW, pH], 
                             lblContent: {
                                 type: UI_TYPES.TEXT, themeKey: "t_textsystem",
-                                text: `${tLocale("$derp_router.signals.signals_detected", "{count} signals detected.").replace("{count}", (this.receivedSignals || []).length)} ${tLocale("$derp_router.signals.signals_added", "{count} added.").replace("{count}", activeOuts.length)}`,
+                                text: `${tLocale("$derp_router.signals.signals_detected", "{count} signals detected.").replace("{count}", selectableSignals.length)} ${tLocale("$derp_router.signals.signals_added", "{count} added.").replace("{count}", activeOuts.length)}`,
                                 labelAlign: ["left", "middle"], width: "full", height: "auto", 
                             },
                             // THE DYNAMIC REPETITION: Generate indexed regions to repeat the outputsRegion

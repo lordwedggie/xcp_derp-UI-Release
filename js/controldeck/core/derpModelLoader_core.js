@@ -211,14 +211,29 @@ export function initDerpModelLoaderCore(nodeType) {
      * THE PURE VIRTUAL ENFORCER: Defines the 3 Wireless Ports while purging physical links.
      */
     proto.syncDerpOutputs = function() {
+        const previousPortSignature = (this._xcpTrueOutputs || this.outputs || [])
+            .map(port => `${port?.name || ""}:${port?.type || ""}`)
+            .join("|");
         const ports = [
             { name: tLocale("$derp_model_loader.ports.model", "Model"), type: "MODEL" },
             { name: tLocale("$derp_model_loader.ports.clip", "Clip"), type: "CLIP" },
             { name: tLocale("$derp_model_loader.ports.vae", "Vae"), type: "VAE" }
         ];
+        const nextPortSignature = ports.map(port => `${port.name}:${port.type}`).join("|");
 
         if (!this.outputs || this.outputs.length !== ports.length) {
             this.outputs = ports;
+        } else {
+            this.outputs.forEach((output, idx) => {
+                if (!output || !ports[idx]) return;
+                output.name = ports[idx].name;
+                output.type = ports[idx].type;
+            });
+        }
+
+        this._xcpTrueOutputs = this.outputs;
+        if (previousPortSignature !== nextPortSignature) {
+            this._lastSignalFingerprint = null;
         }
 
         // ZERO-INFERENCE GATING: Safely clear links without triggering proxy loops
@@ -262,7 +277,10 @@ export function initDerpModelLoaderCore(nodeType) {
             }
 
             const nodeName = this.titleLabel || this.title || tLocale("$derp_model_loader.messages.unknown_node", "Unknown");
-            const fingerprint = `${val}_${nodeName}_${this.id}_${(this.properties.modelDeck || []).length}`;
+            const outputSignature = (this._xcpTrueOutputs || this.outputs || [])
+                .map(port => `${port?.name || ""}:${port?.type || ""}`)
+                .join("|");
+            const fingerprint = `${val}_${nodeName}_${this.id}_${(this.properties.modelDeck || []).length}_${outputSignature}`;
             if (this._lastSignalFingerprint === fingerprint) return;
             this._lastSignalFingerprint = fingerprint;
 

@@ -452,7 +452,7 @@ export function uncle(nodeType, nodeData, minWidth = 100) {
         createDerpShield(this);
         scheduleNativeVueNodeShellSuppression(this);
         const useAnimations = window.DERP_GLOBAL_SETTINGS?.useAnimation ?? true;
-        this.properties = { titleLabel: "Node", showInputs: true, showOutputs: true, ...(this.properties || {}), minWidth: minWidth, nodeSize: [minWidth, 50], drawHeader: true, drawSignalBtn: false, drawSettingBtn: false, settingActive: false, contentCollapsed: false, collapseMinimal: false, stickyDrag: window.DERP_GLOBAL_SETTINGS?.stickyDrag ?? false, useAnimations };
+        this.properties = { titleLabel: "Node", showInputs: true, showOutputs: true, selectedTheme: "_Templates/DerpTheme_Default", ...(this.properties || {}), minWidth: minWidth, nodeSize: [minWidth, 50], drawHeader: true, drawSignalBtn: false, drawSettingBtn: false, settingActive: false, contentCollapsed: false, collapseMinimal: false, stickyDrag: window.DERP_GLOBAL_SETTINGS?.stickyDrag ?? false, useAnimations };
         this.size = [...this.properties.nodeSize];
 
         // THE SIGNAL NAME COMPATIBILITY: Ensure outputs have a valid name for masterSignalEngine

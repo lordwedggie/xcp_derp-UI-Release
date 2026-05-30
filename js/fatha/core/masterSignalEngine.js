@@ -45,7 +45,7 @@ export function refreshWirelessSignalConsumers() {
     if (!window.app || !window.app.graph) return;
     window.app.graph._nodes.forEach((n) => {
         if (n.type === "xcpDerpSignalOut" && n.updateReceivedSignals) {
-            n.updateReceivedSignals();
+            n.updateReceivedSignals(true);
             if (n.manageDerpOutputs) n.manageDerpOutputs();
             if (n.refreshNodeLayoutMap) n.refreshNodeLayoutMap();
             if (n.refreshDerpSignalOutSysMap) n.refreshDerpSignalOutSysMap();

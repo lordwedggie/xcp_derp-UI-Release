@@ -20,6 +20,8 @@ import { ensureScreenRectVisible, isWarping } from "../core/fathaWarp.js";
 
 const PANEL_SLIDE_SPEED = 0.5;
 const PANEL_FADE_SPEED = 0.3;
+const SYS_PANEL_SHIELD_Z = 9000;
+const SYS_PANEL_HTML_Z = 9500;
 
 function resolveSavedProfileName(list, savedName) {
     if (!Array.isArray(list) || list.length === 0) return "(No Profiles Found)";
@@ -694,6 +696,8 @@ export async function toggleDerpSysPanel(hostNode) {
     sysPanel.hostNode = hostNode;
     sysPanel.isVisible = true;
     window.xcpFathaSysState = sysPanel;
+    sysPanel.baseZIndex = String(SYS_PANEL_SHIELD_Z);
+    sysPanel._masterZHtml = SYS_PANEL_HTML_Z;
     sysPanel.animHeight = 0;
     sysPanel.animAlpha = 0;
     sysPanel._pendingViewportFitFrames = 6;

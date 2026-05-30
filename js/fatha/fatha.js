@@ -797,7 +797,7 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
         createDerpShield(this);
         scheduleNativeVueNodeShellSuppression(this);
         const useAnimations = window.DERP_GLOBAL_SETTINGS?.useAnimation ?? true;
-        this.properties = { titleLabel: "Virtual Node", ...(this.properties || {}), minWidth: minWidth, nodeSize: [minWidth, 50], drawHeader: true, drawSignalBtn: false, drawSettingBtn: false, settingActive: false, contentCollapsed: false, collapseMinimal: false, stickyDrag: window.DERP_GLOBAL_SETTINGS?.stickyDrag ?? false, useAnimations };
+        this.properties = { titleLabel: "Virtual Node", selectedTheme: "_Templates/DerpTheme_Default", ...(this.properties || {}), minWidth: minWidth, nodeSize: [minWidth, 50], drawHeader: true, drawSignalBtn: false, drawSettingBtn: false, settingActive: false, contentCollapsed: false, collapseMinimal: false, stickyDrag: window.DERP_GLOBAL_SETTINGS?.stickyDrag ?? false, useAnimations };
         this.size = [...this.properties.nodeSize];
 
         // THE SIGNAL NAME COMPATIBILITY: Ensure virtual outputs have a valid name for masterSignalEngine
@@ -832,7 +832,7 @@ if (!window._xcp_DerpVirtualLoader_Loaded) {
                 function DerpVirtualNode() {
                     this.serialize_widgets = true;
                     this.isFathaNode = true;
-                    this.properties = { titleLabel: "Virtual Node", minWidth: 180, nodeSize: [180, 50], selectedTheme: "Template_Standard_v02" };
+                    this.properties = { titleLabel: "Virtual Node", minWidth: 180, nodeSize: [180, 50], selectedTheme: "_Templates/DerpTheme_Default" };
                 }
                 DerpVirtualNode.title = "Derp Virtual Node";
                 DerpVirtualNode.category = "DerpNodes/Virtual";
