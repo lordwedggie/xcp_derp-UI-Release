@@ -15,7 +15,7 @@ import { UI_TYPES, COMPONENT_BLUEPRINTS } from "./core/masterLayoutTypes.js";
 import { getVirtualNodeLayoutMap } from "./helpers/fathaLayoutMaps.js";
 import { transmitBypassedDerpSignals, transmitDerpSignal, purgeDerpSignal } from "./core/masterSignalEngine.js";
 import { animateRecoil } from "../herbina/masterAnimator.js";
-import { scheduleNativeVueNodeShellSuppression, suppressNativeVueNodeShell } from "./core/fathaNode2Compat.js";
+import { preserveNode2PositionDuring, scheduleNativeVueNodeShellSuppression, suppressNativeVueNodeShell } from "./core/fathaNode2Compat.js";
 
 // THE SQUEEZE CONFIG: Centralized padding values for Uncle link-dots
 const UNCLE_LINK_PAD = { LEFT: 15, RIGHT: 15 };
@@ -79,7 +79,7 @@ export function uncle(nodeType, nodeData, minWidth = 100) {
         purgeDerpSignal(this.id);
     };
     nodeType.prototype.handleThemeUpdate = function(config) {
-        handleThemeUpdate(this, config);
+        preserveNode2PositionDuring(this, () => handleThemeUpdate(this, config));
     };
     // THE FIX: Standardize the listener hook so the global refresher can find it
     nodeType.prototype.onThemeUpdate = function(config) {

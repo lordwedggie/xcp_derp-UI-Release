@@ -125,3 +125,29 @@ export function markNode2LayoutDirty(node) {
     node.setDirtyCanvas?.(true, true);
     app?.canvas?.setDirty?.(true, true);
 }
+
+export function preserveNode2PositionDuring(node, callback) {
+    if (!node || typeof callback !== "function" || !isComfyVueNodesMode() || !isDerpCustomNode(node)) {
+        return callback?.();
+    }
+
+    const x = Number(node.pos?.[0]);
+    const y = Number(node.pos?.[1]);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return callback();
+
+    const restore = () => {
+        if (!Array.isArray(node.pos)) return;
+        if (node.pos[0] === x && node.pos[1] === y) return;
+        node.pos[0] = x;
+        node.pos[1] = y;
+        node.setDirtyCanvas?.(true, true);
+        app?.canvas?.setDirty?.(true, true);
+    };
+
+    try {
+        return callback();
+    } finally {
+        restore();
+        window.requestAnimationFrame?.(restore);
+    }
+}

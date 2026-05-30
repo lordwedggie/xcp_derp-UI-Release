@@ -16,7 +16,7 @@ import { transmitBypassedDerpSignals, transmitDerpSignal, purgeDerpSignal } from
 import { animateRecoil } from "../herbina/masterAnimator.js";
 import { initPerfOverlay, togglePerfOverlay } from "./helpers/fathaPerfOverlay.js";
 import { promoteMasterZ, syncMasterZ } from "./core/masterZ.js";
-import { isComfyVueNodesMode, scheduleNativeVueNodeShellSuppression, shouldMutateLegacySelectionForDraw, suppressNativeVueNodeShell } from "./core/fathaNode2Compat.js";
+import { isComfyVueNodesMode, preserveNode2PositionDuring, scheduleNativeVueNodeShellSuppression, shouldMutateLegacySelectionForDraw, suppressNativeVueNodeShell } from "./core/fathaNode2Compat.js";
 
 const FATHA_OVERLAY_WINDOW_MS = 4000;
 
@@ -366,7 +366,7 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
         purgeDerpSignal(this.id);
     };
     nodeType.prototype.handleThemeUpdate = function(config) {
-        handleThemeUpdate(this, config);
+        preserveNode2PositionDuring(this, () => handleThemeUpdate(this, config));
     };
     nodeType.prototype.onThemeUpdate = function(config) {
         this.handleThemeUpdate(config);
