@@ -126,6 +126,8 @@ export function createDerpShield(node) {
     let longPressed = false, holdTimer = null;
     let pendingNodeHoldDrag = false;
     let lastClickTime = 0; // THE FIX: Track manual double clicks
+    let activeResizeHandle = null;
+    let activeResizePointerId = null;
 
     // --- HELPERS ---
     const getLocalCoords = (e) => {
@@ -166,6 +168,12 @@ export function createDerpShield(node) {
         window.removeEventListener("pointermove", onWindowPointerMove);
         window.removeEventListener("pointerup", onWindowPointerUp);
         window.removeEventListener("pointercancel", onWindowPointerUp);
+        activeResizeHandle?.removeEventListener?.("lostpointercapture", onWindowPointerUp);
+        if (activeResizeHandle && activeResizePointerId !== null && activeResizePointerId !== undefined && typeof activeResizeHandle.releasePointerCapture === "function") {
+            try { activeResizeHandle.releasePointerCapture(activeResizePointerId); } catch (_) { /* Pointer capture may already be gone. */ }
+        }
+        activeResizeHandle = null;
+        activeResizePointerId = null;
         if (holdTimer) clearTimeout(holdTimer);
         pendingNodeHoldDrag = false;
         setVisualActive(false);
@@ -556,6 +564,11 @@ export function createDerpShield(node) {
         }
 
         e.stopPropagation(); e.preventDefault(); cleanup();
+        activeResizeHandle = e.currentTarget || null;
+        activeResizePointerId = e.pointerId;
+        if (typeof activeResizeHandle?.setPointerCapture === "function" && activeResizePointerId !== undefined) {
+            try { activeResizeHandle.setPointerCapture(activeResizePointerId); } catch (_) { /* Pointer capture can fail if the browser already released it. */ }
+        }
         app.canvas.canvas.focus(); // THE FOCUS FIX: Ensure keyboard events reach the canvas
         isResizing = true;
         node._resizeAnchor = anchor;
@@ -591,6 +604,8 @@ export function createDerpShield(node) {
         setVisualActive(true, dragCursor);
         window.addEventListener("pointermove", onWindowPointerMove);
         window.addEventListener("pointerup", onWindowPointerUp);
+        window.addEventListener("pointercancel", onWindowPointerUp);
+        activeResizeHandle?.addEventListener?.("lostpointercapture", onWindowPointerUp);
     };
 
     resizeHandle.onpointerdown = (e) => startResize(e, "bottom-right");
