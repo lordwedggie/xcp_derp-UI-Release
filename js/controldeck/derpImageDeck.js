@@ -916,6 +916,12 @@ app.registerExtension({
                             }
                         }
                     },
+                    regionImageSpacer: {
+                        anchor: { target: "regionImageHandling1", axis: "y" },
+                        dir: "col",
+                        width: "full",
+                        height: mH,
+                    },
                 }
             };
 
