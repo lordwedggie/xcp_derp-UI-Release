@@ -7,6 +7,7 @@ import { showBastaLoraDetail } from "../fatha/bastas/bastaLoraDetail.js";
 import { showBastaMessage } from "../fatha/bastas/bastaMessage.js";
 import { showBastaFileHandler } from "../fatha/bastas/bastaFileHandler.js";
 import { startStackDrag, updateStackDrag, endStackDrag } from "../fatha/helpers/fathaDragDrop.js";
+import { isComfyVueNodesMode } from "../fatha/core/fathaNode2Compat.js";
 import {
     resolveRatingColor,
     buildLoraDetailPayload,
@@ -76,7 +77,17 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                 if (!nodeData.name.toLowerCase().includes("derplorastack")) return;
 
                 nodeType.prototype.onResize = function(size) {
-                    this.properties.nodeSize = [size[0], size[1]];
+                    const storedW = Number(this.properties?.nodeSize?.[0]) || 0;
+                    const nextW = Number(size?.[0]) || storedW;
+                    const nextH = Number(size?.[1]) || Number(this.properties?.nodeSize?.[1]) || 0;
+                    const preserveNode2ManualWidth = isComfyVueNodesMode()
+                        && this.properties?.autoWidth === false
+                        && this._isDerpResizing !== true
+                        && storedW > 0;
+                    const resolvedW = preserveNode2ManualWidth ? storedW : nextW;
+
+                    this.properties.nodeSize = [resolvedW, nextH];
+                    if (preserveNode2ManualWidth && Array.isArray(this.size)) this.size[0] = resolvedW;
                     if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
                 };
 
