@@ -552,7 +552,7 @@ app.registerExtension({
         const getExtraMenuOptions = nodeType.prototype.getExtraMenuOptions;
         nodeType.prototype.getExtraMenuOptions = function(canvas, options) {
             if (getExtraMenuOptions) getExtraMenuOptions.apply(this, arguments);
-            if (this.isFathaNode || this.isUncleNode) return;
+            if (this.isFathaNode || this.isUncleNode) return options;
 
             const node = this;
             const current = getRemoteBypassState(node);
@@ -574,6 +574,8 @@ app.registerExtension({
                     }
                 });
             }
+
+            return options;
         };
 
         nodeType.prototype.applyRemoteBypassSignal = function() {
