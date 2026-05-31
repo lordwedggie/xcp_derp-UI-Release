@@ -19,7 +19,7 @@ export function drawPickerRow(ctx, state, row, rect, labelPaint, scale, deps = {
         ? (state.rowTextON?.textColor || state.rowTextON?.fill || labelPaint?.textColor || labelPaint?.fill || "#ffffff")
         : (labelPaint?.textColor || labelPaint?.fill || "#ffffff");
 
-    if (!state.config.skipBackground || emphasizeBg) {
+    if (state.config.skipBackground === false || emphasizeBg) {
         masterPainter(ctx, {
             width: rect.w,
             height: rect.h,
