@@ -3,8 +3,8 @@ import { isComfyVueNodesMode } from "../core/fathaNode2Compat.js";
 
 export const DERP_BACKGROUND_PARALLAX_CONFIG = {
     initialScale: 1.5,
-    panStrengthX: 0.1,
-    panStrengthY: 0.1,
+    panStrengthX: 0.2,
+    panStrengthY: 0.16,
     zoomStrength: 0.12,
     zoomMin: 0.88,
     zoomMax: 1.2,
