@@ -613,17 +613,21 @@ export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH,
     const childNodes = getDeckChildren(entity, graph);
     const seamCandidates = [];
     if (parent) {
+        const parentEdges = parent.properties?.deckEdges || {};
+        const parentSide = ["left", "right", "top", "bottom"].find(s => parentEdges[s] === entity.id);
         seamCandidates.push({
             leader: parent,
             docked: entity,
-            side: entity.properties?.deckDockSide || null,
+            side: parentSide || entity.properties?.deckDockSide || null,
         });
     }
     childNodes.forEach((child) => {
+        const entityEdges = entity.properties?.deckEdges || {};
+        const childSide = ["left", "right", "top", "bottom"].find(s => entityEdges[s] === child.id);
         seamCandidates.push({
             leader: entity,
             docked: child,
-            side: child.properties?.deckDockSide || null,
+            side: childSide || child.properties?.deckDockSide || null,
         });
     });
 
@@ -663,10 +667,10 @@ export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH,
             side,
             leaderId: leader.id,
             dockedId: docked.id,
-            leaderStartW: leader.properties?.nodeSize?.[0] || leader.size?.[0] || 0,
-            leaderStartH: leader.properties?.nodeSize?.[1] || leader.size?.[1] || 0,
-            dockedStartW: docked.properties?.nodeSize?.[0] || docked.size?.[0] || 0,
-            dockedStartH: docked.properties?.nodeSize?.[1] || docked.size?.[1] || 0,
+            leaderStartW: leader.size?.[0] || leader.properties?.nodeSize?.[0] || 0,
+            leaderStartH: leader.size?.[1] || leader.properties?.nodeSize?.[1] || 0,
+            dockedStartW: docked.size?.[0] || docked.properties?.nodeSize?.[0] || 0,
+            dockedStartH: docked.size?.[1] || docked.properties?.nodeSize?.[1] || 0,
         };
     }
 

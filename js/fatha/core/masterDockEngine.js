@@ -614,9 +614,18 @@ export function getDeckChildren(node, graph) {
     (index?.reverseEdges.get(node.id) || []).forEach(({ node: candidate }) => {
         if (!candidate || candidate.id === node.id) return;
         const dockSide = candidate.properties?.deckDockSide;
-        if (!dockSide) return;
-        if (candidate.properties?.deckEdges?.[getOppositeDeckSide(dockSide)] === node.id) {
-            children.set(candidate.id, candidate);
+        if (dockSide) {
+            if (candidate.properties?.deckEdges?.[getOppositeDeckSide(dockSide)] === node.id) {
+                children.set(candidate.id, candidate);
+            }
+        } else {
+            // Fallback: dockSide is null, check all four deck edges for a connection
+            // Exclude parents: if this candidate is node's parent, it's handled by getDeckParent
+            if (node.properties?.deckParentId === candidate.id) return;
+            const edges = candidate.properties?.deckEdges || {};
+            if (["left", "right", "top", "bottom"].some(side => edges[side] === node.id)) {
+                children.set(candidate.id, candidate);
+            }
         }
     });
 

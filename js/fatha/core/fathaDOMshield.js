@@ -174,6 +174,9 @@ export function createDerpShield(node) {
         }
         activeResizeHandle = null;
         activeResizePointerId = null;
+        isResizing = false;
+        node._isDerpResizing = false;
+        node._dockResizeSession = null;
         if (holdTimer) clearTimeout(holdTimer);
         pendingNodeHoldDrag = false;
         setVisualActive(false);
