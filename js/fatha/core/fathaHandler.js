@@ -39,6 +39,7 @@ import {
     handleInitDerpGlobalListenerImpl,
     getPaletteCache,
 } from "../helpers/fathaThemeRuntime.js";
+import { isComfyVueNodesMode } from "./fathaNode2Compat.js";
 
 const COLLAPSED_NODE_MAX_CORNER = 5;
 const TOOLTIP_DELAY_MS = 650;
@@ -532,6 +533,17 @@ export function syncHorizontalDeckHeight(node, targetHeight = 0) {
 
 export function normalizeDerpDockedLayout(node) {
     const state = getHorizontalDeckFrameState(node);
+    const graph = app.graph || node?.graph || null;
+    if (graph && node && isComfyVueNodesMode() && isLinearDeckGroup(node, graph, "vertical")) {
+        const moved = normalizeDockedLayout(node, graph, getDerpVars(node).SNAP);
+        moved.forEach((member) => {
+            if (typeof member.syncUncleSlots === "function") member.syncUncleSlots();
+            if (typeof member.setDirtyCanvas === "function") member.setDirtyCanvas(true, true);
+            syncDerpShield(member);
+        });
+        return moved;
+    }
+
     if (state?.preserveHeight === true) {
         const sharedHeight = Number(state.sharedHeight) || 0;
         const signature = getHorizontalDeckGeometrySignature(state.members, sharedHeight);
@@ -546,7 +558,6 @@ export function normalizeDerpDockedLayout(node) {
         state.didNormalize = true;
         state.normalizedHeight = Math.max(Number(state.normalizedHeight) || 0, sharedHeight);
     }
-    const graph = app.graph || node?.graph || null;
     if (!graph || !node || !isLinearDeckGroup(node, graph, "horizontal")) return [];
     const moved = normalizeDockedLayout(node, graph, getDerpVars(node).SNAP);
     if (state?.skipState && Number(state.sharedHeight) > 0) {

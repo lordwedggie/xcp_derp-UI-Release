@@ -283,6 +283,8 @@ export function uncle(nodeType, nodeData, minWidth = 100) {
             }
             if (Number(postLayoutHeight) > 0) syncHorizontalDeckHeight(this, postLayoutHeight);
             normalizeDerpDockedLayout(this);
+        } else if (typeof LiteGraph !== "undefined" && LiteGraph.vueNodesMode) {
+            normalizeDerpDockedLayout(this);
         }
 
         if (this.properties.nodeSize && !isMinState) {
@@ -461,7 +463,27 @@ export function uncle(nodeType, nodeData, minWidth = 100) {
         createDerpShield(this);
         scheduleNativeVueNodeShellSuppression(this);
         const useAnimations = window.DERP_GLOBAL_SETTINGS?.useAnimation ?? true;
-        this.properties = { titleLabel: "Node", showInputs: true, showOutputs: true, selectedTheme: "_Templates/DerpTheme_Default", ...(this.properties || {}), minWidth: minWidth, nodeSize: [minWidth, 50], drawHeader: true, drawSignalBtn: false, drawSettingBtn: false, settingActive: false, contentCollapsed: false, collapseMinimal: false, stickyDrag: window.DERP_GLOBAL_SETTINGS?.stickyDrag ?? false, useAnimations };
+        const existingProps = this.properties || {};
+        const existingNodeSize = Array.isArray(existingProps.nodeSize)
+            ? existingProps.nodeSize
+            : (Array.isArray(this.size) ? this.size : null);
+        this.properties = {
+            titleLabel: "Node",
+            showInputs: true,
+            showOutputs: true,
+            selectedTheme: "_Templates/DerpTheme_Default",
+            minWidth,
+            nodeSize: existingNodeSize ? [...existingNodeSize] : [minWidth, 50],
+            drawHeader: true,
+            drawSignalBtn: false,
+            drawSettingBtn: false,
+            settingActive: false,
+            contentCollapsed: false,
+            collapseMinimal: false,
+            stickyDrag: window.DERP_GLOBAL_SETTINGS?.stickyDrag ?? false,
+            useAnimations,
+            ...existingProps,
+        };
         this.size = [...this.properties.nodeSize];
 
         // THE SIGNAL NAME COMPATIBILITY: Ensure outputs have a valid name for masterSignalEngine
