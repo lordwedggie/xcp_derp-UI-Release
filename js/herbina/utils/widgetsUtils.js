@@ -834,8 +834,9 @@ export function resolveWidgetEnv(node, config, app = null, element = null) {
 
     const suffix = (stateStr === "DIS") ? "_DIS" : (stateStr === "ON" ? "_ON" : "_OFF");
 
-    const bodyPaint = resolvePaintData(node, props.bodyKey, suffix, config.btnColor, config.palette);
-    const labelPaint = resolvePaintData(node, props.labelKey, suffix, config.labelColor, config.palette);
+    const visualSuffix = config.visualState ? (config.visualState === "DIS" ? "_DIS" : (config.visualState === "ON" ? "_ON" : "_OFF")) : suffix;
+    const bodyPaint = resolvePaintData(node, props.bodyKey, visualSuffix, config.btnColor, config.palette);
+    const labelPaint = resolvePaintData(node, props.labelKey, visualSuffix, config.labelColor, config.palette);
 
     // --- COLOR-KEY TEXT PARSING ---
     const defaultTextColor = labelPaint?.textColor || labelPaint?.fill;

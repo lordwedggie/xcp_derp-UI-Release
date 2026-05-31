@@ -174,6 +174,15 @@ function setRemoteBypassTitleSuffix(entity, enabled) {
     }
 }
 
+function notifyRemoteBypassSource(signalId) {
+    if (!signalId) return;
+    const baseId = parseInt(String(signalId).split(":")[0], 10);
+    const sourceNode = app?.graph?.getNodeById?.(baseId);
+    if (sourceNode && typeof sourceNode.refreshNodeLayoutMap === "function") {
+        sourceNode.refreshNodeLayoutMap();
+    }
+}
+
 function setRemoteBypassState(entity, nextState) {
     if (isGraphGroup(entity)) {
         remoteBypassGroups.add(entity);
@@ -184,10 +193,16 @@ function setRemoteBypassState(entity, nextState) {
         return;
     }
 
+    const prevSignalId = entity.properties?.[REMOTE_BYPASS_META]?.signalId;
+    const nextSignalId = nextState?.signalId;
+
     entity.properties = entity.properties || {};
     if (nextState) entity.properties[REMOTE_BYPASS_META] = nextState;
     else delete entity.properties[REMOTE_BYPASS_META];
     setRemoteBypassTitleSuffix(entity, !!nextState);
+
+    if (prevSignalId && prevSignalId !== nextSignalId) notifyRemoteBypassSource(prevSignalId);
+    if (nextSignalId) notifyRemoteBypassSource(nextSignalId);
 }
 
 function getSignalById(signalId) {
@@ -297,34 +312,56 @@ function applyRemoteBypass(entity) {
 }
 
 function buildSignalOptions(entity) {
-    const current = getRemoteBypassState(entity);
     const boolSignals = getBoolSignals();
-    const options = [];
+    const current = getRemoteBypassState(entity);
 
+    // Group signals by their source node (base ID before ":")
+    const groups = new Map();
     boolSignals.forEach((sig) => {
-        const label = formatBypassSignalLabel(sig) || `${sig.nodeName || sig.nodeId}`;
-        options.push({ content: label, callback: () => {
-            setRemoteBypassState(entity, {
-                signalId: String(sig.nodeId),
-                signalLabel: label,
-                missing: false,
-            });
-            applyRemoteBypass(entity);
-            markEntityDirty(entity);
-        } });
+        const baseId = String(sig.nodeId).split(":")[0];
+        if (!groups.has(baseId)) groups.set(baseId, { nodeName: null, signals: [] });
+        const group = groups.get(baseId);
+        if (!group.nodeName) {
+            const nodeLabel = formatBypassSignalLabel(sig);
+            const match = nodeLabel.match(/^(.+?)(?:\s*\[(\d+)\]|\s*:.*)?$/);
+            group.nodeName = match ? match[1].trim() : (sig.nodeName || `Node ${baseId}`);
+        }
+        group.signals.push(sig);
     });
 
-    if (options.length === 0) {
-        options.push({ content: "(No BOOL wireless signals found)", disabled: true });
+    const nodeOptions = [];
+    groups.forEach((group, baseId) => {
+        const signalEntries = group.signals.map((sig) => {
+            const label = formatBypassSignalLabel(sig) || `${sig.nodeName || sig.nodeId}`;
+            const shortLabel = label.replace(new RegExp(`^${group.nodeName}\\s*[:-]?\\s*`), "") || label;
+            return { content: shortLabel, callback: () => {
+                setRemoteBypassState(entity, {
+                    signalId: String(sig.nodeId),
+                    signalLabel: label,
+                    missing: false,
+                });
+                applyRemoteBypass(entity);
+                markEntityDirty(entity);
+            } };
+        });
+        nodeOptions.push({
+            content: `${group.nodeName} [${baseId}]`,
+            has_submenu: true,
+            submenu: { options: signalEntries }
+        });
+    });
+
+    if (nodeOptions.length === 0) {
+        nodeOptions.push({ content: "(No BOOL wireless signals found)", disabled: true });
     }
 
     if (current?.signalId && current?.missing) {
-        options.unshift({ content: `Current: ${current.signalLabel || current.signalId} (missing)`, disabled: true });
+        nodeOptions.unshift({ content: `Current: ${current.signalLabel || current.signalId} (missing)`, disabled: true });
     } else if (current?.signalId) {
-        options.unshift({ content: `Current: ${current.signalLabel || current.signalId}`, disabled: true });
+        nodeOptions.unshift({ content: `Current: ${current.signalLabel || current.signalId}`, disabled: true });
     }
 
-    return options;
+    return nodeOptions;
 }
 
 function appendRemoteBypassMenuOptions(entity, options) {

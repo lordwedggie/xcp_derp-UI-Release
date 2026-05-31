@@ -8,7 +8,6 @@ import { fatha, initDerpGlobalListener } from "../fatha/fatha.js";
 import { refreshWirelessSignalConsumers, transmitDerpSignal } from "../fatha/core/masterSignalEngine.js";
 import { showBastaToggle } from "../fatha/bastas/bastaToggle.js";
 import { startStackDrag, updateStackDrag, endStackDrag } from "../fatha/helpers/fathaDragDrop.js";
-
 function tLocale(key, fallback = key) {
     if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
     const path = key.substring(1).split(".");
@@ -26,6 +25,16 @@ function getDefaultToggleLabel() {
 
 function getDefaultToggleItemLabel(index) {
     return `${tLocale("$derp_toggle.item_prefix", "Toggle")} ${index + 1}`;
+}
+
+function isToggleUsedByRemoteBypass(node, signalIndex) {
+    const signalId = `${node.id}:${signalIndex}`;
+    const graph = app?.graph;
+    if (!graph?._nodes) return false;
+    for (const n of graph._nodes) {
+        if (n?.properties?.derpRemoteBypass?.signalId === signalId) return true;
+    }
+    return false;
 }
 
 function syncDerpToggleLocaleLabels(node) {
@@ -89,7 +98,7 @@ function ensureToggleItems(node) {
 
 function buildToggleLayoutHash(node, vars, toggleItems) {
     const deckHash = toggleItems
-        .map((item, index) => `${index}:${item?.signalIndex}:${item?.label || ""}:${item?.value !== false}`)
+        .map((item, index) => `${index}:${item?.signalIndex}:${item?.label || ""}:${item?.value !== false}:${isToggleUsedByRemoteBypass(node, index)}`)
         .join("|");
     const width = (Number(node?.size?.[0]) || 0).toFixed(2);
     const mW = Number(vars.mW || 0).toFixed(2);
@@ -178,12 +187,9 @@ app.registerExtension({
                 const rowMarginBottom = displayIdx < (deckItems.length - 1) ? sH : 0;
 
                 deckRegions[rowKey] = {
-                    type: this.UI_TYPES.REGION,
                     dir: "row", width: "full", height: "auto",
                     spacing: [0, sH],
                     margin: [0, 0, 0, rowMarginBottom],
-                    state: entry.isPreviewGhost ? "DIS" : ((isPickedUp || item.value !== false) ? "ON" : "OFF"),
-                    alpha: entry.isPreviewGhost ? 0 : 1.0,
                     onDragStart: (e, data) => startStackDrag(this, data, idx, rowKey),
                     onDrag: (e, data) => { updateStackDrag(this, data, "toggleRow_", toggleItems.length); this.refreshNodeLayoutMap(); },
                     onDragEnd: () => endStackDrag(this, "toggleItems"),
@@ -194,6 +200,7 @@ app.registerExtension({
                         themeKey: "button, t_textNormal", mouseOver: false,
                         text: item.label || getDefaultToggleItemLabel(idx),
                         state: item.value !== false ? "ON" : "OFF",
+                        visualState: isToggleUsedByRemoteBypass(this, idx) ? undefined : "DIS",
                         alpha: entry.isPreviewGhost ? 0 : 1.0,
                         width: "full",
                         height: "auto",
