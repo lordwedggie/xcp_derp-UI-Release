@@ -444,7 +444,6 @@ export async function loadDerpLocale(langCode = "en-US") {
             if (app.canvas) app.canvas.setDirty(true, true);
         }
     } catch (e) {
-        console.error(`❌ [xcpDerp] Localization Load Error:`, e);
     }
 }
 
