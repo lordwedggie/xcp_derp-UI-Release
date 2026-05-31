@@ -128,7 +128,7 @@ function installHotkeyCapture() {
         event.stopPropagation();
 
         if (event.key === "Escape") {
-            const current = app.ui?.settings?.getSettingValue?.(setting.id, setting.defaultValue) || setting.defaultValue;
+            const current = app.ui?.settings?.getSettingValue?.(setting.id) ?? setting.defaultValue;
             input.value = normalizeHotkeyString(current, setting.defaultValue);
             return;
         }
@@ -203,7 +203,7 @@ async function getComfySettingValue(id, fallback) {
         const value = store.get(id);
         if (value !== undefined) return value;
     }
-    return app.ui?.settings?.getSettingValue?.(id, fallback) ?? fallback;
+    return app.ui?.settings?.getSettingValue?.(id) ?? fallback;
 }
 
 async function setComfySettingValue(id, value) {
@@ -554,22 +554,22 @@ app.registerExtension({
 
         // Initialize global object for immediate access by nodes
         window.DERP_GLOBAL_SETTINGS = {
-            stickyDrag: normalizeBooleanSetting(app.ui.settings.getSettingValue("Derp.StickyDrag", false), false),
-            playSound: app.ui.settings.getSettingValue("Derp.PlaySound", true),
-            useAnimation: app.ui.settings.getSettingValue("Derp.UseAnimation", true),
-            closeSysPanelOnOutsideClick: normalizeBooleanSetting(app.ui.settings.getSettingValue("Derp.CloseSysPanelOnOutsideClick", true), true),
-            backgroundImage: String(app.ui.settings.getSettingValue("Derp.BackgroundImage", DERP_DEFAULT_SELECTION) || DERP_DEFAULT_SELECTION),
-            canvasPalette: String(app.ui.settings.getSettingValue(CANVAS_PALETTE_SETTING_ID, DERP_DEFAULT_SELECTION) || DERP_DEFAULT_SELECTION),
-            verticalDockHeaderCollapse: normalizeBooleanSetting(app.ui.settings.getSettingValue("Derp.VerticalDockHeaderCollapse", true), true),
-            syncedCollapse: normalizeBooleanSetting(app.ui.settings.getSettingValue("Derp.SyncedCollapse", true), true),
-            perfOverlayHotkey: normalizeHotkeyString(app.ui.settings.getSettingValue("Derp.PerfOverlayHotkey", "Alt+Shift+P"), "Alt+Shift+P"),
-            systemBypassSoundIndex: normalizeVariantIndex(app.ui.settings.getSettingValue("Derp.SystemBypassSoundIndex", 0), 0),
-            systemCollapseSoundIndex: normalizeVariantIndex(app.ui.settings.getSettingValue("Derp.SystemCollapseSoundIndex", 0), 0),
-            systemDockSoundIndex: normalizeVariantIndex(app.ui.settings.getSettingValue("Derp.SystemDockSoundIndex", 0), 0),
-            perfOverlayFontSize: Number(app.ui.settings.getSettingValue("Derp.PerfOverlayFontSize", 12)) || 12,
-            perfOverlayShowRanking: normalizeBooleanSetting(app.ui.settings.getSettingValue("Derp.PerfOverlayShowRanking", true), true),
-            perfOverlayShowZOrder: normalizeBooleanSetting(app.ui.settings.getSettingValue("Derp.PerfOverlayShowZOrder", false), false),
-            warpSpeedLevel: Math.max(1, Math.min(9, Math.round(Number(app.ui.settings.getSettingValue("Derp.WarpSpeedLevel", 5)) || 5)))
+            stickyDrag: normalizeBooleanSetting(app.ui.settings.getSettingValue("Derp.StickyDrag") ?? false, false),
+            playSound: app.ui.settings.getSettingValue("Derp.PlaySound") ?? true,
+            useAnimation: app.ui.settings.getSettingValue("Derp.UseAnimation") ?? true,
+            closeSysPanelOnOutsideClick: normalizeBooleanSetting(app.ui.settings.getSettingValue("Derp.CloseSysPanelOnOutsideClick") ?? true, true),
+            backgroundImage: String(app.ui.settings.getSettingValue("Derp.BackgroundImage") ?? DERP_DEFAULT_SELECTION),
+            canvasPalette: String(app.ui.settings.getSettingValue(CANVAS_PALETTE_SETTING_ID) ?? DERP_DEFAULT_SELECTION),
+            verticalDockHeaderCollapse: normalizeBooleanSetting(app.ui.settings.getSettingValue("Derp.VerticalDockHeaderCollapse") ?? true, true),
+            syncedCollapse: normalizeBooleanSetting(app.ui.settings.getSettingValue("Derp.SyncedCollapse") ?? true, true),
+            perfOverlayHotkey: normalizeHotkeyString(app.ui.settings.getSettingValue("Derp.PerfOverlayHotkey") ?? "Alt+Shift+P", "Alt+Shift+P"),
+            systemBypassSoundIndex: normalizeVariantIndex(app.ui.settings.getSettingValue("Derp.SystemBypassSoundIndex") ?? 0, 0),
+            systemCollapseSoundIndex: normalizeVariantIndex(app.ui.settings.getSettingValue("Derp.SystemCollapseSoundIndex") ?? 0, 0),
+            systemDockSoundIndex: normalizeVariantIndex(app.ui.settings.getSettingValue("Derp.SystemDockSoundIndex") ?? 0, 0),
+            perfOverlayFontSize: Number(app.ui.settings.getSettingValue("Derp.PerfOverlayFontSize") ?? 12) || 12,
+            perfOverlayShowRanking: normalizeBooleanSetting(app.ui.settings.getSettingValue("Derp.PerfOverlayShowRanking") ?? true, true),
+            perfOverlayShowZOrder: normalizeBooleanSetting(app.ui.settings.getSettingValue("Derp.PerfOverlayShowZOrder") ?? false, false),
+            warpSpeedLevel: Math.max(1, Math.min(9, Math.round(Number(app.ui.settings.getSettingValue("Derp.WarpSpeedLevel") ?? 5) || 5)))
         };
 
         hydrateDerpBackgroundSetting().then((options) => {
