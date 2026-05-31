@@ -1,5 +1,6 @@
 import { app } from "../../../../scripts/app.js";
 import { startAnimatorChannel, stopAnimatorChannel, isAnimatorChannelActive } from "../../herbina/masterAnimator.js";
+import { getWarpTravelSpeed } from "../../masterSettings.js";
 
 // Warp tuning knobs:
 // - WARP_TRAVEL_SPEED controls how quickly camera reaches target.
@@ -244,7 +245,7 @@ function applyInstantWarp(target, view, options = {}) {
 }
 
 function applyAnimatedWarp(target, view, options = {}) {
-    const speed = Math.max(0.05, Number(options.travelSpeed) || WARP_TRAVEL_SPEED);
+    const speed = Math.max(0.05, Number(options.travelSpeed) || getWarpTravelSpeed());
     const durationBase = Math.max(16, Number(options.durationMs) || DEFAULTS.durationMs);
     const durationMs = Math.max(16, durationBase / speed);
     const easing = String(options.easing || DEFAULTS.easing);

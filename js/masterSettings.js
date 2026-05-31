@@ -5,6 +5,22 @@
 import { app } from "../../../scripts/app.js";
 import { applyDerpBackgroundImage, hydrateDerpBackgroundSetting } from "./fatha/core/fathaHandler.js";
 
+// --- WARP SPEED SETTING ---
+// Warp 5 = current default (1.0). Each level compounds by 20%.
+// Warp 1 is slowest, Warp 9 is fastest.
+const _WARP_SPEED_BASE = 1.0; // Warp 5
+const _WARP_SPEED_MULTIPLIER = 1.2;
+const _WARP_SPEEDS = {};
+for (let i = 1; i <= 9; i++) {
+    _WARP_SPEEDS[i] = _WARP_SPEED_BASE * Math.pow(_WARP_SPEED_MULTIPLIER, i - 5);
+}
+export function getWarpTravelSpeed() {
+    const level = (window.DERP_GLOBAL_SETTINGS && Number.isFinite(window.DERP_GLOBAL_SETTINGS.warpSpeedLevel))
+        ? Math.max(1, Math.min(9, Math.round(window.DERP_GLOBAL_SETTINGS.warpSpeedLevel)))
+        : 5;
+    return _WARP_SPEEDS[level] || 1.0;
+}
+
 const HOTKEY_SETTINGS = [];
 const CANVAS_PALETTE_SETTING_ID = "Derp.CanvasPalette";
 const DERP_DEFAULT_SELECTION = "_default";
@@ -511,6 +527,31 @@ app.registerExtension({
             }
         });
 
+        app.ui.settings.addSetting({
+            id: "Derp.WarpSpeedLevel",
+            name: "Warp speed when panning canvas to a warp point",
+            category: DERP_GROUPS.ui("Warp Speed"),
+            sortOrder: DERP_GROUP_SORT_ORDER.ui,
+            type: "combo",
+            options: [
+                { value: 1, text: "Warp 1 (slowest)" },
+                { value: 2, text: "Warp 2" },
+                { value: 3, text: "Warp 3" },
+                { value: 4, text: "Warp 4" },
+                { value: 5, text: "Warp 5 (default)" },
+                { value: 6, text: "Warp 6" },
+                { value: 7, text: "Warp 7" },
+                { value: 8, text: "Warp 8" },
+                { value: 9, text: "Warp 9 (fastest)" }
+            ],
+            default: 5,
+            onChange: (v) => {
+                window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
+                const n = Number(v);
+                window.DERP_GLOBAL_SETTINGS.warpSpeedLevel = Number.isFinite(n) ? Math.max(1, Math.min(9, Math.round(n))) : 5;
+            }
+        });
+
         // Initialize global object for immediate access by nodes
         window.DERP_GLOBAL_SETTINGS = {
             stickyDrag: normalizeBooleanSetting(app.ui.settings.getSettingValue("Derp.StickyDrag", false), false),
@@ -527,7 +568,8 @@ app.registerExtension({
             systemDockSoundIndex: normalizeVariantIndex(app.ui.settings.getSettingValue("Derp.SystemDockSoundIndex", 0), 0),
             perfOverlayFontSize: Number(app.ui.settings.getSettingValue("Derp.PerfOverlayFontSize", 12)) || 12,
             perfOverlayShowRanking: normalizeBooleanSetting(app.ui.settings.getSettingValue("Derp.PerfOverlayShowRanking", true), true),
-            perfOverlayShowZOrder: normalizeBooleanSetting(app.ui.settings.getSettingValue("Derp.PerfOverlayShowZOrder", false), false)
+            perfOverlayShowZOrder: normalizeBooleanSetting(app.ui.settings.getSettingValue("Derp.PerfOverlayShowZOrder", false), false),
+            warpSpeedLevel: Math.max(1, Math.min(9, Math.round(Number(app.ui.settings.getSettingValue("Derp.WarpSpeedLevel", 5)) || 5)))
         };
 
         hydrateDerpBackgroundSetting().then((options) => {
