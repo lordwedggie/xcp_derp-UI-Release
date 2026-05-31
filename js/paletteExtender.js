@@ -88,7 +88,7 @@ app.registerExtension({
             });
 
             options.push({
-                content: "🎨 Apply Derp Palette...",
+                content: "\uD83D\uDD1E Apply Derp Palette",
                 has_submenu: true,
                 submenu: {
                     options: fileOptions

@@ -49,18 +49,18 @@ app.registerExtension({
             const titleProp = (this.titleLabel !== undefined) ? "titleLabel" : "title";
 
             options.push({
-                content: isTransmitting ? "🛰️ Derp Wireless: Stop Broadcasting" : "🛰️ Derp Wireless: Broadcast to Hub",
+                content: isTransmitting ? "\uD83D\uDD1E Derp Wireless: Stop Broadcasting\uD83D\uDEF0\uFE0F" : "\uD83D\uDD1E Derp Wireless: Broadcast to Hub\uD83D\uDEF0\uFE0F",
                 callback: () => {
                     this.properties = this.properties || {};
                     this.properties.isWirelessTransmitter = !isTransmitting;
 
                     if (this.properties.isWirelessTransmitter) {
                         const currentTitle = this[titleProp] || this.type || "Node";
-                        if (!currentTitle.startsWith("🛰️")) {
-                            this[titleProp] = "🛰️ " + currentTitle;
+                        if (!currentTitle.startsWith("\uD83D\uDEF0\uFE0F")) {
+                            this[titleProp] = "\uD83D\uDEF0\uFE0F " + currentTitle;
                         }
                     } else {
-                        if (this[titleProp]) this[titleProp] = this[titleProp].replace("🛰️ ", "");
+                        if (this[titleProp]) this[titleProp] = this[titleProp].replace("\uD83D\uDEF0\uFE0F ", "");
                         purgeDerpSignal(this.id);
                     }
 

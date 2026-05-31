@@ -3,12 +3,17 @@
  * ROLE: Adds remote BOOL-driven bypass control to default ComfyUI nodes.
  */
 import { app } from "../../../scripts/app.js";
+import { showBypassSignalPicker } from "./bypassSignalPicker.js";
 
-const REMOTE_BYPASS_MENU = "🔀 Apply Derp Remote Bypass";
-const REMOTE_BYPASS_CLEAR = "🔀 Clear Derp Remote Bypass";
+const REMOTE_BYPASS_MENU = "\uD83D\uDD1E Apply Derp Remote Bypass \u21C4";
+const REMOTE_BYPASS_CLEAR = "\u21C4 Clear Derp Remote Bypass";
 const REMOTE_BYPASS_META = "derpRemoteBypass";
-const REMOTE_BYPASS_TITLE_SUFFIX = " \uD83D\uDD1E";
+const REMOTE_BYPASS_TITLE_SUFFIX = " \u21C4";
 const remoteBypassGroups = new Set();
+
+function isVueNodesMode() {
+    return !!(typeof LiteGraph !== "undefined" && LiteGraph.vueNodesMode);
+}
 
 function isGraphGroup(entity) {
     return !!(entity && !Array.isArray(entity.inputs) && !Array.isArray(entity.outputs) && getGroupBounds(entity));
@@ -311,9 +316,27 @@ function applyRemoteBypass(entity) {
     if (didMetaChange) markEntityDirty(entity);
 }
 
-function buildSignalOptions(entity) {
+function getBypassSignalGroups() {
     const boolSignals = getBoolSignals();
-    const current = getRemoteBypassState(entity);
+    const groups = new Map();
+    boolSignals.forEach((sig) => {
+        const baseId = String(sig.nodeId).split(":")[0];
+        if (!groups.has(baseId)) groups.set(baseId, { nodeName: null, baseId, signals: [] });
+        const group = groups.get(baseId);
+        if (!group.nodeName) {
+            const nodeLabel = formatBypassSignalLabel(sig);
+            const match = nodeLabel.match(/^(.+?)(?:\s*\[(\d+)\]|\s*:.*)?$/);
+            group.nodeName = match ? match[1].trim() : (sig.nodeName || `Node ${baseId}`);
+        }
+        const label = formatBypassSignalLabel(sig) || `${sig.nodeName || sig.nodeId}`;
+        group.signals.push({ ...sig, _label: label });
+    });
+    return [...groups.values()];
+}
+
+function buildSignalOptions(entity, _current) {
+    const boolSignals = getBoolSignals();
+    const current = _current || getRemoteBypassState(entity);
 
     // Group signals by their source node (base ID before ":")
     const groups = new Map();
@@ -361,6 +384,14 @@ function buildSignalOptions(entity) {
         nodeOptions.unshift({ content: `Current: ${current.signalLabel || current.signalId}`, disabled: true });
     }
 
+    if (current?.signalId) {
+        nodeOptions.push(null);
+        nodeOptions.push({ content: REMOTE_BYPASS_CLEAR, callback: () => {
+            setRemoteBypassState(entity, null);
+            markEntityDirty(entity);
+        } });
+    }
+
     return nodeOptions;
 }
 
@@ -370,21 +401,27 @@ function appendRemoteBypassMenuOptions(entity, options) {
     if (options.some((item) => item?.content === REMOTE_BYPASS_MENU)) return options;
 
     const current = getRemoteBypassState(entity);
-    options.push(null);
-    options.push({
-        content: REMOTE_BYPASS_MENU,
-        has_submenu: true,
-        submenu: {
-            options: buildSignalOptions(entity)
-        }
-    });
-
-    if (current?.signalId) {
+    if (isVueNodesMode()) {
+        const sigCurrent = current?.signalId ? (current.signalLabel || current.signalId) : null;
+        const groups = getBypassSignalGroups();
         options.push({
-            content: `${REMOTE_BYPASS_CLEAR}${current.missing ? " (missing)" : ""}`,
-            callback: () => {
-                setRemoteBypassState(entity, null);
-                markEntityDirty(entity);
+            content: REMOTE_BYPASS_MENU,
+            callback: () => showBypassSignalPicker({
+                groups, currentSignal: sigCurrent,
+                onSelect: (sig, label) => {
+                    setRemoteBypassState(entity, { signalId: String(sig.nodeId), signalLabel: label, missing: false });
+                    applyRemoteBypass(entity); markEntityDirty(entity);
+                },
+                onClear: () => { setRemoteBypassState(entity, null); markEntityDirty(entity); }
+            })
+        });
+    } else {
+        options.push(null);
+        options.push({
+            content: REMOTE_BYPASS_MENU,
+            has_submenu: true,
+            submenu: {
+                options: buildSignalOptions(entity, current)
             }
         });
     }
@@ -557,20 +594,26 @@ app.registerExtension({
             const node = this;
             const current = getRemoteBypassState(node);
 
-            options.push({
-                content: REMOTE_BYPASS_MENU,
-                has_submenu: true,
-                submenu: {
-                    options: buildSignalOptions(node)
-                }
-            });
-
-            if (current?.signalId) {
+            if (isVueNodesMode()) {
+                const sigCurrent = current?.signalId ? (current.signalLabel || current.signalId) : null;
+                const groups = getBypassSignalGroups();
                 options.push({
-                    content: `${REMOTE_BYPASS_CLEAR}${current.missing ? " (missing)" : ""}`,
-                    callback: () => {
-                        setRemoteBypassState(node, null);
-                        markNodeDirty(node);
+                    content: REMOTE_BYPASS_MENU,
+                    callback: () => showBypassSignalPicker({
+                        groups, currentSignal: sigCurrent,
+                        onSelect: (sig, label) => {
+                            setRemoteBypassState(node, { signalId: String(sig.nodeId), signalLabel: label, missing: false });
+                            applyRemoteBypass(node); markEntityDirty(node);
+                        },
+                        onClear: () => { setRemoteBypassState(node, null); markNodeDirty(node); }
+                    })
+                });
+            } else {
+                options.push({
+                    content: REMOTE_BYPASS_MENU,
+                    has_submenu: true,
+                    submenu: {
+                        options: buildSignalOptions(node, current)
                     }
                 });
             }

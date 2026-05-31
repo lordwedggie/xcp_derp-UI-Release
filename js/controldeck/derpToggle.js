@@ -30,9 +30,18 @@ function getDefaultToggleItemLabel(index) {
 function isToggleUsedByRemoteBypass(node, signalIndex) {
     const signalId = `${node.id}:${signalIndex}`;
     const graph = app?.graph;
-    if (!graph?._nodes) return false;
-    for (const n of graph._nodes) {
-        if (n?.properties?.derpRemoteBypass?.signalId === signalId) return true;
+    if (!graph) return false;
+    // Check nodes
+    if (graph._nodes) {
+        for (const n of graph._nodes) {
+            if (n?.properties?.derpRemoteBypass?.signalId === signalId) return true;
+        }
+    }
+    // Check groups (bypass stored in flags, not properties)
+    if (graph._groups) {
+        for (const g of graph._groups) {
+            if (g?.flags?.derpRemoteBypass?.signalId === signalId) return true;
+        }
     }
     return false;
 }
