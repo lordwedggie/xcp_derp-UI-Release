@@ -1,8 +1,8 @@
 /**
  * Path: ./js/fatha/core/wirelessExtender.js
  */
-import { app } from "../../../scripts/app.js";
-import { runWirelessHeartbeat, purgeDerpSignal, transmitDerpSignal } from "./fatha/core/masterSignalEngine.js";
+import { app } from "../../../../../scripts/app.js";
+import { runWirelessHeartbeat, purgeDerpSignal, transmitDerpSignal } from "../../fatha/core/masterSignalEngine.js";
 
 app.registerExtension({
     name: "xcp.WirelessExtender",

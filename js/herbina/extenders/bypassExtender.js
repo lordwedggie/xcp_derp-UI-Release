@@ -2,8 +2,8 @@
  * Path: ./js/bypassExtender.js
  * ROLE: Adds remote BOOL-driven bypass control to default ComfyUI nodes.
  */
-import { app } from "../../../scripts/app.js";
-import { showBypassSignalPicker } from "./bypassSignalPicker.js";
+import { app } from "../../../../../scripts/app.js";
+import { showBypassSignalPicker } from "./helpers/bypassSignalPicker.js";
 
 const REMOTE_BYPASS_MENU = "\uD83D\uDD1E Apply Derp Remote Bypass \u21C4";
 const REMOTE_BYPASS_CLEAR = "\u21C4 Clear Derp Remote Bypass";

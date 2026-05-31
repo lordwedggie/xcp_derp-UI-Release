@@ -3,7 +3,7 @@
  * ROLE: The "Diplomat" that brings Derp colors to standard, non-virtual nodes.
  * FIX: Pre-fetching palettes at startup to utilize LiteGraph's native, synchronous submenu engine.
  */
-import { app } from "../../../scripts/app.js";
+import { app } from "../../../../../scripts/app.js";
 
 app.registerExtension({
     name: "xcp.PaletteExtender",
