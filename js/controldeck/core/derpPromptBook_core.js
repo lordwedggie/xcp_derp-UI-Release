@@ -115,7 +115,6 @@ async function validateActivePromptBook(node) {
         showPromptBookMissingBookMessage(node, activeBookName);
         node.properties.bookName = availableBooks[0] || tLocale("$derp_prompt_book.book.untitled_name", "Untitled Book");
         node._lastSavedBookName = node.properties.bookName;
-        node.properties.currentPageIndex = 0;
         node.properties.derpBook = createDefaultDerpBook();
         node.properties.prompt = node.properties.derpBook[0]?.content || "";
 
@@ -353,11 +352,15 @@ export function bindPromptBookHooks(nodeType) {
             this.updateDerpPromptBookUI();
             if (this.refreshDerpPromptBookSysMap) this.refreshDerpPromptBookSysMap();
             if (this.fetchRemoteBooks) {
+                const savedPageIndex = this.properties.currentPageIndex;
                 this.fetchRemoteBooks().then(() => {
                     const bookName = this.properties.bookName;
                     const isUntitled = bookName === tLocale("$derp_prompt_book.book.untitled_name", "Untitled Book") || !bookName;
                     if (!isUntitled && Array.isArray(this._availableBooks) && this._availableBooks.includes(bookName)) {
-                        handleBookChange(this, bookName);
+                        handleBookChange(this, bookName).then(() => {
+                            this.properties.currentPageIndex = Math.min(savedPageIndex, (this.properties.derpBook || []).length - 1);
+                            this.refreshNodeLayoutMap();
+                        });
                     }
                 });
             }
@@ -487,6 +490,9 @@ export function handlePageChange(node, action) {
 
     if (node.syncDerpOutputs) node.syncDerpOutputs();
 
+    const graph = node.graph || app?.graph;
+    if (graph?.change) graph.change();
+
     if (node.refreshNodeLayoutMap) node.refreshNodeLayoutMap();
 }
 
@@ -501,6 +507,9 @@ export function handlePageAdd(node) {
     if (w) w.value = "";
 
     if (node.syncDerpOutputs) node.syncDerpOutputs();
+
+    const graph = node.graph || app?.graph;
+    if (graph?.change) graph.change();
 
     if (node.refreshNodeLayoutMap) node.refreshNodeLayoutMap();
 }

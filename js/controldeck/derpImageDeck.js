@@ -884,7 +884,7 @@ app.registerExtension({
                             }
                         },
                         editorImageFilename: {
-                            type: this.UI_TYPES.EDITOR,
+                            type: this.UI_TYPES.EDITOR, mouseOver: false,
                             canvasShield: true,
                             themeKey: "dialog, t_textNormal",
                             displayMode: "cutoff",
