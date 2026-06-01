@@ -115,7 +115,8 @@ app.registerExtension({
         // THE FIX: Protocol Authority. Using Fatha's centralized variable resolver
         nodeType.prototype.refreshNodeLayoutMap = function() {
             if (!Array.isArray(this._systemPaletteList)) refreshSystemPaletteList(this);
-            const isPaletteOpen = activeBastas.has(getPaletteId(this));
+            const paletteBasta = activeBastas.get(getPaletteId(this));
+            const isPaletteOpen = paletteBasta && !paletteBasta.isClosing;
             // THE STRUCTURAL HASH FIX: Include the active theme to ensure
             // the map re-binds correctly when the global state shifts.
             // THE THRASHING FIX: Removed volatile _forceSync from hash which was causing infinite map rebuilds.
@@ -283,11 +284,14 @@ app.registerExtension({
                     anchor: { target: "themeLayoutRegion", axis: "y", offset: oY }, state: "_DIS",
                     objectAlign: ["left", "top"], dir: "col", width: "full", height: "auto", margin: [mW, mH],
                     btnPaletteDesigner: {
-                        type: UI_TYPES.BUTTON, themeKey: "button, t_textSmall", noHover: false,
+                        type: UI_TYPES.BUTTON, themeKey: "button, t_textSmall", mouseOver: false,
                         text: "Palette Editor",
                         width: "auto", height: "fill", objectAlign: ["left", "middle"], labelAlign: ["center", "middle"],
                         padding:[pW, pH], spacing: [sW, 0],
-                        state: activeBastas.has(getPaletteId(this)) ? "DIS" : "OFF",
+                        state: (() => {
+                            const b = activeBastas.get(getPaletteId(this));
+                            return (b && !b.isClosing) ? "ON" : "OFF";
+                        })(),
                         onClick: () => {
                             showBastaPalette(this, "btnPaletteDesigner");
                             this.refreshNodeLayoutMap();
@@ -357,9 +361,8 @@ app.registerExtension({
                         type: UI_TYPES.FILEBROWSER,
                         icon: "dropdown",
                         themeKey: "panel, t_textSmall", width: "fit",
-                        height: "auto", padding: [pW, 2], minWidth: 80,
-                        mode: "file",
-                        rootName: "fonts",
+                        height: "auto", padding: [pW, 2], minWidth: 100,
+                        mode: "file", rootName: "fonts", spacing: [sW, 0],
                         items: this._cachedFonts || ["Loading..."]
                     },
                     lblFontSize: {
@@ -368,17 +371,19 @@ app.registerExtension({
                     },
                     promptFontSize: {
                         type: UI_TYPES.EDITOR, canvasShield:true,   themeKey: "dialog, t_textSystem",
-                        numberOnly: true, value: "10", width: "auto", height: "auto", padding: [pW, pH], labelAlign: ["center", "middle"]
+                        numberOnly: true, value: "10", width: "auto", height: "auto", padding: [pW, pH], labelAlign: ["center", "middle"],
+                        spacing: [sW, 0],                        
                     },
+                    spring: { width: "full", height: 0 },
                     lblFontWeight: {
                         type: UI_TYPES.TEXT, themeKey: "t_textSmall", text: "Weight:",
                         width: "auto", height: "auto", padding: [pW, pH], spacing: [sW, 0]
                     },
                     dropdownFontWeight: {
                         type: UI_TYPES.FILEBROWSER,
-                        icon: "dropdown",
-                        themeKey: "panel, t_textSmall", width: "fit",
-                        height: "auto", padding: [pW, 2], minWidth: 60,
+                        icon: "dropdown", measureText: "Normal", indicator: true, text: "Normal",
+                        themeKey: "panel, t_textSmall", width: "auto",
+                        height: "auto", padding: [pW, 2], minWidth: 40,
                         mode: "file",
                         rootName: "weights",
                         items: ["100", "200", "300", "400", "500", "600", "700", "800", "900", "normal", "bold"]
