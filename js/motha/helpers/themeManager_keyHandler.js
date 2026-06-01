@@ -13,7 +13,29 @@ import { generateKeyHash } from "./themeDataUtils.js";
 import { safeClick, safePersist, playSuccessSound } from "../themeManagerV2_core.js";
 
 const THEME_META_KEYS = new Set(["_category", "_layout", "_palette"]);
-const FONT_WEIGHT_OPTIONS = ["100", "200", "300", "400", "500", "600", "700", "800", "900", "normal", "bold"];
+const FONT_WEIGHT_OPTIONS = ["100", "200", "300", "400", "500", "600", "700", "800", "900"];
+
+function normalizeFontWeight(weight) {
+    const val = String(weight || "normal");
+    if (val === "normal") return "400";
+    if (val === "bold") return "700";
+    return FONT_WEIGHT_OPTIONS.includes(val) ? val : "400";
+}
+
+function resolveFontWeightOptions(node, font) {
+    const weights = node?._fontWeightMap?.[font];
+    if (Array.isArray(weights) && weights.length > 0) return weights;
+    return FONT_WEIGHT_OPTIONS;
+}
+
+function nearestFontWeight(weight, options) {
+    const normalized = normalizeFontWeight(weight);
+    if (options.includes(normalized)) return normalized;
+    const target = Number(normalized);
+    return options.reduce((best, curr) => {
+        return Math.abs(Number(curr) - target) < Math.abs(Number(best) - target) ? curr : best;
+    }, options[0] || "400");
+}
 
 export function pushThemeUpdate(node, key, prop, val) {
     const cfg = window.xcpDerpThemeConfig;
@@ -85,12 +107,14 @@ export function updateMainEditRegion(node) {
     if (isTextKey) {
         const rawFont = keyData.font || "Arial";
         const rawWeight = keyData.fontWeight || "normal";
+        const weightOptions = resolveFontWeightOptions(node, rawFont);
+        const resolvedWeight = nearestFontWeight(rawWeight, weightOptions);
         // Re-apply the dot visually if the font is in the safe list
         const safeFonts = ["DengXian", "DengXian Light", "Arial", "Verdana", "Tahoma", "Trebuchet MS", "Times New Roman", "Georgia", "Garamond", "Courier New"];
         mReg.dropdownFonts.value = safeFonts.includes(rawFont) ? `• ${rawFont}` : rawFont;
         mReg.promptFontSize.value = (keyData.fontSize || 10).toString();
-        mReg.dropdownFontWeight.items = FONT_WEIGHT_OPTIONS;
-        mReg.dropdownFontWeight.value = FONT_WEIGHT_OPTIONS.includes(String(rawWeight)) ? String(rawWeight) : "normal";
+        mReg.dropdownFontWeight.items = weightOptions;
+        mReg.dropdownFontWeight.value = resolvedWeight;
     } else {
         mReg.promptCorners.value = JSON.stringify(keyData.corners || [0,0,0,0]).slice(1, -1);
     }
@@ -140,9 +164,17 @@ export function bindKeyMainEvents(node, updateThemeLayoutFn) {
     mReg.dropdownFonts.onChange = (f) => {
         const val = node._selectedKeyName;
         const cleanFont = f.startsWith("• ") ? f.replace("• ", "") : f; // Strip visual indicator before saving
+        const weightOptions = resolveFontWeightOptions(node, cleanFont);
+        const nextWeight = nearestFontWeight(node.themeToEdit[val].fontWeight, weightOptions);
 
         node.themeToEdit[val].font = cleanFont;
+        node.themeToEdit[val].fontWeight = nextWeight;
         if (node.properties.pushChanges) pushThemeUpdate(node, val, "font", cleanFont);
+        if (node.properties.pushChanges) pushThemeUpdate(node, val, "fontWeight", nextWeight);
+        if (mReg.dropdownFontWeight) {
+            mReg.dropdownFontWeight.items = weightOptions;
+            mReg.dropdownFontWeight.value = nextWeight;
+        }
 
         updateThemeLayoutFn(node);
         node.requestDerpSync();
@@ -162,7 +194,8 @@ export function bindKeyMainEvents(node, updateThemeLayoutFn) {
     mReg.dropdownFontWeight.onChange = (weight) => {
         const key = node._selectedKeyName;
         if (!key || !node.themeToEdit?.[key]) return;
-        const cleanWeight = FONT_WEIGHT_OPTIONS.includes(String(weight)) ? String(weight) : "normal";
+        const weightOptions = resolveFontWeightOptions(node, node.themeToEdit[key].font || "Arial");
+        const cleanWeight = weightOptions.includes(String(weight)) ? String(weight) : nearestFontWeight(weight, weightOptions);
         node.themeToEdit[key].fontWeight = cleanWeight;
         if (node.properties.pushChanges) pushThemeUpdate(node, key, "fontWeight", cleanWeight);
         updateThemeLayoutFn(node);

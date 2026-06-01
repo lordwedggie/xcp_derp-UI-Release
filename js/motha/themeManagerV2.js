@@ -29,6 +29,38 @@ import {
 import { handleThemeDropdownChange } from "./helpers/themeManager_themeHandler.js";
 import { getSystemPaletteDisplayName, toSystemPaletteDropdownItem } from "./helpers/themeManager_paletteUtils.js";
 
+const CSS_FONT_WEIGHTS = ["100", "200", "300", "400", "500", "600", "700", "800", "900"];
+
+function inferFontWeightFromFace(face) {
+    const text = `${face?.style || ""} ${face?.fullName || ""} ${face?.postscriptName || ""}`.toLowerCase();
+    if (/\bthin\b|\bhairline\b/.test(text)) return "100";
+    if (/\bextra\s*light\b|\bultra\s*light\b/.test(text)) return "200";
+    if (/\blight\b/.test(text)) return "300";
+    if (/\bregular\b|\bbook\b|\broman\b|\bnormal\b/.test(text)) return "400";
+    if (/\bmedium\b/.test(text)) return "500";
+    if (/\bsemi\s*bold\b|\bdemi\s*bold\b/.test(text)) return "600";
+    if (/\bextra\s*bold\b|\bultra\s*bold\b/.test(text)) return "800";
+    if (/\bblack\b|\bheavy\b/.test(text)) return "900";
+    if (/\bbold\b/.test(text)) return "700";
+    return "400";
+}
+
+function buildFontWeightMap(fontFaces) {
+    const map = {};
+    for (const face of fontFaces || []) {
+        const family = face?.family;
+        if (!family) continue;
+        if (!map[family]) map[family] = new Set();
+        map[family].add(inferFontWeightFromFace(face));
+    }
+    const out = {};
+    for (const [family, weights] of Object.entries(map)) {
+        const sorted = Array.from(weights).sort((a, b) => Number(a) - Number(b));
+        out[family] = sorted.length > 0 ? sorted : CSS_FONT_WEIGHTS;
+    }
+    return out;
+}
+
 function refreshSystemPaletteList(node) {
     if (!node || node._loadingSystemPaletteList) return;
     node._loadingSystemPaletteList = true;
@@ -534,13 +566,16 @@ app.registerExtension({
             if (window.queryLocalFonts) {
                 try {
                     const localFonts = await window.queryLocalFonts();
+                    this._fontWeightMap = buildFontWeightMap(localFonts);
                     const fontFamilies = new Set(safeFonts);
                     for (const f of localFonts) fontFamilies.add(f.family);
                     finalizeFonts(Array.from(fontFamilies));
                 } catch (err) {
+                    this._fontWeightMap = {};
                     finalizeFonts(fallbackFonts);
                 }
             } else {
+                this._fontWeightMap = {};
                 finalizeFonts(fallbackFonts);
             }
         };
