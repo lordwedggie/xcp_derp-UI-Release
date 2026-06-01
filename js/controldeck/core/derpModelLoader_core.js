@@ -262,6 +262,18 @@ export function initDerpModelLoaderCore(nodeType) {
         const unloadAlreadyPendingForTarget = this._pendingModelSwitchTarget === val;
         const unloadAlreadyPerformedForQueuedPrompt = this._hasClearedVRAMSinceQueuePrompt === true;
 
+        // Push the model name to the server-side registry immediately so Python
+        // execution always picks it up, even if VRAM unload hasn't finished yet.
+        const modelPayload = { model_name_prefix: val, ckpt_name: val };
+        const baseId = String(this.id);
+        ["0", "1", "2"].forEach(idx => {
+            fetch("/xcp/update_signal", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ node_id: `${baseId}:${idx}`, value: modelPayload })
+            });
+        });
+
         const runTransmit = () => {
             this._lastBroadcastModelName = val;
             if (this._pendingModelSwitchTarget === val) {

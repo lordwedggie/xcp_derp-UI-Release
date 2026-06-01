@@ -352,7 +352,15 @@ export function bindPromptBookHooks(nodeType) {
             if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
             this.updateDerpPromptBookUI();
             if (this.refreshDerpPromptBookSysMap) this.refreshDerpPromptBookSysMap();
-            if (this.fetchRemoteBooks) this.fetchRemoteBooks();
+            if (this.fetchRemoteBooks) {
+                this.fetchRemoteBooks().then(() => {
+                    const bookName = this.properties.bookName;
+                    const isUntitled = bookName === tLocale("$derp_prompt_book.book.untitled_name", "Untitled Book") || !bookName;
+                    if (!isUntitled && Array.isArray(this._availableBooks) && this._availableBooks.includes(bookName)) {
+                        handleBookChange(this, bookName);
+                    }
+                });
+            }
             this._lastSyncedContent = null;
             if (this.syncDerpOutputs) this.syncDerpOutputs();
 

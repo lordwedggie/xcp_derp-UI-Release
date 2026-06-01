@@ -171,7 +171,8 @@ function getFileBrowserItemsFingerprint(items) {
         const display = typeof item === "object"
             ? String(item.display ?? item.text ?? item.name ?? item.title ?? item.label ?? "")
             : "";
-        parts[i] = `${value}|${display}`;
+        const img = typeof item === "object" ? String(item.imageUrl ?? "") : "";
+        parts[i] = `${value}|${display}|${img}`;
     }
     return `${items.length}:${parts.join("\u0001")}`;
 }
