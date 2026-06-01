@@ -236,14 +236,8 @@ export function getNextZIndex() { return currentZ++; }
 export function measureTextHeight(text, maxWidth, themeData, paddingH = 0) {
     const fontSize = themeData?.fontSize;
     const fontFamily = themeData?.font || "arial";
-    const fontWeight = themeData?.fontWeight || "normal"; // THE FIX: Added fontWeight support
+    const fontWeight = themeData?.fontWeight || "normal";
     if (typeof fontSize !== 'number' || fontSize <= 0) return 0;
-
-    // THE FIX: Incorporate weight and style into the measurement context
-    let style = "normal", weight = "normal";
-    if (fontWeight === "italic") style = "italic";
-    else if (fontWeight === "bold") weight = "bold";
-    else if (fontWeight === "both") { style = "italic"; weight = "bold"; }
 
     // THE SANITIZATION FIX: Prevent double-quoting and strip legacy " px" suffixes
     const baseFont = fontFamily || "arial";
@@ -252,7 +246,7 @@ export function measureTextHeight(text, maxWidth, themeData, paddingH = 0) {
         ? cleanFont
         : `"${cleanFont}"`;
 
-    _measureCtx.font = `${style} ${weight} ${fontSize}px ${safeFont}`;
+    _measureCtx.font = `${fontWeight} ${fontSize}px ${safeFont}`;
 
     // THE FIX: If maxWidth is provided (wrapping enabled), calculate total line height
     if (maxWidth > 0) {
@@ -279,19 +273,13 @@ export function measureTextHeight(text, maxWidth, themeData, paddingH = 0) {
 }
 
 export function measureTextWidth(text, fontSize, fontFamily, fontWeight = "normal") {
-
-    let style = "normal", weight = "normal";
-    if (fontWeight === "italic") style = "italic";
-    else if (fontWeight === "bold") weight = "bold";
-    else if (fontWeight === "both") { style = "italic"; weight = "bold"; }
-
     const baseFont = fontFamily || "arial";
     const cleanFont = baseFont.replace(/\bpx\b/gi, "").trim(); // THE FIX: Remove rogue "px"
     const safeFont = (cleanFont.includes(",") || cleanFont.includes('"') || cleanFont.includes("'"))
         ? cleanFont
         : `"${cleanFont}"`;
 
-    _measureCtx.font = `${style} ${weight} ${fontSize}px ${safeFont}`;
+    _measureCtx.font = `${fontWeight} ${fontSize}px ${safeFont}`;
     return _measureCtx.measureText(text || "").width;
 }
 /**
@@ -528,9 +516,10 @@ export function interpretLayoutProps(config, context = {}) {
     const padW = (padding[0] || 0) + (padding[2] || 0); // Left + Right
     const padH = (padding[1] || 0) + (padding[3] || 0); // Top + Bottom
 
-// --- ENFORCED TEXT MEASUREMENT ---
+    // --- ENFORCED TEXT MEASUREMENT ---
     let measuredContentW = 0;
     let measuredContentH = 0;
+    let labelPaintData = null;
 
     const labelToggle = config.label ?? config.text;
     const isLabelVisible = labelToggle !== "off" && labelToggle !== false;
@@ -551,9 +540,9 @@ export function interpretLayoutProps(config, context = {}) {
         const numberOnly = config.numberOnly === true;
         const numMeasureStr = "9876543210";
 
-        const paintData = resolvePaintData(context.owner, labelKey);
-        const fs = fontSize || paintData?.fontSize || context.textTheme?.fontSize || 0;
-        const font = paintData?.font || (context.textTheme ? context.textTheme.font : "DengXian Light");
+        labelPaintData = resolvePaintData(context.owner, labelKey);
+        const fs = fontSize || labelPaintData?.fontSize || context.textTheme?.fontSize || 0;
+        const font = labelPaintData?.font || (context.textTheme ? context.textTheme.font : "DengXian Light");
 
         if (config.icon && !hasText) {
             // FIXED: Mirror the Engine's 12px fallback logic directly to create the square.
@@ -605,7 +594,7 @@ export function interpretLayoutProps(config, context = {}) {
             }
 
             // Resolve the specific paint data for measurement if a themeKey was provided in the array
-            const measurePaint = (measureThemeKey !== labelKey) ? resolvePaintData(context.owner, measureThemeKey) : paintData;
+            const measurePaint = (measureThemeKey !== labelKey) ? resolvePaintData(context.owner, measureThemeKey) : labelPaintData;
             const mFs = fontSize || measurePaint?.fontSize || context.textTheme?.fontSize || 0;
             const mFont = measurePaint?.font || font;
             const mWeight = config.fontWeight || measurePaint?.fontWeight || "normal";
@@ -620,7 +609,7 @@ export function interpretLayoutProps(config, context = {}) {
             // THE PADDING REFINEMENT: Ensure numeric widths also respect the padding floor for text clamping
             const innerW = (typeof config.width === 'number') ? Math.max(0, config.width - padW) : engineInnerW;
 
-            const resolvedWeight = config.fontWeight || paintData?.fontWeight || "normal";
+            const resolvedWeight = config.fontWeight || labelPaintData?.fontWeight || "normal";
 
             // THE DISPLAY MODE FIX: Respect "cutoff" vs "ellipsis" and account for indicator space
             const useEllipsis = config.displayMode === "ellipsis";
@@ -700,7 +689,7 @@ export function interpretLayoutProps(config, context = {}) {
         labelKey: labelKey,
         fontSize: fontSize,
         fontOffset: fontOffset,
-        fontWeight: config.fontWeight || "normal", // THE FIX: Return for widget sync
+        fontWeight: config.fontWeight || labelPaintData?.fontWeight || "normal",
         numberOnly: config.numberOnly === true,
         displayText: config._resolvedDisplayText || "",
         width: w,

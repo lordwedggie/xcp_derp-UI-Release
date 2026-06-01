@@ -63,7 +63,7 @@ export const safePersist = (cfg, targetTheme = null) => {
     purgeLocks(cfg.themes);
 
     const PREFERRED_ORDER = [
-        "font", "fontSize", "_ON", "_OFF", "_DIS", "corners",
+        "font", "fontSize", "fontWeight", "_ON", "_OFF", "_DIS", "corners",
         "shadow", "shadowDisabled", "shadow_ON", "shadow_OFF", "shadow_DIS",
         "stroke", "strokeDisabled", "stroke_ON", "stroke_OFF", "stroke_DIS",
         "glow", "glowDisabled", "glow_ON", "glow_OFF", "glow_DIS"

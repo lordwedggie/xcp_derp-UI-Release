@@ -134,7 +134,7 @@ export function generateKeyHash(keyObj) {
     // Added Glow keys and the variants (_OFF, _DIS) for all effects to ensure total change detection
     // THE FIX: Include active display arrays and clip modes in hash generation for 14-element protocol
     const relevantKeys = [
-        "_ON", "_OFF", "_DIS", "corners", "font", "fontSize",
+        "_ON", "_OFF", "_DIS", "corners", "font", "fontSize", "fontWeight",
         "_Shadow", "_Shadow_OFF", "_Shadow_DIS",
         "_Stroke", "_Stroke_OFF", "_Stroke_DIS",
         "_Glow", "_Glow_OFF", "_Glow_DIS",

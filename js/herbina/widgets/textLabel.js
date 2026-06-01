@@ -341,8 +341,8 @@ export function syncTextLabelHTML(element, node, app, config) {
             textAlign: textAnchor ? textAnchor.align : alignX,
             padding: `${(props.padding?.[1] || 0) * scale}px ${(props.padding?.[0] || 0) * scale}px`,
             fontSize: `${fontSize * scale}px`,
-            fontWeight: (props.fontWeight === "bold" || props.fontWeight === "both") ? "bold" : "normal",
-            fontStyle: (props.fontWeight === "italic" || props.fontWeight === "both") ? "italic" : "normal",
+            fontWeight: props.fontWeight || "normal",
+            fontStyle: "normal",
             lineHeight: "1",
             transform: props.fontOffset ? `translateY(${props.fontOffset * scale}px)` : "none"
         });

@@ -251,8 +251,8 @@ export function syncBtnSimpleHTML(element, node, app, config) {
             }
             element.style.fontFamily = labelData.font || "Arial";
             element.style.fontSize = `${fontSize * scale}px`;
-            element.style.fontWeight = (props.fontWeight === "bold" || props.fontWeight === "both") ? "bold" : "normal";
-            element.style.fontStyle = (props.fontWeight === "italic" || props.fontWeight === "both") ? "italic" : "normal";
+            element.style.fontWeight = props.fontWeight || "normal";
+            element.style.fontStyle = "normal";
         }
 
         if (hasColorKeys && colorSegments) {

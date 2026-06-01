@@ -93,6 +93,7 @@ export function compileThemeData(themeMain, keyName = "Unknown", state = "OFF") 
         corners: themeMain.corners ?? 6,
         font: themeMain.font || "DengXian",
         fontSize: themeMain.fontSize || 10,
+        fontWeight: themeMain.fontWeight || "normal",
         shadow: shadowData,
         border: borderData,
         glow: glowData,
@@ -372,14 +373,8 @@ export function masterPainterText(ctx, options) {
         parsedFont = `'${parsedFont}'`;
     }
 
-    // THE WEIGHT FIX: Correctly resolve unified fontWeight string into style and weight passes
     const weightStr = paintData.fontWeight || "normal";
-    let style = "normal", w = "normal";
-    if (weightStr === "italic") style = "italic";
-    else if (weightStr === "bold") w = "bold";
-    else if (weightStr === "both") { style = "italic"; w = "bold"; }
-
-    ctx.font = `${style} ${w} ${paintData.fontSize || 10}px ${parsedFont}`;
+    ctx.font = `${weightStr} ${paintData.fontSize || 10}px ${parsedFont}`;
     ctx.textAlign = align;
     ctx.textBaseline = baseline;
 

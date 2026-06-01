@@ -343,6 +343,19 @@ app.registerExtension({
                         type: UI_TYPES.EDITOR, canvasShield:true,   themeKey: "dialog, t_textSystem",
                         numberOnly: true, value: "10", width: "auto", height: "auto", padding: [pW, pH], labelAlign: ["center", "middle"]
                     },
+                    lblFontWeight: {
+                        type: UI_TYPES.TEXT, themeKey: "t_textSmall", text: "Weight:",
+                        width: "auto", height: "auto", padding: [pW, pH], spacing: [sW, 0]
+                    },
+                    dropdownFontWeight: {
+                        type: UI_TYPES.FILEBROWSER,
+                        icon: "dropdown",
+                        themeKey: "panel, t_textSmall", width: "fit",
+                        height: "auto", padding: [pW, 2], minWidth: 60,
+                        mode: "file",
+                        rootName: "weights",
+                        items: ["100", "200", "300", "400", "500", "600", "700", "800", "900", "normal", "bold"]
+                    },
                     spring: { width: "full", height: 0 },
                     lblCorners: {
                         type: UI_TYPES.TEXT, themeKey: "t_textSmall", numberOnly: true,
@@ -499,7 +512,7 @@ app.registerExtension({
             this._fontsLoading = true;
 
             const safePrefix = "• ";
-            const safeFonts = ["Inter", "DengXian Light", "DengXian", "Arial", "helvetica", "Verdana", "Tahoma", "Trebuchet MS", "Times New Roman", "Georgia", "Garamond", "Courier New"];
+            const safeFonts = ["DengXian", "DengXian Light", "Arial", "helvetica", "Verdana", "Tahoma", "Trebuchet MS", "Times New Roman", "Georgia", "Garamond", "Courier New"];
             const fallbackFonts = [...safeFonts, "Arial Black", "Calibri", "Comic Sans MS", "Consolas", "Impact"];
 
             const finalizeFonts = (fontList) => {

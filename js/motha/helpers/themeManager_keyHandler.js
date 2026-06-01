@@ -13,6 +13,7 @@ import { generateKeyHash } from "./themeDataUtils.js";
 import { safeClick, safePersist, playSuccessSound } from "../themeManagerV2_core.js";
 
 const THEME_META_KEYS = new Set(["_category", "_layout", "_palette"]);
+const FONT_WEIGHT_OPTIONS = ["100", "200", "300", "400", "500", "600", "700", "800", "900", "normal", "bold"];
 
 export function pushThemeUpdate(node, key, prop, val) {
     const cfg = window.xcpDerpThemeConfig;
@@ -78,13 +79,18 @@ export function updateMainEditRegion(node) {
     mReg.dropdownFonts.hidden = !isTextKey;
     mReg.lblFontSize.hidden = !isTextKey;
     mReg.promptFontSize.hidden = !isTextKey;
+    mReg.lblFontWeight.hidden = !isTextKey;
+    mReg.dropdownFontWeight.hidden = !isTextKey;
 
     if (isTextKey) {
         const rawFont = keyData.font || "Arial";
+        const rawWeight = keyData.fontWeight || "normal";
         // Re-apply the dot visually if the font is in the safe list
-        const safeFonts = ["Inter", "DengXian Light", "DengXian", "Arial", "Verdana", "Tahoma", "Trebuchet MS", "Times New Roman", "Georgia", "Garamond", "Courier New"];
+        const safeFonts = ["DengXian", "DengXian Light", "Arial", "Verdana", "Tahoma", "Trebuchet MS", "Times New Roman", "Georgia", "Garamond", "Courier New"];
         mReg.dropdownFonts.value = safeFonts.includes(rawFont) ? `• ${rawFont}` : rawFont;
         mReg.promptFontSize.value = (keyData.fontSize || 10).toString();
+        mReg.dropdownFontWeight.items = FONT_WEIGHT_OPTIONS;
+        mReg.dropdownFontWeight.value = FONT_WEIGHT_OPTIONS.includes(String(rawWeight)) ? String(rawWeight) : "normal";
     } else {
         mReg.promptCorners.value = JSON.stringify(keyData.corners || [0,0,0,0]).slice(1, -1);
     }
@@ -151,6 +157,16 @@ export function bindKeyMainEvents(node, updateThemeLayoutFn) {
             updateThemeLayoutFn(node);
             node.requestDerpSync();
         }
+    };
+
+    mReg.dropdownFontWeight.onChange = (weight) => {
+        const key = node._selectedKeyName;
+        if (!key || !node.themeToEdit?.[key]) return;
+        const cleanWeight = FONT_WEIGHT_OPTIONS.includes(String(weight)) ? String(weight) : "normal";
+        node.themeToEdit[key].fontWeight = cleanWeight;
+        if (node.properties.pushChanges) pushThemeUpdate(node, key, "fontWeight", cleanWeight);
+        updateThemeLayoutFn(node);
+        node.requestDerpSync();
     };
 
     const updateCorners = (v, isBlur = false) => {

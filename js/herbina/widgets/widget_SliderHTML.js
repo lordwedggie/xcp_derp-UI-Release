@@ -110,8 +110,8 @@ export function syncDerpSliderHTML(el, node, app, config) {
             label.style.fontFamily = labelData.font || "arial";
             label.style.fontSize = `${(props.fontSize || labelData.fontSize || 10) * coords.scale}px`;
 
-            label.style.fontWeight = (props.fontWeight === "bold" || props.fontWeight === "both") ? "bold" : "normal";
-            label.style.fontStyle = (props.fontWeight === "italic" || props.fontWeight === "both") ? "italic" : "normal";
+            label.style.fontWeight = props.fontWeight || "normal";
+            label.style.fontStyle = "normal";
 
             const [alignX, alignY] = props.labelAlign || ["center", "middle"];
             const { justify: justifyMap, align: alignMap } = getAlignmentMaps();
