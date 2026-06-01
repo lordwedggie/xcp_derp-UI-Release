@@ -110,7 +110,7 @@ export function updateMainEditRegion(node) {
         const weightOptions = resolveFontWeightOptions(node, rawFont);
         const resolvedWeight = nearestFontWeight(rawWeight, weightOptions);
         // Re-apply the dot visually if the font is in the safe list
-        const safeFonts = ["DengXian", "DengXian Light", "Arial", "Verdana", "Tahoma", "Trebuchet MS", "Times New Roman", "Georgia", "Garamond", "Courier New"];
+        const safeFonts = ["Inter", "DengXian Light", "DengXian", "Arial", "Verdana", "Tahoma", "Trebuchet MS", "Times New Roman", "Georgia", "Garamond", "Courier New"];
         mReg.dropdownFonts.value = safeFonts.includes(rawFont) ? `• ${rawFont}` : rawFont;
         mReg.promptFontSize.value = (keyData.fontSize || 10).toString();
         mReg.dropdownFontWeight.items = weightOptions;
