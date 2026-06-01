@@ -300,7 +300,7 @@ export function defaultTemplates() {
                 ]
             },
             "t_textBig": {
-                "font": "DengXian",
+                "font": "Inter",
                 "fontSize": 14,
                 "_ON": [
                     255,
@@ -322,7 +322,7 @@ export function defaultTemplates() {
                 ]
             },
             "t_textNormal": {
-                "font": "DengXian",
+                "font": "Inter",
                 "fontSize": 14,
                 "_ON": [
                     255,
@@ -344,7 +344,7 @@ export function defaultTemplates() {
                 ]
             },
             "t_textSmall": {
-                "font": "Arial",
+                "font": "Inter",
                 "fontSize": 10,
                 "_ON": [
                     255,
@@ -375,7 +375,7 @@ export function defaultTemplates() {
                 ]
             },
             "t_textSystem": {
-                "font": "DengXian",
+                "font": "Inter",
                 "fontSize": 10,
                 "_ON": [
                     255,
@@ -438,10 +438,10 @@ export function defaultTemplates() {
                 "_Shadow": [0, 0, 0, 0.1, 0, 4, 8],
                 "_Stroke": [200, 255, 200, 0.4, 0.5, 0]
             },
-            "t_textBig":    { "font": "DengXian", "fontSize": 14, "_ON": [255, 255, 255, 1], "_OFF": [0, 255, 100, 0.8], "_DIS": [0, 100, 40, 0.2] },
-            "t_textNormal": { "font": "DengXian", "fontSize": 14, "_ON": [0, 255, 100, 1], "_OFF": [180, 255, 220, 0.8], "_DIS": [80, 120, 100, 0.4] },
-            "t_textSmall":  { "font": "Arial", "fontSize": 10, "_ON": [255, 255, 255, 1], "_OFF": [0, 255, 100, 0.45], "_DIS": [0, 100, 40, 0.7], "_Shadow": [0, 0, 0, 1, 0, 0, 2] },
-            "t_textSystem": { "font": "DengXian", "fontSize": 10, "_ON": [0, 255, 100, 1], "_OFF": [100, 200, 150, 0.8], "_DIS": [0, 80, 40, 0.2] },
+            "t_textBig":    { "font": "Inter", "fontSize": 14, "_ON": [255, 255, 255, 1], "_OFF": [0, 255, 100, 0.8], "_DIS": [0, 100, 40, 0.2] },
+            "t_textNormal": { "font": "Inter", "fontSize": 14, "_ON": [0, 255, 100, 1], "_OFF": [180, 255, 220, 0.8], "_DIS": [80, 120, 100, 0.4] },
+            "t_textSmall":  { "font": "Inter", "fontSize": 10, "_ON": [255, 255, 255, 1], "_OFF": [0, 255, 100, 0.45], "_DIS": [0, 100, 40, 0.7], "_Shadow": [0, 0, 0, 1, 0, 0, 2] },
+            "t_textSystem": { "font": "Inter", "fontSize": 10, "_ON": [0, 255, 100, 1], "_OFF": [100, 200, 150, 0.8], "_DIS": [0, 80, 40, 0.2] },
             "_category": "Templates"
         },
 
@@ -483,10 +483,10 @@ export function defaultTemplates() {
                 "_Shadow": [0, 0, 0, 0.1, 0, 8, 16],
                 "_Stroke": [255, 220, 150, 0.4, 0.5, 0]
             },
-            "t_textBig":    { "font": "DengXian", "fontSize": 14, "_ON": [255, 220, 150, 1], "_OFF": [200, 160, 100, 0.8], "_DIS": [80, 60, 40, 0.1] },
-            "t_textNormal": { "font": "DengXian", "fontSize": 14, "_ON": [255, 160, 0, 1], "_OFF": [180, 120, 50, 0.8], "_DIS": [100, 70, 30, 0.4] },
-            "t_textSmall":  { "font": "Arial", "fontSize": 10, "_ON": [255, 255, 255, 1], "_OFF": [255, 160, 0, 0.5], "_DIS": [120, 80, 0, 0.7], "_Shadow": [0, 0, 0, 1, 0, 0, 2] },
-            "t_textSystem": { "font": "DengXian", "fontSize": 10, "_ON": [255, 160, 0, 1], "_OFF": [150, 100, 40, 0.8], "_DIS": [80, 50, 20, 0.2] },
+            "t_textBig":    { "font": "Inter", "fontSize": 14, "_ON": [255, 220, 150, 1], "_OFF": [200, 160, 100, 0.8], "_DIS": [80, 60, 40, 0.1] },
+            "t_textNormal": { "font": "Inter", "fontSize": 14, "_ON": [255, 160, 0, 1], "_OFF": [180, 120, 50, 0.8], "_DIS": [100, 70, 30, 0.4] },
+            "t_textSmall":  { "font": "Inter", "fontSize": 10, "_ON": [255, 255, 255, 1], "_OFF": [255, 160, 0, 0.5], "_DIS": [120, 80, 0, 0.7], "_Shadow": [0, 0, 0, 1, 0, 0, 2] },
+            "t_textSystem": { "font": "Inter", "fontSize": 10, "_ON": [255, 160, 0, 1], "_OFF": [150, 100, 40, 0.8], "_DIS": [80, 50, 20, 0.2] },
             "_category": "Templates"
         },
 
@@ -528,10 +528,10 @@ export function defaultTemplates() {
                 "_Shadow": [0, 0, 20, 0.2, 0, 8, 16],
                 "_Stroke": [100, 180, 255, 0.4, 0.5, 0]
             },
-            "t_textBig":    { "font": "DengXian", "fontSize": 14, "_ON": [0, 100, 180, 1], "_OFF": [60, 100, 140, 0.8], "_DIS": [120, 130, 140, 0.1] },
-            "t_textNormal": { "font": "DengXian", "fontSize": 14, "_ON": [0, 80, 150, 1], "_OFF": [80, 120, 160, 0.8], "_DIS": [140, 150, 160, 0.4] },
-            "t_textSmall":  { "font": "Arial", "fontSize": 10, "_ON": [0, 170, 255, 1], "_OFF": [100, 140, 180, 0.45], "_DIS": [160, 170, 180, 0.7], "_Shadow": [255, 255, 255, 0.5, 0, 0, 2] },
-            "t_textSystem": { "font": "DengXian", "fontSize": 10, "_ON": [0, 100, 200, 1], "_OFF": [100, 130, 160, 0.8], "_DIS": [150, 160, 170, 0.2] },
+            "t_textBig":    { "font": "Inter", "fontSize": 14, "_ON": [0, 100, 180, 1], "_OFF": [60, 100, 140, 0.8], "_DIS": [120, 130, 140, 0.1] },
+            "t_textNormal": { "font": "Inter", "fontSize": 14, "_ON": [0, 80, 150, 1], "_OFF": [80, 120, 160, 0.8], "_DIS": [140, 150, 160, 0.4] },
+            "t_textSmall":  { "font": "Inter", "fontSize": 10, "_ON": [0, 170, 255, 1], "_OFF": [100, 140, 180, 0.45], "_DIS": [160, 170, 180, 0.7], "_Shadow": [255, 255, 255, 0.5, 0, 0, 2] },
+            "t_textSystem": { "font": "Inter", "fontSize": 10, "_ON": [0, 100, 200, 1], "_OFF": [100, 130, 160, 0.8], "_DIS": [150, 160, 170, 0.2] },
             "_category": "Templates"
         },
 
@@ -573,10 +573,10 @@ export function defaultTemplates() {
                 "_Shadow": [0, 0, 0, 0.1, 0, 8, 16],
                 "_Stroke": [240, 200, 255, 0.4, 0.5, 0]
             },
-            "t_textBig":    { "font": "DengXian", "fontSize": 14, "_ON": [255, 230, 255, 1], "_OFF": [200, 170, 200, 0.8], "_DIS": [100, 80, 100, 0.1] },
-            "t_textNormal": { "font": "DengXian", "fontSize": 14, "_ON": [210, 100, 255, 1], "_OFF": [180, 140, 180, 0.8], "_DIS": [120, 100, 120, 0.4] },
-            "t_textSmall":  { "font": "Arial", "fontSize": 10, "_ON": [255, 255, 255, 1], "_OFF": [210, 100, 255, 0.45], "_DIS": [120, 60, 140, 0.7], "_Shadow": [0, 0, 0, 1, 0, 0, 2] },
-            "t_textSystem": { "font": "DengXian", "fontSize": 10, "_ON": [210, 100, 255, 1], "_OFF": [160, 120, 170, 0.8], "_DIS": [100, 70, 110, 0.2] },
+            "t_textBig":    { "font": "Inter", "fontSize": 14, "_ON": [255, 230, 255, 1], "_OFF": [200, 170, 200, 0.8], "_DIS": [100, 80, 100, 0.1] },
+            "t_textNormal": { "font": "Inter", "fontSize": 14, "_ON": [210, 100, 255, 1], "_OFF": [180, 140, 180, 0.8], "_DIS": [120, 100, 120, 0.4] },
+            "t_textSmall":  { "font": "Inter", "fontSize": 10, "_ON": [255, 255, 255, 1], "_OFF": [210, 100, 255, 0.45], "_DIS": [120, 60, 140, 0.7], "_Shadow": [0, 0, 0, 1, 0, 0, 2] },
+            "t_textSystem": { "font": "Inter", "fontSize": 10, "_ON": [210, 100, 255, 1], "_OFF": [160, 120, 170, 0.8], "_DIS": [100, 70, 110, 0.2] },
             "_category": "Templates"
         },
 
@@ -618,10 +618,10 @@ export function defaultTemplates() {
                 "_Shadow": [0, 0, 0, 0.1, 0, 8, 16],
                 "_Stroke": [255, 255, 255, 0.3, 0.5, 0]
             },
-            "t_textBig":    { "font": "DengXian", "fontSize": 14, "_ON": [255, 255, 255, 1], "_OFF": [200, 200, 200, 0.8], "_DIS": [100, 100, 100, 0.1] },
-            "t_textNormal": { "font": "DengXian", "fontSize": 14, "_ON": [255, 255, 255, 1], "_OFF": [180, 180, 180, 0.8], "_DIS": [120, 120, 120, 0.4] },
-            "t_textSmall":  { "font": "Arial", "fontSize": 10, "_ON": [255, 255, 255, 1], "_OFF": [150, 150, 150, 0.45], "_DIS": [100, 100, 100, 0.7], "_Shadow": [0, 0, 0, 1, 0, 0, 2] },
-            "t_textSystem": { "font": "DengXian", "fontSize": 10, "_ON": [255, 255, 255, 1], "_OFF": [180, 180, 180, 0.8], "_DIS": [100, 100, 100, 0.2] },
+            "t_textBig":    { "font": "Inter", "fontSize": 14, "_ON": [255, 255, 255, 1], "_OFF": [200, 200, 200, 0.8], "_DIS": [100, 100, 100, 0.1] },
+            "t_textNormal": { "font": "Inter", "fontSize": 14, "_ON": [255, 255, 255, 1], "_OFF": [180, 180, 180, 0.8], "_DIS": [120, 120, 120, 0.4] },
+            "t_textSmall":  { "font": "Inter", "fontSize": 10, "_ON": [255, 255, 255, 1], "_OFF": [150, 150, 150, 0.45], "_DIS": [100, 100, 100, 0.7], "_Shadow": [0, 0, 0, 1, 0, 0, 2] },
+            "t_textSystem": { "font": "Inter", "fontSize": 10, "_ON": [255, 255, 255, 1], "_OFF": [180, 180, 180, 0.8], "_DIS": [100, 100, 100, 0.2] },
             "_category": "Templates"
         }
     }

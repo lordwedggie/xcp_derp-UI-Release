@@ -82,7 +82,7 @@ export function updateMainEditRegion(node) {
     if (isTextKey) {
         const rawFont = keyData.font || "Arial";
         // Re-apply the dot visually if the font is in the safe list
-        const safeFonts = ["DengXian", "DengXian Light", "Arial", "Verdana", "Tahoma", "Trebuchet MS", "Times New Roman", "Georgia", "Garamond", "Courier New"];
+        const safeFonts = ["Inter", "DengXian Light", "DengXian", "Arial", "Verdana", "Tahoma", "Trebuchet MS", "Times New Roman", "Georgia", "Garamond", "Courier New"];
         mReg.dropdownFonts.value = safeFonts.includes(rawFont) ? `• ${rawFont}` : rawFont;
         mReg.promptFontSize.value = (keyData.fontSize || 10).toString();
     } else {

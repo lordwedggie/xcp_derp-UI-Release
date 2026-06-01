@@ -526,6 +526,8 @@ export function getLoraTriggerDropdownProps(node, basta, loraData) {
  * getLoraLoaderProps: Logic for the file browser within the detail panel.
  */
 export const getLoraLoaderProps = (host, basta, loraData) => ({
+    mode: "file",
+    rootName: "..",
     useAnim: basta.properties.useAnimations !== false,
     state: "OFF",
     disabled: false,

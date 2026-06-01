@@ -499,7 +499,7 @@ app.registerExtension({
             this._fontsLoading = true;
 
             const safePrefix = "• ";
-            const safeFonts = ["DengXian", "DengXian Light", "Arial", "helvetica", "Verdana", "Tahoma", "Trebuchet MS", "Times New Roman", "Georgia", "Garamond", "Courier New"];
+            const safeFonts = ["Inter", "DengXian Light", "DengXian", "Arial", "helvetica", "Verdana", "Tahoma", "Trebuchet MS", "Times New Roman", "Georgia", "Garamond", "Courier New"];
             const fallbackFonts = [...safeFonts, "Arial Black", "Calibri", "Comic Sans MS", "Consolas", "Impact"];
 
             const finalizeFonts = (fontList) => {
