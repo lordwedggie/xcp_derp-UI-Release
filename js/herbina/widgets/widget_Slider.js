@@ -11,7 +11,7 @@
  * - `max`: Maximum slider value. Defaults to `1`.
  * - `step`: Step increment for btnLR buttons and track-click snapping. Defaults to `0.05`.
  * - `label` | `text`: Label string displayed on the slider track. Defaults to `""`.
- * - `fontWeight`: Label weight — `"normal"`, `"bold"`, `"italic"`, or `"both"`. Defaults to `"normal"`.
+ * - `fontWeight`: Label weight — CSS font weight such as `"normal"`, `"bold"`, or `"400"`–`"900"`. Defaults to `"normal"`.
  * - `themeKey`: Main theme string used to resolve body and label paint data. Defaults to `"panel, t_textsmall"`.
  * - `fillStrength`: If `true` (default), interpolates the fill color between theme states based on the slider value. If `false`, uses a single `_ON` / `_OFF` paint state.
  * - `fillPadding`: Optional `[top, right, bottom, left]` inset array shrinking the progress fill bar inside the track.
@@ -156,7 +156,7 @@ export function syncDerpSliderCanvas(ctx, node, config) {
         ...(labelData || {}),
         font: labelData?.font || "arial",
         fontSize: props.fontSize || labelData?.fontSize || 10,
-        fontWeight: props.fontWeight || "normal",
+        fontWeight: config.fontWeight || labelData?.fontWeight || props.fontWeight || "normal",
         fill: iconColor
     };
 
@@ -304,7 +304,7 @@ export function syncDerpSliderCanvas(ctx, node, config) {
         const boundarySuffix = "_DIS";  // always use disabled-look at boundaries
         const leftBtnData  = (stateStr === "DIS" || atMin) ? (resolvePaintData(node, fillKey, boundarySuffix, config.btnColor) || paintData) : btnSource;
         const rightBtnData = (stateStr === "DIS" || atMax) ? (resolvePaintData(node, fillKey, boundarySuffix, config.btnColor) || paintData) : btnSource;
-        const btnTextPaint = { ...(labelData || {}), fill: iconColor, fontSize: BTN_LR_FONTSIZE };
+        const btnTextPaint = { ...(labelData || {}), fill: iconColor, fontSize: BTN_LR_FONTSIZE, fontWeight: finalPaint.fontWeight };
 
         // Left button (-): flat right corners, _OFF at min
         {

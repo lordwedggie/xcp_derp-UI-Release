@@ -136,9 +136,10 @@ export function syncBtnSimple(ctx, node, config) {
         const pW = props.padding?.[0] || 0;
         const [alignX] = props.labelAlign || ["left", "middle"];
         let fontSize = props.fontSize || labelData.fontSize || 10;
+        const fontWeight = config.fontWeight || labelData?.fontWeight || props.fontWeight || "normal";
         if (config.noShrink !== true && btnText.length > 0) {
             const limit = w - (pW * 2);
-            while (measureTextWidth(btnText, fontSize, labelData?.font || "arial", props.fontWeight) > limit && fontSize > 4) {
+            while (measureTextWidth(btnText, fontSize, labelData?.font || "arial", fontWeight) > limit && fontSize > 4) {
                 fontSize -= 0.5;
             }
         }
@@ -156,7 +157,7 @@ export function syncBtnSimple(ctx, node, config) {
         ctx.clip();
         masterPainterText(ctx, {
             x: textX, y: textAnchor.y, width: w, height: h, text: btnText,
-            paintData: { ...labelData, fill: iconColor, fontSize: fontSize, fontWeight: props.fontWeight },
+            paintData: { ...labelData, fill: iconColor, fontSize: fontSize, fontWeight },
             align: alignX, baseline: props.labelAlign?.[1] || "middle",
             segments: hasColorKeys ? colorSegments : null
         });
@@ -214,11 +215,12 @@ export function syncBtnSimpleHTML(element, node, app, config) {
 
     // THE OPTIMIZATION: DOM Thrash Gate using stable theme colors and content
     const displayText = props.displayText || content.text;
+    const fontWeight = config.fontWeight || labelData?.fontWeight || props.fontWeight || "normal";
     const hPad = (props.padding?.[0] || 0) * scale;
     const vPad = (props.padding?.[1] || 0) * scale;
     const [alignX, alignY] = props.labelAlign || ["left", "middle"];
 
-    const syncKey = `${stateStr}-${rawBg}-${rawIc}-${displayText}-${scale}-${coords.width}-${coords.height}-${hPad}-${vPad}-${config.drawChecker}`;
+    const syncKey = `${stateStr}-${rawBg}-${rawIc}-${displayText}-${scale}-${coords.width}-${coords.height}-${hPad}-${vPad}-${fontWeight}-${config.drawChecker}`;
     if (element._lastSyncKey !== syncKey || node._forceSync) {
         element._lastSyncKey = syncKey;
 
@@ -245,13 +247,13 @@ export function syncBtnSimpleHTML(element, node, app, config) {
             let fontSize = props.fontSize || labelData.fontSize || 10;
             if (config.noShrink !== true && displayText.length > 0) {
                 const limit = geo.w - ((props.padding?.[0] || 0) * 2);
-                while (measureTextWidth(displayText, fontSize, labelData?.font || "arial", props.fontWeight) > limit && fontSize > 4) {
+                while (measureTextWidth(displayText, fontSize, labelData?.font || "arial", fontWeight) > limit && fontSize > 4) {
                     fontSize -= 0.5;
                 }
             }
             element.style.fontFamily = labelData.font || "Arial";
             element.style.fontSize = `${fontSize * scale}px`;
-            element.style.fontWeight = props.fontWeight || "normal";
+            element.style.fontWeight = fontWeight;
             element.style.fontStyle = "normal";
         }
 

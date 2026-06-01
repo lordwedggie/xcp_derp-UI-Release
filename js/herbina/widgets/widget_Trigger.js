@@ -136,6 +136,7 @@ export function syncDerpTrigger(ctx, node, app, config) {
         config.showWeight === false ? 0 : 1,
         Math.max(1, Math.round(w)),
         Math.max(1, Math.round(h)),
+        config.fontWeight || "",
     ].join("|") : null;
     const quickCachedBitmap = quickCanUseBitmapCache ? getTriggerBitmapCache(node, config.key) : null;
     if (quickCachedBitmap && quickCachedBitmap.key === quickBitmapKey && quickCachedBitmap.bitmap) {
@@ -218,6 +219,7 @@ export function syncDerpTrigger(ctx, node, app, config) {
         config.showWeight === false ? 0 : 1,
         guardNoFx ? 1 : 0,
         guardTextUpscale ? 1 : 0,
+        config.fontWeight || "",
         props.fontSize || "",
         props.fontWeight || "",
         props.weightFontSize || "",
@@ -250,7 +252,8 @@ export function syncDerpTrigger(ctx, node, app, config) {
         if (canReuseStatic) setTriggerStaticCache(node, config.key, { key: staticKey, bodyPaintOut, slotPaintOut, labelPaintOut, themeFontSize, themeFont });
     }
     const weightFontSize = config.weightFontSize || props.weightFontSize || Math.min(themeFontSize, WEIGHT_FONT_SIZE);
-    ctx.font = `${props.fontWeight || "normal"} ${themeFontSize}px ${themeFont}`;
+    const fontWeight = config.fontWeight || labelPaintOut?.fontWeight || props.fontWeight || "normal";
+    ctx.font = `${fontWeight} ${themeFontSize}px ${themeFont}`;
 
     const tH = themeFontSize;
     const weight = Number(config.weight ?? 1.0);
@@ -265,7 +268,7 @@ export function syncDerpTrigger(ctx, node, app, config) {
     }
     if (isWeightVisible && !config.toggleWidth) {
         ctx.save();
-        ctx.font = `${props.fontWeight || labelPaintOut.fontWeight || "normal"} ${weightFontSize}px ${themeFont}`;
+        ctx.font = `${fontWeight} ${weightFontSize}px ${themeFont}`;
         const weightW = measureTriggerText(ctx, node, `${config.key}:weight`, ctx.font, weightText);
         ctx.restore();
         tW = Math.max(tW, weightW + (WEIGHT_ICON_PAD * 2));
@@ -320,7 +323,7 @@ export function syncDerpTrigger(ctx, node, app, config) {
         if (guardNoFx) {
             drawFastText(ctx, weightText, tX + (tW / 2), tY + (tH / 2), labelPaintOut, {
                 fontSize: weightFontSize,
-                fontWeight: props.fontWeight || labelPaintOut.fontWeight,
+                fontWeight,
                 align: "center",
                 baseline: "middle"
             });
@@ -331,7 +334,7 @@ export function syncDerpTrigger(ctx, node, app, config) {
                 width: tW,
                 height: tH,
                 text: weightText,
-                paintData: { ...labelPaintOut, fontSize: weightFontSize, fontWeight: props.fontWeight || labelPaintOut.fontWeight },
+                paintData: { ...labelPaintOut, fontSize: weightFontSize, fontWeight },
                 align: "center",
                 baseline: "middle"
             });
@@ -348,7 +351,7 @@ export function syncDerpTrigger(ctx, node, app, config) {
         if (guardNoFx) {
             drawFastText(ctx, labelText, textStartX, textAnchor?.y ? Math.round(textAnchor.y) : Math.round(baseY + finalH / 2), labelPaintOut, {
                 fontSize: themeFontSize,
-                fontWeight: props.fontWeight,
+                fontWeight,
                 align: "left",
                 baseline: props.labelAlign?.[1] || "middle"
             });
@@ -359,7 +362,7 @@ export function syncDerpTrigger(ctx, node, app, config) {
                 width: availW,
                 height: finalH,
                 text: labelText,
-                paintData: { ...labelPaintOut, fontSize: themeFontSize, fontWeight: props.fontWeight },
+                paintData: { ...labelPaintOut, fontSize: themeFontSize, fontWeight },
                 align: "left",
                 baseline: props.labelAlign?.[1] || "middle",
                 cutoff: true,
@@ -395,7 +398,7 @@ export function syncDerpTrigger(ctx, node, app, config) {
                     width: tW,
                     height: tH,
                     text: weightText,
-                    paintData: { ...labelPaintOut, fontSize: weightFontSize, fontWeight: props.fontWeight || labelPaintOut.fontWeight },
+                    paintData: { ...labelPaintOut, fontSize: weightFontSize, fontWeight },
                     align: "center",
                     baseline: "middle"
                 });
@@ -412,7 +415,7 @@ export function syncDerpTrigger(ctx, node, app, config) {
                     width: availW,
                     height: finalH,
                     text: labelText,
-                    paintData: { ...labelPaintOut, fontSize: themeFontSize, fontWeight: props.fontWeight },
+                    paintData: { ...labelPaintOut, fontSize: themeFontSize, fontWeight },
                     align: "left",
                     baseline: props.labelAlign?.[1] || "middle",
                     cutoff: true

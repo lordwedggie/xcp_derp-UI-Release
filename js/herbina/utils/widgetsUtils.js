@@ -846,7 +846,7 @@ export function resolveWidgetEnv(node, config, app = null, element = null) {
         const textToMeasure = props.displayText || content.text;
         const fontSize = props.fontSize || labelPaint?.fontSize || 10;
         const font = labelPaint?.font || "arial";
-        const fontWeight = props.fontWeight || "normal";
+        const fontWeight = config.fontWeight || labelPaint?.fontWeight || props.fontWeight || "normal";
 
         const pL = props.padding[0], pT = props.padding[1];
         const pR = props.padding[2], pB = props.padding[3];

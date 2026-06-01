@@ -33,6 +33,7 @@ export function syncDerpSliderHTML(el, node, app, config) {
 
     // 1. Resolve Environment
     const { props, stateStr, bodyPaint: paintData, labelPaint: labelData } = resolveWidgetEnv(node, config);
+    const fontWeight = config.fontWeight || labelData?.fontWeight || props.fontWeight || "normal";
 
     // 2. Centralized Animated Colors & Alpha
     const rawBg = paintData?.fill || config.btnColor || "transparent";
@@ -110,7 +111,7 @@ export function syncDerpSliderHTML(el, node, app, config) {
             label.style.fontFamily = labelData.font || "arial";
             label.style.fontSize = `${(props.fontSize || labelData.fontSize || 10) * coords.scale}px`;
 
-            label.style.fontWeight = props.fontWeight || "normal";
+            label.style.fontWeight = fontWeight;
             label.style.fontStyle = "normal";
 
             const [alignX, alignY] = props.labelAlign || ["center", "middle"];
@@ -146,6 +147,7 @@ export function syncDerpSliderHTML(el, node, app, config) {
                 cursor: "pointer",
                 userSelect: "none",
                 fontSize: `${BTN_LR_FONTSIZE * coords.scale}px`,
+                fontWeight,
                 color: iconColor,
                 background: activeData?.fill || paintData?.fill || "rgba(0,0,0,0.3)",
                 borderRadius: radius,
@@ -176,14 +178,20 @@ export function syncDerpSliderHTML(el, node, app, config) {
             el.appendChild(btnL);
         } else {
             btnL.style.width = `${btnW}px`;
-            btnL.style.fontSize = `${10 * coords.scale}px`;
+            btnL.style.height = `${btnH - BTN_LR_MARGIN * 2 * coords.scale}px`;
+            btnL.style.fontSize = `${BTN_LR_FONTSIZE * coords.scale}px`;
+            btnL.style.fontWeight = fontWeight;
+            btnL.style.color = iconColor;
         }
         if (!btnR) {
             btnR = createBtn("right");
             el.appendChild(btnR);
         } else {
             btnR.style.width = `${btnW}px`;
-            btnR.style.fontSize = `${10 * coords.scale}px`;
+            btnR.style.height = `${btnH - BTN_LR_MARGIN * 2 * coords.scale}px`;
+            btnR.style.fontSize = `${BTN_LR_FONTSIZE * coords.scale}px`;
+            btnR.style.fontWeight = fontWeight;
+            btnR.style.color = iconColor;
         }
     } else {
         const btnL = el.querySelector(".derp-slider-btnlr-left");

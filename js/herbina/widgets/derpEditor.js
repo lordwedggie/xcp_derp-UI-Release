@@ -324,7 +324,7 @@ export function syncDerpEditor(context, node, app, config) {
 
     const fontSize = props.fontSize || labelPaint?.fontSize || 10;
     const font = safeConfig.fontFamily || labelPaint?.font || "Arial";
-    const fontWeight = props.fontWeight || "normal";
+    const fontWeight = safeConfig.fontWeight || labelPaint?.fontWeight || props.fontWeight || "normal";
 
     if (safeConfig.propertyName && !safeConfig._onBlurWrapped) {
         const origBlur = safeConfig.onBlur;
@@ -798,7 +798,7 @@ export function syncDerpEditor(context, node, app, config) {
     const htmlPadTop = finalPadY + editBaselineNudge;
     const htmlPadX = padX;
     const htmlPadRight = htmlPadX + cutoffRightPad;
-    const syncKey = `${ds.scale}-${effectiveState}-${rawIc}-${rawBg}-${valToSync}-${finalPadY}-${htmlPadTop}-${htmlPadX}-${htmlPadRight}-${scaledFS}-${isMultiline}-${isAwake}-${safeConfig.btnColor}`;
+    const syncKey = `${ds.scale}-${effectiveState}-${rawIc}-${rawBg}-${valToSync}-${finalPadY}-${htmlPadTop}-${htmlPadX}-${htmlPadRight}-${scaledFS}-${fontWeight}-${isMultiline}-${isAwake}-${safeConfig.btnColor}`;
 
     if (el._lastSyncKey !== syncKey) {
         el._lastSyncKey = syncKey;
@@ -806,6 +806,7 @@ export function syncDerpEditor(context, node, app, config) {
         const paintData = { ...(bodyPaint || {}) };
         paintData.font = font;
         paintData.fontSize = fontSize;
+        paintData.fontWeight = fontWeight;
         // Use animated colors for the base theme application to prevent color flickering on sync
         paintData.textColor = animatedTextColor;
         paintData.fill = animatedFillColor;

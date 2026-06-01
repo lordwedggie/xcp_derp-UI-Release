@@ -79,9 +79,10 @@ export function syncDerpToggleV2(ctx, node, app, config) {
         const gap = config.gap ?? 4; // THE GAP PARAMETER: Explicit spacing between glyph and text
         const labelText = t(props.displayText || content.text || "");
         const themeFontSize = props.fontSize || finalLabelPaint.fontSize || 10;
+        const fontWeight = config.fontWeight || finalLabelPaint?.fontWeight || props.fontWeight || "normal";
         // THE FONT SYNC FIX: Apply the same fallback font logic to the context state
         const themeFont = finalLabelPaint.font || (window.xcpDerpThemeConfig ? "DengXian Light" : "Arial");
-        ctx.font = `${props.fontWeight || "normal"} ${themeFontSize}px ${themeFont}`;
+        ctx.font = `${fontWeight} ${themeFontSize}px ${themeFont}`;
 
         const tH = themeFontSize * 1.0;
         // THE ICON WIDTH FIX: Do not use widget 'width' for the toggle icon.
@@ -137,7 +138,7 @@ export function syncDerpToggleV2(ctx, node, app, config) {
                 width: availW,
                 height: h,
                 text: labelText,
-                paintData: { ...finalLabelPaint, fontSize: themeFontSize, fontWeight: props.fontWeight },
+                paintData: { ...finalLabelPaint, fontSize: themeFontSize, fontWeight },
                 align: "left",
                 baseline: props.labelAlign?.[1] || "middle",
                 cutoff: true, cutoffMargin: config.cutoffMargin,
@@ -150,8 +151,9 @@ export function syncDerpToggleV2(ctx, node, app, config) {
         const gap = config.gap ?? 4; // THE GAP PARAMETER: Explicit spacing between glyph and text
         const labelText = t(props.displayText || content.text || "");
         const themeFontSize = props.fontSize || finalLabelPaint.fontSize || 10;
+        const fontWeight = config.fontWeight || finalLabelPaint?.fontWeight || props.fontWeight || "normal";
         const themeFont = finalLabelPaint.font || (window.xcpDerpThemeConfig ? "DengXian Light" : "Arial");
-        ctx.font = `${props.fontWeight || "normal"} ${themeFontSize}px ${themeFont}`;
+        ctx.font = `${fontWeight} ${themeFontSize}px ${themeFont}`;
 
         const tH = themeFontSize;
         const tW = iconWidthOverride || config.toggleWidth || (tH * 2.2);
@@ -205,7 +207,7 @@ export function syncDerpToggleV2(ctx, node, app, config) {
                 width: availW,
                 height: h,
                 text: labelText,
-                paintData: { ...finalLabelPaint, fontSize: themeFontSize, fontWeight: props.fontWeight },
+                paintData: { ...finalLabelPaint, fontSize: themeFontSize, fontWeight },
                 align: "left",
                 baseline: props.labelAlign?.[1] || "middle",
                 cutoff: true, cutoffMargin: config.cutoffMargin,

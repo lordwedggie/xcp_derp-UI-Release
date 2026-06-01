@@ -391,7 +391,6 @@ export function showBastaFileHandler(host, category = "settings", targetRegion =
                         pulseToState: "_DIS",
                         pulseSpeed: 0.005,
                         alpha: showWarning ? 1 : 0,
-                        fontWeight: "italic",
                         width: "full", height: "auto", padding: [pW, 0],
                         objectAlign: ["left", "middle"],
                     },

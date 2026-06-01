@@ -300,6 +300,7 @@ export function syncBtnIconHTML(el, node, app, config) {
         el.style.fontSize = `${fontSize * coords.scale}px`;
         const parsedFont = (labelPaint?.font || "arial").replace(/px/g, '').trim();
         el.style.fontFamily = `"${parsedFont}"`;
+        el.style.fontWeight = props.fontWeight || labelPaint?.fontWeight || "normal";
     }
 }
 
@@ -442,6 +443,7 @@ export function syncBtnIcon(ctx, node, config) {
             ...labelPaint,
             font: labelPaint.font || "Arial",
             fontSize: fontSize,
+            fontWeight: props.fontWeight || labelPaint?.fontWeight || "normal",
             fill: iconColor
         }
     });

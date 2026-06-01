@@ -350,6 +350,7 @@ export function appendHybridPickerRow(container, sourceEl, paintOFF, paintON, sc
     const fs = (paintOFF?.fontSize || paintON?.fontSize || 10);
     row.style.fontSize = `${fs * scale}px`;
     row.style.fontFamily = activePaint?.font || "Arial";
+    row.style.fontWeight = activePaint?.fontWeight || paintOFF?.fontWeight || paintON?.fontWeight || "normal";
     row.style.color = activePaint?.textColor || activePaint?.fill || "white";
     row._baseFontSize = fs;
     row._glyphSizeMult = glyphSizeMult;

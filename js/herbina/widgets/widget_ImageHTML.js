@@ -85,7 +85,7 @@ export function syncImageHTML(ctx, node, app, config, overlayPass = false) {
         const textPaint = resolvePlaceholderTextPaint();
         const fontSize = Number(config.placeholderFontSize ?? textPaint?.fontSize ?? 10);
         const fontFamily = textPaint?.font || "Arial";
-        const fontWeight = textPaint?.fontWeight || "normal";
+        const fontWeight = config.fontWeight || textPaint?.fontWeight || "normal";
         const textColor = textPaint?.textColor || textPaint?.fill || "rgba(255,255,255,0.4)";
         const shouldShrinkToFit = !!config.placeholderShrinkToFit;
         const padX = Math.max(0, Number(config.placeholderPadX ?? 0));
@@ -315,7 +315,7 @@ export function syncImageHTML(ctx, node, app, config, overlayPass = false) {
 
                 const preferredSize = item.fontSize || pData.fontSize || 10;
                 const minSize = Math.max(6, item.minFontSize ?? 6);
-                const fontWeight = pData.fontWeight || "";
+                const fontWeight = item.fontWeight || config.fontWeight || pData.fontWeight || "normal";
                 const fontFamily = pData.font || "Arial";
                 const overlayCache = node._imageHtmlOverlayCache || (node._imageHtmlOverlayCache = {});
                 const overlayKey = `${config.key}|${String(item.text || "")}|${maxTextW}|${maxTextH}|${preferredSize}|${minSize}|${fontWeight}|${fontFamily}`;

@@ -122,6 +122,9 @@ export function syncDerpToggle(ctx, node, app, config) {
 
     const [alignX] = props.labelAlign || ["center", "middle"];
     const themeFontSize = props.fontSize || finalLabelPaint.fontSize || 10;
+    const fontWeight = config.fontWeight || finalLabelPaint?.fontWeight || props.fontWeight || "normal";
+    const themeFont = finalLabelPaint.font || "Arial";
+    ctx.font = `${fontWeight} ${themeFontSize}px ${themeFont}`;
 
     // THE STABILITY FIX: Use a fixed-width slot for the glyph (indicatorBuffer).
     // THE PARITY FIX: Match the toggle width factor from interpretLayoutProps (widgetsUtils.js)
@@ -155,7 +158,7 @@ export function syncDerpToggle(ctx, node, app, config) {
         width: indicatorBuffer,
         height: h,
         text: currentGlyph,
-        paintData: { ...finalLabelPaint, fill: iconColor, textColor: iconColor, fontSize: themeFontSize, fontWeight: props.fontWeight },
+        paintData: { ...finalLabelPaint, fill: iconColor, textColor: iconColor, fontSize: themeFontSize, fontWeight },
         align: "center",
         baseline: props.labelAlign?.[1] || "middle"
     });
@@ -168,7 +171,7 @@ export function syncDerpToggle(ctx, node, app, config) {
             width: Math.max(0, w - indicatorBuffer - (pW * 2)),
             height: h,
             text: labelText,
-            paintData: { ...finalLabelPaint, fill: iconColor, textColor: iconColor, fontSize: themeFontSize, fontWeight: props.fontWeight },
+            paintData: { ...finalLabelPaint, fill: iconColor, textColor: iconColor, fontSize: themeFontSize, fontWeight },
             align: "left",
             baseline: props.labelAlign?.[1] || "middle",
             segments: hasColorKeys ? colorSegments : null

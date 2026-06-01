@@ -111,7 +111,7 @@ export function syncTextLabel(ctx, node, config) {
         ...(labelPaintData || {}),
         font: labelPaintData?.font || "arial",
         fontSize: props.fontSize || labelPaintData?.fontSize || 10,
-        fontWeight: props.fontWeight || "normal",
+        fontWeight: config.fontWeight || labelPaintData?.fontWeight || props.fontWeight || "normal",
         fill: finalTextColor
     };
 
@@ -256,9 +256,10 @@ export function syncTextLabelHTML(element, node, app, config) {
     // Content Handling
     const displayText = props.displayText || "";
     const isCutoff = config.displayMode === "cutoff";
+    const fontWeight = config.fontWeight || labelPaintData?.fontWeight || props.fontWeight || "normal";
 
     // THE OPTIMIZATION: DOM Thrash Gate using stable theme colors and content
-    const syncKey = `${stateStr}-${rawBg}-${rawIc}-${displayText}-${scale}-${isWrapping}-${isCutoff}-${coords.width}-${props.padding?.[0]}`;
+    const syncKey = `${stateStr}-${rawBg}-${rawIc}-${displayText}-${scale}-${isWrapping}-${isCutoff}-${coords.width}-${props.padding?.[0]}-${fontWeight}`;
     if (element._lastSyncKey !== syncKey || node._forceSync) {
         element._lastSyncKey = syncKey;
 
@@ -295,7 +296,7 @@ export function syncTextLabelHTML(element, node, app, config) {
         let fontSize = props.fontSize || labelPaintData?.fontSize || 10;
         if (!isWrapping && !config.noShrink && element.innerText.length > 0) {
             const limit = w - (props.padding?.[0] * 2 || 0);
-            while (measureTextWidth(element.innerText, fontSize, labelPaintData?.font || "arial", props.fontWeight) > limit && fontSize > 4) {
+            while (measureTextWidth(element.innerText, fontSize, labelPaintData?.font || "arial", fontWeight) > limit && fontSize > 4) {
                 fontSize -= 0.5;
             }
         }
@@ -320,6 +321,7 @@ export function syncTextLabelHTML(element, node, app, config) {
             ...activePaint,
             font: labelPaintData?.font || activePaint.font || "arial",
             fontSize: fontSize,
+            fontWeight,
             fill: rawBg,
             textColor: rawIc
         }, scale);
@@ -341,7 +343,7 @@ export function syncTextLabelHTML(element, node, app, config) {
             textAlign: textAnchor ? textAnchor.align : alignX,
             padding: `${(props.padding?.[1] || 0) * scale}px ${(props.padding?.[0] || 0) * scale}px`,
             fontSize: `${fontSize * scale}px`,
-            fontWeight: props.fontWeight || "normal",
+            fontWeight,
             fontStyle: "normal",
             lineHeight: "1",
             transform: props.fontOffset ? `translateY(${props.fontOffset * scale}px)` : "none"
