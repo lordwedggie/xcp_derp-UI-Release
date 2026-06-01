@@ -281,11 +281,17 @@ app.registerExtension({
                 },
                 previewRegion: {
                     anchor: { target: "themeLayoutRegion", axis: "y", offset: oY }, state: "_DIS",
-                    objectAlign: ["left", "top"], dir: "col", width: "full", height: "auto", margin: [mW, 0],
-                    lblPreviewConstruction: {
-                        type: UI_TYPES.TEXT, state: "DIS", themeKey: "panel, t_textNormal",
-                        text: "--- Preview area: Under construction ---", objectAlign: ["center", "middle"],
-                        labelAlign: ["center", "middle"], width: "full", height: "auto", padding: [pW, pH]
+                    objectAlign: ["left", "top"], dir: "col", width: "full", height: "auto", margin: [mW, mH],
+                    btnPaletteDesigner: {
+                        type: UI_TYPES.BUTTON, themeKey: "button, t_textSmall", noHover: false,
+                        text: "Palette Editor",
+                        width: "auto", height: "fill", objectAlign: ["left", "middle"], labelAlign: ["center", "middle"],
+                        padding:[pW, pH], spacing: [sW, 0],
+                        state: activeBastas.has(getPaletteId(this)) ? "DIS" : "OFF",
+                        onClick: () => {
+                            showBastaPalette(this, "btnPaletteDesigner");
+                            this.refreshNodeLayoutMap();
+                        },
                     }
                 },
                 keyManagementRegion: {
@@ -342,18 +348,7 @@ app.registerExtension({
                         type: UI_TYPES.COLORKEYEDIT, themeKey: "button, t_textSmall", key: "mainColorEdit",
                         colorSuffix: "", width: 120, height: 20, spacing: [sW, 0],
                     },
-                    btnPaletteDesigner: {
-                        type: UI_TYPES.BUTTON, themeKey: "button, t_textSmall", noHover: false,
-                        text: "Send to Palette",
-                        width: "auto", height: "fill", objectAlign: ["left", "middle"], labelAlign: ["center", "middle"],
-                        padding:[pW, pH], spacing: [sW, 0],
-                        // THE SINGLETON STATE: Disable button if the palette is already alive for this node
-                        state: activeBastas.has(getPaletteId(this)) ? "DIS" : "OFF",
-                        onClick: () => {
-                            showBastaPalette(this, "btnPaletteDesigner");
-                            this.refreshNodeLayoutMap(); // THE FIX: Re-evaluate layout immediately
-                        },
-                    },
+
                     lblFonts: {
                         type: UI_TYPES.TEXT, themeKey: "t_textSmall", text: "Font:",
                         width: "auto", height: "auto", padding: [pW, pH]
