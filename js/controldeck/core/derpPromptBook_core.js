@@ -357,8 +357,11 @@ export function bindPromptBookHooks(nodeType) {
                     const bookName = this.properties.bookName;
                     const isUntitled = bookName === tLocale("$derp_prompt_book.book.untitled_name", "Untitled Book") || !bookName;
                     if (!isUntitled && Array.isArray(this._availableBooks) && this._availableBooks.includes(bookName)) {
-                        handleBookChange(this, bookName).then(() => {
-                            this.properties.currentPageIndex = Math.min(savedPageIndex, (this.properties.derpBook || []).length - 1);
+                        handleBookChange(this, bookName, { preservePage: true }).then(() => {
+                            this.properties.currentPageIndex = Math.max(0, Math.min(savedPageIndex, Math.max(0, (this.properties.derpBook || []).length - 1)));
+                            this.properties.prompt = this.properties.derpBook?.[this.properties.currentPageIndex]?.content || "";
+                            this._lastSyncedContent = null;
+                            if (this.syncDerpOutputs) this.syncDerpOutputs();
                             this.refreshNodeLayoutMap();
                         });
                     }
@@ -433,7 +436,7 @@ export function bindPromptBookHooks(nodeType) {
     };
 }
 
-export async function handleBookChange(node, val) {
+export async function handleBookChange(node, val, options = {}) {
     try {
         if (node._availableBooks && !node._availableBooks.includes(val)) {
             showPromptBookMissingBookMessage(node, val, "dropdownBooks");
@@ -446,15 +449,21 @@ export async function handleBookChange(node, val) {
         }
         const result = await response.json();
         const data = result.data || [];
+        const shouldPreservePage = options?.preservePage === true;
+        const previousPageIndex = Number(node.properties.currentPageIndex) || 0;
+        const nextPageIndex = shouldPreservePage
+            ? Math.max(0, Math.min(previousPageIndex, Math.max(0, data.length - 1)))
+            : 0;
         node.properties.derpBook = data;
         node.properties.bookName = val;
         node._lastSavedBookName = val;
-        node.properties.currentPageIndex = 0;
-        node.properties.prompt = data[0]?.content || "";
+        node.properties.currentPageIndex = nextPageIndex;
+        node.properties.prompt = data[nextPageIndex]?.content || "";
 
         const w = node.widgets?.find(x => x.name === "prompt");
         if (w) w.value = node.properties.prompt;
 
+        node._lastSyncedContent = null;
         if (node.syncDerpOutputs) node.syncDerpOutputs();
 
         if (node.refreshNodeLayoutMap) node.refreshNodeLayoutMap();
