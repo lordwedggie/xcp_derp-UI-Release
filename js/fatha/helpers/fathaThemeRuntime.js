@@ -64,6 +64,13 @@ function getPaletteCache() {
     return window.xcpPaletteCache;
 }
 
+function clearHydratedPaintData(target) {
+    if (!target) return;
+    Object.keys(target).forEach((key) => {
+        if (/^_.+PaintData(?:_(?:ON|DIS))?$/.test(key)) delete target[key];
+    });
+}
+
 function rememberPaletteData(paletteName, data) {
     const normalizedName = normalizePaletteName(paletteName);
     if (!normalizedName || !data) return;
@@ -174,6 +181,8 @@ export function handleThemeUpdateImpl(node, config, deps = {}) {
     }
 
     if (theme) {
+        clearHydratedPaintData(node);
+        clearHydratedPaintData(sysPanel);
         if (node.properties?.selectedTheme !== undefined) node.properties.selectedTheme = resolvedThemeKey;
         if (isThemeManagerV2) {
             if (node.properties?.selectedSystemTheme !== undefined) node.properties.selectedSystemTheme = resolvedThemeKey;
