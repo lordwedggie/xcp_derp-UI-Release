@@ -1006,10 +1006,20 @@ export function handleDrawCTX(entity, ctx, overlayPass = false) {
         const backgroundPaintKey = entity.properties?.bastaBackgroundKey || "canvas";
         const paintOFF = resolvePaintData(entity, backgroundPaintKey, isBypassed ? "_DIS" : "") || resolvePaintData(entity, "canvas", isBypassed ? "_DIS" : "");
         const paintON = resolvePaintData(entity, backgroundPaintKey, isBypassed ? "_DIS" : "_ON") || resolvePaintData(entity, "canvas", isBypassed ? "_DIS" : "_ON");
+        const headerPaintOFF = resolvePaintData(entity, "header", isBypassed ? "_DIS" : "") || resolvePaintData(entity, "header", "");
+        const headerPaintON = resolvePaintData(entity, "header", isBypassed ? "_DIS" : "_ON") || resolvePaintData(entity, "header", "");
         const cornerOverride = getDeckCornerOverride(entity, app.graph || entity.graph || null);
         const applyNodeCornerOverride = (paint) => paint
             ? { ...paint, corners: applyCornerOverride(paint.corners || [8, 8, 8, 8], cornerOverride) }
             : paint;
+        const withoutHeaderCorners = (paint) => {
+            if (!paint) return null;
+            const { corners, ...rest } = paint;
+            return rest;
+        };
+        const resolveHeaderThemePaint = (state) => withoutHeaderCorners(state === "_ON" ? headerPaintON : headerPaintOFF);
+        const headerPaintOFFFingerprint = getPaintFingerprint(withoutHeaderCorners(headerPaintOFF));
+        const headerPaintONFingerprint = getPaintFingerprint(withoutHeaderCorners(headerPaintON));
         const nodeWantsCache = entity?.properties?.optimizeStaticBgCache !== false;
         // Quality guard: rounded corners / shadow / glow are prone to cache resample artifacts.
         // In those cases prefer direct paint to preserve smooth corners.
@@ -1025,14 +1035,16 @@ export function handleDrawCTX(entity, ctx, overlayPass = false) {
                 const cON = applyCornerOverride((options.cornerPaint || paintON).corners || [8, 8, 8, 8], cornerOverride);
 
                 if (isCollapsed) {
+                    const headerThemePaint = resolveHeaderThemePaint(headerPaletteState);
                     const collapsedPaint = applyCollapsedCornerCap(
-                        applyNodeHeaderPalette(entity, { ...bodyPaint, corners: [cON[0], cON[1], cOFF[2], cOFF[3]] }, headerPaletteState, headerEffectPaint, getPaletteCache),
+                        applyNodeHeaderPalette(entity, { ...bodyPaint, ...headerThemePaint, corners: [cON[0], cON[1], cOFF[2], cOFF[3]] }, headerPaletteState, headerEffectPaint, getPaletteCache),
                         isCollapsed
                     );
                     masterPainter(targetCtx, { posX: 0, posY: 0, width: entity.size[0], height: entity.size[1], color: collapsedPaint.fill, paintData: collapsedPaint });
                 } else {
                     const splitY = header.y + header.h + (header.margin?.length === 4 ? header.margin[3] : (header.margin?.[1] || 0));
-                    const headerBasePaint = { ...bodyPaint, corners: [cON[0], cON[1], 0, 0], border: null, shadow: null, glow: null };
+                    const headerThemePaint = resolveHeaderThemePaint(headerPaletteState);
+                    const headerBasePaint = { ...bodyPaint, border: null, shadow: null, glow: null, ...headerThemePaint, corners: [cON[0], cON[1], 0, 0] };
                     const headerPaint = applyNodeHeaderPalette(entity, headerBasePaint, headerPaletteState, headerEffectPaint, getPaletteCache);
                     masterPainter(targetCtx, { posX: 0, posY: 0, width: entity.size[0], height: splitY, color: headerPaint.fill, paintData: headerPaint });
 
@@ -1116,7 +1128,9 @@ export function handleDrawCTX(entity, ctx, overlayPass = false) {
                     cornerOverride ? cornerOverride.join("_") : "nocorners",
                     backgroundPaintKey,
                     getPaintFingerprint(paintOFF),
-                    getPaintFingerprint(paintON)
+                    getPaintFingerprint(paintON),
+                    headerPaintOFFFingerprint,
+                    headerPaintONFingerprint
                 ].join("|");
                 if (cache) {
                     const pad = cache.pad || 0;

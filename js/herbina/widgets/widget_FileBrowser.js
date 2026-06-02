@@ -490,6 +490,20 @@ function openFilePicker(config, node) {
                 }
             },
         });
+        // Steal keyboard focus into the search editor so the user can type immediately
+        setTimeout(() => {
+            const b = activeBastas.get(getBastaSearchTabId(node, config.key));
+            if (b) {
+                const el = b._derpDomElements?.editorSearch;
+                if (el) {
+                    el._isAwake = true;
+                    el.style.opacity = "1";
+                    el.style.pointerEvents = "auto";
+                    el.focus();
+                    el.select();
+                }
+            }
+        }, 50);
     }
     markNodeDirty(node, 24);
 }

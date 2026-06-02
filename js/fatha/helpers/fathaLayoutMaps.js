@@ -250,6 +250,7 @@ export const getVirtualNodeLayoutMap = (node) => {
     const lastCustomRegion = (p.contentCollapsed || customKeys.length === 0) ? "headerRegion" : customKeys[customKeys.length - 1];
     const headerPaletteFill = resolveHeaderPaletteFill(node);
     const headerSideInsetBoost = resolveHeaderSideInsetBoost(node);
+    
     node._layoutMapHash = getHeaderInsetLayoutHash(node, headerSideInsetBoost);
 
     const isVerticalDocked = isVerticalDockedGroup(node);
