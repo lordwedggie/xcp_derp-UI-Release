@@ -709,6 +709,8 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                     if (onConf) onConf.apply(this, arguments);
                     this.suppressDefaultWidgets();
                     if (typeof this.properties.hideLinkSlots !== "boolean") this.properties.hideLinkSlots = false;
+                    this.properties.drawSettingBtn = true;
+                    this.properties.settingActive = true;
                     syncDerpRouterDisplayLabels(this);
 
                     if (info.properties) {
@@ -747,8 +749,8 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                     installSignalOutPositionGuard(this);
                     this.vLinkDash = [8, 4];
                     this.vLinkColor = "#666";
-                    this.vLinkThickness = [3, 1.5]; // [Selected, Normal]
-                    this.vLinkAlpha = [0.8, 0.2];   // [Selected, Normal]
+                    this.vLinkThickness = [4, 3]; // [Selected, Normal]
+                    this.vLinkAlpha = [0.9, 0.8];   // [Selected, Normal]
 
                     this.inputs = [];
                     this.receivedSignals = [];
@@ -760,6 +762,8 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                     this.properties.signalSortMode = "Type";
                     this.properties.showVirtualLinks = false;
                     this.properties.hideLinkSlots = false;
+                    this.properties.drawSettingBtn = true;
+                    this.properties.settingActive = true;
                     this.properties.autoHeight = true;
                     this.properties.autoWidth = false;
                     this.properties.nodeSize = [300, 50];
@@ -781,6 +785,11 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                     this.suppressDefaultWidgets();
                     syncDerpRouterLinkSlotVisibility(this);
                     if (this.updateReceivedSignals) this.updateReceivedSignals();
+                    // Retry after a short delay in case transmitters haven't registered yet
+                    setTimeout(() => {
+                        if (this.updateReceivedSignals && this.id !== -1) this.updateReceivedSignals(true);
+                        if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
+                    }, 100);
                     if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
                     if (this.refreshDerpSignalOutSysMap) this.refreshDerpSignalOutSysMap();
                 };

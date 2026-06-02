@@ -50,7 +50,7 @@ const ICON_MAP = {
     docktopbottom: "⊤⊥",
     delete: "✕️",
     new: "🗋",
-    copy: "❐",
+    copy: "⧉", //⧉, ❐,
     rename: "✎", // 🖌
     revert: "↺",
     refresh: "⟲",
@@ -67,11 +67,13 @@ const ICON_MAP = {
     leftarrow: "❮",
     rightarrow: "❯",
     wireless: "ᯤ",
+    warpto: "⤴",
     preview: "🖺", //🖺, 🖻
     file: "🗀",
     clean: "⌬", //⏚,
     folder: "🗀",
     settings: "⛯", // ⛯, ⛭, ⚙
+    warpto: "⤳", // ⤏, ➔, ➛, ⮚, ➲, ⧴, ⇱,
     ratingglyph: ["", "🆂", "🅰", "🅱", "🅲", "🅳", "🅴", "🅵"] // ☐, ☑, ▢, ▣, ◻, ◼, ☐, ☒, ⭘, ⦿, ⭘, ●,
     // ⌕, 👁, 🎚, 🗁, 🗀, 🗂, 
 };

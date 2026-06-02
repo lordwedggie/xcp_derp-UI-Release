@@ -7,6 +7,7 @@ import { UI_TYPES } from "./fatha/core/masterLayoutTypes.js";
 import { startStackDrag, updateStackDrag, endStackDrag } from "./fatha/helpers/fathaDragDrop.js";
 import { showBastaFileHandler } from "./fatha/bastas/bastaFileHandler.js";
 import { isComfyVueNodesMode } from "./fatha/core/fathaNode2Compat.js";
+import { warpToPoint } from "./fatha/core/fathaWarp.js";
 
 // Orphaned signal pulse animation speed
 const ORPHAN_PULSE_SPEED = 0.004;
@@ -242,6 +243,36 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                     onDrag: updateOutputRowDrag,
                                     onDragEnd: endOutputRowDrag,
                                     onPress: () => handleSignalOutEntryPress(this),
+                                    [`btnWarpto_${idx}`]: {
+                                        type: UI_TYPES.ICONBUTTON,
+                                        icon: "warpto", iconScale: 0.72,
+                                        themeKey: "button, t_textSmall",
+                                        width: "match", height: "fill",
+                                        padding: [pW, pH], spacing: [sW, 0],
+                                        hidden: shouldGhostHideChildren || !this.properties.settingActive,
+                                        state: "OFF",
+                                        alpha: rowAlpha,
+                                        onPress: () => {
+                                            const srcId = String(sig.nodeId || "").split(":")[0];
+                                            const srcNode = app.graph?.getNodeById(srcId);
+                                            if (!srcNode) return;
+                                            if (app.canvas?.selectNode) app.canvas.selectNode(srcNode);
+                                            const nx = Number(srcNode?.pos?.[0]);
+                                            const ny = Number(srcNode?.pos?.[1]);
+                                            const nw = Number(srcNode?.size?.[0] ?? srcNode?.properties?.nodeSize?.[0]);
+                                            const nh = Number(srcNode?.size?.[1] ?? srcNode?.properties?.nodeSize?.[1]);
+                                            if (!Number.isFinite(nx) || !Number.isFinite(ny)) return;
+                                            const targetX = nx + ((Number.isFinite(nw) ? nw : 0) * 0.5);
+                                            const targetY = ny + ((Number.isFinite(nh) ? nh : 0) * 0.5);
+                                            const warpZoom = 1.5;
+                                            warpToPoint({ worldX: targetX, worldY: targetY, zoom: warpZoom }, {
+                                                zoomMode: "absolute",
+                                                targetZoom: warpZoom,
+                                                durationMs: 600,
+                                                easing: "easeOutQuad",
+                                            });
+                                        },
+                                    },
                                     [`lblOutputInfo_${idx}`]: {
                                         type: UI_TYPES.BUTTON,
                                         themeKey: "panel, t_textNormal",
@@ -260,7 +291,7 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                     },
                                     [`btnOutputDelete_${idx}`]: {
                                         type: UI_TYPES.ICONBUTTON, themeKey: "buttonNode, t_textSystem",
-                                        hidden: shouldGhostHideChildren,
+                                        hidden: shouldGhostHideChildren || !this.properties.settingActive,
                                         icon: "trash", width: "match", height: "fill", spacing: [sW, 0],
                                         alpha: rowAlpha,
                                     onPress: () => {
@@ -301,10 +332,34 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                         pulseStates: true,
                                         pulseFromState: "_ON",
                                         pulseToState: "_DIS",
-                                        spacing: [0, sH],
                                         ignoreNodeBoundsClamp: true,
                                         corners: sourceRow?.corners,
                                         regionOffset: [0, 0],
+                                        floatingSignalOutWarp: {
+                                            type: UI_TYPES.ICONBUTTON,
+                                            icon: "warpto", iconScale: 0.72,
+                                            themeKey: "button, t_textSmall",
+                                            width: "match", height: "fill",
+                                            spacing: [sW, 0],
+                                            hidden: !this.properties.settingActive,
+                                            onPress: () => {
+                                                const srcId = String(sig.nodeId || "").split(":")[0];
+                                                const srcNode = app.graph?.getNodeById(srcId);
+                                                if (!srcNode) return;
+                                                if (app.canvas?.selectNode) app.canvas.selectNode(srcNode);
+                                                const nx = Number(srcNode?.pos?.[0]);
+                                                const ny = Number(srcNode?.pos?.[1]);
+                                                const nw = Number(srcNode?.size?.[0] ?? srcNode?.properties?.nodeSize?.[0]);
+                                                const nh = Number(srcNode?.size?.[1] ?? srcNode?.properties?.nodeSize?.[1]);
+                                                if (!Number.isFinite(nx) || !Number.isFinite(ny)) return;
+                                                const targetX = nx + ((Number.isFinite(nw) ? nw : 0) * 0.5);
+                                                const targetY = ny + ((Number.isFinite(nh) ? nh : 0) * 0.5);
+                                                warpToPoint({ worldX: targetX, worldY: targetY, zoom: 1.5 }, {
+                                                    zoomMode: "absolute", targetZoom: 1.5,
+                                                    durationMs: 600, easing: "easeOutQuad",
+                                                });
+                                            },
+                                        },
                                         floatingSignalOutLabel: {
                                             type: UI_TYPES.BUTTON,
                                             themeKey: "panel, t_textNormal",
@@ -322,9 +377,9 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                             type: UI_TYPES.ICONBUTTON,
                                             themeKey: "buttonNode, t_textSystem",
                                             icon: "trash",
-                                            width: "match",
-                                            height: "fill",
+                                            width: "match", height: "fill",
                                             spacing: [sW, 0],
+                                            hidden: !this.properties.settingActive,
                                         }
                                     }
                                 };
