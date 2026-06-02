@@ -149,7 +149,7 @@ def sync_bundled_assets():
                     else:
                         should_overwrite = False
                 else:
-                    should_overwrite = managed and _file_is_newer(source_file, dest_file)
+                    should_overwrite = _file_is_newer(source_file, dest_file)
 
                 if should_overwrite:
                     _copy_file(source_file, dest_file)

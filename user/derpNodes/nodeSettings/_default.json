@@ -1,0 +1,44 @@
+{
+    "fileType": "xcp_derp_trigger_preset",
+    "version": "1.0.0",
+    "timestamp": 1780246453275,
+    "triggerGroups": [
+        {
+            "id": "grp_1780246317087",
+            "title": "Trigger Group 1",
+            "isExclusive": false,
+            "triggers": [
+                {
+                    "id": "trig_1780246317087"
+                }
+            ]
+        },
+        {
+            "id": "grp_1777534539026_37e183",
+            "title": "Camera Direction",
+            "isExclusive": false,
+            "triggers": [
+                {
+                    "id": "trig_3e3529",
+                    "label": "From Front"
+                },
+                {
+                    "id": "trig_72759a",
+                    "label": "From Side"
+                },
+                {
+                    "id": "trig_e065ad",
+                    "label": "From Behind"
+                },
+                {
+                    "id": "trig_606b6b",
+                    "label": "From above"
+                },
+                {
+                    "id": "trig_8464e6",
+                    "label": "From Below"
+                }
+            ]
+        }
+    ]
+}

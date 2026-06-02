@@ -1,0 +1,302 @@
+{
+    "KSampler_Standard": {
+        "sliderCount": 3,
+        "sliders": [
+            {
+                "name": "steps",
+                "min": 0,
+                "max": 40,
+                "step": 1,
+                "default": 20,
+                "decimals": 0,
+                "value": "20"
+            },
+            {
+                "name": "cfg",
+                "min": 1,
+                "max": 8,
+                "step": 0.01,
+                "default": 4,
+                "decimals": 2,
+                "value": "4.00"
+            },
+            {
+                "name": "denoise",
+                "min": 0,
+                "max": 1,
+                "step": 0.01,
+                "default": 0.5,
+                "decimals": 2,
+                "value": "0.50"
+            }
+        ]
+    },
+    "KSampler_Advanced": {
+        "sliders": [
+            {
+                "name": "Steps",
+                "min": 0,
+                "max": 40,
+                "step": 1,
+                "default": 20,
+                "decimals": 0,
+                "value": "20"
+            },
+            {
+                "name": "Cfg",
+                "min": 1,
+                "max": 8,
+                "step": 0.01,
+                "default": 4,
+                "decimals": 2,
+                "value": "4.00"
+            }
+        ],
+        "sliderCount": 2,
+        "nameDisplay": "Slider"
+    },
+    "KSampler-ZIT": {
+        "sliders": [
+            {
+                "name": "Steps",
+                "min": 1,
+                "max": 12,
+                "step": 1,
+                "default": 8,
+                "decimals": 0,
+                "value": 9
+            },
+            {
+                "name": "Cfg",
+                "min": 0,
+                "max": 2,
+                "step": 0.01,
+                "default": 1,
+                "decimals": 2,
+                "value": 1
+            },
+            {
+                "name": "Auro Flow",
+                "min": 1,
+                "max": 6,
+                "step": 0.1,
+                "default": 3,
+                "decimal": 2,
+                "value": 4.2,
+                "btnLR": false
+            }
+        ],
+        "sliderCount": 3,
+        "nameDisplay": "Slider"
+    },
+    "KSampler-ZIB": {
+        "count": 2,
+        "sliders": [
+            {
+                "name": "steps",
+                "min": 1,
+                "max": 12,
+                "step": 1,
+                "default": 8,
+                "decimals": 0,
+                "value": "9"
+            },
+            {
+                "name": "cfg",
+                "min": 0,
+                "max": 2,
+                "step": 0.01,
+                "default": 1,
+                "decimals": 2,
+                "value": "1.00"
+            }
+        ]
+    },
+    "Derp Sliders v4.1": {
+        "sliders": [
+            {
+                "name": "FreeU B1",
+                "min": 0,
+                "max": 2,
+                "step": 0.01,
+                "default": 1.3,
+                "decimal": 2,
+                "value": 0.75,
+                "btnLR": false,
+                "_isDraggingSlider": false
+            },
+            {
+                "name": "FreeU B2",
+                "min": 0,
+                "max": 2,
+                "step": 0.01,
+                "default": 1.4,
+                "decimal": 2,
+                "value": 1.31,
+                "btnLR": false,
+                "_isDraggingSlider": false
+            },
+            {
+                "name": "FreeU S1",
+                "min": 0,
+                "max": 2,
+                "step": 0.01,
+                "default": 0.9,
+                "decimal": 2,
+                "value": 0.9,
+                "btnLR": false,
+                "_isDraggingSlider": false
+            },
+            {
+                "name": "FreeU S2",
+                "min": 0,
+                "max": 2,
+                "step": 0.01,
+                "default": 0.2,
+                "decimal": 2,
+                "value": 0.48,
+                "btnLR": false,
+                "_isDraggingSlider": false
+            },
+            {
+                "name": "SAG Scale",
+                "min": 0,
+                "max": 5,
+                "step": 0.01,
+                "default": 0.5,
+                "decimal": 2,
+                "value": 0.5,
+                "btnLR": false,
+                "_isDraggingSlider": false
+            },
+            {
+                "name": "SAG Blur",
+                "min": 0,
+                "max": 10,
+                "step": 0.01,
+                "default": 2,
+                "decimal": 2,
+                "value": 6.69,
+                "btnLR": false,
+                "_isDraggingSlider": false
+            },
+            {
+                "name": "PAG Scale",
+                "min": 0,
+                "max": 6,
+                "step": 0.05,
+                "default": 3,
+                "decimal": 2,
+                "value": 0,
+                "btnLR": false,
+                "_isDraggingSlider": false
+            }
+        ],
+        "sliderCount": 7,
+        "nameDisplay": "Left"
+    },
+    "Pony Standard": {
+        "sliderCount": 3,
+        "sliders": [
+            {
+                "name": "steps",
+                "min": 0,
+                "max": 40,
+                "step": 1,
+                "default": 20,
+                "decimals": 0,
+                "value": "20"
+            },
+            {
+                "name": "cfg",
+                "min": 1,
+                "max": 8,
+                "step": 0.01,
+                "default": 4,
+                "decimals": 2,
+                "value": "4.00"
+            },
+            {
+                "name": "denoise",
+                "min": 0,
+                "max": 1,
+                "step": 0.01,
+                "default": 0.5,
+                "decimals": 2,
+                "value": "0.50"
+            }
+        ]
+    },
+    "Pony Standard v2": {
+        "sliders": [
+            {
+                "name": "steps",
+                "min": 0,
+                "max": 40,
+                "step": 1,
+                "default": 20,
+                "decimals": 0,
+                "value": "20"
+            },
+            {
+                "name": "cfg",
+                "min": 1,
+                "max": 8,
+                "step": 0.01,
+                "default": 4,
+                "decimals": 2,
+                "value": "4.00"
+            }
+        ],
+        "sliderCount": 2,
+        "nameDisplay": "Slider"
+    },
+    "FreeU": {
+        "sliders": [
+            {
+                "name": "FreeU B1",
+                "min": 0,
+                "max": 2,
+                "step": 0.01,
+                "default": 1.3,
+                "decimal": 2,
+                "value": 0.5,
+                "btnLR": false
+            },
+            {
+                "name": "FreeU B2",
+                "min": 0,
+                "max": 2,
+                "step": 0.01,
+                "default": 1.4,
+                "decimal": 2,
+                "value": 0.5,
+                "btnLR": false
+            },
+            {
+                "name": "FreeU S1",
+                "min": 0,
+                "max": 2,
+                "step": 0.01,
+                "default": 0.9,
+                "decimal": 2,
+                "value": 0.01,
+                "btnLR": false,
+                "_isDraggingSlider": false
+            },
+            {
+                "name": "FreeU S2",
+                "min": 0,
+                "max": 2,
+                "step": 0.01,
+                "default": 0.2,
+                "decimal": 2,
+                "value": 0.01,
+                "btnLR": false,
+                "_isDraggingSlider": false
+            }
+        ],
+        "sliderCount": 4,
+        "nameDisplay": "Slider"
+    }
+}

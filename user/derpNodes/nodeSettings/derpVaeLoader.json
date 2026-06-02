@@ -1,0 +1,14 @@
+{
+    "_default": {
+        "vaes": [
+            "ILL/BonkaiiiRealism_V2.safetensors",
+            "ILL/CatponyReal_v50.safetensors",
+            "ILL/cyberrealistic_v80Redux.safetensors",
+            "ILL/jedpointreal_v3ilVae.safetensors",
+            "ILL/Uwazumimix_v50.safetensors",
+            "PONY/Uwazumimix_v50P.safetensors",
+            "PONY/#!_Favorites/ponyRealism_V23_S5+.safetensors",
+            "PONY/Alchemistmix_v20Silver.safetensors"
+        ]
+    }
+}

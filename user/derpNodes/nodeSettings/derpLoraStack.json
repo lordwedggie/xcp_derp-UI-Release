@@ -1,0 +1,85 @@
+{
+    "_Default": {
+        "stackData": [],
+        "attentionMode": "Cross-Attention",
+        "showCLIP": false,
+        "nameDisplay": "Top",
+        "toggleLR": true,
+        "settings": {
+            "sliderMin": 0,
+            "sliderMax": 1.5,
+            "sliderStep": 0.5,
+            "sliderDefault": 0.8
+        }
+    },
+    "_Default-Joint-Attention (ZIT)": {
+        "stackData": [],
+        "attentionMode": "Joint-Attention",
+        "showCLIP": false,
+        "nameDisplay": "Top",
+        "toggleLR": true,
+        "settings": {
+            "sliderMin": 0,
+            "sliderMax": 1.5,
+            "sliderDefault": 0.8
+        }
+    },
+    "ZIT Sliders Stack": {
+        "stackData": [
+            [
+                "ZIT\\#Sliders\\#Styles\\Z-Detail-Slider.safetensors",
+                0.8,
+                1,
+                "None",
+                "",
+                false,
+                true
+            ]
+        ],
+        "attentionMode": "Joint-Attention",
+        "showCLIP": false,
+        "nameDisplay": "Top",
+        "toggleLR": false,
+        "settings": {
+            "sliderMin": -3,
+            "sliderMax": 3,
+            "sliderDefault": 0
+        }
+    },
+    "ZIT Normal Stack": {
+        "stackData": [],
+        "attentionMode": "Joint-Attention",
+        "showCLIP": false,
+        "nameDisplay": "Top",
+        "toggleLR": true,
+        "settings": {
+            "sliderMin": 0,
+            "sliderMax": 1.5,
+            "sliderStep": 0.5,
+            "sliderDefault": 0.8
+        }
+    },
+    "ZIT Character Stack": {
+        "stackData": [
+            [
+                "ZIT\\People\\Female\\Yuki.safetensors",
+                0.8,
+                1,
+                "None",
+                "",
+                false,
+                true
+            ]
+        ],
+        "attentionMode": "Joint-Attention",
+        "showCLIP": false,
+        "nameDisplay": "Top",
+        "toggleLR": true,
+        "settings": {
+            "sliderMin": 0,
+            "sliderMax": 1.5,
+            "sliderStep": 0.5,
+            "sliderDefault": 0.8
+        }
+    }
+}

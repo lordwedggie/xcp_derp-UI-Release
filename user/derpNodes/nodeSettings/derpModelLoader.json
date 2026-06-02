@@ -1,0 +1,48 @@
+{
+    "Favorite ILL models": {
+        "models": [
+            "ILL/aapModelmix_v10.safetensors",
+            "ILL/BonkaiiiRealism_V2.safetensors",
+            "ILL/CatponyReal_v50.safetensors",
+            "ILL/JavnRealMergeEnvyIL_v10.safetensors",
+            "ILL/jedpointreal_v3ilVae.safetensors",
+            "ILL/Kodorail_v172.safetensors",
+            "ILL/tekitourealgachimix_v70.safetensors",
+            "ILL/Uwazumimix_v50.safetensors"
+        ]
+    },
+    "Favorite PONY models": {
+        "models": [
+            "PONY/_aoiRealisticPony_v7.safetensors",
+            "PONY/AsianBeauty_v10.safetensors",
+            "PONY/AsianRealismByStable_v30FP16.safetensors",
+            "PONY/eternalChamponA_eternalChamponAV50_S5.safetensors",
+            "PONY/#!_Favorites/ponyRealism_V23_S5+.safetensors",
+            "PONY/jedpointreal_v8VAE_S5.safetensors",
+            "PONY/#sc_CyberRealistic/cyberrealisticPony_v130.safetensors",
+            "PONY/Kodoramix_v90.safetensors",
+            "PONY/Uwazumimix_v50P.safetensors",
+            "PONY/waiREALMIX_v50_S5+.safetensors",
+            "PONY/waiREALCN_v150.safetensors",
+            "PONY/iniverseMixSFWNSFW_ponyRealGuofengV50C.safetensors",
+            "PONY/babesByStableYogiPony_v60FP16.safetensors"
+        ]
+    },
+    "Favorite PONY models v02": {
+        "models": [
+            "ILL/aapModelmix_v10.safetensors",
+            "ILL/BonkaiiiRealism_V2.safetensors",
+            "ILL/CatponyReal_v50.safetensors",
+            "ILL/JavnRealMergeEnvyIL_v10.safetensors",
+            "ILL/jedpointreal_v3ilVae.safetensors",
+            "ILL/Kodorail_v172.safetensors",
+            "ILL/tekitourealgachimix_v70.safetensors",
+            "ILL/Uwazumimix_v50.safetensors"
+        ]
+    },
+    "_default": {
+        "models": [
+            "PONY\\Catpony_Real_v31.safetensors"
+        ]
+    }
+}

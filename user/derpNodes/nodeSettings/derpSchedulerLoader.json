@@ -1,0 +1,8 @@
+{
+    "_Default": {
+        "schedulers": [
+            "ddim_uniform",
+            "simple"
+        ]
+    }
+}

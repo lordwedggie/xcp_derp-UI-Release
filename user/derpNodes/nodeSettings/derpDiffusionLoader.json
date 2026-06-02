@@ -1,0 +1,14 @@
+{
+    "ZIT Favorites": {
+        "diffusions": [
+            "ZIT\\z_image_turbo_bf16.safetensors",
+            "ZIT\\fasciumzImageTurbo_newMERGE.safetensors",
+            "ZIT\\eventHorizon_zitV10.safetensors",
+            "ZIT\\copaxTimeless_xplusNirai.safetensors"
+        ],
+        "text_encoders": [
+            "ZIT-QWEN\\Huihui-Qwen3-4B-abliterated-v2_fp8mixed.safetensors"
+        ],
+        "weight_dtype": "fp16"
+    }
+}

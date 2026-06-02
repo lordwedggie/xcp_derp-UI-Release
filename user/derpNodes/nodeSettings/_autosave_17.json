@@ -1,0 +1,56 @@
+{
+    "fileType": "xcp_derp_trigger_autosave",
+    "version": "1.0.0",
+    "timestamp": 1780153075190,
+    "triggerGroups": [
+        {
+            "id": "grp_1780153067684",
+            "title": "Trigger Group 1",
+            "isExclusive": false,
+            "triggers": [
+                {
+                    "id": "trig_1780153067684",
+                    "weight": 1,
+                    "active": true
+                }
+            ]
+        },
+        {
+            "id": "grp_1777554509520_b2c19b",
+            "title": "Facial Expressions",
+            "isExclusive": false,
+            "triggers": [
+                {
+                    "id": "trig_f9d0ba",
+                    "label": "Happy",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_f52cbf",
+                    "label": "Smile",
+                    "weight": 0.4778393260727989,
+                    "active": false
+                },
+                {
+                    "id": "trig_348883",
+                    "label": "Laughing",
+                    "weight": 1,
+                    "active": false
+                },
+                {
+                    "id": "trig_da9d14",
+                    "label": "Embarrassed\u00a0",
+                    "weight": 0.8614649967830158,
+                    "active": false
+                },
+                {
+                    "id": "trig_133450",
+                    "label": "Sad",
+                    "weight": 0.5033185415400417,
+                    "active": false
+                }
+            ]
+        }
+    ]
+}

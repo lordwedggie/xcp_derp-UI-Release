@@ -45,6 +45,70 @@ const DERP_GROUP_SORT_ORDER = {
     debugging: 150,
     hotkeys: 100,
 };
+const DERP_SETTING_DEFAULTS = {
+    stickyDrag: false,
+    playSound: true,
+    useAnimation: true,
+    useAnimations: true,
+    closeSysPanelOnOutsideClick: true,
+    showToolTips: true,
+    backgroundImage: DERP_DEFAULT_SELECTION,
+    canvasPalette: CANVAS_PALETTE_NONE,
+    verticalDockHeaderCollapse: true,
+    syncedCollapse: true,
+    verticalPinnedCollapseUpward: true,
+    perfOverlayHotkey: "Alt+Shift+P",
+    systemBypassSoundIndex: 0,
+    systemCollapseSoundIndex: 0,
+    systemDockSoundIndex: 0,
+    perfOverlayFontSize: 12,
+    perfOverlayShowRanking: true,
+    perfOverlayShowZOrder: false,
+    warpSpeedLevel: 5,
+};
+const DERP_SETTING_DEFAULT_IDS = {
+    "Derp.StickyDrag": DERP_SETTING_DEFAULTS.stickyDrag,
+    "Derp.PlaySound": DERP_SETTING_DEFAULTS.playSound,
+    "Derp.UseAnimation": DERP_SETTING_DEFAULTS.useAnimation,
+    "Derp.CloseSysPanelOnOutsideClick": DERP_SETTING_DEFAULTS.closeSysPanelOnOutsideClick,
+    "Derp.ShowToolTips": DERP_SETTING_DEFAULTS.showToolTips,
+    "Derp.BackgroundImage": DERP_SETTING_DEFAULTS.backgroundImage,
+    [CANVAS_PALETTE_SETTING_ID]: DERP_SETTING_DEFAULTS.canvasPalette,
+    "Derp.VerticalDockHeaderCollapse": DERP_SETTING_DEFAULTS.verticalDockHeaderCollapse,
+    "Derp.SyncedCollapse": DERP_SETTING_DEFAULTS.syncedCollapse,
+    "Derp.VerticalPinnedCollapseUpward": DERP_SETTING_DEFAULTS.verticalPinnedCollapseUpward,
+    "Derp.PerfOverlayHotkey": DERP_SETTING_DEFAULTS.perfOverlayHotkey,
+    "Derp.SystemBypassSoundIndex": DERP_SETTING_DEFAULTS.systemBypassSoundIndex,
+    "Derp.SystemCollapseSoundIndex": DERP_SETTING_DEFAULTS.systemCollapseSoundIndex,
+    "Derp.SystemDockSoundIndex": DERP_SETTING_DEFAULTS.systemDockSoundIndex,
+    "Derp.PerfOverlayFontSize": DERP_SETTING_DEFAULTS.perfOverlayFontSize,
+    "Derp.PerfOverlayShowRanking": DERP_SETTING_DEFAULTS.perfOverlayShowRanking,
+    "Derp.PerfOverlayShowZOrder": DERP_SETTING_DEFAULTS.perfOverlayShowZOrder,
+    "Derp.WarpSpeedLevel": DERP_SETTING_DEFAULTS.warpSpeedLevel,
+};
+
+function syncDerpGlobalSettingsAlias() {
+    window.DERP_GLOBAL_SETTINGS = {
+        ...DERP_SETTING_DEFAULTS,
+        ...(window.DERP_GLOBAL_SETTINGS || {}),
+    };
+    window.DERP_GLOBAL_SETTINGS.useAnimations = window.DERP_GLOBAL_SETTINGS.useAnimation !== false;
+    window.xcpDerpSettings = window.DERP_GLOBAL_SETTINGS;
+}
+
+function getStoredSettingValue(id, fallback) {
+    const value = app.ui?.settings?.getSettingValue?.(id);
+    return value === undefined ? fallback : value;
+}
+
+function seedMissingDerpSettingDefaults() {
+    if (!app.ui?.settings?.getSettingValue || !app.ui?.settings?.setSettingValue) return;
+    Object.entries(DERP_SETTING_DEFAULT_IDS).forEach(([id, defaultValue]) => {
+        if (app.ui.settings.getSettingValue(id) === undefined) {
+            app.ui.settings.setSettingValue(id, defaultValue);
+        }
+    });
+}
 
 function normalizeHotkeyString(value, fallback = "") {
     const raw = String(value || "").trim();
@@ -221,6 +285,7 @@ async function applyDerpCanvasPalette(paletteName) {
     const name = String(paletteName || CANVAS_PALETTE_NONE).trim() || CANVAS_PALETTE_NONE;
     window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
     window.DERP_GLOBAL_SETTINGS.canvasPalette = name;
+    syncDerpGlobalSettingsAlias();
     if (name === CANVAS_PALETTE_NONE) return;
 
     const response = await fetch(`/xcp/load/canvasPalette?name=${encodeURIComponent(name)}&t=${Date.now()}`);
@@ -262,8 +327,7 @@ app.registerExtension({
     name: "xcp.DerpSettings",
     init() {
         installHotkeyCapture();
-        window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
-        if (window.DERP_GLOBAL_SETTINGS.showToolTips === undefined) window.DERP_GLOBAL_SETTINGS.showToolTips = true;
+        syncDerpGlobalSettingsAlias();
 
         // REGISTER GLOBAL SETTINGS IN THE COMFYUI MENU
         app.ui.settings.addSetting({
@@ -276,6 +340,7 @@ app.registerExtension({
             onChange: (v) => {
                 window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
                 window.DERP_GLOBAL_SETTINGS.stickyDrag = normalizeBooleanSetting(v, false);
+                syncDerpGlobalSettingsAlias();
 
                 // THE WORKFLOW SYNC: Update all existing nodes to match the global setting
                 if (app.graph && app.graph._nodes) {
@@ -307,6 +372,7 @@ app.registerExtension({
             onChange: (v) => {
                 window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
                 window.DERP_GLOBAL_SETTINGS.playSound = v;
+                syncDerpGlobalSettingsAlias();
                 if (app.canvas) app.canvas.setDirty(true, true);
             }
         });
@@ -322,6 +388,8 @@ app.registerExtension({
             onChange: (v) => {
                 window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
                 window.DERP_GLOBAL_SETTINGS.useAnimation = v;
+                window.DERP_GLOBAL_SETTINGS.useAnimations = v;
+                syncDerpGlobalSettingsAlias();
 
                 // THE WORKFLOW SYNC: Update all existing nodes to match the global setting
                 if (app.graph && app.graph._nodes) {
@@ -354,6 +422,7 @@ app.registerExtension({
             onChange: (v) => {
                 window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
                 window.DERP_GLOBAL_SETTINGS.closeSysPanelOnOutsideClick = normalizeBooleanSetting(v, true);
+                syncDerpGlobalSettingsAlias();
                 if (app.canvas) app.canvas.setDirty(true, true);
             }
         });
@@ -369,6 +438,7 @@ app.registerExtension({
             onChange: (v) => {
                 window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
                 window.DERP_GLOBAL_SETTINGS.showToolTips = v;
+                syncDerpGlobalSettingsAlias();
             }
         });
 
@@ -385,6 +455,7 @@ app.registerExtension({
                 const value = String(v || DERP_DEFAULT_SELECTION).trim() || DERP_DEFAULT_SELECTION;
                 window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
                 window.DERP_GLOBAL_SETTINGS.backgroundImage = value;
+                syncDerpGlobalSettingsAlias();
                 applyDerpBackgroundImage(value);
                 if (app.canvas) app.canvas.setDirty(true, true);
             }
@@ -397,7 +468,7 @@ app.registerExtension({
             sortOrder: DERP_GROUP_SORT_ORDER.general,
             type: "combo",
             options: [{ value: CANVAS_PALETTE_NONE, text: "None" }],
-            default: DERP_DEFAULT_SELECTION,
+            default: CANVAS_PALETTE_NONE,
             onChange: (v) => {
                 applyDerpCanvasPalette(v).catch((err) => console.error("[xcpDerp] Canvas palette load failed:", err));
             }
@@ -413,6 +484,7 @@ app.registerExtension({
             onChange: (v) => {
                 window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
                 window.DERP_GLOBAL_SETTINGS.verticalDockHeaderCollapse = normalizeBooleanSetting(v, true);
+                syncDerpGlobalSettingsAlias();
                 if (app.canvas) app.canvas.setDirty(true, true);
             }
         });
@@ -427,6 +499,7 @@ app.registerExtension({
             onChange: (v) => {
                 window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
                 window.DERP_GLOBAL_SETTINGS.syncedCollapse = normalizeBooleanSetting(v, true);
+                syncDerpGlobalSettingsAlias();
                 if (app.canvas) app.canvas.setDirty(true, true);
             }
         });
@@ -441,6 +514,7 @@ app.registerExtension({
             onChange: (v) => {
                 window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
                 window.DERP_GLOBAL_SETTINGS.verticalPinnedCollapseUpward = normalizeBooleanSetting(v, true);
+                syncDerpGlobalSettingsAlias();
                 if (app.canvas) app.canvas.setDirty(true, true);
             }
         });
@@ -454,6 +528,7 @@ app.registerExtension({
             onValue: (v) => {
                 window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
                 window.DERP_GLOBAL_SETTINGS.perfOverlayHotkey = normalizeHotkeyString(v, "Alt+Shift+P");
+                syncDerpGlobalSettingsAlias();
             }
         });
 
@@ -468,6 +543,7 @@ app.registerExtension({
             onChange: (v) => {
                 window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
                 window.DERP_GLOBAL_SETTINGS.systemBypassSoundIndex = normalizeVariantIndex(v, 0);
+                syncDerpGlobalSettingsAlias();
             }
         });
 
@@ -482,6 +558,7 @@ app.registerExtension({
             onChange: (v) => {
                 window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
                 window.DERP_GLOBAL_SETTINGS.systemCollapseSoundIndex = normalizeVariantIndex(v, 0);
+                syncDerpGlobalSettingsAlias();
             }
         });
 
@@ -496,6 +573,7 @@ app.registerExtension({
             onChange: (v) => {
                 window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
                 window.DERP_GLOBAL_SETTINGS.systemDockSoundIndex = normalizeVariantIndex(v, 0);
+                syncDerpGlobalSettingsAlias();
             }
         });
 
@@ -511,6 +589,7 @@ app.registerExtension({
                 window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
                 const n = Number(v);
                 window.DERP_GLOBAL_SETTINGS.perfOverlayFontSize = Number.isFinite(n) ? Math.max(9, Math.min(24, Math.floor(n))) : 12;
+                syncDerpGlobalSettingsAlias();
                 if (app.canvas) app.canvas.setDirty(true, true);
             }
         });
@@ -525,6 +604,7 @@ app.registerExtension({
             onChange: (v) => {
                 window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
                 window.DERP_GLOBAL_SETTINGS.perfOverlayShowRanking = normalizeBooleanSetting(v, true);
+                syncDerpGlobalSettingsAlias();
                 if (app.canvas) app.canvas.setDirty(true, true);
             }
         });
@@ -539,6 +619,7 @@ app.registerExtension({
             onChange: (v) => {
                 window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
                 window.DERP_GLOBAL_SETTINGS.perfOverlayShowZOrder = normalizeBooleanSetting(v, false);
+                syncDerpGlobalSettingsAlias();
                 if (app.canvas) app.canvas.setDirty(true, true);
             }
         });
@@ -565,28 +646,34 @@ app.registerExtension({
                 window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
                 const n = Number(v);
                 window.DERP_GLOBAL_SETTINGS.warpSpeedLevel = Number.isFinite(n) ? Math.max(1, Math.min(9, Math.round(n))) : 5;
+                syncDerpGlobalSettingsAlias();
             }
         });
 
+        seedMissingDerpSettingDefaults();
+
         // Initialize global object for immediate access by nodes
         window.DERP_GLOBAL_SETTINGS = {
-            stickyDrag: normalizeBooleanSetting(app.ui.settings.getSettingValue("Derp.StickyDrag") ?? false, false),
-            playSound: app.ui.settings.getSettingValue("Derp.PlaySound") ?? true,
-            useAnimation: app.ui.settings.getSettingValue("Derp.UseAnimation") ?? true,
-            closeSysPanelOnOutsideClick: normalizeBooleanSetting(app.ui.settings.getSettingValue("Derp.CloseSysPanelOnOutsideClick") ?? true, true),
-            backgroundImage: String(app.ui.settings.getSettingValue("Derp.BackgroundImage") ?? DERP_DEFAULT_SELECTION),
-            canvasPalette: String(app.ui.settings.getSettingValue(CANVAS_PALETTE_SETTING_ID) ?? DERP_DEFAULT_SELECTION),
-            verticalDockHeaderCollapse: normalizeBooleanSetting(app.ui.settings.getSettingValue("Derp.VerticalDockHeaderCollapse") ?? true, true),
-            syncedCollapse: normalizeBooleanSetting(app.ui.settings.getSettingValue("Derp.SyncedCollapse") ?? true, true),
-            perfOverlayHotkey: normalizeHotkeyString(app.ui.settings.getSettingValue("Derp.PerfOverlayHotkey") ?? "Alt+Shift+P", "Alt+Shift+P"),
-            systemBypassSoundIndex: normalizeVariantIndex(app.ui.settings.getSettingValue("Derp.SystemBypassSoundIndex") ?? 0, 0),
-            systemCollapseSoundIndex: normalizeVariantIndex(app.ui.settings.getSettingValue("Derp.SystemCollapseSoundIndex") ?? 0, 0),
-            systemDockSoundIndex: normalizeVariantIndex(app.ui.settings.getSettingValue("Derp.SystemDockSoundIndex") ?? 0, 0),
-            perfOverlayFontSize: Number(app.ui.settings.getSettingValue("Derp.PerfOverlayFontSize") ?? 12) || 12,
-            perfOverlayShowRanking: normalizeBooleanSetting(app.ui.settings.getSettingValue("Derp.PerfOverlayShowRanking") ?? true, true),
-            perfOverlayShowZOrder: normalizeBooleanSetting(app.ui.settings.getSettingValue("Derp.PerfOverlayShowZOrder") ?? false, false),
-            warpSpeedLevel: Math.max(1, Math.min(9, Math.round(Number(app.ui.settings.getSettingValue("Derp.WarpSpeedLevel") ?? 5) || 5)))
+            stickyDrag: normalizeBooleanSetting(getStoredSettingValue("Derp.StickyDrag", DERP_SETTING_DEFAULTS.stickyDrag), DERP_SETTING_DEFAULTS.stickyDrag),
+            playSound: normalizeBooleanSetting(getStoredSettingValue("Derp.PlaySound", DERP_SETTING_DEFAULTS.playSound), DERP_SETTING_DEFAULTS.playSound),
+            useAnimation: normalizeBooleanSetting(getStoredSettingValue("Derp.UseAnimation", DERP_SETTING_DEFAULTS.useAnimation), DERP_SETTING_DEFAULTS.useAnimation),
+            closeSysPanelOnOutsideClick: normalizeBooleanSetting(getStoredSettingValue("Derp.CloseSysPanelOnOutsideClick", DERP_SETTING_DEFAULTS.closeSysPanelOnOutsideClick), DERP_SETTING_DEFAULTS.closeSysPanelOnOutsideClick),
+            showToolTips: normalizeBooleanSetting(getStoredSettingValue("Derp.ShowToolTips", DERP_SETTING_DEFAULTS.showToolTips), DERP_SETTING_DEFAULTS.showToolTips),
+            backgroundImage: String(getStoredSettingValue("Derp.BackgroundImage", DERP_SETTING_DEFAULTS.backgroundImage)),
+            canvasPalette: String(getStoredSettingValue(CANVAS_PALETTE_SETTING_ID, DERP_SETTING_DEFAULTS.canvasPalette)),
+            verticalDockHeaderCollapse: normalizeBooleanSetting(getStoredSettingValue("Derp.VerticalDockHeaderCollapse", DERP_SETTING_DEFAULTS.verticalDockHeaderCollapse), DERP_SETTING_DEFAULTS.verticalDockHeaderCollapse),
+            syncedCollapse: normalizeBooleanSetting(getStoredSettingValue("Derp.SyncedCollapse", DERP_SETTING_DEFAULTS.syncedCollapse), DERP_SETTING_DEFAULTS.syncedCollapse),
+            verticalPinnedCollapseUpward: normalizeBooleanSetting(getStoredSettingValue("Derp.VerticalPinnedCollapseUpward", DERP_SETTING_DEFAULTS.verticalPinnedCollapseUpward), DERP_SETTING_DEFAULTS.verticalPinnedCollapseUpward),
+            perfOverlayHotkey: normalizeHotkeyString(getStoredSettingValue("Derp.PerfOverlayHotkey", DERP_SETTING_DEFAULTS.perfOverlayHotkey), DERP_SETTING_DEFAULTS.perfOverlayHotkey),
+            systemBypassSoundIndex: normalizeVariantIndex(getStoredSettingValue("Derp.SystemBypassSoundIndex", DERP_SETTING_DEFAULTS.systemBypassSoundIndex), DERP_SETTING_DEFAULTS.systemBypassSoundIndex),
+            systemCollapseSoundIndex: normalizeVariantIndex(getStoredSettingValue("Derp.SystemCollapseSoundIndex", DERP_SETTING_DEFAULTS.systemCollapseSoundIndex), DERP_SETTING_DEFAULTS.systemCollapseSoundIndex),
+            systemDockSoundIndex: normalizeVariantIndex(getStoredSettingValue("Derp.SystemDockSoundIndex", DERP_SETTING_DEFAULTS.systemDockSoundIndex), DERP_SETTING_DEFAULTS.systemDockSoundIndex),
+            perfOverlayFontSize: Number(getStoredSettingValue("Derp.PerfOverlayFontSize", DERP_SETTING_DEFAULTS.perfOverlayFontSize)) || DERP_SETTING_DEFAULTS.perfOverlayFontSize,
+            perfOverlayShowRanking: normalizeBooleanSetting(getStoredSettingValue("Derp.PerfOverlayShowRanking", DERP_SETTING_DEFAULTS.perfOverlayShowRanking), DERP_SETTING_DEFAULTS.perfOverlayShowRanking),
+            perfOverlayShowZOrder: normalizeBooleanSetting(getStoredSettingValue("Derp.PerfOverlayShowZOrder", DERP_SETTING_DEFAULTS.perfOverlayShowZOrder), DERP_SETTING_DEFAULTS.perfOverlayShowZOrder),
+            warpSpeedLevel: Math.max(1, Math.min(9, Math.round(Number(getStoredSettingValue("Derp.WarpSpeedLevel", DERP_SETTING_DEFAULTS.warpSpeedLevel)) || DERP_SETTING_DEFAULTS.warpSpeedLevel)))
         };
+        syncDerpGlobalSettingsAlias();
 
         hydrateDerpBackgroundSetting().then((options) => {
             const registry = app.ui?.settings?.settingsLookup;
