@@ -40,13 +40,26 @@ async function uploadBinaryToServer(file, node) {
     return null;
 }
 
+function normalizePromptBookImageName(rawName) {
+    if (!rawName) return "";
+    const value = String(rawName).trim();
+    if (!value || value.startsWith("data:") || value.startsWith("http")) return "";
+    const assetMatch = value.match(/(?:^|\/)xcp\/get_asset\/derpPromptBook\?([^#]*)/);
+    if (assetMatch) {
+        const params = new URLSearchParams(assetMatch[1]);
+        return params.get("name") || "";
+    }
+    return value.split(/[\\/]/).pop() || "";
+}
+
 async function deleteImageFromServer(filename, node) {
-    if (!filename || filename.startsWith("data:") || filename.startsWith("http")) return;
+    const cleanName = normalizePromptBookImageName(filename);
+    if (!cleanName) return;
     try {
         await fetch("/xcp/delete_asset/derpPromptBook", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name: filename, bookName: node.properties.bookName || tLocale("$derp_prompt_book.book.untitled_name", "Untitled Book") })
+            body: JSON.stringify({ name: cleanName, bookName: node.properties.bookName || tLocale("$derp_prompt_book.book.untitled_name", "Untitled Book") })
         });
     } catch (e) { console.error("Disk Cleanup Failed:", e); }
 }

@@ -6,11 +6,29 @@ Tiny art goblin energy, fully intentional.
 
 import os
 import uuid
+from urllib.parse import parse_qs, urlparse
 
 from aiohttp import web
 
 from .xcp_file_categories import get_category_dir
 from .xcp_file_common import get_companion_image_dir, resolve_case_insensitive_path
+
+
+def _normalize_asset_name(raw_name):
+    if not raw_name:
+        return ""
+    value = str(raw_name).strip()
+    if value.startswith("/xcp/get_asset/"):
+        parsed = urlparse(value)
+        value = parse_qs(parsed.query).get("name", [""])[0]
+    return os.path.basename(value.replace("\\", "/"))
+
+
+def _is_path_inside(parent, child):
+    try:
+        return os.path.commonpath([os.path.abspath(parent), os.path.abspath(child)]) == os.path.abspath(parent)
+    except ValueError:
+        return False
 
 
 async def upload_asset(request):
@@ -77,9 +95,12 @@ async def delete_asset(request):
         file_name, book_name = body.get("name"), body.get("bookName")
         if not file_name or not book_name:
             return web.json_response({"error": "Missing params"}, status=400)
+        file_name = _normalize_asset_name(file_name)
+        if not file_name:
+            return web.json_response({"error": "Missing params"}, status=400)
         img_dir = get_companion_image_dir(target_dir, book_name)
         img_path = resolve_case_insensitive_path(img_dir, file_name)
-        if os.path.exists(img_path):
+        if img_dir and _is_path_inside(img_dir, img_path) and os.path.exists(img_path):
             os.remove(img_path)
         return web.json_response({"success": True})
     except Exception as e:
