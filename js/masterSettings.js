@@ -25,7 +25,7 @@ const HOTKEY_SETTINGS = [];
 const CANVAS_PALETTE_SETTING_ID = "Derp.CanvasPalette";
 const DERP_DEFAULT_SELECTION = "_default";
 const CANVAS_PALETTE_NONE = "none";
-const DERP_CATEGORY = "Derp";
+const DERP_CATEGORY = "🔞 Derp Nodes";
 function makeDerpCategory(group, leaf) {
     return [DERP_CATEGORY, group, leaf];
 }
@@ -262,6 +262,8 @@ app.registerExtension({
     name: "xcp.DerpSettings",
     init() {
         installHotkeyCapture();
+        window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
+        if (window.DERP_GLOBAL_SETTINGS.showToolTips === undefined) window.DERP_GLOBAL_SETTINGS.showToolTips = true;
 
         // REGISTER GLOBAL SETTINGS IN THE COMFYUI MENU
         app.ui.settings.addSetting({
@@ -353,6 +355,20 @@ app.registerExtension({
                 window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
                 window.DERP_GLOBAL_SETTINGS.closeSysPanelOnOutsideClick = normalizeBooleanSetting(v, true);
                 if (app.canvas) app.canvas.setDirty(true, true);
+            }
+        });
+
+        app.ui.settings.addSetting({
+            id: "Derp.ShowToolTips",
+            name: "Show Tool Tips",
+            category: DERP_GROUPS.general("Show Tool Tips"),
+            sortOrder: DERP_GROUP_SORT_ORDER.general,
+
+            type: "boolean",
+            default: true,
+            onChange: (v) => {
+                window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
+                window.DERP_GLOBAL_SETTINGS.showToolTips = v;
             }
         });
 

@@ -107,6 +107,29 @@ function isDeckWidthAligned(members = [], width = 0) {
     });
 }
 
+function getHorizontalDeckPositionAnchor(members = []) {
+    if (!Array.isArray(members) || members.length <= 1) return null;
+    const left = Math.min(...members.map((member) => Number(member?.pos?.[0]) || 0));
+    const top = Math.min(...members.map((member) => Number(member?.pos?.[1]) || 0));
+    if (!Number.isFinite(left) || !Number.isFinite(top)) return null;
+    return { members: [...members], left, top };
+}
+
+function restoreHorizontalDeckPositionAnchor(anchor) {
+    if (!anchor?.members?.length) return 0;
+    const nextLeft = Math.min(...anchor.members.map((member) => Number(member?.pos?.[0]) || 0));
+    const nextTop = Math.min(...anchor.members.map((member) => Number(member?.pos?.[1]) || 0));
+    if (!Number.isFinite(nextLeft) || !Number.isFinite(nextTop)) return 0;
+    const offsetX = (Number(anchor.left) || 0) - nextLeft;
+    const offsetY = (Number(anchor.top) || 0) - nextTop;
+    if (offsetX === 0 && offsetY === 0) return 0;
+    anchor.members.forEach((member) => {
+        if (!member?.pos) return;
+        member.pos = [(Number(member.pos?.[0]) || 0) + offsetX, (Number(member.pos?.[1]) || 0) + offsetY];
+    });
+    return Math.max(Math.abs(offsetX), Math.abs(offsetY));
+}
+
 function getDeckFrameState(node) {
     const graph = app.graph || node?.graph || null;
     if (!graph || !node) return null;
@@ -282,6 +305,7 @@ function scheduleTooltip(entity, regionKey, tooltipText) {
 }
 
 export function handleTooltipHover(entity, regionKey, localMouse = null) {
+    if (window.DERP_GLOBAL_SETTINGS?.showToolTips === false) return;
     const state = getTooltipState(entity);
     if (!state) return;
 
@@ -585,7 +609,11 @@ export function normalizeDerpDockedLayout(node) {
         state.normalizedHeight = Math.max(Number(state.normalizedHeight) || 0, sharedHeight);
     }
     if (state?.axis !== "horizontal" || !graph) return [];
+    const positionAnchor = isComfyVueNodesMode()
+        ? getHorizontalDeckPositionAnchor(state.members)
+        : null;
     const moved = normalizeDockedLayout(node, graph, getDerpVars(node).SNAP);
+    if (positionAnchor) restoreHorizontalDeckPositionAnchor(positionAnchor);
     if (state?.skipState && Number(state.sharedHeight) > 0) {
         state.skipState.normalizeSignature = getDeckGeometrySignature(state.members, state.sharedHeight, "horizontal");
     }
