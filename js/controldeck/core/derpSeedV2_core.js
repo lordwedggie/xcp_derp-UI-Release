@@ -558,6 +558,16 @@ export async function handleExecutePress(node, skipSeedUpdate = false) {
                     }];
                 }
 
+                if (typeName.includes("derpconcatenate")) {
+                    return [{
+                        kind: "derpConcatenate",
+                        id: n.id,
+                        textValue: n.properties?.textValue || "",
+                        signalIds: n.properties?.multiSignalIds || {},
+                        nodeBypassed: n.mode === 2 || n.mode === 4 || !!n._derpSpoofedBypass
+                    }];
+                }
+
                 return [];
             });
 

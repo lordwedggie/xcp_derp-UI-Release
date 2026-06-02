@@ -593,13 +593,11 @@ app.registerExtension({
                 timestamp: Date.now(),
             };
 
-            this._signalSyncDebouncer = setTimeout(() => {
-                fetch("/xcp/update_signal", {
-                    method: "POST",
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ node_id: signalId, value: outContent }),
-                });
-            }, 150);
+            fetch("/xcp/update_signal", {
+                method: "POST",
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ node_id: signalId, value: outContent }),
+            });
 
             if (window.app?.graph?._nodes) {
                 window.app.graph._nodes.forEach((n) => {

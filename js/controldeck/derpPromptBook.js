@@ -193,6 +193,15 @@ app.registerExtension({
                         themeKey: "dialog, t_textNormal", mouseOver: false, 
                         labelAlign: ["left", "top"], measureText: "MEASURE_RESERVE_FLOOR",
                         width: "full", height: "fill", padding: [pW, pH],
+                        onBlur: () => {
+                            const pIndex = this.properties.currentPageIndex || 0;
+                            if (book[pIndex]) {
+                                const content = book[pIndex].content;
+                                book[pIndex].content = content;
+                                this.properties.prompt = content;
+                                this.refreshNodeLayoutMap();
+                            }
+                        },
                         value: (activePage.content || "").replace(/\[\[IMG:(?!data:|http|\/|.*_IMG\/)([^\]]+)\]\]/g, (m, file) => {
                             const bookName = this.properties.bookName || tLocale("$derp_prompt_book.book.untitled_name", "Untitled Book");
                             return `[[IMG:/xcp/get_asset/derpPromptBook?name=${encodeURIComponent(file)}&bookName=${encodeURIComponent(bookName)}]]`;

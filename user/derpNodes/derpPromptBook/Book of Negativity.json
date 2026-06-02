@@ -1,7 +1,7 @@
 [
     {
-        "title": "untitled",
-        "content": "lowres, bad anatomy, bad hands, missing fingers, extra digits, deformed, blurry, jpeg artifacts, watermark, signature, text, ",
+        "title": "Introduction",
+        "content": "This book contains negative settings for text encoders. Currently has:\n\n- Simple negative for ZIT models.\n- Negative settings for PONY models. ",
         "images": []
     },
     {

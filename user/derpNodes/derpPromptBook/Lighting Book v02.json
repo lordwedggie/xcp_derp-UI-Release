@@ -1,0 +1,163 @@
+[
+    {
+        "title": "Outdoors - Daylight Natural",
+        "content": "natural lighting, soft sunlight, diffused light, gentle shadows, outdoor daylight, balanced exposure, \n[[IMG:asset_3632e118.png]]"
+    },
+    {
+        "title": "Outdoors - Bright Midday",
+        "content": "Indirect sunlight, bright daylight, hard shadows, high contrast lighting, clear sky light, Outdoors, \n[[IMG:asset_fa12e682.png]]"
+    },
+    {
+        "title": "Outdoors - Overcast Soft",
+        "content": "overcast lighting, soft diffused light, cloudy daylight, low contrast lighting, muted natural light, outdoors, \n[[IMG:asset_d9260ca3.png]]"
+    },
+    {
+        "title": "Outdoors -\u00a0Golden Hour",
+        "content": "golden hour, warm glow, rim lighting, long shadows, sunset light, atmospheric warmth, outdoors, \n[[IMG:asset_b6461d90.png]]"
+    },
+    {
+        "title": "Outdoors - Sunrise Mist",
+        "content": "morning light, soft sunrise, misty atmosphere, pale golden light, diffused sunlight, light fog, outdoors, \n[[IMG:/xcp/get_asset/derpPromptBook?name=asset_a01ce8ab.png&bookName=Lighting%20Book%20v02]]"
+    },
+    {
+        "title": "Outdoors - Moonlit Exterior",
+        "content": "moonlight, cool lighting, soft haze, atmospheric shadows, blue-toned light, night ambience, outdoors, \n[[IMG:asset_d53d36ea.png]]"
+    },
+    {
+        "title": "Outdoors -\u00a0Rainy Night Exterior",
+        "content": "rainy night, wet reflections, moody lighting, neon reflections, glossy streets, cinematic rain light, outdoors, \n[[IMG:asset_7d530944.png]]"
+    },
+    {
+        "title": "Indoors -\u00a0Warm Interior",
+        "content": "indoor lighting, warm lighting, lamp light, cozy atmosphere, soft shadows, amber glow, \n[[IMG:asset_cef22866.png]]"
+    },
+    {
+        "title": "Indoors -\u00a0Cool Interior",
+        "content": "cool indoor lighting, fluorescent light, soft cool tones, clean lighting, subtle shadows, pale blue light, \n[[IMG:asset_5b3e7ac1.png]]"
+    },
+    {
+        "title": "Indoors -\u00a0Window Backlight",
+        "content": "window light, backlighting, soft rim light, diffused window light, glowing edges, natural indoor backlight, \n[[IMG:asset_65d4b5ae.png]]"
+    },
+    {
+        "title": "Indoors -\u00a0Candlelit Room",
+        "content": "candlelight, warm flickering light, intimate lighting, soft amber glow, low light atmosphere, gentle shadows, \n[[IMG:asset_05cc7be2.png]]"
+    },
+    {
+        "title": "Studio - Portrait Soft",
+        "content": "studio lighting, softbox lighting, clean portrait lighting, soft shadows, balanced highlights, beauty lighting, \n[[IMG:asset_320158ad.png]]"
+    },
+    {
+        "title": "Studio - High Fashion",
+        "content": "studio lighting, sharp key light, glossy highlights, controlled shadows, editorial lighting, polished contrast, \n[[IMG:asset_ff24152d.png]]"
+    },
+    {
+        "title": "Studio - Spotlight Portrait",
+        "content": "spotlight, focused beam, dark background, dramatic highlights, controlled shadows, stage-like lighting, \n[[IMG:asset_88885cc2.png]]"
+    },
+    {
+        "title": "Cinematic - Warm",
+        "content": "cinematic lighting, warm rim light, deep shadows, golden hour, atmospheric glow, \n[[IMG:asset_25151441.png]]"
+    },
+    {
+        "title": "Cinematic Cool",
+        "content": "cinematic lighting, cool blue light, soft backlight, moody shadows, atmospheric haze, dramatic contrast,"
+    },
+    {
+        "title": "Epic Cinematic",
+        "content": "epic cinematic lighting, volumetric light, dramatic rim light, heroic glow, deep contrast, grand atmosphere, "
+    },
+    {
+        "title": "Noir Cinematic",
+        "content": "cinematic lighting, low key lighting, hard shadows, strong contrast, moody highlights, noir atmosphere, "
+    },
+    {
+        "title": "Night Neon Cinematic",
+        "content": "cinematic lighting, neon glow, blue and purple light, reflective surfaces, moody atmosphere, urban night light, "
+    },
+    {
+        "title": "Dark Horror",
+        "content": "horror lighting, eerie shadows, dim light, ominous atmosphere, cold contrast, unsettling darkness,"
+    },
+    {
+        "title": "Flickering Horror",
+        "content": "horror lighting, flickering light, unstable shadows, low visibility, tense atmosphere, eerie glow, "
+    },
+    {
+        "title": "Cold Horror\n\n",
+        "content": "cold lighting, harsh shadows, desaturated tones, eerie ambience, dim blue light, oppressive mood, "
+    },
+    {
+        "title": "Backlit Horror",
+        "content": "cbacklighting, silhouette lighting, deep shadows, ominous haze, hidden details, threatening atmosphere, "
+    },
+    {
+        "title": "Fantasy Dreamy Soft",
+        "content": "soft glow, dreamy lighting, ethereal light, gentle highlights, pastel illumination, hazy atmosphere, "
+    },
+    {
+        "title": "Fantasy Divine Light",
+        "content": "god rays, volumetric light, heavenly glow, radiant illumination, luminous haze, celestial atmosphere, "
+    },
+    {
+        "title": "Fantasy Mystic Night",
+        "content": "mystical lighting, moonlit glow, soft fog, magical ambience, cool highlights, atmospheric shadows, "
+    },
+    {
+        "title": "Sci-Fi Cool",
+        "content": "sci-fi lighting, cyan glow, blue light, futuristic illumination, cold highlights, synthetic ambience, "
+    },
+    {
+        "title": "Sci-fi Lab Lighting",
+        "content": "clinical lighting, cool white light, sterile atmosphere, subtle reflections, futuristic interior light, clean shadows, "
+    },
+    {
+        "title": "Dramatic Theatrical Drama",
+        "content": "dramatic lighting, intense contrast, deep shadows, sharp rim light, theatrical lighting, bold highlights, "
+    },
+    {
+        "title": "Dramatic Low Key",
+        "content": "low key lighting, dark atmosphere, selective highlights, shadow-heavy lighting, moody contrast, minimal light, ",
+        "images": []
+    },
+    {
+        "title": "Dramatic Chiaroscuro",
+        "content": "chiaroscuro lighting, strong contrast, sculpted shadows, dramatic highlights, painterly light, dark depth, ",
+        "images": []
+    },
+    {
+        "title": "Anime Soft Light",
+        "content": "soft anime lighting, clean highlights, gentle shading, bright ambient light, polished character lighting, ",
+        "images": []
+    },
+    {
+        "title": "Anime Sunset",
+        "content": "\nanime lighting, golden hour, warm glow, soft rim light, vivid sky light, emotional atmosphere, ",
+        "images": []
+    },
+    {
+        "title": "Anime Night Glow",
+        "content": "anime lighting, neon glow, cool blue light, soft reflections, moody night ambience, colorful highlights, ",
+        "images": []
+    },
+    {
+        "title": "Combo - Clean outdoor character shot",
+        "content": "natural lighting, soft sunlight, diffused light, balanced exposure, gentle shadows, clean highlights, ",
+        "images": []
+    },
+    {
+        "title": "Combo - Stylized neon portrait",
+        "content": "cyberpunk lighting, magenta and cyan glow, neon reflections, moody atmosphere, glossy highlights, dark contrast, ",
+        "images": []
+    },
+    {
+        "title": "Combo - Dark horror portrait",
+        "content": "horror lighting, eerie shadows, dim blue light, low key lighting, ominous atmosphere, unsettling contrast, ",
+        "images": []
+    },
+    {
+        "title": "Combo - Cozy indoor character scene",
+        "content": "indoor lighting, warm lamp light, cozy atmosphere, soft shadows, amber glow, intimate lighting, ",
+        "images": []
+    }
+]
