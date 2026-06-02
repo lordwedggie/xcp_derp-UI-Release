@@ -32,7 +32,7 @@
       "collapse_node": "Collapse or un-collapse the node",
       "undock_node": "Disconnect this node from its docked stack",
       "pin_anchor": "Pin this node as the docked stack anchor so it stays in place when the stack collapses",
-      "legacy_settings_button": "Legacy button. Report it if you still see this",
+      "advanced_settings": "Toggles advanced settings on the Node's Deck",
       "configure_wireless": "Configure wireless signals received by this node, similar to setting up input links in default ComfyUI",
       "bypass_node": "Bypass the node. Works the same as default ComfyUI and uses the same shortcut",
       "open_system_panel": "Open the node system panel for advanced settings, similar to ComfyUI right-click Properties",
@@ -664,6 +664,13 @@
       "manage": {
         "title": "Manage"
       }
+    }
+  },
+  "signal_out": {
+    "tooltips": {
+      "warp_to_source": "Warps to the {{t_toolTip_highlight::Signal Source Node}} position",
+      "remove_signal": "{{t_toolTip_warning::Remove}} signal from the node's deck",
+      "refresh_registry": "Forces manual refresh of the Signal Registry"
     }
   }
 }

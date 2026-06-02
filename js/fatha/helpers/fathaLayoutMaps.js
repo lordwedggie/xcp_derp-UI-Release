@@ -374,7 +374,7 @@ export const getVirtualNodeLayoutMap = (node) => {
                     type: UI_TYPES.ICONBUTTON, hidden: !p.drawSettingBtn,
                     themeKey: "buttonNode, t_textSystem",
                     objectAlign: ["left", "middle"],
-                    toolTip: tLocale("$fatha_layout.tooltips.legacy_settings_button", "Legacy button. Report it if you still see this"),
+                    toolTip: tLocale("$fatha_layout.tooltips.advanced_settings", "Toggles advanced settings on the Node's Deck"),
                     icon: "settings",
                     ...HEADER_ICON_SIZE, spacing: [sW, 0],
                     state: p.settingActive ? "ON" : "OFF",

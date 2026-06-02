@@ -32,7 +32,7 @@
       "collapse_node": "折叠或展开该节点",
       "undock_node": "将该节点从停靠堆栈中断开",
       "pin_anchor": "将该节点固定为停靠堆栈的锚点，这样堆栈折叠时它不会移动",
-      "legacy_settings_button": "旧版按钮。如果你还能看到它，请反馈",
+      "advanced_settings": "切换节点面板上的高级设置",
       "configure_wireless": "配置该节点接收的无线信号，类似默认 ComfyUI 中设置输入链接",
       "bypass_node": "旁路该节点。行为与默认 ComfyUI 一致，并使用相同快捷键",
       "open_system_panel": "打开节点系统面板以访问高级设置，类似 ComfyUI 右键菜单中的 Properties",
@@ -664,6 +664,13 @@
       "manage": {
         "title": "管理"
       }
+    }
+  },
+  "signal_out": {
+    "tooltips": {
+      "warp_to_source": "跳转到{{t_toolTip_highlight::信号源节点}}的位置",
+      "remove_signal": "从节点面板中{{t_toolTip_warning::移除}}信号",
+      "refresh_registry": "强制手动刷新信号注册表"
     }
   }
 }

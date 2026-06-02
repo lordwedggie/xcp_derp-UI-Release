@@ -252,6 +252,7 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                         hidden: shouldGhostHideChildren || !this.properties.settingActive,
                                         state: "OFF",
                                         alpha: rowAlpha,
+                                        toolTip: tLocale("$signal_out.tooltips.warp_to_source", "Warps to the {{t_toolTip_highlight::Signal Source Node}} position"),
                                         onPress: () => {
                                             const srcId = String(sig.nodeId || "").split(":")[0];
                                             const srcNode = app.graph?.getNodeById(srcId);
@@ -294,6 +295,7 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                         hidden: shouldGhostHideChildren || !this.properties.settingActive,
                                         icon: "trash", width: "match", height: "fill", spacing: [sW, 0],
                                         alpha: rowAlpha,
+                                        toolTip: tLocale("$signal_out.tooltips.remove_signal", "{{t_toolTip_warning::Remove}} signal from the node's deck"),
                                     onPress: () => {
                                             cancelSignalOutRowDrag(this);
                                             showBastaFileHandler(this, "none", `btnOutputDelete_${idx}`, {
@@ -414,7 +416,7 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                 },
                                 btnRefreshSignals: {
                                     type: UI_TYPES.ICONBUTTON,
-                                    icon: "refresh",
+                                    icon: "refresh", toolTip: tLocale("$signal_out.tooltips.refresh_registry", "Forces manual refresh of the Signal Registry"),
                                     width: "match", height: "fill", objectAlign: ["left", "middle"], spacing: [sW, 0],
                                     themeKey: "button, t_textNormal",
                                     onPress: () => {
