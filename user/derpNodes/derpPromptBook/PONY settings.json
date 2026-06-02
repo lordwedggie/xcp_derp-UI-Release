@@ -1,0 +1,26 @@
+[
+    {
+        "title": "PONY render settings",
+        "content": ""
+    },
+    {
+        "title": "Photo Realistic",
+        "content": "score_9, score_8_up, score_7_up, score_6_up, photo, photorealistic, raw photo, ultra-detailed skin texture, sharp focus, 8k uhd, rating_explicit, "
+    },
+    {
+        "title": "Cinematic",
+        "content": "score_9, score_8_up, score_7_up, score_6_up, cinematic composition, cinematic lighting, movie still, volumetric dust, highly detailed scenery, atmospheric depth, rating_explicit, "
+    },
+    {
+        "title": "Surrealism",
+        "content": "score_9, score_8_up, score_7_up, score_6_up, rating_explicit, surrealism, surrealist art, dreamlike atmosphere, bizarre architecture, abstract elements, ethereal glow, complex symbolism, masterpiece painting, highly imaginative, crisp details, "
+    },
+    {
+        "title": "2.5D / 3D Stylized (Figurines & Game Renders)",
+        "content": "score_9, score_8_up, score_7_up, score_6_up, rating_explicit, 2.5d, stylized 3d render, blender sculpt, zbrush, octane render style, claymation texture, glossy surface, ambient occlusion, rim lighting, smooth gradients, "
+    },
+    {
+        "title": "Anime",
+        "content": "score_9, score_8_up, score_7_up, score_6_up, rating_explicit, source_anime, masterpiece anime, key visual, beautiful detailed eyes, dynamic lighting, vivid colors, crisp lineart, high-quality illustrations, atmospheric background,"
+    }
+]

@@ -231,7 +231,7 @@ app.registerExtension({
                     },
                     editorMargin: {
                         type: UI_TYPES.EDITOR, canvasShield:true, themeKey: "dialog, t_textSmall",
-                        numberOnly: true, measureText: "9999",
+                        numberOnly: false, measureText: "99.99",
                         value: `${tLayout[0] ?? 4}, ${tLayout[1] ?? 2}`,
                         labelAlign: ["center", "middle"], width: "auto", height: "auto", padding: [pW, pH], spacing: [sW, 0]
                     },
@@ -241,16 +241,16 @@ app.registerExtension({
                     },
                     editorSpacing: {
                         type: UI_TYPES.EDITOR, canvasShield:true, themeKey: "dialog, t_textSmall",
-                        numberOnly: true, value: `${tLayout[2] ?? 2}, ${tLayout[3] ?? 2}`,
+                        numberOnly: false, value: `${tLayout[2] ?? 2}, ${tLayout[3] ?? 2}`,
                         labelAlign: ["center", "middle"], measureText: "10, 10", width: "auto", height: "auto", padding: [pW, pH], spacing: [sW, 0]
                     },
-                    lblOffset: {
+                    lblOffset: { hidden: true,
                         type: UI_TYPES.TEXT, themeKey: "t_textSmall", text: "Offset:", noHover: true,
                         width: "auto", height: "auto", spacing: [sW, 0]
                     },
-                    editorOffset: {
+                    editorOffset: { hidden: true,
                         type: UI_TYPES.EDITOR, canvasShield:true, themeKey: "dialog, t_textSmall",
-                        numberOnly: true, value: `${tLayout[4] ?? 2}, ${tLayout[5] ?? 4}`,
+                        numberOnly: false, value: `${tLayout[4] ?? 2}, ${tLayout[5] ?? 4}`,
                         labelAlign: ["center", "middle"], measureText: "10, 10", width: "auto", height: "auto", padding: [pW, pH], spacing: [sW, 0]
                     },
                     lblPadding: {
@@ -259,7 +259,7 @@ app.registerExtension({
                     },
                     editorPadding: {
                         type: UI_TYPES.EDITOR, canvasShield:true, themeKey: "dialog, t_textSmall",
-                        numberOnly: true, value: `${tLayout[6] ?? 2}, ${tLayout[7] ?? 4}`,
+                        numberOnly: false, value: `${tLayout[6] ?? 2}, ${tLayout[7] ?? 4}`,
                         labelAlign: ["center", "middle"], measureText: "10, 10", width: "auto", height: "auto", padding: [pW, pH], spacing: [sW, 0]
                     },
                     spring: { width: "full", height: 0 },

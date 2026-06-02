@@ -92,7 +92,7 @@ app.registerExtension({
             ].map(v => Number(v.toFixed(2)));
 
             const sliderData = this.properties.sliderContainer || [];
-            const structureHash = `${sliderData.length}_${this.properties.nameDisplay}_${sliderData.map(s => `${s.name}:${s.btnLR||false}:${s.min}:${s.max}:${s.step}:${s.decimal}`).join("|")}_${window._xcpDerpSession}_${mW}_${mH}_${(this.size?.[0] || 0).toFixed(2)}`;
+            const structureHash = `${sliderData.length}_${this.properties.nameDisplay}_${this.properties.showValueInputbox !== false}_${sliderData.map(s => `${s.name}:${s.btnLR||false}:${s.min}:${s.max}:${s.step}:${s.decimal}`).join("|")}_${window._xcpDerpSession}_${mW}_${mH}_${(this.size?.[0] || 0).toFixed(2)}`;
             const valueHash = sliderData.map(s => `${s.value}`).join("|");
 
             if (this._lastMapStructure === structureHash && this.layoutMap) {
@@ -213,6 +213,7 @@ app.registerExtension({
                             },
                             [`dynamicSliderValue_${i}`]: {
                                 type: this.UI_TYPES.EDITOR, canvasShield: true,
+                                hidden: this.properties.showValueInputbox === false,
                                 themeKey: "dialog, t_textNormal", labelAlign: ["center", "middle"],
                                 text: parseFloat(this.properties.sliderContainer?.[i]?.value ?? 0.5).toFixed(this.properties.sliderContainer?.[i]?.decimal !== undefined ? parseInt(this.properties.sliderContainer[i].decimal) : 2),
                                 width: valueWidthNormal, height: "fill", padding: [pW, pH],
@@ -300,12 +301,25 @@ app.registerExtension({
                             rootName: "namedisplay",
                             items: nameDisplayItems,
                             value: nameDisplay,
-                            onChange: (v) => {
+                             onChange: (v) => {
                                 this.properties.nameDisplay = normalizeSliderNameDisplay(v);
                                 this.refreshNodeLayoutMap();
                                 if (this.refreshDerpSliderSysMap) this.refreshDerpSliderSysMap();
                                 this.requestDerpSync();
                             }
+                        },
+                        toggleEditor: {
+                            type: this.UI_TYPES.TOGGLE_V2, themeKey: "dialog, button, t_textSystem",
+                            isTextOnly: true, mouseOver: false,
+                            label: tLocale("$derp_slider.system.value_inputbox", "Value Inputbox"),
+                            width: "auto", height: "auto", padding: [pW, 0], spacing: [sW, 0],
+                            value: this.properties.showValueInputbox !== false,
+                            onPress: () => {
+                                this.properties.showValueInputbox = !(this.properties.showValueInputbox !== false);
+                                this.refreshNodeLayoutMap();
+                                if (this.refreshDerpSliderSysMap) this.refreshDerpSliderSysMap();
+                                this.requestDerpSync();
+                            },
                         },
                     },
                     sliderSettingsLabels: {

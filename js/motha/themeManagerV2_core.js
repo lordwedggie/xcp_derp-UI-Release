@@ -222,7 +222,7 @@ export function bindThemeEvents(node) {
 
         const updateLayoutProp = (propName, propIndexOffset, valStr, isCommit = false) => {
             // THE FIX: Smarter parsing that handles spaces and preserves the 2nd value while typing
-            const parts = valStr.split(/[,\s]+/).map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+            const parts = valStr.split(/[,\s]+/).map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
             if (parts.length > 0) {
                 const x = parts[0];
                 // THE FIX: Update themeToEdit instead of node.properties to prevent the manager from morphing

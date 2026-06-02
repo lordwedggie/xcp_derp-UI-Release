@@ -1,0 +1,26 @@
+[
+    {
+        "title": "untitled",
+        "content": "lowres, bad anatomy, bad hands, missing fingers, extra digits, deformed, blurry, jpeg artifacts, watermark, signature, text, ",
+        "images": []
+    },
+    {
+        "title": "ZIT simple",
+        "content": "blurry, low quality, smooth skin, airbrushed, doll-like, plastic, unnatural colors, HDR artifacts, oversharpened, watermark,"
+    },
+    {
+        "title": "PONY Low-Aesthetic Shunts",
+        "content": "score_4, score_5, score_6, bad quality, worst quality, low quality, normal quality, lowres, jpeg artifacts, compression artifacts, ",
+        "images": []
+    },
+    {
+        "title": "PONY Anatomy Corrections",
+        "content": "score_4, score_5, score_6, bad quality, worst quality, low quality, normal quality, lowres, jpeg artifacts, compression artifacts, \n\nbad anatomy, deformed, disfigured, mutated, mutated hands, mutated fingers, extra fingers, missing fingers, fused fingers, too many fingers, bad hands, poorly drawn hands, extra limbs, missing limbs, floating limbs, disconnected limbs, malformed limbs, twisted limbs, broken joints, long neck, asymmetric eyes, cross-eyed, plastic skin, smooth skin, airbrushed, 3d render, ",
+        "images": []
+    },
+    {
+        "title": "untitled",
+        "content": "score_4, score_5, score_6, bad quality, worst quality, low quality, normal quality, lowres, jpeg artifacts, compression artifacts, \n\ntext, watermark, signature, logo, username, error, cropped, out of frame, duplicate, cloned face, double head, border, frame, ",
+        "images": []
+    }
+]
