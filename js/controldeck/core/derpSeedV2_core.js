@@ -492,6 +492,14 @@ export async function handleExecutePress(node, skipSeedUpdate = false) {
 
     if (app?.graphToPrompt) {
         try {
+            app.graph?._nodes.forEach(n => {
+                if (n?._isDerpModelLoaderNode !== true) return;
+                const activeModel = (n.properties?.modelDeck || []).find(item => item?.active)?.name || null;
+                if (activeModel && typeof window.xcpPublishDerpModelLoaderSignals === "function") {
+                    window.xcpPublishDerpModelLoaderSignals(n, activeModel);
+                }
+            });
+
             // THE HYDRATION PASS: Force receivers to sync latest wireless values before serialization.
             app.graph?._nodes.forEach(n => {
                 if (n.updateReceivedSignals) n.updateReceivedSignals();
@@ -543,6 +551,17 @@ export async function handleExecutePress(node, skipSeedUpdate = false) {
                         id: n.id,
                         stack: n.properties?.stackData,
                         mode: n.properties?.attentionMode,
+                        nodeBypassed: n.mode === 2 || n.mode === 4 || n.properties?.isBypassed || (n.widgets && n.widgets[0]?.value === "bypass")
+                    }];
+                }
+
+                if (n._isDerpModelLoaderNode === true || typeName.includes("derpmodelloader")) {
+                    const deck = Array.isArray(n.properties?.modelDeck) ? n.properties.modelDeck : [];
+                    return [{
+                        kind: "derpModelLoader",
+                        id: n.id,
+                        activeModel: deck.find(item => item?.active)?.name || null,
+                        deck: deck.map(item => ({ name: item?.name || "", active: item?.active === true })),
                         nodeBypassed: n.mode === 2 || n.mode === 4 || n.properties?.isBypassed || (n.widgets && n.widgets[0]?.value === "bypass")
                     }];
                 }

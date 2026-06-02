@@ -92,9 +92,6 @@ class xcpDerpSignalOut:
                 # 3. Reconstruction engine
                 if not is_live:
                     original_val = val
-                    if isinstance(val, dict) and "ckpt_name" in val:
-                        val = val["ckpt_name"]
-
                     new_val = process_signal_fallback(val, sig_type, DERP_LIVE_REGISTRY)
                     if new_val is not val:
                         val = new_val
@@ -113,25 +110,33 @@ class xcpDerpSignalOut:
                     is_payload = isinstance(val, dict) and any(k in val for k in ["model_name_prefix", "ckpt_name", "stack", "triggers", "diffusion_name", "text_encoder_name"])
                     is_media = isinstance(val, dict) and ("samples" in val or "waveform" in val)
 
-                    if not is_live and not is_media and not is_payload:
+                    if not is_live and not is_media:
                         # For MODEL/CLIP/VAE, if still unresolved, try to load a default model
                         if sig_type in ["MODEL", "CLIP", "VAE"]:
                             from .signalDictionaryDefault import find_first_checkpoint, load_checkpoint_models
-                            default_ckpt = find_first_checkpoint()
-                            if default_ckpt:
-                                m, c, v = load_checkpoint_models(default_ckpt, DERP_LIVE_REGISTRY)
-                                if "MODEL" in sig_type and m is not None:
-                                    val = m
-                                elif "CLIP" in sig_type and c is not None:
-                                    val = c
-                                elif "VAE" in sig_type and v is not None:
-                                    val = v
+                            descriptor = val if is_payload else None
+                            resolved = process_signal_fallback(descriptor, sig_type, DERP_LIVE_REGISTRY) if descriptor is not None else None
+                            if resolved is not None and not isinstance(resolved, (str, dict)):
+                                val = resolved
+                            else:
+                                default_ckpt = find_first_checkpoint()
+                                if default_ckpt:
+                                    m, c, v = load_checkpoint_models(default_ckpt, DERP_LIVE_REGISTRY)
+                                    if "MODEL" in sig_type and m is not None:
+                                        val = m
+                                    elif "CLIP" in sig_type and c is not None:
+                                        val = c
+                                    elif "VAE" in sig_type and v is not None:
+                                        val = v
+                                    else:
+                                        val = None
                                 else:
                                     val = None
-                            else:
-                                val = None
                         else:
                             val = None
+
+                    if is_complex and isinstance(val, dict) and any(k in val for k in ["model_name_prefix", "ckpt_name", "stack", "triggers", "diffusion_name", "text_encoder_name"]):
+                        val = None
                 else:
                     if val is None:
                         val = ""

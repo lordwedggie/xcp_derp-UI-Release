@@ -639,11 +639,7 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
 
                             activeIds.forEach((sigId, idx) => {
                                 const sourceSig = globalSignals[sigId];
-                                if (trueOutputs[idx] && trueOutputs[idx].links && trueOutputs[idx].links.length > 0) {
-                                    if (sourceSig) {
-                                        activeSignals[sigId] = sourceSig;
-                                    }
-                                }
+                                if (sourceSig) activeSignals[sigId] = sourceSig;
 
                                 if (sourceSig) {
                                     const outputSignalId = `${baseId}:${idx}`;

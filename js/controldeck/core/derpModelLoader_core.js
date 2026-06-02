@@ -52,6 +52,28 @@ function installDerpModelLoaderPromptHook() {
     };
 }
 
+function publishIndexedModelSignals(node, modelName) {
+    if (!node || node.id === undefined || !modelName) return;
+    window.xcpDerpSignals = window.xcpDerpSignals || {};
+    const payload = { model_name_prefix: modelName, ckpt_name: modelName };
+    const nodeName = node.titleLabel || node.title || "Derp Model Loader";
+    ["MODEL", "CLIP", "VAE"].forEach((type, idx) => {
+        const signalId = `${node.id}:${idx}`;
+        window.xcpDerpSignals[signalId] = {
+            nodeId: signalId,
+            nodeName: `${nodeName} [${type[0]}${type.slice(1).toLowerCase()}]`,
+            nodeType: node.type || "Node",
+            type: type.toLowerCase(),
+            value: payload,
+            upstreamIds: [],
+            timestamp: Date.now(),
+            isPureVirtual: !!(node.isPureVirtual || node.properties?.isPureVirtual)
+        };
+    });
+}
+
+window.xcpPublishDerpModelLoaderSignals = publishIndexedModelSignals;
+
 export function initDerpModelLoaderCore(nodeType) {
     const proto = nodeType.prototype;
     installDerpModelLoaderPromptHook();
@@ -266,6 +288,7 @@ export function initDerpModelLoaderCore(nodeType) {
         // execution always picks it up, even if VRAM unload hasn't finished yet.
         const modelPayload = { model_name_prefix: val, ckpt_name: val };
         const baseId = String(this.id);
+        publishIndexedModelSignals(this, val);
         ["0", "1", "2"].forEach(idx => {
             fetch("/xcp/update_signal", {
                 method: "POST",
@@ -440,6 +463,7 @@ export function initDerpModelLoaderCore(nodeType) {
     proto.handleLoaderConfigure = function() {
         ensureModelIdentity(this);
         this._isDerpModelLoaderNode = true;
+        this.properties.isWirelessTransmitter = true;
         this.properties.skipGenericWirelessHeartbeat = true;
         this.properties.drawSettingBtn = false;
         if (typeof this.properties.toggleDumpModelOnChange !== "boolean") this.properties.toggleDumpModelOnChange = true;
