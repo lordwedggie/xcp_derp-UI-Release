@@ -315,6 +315,7 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                             ...(floatingItem && this._dragThresholdMet && this._dragMouse && this._dragOffset ? (() => {
                                 const { sig, idx } = floatingItem;
                                 const sourceRow = this.layout?.regions?.[`outputsRegion_display_${idx}`];
+                                const sourceRowHeight = Number.isFinite(sourceRow?.h) ? sourceRow.h : "auto";
                                 const dragX = this._dragMouse[0] - this._dragOffset[0];
                                 const dragY = this._dragMouse[1] - this._dragOffset[1];
                                 return {
@@ -323,7 +324,7 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                         themeKey: "region",
                                         dir: "row",
                                         width: sourceRow?.w || (this.size[0] - (mW * 2)),
-                                        height: sourceRow?.h || "auto",
+                                        height: sourceRowHeight,
                                         ignoreLayout: true,
                                         x: dragX,
                                         y: dragY,
@@ -339,7 +340,8 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                             type: UI_TYPES.ICONBUTTON,
                                             icon: "warpto", iconScale: 0.72,
                                             themeKey: "button, t_textSmall",
-                                            width: "match", height: "fill",
+                                            width: "match", height: sourceRowHeight,
+                                            padding: [pW, pH],
                                             spacing: [sW, 0],
                                             hidden: !this.properties.settingActive,
                                             onPress: () => {
@@ -377,7 +379,7 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                             type: UI_TYPES.ICONBUTTON,
                                             themeKey: "buttonNode, t_textSystem",
                                             icon: "trash",
-                                            width: "match", height: "fill",
+                                            width: "match", height: sourceRowHeight,
                                             spacing: [sW, 0],
                                             hidden: !this.properties.settingActive,
                                         }
