@@ -1,163 +1,268 @@
 [
     {
         "title": "Outdoors - Daylight Natural",
-        "content": "natural lighting, soft sunlight, diffused light, gentle shadows, outdoor daylight, balanced exposure, \n[[IMG:asset_3632e118.png]]"
+        "content": "natural lighting, soft sunlight, diffused light, gentle shadows, outdoor daylight, balanced exposure, \n[[IMG:asset_7ff55efb.png]]",
+        "images": [
+            "asset_7ff55efb.png"
+        ]
     },
     {
         "title": "Outdoors - Bright Midday",
-        "content": "Indirect sunlight, bright daylight, hard shadows, high contrast lighting, clear sky light, Outdoors, \n[[IMG:asset_fa12e682.png]]"
+        "content": "Indirect sunlight, bright daylight, hard shadows, high contrast lighting, clear sky light, Outdoors, \n[[IMG:asset_f69cfd33.png]]",
+        "images": [
+            "asset_f69cfd33.png"
+        ]
     },
     {
         "title": "Outdoors - Overcast Soft",
-        "content": "overcast lighting, soft diffused light, cloudy daylight, low contrast lighting, muted natural light, outdoors, \n[[IMG:asset_d9260ca3.png]]"
+        "content": "overcast lighting, soft diffused light, cloudy daylight, low contrast lighting, muted natural light, outdoors,\n[[IMG:asset_5522e712.png]]\n ",
+        "images": [
+            "asset_5522e712.png"
+        ]
     },
     {
         "title": "Outdoors -\u00a0Golden Hour",
-        "content": "golden hour, warm glow, rim lighting, long shadows, sunset light, atmospheric warmth, outdoors, \n[[IMG:asset_b6461d90.png]]"
+        "content": "golden hour, warm glow, rim lighting, long shadows, sunset light, atmospheric warmth, outdoors, \n[[IMG:asset_31e98472.png]]",
+        "images": [
+            "asset_31e98472.png"
+        ]
     },
     {
         "title": "Outdoors - Sunrise Mist",
-        "content": "morning light, soft sunrise, misty atmosphere, pale golden light, diffused sunlight, light fog, outdoors, \n[[IMG:/xcp/get_asset/derpPromptBook?name=asset_a01ce8ab.png&bookName=Lighting%20Book%20v02]]"
+        "content": "morning light, soft sunrise, misty atmosphere, pale golden light, diffused sunlight, light fog, outdoors, \n[[IMG:asset_3ca6b9ba.png]]",
+        "images": [
+            "asset_3ca6b9ba.png"
+        ]
     },
     {
         "title": "Outdoors - Moonlit Exterior",
-        "content": "moonlight, cool lighting, soft haze, atmospheric shadows, blue-toned light, night ambience, outdoors, \n[[IMG:asset_d53d36ea.png]]"
+        "content": "moonlight, cool lighting, soft haze, atmospheric shadows, blue-toned light, night ambience, outdoors,\n[[IMG:asset_4ad6b91f.png]]\n ",
+        "images": [
+            "asset_4ad6b91f.png"
+        ]
     },
     {
         "title": "Outdoors -\u00a0Rainy Night Exterior",
-        "content": "rainy night, wet reflections, moody lighting, neon reflections, glossy streets, cinematic rain light, outdoors, \n[[IMG:asset_7d530944.png]]"
+        "content": "rainy night, wet reflections, moody lighting, neon reflections, glossy streets, cinematic rain light, outdoors, \n[[IMG:asset_eea74613.png]]",
+        "images": [
+            "asset_eea74613.png"
+        ]
     },
     {
         "title": "Indoors -\u00a0Warm Interior",
-        "content": "indoor lighting, warm lighting, lamp light, cozy atmosphere, soft shadows, amber glow, \n[[IMG:asset_cef22866.png]]"
+        "content": "indoor lighting, warm lighting, lamp light, cozy atmosphere, soft shadows, amber glow, \n[[IMG:asset_5a435194.png]]",
+        "images": [
+            "asset_5a435194.png"
+        ]
     },
     {
         "title": "Indoors -\u00a0Cool Interior",
-        "content": "cool indoor lighting, fluorescent light, soft cool tones, clean lighting, subtle shadows, pale blue light, \n[[IMG:asset_5b3e7ac1.png]]"
+        "content": "cool indoor lighting, fluorescent light, soft cool tones, clean lighting, subtle shadows, pale blue light, \n[[IMG:asset_a22da516.png]]",
+        "images": [
+            "asset_a22da516.png"
+        ]
     },
     {
         "title": "Indoors -\u00a0Window Backlight",
-        "content": "window light, backlighting, soft rim light, diffused window light, glowing edges, natural indoor backlight, \n[[IMG:asset_65d4b5ae.png]]"
+        "content": "window light, backlighting, soft rim light, diffused window light, glowing edges, natural indoor backlight,\n[[IMG:asset_6db795ea.png]]\n ",
+        "images": [
+            "asset_6db795ea.png"
+        ]
     },
     {
         "title": "Indoors -\u00a0Candlelit Room",
-        "content": "candlelight, warm flickering light, intimate lighting, soft amber glow, low light atmosphere, gentle shadows, \n[[IMG:asset_05cc7be2.png]]"
+        "content": "candlelight, warm flickering light, intimate lighting, soft amber glow, low light atmosphere, gentle shadows, \n[[IMG:asset_b14be24f.png]]",
+        "images": [
+            "asset_b14be24f.png"
+        ]
     },
     {
         "title": "Studio - Portrait Soft",
-        "content": "studio lighting, softbox lighting, clean portrait lighting, soft shadows, balanced highlights, beauty lighting, \n[[IMG:asset_320158ad.png]]"
+        "content": "studio lighting, softbox lighting, clean portrait lighting, soft shadows, balanced highlights, beauty lighting, \n[[IMG:asset_74ca8d45.png]]",
+        "images": [
+            "asset_74ca8d45.png"
+        ]
     },
     {
         "title": "Studio - High Fashion",
-        "content": "studio lighting, sharp key light, glossy highlights, controlled shadows, editorial lighting, polished contrast, \n[[IMG:asset_ff24152d.png]]"
+        "content": "studio lighting, sharp key light, glossy highlights, controlled shadows, editorial lighting, polished contrast, \n[[IMG:asset_ff722dc0.png]]",
+        "images": [
+            "asset_ff722dc0.png"
+        ]
     },
     {
         "title": "Studio - Spotlight Portrait",
-        "content": "spotlight, focused beam, dark background, dramatic highlights, controlled shadows, stage-like lighting, \n[[IMG:asset_88885cc2.png]]"
+        "content": "spotlight, focused beam, dark background, dramatic highlights, controlled shadows, stage-like lighting, \n[[IMG:asset_de3bebc2.png]]",
+        "images": [
+            "asset_de3bebc2.png"
+        ]
     },
     {
         "title": "Cinematic - Warm",
-        "content": "cinematic lighting, warm rim light, deep shadows, golden hour, atmospheric glow, \n[[IMG:asset_25151441.png]]"
+        "content": "cinematic lighting, warm rim light, deep shadows, golden hour, atmospheric glow, \n[[IMG:asset_cacdbc06.png]]",
+        "images": [
+            "asset_cacdbc06.png"
+        ]
     },
     {
         "title": "Cinematic Cool",
-        "content": "cinematic lighting, cool blue light, soft backlight, moody shadows, atmospheric haze, dramatic contrast,"
+        "content": "cinematic lighting, cool blue light, soft backlight, moody shadows, atmospheric haze, dramatic contrast,\n[[IMG:asset_8fa29996.png]]",
+        "images": [
+            "asset_8fa29996.png"
+        ]
     },
     {
         "title": "Epic Cinematic",
-        "content": "epic cinematic lighting, volumetric light, dramatic rim light, heroic glow, deep contrast, grand atmosphere, "
+        "content": "epic cinematic lighting, volumetric light, dramatic rim light, heroic glow, deep contrast, grand atmosphere, \n[[IMG:asset_138afd3d.png]]",
+        "images": [
+            "asset_138afd3d.png"
+        ]
     },
     {
         "title": "Noir Cinematic",
-        "content": "cinematic lighting, low key lighting, hard shadows, strong contrast, moody highlights, noir atmosphere, "
+        "content": "cinematic lighting, low key lighting, hard shadows, strong contrast, moody highlights, noir atmosphere, \n[[IMG:asset_224f5c2c.png]]",
+        "images": [
+            "asset_224f5c2c.png"
+        ]
     },
     {
         "title": "Night Neon Cinematic",
-        "content": "cinematic lighting, neon glow, blue and purple light, reflective surfaces, moody atmosphere, urban night light, "
+        "content": "cinematic lighting, neon glow, blue and purple light, reflective surfaces, moody atmosphere, urban night light, \n[[IMG:asset_8340d676.png]]",
+        "images": [
+            "asset_8340d676.png"
+        ]
     },
     {
         "title": "Dark Horror",
-        "content": "horror lighting, eerie shadows, dim light, ominous atmosphere, cold contrast, unsettling darkness,"
+        "content": "horror lighting, eerie shadows, dim light, ominous atmosphere, cold contrast, unsettling darkness,\n[[IMG:asset_cb409a61.png]]",
+        "images": [
+            "asset_cb409a61.png"
+        ]
     },
     {
         "title": "Flickering Horror",
-        "content": "horror lighting, flickering light, unstable shadows, low visibility, tense atmosphere, eerie glow, "
+        "content": "horror lighting, flickering light, unstable shadows, low visibility, tense atmosphere, eerie glow, \n[[IMG:asset_bfe46f42.png]]",
+        "images": [
+            "asset_bfe46f42.png"
+        ]
     },
     {
         "title": "Cold Horror\n\n",
-        "content": "cold lighting, harsh shadows, desaturated tones, eerie ambience, dim blue light, oppressive mood, "
+        "content": "cold lighting, harsh shadows, desaturated tones, eerie ambience, dim blue light, oppressive mood, \n[[IMG:asset_d1180213.png]]",
+        "images": [
+            "asset_d1180213.png"
+        ]
     },
     {
         "title": "Backlit Horror",
-        "content": "cbacklighting, silhouette lighting, deep shadows, ominous haze, hidden details, threatening atmosphere, "
+        "content": "cbacklighting, silhouette lighting, deep shadows, ominous haze, hidden details, threatening atmosphere, \n[[IMG:asset_b8c82cbf.png]]",
+        "images": [
+            "asset_b8c82cbf.png"
+        ]
     },
     {
         "title": "Fantasy Dreamy Soft",
-        "content": "soft glow, dreamy lighting, ethereal light, gentle highlights, pastel illumination, hazy atmosphere, "
+        "content": "soft glow, dreamy lighting, ethereal light, gentle highlights, pastel illumination, hazy atmosphere, \n[[IMG:asset_fe3d0cb4.png]]",
+        "images": [
+            "asset_fe3d0cb4.png"
+        ]
     },
     {
         "title": "Fantasy Divine Light",
-        "content": "god rays, volumetric light, heavenly glow, radiant illumination, luminous haze, celestial atmosphere, "
+        "content": "god rays, volumetric light, heavenly glow, radiant illumination, luminous haze, celestial atmosphere, \n[[IMG:asset_6e2c1cba.png]]",
+        "images": [
+            "asset_6e2c1cba.png"
+        ]
     },
     {
         "title": "Fantasy Mystic Night",
-        "content": "mystical lighting, moonlit glow, soft fog, magical ambience, cool highlights, atmospheric shadows, "
+        "content": "mystical lighting, moonlit glow, soft fog, magical ambience, cool highlights, atmospheric shadows, \n[[IMG:asset_8c59b3d8.png]]",
+        "images": [
+            "asset_8c59b3d8.png"
+        ]
     },
     {
         "title": "Sci-Fi Cool",
-        "content": "sci-fi lighting, cyan glow, blue light, futuristic illumination, cold highlights, synthetic ambience, "
+        "content": "sci-fi lighting, cyan glow, blue light, futuristic illumination, cold highlights, synthetic ambience, \n[[IMG:asset_e7b02597.png]]",
+        "images": [
+            "asset_e7b02597.png"
+        ]
     },
     {
         "title": "Sci-fi Lab Lighting",
-        "content": "clinical lighting, cool white light, sterile atmosphere, subtle reflections, futuristic interior light, clean shadows, "
+        "content": "clinical lighting, cool white light, sterile atmosphere, subtle reflections, futuristic interior light, clean shadows, \n[[IMG:asset_5e1f0bee.png]]",
+        "images": [
+            "asset_5e1f0bee.png"
+        ]
     },
     {
         "title": "Dramatic Theatrical Drama",
-        "content": "dramatic lighting, intense contrast, deep shadows, sharp rim light, theatrical lighting, bold highlights, "
+        "content": "dramatic lighting, intense contrast, deep shadows, sharp rim light, theatrical lighting, bold highlights, \n[[IMG:asset_7f35d204.png]]",
+        "images": [
+            "asset_7f35d204.png"
+        ]
     },
     {
         "title": "Dramatic Low Key",
-        "content": "low key lighting, dark atmosphere, selective highlights, shadow-heavy lighting, moody contrast, minimal light, ",
-        "images": []
+        "content": "low key lighting, dark atmosphere, selective highlights, shadow-heavy lighting, moody contrast, minimal light, \n[[IMG:asset_c0605904.png]]",
+        "images": [
+            "asset_c0605904.png"
+        ]
     },
     {
         "title": "Dramatic Chiaroscuro",
-        "content": "chiaroscuro lighting, strong contrast, sculpted shadows, dramatic highlights, painterly light, dark depth, ",
-        "images": []
+        "content": "chiaroscuro lighting, strong contrast, sculpted shadows, dramatic highlights, painterly light, dark depth, \n[[IMG:asset_98c887e8.png]]",
+        "images": [
+            "asset_98c887e8.png"
+        ]
     },
     {
         "title": "Anime Soft Light",
-        "content": "soft anime lighting, clean highlights, gentle shading, bright ambient light, polished character lighting, ",
-        "images": []
+        "content": "soft anime lighting, clean highlights, gentle shading, bright ambient light, polished character lighting, \n[[IMG:asset_82378f76.png]]",
+        "images": [
+            "asset_82378f76.png"
+        ]
     },
     {
         "title": "Anime Sunset",
-        "content": "\nanime lighting, golden hour, warm glow, soft rim light, vivid sky light, emotional atmosphere, ",
-        "images": []
+        "content": "\nanime lighting, golden hour, warm glow, soft rim light, vivid sky light, emotional atmosphere, \n[[IMG:asset_a1c787b9.png]]",
+        "images": [
+            "asset_a1c787b9.png"
+        ]
     },
     {
         "title": "Anime Night Glow",
-        "content": "anime lighting, neon glow, cool blue light, soft reflections, moody night ambience, colorful highlights, ",
-        "images": []
+        "content": "anime lighting, neon glow, cool blue light, soft reflections, moody night ambience, colorful highlights, \n[[IMG:asset_7169f193.png]]",
+        "images": [
+            "asset_7169f193.png"
+        ]
     },
     {
         "title": "Combo - Clean outdoor character shot",
-        "content": "natural lighting, soft sunlight, diffused light, balanced exposure, gentle shadows, clean highlights, ",
-        "images": []
+        "content": "natural lighting, soft sunlight, diffused light, balanced exposure, gentle shadows, clean highlights,\n[[IMG:asset_efc688d9.png]]\n ",
+        "images": [
+            "asset_efc688d9.png"
+        ]
     },
     {
         "title": "Combo - Stylized neon portrait",
-        "content": "cyberpunk lighting, magenta and cyan glow, neon reflections, moody atmosphere, glossy highlights, dark contrast, ",
-        "images": []
+        "content": "cyberpunk lighting, magenta and cyan glow, neon reflections, moody atmosphere, glossy highlights, dark contrast, \n[[IMG:asset_2596bc5c.png]]",
+        "images": [
+            "asset_2596bc5c.png"
+        ]
     },
     {
         "title": "Combo - Dark horror portrait",
-        "content": "horror lighting, eerie shadows, dim blue light, low key lighting, ominous atmosphere, unsettling contrast, ",
-        "images": []
+        "content": "horror lighting, eerie shadows, dim blue light, low key lighting, ominous atmosphere, unsettling contrast, \n[[IMG:asset_420352e6.png]]",
+        "images": [
+            "asset_420352e6.png"
+        ]
     },
     {
         "title": "Combo - Cozy indoor character scene",
-        "content": "indoor lighting, warm lamp light, cozy atmosphere, soft shadows, amber glow, intimate lighting, ",
-        "images": []
+        "content": "indoor lighting, warm lamp light, cozy atmosphere, soft shadows, amber glow, intimate lighting, \n[[IMG:asset_c941636d.png]]",
+        "images": [
+            "asset_c941636d.png"
+        ]
     }
 ]

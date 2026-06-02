@@ -60,6 +60,13 @@ function showPromptBookMissingBookMessage(node, bookName, targetRegion = null) {
     showBastaSystemMessage(node, tLocale("$derp_prompt_book.messages.book_missing_prefix", "Book File Missing: "), 3200, { fade: true, grow: true }, targetRegion, "error", null, cleanName);
 }
 
+function showPromptBookCleanedMessage(node, bookName, removedCount, targetRegion = null) {
+    const cleanName = normalizePromptBookName(bookName);
+    const count = Number(removedCount) || 0;
+    const message = tLocale("$derp_prompt_book.messages.missing_images_cleaned_prefix", "Missing image links removed from book") + ` (${count}): `;
+    showBastaSystemMessage(node, message, 3600, { fade: true, grow: true }, targetRegion, "warning", null, cleanName);
+}
+
 function cleanPromptBookText(text) {
     if (!text) return "";
     return text.split('\n').map(segment => {
@@ -75,6 +82,35 @@ function compactMultilineSignalOutput(text) {
         .map((line) => line.trim())
         .filter((line) => line.length > 0)
         .join("\n");
+}
+
+function promptBookSignalSelectedByConcat(node, signalId) {
+    const baseId = String(signalId || "").split(":")[0];
+    if (!node?.properties || !baseId) return false;
+
+    const selectedIds = [
+        ...Object.values(node.properties.multiSignalIds || {}),
+        ...(Array.isArray(node.properties.signalDeck) ? node.properties.signalDeck.map((entry) => entry?.id) : []),
+    ];
+    return selectedIds.some((id) => {
+        if (!id && id !== 0) return false;
+        const selected = String(id);
+        return selected === signalId || selected.split(":")[0] === baseId;
+    });
+}
+
+function notifyPromptBookSignalConsumers(signalId) {
+    if (!window.app?.graph?._nodes) return;
+    window.app.graph._nodes.forEach((n) => {
+        if (n.type === "xcpDerpSignalOut" && n.updateReceivedSignals) n.updateReceivedSignals();
+
+        const typeName = String(n.type || n.constructor?.type || "").toLowerCase();
+        if (!typeName.includes("derpconcatenate")) return;
+        if (!promptBookSignalSelectedByConcat(n, signalId)) return;
+        if (n.syncDerpOutputs) n.syncDerpOutputs();
+        if (n.refreshNodeLayoutMap) n.refreshNodeLayoutMap();
+    });
+    app.canvas.setDirty(true, true);
 }
 
 async function savePromptBookFile(node, fileName, bookData) {
@@ -145,6 +181,7 @@ export const createDefaultDerpBook = () => {
 export function bindPromptBookHooks(nodeType) {
     nodeType.prototype.syncDerpOutputs = function() {
         if (this._signalSyncDebouncer) clearTimeout(this._signalSyncDebouncer);
+        if (this._promptBookConfigurePending) return;
 
         if (this.id !== -1) {
             this.properties.isWirelessTransmitter = true;
@@ -186,12 +223,7 @@ export function bindPromptBookHooks(nodeType) {
                 });
             }, 150);
 
-            if (window.app?.graph?._nodes) {
-                window.app.graph._nodes.forEach(n => {
-                    if (n.type === "xcpDerpSignalOut" && n.updateReceivedSignals) n.updateReceivedSignals();
-                });
-                app.canvas.setDirty(true, true);
-            }
+            notifyPromptBookSignalConsumers(signalId);
         }
     };
     nodeType.prototype.applyDerpProfile = function(profileName) {
@@ -310,6 +342,7 @@ export function bindPromptBookHooks(nodeType) {
 
     const onConf = nodeType.prototype.onConfigure;
     nodeType.prototype.onConfigure = function(info) {
+        this._promptBookConfigurePending = true;
         if (onConf) onConf.apply(this, arguments);
 
         this.properties.isWirelessTransmitter = true;
@@ -361,14 +394,25 @@ export function bindPromptBookHooks(nodeType) {
                             this.properties.currentPageIndex = Math.max(0, Math.min(savedPageIndex, Math.max(0, (this.properties.derpBook || []).length - 1)));
                             this.properties.prompt = this.properties.derpBook?.[this.properties.currentPageIndex]?.content || "";
                             this._lastSyncedContent = null;
+                            this._promptBookConfigurePending = false;
                             if (this.syncDerpOutputs) this.syncDerpOutputs();
                             this.refreshNodeLayoutMap();
                         });
+                    } else {
+                        this._promptBookConfigurePending = false;
+                        this._lastSyncedContent = null;
+                        if (this.syncDerpOutputs) this.syncDerpOutputs();
                     }
+                }).catch(() => {
+                    this._promptBookConfigurePending = false;
+                    this._lastSyncedContent = null;
+                    if (this.syncDerpOutputs) this.syncDerpOutputs();
                 });
+            } else {
+                this._promptBookConfigurePending = false;
+                this._lastSyncedContent = null;
+                if (this.syncDerpOutputs) this.syncDerpOutputs();
             }
-            this._lastSyncedContent = null;
-            if (this.syncDerpOutputs) this.syncDerpOutputs();
 
             setTimeout(() => {
                 if (this.id === -1 || !this.syncDerpOutputs) return;
@@ -378,6 +422,8 @@ export function bindPromptBookHooks(nodeType) {
 
             this._derpAwakeFrames = 10;
             this.requestDerpSync();
+        } else {
+            this._promptBookConfigurePending = false;
         }
     };
 
@@ -449,6 +495,7 @@ export async function handleBookChange(node, val, options = {}) {
         }
         const result = await response.json();
         const data = result.data || [];
+        if (result.cleaned) showPromptBookCleanedMessage(node, val, result.removedImageLinks, "dropdownBooks");
         const shouldPreservePage = options?.preservePage === true;
         const previousPageIndex = Number(node.properties.currentPageIndex) || 0;
         const nextPageIndex = shouldPreservePage

@@ -532,6 +532,9 @@
       "book_duplicated_prefix": "书籍已复制：",
       "book_deleted": "书籍已删除！",
       "page_image_missing": "页面图片缺失",
+      "missing_images_cleaned_prefix": "已从书籍中移除缺失图片链接",
+      "image_paste_pending": "正在将图片粘贴到页面，请稍候...",
+      "image_paste_saved": "图片已添加并保存到书籍的 _IMG 文件夹！",
       "create_failed": "书籍创建失败",
       "rename_failed": "书籍重命名失败",
       "duplicate_failed": "书籍复制失败"

@@ -6,6 +6,8 @@ If it's JSON-ish and bossy, it probably walks through here.
 
 import json
 import os
+import re
+from urllib.parse import parse_qs, urlparse
 
 import folder_paths
 from aiohttp import web
@@ -22,11 +24,67 @@ from .xcp_file_common import (
     delete_lora_trigger_sidecar_entry,
     duplicate_companion_image_dir,
     duplicate_lora_trigger_sidecar_entry,
+    get_companion_image_dir,
     remove_companion_image_dir,
     rename_companion_image_dir,
     rename_lora_trigger_sidecar_entry,
     resolve_case_insensitive_path,
 )
+
+
+PROMPT_BOOK_IMAGE_RE = re.compile(r"\[\[IMG:([\s\S]*?)\]\]\n?")
+
+
+def normalize_prompt_book_image_name(raw_name):
+    if not raw_name:
+        return ""
+    value = str(raw_name).strip()
+    if not value or value.startswith("data:") or value.startswith("http"):
+        return ""
+    if value.startswith("/xcp/get_asset/derpPromptBook"):
+        parsed = urlparse(value)
+        value = parse_qs(parsed.query).get("name", [""])[0]
+    return os.path.basename(value.replace("\\", "/"))
+
+
+def clean_missing_prompt_book_images(data, target_dir, raw_book_name):
+    if not isinstance(data, list):
+        return data, False, 0
+
+    img_dir = get_companion_image_dir(target_dir, raw_book_name)
+    changed = False
+    removed_count = 0
+
+    def replace_marker(match):
+        nonlocal changed, removed_count
+        marker_value = match.group(1)
+        image_name = normalize_prompt_book_image_name(marker_value)
+        if not image_name:
+            return match.group(0)
+        image_path = resolve_case_insensitive_path(img_dir, image_name)
+        if image_path and os.path.exists(image_path):
+            return match.group(0)
+        changed = True
+        removed_count += 1
+        return ""
+
+    for page in data:
+        if not isinstance(page, dict):
+            continue
+        content = page.get("content")
+        if not isinstance(content, str) or "[[IMG:" not in content:
+            continue
+        cleaned_content = PROMPT_BOOK_IMAGE_RE.sub(replace_marker, content)
+        if cleaned_content != content:
+            page["content"] = cleaned_content
+            image_names = []
+            for marker in PROMPT_BOOK_IMAGE_RE.findall(cleaned_content):
+                image_name = normalize_prompt_book_image_name(marker)
+                if image_name:
+                    image_names.append(image_name)
+            page["images"] = image_names
+
+    return data, changed, removed_count
 
 
 def resolve_search_path(search_dirs, file_name):
@@ -109,6 +167,13 @@ async def load_file(request):
             return attach_fallback_header(web.json_response({"error": "File not found"}, status=404), used_fallback=used_fallback)
         with open(target_path, "r", encoding="utf-8") as f:
             data = json.load(f)
+        if category == "derpPromptBook":
+            raw_book_name = os.path.splitext(os.path.basename(file_name))[0]
+            data, cleaned, removed_count = clean_missing_prompt_book_images(data, os.path.dirname(target_path), raw_book_name)
+            if cleaned:
+                with open(target_path, "w", encoding="utf-8") as f:
+                    json.dump(data, f, indent=4)
+            return attach_fallback_header(web.json_response({"data": data, "cleaned": cleaned, "removedImageLinks": removed_count}), used_fallback=used_fallback)
         return attach_fallback_header(web.json_response({"data": data}), used_fallback=used_fallback)
     except Exception as e:
         return attach_fallback_header(web.json_response({"error": str(e)}, status=500))

@@ -40,6 +40,16 @@ async function uploadBinaryToServer(file, node) {
     return null;
 }
 
+async function savePromptBookAfterImagePaste(node) {
+    const bookName = (node.properties.bookName || tLocale("$derp_prompt_book.book.untitled_name", "Untitled Book")).trim();
+    const response = await fetch("/xcp/save/derpPromptBook", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: bookName, data: node.properties.derpBook || [] })
+    });
+    if (!response.ok) throw new Error(`Prompt book image paste save failed (${response.status})`);
+}
+
 function normalizePromptBookImageName(rawName) {
     if (!rawName) return "";
     const value = String(rawName).trim();
@@ -268,6 +278,7 @@ export function setupPromptBookImageSupport(el, node) {
             e.preventDefault();
             e.stopImmediatePropagation();
             e.stopPropagation();
+            showBastaSystemMessage(node, tLocale("$derp_prompt_book.messages.image_paste_pending", "Pasting image into page, wait for it..."), 3200, { fade: true, grow: true }, null, "warning");
 
             for (let i = 0; i < items.length; i++) {
                 if (items[i].type.indexOf("image") !== -1) {
@@ -291,9 +302,14 @@ export function setupPromptBookImageSupport(el, node) {
 
                         // Guarantee data sync before Fatha blurs
                         const activePage = node.properties?.derpBook?.[node.properties?.currentPageIndex || 0];
-                        if (activePage) activePage.content = el.innerText;
+                        if (activePage) {
+                            activePage.content = el.innerText;
+                            activePage.images = Array.from(el.querySelectorAll("img[data-derp-image]")).map(img => img.getAttribute("data-img-name")).filter(n => !!n);
+                        }
 
                         el.dispatchEvent(new Event('input', { bubbles: true }));
+                        await savePromptBookAfterImagePaste(node);
+                        showBastaSystemMessage(node, tLocale("$derp_prompt_book.messages.image_paste_saved", "Image added and saved to book's _IMG folder!"), 3600, { fade: true, grow: true }, null, "success");
                     }
                 }
             }

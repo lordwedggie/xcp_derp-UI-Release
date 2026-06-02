@@ -532,6 +532,9 @@
       "book_duplicated_prefix": "Book Duplicated: ",
       "book_deleted": "Book Deleted!",
       "page_image_missing": "Page Image Missing",
+      "missing_images_cleaned_prefix": "Missing image links removed from book",
+      "image_paste_pending": "Pasting image into page, wait for it...",
+      "image_paste_saved": "Image added and saved to book's _IMG folder!",
       "create_failed": "Book create failed",
       "rename_failed": "Book rename failed",
       "duplicate_failed": "Book duplicate failed"
