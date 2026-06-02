@@ -260,3 +260,26 @@ These three files must be excluded from public releases:
 - python/derpThemeManagerV2.py
 
 Stripped via `git rm --cached` during the release commit (see Release Process above).
+
+---
+## Hard-Learned Lessons (2026-06-02)
+
+### ICONBUTTON in ignoreLayout / floating rows
+`height: "fill"` does NOT resolve in rows with `ignoreLayout: true`. Use explicit pixel height
+from the source row: `height: sourceRowHeight` (where `sourceRowHeight = Number.isFinite(sourceRow?.h) ? sourceRow.h : "auto"`).
+`width: "match"` then correctly sizes the button to match that explicit height.
+
+### Theme paint overrides for structural regions
+When a theme key (e.g. `header`) should override a node's structural paint, the fix goes in
+`handleDrawCTX` (fathaHandler.js), NOT in the layout map. Resolve the theme paint with
+`resolvePaintData(entity, "header", state)` and spread it into `bodyPaint`:
+`{ ...bodyPaint, ...headerThemePaint, corners: ... }`. Also include the header paint
+fingerprint in the canvas cache key so changes invalidate the cache.
+
+### Tooltip highlight syntax
+Use `{{t_toolTip_highlight::text}}` or `{{t_toolTip_warning::text}}` for highlighted tooltip
+text. The highlight resolves to a palette color key `t_toolTip_highlight` or `t_toolTip_warning`.
+NOT `{pm}` or any other made-up syntax.
+
+### Commit message discipline
+Always report the commit message to the user before pushing. They want to review what gets committed.
