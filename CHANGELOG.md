@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Fixed
+- **NODE 2.0 right-click context submenu is broken**: Added (fake) derp context menus so now paletteExtender and bypassExtender are both working again in NODE 2.0.
 - **Docked stack overlay bug (one whole day of pain)**: Rare edge case where vertically and horizontally docked nodes would completely overlap — two nodes sitting at the exact same position like one sad ghost. Root cause: `normalizeSharedEdgePair` in the dock engine was using only the two seed nodes to calculate `totalHeight`, ignoring non-seed members in multi-column dock groups. Fixed by taking the max height across ALL column members.
 
 ### Added
