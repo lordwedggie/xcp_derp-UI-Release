@@ -167,6 +167,7 @@ export function rebuildFilePickerRows(state, deps) {
                 item,
                 hidePrefix: !!(item && typeof item === "object" && item.hidePrefix),
                 reservePrefix: !!(item && typeof item === "object" && item.reservePrefix),
+                disableSelectedStyle: !!(item && typeof item === "object" && item.disableSelectedStyle),
             };
             scrollRows.push(row);
         });
@@ -226,6 +227,7 @@ export function rebuildFilePickerRows(state, deps) {
                 item,
                 hidePrefix: !!(item && typeof item === "object" && item.hidePrefix),
                 reservePrefix: !!(item && typeof item === "object" && item.reservePrefix),
+                disableSelectedStyle: !!(item && typeof item === "object" && item.disableSelectedStyle),
             });
         });
     }
@@ -243,6 +245,7 @@ export function rebuildFilePickerRows(state, deps) {
                 item,
                 hidePrefix: !!(item && typeof item === "object" && item.hidePrefix),
                 reservePrefix: !!(item && typeof item === "object" && item.reservePrefix),
+                disableSelectedStyle: !!(item && typeof item === "object" && item.disableSelectedStyle),
             });
         });
     }

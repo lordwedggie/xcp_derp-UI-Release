@@ -852,7 +852,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                 anchor: { target: "sysRow_1", axis: "y", offset: sH },
                                 dir: "row", width: "full", height: "auto", spacing: [sW, 0],
                                 labelHeader: {
-                                    type: this.UI_TYPES.TEXT, themeKey: "t_textSmall",
+                                    type: this.UI_TYPES.TEXT, themeKey: "t_textSystem",
                                     text: tLocale("$derp_lora_stack.system.strength_setting", "Strength Setting"), width: "auto", spacing: [sW, 0],
                                 },
                                 labelMin: {
@@ -914,7 +914,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                 anchor: { target: "sysRow_2", axis: "y", offset: sH },
                                 dir: "row", width: "full", height: "auto", spacing: [sW, 0],
                                 labelCLIPHeader: {
-                                    type: this.UI_TYPES.TEXT, themeKey: "t_textSmall",
+                                    type: this.UI_TYPES.TEXT, themeKey: "t_textSystem",
                                     text: tLocale("$derp_lora_stack.system.clip_setting", "CLIP Setting"), width: "auto", spacing: [sW, 0],
                                     measureText: tLocale("$derp_lora_stack.system.strength_setting", "Strength Setting"),
                                 },

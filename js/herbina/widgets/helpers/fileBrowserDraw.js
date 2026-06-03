@@ -12,7 +12,7 @@ export function drawPickerRow(ctx, state, row, rect, labelPaint, scale, deps = {
     const selected = (row.type === "file" && String(row.path ?? row.name ?? "").replace(/\\/g, "/") === String(state.config.value ?? "").replace(/\\/g, "/"))
         || (row.name && String(row.name) === String(state.config.value ?? ""));
     const searchMatched = !!(state.searchMatchRowId && row.id === state.searchMatchRowId);
-    const emphasizeText = hovered || selected || searchMatched;
+    const emphasizeText = hovered || (selected && !row.disableSelectedStyle) || searchMatched;
     const emphasizeBg = hovered;
     const rowPaint = emphasizeBg ? state.rowPaintON : state.listPaint;
     const textColor = emphasizeText

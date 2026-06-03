@@ -36,6 +36,7 @@ const SYSTEM_PALETTE_NONE_ITEM = {
     alwaysVisible: true,
     hidePrefix: true,
     reservePrefix: true,
+    disableSelectedStyle: true,
 };
 
 function inferFontWeightFromFace(face) {
