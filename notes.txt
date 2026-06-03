@@ -283,3 +283,16 @@ NOT `{pm}` or any other made-up syntax.
 
 ### Commit message discipline
 Always report the commit message to the user before pushing. They want to review what gets committed.
+
+
+## CodeWhale Session Rules
+
+### REPORT FILES CHANGED
+After EVERY edit, report:
+- Which file(s) were modified
+- What changed (brief)
+
+Do NOT wait for the user to ask. Report immediately after making changes.
+
+### COMMIT MESSAGES
+Always report the full commit message before pushing. The user wants to review it.
