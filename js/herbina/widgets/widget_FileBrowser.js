@@ -501,7 +501,17 @@ function openFilePicker(config, node) {
                     el.style.opacity = "1";
                     el.style.pointerEvents = "auto";
                     el.focus();
-                    el.select();
+                    if (typeof el.select === "function") {
+                        el.select();
+                    } else {
+                        const range = document.createRange();
+                        range.selectNodeContents(el);
+                        const selection = window.getSelection();
+                        if (selection) {
+                            selection.removeAllRanges();
+                            selection.addRange(range);
+                        }
+                    }
                 }
             }
         }, 50);

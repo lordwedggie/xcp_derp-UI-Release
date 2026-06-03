@@ -829,7 +829,7 @@ export function syncDerpEditor(context, node, app, config) {
     if (!app || !app.canvas || !app.canvas.ds) return;
 
     // THE FIX: Only early-exit if the element is already hidden.
-    if (!node._shouldSync && el._lastGeoKey && !el._isAwake && el.style.display === "none") return;
+    if (!node._shouldSync && el._lastGeoKey && !isAwake && el.style.display === "none") return;
 
     if (!coords) return; // coords was resolved at the top of syncDerpEditor
 
