@@ -896,9 +896,12 @@ export function syncDerpEditor(context, node, app, config) {
     const scaledFS = fontSize;
     const uiLineHeight = getDerpTextLineHeight(fontSize);
 
-    // HTML natively scrolls, so we use the base (unscrolled) padding value!
-    const finalPadY = Math.max(0, baseRelativeStartY);
-    const editBaselineNudge = (!isMultiline && isAwake) ? (fontSize * SINGLE_LINE_EDIT_BASELINE_NUDGE) : 0;
+    // HTML natively scrolls, so we use the base (unscrolled) padding value.
+    // Single-line middle alignment uses line-height equal to the widget height;
+    // contentEditable caret layout becomes unreliable when the element is flex.
+    const isSingleLineMiddle = !isMultiline && alignY === "middle";
+    const finalPadY = isSingleLineMiddle ? 0 : Math.max(0, baseRelativeStartY);
+    const editBaselineNudge = (!isMultiline && isAwake && alignY !== "middle") ? (fontSize * SINGLE_LINE_EDIT_BASELINE_NUDGE) : 0;
     const htmlPadTop = finalPadY + editBaselineNudge;
     const htmlPadX = textPadX;
     const htmlPadRight = htmlPadX + cutoffRightPad;
@@ -935,8 +938,10 @@ export function syncDerpEditor(context, node, app, config) {
         el.style.outline = "none";
         el.style.boxSizing = "border-box";
         el.style.margin = "0";
-        el.style.padding = `${htmlPadTop}px ${htmlPadRight}px 0px ${htmlPadX}px`;
-        el.style.lineHeight = `${uiLineHeight}px`;
+        el.style.padding = isSingleLineMiddle
+            ? `0px ${htmlPadRight}px 0px ${htmlPadX}px`
+            : `${htmlPadTop}px ${htmlPadRight}px 0px ${htmlPadX}px`;
+        el.style.lineHeight = isSingleLineMiddle ? `${h}px` : `${uiLineHeight}px`;
         el.style.overflowX = "hidden";
         el.style.overflowY = isMultiline ? "auto" : "hidden";
         el.style.resize = "none";

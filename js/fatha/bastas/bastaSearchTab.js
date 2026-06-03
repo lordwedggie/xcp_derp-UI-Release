@@ -9,9 +9,6 @@ const SEARCH_TAB_HEIGHT = 20;
 const SEARCH_TAB_WIDTH = 180;
 const SEARCH_GLYPH = "⌕";
 const SEARCH_THEME_KEY = "dialog, t_textSmall";
-const SEARCH_GLYPH_MARGIN_PX = 4;
-const SEARCH_TEXT_MARGIN_PX = 1;
-const SEARCH_GLYPH_SCALE = 1.5;
 
 function focusSearchEditor(basta, retries = 8) {
     if (!basta || retries <= 0) return;
@@ -21,7 +18,6 @@ function focusSearchEditor(basta, retries = 8) {
         return;
     }
     el._isAwake = true;
-    el.style.opacity = "1";
     el.style.pointerEvents = "auto";
     if (el._nodeRef?.requestDerpSync) el._nodeRef.requestDerpSync();
     el.focus();
@@ -74,25 +70,37 @@ export function showBastaSearchTab(host, targetRegion = null, params = {}) {
             return {
                 contentRegion: {
                     anchor: null,
-                    dir: "col",
+                    dir: "row",
+                    themeKey: "dialog",
                     width: "full",
-                    height: "auto",
+                    height: initialHeight,
                     margin: [mW, mH, mW, mH],
+                    glyphSearch: {
+                        type: UI_TYPES.TEXT,
+                        themeKey: "t_textNormal",
+                        text: SEARCH_GLYPH,
+                        width: "auto",
+                        height: "full",
+                        spacing: [mW, 0],
+                        labelAlign: ["center", "middle"],
+                        fontOffset: -1,
+                        mouseOver: false,
+                    },
                     editorSearch: {
                         type: UI_TYPES.EDITOR,
-                        themeKey: basta.properties.searchThemeKey,
+                        themeKey: "t_textSmall",
+                        labelAlign: ["left", "middle"],
                         width: "full",
                         height: initialHeight,
                         padding: [pW, pH],
                         value: basta.properties.searchValue || "",
                         text: basta.properties.searchValue || "",
                         placeholder: params.placeholder || "Search...",
-                        prefixGlyph: SEARCH_GLYPH,
-                        prefixGlyphScale: SEARCH_GLYPH_SCALE,
-                        prefixGlyphMargin: SEARCH_GLYPH_MARGIN_PX,
-                        prefixGlyphSpacing: SEARCH_TEXT_MARGIN_PX + (Number(sW) || 0),
+                        fontOffset: 1,
                         canvasShield: true,
+                        mouseOver: false,
                         switchOnEditing: true,
+                        skipBackground: true,
                         onKeyDown: (event, value) => {
                             if (event?.key !== "Enter") return;
                             event.preventDefault();

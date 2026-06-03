@@ -5,7 +5,7 @@
 import { masterPainter, masterPainterText } from "../masterPainter.js";
 import { applyHTMLTheme } from "../masterPainterHTML.js";
 import { toRGBA } from "../utils/colorMath.js";
-import { resolveWidgetEnv, measureTextWidth, resolvePaintData, colorSegmentsToHTML } from "../utils/widgetsUtils.js";
+import { resolveWidgetEnv, measureTextWidth, resolvePaintData, colorSegmentsToHTML, getDerpTextLineHeight } from "../utils/widgetsUtils.js";
 import { animateWidgetColors, getPulsedColor, parseColor } from "../masterAnimator.js";
 
 export function createTextLabel(callbacks = {}) {
@@ -161,7 +161,7 @@ export function syncTextLabel(ctx, node, config) {
 
     // 3. Render Lines
     const [alignX, alignY] = props.labelAlign || ["left", "middle"];
-    const lineHeight = finalPaint.fontSize; // THE FIX: Unify line height with measurement logic
+    const lineHeight = getDerpTextLineHeight(finalPaint.fontSize);
     const totalTextH = lines.length * lineHeight;
 
     // THE POSITION FIX: Shift startY down by (lineHeight / 2) to account for baseline="middle"
@@ -172,7 +172,7 @@ export function syncTextLabel(ctx, node, config) {
     lines.forEach((line, i) => {
         masterPainterText(ctx, {
             x: (alignX === "center") ? x + (w / 2) : (alignX === "right" ? x + w - pX : x + pX),
-            y: startY + (i * lineHeight),
+            y: startY + (i * lineHeight) + (props.fontOffset || 0),
             text: line,
             paintData: finalPaint,
             align: alignX,
@@ -259,7 +259,8 @@ export function syncTextLabelHTML(element, node, app, config) {
     const fontWeight = config.fontWeight || labelPaintData?.fontWeight || props.fontWeight || "normal";
 
     // THE OPTIMIZATION: DOM Thrash Gate using stable theme colors and content
-    const syncKey = `${stateStr}-${rawBg}-${rawIc}-${displayText}-${scale}-${isWrapping}-${isCutoff}-${coords.width}-${props.padding?.[0]}-${fontWeight}`;
+    const alignKey = Array.isArray(props.labelAlign) ? props.labelAlign.join(",") : "";
+    const syncKey = `${stateStr}-${rawBg}-${rawIc}-${displayText}-${scale}-${isWrapping}-${isCutoff}-${coords.width}-${coords.height}-${props.padding?.[0]}-${props.padding?.[1]}-${fontWeight}-${alignKey}`;
     if (element._lastSyncKey !== syncKey || node._forceSync) {
         element._lastSyncKey = syncKey;
 
@@ -336,6 +337,7 @@ export function syncTextLabelHTML(element, node, app, config) {
 
         // Final Alignment and Spacing
         const [alignX, alignY] = props.labelAlign || ["left", "middle"];
+        const lineHeight = getDerpTextLineHeight(fontSize) * scale;
 
         Object.assign(element.style, {
             justifyContent: textAnchor ? textAnchor.justifyContent : (alignments.justify[alignX] || "flex-start"),
@@ -345,7 +347,7 @@ export function syncTextLabelHTML(element, node, app, config) {
             fontSize: `${fontSize * scale}px`,
             fontWeight,
             fontStyle: "normal",
-            lineHeight: "1",
+            lineHeight: `${lineHeight}px`,
             transform: props.fontOffset ? `translateY(${props.fontOffset * scale}px)` : "none"
         });
     }
