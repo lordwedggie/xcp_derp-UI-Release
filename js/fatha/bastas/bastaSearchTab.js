@@ -81,7 +81,7 @@ export function showBastaSearchTab(host, targetRegion = null, params = {}) {
                         text: SEARCH_GLYPH,
                         width: "auto",
                         height: "full",
-                        spacing: [mW, 0],
+                        spacing: [sW, 0],
                         labelAlign: ["center", "middle"],
                         fontOffset: -1,
                         mouseOver: false,
@@ -89,7 +89,7 @@ export function showBastaSearchTab(host, targetRegion = null, params = {}) {
                     editorSearch: {
                         type: UI_TYPES.EDITOR,
                         themeKey: "t_textSmall",
-                        labelAlign: ["left", "middle"],
+                        labelAlign: ["left", "middle"], canvasShield: true,
                         width: "full",
                         height: initialHeight,
                         padding: [pW, pH],

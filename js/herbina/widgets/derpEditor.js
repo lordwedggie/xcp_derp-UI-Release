@@ -896,9 +896,6 @@ export function syncDerpEditor(context, node, app, config) {
     const scaledFS = fontSize;
     const uiLineHeight = getDerpTextLineHeight(fontSize);
 
-    // HTML natively scrolls, so we use the base (unscrolled) padding value.
-    // Single-line middle alignment uses line-height equal to the widget height;
-    // contentEditable caret layout becomes unreliable when the element is flex.
     const isSingleLineMiddle = !isMultiline && alignY === "middle";
     const finalPadY = isSingleLineMiddle ? 0 : Math.max(0, baseRelativeStartY);
     const editBaselineNudge = (!isMultiline && isAwake && alignY !== "middle") ? (fontSize * SINGLE_LINE_EDIT_BASELINE_NUDGE) : 0;
