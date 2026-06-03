@@ -305,8 +305,12 @@ function resolvePickerTheme(config, node) {
     const textKey = parts.length >= 3 ? (parts[2] || "t_textsystem") : (parts[1] || parts[0] || "t_textsystem");
     const resolvedPickerKey = pickerKey || bodyKey;
     const hashPickerPaint = resolvePaintData(node, "#picker", "_OFF");
+    const rawListPaint = hashPickerPaint || resolvePaintData(node, resolvedPickerKey, "_OFF") || resolvePaintData(node, bodyKey, "_OFF") || node._panelPaintData_OFF;
+    if (config.searchTab && rawListPaint?.corners?.length >= 4) {
+        rawListPaint.corners = [0, 0, rawListPaint.corners[2], rawListPaint.corners[3]];
+    }
     return {
-        listPaint: hashPickerPaint || resolvePaintData(node, resolvedPickerKey, "_OFF") || resolvePaintData(node, bodyKey, "_OFF") || node._panelPaintData_OFF,
+        listPaint: rawListPaint,
         rowPaintOFF: resolvePaintData(node, textKey, "_OFF") || node._t_textnormalPaintData_OFF,
         rowTextON: resolvePaintData(node, textKey, "_ON") || resolvePaintData(node, textKey, "_OFF") || node._t_textnormalPaintData_OFF,
         rowPaintON: resolvePaintData(node, "#picker_highlight", "_ON") || resolvePaintData(node, bodyKey, "_ON") || node._t_textnormalPaintData_ON,
