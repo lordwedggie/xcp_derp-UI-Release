@@ -936,6 +936,10 @@ export function syncDerpShield(node) {
         const isCollapsed = node.properties?.contentCollapsed === true;
         const nodeAbove = isVerticalDockStack ? getNodeOnDeckEdge(node, graph, "top") : null;
         const nodeBelow = isVerticalDockStack ? getNodeOnDeckEdge(node, graph, "bottom") : null;
+        const isNodeAboveCollapsed = nodeAbove?.properties?.contentCollapsed === true;
+        const isNodeBelowCollapsed = nodeBelow?.properties?.contentCollapsed === true;
+        const hasInternalTopResizeEdge = hasSharedTopEdge && !!nodeAbove && !isCollapsed && !isNodeAboveCollapsed;
+        const hasInternalBottomResizeEdge = hasSharedBottomEdge && !!nodeBelow && !isCollapsed && !isNodeBelowCollapsed;
         const isTopBoundary = !!isVerticalDockStack && !nodeAbove;
         const isBottomBoundary = !!isVerticalDockStack && !nodeBelow;
         const allowTopResizeCorners = !isVerticalDockStack || isTopBoundary;
@@ -953,7 +957,7 @@ export function syncDerpShield(node) {
         if (!isVerticalDockStack && allowBottomResizeCorners && hasSharedRightEdge && canW) {
             handleStyle.width = `${sharedEdgeWidth}px`; handleStyle.height = `${visualH * scale}px`; handleStyle.cursor = "ew-resize"; handleStyle.display = "block"; handleStyle.pointerEvents = "auto";
         }
-        if (isVerticalDockStack && hasSharedBottomEdge && canH) {
+        if (isVerticalDockStack && hasInternalBottomResizeEdge && canH) {
             if (isCollapsed && isBottomBoundary) {
                 handleStyle.width = `${bottomRightWidth}px`;
                 handleStyle.height = `${bottomCornerSize}px`;
@@ -984,7 +988,7 @@ export function syncDerpShield(node) {
             if (!isVerticalDockStack && allowBottomResizeCorners && hasSharedLeftEdge && canW) {
                 leftStyle.width = `${sharedEdgeWidth}px`; leftStyle.height = `${visualH * scale}px`; leftStyle.cursor = "ew-resize"; leftStyle.display = "block"; leftStyle.pointerEvents = "auto";
             }
-            if (isVerticalDockStack && hasSharedBottomEdge && canH) {
+            if (isVerticalDockStack && hasInternalBottomResizeEdge && canH) {
                 if (isCollapsed && isBottomBoundary) {
                     leftStyle.width = `${bottomLeftWidth}px`;
                     leftStyle.height = `${bottomCornerSize}px`;
@@ -1025,7 +1029,7 @@ export function syncDerpShield(node) {
             topLeftStyle.display = (showTopCorners && allowTopResizeCorners && !hasSharedLeftEdge) ? "block" : "none";
             topLeftStyle.pointerEvents = (showTopCorners && allowTopResizeCorners && !hasSharedLeftEdge) ? "auto" : "none";
             topLeftStyle.left = `-${padL * scale}px`;
-            if (isVerticalDockStack && hasSharedTopEdge && canH) {
+            if (isVerticalDockStack && hasInternalTopResizeEdge && canH) {
                 if (isCollapsed && isTopBoundary) {
                     topLeftStyle.width = `${topLeftWidth}px`;
                     topLeftStyle.height = `${topCornerSize}px`;
@@ -1053,7 +1057,7 @@ export function syncDerpShield(node) {
             topRightStyle.display = (showTopCorners && allowTopResizeCorners && !hasSharedRightEdge) ? "block" : "none";
             topRightStyle.pointerEvents = (showTopCorners && allowTopResizeCorners && !hasSharedRightEdge) ? "auto" : "none";
             topRightStyle.right = `-${padR * scale}px`;
-            if (isVerticalDockStack && hasSharedTopEdge && canH) {
+            if (isVerticalDockStack && hasInternalTopResizeEdge && canH) {
                 if (isCollapsed && isTopBoundary) {
                     topRightStyle.width = `${topRightWidth}px`;
                     topRightStyle.height = `${topCornerSize}px`;

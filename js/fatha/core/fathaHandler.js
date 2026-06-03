@@ -794,6 +794,10 @@ function handleShieldDrag(entity, data, scale, deckEngine) {
         }
     }
 
+    if (entity.properties?.stickyDrag === true && !entity._deckDragRootStartPos) {
+        beginDockDrag(entity, deckEngine);
+    }
+
     updateDockDrag(entity, deckEngine, data, scale);
     return false;
 }
