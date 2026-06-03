@@ -36,6 +36,74 @@ import { animateWidgetColors } from "../masterAnimator.js";
 const BYPASS_BRIGHTNESS = 0.6;
 const SINGLE_LINE_EDIT_BASELINE_NUDGE = 0.08;
 
+function measureDerpEditorPrefixGlyphWidth(glyphText, fontSize, fontFamily, fontWeight) {
+    if (!glyphText) return 0;
+    return measureTextWidth(glyphText, fontSize, fontFamily || "Arial", fontWeight || "normal");
+}
+
+function setStyleIfChanged(el, key, value) {
+    if (el && el.style[key] !== value) el.style[key] = value;
+}
+
+function ensureDerpEditorWrapper(el) {
+    if (!el) return null;
+    if (el._derpEditorWrapper?.isConnected) return el._derpEditorWrapper;
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "derp-hybrid-editor-wrapper";
+    wrapper.style.position = "fixed";
+    wrapper.style.pointerEvents = "auto";
+    wrapper.style.boxSizing = "border-box";
+    wrapper.style.transformOrigin = "0 0";
+
+    const glyph = document.createElement("div");
+    glyph.className = "derp-hybrid-editor-prefix";
+    glyph.setAttribute("aria-hidden", "true");
+    glyph.style.position = "absolute";
+    glyph.style.left = "0";
+    glyph.style.top = "0";
+    glyph.style.height = "100%";
+    glyph.style.pointerEvents = "none";
+    glyph.style.userSelect = "none";
+    glyph.style.display = "none";
+    glyph.style.alignItems = "center";
+    glyph.style.justifyContent = "flex-start";
+    wrapper.appendChild(glyph);
+
+    el.style.position = "absolute";
+    el.style.left = "0";
+    el.style.top = "0";
+    el.style.transform = "none";
+    el.style.transformOrigin = "0 0";
+    el.style.pointerEvents = "auto";
+    wrapper.appendChild(el);
+    document.body.appendChild(wrapper);
+
+    if (!el._derpEditorNativeRemove) el._derpEditorNativeRemove = el.remove.bind(el);
+    el.remove = () => {
+        if (wrapper.parentNode) wrapper.parentNode.removeChild(wrapper);
+        else el._derpEditorNativeRemove();
+    };
+
+    el._derpEditorWrapper = wrapper;
+    el._derpEditorPrefixEl = glyph;
+    return wrapper;
+}
+
+function removeDerpEditorWrapper(el) {
+    const wrapper = el?._derpEditorWrapper;
+    if (!el || !wrapper) return;
+    const nativeRemove = el._derpEditorNativeRemove;
+    document.body.appendChild(el);
+    if (wrapper.parentNode) wrapper.parentNode.removeChild(wrapper);
+    el._derpEditorWrapper = null;
+    el._derpEditorPrefixEl = null;
+    el.style.position = "fixed";
+    el.style.transformOrigin = "0 0";
+    el.style.transform = "";
+    if (nativeRemove) el.remove = nativeRemove;
+}
+
 function resolveDerpEditorImageSrc(src) {
     const rawSrc = String(src || "").trim();
     if (!rawSrc) return "";
@@ -325,6 +393,21 @@ export function syncDerpEditor(context, node, app, config) {
     const fontSize = props.fontSize || labelPaint?.fontSize || 10;
     const font = safeConfig.fontFamily || labelPaint?.font || "Arial";
     const fontWeight = safeConfig.fontWeight || labelPaint?.fontWeight || props.fontWeight || "normal";
+    const prefixGlyphText = safeConfig.prefixGlyph ? String(safeConfig.prefixGlyph) : "";
+    const prefixGlyphScale = Number(safeConfig.prefixGlyphScale || 1);
+    const prefixGlyphMargin = Number(safeConfig.prefixGlyphMargin || 0);
+    const prefixGlyphSpacing = Number(safeConfig.prefixGlyphSpacing || 0);
+    const prefixGlyphFontSize = fontSize * Math.max(0.0001, prefixGlyphScale);
+    let prefixGlyphWidth = 0;
+    if (prefixGlyphText) {
+        const prefixGlyphMeasureKey = `${prefixGlyphText}|${prefixGlyphFontSize}|${font}|${fontWeight}`;
+        if (el._prefixGlyphMeasureKey !== prefixGlyphMeasureKey) {
+            el._prefixGlyphMeasureKey = prefixGlyphMeasureKey;
+            el._prefixGlyphWidth = measureDerpEditorPrefixGlyphWidth(prefixGlyphText, prefixGlyphFontSize, font, fontWeight);
+        }
+        prefixGlyphWidth = Number(el._prefixGlyphWidth || 0);
+    }
+    const prefixGlyphPad = prefixGlyphText ? Math.round(prefixGlyphMargin + prefixGlyphWidth + prefixGlyphSpacing) : 0;
 
     if (safeConfig.propertyName && !safeConfig._onBlurWrapped) {
         const origBlur = safeConfig.onBlur;
@@ -362,13 +445,22 @@ export function syncDerpEditor(context, node, app, config) {
                 const canvasRect = app?.canvas?.canvas?.getBoundingClientRect() || { left: 0, top: 0 };
                 const physL = Math.round(canvasRect.left + (node.pos[0] + ds.offset[0] + x) * ds.scale);
                 const physT = Math.round(canvasRect.top + (node.pos[1] + ds.offset[1] + y) * ds.scale);
+                const pressWrapper = safeConfig.prefixGlyph ? ensureDerpEditorWrapper(el) : null;
+                const pressPositionEl = pressWrapper || el;
 
-                el.style.left = `${physL}px`;
-                el.style.top = `${physT}px`;
+                pressPositionEl.style.left = `${physL}px`;
+                pressPositionEl.style.top = `${physT}px`;
                 el.style.width = `${w}px`;
                 el.style.height = `${h}px`;
-                el.style.transformOrigin = "0 0";
-                el.style.transform = `scale(${ds.scale})`;
+                pressPositionEl.style.transformOrigin = "0 0";
+                pressPositionEl.style.transform = `scale(${ds.scale})`;
+                if (pressWrapper) {
+                    pressWrapper.style.width = `${w}px`;
+                    pressWrapper.style.height = `${h}px`;
+                    el.style.left = "0";
+                    el.style.top = "0";
+                    el.style.transform = "none";
+                }
 
                 el._isAwake = true;
                 el.style.display = "block";
@@ -439,6 +531,7 @@ export function syncDerpEditor(context, node, app, config) {
     const padY = props.padding?.[1] || 0;
     const isCutoff = safeConfig.displayMode === "cutoff";
     const cutoffRightPad = isCutoff ? padX : 0;
+    const textPadX = prefixGlyphText ? Math.max(padX, prefixGlyphPad) : padX;
 
     const ds = app?.canvas?.ds || { scale: 1, offset: [0, 0] };
     const rect = app?.canvas?.canvas?.getBoundingClientRect() || { left: 0, top: 0 };
@@ -667,7 +760,7 @@ export function syncDerpEditor(context, node, app, config) {
                 const finalPadY = Math.max(0, baseRelativeStartY);
 
                 // Use pure local coordinates just like the CSS Box Padding
-                let textX = localLeft + padX;
+                let textX = localLeft + textPadX;
                 if (alignX === "center") textX = localLeft + (w / 2);
                 else if (alignX === "right") textX = localLeft + w - padX;
 
@@ -746,13 +839,16 @@ export function syncDerpEditor(context, node, app, config) {
     // identical layout across all zoom levels.
     const physL = Math.round(rect.left + (node.pos[0] + ds.offset[0] + x) * ds.scale);
     const physT = Math.round(rect.top + (node.pos[1] + ds.offset[1] + y) * ds.scale);
+    if (!prefixGlyphText && el._derpEditorWrapper) removeDerpEditorWrapper(el);
+    const editorWrapper = prefixGlyphText ? ensureDerpEditorWrapper(el) : null;
+    const editorPositionEl = editorWrapper || el;
 
     const masterZ = node?._masterZHtml || 10000;
     const geoKey = `${physL}-${physT}-${w}-${h}-${ds.scale}-${isAwake}-${masterZ}`;
     if (el._lastGeoKey !== geoKey) {
         el._lastGeoKey = geoKey;
-        el.style.left = `${physL}px`;
-        el.style.top = `${physT}px`;
+        setStyleIfChanged(editorPositionEl, "left", `${physL}px`);
+        setStyleIfChanged(editorPositionEl, "top", `${physT}px`);
 
         const shouldExpand = safeConfig.inputExpand === true;
 
@@ -771,21 +867,29 @@ export function syncDerpEditor(context, node, app, config) {
 
         if (isAwake && node.size && shouldExpand) {
             const expandedWidth = node.size[0] - x - padX;
-            el.style.width = `${Math.max(w, expandedWidth)}px`;
+            setStyleIfChanged(el, "width", `${Math.max(w, expandedWidth)}px`);
             el._lastAwakeZ = baseZ + 500;
-            el.style.zIndex = String(el._lastAwakeZ);
+            setStyleIfChanged(editorPositionEl, "zIndex", String(el._lastAwakeZ));
         } else {
-            el.style.width = `${w}px`;
+            setStyleIfChanged(el, "width", `${w}px`);
             el._lastAwakeZ = null;
-            el.style.zIndex = String(baseZ);
+            setStyleIfChanged(editorPositionEl, "zIndex", String(baseZ));
         }
-        el.style.height = `${h}px`;
+        setStyleIfChanged(el, "zIndex", editorWrapper ? "auto" : editorPositionEl.style.zIndex);
+        setStyleIfChanged(el, "height", `${h}px`);
+        if (editorWrapper) {
+            setStyleIfChanged(editorWrapper, "width", `${w}px`);
+            setStyleIfChanged(editorWrapper, "height", `${h}px`);
+            setStyleIfChanged(el, "left", "0px");
+            setStyleIfChanged(el, "top", "0px");
+            setStyleIfChanged(el, "transform", "none");
+        }
 
         // Scale the entire element natively
-        el.style.transformOrigin = "0 0";
+        setStyleIfChanged(editorPositionEl, "transformOrigin", "0 0");
         // THE PARITY FIX: Only apply the scale() transform.
         // Internal padding (finalPadY) handles the vertical centering to match Canvas.
-        el.style.transform = `scale(${ds.scale})`;
+        setStyleIfChanged(editorPositionEl, "transform", `scale(${ds.scale})`);
     }
 
     // Because we are CSS-scaling, EVERYTHING inside must be in 1x unscaled coordinates
@@ -796,9 +900,9 @@ export function syncDerpEditor(context, node, app, config) {
     const finalPadY = Math.max(0, baseRelativeStartY);
     const editBaselineNudge = (!isMultiline && isAwake) ? (fontSize * SINGLE_LINE_EDIT_BASELINE_NUDGE) : 0;
     const htmlPadTop = finalPadY + editBaselineNudge;
-    const htmlPadX = padX;
+    const htmlPadX = textPadX;
     const htmlPadRight = htmlPadX + cutoffRightPad;
-    const syncKey = `${ds.scale}-${effectiveState}-${rawIc}-${rawBg}-${valToSync}-${finalPadY}-${htmlPadTop}-${htmlPadX}-${htmlPadRight}-${scaledFS}-${fontWeight}-${isMultiline}-${isAwake}-${safeConfig.btnColor}`;
+    const syncKey = `${ds.scale}-${effectiveState}-${rawIc}-${rawBg}_${prefixGlyphText}_${prefixGlyphScale}_${prefixGlyphMargin}_${prefixGlyphSpacing}-${valToSync}-${finalPadY}-${htmlPadTop}-${htmlPadX}-${htmlPadRight}-${scaledFS}-${fontWeight}-${isMultiline}-${isAwake}-${safeConfig.btnColor}`;
 
     if (el._lastSyncKey !== syncKey) {
         el._lastSyncKey = syncKey;
@@ -883,6 +987,36 @@ export function syncDerpEditor(context, node, app, config) {
         el.style.display = safeConfig.isSysPanel ? "flex" : "block";
         el.style.opacity = String(baseAlpha);
         el.style.pointerEvents = (effectiveState === "DIS") ? "none" : "auto";
+    }
+
+    if (editorWrapper) {
+        const glyph = el._derpEditorPrefixEl;
+        setStyleIfChanged(editorWrapper, "display", "block");
+        setStyleIfChanged(editorWrapper, "opacity", String(baseAlpha));
+        setStyleIfChanged(editorWrapper, "pointerEvents", "auto");
+        if (glyph) {
+            const glyphStyleKey = `${prefixGlyphText}|${prefixGlyphPad}|${prefixGlyphMargin}|${font}|${prefixGlyphFontSize}|${fontWeight}|${uiLineHeight}`;
+            if (glyph._lastStyleKey !== glyphStyleKey) {
+                glyph._lastStyleKey = glyphStyleKey;
+                glyph.textContent = prefixGlyphText;
+                setStyleIfChanged(glyph, "display", "flex");
+                setStyleIfChanged(glyph, "width", `${prefixGlyphPad}px`);
+                setStyleIfChanged(glyph, "paddingLeft", `${prefixGlyphMargin}px`);
+                setStyleIfChanged(glyph, "fontFamily", font);
+                setStyleIfChanged(glyph, "fontSize", `${prefixGlyphFontSize}px`);
+                setStyleIfChanged(glyph, "fontWeight", fontWeight);
+                setStyleIfChanged(glyph, "lineHeight", `${uiLineHeight}px`);
+            }
+            setStyleIfChanged(glyph, "color", animatedTextColor);
+        }
+        if (isCanvas && useCanvasShield && !isAwake) {
+            el.style.display = "block";
+            el.style.opacity = "0";
+            el.style.pointerEvents = (effectiveState === "DIS") ? "none" : "auto";
+        } else {
+            el.style.opacity = String(baseAlpha);
+            el.style.pointerEvents = (effectiveState === "DIS") ? "none" : "auto";
+        }
     }
 
     if (!isAwake && document.activeElement !== el && domVal !== undefined && el.value !== domVal) {
