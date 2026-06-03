@@ -304,11 +304,12 @@ function resolvePickerTheme(config, node) {
     const pickerKey = parts.length >= 3 ? parts[1] : null;
     const textKey = parts.length >= 3 ? (parts[2] || "t_textsystem") : (parts[1] || parts[0] || "t_textsystem");
     const resolvedPickerKey = pickerKey || bodyKey;
+    const hashPickerPaint = resolvePaintData(node, "#picker", "_OFF");
     return {
-        listPaint: resolvePaintData(node, resolvedPickerKey, "_OFF") || resolvePaintData(node, bodyKey, "_OFF") || node._panelPaintData_OFF,
+        listPaint: hashPickerPaint || resolvePaintData(node, resolvedPickerKey, "_OFF") || resolvePaintData(node, bodyKey, "_OFF") || node._panelPaintData_OFF,
         rowPaintOFF: resolvePaintData(node, textKey, "_OFF") || node._t_textnormalPaintData_OFF,
         rowTextON: resolvePaintData(node, textKey, "_ON") || resolvePaintData(node, textKey, "_OFF") || node._t_textnormalPaintData_OFF,
-        rowPaintON: resolvePaintData(node, bodyKey, "_ON") || node._t_textnormalPaintData_ON,
+        rowPaintON: resolvePaintData(node, "#picker_highlight", "_ON") || resolvePaintData(node, bodyKey, "_ON") || node._t_textnormalPaintData_ON,
     };
 }
 

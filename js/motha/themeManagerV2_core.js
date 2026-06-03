@@ -99,18 +99,24 @@ export const safePersist = (cfg, targetTheme = null) => {
             }
         });
 
-        // Sort top-level keys: meta (_) first, then non-text, then text (t_) — each group alphabetical
+        // Sort top-level keys: meta (_) first, non-text, text (t_), then optional (#) keys,
+        // with #t_ optional text keys at the very bottom. "#" prefix means "optional" —
+        // a theme is not required to have these keys to function properly.
         const sortedTheme = {};
-        const metaKeys = [], nonTextKeys = [], textKeys = [];
+        const metaKeys = [], nonTextKeys = [], textKeys = [], hashKeys = [], hashTextKeys = [];
         Object.keys(themeObj).forEach(k => {
             if (k.startsWith("_")) metaKeys.push(k);
+            else if (k.startsWith("#t_")) hashTextKeys.push(k);
+            else if (k.startsWith("#")) hashKeys.push(k);
             else if (k.startsWith("t_")) textKeys.push(k);
             else nonTextKeys.push(k);
         });
         metaKeys.sort((a, b) => a.localeCompare(b));
         nonTextKeys.sort((a, b) => a.localeCompare(b));
         textKeys.sort((a, b) => a.localeCompare(b));
-        [...metaKeys, ...nonTextKeys, ...textKeys].forEach(k => {
+        hashKeys.sort((a, b) => a.localeCompare(b));
+        hashTextKeys.sort((a, b) => a.localeCompare(b));
+        [...metaKeys, ...nonTextKeys, ...textKeys, ...hashKeys, ...hashTextKeys].forEach(k => {
             sortedTheme[k] = themeObj[k];
         });
         cfg.themes[themeName] = sortedTheme;

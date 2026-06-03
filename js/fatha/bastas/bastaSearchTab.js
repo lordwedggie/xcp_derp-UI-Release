@@ -154,7 +154,7 @@ export function showBastaSearchTab(host, targetRegion = null, params = {}) {
             autoHeight: true,
             snapHeight: false,
             useAnimations,
-            bastaBackgroundKey: params.backgroundThemeKey || "dialog",
+            bastaBackgroundKey: "#picker",
             searchThemeKey: params.themeKey || SEARCH_THEME_KEY,
             searchValue: String(params.value || ""),
         },

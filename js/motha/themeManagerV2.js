@@ -173,7 +173,18 @@ app.registerExtension({
 
             // THE REFRESH FIX: Ensure items list is never empty during the initial boot sequence
             const themeList = Object.keys(window.xcpDerpThemeConfig?.themes || {});
-            const keyList = Object.keys(this.themeToEdit || {}).filter(k => !k.startsWith("_"));
+            const keyList = Object.keys(this.themeToEdit || {})
+                .filter(k => !k.startsWith("_"))
+                .sort((a, b) => {
+                    const rank = (k) => {
+                        if (k.startsWith("#t_")) return 3;
+                        if (k.startsWith("#")) return 2;
+                        if (k.startsWith("t_")) return 1;
+                        return 0;
+                    };
+                    const ra = rank(a), rb = rank(b);
+                    return ra !== rb ? ra - rb : a.localeCompare(b);
+                });
             const systemPaletteList = Array.isArray(this._systemPaletteList) && this._systemPaletteList.length > 0
                 ? ["None", ...this._systemPaletteList.map(toSystemPaletteDropdownItem)]
                 : [this._systemPaletteListLoaded ? "No _system palettes found" : "Loading palettes..."];
