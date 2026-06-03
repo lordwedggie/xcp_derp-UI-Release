@@ -19,6 +19,61 @@ import { promoteMasterZ, syncMasterZ } from "./core/masterZ.js";
 import { isComfyVueNodesMode, scheduleNativeVueNodeShellSuppression, shouldMutateLegacySelectionForDraw, suppressNativeVueNodeShell } from "./core/fathaNode2Compat.js";
 
 const FATHA_OVERLAY_WINDOW_MS = 4000;
+const FATHA_VIEWPORT_CULL_MARGIN_PX = 160;
+
+function getFathaNodeScreenRect(node, canvasDS, canvasEl) {
+    if (!node || !canvasDS || !canvasEl) return null;
+    const scale = Number(canvasDS.scale) || 1;
+    const rect = canvasEl.getBoundingClientRect?.();
+    if (!rect) return null;
+
+    const padL = Number(node._padL || 0);
+    const padR = Number(node._padR || 0);
+    const x = Number(node.pos?.[0] || 0) + padL;
+    const y = Number(node.pos?.[1] || 0);
+    const w = Math.max(1, Number(node.size?.[0] || 1) - padL - padR);
+    const h = Math.max(1, Number(node.size?.[1] || 1));
+
+    return {
+        left: rect.left + (x + (Number(canvasDS.offset?.[0]) || 0)) * scale,
+        top: rect.top + (y + (Number(canvasDS.offset?.[1]) || 0)) * scale,
+        right: rect.left + (x + w + (Number(canvasDS.offset?.[0]) || 0)) * scale,
+        bottom: rect.top + (y + h + (Number(canvasDS.offset?.[1]) || 0)) * scale,
+        canvasLeft: rect.left,
+        canvasTop: rect.top,
+        canvasRight: rect.right,
+        canvasBottom: rect.bottom,
+    };
+}
+
+function isFathaNodeOutsideViewport(node, canvasDS, canvasEl, marginPx = FATHA_VIEWPORT_CULL_MARGIN_PX) {
+    const screen = getFathaNodeScreenRect(node, canvasDS, canvasEl);
+    if (!screen) return false;
+    return screen.right < screen.canvasLeft - marginPx ||
+        screen.left > screen.canvasRight + marginPx ||
+        screen.bottom < screen.canvasTop - marginPx ||
+        screen.top > screen.canvasBottom + marginPx;
+}
+
+function canCullFathaNode(node, isTrueSelected, panelActive, isAnimating = false) {
+    if (!node || isTrueSelected || panelActive) return false;
+    if (isAnimating) return false;
+    if (node._forceSync || node._layoutDirty) return false;
+    if (node._isDragging || node._isDerpResizing || node._isDeckDragging || node._isFathaDragging) return false;
+    if (node._pressedRegionKey || node._hoveredRegionKey || node._dragTrig || node._dragThresholdMet) return false;
+    if (Number(node._derpAwakeFrames || 0) > 0) return false;
+    return true;
+}
+
+function setFathaNodeDomVisibility(node, visible) {
+    const value = visible ? "visible" : "hidden";
+    if (node?.interactionShield) node.interactionShield.style.visibility = value;
+    if (node?._derpDomElements) {
+        Object.values(node._derpDomElements).forEach(el => {
+            if (el) el.style.visibility = value;
+        });
+    }
+}
 
 function ensureFathaOverlayPerf(node) {
     if (!node) return null;
@@ -254,15 +309,6 @@ if (!window._xcpFathaGlobalHijack) {
             suppressNativeVueNodeShell(node);
             // 1. Global Cull Sweeper Rescue (Restores DOM visibility when scrolled into view)
             node._lastDerpFrame = app.canvas?.frame;
-            if (node._isDerpCulled) {
-                node._isDerpCulled = false;
-                if (node.interactionShield) node.interactionShield.style.visibility = "visible";
-                if (node._derpDomElements) {
-                    Object.values(node._derpDomElements).forEach(el => {
-                        if (el) el.style.visibility = "visible";
-                    });
-                }
-            }
 
             // 2. THE HEIST: Cache state and hide visuals
             node._xcpTrueSelected = node.selected;
@@ -520,6 +566,19 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
         const recoilRes = animateRecoil(this._visualPress || 0, pressTarget, undefined, useAnim);
         this._visualPress = recoilRes.value;
         if (recoilRes.isAnimating) isAnimating = true;
+
+        if (canCullFathaNode(this, isTrueSelected, panelActive, isAnimating) &&
+            isFathaNodeOutsideViewport(this, canvasDS, app.canvas?.canvas)) {
+            this._isDerpCulled = true;
+            setFathaNodeDomVisibility(this, false);
+            this._shouldSync = false;
+            return;
+        }
+
+        if (this._isDerpCulled) {
+            this._isDerpCulled = false;
+            setFathaNodeDomVisibility(this, true);
+        }
 
         this._shouldSync = hasVisualChanged || this._forceSync || this._layoutDirty || (isAnimating && isTrueSelected);
         const needsLayoutCompute = hasLayoutChanged || this._forceSync || this._layoutDirty;
@@ -888,9 +947,7 @@ if (!window._xcp_DerpVirtualLoader_Loaded) {
                                         node._isDerpCulled = true;
                                         if (node.interactionShield) node.interactionShield.style.visibility = "hidden";
                                         if (node._derpDomElements) {
-                                            Object.values(node._derpDomElements).forEach(el => {
-                                                if (el) el.style.visibility = "hidden";
-                                            });
+                                            setFathaNodeDomVisibility(node, false);
                                         }
                                     }
                                 }
