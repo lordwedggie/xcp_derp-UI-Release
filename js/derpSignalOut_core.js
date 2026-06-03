@@ -77,6 +77,29 @@ function syncDerpRouterDisplayLabels(node) {
 }
 
 const DERP_ROUTER_LINK_PAD_RIGHT = 15;
+const DERP_SIGNAL_WIRE_CULL_MARGIN_PX = 180;
+
+function isDerpGraphBoxOutsideViewport(minX, minY, maxX, maxY, marginPx = DERP_SIGNAL_WIRE_CULL_MARGIN_PX) {
+    const canvas = app?.canvas;
+    const canvasEl = canvas?.canvas;
+    const ds = canvas?.ds;
+    if (!canvasEl || !ds) return false;
+    const rect = canvasEl.getBoundingClientRect?.();
+    if (!rect) return false;
+
+    const scale = Number(ds.scale) || 1;
+    const offX = Number(ds.offset?.[0]) || 0;
+    const offY = Number(ds.offset?.[1]) || 0;
+    const left = rect.left + (minX + offX) * scale;
+    const top = rect.top + (minY + offY) * scale;
+    const right = rect.left + (maxX + offX) * scale;
+    const bottom = rect.top + (maxY + offY) * scale;
+
+    return right < rect.left - marginPx ||
+        left > rect.right + marginPx ||
+        bottom < rect.top - marginPx ||
+        top > rect.bottom + marginPx;
+}
 
 function isSignalOutPosLike(value) {
     return !!value && typeof value === "object" && value.length >= 2;
@@ -907,6 +930,14 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                             const reg = node.layout?.regions?.[`outputsRegion_display_${idx}`]
                                 || Object.values(node.layout?.regions || {}).find((region) => region?.outSlotIdx === idx);
                             const endY = reg ? (reg.y + reg.h / 2) : (node.getConnectionPos ? (node.getConnectionPos(false, idx)[1] - node.pos[1]) : (50 + idx * 25));
+                            const endGraphX = node.pos[0] + endX;
+                            const endGraphY = node.pos[1] + endY;
+                            if (isDerpGraphBoxOutsideViewport(
+                                Math.min(sPos[0], endGraphX),
+                                Math.min(sPos[1], endGraphY),
+                                Math.max(sPos[0], endGraphX),
+                                Math.max(sPos[1], endGraphY)
+                            )) return;
                             ctx.beginPath();
                             ctx.setLineDash(node.vLinkDash || [8, 4]);
                             ctx.strokeStyle = typeColors[String(sig.type || "").toUpperCase()] || node.vLinkColor || "#666";

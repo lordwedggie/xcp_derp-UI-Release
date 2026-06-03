@@ -779,7 +779,9 @@ app.registerExtension({
             const frameFadeAlpha = Number(this._derpImageDeckFrameFadeAlpha);
             const fadeAlpha = Number.isFinite(frameFadeAlpha)
                 ? frameFadeAlpha
-                : (this.getDerpImageDeckCrossfadeAlpha ? this.getDerpImageDeckCrossfadeAlpha() : 1);
+                : (this._derpImageDeckCrossfading === true
+                    ? Math.max(0, Math.min(1, Number(this._derpImageDeckCrossfadeFrom || 0)))
+                    : 1);
             const filenameText = this.getImageDeckFilenameText ? this.getImageDeckFilenameText() : "";
             const structureHash = `${count}_${imageUrl || "none"}_${prevImageUrl || "none"}_${fadeAlpha.toFixed(3)}_${this.size[0].toFixed(2)}_${(this.size[1] || 0).toFixed(2)}_${mW}_${mH}_${sW}_${sH}_${pW}_${pH}_${this.titleLabel}_${filenameText}`;
             if (this._layoutMapHash === structureHash && this.layoutMap) return;
