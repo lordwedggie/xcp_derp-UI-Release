@@ -327,9 +327,16 @@ export const getVirtualNodeLayoutMap = (node) => {
                     
                     text: node.titleLabel || "Virtual Node",
                     noDragLock: true, spacing: [sW, 0],
-                    onPress: (e, data) => focusTitleEditor(data?.reg || node.layout?.regions?.titleLabel, data),
-                    onClick: (e, reg, data) => focusTitleEditor(reg, data),
+                    onPress: (e, data) => {
+                        if (e?.originalEvent?.button === 2) return;
+                        focusTitleEditor(data?.reg || node.layout?.regions?.titleLabel, data);
+                    },
+                    onClick: (e, reg, data) => {
+                        if (e?.originalEvent?.button === 2) return;
+                        focusTitleEditor(reg, data);
+                    },
                     onDblClick: (e, reg, data) => {
+                        if (e?.originalEvent?.button === 2) return;
                         focusTitleEditor(reg, data);
                     },
                     onBlur: (newVal) => {
