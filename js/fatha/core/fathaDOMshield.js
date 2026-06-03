@@ -792,7 +792,7 @@ export function createDerpShield(node) {
         const regionEntries = Object.entries(node.layout?.regions || {}).reverse();
         for (const [, reg] of regionEntries) {
             if (!reg || typeof reg.onContextMenu !== "function") continue;
-            const isHit = reg.hitTest ? reg.hitTest(localMouse) : node.layout?.hitTest?.(localMouse, reg);
+            const isHit = reg.hitTest ? reg.hitTest(localMouse, reg) : node.layout?.hitTest?.(localMouse, reg);
             if (!isHit) continue;
             const customItems = reg.onContextMenu(e, node);
             if (customItems === false) {

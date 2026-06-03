@@ -719,7 +719,9 @@ export async function toggleDerpSysPanel(hostNode) {
                 const canvasX = (e.clientX - rect.left) / ds.scale - ds.offset[0];
                 const canvasY = (e.clientY - rect.top) / ds.scale - ds.offset[1];
                 const localMouse = [canvasX - host.pos[0], canvasY - host.pos[1]];
-                const isOnSystemBtn = host.layout?.hitTest ? host.layout.hitTest(localMouse, sysBtn) : false;
+                const isOnSystemBtn = sysBtn.hitTest
+                    ? sysBtn.hitTest(localMouse, sysBtn)
+                    : (host.layout?.hitTest ? host.layout.hitTest(localMouse, sysBtn) : false);
                 if (isOnSystemBtn) return false;
             }
         }

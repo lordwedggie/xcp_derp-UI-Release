@@ -473,7 +473,15 @@ export const getVirtualNodeLayoutMap = (node) => {
                 toolTip: tLocale("$fatha_layout.tooltips.open_system_panel", "Open the node system panel for advanced settings, similar to ComfyUI right-click Properties"),
                 objectAlign: ["center", "bottom"],
                 width: 32, height: 6,
-                corners: [2, 2, 0, 0]
+                corners: [2, 2, 0, 0],
+                hitTest: (localMouse, reg) => {
+                    const x = Number(reg?.x) || 0;
+                    const y = Number(reg?.y) || 0;
+                    const visualW = Math.min(Number(reg?.w) || 32, 32);
+                    const visualH = Math.min(Number(reg?.h) || 6, 6);
+                    return localMouse[0] >= x && localMouse[0] <= x + visualW &&
+                        localMouse[1] >= y && localMouse[1] <= y + visualH;
+                }
             }
         }
     };

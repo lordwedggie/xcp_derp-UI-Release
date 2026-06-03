@@ -737,7 +737,7 @@ function findHitRegion(layout, localMouse, options = {}) {
         const isDisabled = reg.state === "DIS";
         const allowDisabledInteraction = reg.allowOpenWhenDisabled === true;
         if (isDisabled && !allowDisabledInteraction && !(allowDisabledDrag && reg.allowDragWhenDisabled)) continue;
-        if (!(reg.hitTest ? reg.hitTest(localMouse) : layout.hitTest(localMouse, reg))) continue;
+        if (!(reg.hitTest ? reg.hitTest(localMouse, reg) : layout.hitTest(localMouse, reg))) continue;
         if (!isInsideClipAncestors(reg)) continue;
 
         if (isDisabled && allowDisabledDrag && reg.dragProxyKey) {
@@ -752,7 +752,7 @@ function findHitRegion(layout, localMouse, options = {}) {
 
 function isSystemButtonHit(entity, localMouse, scale) {
     const sysBtn = entity.layout?.regions?.systemBtn;
-    return !!(sysBtn && entity.layout.hitTest(localMouse, sysBtn, Math.max(8, 8 / scale)));
+    return !!(sysBtn && (sysBtn.hitTest ? sysBtn.hitTest(localMouse, sysBtn) : entity.layout.hitTest(localMouse, sysBtn)));
 }
 
 function handleShieldDragStart(entity, data, localMouse, scale, deckEngine) {
@@ -1035,11 +1035,6 @@ export function handleDrawCTX(entity, ctx, overlayPass = false) {
         const backgroundPaintKey = entity.properties?.bastaBackgroundKey || "canvas";
         const paintOFF = resolvePaintData(entity, backgroundPaintKey, isBypassed ? "_DIS" : "") || resolvePaintData(entity, "canvas", isBypassed ? "_DIS" : "");
         const paintON = resolvePaintData(entity, backgroundPaintKey, isBypassed ? "_DIS" : "_ON") || resolvePaintData(entity, "canvas", isBypassed ? "_DIS" : "_ON");
-        // Zero bottom corners for search-tab-style bastas
-        if (entity.properties?._bastaBottomCornersZero) {
-            if (paintOFF?.corners?.length >= 4) paintOFF.corners = [paintOFF.corners[0], paintOFF.corners[1], 0, 0];
-            if (paintON?.corners?.length >= 4) paintON.corners = [paintON.corners[0], paintON.corners[1], 0, 0];
-        }
         const headerPaintOFF = isBypassed ? (entity._headerPaintData_DIS || entity._headerPaintData) : entity._headerPaintData;
         const headerPaintON = isBypassed ? (entity._headerPaintData_DIS || entity._headerPaintData) : (entity._headerPaintData_ON || entity._headerPaintData);
         const cornerOverride = getDeckCornerOverride(entity, app.graph || entity.graph || null);
