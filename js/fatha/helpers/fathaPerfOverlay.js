@@ -196,6 +196,20 @@ function getPerfSummary(node) {
     const kind = getNodeKind(node);
     const title = getNodeLabel(node);
     const overlayPerf = node._overlayPerf || null;
+    if (overlayPerf?.samples) {
+        const cutoff = performance.now() - WINDOW_MS;
+        while (overlayPerf.samples.length && overlayPerf.samples[0].ts < cutoff) {
+            const sample = overlayPerf.samples.shift();
+            overlayPerf.totalMs = Math.max(0, Number(overlayPerf.totalMs || 0) - Number(sample.totalMs || 0));
+            overlayPerf.updateMs = Math.max(0, Number(overlayPerf.updateMs || 0) - Number(sample.updateMs || 0));
+            overlayPerf.drawMs = Math.max(0, Number(overlayPerf.drawMs || 0) - Number(sample.drawMs || 0));
+        }
+        if (overlayPerf.samples.length === 0) {
+            overlayPerf.totalMs = 0;
+            overlayPerf.updateMs = 0;
+            overlayPerf.drawMs = 0;
+        }
+    }
     const bld = node._bldPerf || null;
     const tw = node._twPerf || null;
 
@@ -355,8 +369,8 @@ function updateOverlayText(state) {
     ] : [];
     const lines = [
         { text: "Derp perfrmance tracker:", color: OVERLAY_SECTION_COLOR },
-        { text: formatMetricLine("FPS", formatFps(s.fps)), color: getFpsColor(s.fps) },
         { text: formatMetricLine("Median FPS", formatFps(s.medianFps)), color: getFpsColor(s.medianFps) },
+        { text: formatMetricLine("FPS", formatFps(s.fps)), color: getFpsColor(s.fps) },
         formatMetricLine("1% Low", formatFps(s.low1Fps)),
         { text: formatMetricLine("P95", formatMs(s.p95Ms)), color: getMsColor(s.p95Ms) },
         { text: formatMetricLine("Max", formatMs(s.maxMs)), color: getMsColor(s.maxMs) },
