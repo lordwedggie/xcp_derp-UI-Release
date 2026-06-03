@@ -4,6 +4,13 @@
  * FIX: Pre-fetching palettes at startup to utilize LiteGraph's native, synchronous submenu engine.
  */
 import { app } from "../../../../../scripts/app.js";
+import { showFakeNestedMenu } from "./helpers/bypassSignalPicker.js";
+
+const APPLY_DERP_PALETTE_MENU = "\uD83D\uDD1E Apply Derp Palette";
+
+function isVueNodesMode() {
+    return !!(typeof LiteGraph !== "undefined" && LiteGraph.vueNodesMode);
+}
 
 app.registerExtension({
     name: "xcp.PaletteExtender",
@@ -87,8 +94,29 @@ app.registerExtension({
                 };
             });
 
+            if (isVueNodesMode()) {
+                const groups = fileOptions.map(fileOption => ({
+                    label: fileOption.content,
+                    items: (fileOption.submenu?.options || []).map(item => ({
+                        label: item.content,
+                        callback: item.callback,
+                    })),
+                })).filter(group => group.items.length > 0);
+
+                if (groups.length === 0) return;
+
+                options.push({
+                    content: APPLY_DERP_PALETTE_MENU,
+                    callback: () => showFakeNestedMenu({
+                        groups,
+                        headerText: "Select palette file:",
+                    })
+                });
+                return;
+            }
+
             options.push({
-                content: "\uD83D\uDD1E Apply Derp Palette",
+                content: APPLY_DERP_PALETTE_MENU,
                 has_submenu: true,
                 submenu: {
                     options: fileOptions
