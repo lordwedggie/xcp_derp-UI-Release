@@ -724,8 +724,9 @@ function findHitRegion(layout, localMouse, options = {}) {
 
     const regionEntries = Object.entries(layout.regions).reverse();
     for (const [key, reg] of regionEntries) {
-        if (reg.isSpacing || (!reg.type && !reg.onPress && !reg.onClick && !reg.onDblClick && !reg.hoverEffect)) continue;
+        if (reg.isSpacing || (!reg.type && !reg.onPress && !reg.onClick && !reg.onDblClick && !reg.hoverEffect && !reg.onDragStart && !reg.onDrag && !reg.onDragEnd)) continue;
         const isInteractive = reg.onPress || reg.onClick || reg.onDblClick || reg.hoverEffect || reg.onChange ||
+            reg.onDragStart || reg.onDrag || reg.onDragEnd ||
             reg.type === UI_TYPES.DROPDOWN_DERP || reg.type === UI_TYPES.DROPDOWN ||
             reg.type === UI_TYPES.BUTTON || reg.type === UI_TYPES.ICONBUTTON ||
             reg.type === UI_TYPES.SLIDER || reg.type === UI_TYPES.EDITOR ||

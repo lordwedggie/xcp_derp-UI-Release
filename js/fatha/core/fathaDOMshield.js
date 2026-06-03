@@ -857,13 +857,14 @@ export function syncDerpShield(node) {
     // THE REFLOW FIX: Prevent getBoundingClientRect() from thrashing the browser's Main Thread
     // 60 times a second during idle animations (like Fatha's selection pulse).
     const canvasEl = app.canvas.canvas;
+    const rect = canvasEl.getBoundingClientRect();
     const edgeState = node.properties?.deckEdges || {};
     const varsForHash = node.getDerpVars ? node.getDerpVars(node) : { autoWidth: true, autoHeight: true };
-    const stateHash = `${node.pos[0]},${node.pos[1]}_${visualW},${visualH}_${scale}_${ds.offset[0]},${ds.offset[1]}_${node.flags?.collapsed}_${node.properties?.contentCollapsed}_${node.properties?.debugMode}_${canvasEl.clientWidth},${canvasEl.clientHeight}_${edgeState.left ?? "n"},${edgeState.right ?? "n"},${edgeState.top ?? "n"},${edgeState.bottom ?? "n"}_${varsForHash.autoWidth}_${varsForHash.autoHeight}`;
+    const canvasRectHash = `${rect.left.toFixed(2)},${rect.top.toFixed(2)},${rect.width.toFixed(2)},${rect.height.toFixed(2)}`;
+    const stateHash = `${node.pos[0]},${node.pos[1]}_${visualW},${visualH}_${scale}_${ds.offset[0]},${ds.offset[1]}_${node.flags?.collapsed}_${node.properties?.contentCollapsed}_${node.properties?.debugMode}_${canvasEl.clientWidth},${canvasEl.clientHeight}_${canvasRectHash}_${edgeState.left ?? "n"},${edgeState.right ?? "n"},${edgeState.top ?? "n"},${edgeState.bottom ?? "n"}_${varsForHash.autoWidth}_${varsForHash.autoHeight}`;
     if (node.interactionShield._lastStateHash === stateHash && !node._forceSync) return;
     node.interactionShield._lastStateHash = stateHash;
 
-    const rect = canvasEl.getBoundingClientRect();
     const shieldX = rect.left + (node.pos[0] + padL + ds.offset[0]) * scale;
     const shieldY = rect.top + (node.pos[1] + ds.offset[1]) * scale;
 

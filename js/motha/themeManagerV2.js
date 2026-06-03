@@ -277,6 +277,12 @@ app.registerExtension({
                         rootName: "palettes",
                         items: systemPaletteList,
                         value: selectedSystemPalette,
+                        onChange: (v) => {
+                            this.properties.systemPaletteName = (v === "None" || !v) ? "" : v;
+                            this.themeToEdit._palette = this.properties.systemPaletteName;
+                            this._layoutMapHash = null;
+                            this.refreshNodeLayoutMap();
+                        },
                         padding: [pW, pH], spacing: [sW, 0]
                     },
                 },
