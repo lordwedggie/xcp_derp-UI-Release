@@ -296,3 +296,10 @@ Do NOT wait for the user to ask. Report immediately after making changes.
 
 ### COMMIT MESSAGES
 Always report the full commit message before pushing. The user wants to review it.
+
+
+## Always-Visible Picker Items (2026-06-03)
+Items with `alwaysVisible: true` bypass directory filtering in the FILEBROWSER picker.
+Also support `hidePrefix: true` and `reservePrefix: true` for consistent row layout.
+Use this instead of modifying picker rendering per-caller.
+Example: palette "None" item uses `{ value: "", display: "None", alwaysVisible: true, hidePrefix: true, reservePrefix: true }`.

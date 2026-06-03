@@ -1039,6 +1039,11 @@ export function handleDrawCTX(entity, ctx, overlayPass = false) {
         const backgroundPaintKey = entity.properties?.bastaBackgroundKey || "canvas";
         const paintOFF = resolvePaintData(entity, backgroundPaintKey, isBypassed ? "_DIS" : "") || resolvePaintData(entity, "canvas", isBypassed ? "_DIS" : "");
         const paintON = resolvePaintData(entity, backgroundPaintKey, isBypassed ? "_DIS" : "_ON") || resolvePaintData(entity, "canvas", isBypassed ? "_DIS" : "_ON");
+        // Zero bottom corners for search-tab-style bastas
+        if (entity.properties?._bastaBottomCornersZero) {
+            if (paintOFF?.corners?.length >= 4) paintOFF.corners = [paintOFF.corners[0], paintOFF.corners[1], 0, 0];
+            if (paintON?.corners?.length >= 4) paintON.corners = [paintON.corners[0], paintON.corners[1], 0, 0];
+        }
         const headerPaintOFF = isBypassed ? (entity._headerPaintData_DIS || entity._headerPaintData) : entity._headerPaintData;
         const headerPaintON = isBypassed ? (entity._headerPaintData_DIS || entity._headerPaintData) : (entity._headerPaintData_ON || entity._headerPaintData);
         const cornerOverride = getDeckCornerOverride(entity, app.graph || entity.graph || null);

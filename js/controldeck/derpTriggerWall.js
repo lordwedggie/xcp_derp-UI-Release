@@ -819,7 +819,7 @@ app.registerExtension({
                     }
                 },
                 filebrowserTrigger: {
-                    type: this.UI_TYPES.FILEBROWSER, themeKey: "button, t_textsmall", canvasShield: true,
+                    type: this.UI_TYPES.FILEBROWSER, themeKey: "panel, t_textNormal", canvasShield: true,
                     toolTip: tLocale("$derp_trigger_wall.tooltips.load_preset", "Load a Trigger Group preset. A preset contains Trigger Groups that can then be added to the deck."),
                     text: this.properties.lastSavedPreset || "$derp_trigger_wall.browser.load_profiles", mouseOver: false,
                     icon: this.properties.lastSavedPreset ? "file" : "folder",
@@ -886,7 +886,7 @@ app.registerExtension({
                 dropdownTriggerGroup: {
                     type: this.UI_TYPES.FILEBROWSER,
                     icon: "dropdown",
-                    themeKey: "button, t_textsmall", skipBackground: false,
+                    themeKey: "panel, t_textNormal", skipBackground: true,
                     canvasShield: true, mouseOver: false,
                     width: "full", height: "auto", spacing: [sW, 0],
                     mode: "file",

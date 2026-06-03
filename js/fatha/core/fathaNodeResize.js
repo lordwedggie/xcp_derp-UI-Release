@@ -77,6 +77,11 @@ export function handleNodeResize(entity, data, scale) {
         return;
     }
 
+    if (dockResizeResult.handledHeight) {
+        applyDockResizeResult(entity, dockResizeResult);
+        return;
+    }
+
     const appliedW = dockResizeResult.handledWidth ? (dockResizeResult.appliedWidth ?? newW) : newW;
     const appliedH = dockResizeResult.handledHeight ? (dockResizeResult.appliedHeight ?? newH) : newH;
 

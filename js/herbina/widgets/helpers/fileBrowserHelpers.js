@@ -165,6 +165,8 @@ export function rebuildFilePickerRows(state, deps) {
                 path: itemValue,
                 type: "file",
                 item,
+                hidePrefix: !!(item && typeof item === "object" && item.hidePrefix),
+                reservePrefix: !!(item && typeof item === "object" && item.reservePrefix),
             };
             scrollRows.push(row);
         });
@@ -180,12 +182,17 @@ export function rebuildFilePickerRows(state, deps) {
 
     const entries = new Set();
     const files = [];
+    const alwaysVisibleFiles = [];
     const dir = state.currentDir || "";
     const normalizedDir = (dir === "/" ? "" : dir).replace(/[\\]/g, "/");
 
     items.forEach((item) => {
         const fullPath = getFileBrowserItemValue(item);
-        if (!fullPath) return;
+        if (!fullPath && !(item && typeof item === "object" && item.alwaysVisible)) return;
+        if (item && typeof item === "object" && item.alwaysVisible) {
+            alwaysVisibleFiles.push({ name: getDropdownItemDisplay(item), path: fullPath, item });
+            return;
+        }
 
         const normalizedPath = fullPath.replace(/[\\]/g, "/");
         if (normalizedDir && !normalizedPath.startsWith(`${normalizedDir}/`)) return;
@@ -208,12 +215,35 @@ export function rebuildFilePickerRows(state, deps) {
         currentPathDisplay = `${rootDisplayName}${sep}${cleanDir}`;
     }
     headerRows.push({ id: "current", name: currentPathDisplay, type: "select_current", path: dir || "/", hidePrefix: true });
+    if (mode !== "folder") {
+        alwaysVisibleFiles.forEach((file, idx) => {
+            const item = file.item;
+            scrollRows.push({
+                id: `file:always:${idx}:${file.path}`,
+                name: file.name,
+                path: file.path,
+                type: "file",
+                item,
+                hidePrefix: !!(item && typeof item === "object" && item.hidePrefix),
+                reservePrefix: !!(item && typeof item === "object" && item.reservePrefix),
+            });
+        });
+    }
     Array.from(entries).sort().forEach((folder) => {
         scrollRows.push({ id: `dir:${folder}`, name: folder, type: "dir" });
     });
     if (mode !== "folder") {
         files.sort((a, b) => a.name.localeCompare(b.name)).forEach((file) => {
-            scrollRows.push({ id: `file:${file.path}`, name: file.name, path: file.path, type: "file", item: file.item });
+            const item = file.item;
+            scrollRows.push({
+                id: `file:${file.path}`,
+                name: file.name,
+                path: file.path,
+                type: "file",
+                item,
+                hidePrefix: !!(item && typeof item === "object" && item.hidePrefix),
+                reservePrefix: !!(item && typeof item === "object" && item.reservePrefix),
+            });
         });
     }
 

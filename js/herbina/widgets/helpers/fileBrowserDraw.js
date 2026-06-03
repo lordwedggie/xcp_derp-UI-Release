@@ -35,7 +35,7 @@ export function drawPickerRow(ctx, state, row, rect, labelPaint, scale, deps = {
     const prefixText = (!row.hidePrefix && row.prefix) ? String(row.prefix).replace(/\s+$/, "") : "";
     const normalizedPrefixW = state.prefixSlotWidth || (fontSize * 1.2);
     const iconGap = state.prefixGap || 0;
-    const iconOffset = prefixText ? (normalizedPrefixW + iconGap) : 0;
+    const iconOffset = (prefixText || row.reservePrefix) ? (normalizedPrefixW + iconGap) : 0;
     const maxTextWidth = Math.max(0, rect.w - (pX * 2) - iconOffset);
     const rawLabel = row.type === "file" ? row.name.replace(/\.(safetensors|json)$/i, "") : row.name;
     const { segments: pickerSegments, hasColorKeys: pickerHasKeys } = parseColorKeyText(

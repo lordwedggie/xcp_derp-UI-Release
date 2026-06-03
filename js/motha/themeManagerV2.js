@@ -30,6 +30,13 @@ import { handleThemeDropdownChange } from "./helpers/themeManager_themeHandler.j
 import { getSystemPaletteDisplayName, toSystemPaletteDropdownItem } from "./helpers/themeManager_paletteUtils.js";
 
 const CSS_FONT_WEIGHTS = ["100", "200", "300", "400", "500", "600", "700", "800", "900"];
+const SYSTEM_PALETTE_NONE_ITEM = {
+    value: "",
+    display: "None",
+    alwaysVisible: true,
+    hidePrefix: true,
+    reservePrefix: true,
+};
 
 function inferFontWeightFromFace(face) {
     const text = `${face?.style || ""} ${face?.fullName || ""} ${face?.postscriptName || ""}`.toLowerCase();
@@ -185,13 +192,14 @@ app.registerExtension({
                     const ra = rank(a), rb = rank(b);
                     return ra !== rb ? ra - rb : a.localeCompare(b);
                 });
-            const systemPaletteList = Array.isArray(this._systemPaletteList) && this._systemPaletteList.length > 0
-                ? ["None", ...this._systemPaletteList.map(toSystemPaletteDropdownItem)]
-                : [this._systemPaletteListLoaded ? "No _system palettes found" : "Loading palettes..."];
+            const systemPaletteItems = Array.isArray(this._systemPaletteList) && this._systemPaletteList.length > 0
+                ? this._systemPaletteList.map(toSystemPaletteDropdownItem)
+                : [{ value: "__palette_status__", display: this._systemPaletteListLoaded ? "No _system palettes found" : "Loading palettes..." }];
+            const systemPaletteList = [SYSTEM_PALETTE_NONE_ITEM, ...systemPaletteItems];
             const selectedSystemPalette = this._systemPaletteList?.includes(this.properties.systemPaletteName)
                 ? this.properties.systemPaletteName
-                : "None";
-            const selectedSystemPaletteText = selectedSystemPalette === "None"
+                : "";
+            const selectedSystemPaletteText = !selectedSystemPalette
                 ? "None"
                 : getSystemPaletteDisplayName(selectedSystemPalette);
 
@@ -289,6 +297,7 @@ app.registerExtension({
                         items: systemPaletteList,
                         value: selectedSystemPalette,
                         onChange: (v) => {
+                            if (v === "__palette_status__") return;
                             this.properties.systemPaletteName = (v === "None" || !v) ? "" : v;
                             this.themeToEdit._palette = this.properties.systemPaletteName;
                             this._layoutMapHash = null;

@@ -288,6 +288,14 @@ export const getVirtualNodeLayoutMap = (node) => {
         });
         return true;
     };
+    const isTitleTextHit = (localMouse, reg) => {
+        const paintData = resolvePaintData(node, "t_textBig");
+        const fontSize = paintData?.fontSize || 14;
+        const font = paintData?.font || "arial";
+        const textW = measureTextWidth(node.titleLabel || "Virtual Node", fontSize, font, paintData?.fontWeight || "normal");
+        const startX = reg.x + pW;
+        return localMouse[0] >= startX && localMouse[0] <= startX + textW && node.layout?.hitTest?.(localMouse, reg);
+    };
     return {
         headerRegion: {
             dir: "col", width: "full", height: "auto",
@@ -324,6 +332,7 @@ export const getVirtualNodeLayoutMap = (node) => {
                     type: UI_TYPES.EDITOR, skipBackground: true, mouseOver: false,
                     themeKey: "dialog, t_textBig",
                     width: "full", height: "auto", padding: [pW, 0],
+                    hitTest: isTitleTextHit,
                     
                     text: node.titleLabel || "Virtual Node",
                     noDragLock: true, spacing: [sW, 0],

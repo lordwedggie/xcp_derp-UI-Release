@@ -723,6 +723,8 @@ export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH,
 
         const topCollapsed = topNode?.properties?.contentCollapsed === true;
         const bottomCollapsed = bottomNode?.properties?.contentCollapsed === true;
+        const topAutoHeight = topNode?.properties?.autoHeight !== false;
+        const bottomAutoHeight = bottomNode?.properties?.autoHeight !== false;
         if (topCollapsed && bottomCollapsed) {
             result.handledHeight = true;
             result.handledAll = true;
@@ -734,7 +736,7 @@ export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH,
 
         const isPureEdge = resizeAnchor === "top" || resizeAnchor === "bottom";
 
-        if (isPureEdge && (topCollapsed || bottomCollapsed)) {
+        if (isPureEdge && (topCollapsed || bottomCollapsed || topAutoHeight || bottomAutoHeight)) {
             result.handledHeight = true;
             result.handledAll = true;
             result.appliedHeight = getDockNodeHeight(entity);
@@ -799,12 +801,6 @@ export function applyDockResizeResult(entity, dockResizeResult) {
         if (dockResizeResult.pinnedAnchor) {
             restorePinnedVerticalDeckPositionAnchor(dockResizeResult.pinnedAnchor);
         }
-    }
-
-    if (dockResizeResult.handledHeight) {
-        dockResizeResult.counterparts.forEach((node) => {
-            setDeckNodePos(node, Number(node.pos?.[0]) || 0, Number(entity.pos?.[1]) || 0);
-        });
     }
 
     syncDerpShield(entity);

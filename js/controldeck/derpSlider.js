@@ -239,10 +239,10 @@ app.registerExtension({
             const { mW, mH, sW, sH, oX, oY, pW, pH } = this.getDerpVars(this);
             const nameDisplay = normalizeSliderNameDisplay(this.properties.nameDisplay);
             const nameDisplayItems = [
-                { label: tLocale("$derp_slider.name_display.slider", "Slider"), value: "Slider" },
-                { label: tLocale("$derp_slider.name_display.top", "Top"), value: "Top" },
-                { label: tLocale("$derp_slider.name_display.left", "Left"), value: "Left" },
-                { label: tLocale("$derp_slider.name_display.none", "None"), value: "None" },
+                { display: tLocale("$derp_slider.name_display.slider", "Slider"), value: "Slider" },
+                { display: tLocale("$derp_slider.name_display.top", "Top"), value: "Top" },
+                { display: tLocale("$derp_slider.name_display.left", "Left"), value: "Left" },
+                { display: tLocale("$derp_slider.name_display.none", "None"), value: "None" },
             ];
 
             const pSys = this._t_textsystemPaintData || this._t_textSystemPaintData || { fontSize: 10, font: "Arial", fontWeight: "normal" };
@@ -292,7 +292,7 @@ app.registerExtension({
                         },
                         dropdownNameDisplay: {
                             type: this.UI_TYPES.FILEBROWSER,
-                            icon: "dropdown",
+                            icon: "dropdown", measureText: "On Slider ",
                             themeKey: "dialog, t_textSystem",
                             canvasShield: true,
                             padding: [pW, pH],
