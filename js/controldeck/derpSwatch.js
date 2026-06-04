@@ -4,8 +4,26 @@
  */
 import { app } from "../../../scripts/app.js";
 import { fatha, initDerpGlobalListener } from "../fatha/fatha.js";
+import { getNativeVueNodeElement, isComfyVueNodesMode } from "../fatha/core/fathaNode2Compat.js";
 
 const SWATCH_REGION_PREFIX = "swatchColor_";
+
+function applyNode2ColorsImmediately(node, headerColor, bodyColor) {
+    if (!isComfyVueNodesMode()) return;
+    const el = getNativeVueNodeElement(node);
+    if (!el?.style) return;
+
+    el.style.setProperty("--component-node-background", bodyColor);
+    el.style.setProperty("--node-color", headerColor);
+    el.style.setProperty("--node-bg-color", bodyColor);
+
+    const header = el.querySelector(".lg-node-header, [data-testid^='node-header-']");
+    if (header?.style) header.style.backgroundColor = headerColor;
+
+    el.querySelectorAll("[data-testid^='node-body-']").forEach((body) => {
+        if (body?.style) body.style.backgroundColor = bodyColor;
+    });
+}
 
 function tLocale(key, fallback = key) {
     if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
@@ -126,16 +144,23 @@ function syncSwatchTheme(node, entries) {
 
 function applySwatchToNode(targetNode, node, entry) {
     if (!targetNode || !entry) return false;
-    targetNode.color = toRgba(entry.on);
-    targetNode.bgcolor = toRgba(entry.off, targetNode.color);
+    const headerColor = toRgba(entry.on);
+    const bodyColor = toRgba(entry.off, headerColor);
+    targetNode.color = headerColor;
+    targetNode.bgcolor = bodyColor;
     targetNode.properties = targetNode.properties || {};
     targetNode.properties._lastDerpPalette = {
         fileName: node.properties?.paletteFile || "",
         name: entry.name,
         key: entry.key || "main",
     };
+    applyNode2ColorsImmediately(targetNode, headerColor, bodyColor);
+    if (typeof window !== "undefined") {
+        window.requestAnimationFrame?.(() => applyNode2ColorsImmediately(targetNode, headerColor, bodyColor));
+    }
     targetNode.setDirtyCanvas?.(true, true);
     app.canvas?.setDirty?.(true, true);
+    if (app.graph && typeof app.graph.change === "function") app.graph.change();
     return true;
 }
 
@@ -228,7 +253,7 @@ app.registerExtension({
         nodeType.prototype.refreshNodeLayoutMap = function() {
             if (this.flags?.collapsed || this.size[0] <= 0) return;
 
-            const { mW, mH, sW, oY, pW, pH } = this.getDerpVars(this);
+            const { mW, mH, sW, sH, oY, pW, pH } = this.getDerpVars(this);
             const entries = buildEntryList(this).slice(0, 24);
             const swatchTheme = syncSwatchTheme(this, entries);
             const fileItems = this._derpSwatchPaletteFiles || [];
@@ -256,7 +281,7 @@ app.registerExtension({
                     width: "full",
                     height: "auto",
                     spacing: [sW, 0],
-                    margin: [0, 0, 0, mH],
+                    margin: [0, 0, 0, sH],
                     hoverEffect: true,
                     regionOffset: [0, 0],
                     [`label_${index}`]: {
@@ -298,6 +323,7 @@ app.registerExtension({
                         width: "full",
                         height: "auto",
                         spacing: [sW, 0],
+                        margin:[0, mH],
                         paletteBrowser: {
                             type: this.UI_TYPES.FILEBROWSER,
                             icon: "palette",
@@ -327,15 +353,6 @@ app.registerExtension({
                                 if (currentFile) loadPaletteFile(this, currentFile);
                             },
                         },
-                    },
-                    hintText: {
-                        type: this.UI_TYPES.TEXT,
-                        text: entries.length ? "$derp_swatch.hint" : "$derp_swatch.empty",
-                        themeKey: "t_textSystem",
-                        width: "full",
-                        height: "auto",
-                        padding: [pW, pH],
-                        margin: [0, mH, 0, mH],
                     },
                     ...swatchRows,
                     lastDropText: {
