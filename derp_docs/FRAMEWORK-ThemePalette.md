@@ -13,9 +13,9 @@ This document covers the practical mechanics of how themes and palettes interact
 | System | Lives in | Controls |
 |--------|----------|----------|
 | **Theme** | `window.xcpDerpThemeConfig` | Colors, fonts, shadows, strokes, glow, layout for every UI region |
-| **Palette** | JSON files in `user/derpNodes/Palettes/_system/` | Named color swatches referenced by themes via `@key` syntax |
+| **Palette** | JSON files in `user/derpNodes/Palettes/_system/` | Named palette entries used by header palette matching, color-key text, the palette editor, and legacy direct `@key` lookup |
 
-Themes are the *structure*. Palettes are the *paint buckets*. A theme says "the header should use color `@header_main`" — the palette defines what `@header_main` actually resolves to.
+Themes are the *structure*. Palettes are the *paint buckets*. In current code, palette files are primarily consumed as full palette documents with a `palettes` array. Some painter paths still support direct top-level `@key` lookup for legacy theme values, but the active system palette files are not flattened automatically before being assigned to `window.xcpActivePalette`.
 
 ---
 
@@ -60,10 +60,12 @@ When a Fatha/Uncle node renders, its colors go through a four-stage resolution:
 
 ### Stage 1: Theme Compilation (`masterPainter.js`)
 
-`compileThemeData(themeMain, keyName, state)` takes a theme key (e.g., `header`) and resolves it to concrete RGBA values:
+`compileThemeData(themeMain, keyName, state)` takes a theme key (e.g., `header`) and resolves it to concrete RGBA/CSS-ready paint data:
 
 ```js
-// If the theme key's fill value starts with '@', look it up in the active palette
+// Legacy direct-key path: if a theme value starts with '@', look it up directly
+// on window.xcpActivePalette. This only works when that object exposes key arrays
+// at the top level; normal palette files are stored as { effects, palettes }.
 function resolvePaletteColor(val) {
     if (typeof val === 'string' && val.startsWith('@')) {
         const key = val.substring(1);
@@ -75,7 +77,7 @@ function resolvePaletteColor(val) {
 }
 ```
 
-**Critical gotcha:** If `@key` references a palette that hasn't loaded yet (or the key doesn't exist), the raw `@key` string is returned. This is NOT a valid RGBA array, and painting will either fail silently or produce garbage colors. **No error is thrown.**
+**Critical gotcha:** If `@key` references a key that does not exist directly on `window.xcpActivePalette`, `resolvePaletteColor()` returns the raw `@key` string. `compileThemeData()` guards fill colors through `ensureArray()`, but shadow/stroke/glow paths can still build invalid CSS if given unresolved strings. **No user-facing error is thrown.**
 
 The compiled result is cached in a WeakMap keyed by `"OFF::paletteName"` / `"ON::paletteName"` / `"DIS::paletteName"`. Changing the active palette name automatically invalidates this cache.
 
@@ -95,17 +97,13 @@ This is how different node types can get different header colors from the same p
 
 **Header palette naming convention:** Entry names are `header_<NodeType>` (e.g., `header_DerpSeedV2`, `header_DerpLoraStack`). The `findHeaderPaletteEntry()` function also checks aliases — if the node type is `DerpSeedV2Node`, it also tries `header_derpSeedV2`.
 
-### Stage 3: Theme Manager System Palette (`themeManagerV2_core.js`)
+### Stage 3: Theme Manager System Palette (`themeManagerV2.js` / `themeManagerV2_core.js`)
 
-The theme manager node has a system palette dropdown that sets `themeToEdit._palette` and `node.properties.systemPaletteName`. This is the per-theme palette override:
+The theme manager node has a system palette dropdown that sets `themeToEdit._palette` and `node.properties.systemPaletteName`. This is stored on the edited theme and later copied into `window.xcpDerpThemeConfig.themes[name]._palette` when the binding path or save path runs:
 
 ```js
-// When system palette changes:
+// Current binding path in themeManagerV2_core.js:
 node.properties.systemPaletteName = paletteName;
-if (paletteName) node.themeToEdit._palette = paletteName;
-else delete node.themeToEdit._palette;
-// Then sync to global config:
-const themeObj = cfg.themes[node._selectedThemeName];
 if (paletteName) themeObj._palette = paletteName;
 else delete themeObj._palette;
 ```
@@ -123,7 +121,7 @@ loadDerpPalette(initialPalette);
 ```
 
 This calls `loadDerpPalette()` which fetches the palette JSON and sets:
-- `window.xcpActivePalette` — the resolved palette entries (flattened `@key → [r,g,b,a]` map)
+- `window.xcpActivePalette` — the active palette-file data, usually `{ effects, palettes: [...] }`
 - `window.xcpActivePaletteName` — the palette file name
 - `window.xcpPaletteCache[paletteName]` — the full raw palette data (for header palette resolution)
 
@@ -136,16 +134,16 @@ For any given node, the effective color is determined by:
 ```
 1. Theme key value (e.g., header._OFF = "@header_main")
        ↓
-2. @key resolved against window.xcpActivePalette (global default palette)
+2. Legacy direct `@key` lookup checks top-level keys on `window.xcpActivePalette`
        ↓
-3. Per-node header palette override (if _headerPaletteName matches)
+3. Theme `_palette` sets `node._headerPaletteName` and loads/caches that palette file
        ↓
-4. Per-theme _palette override (set via theme manager system palette dropdown)
+4. Per-node header palette override applies if `_headerPaletteName` matches a `header_*` entry
        ↓
 5. Fallback: raw theme key value (if no @key, or palette not loaded)
 ```
 
-**Practical rule:** The per-theme `_palette` wins over the global `Derp.Palette` setting. The per-node header palette wins over the theme palette. If nothing resolves, you get the raw theme color (or a broken `@key` string).
+**Practical rule:** The per-theme `_palette` is the source for `node._headerPaletteName`, so it controls per-node header palette matching. The global `Derp.Palette` setting controls the default active palette document and legacy/color-key lookups. If nothing resolves, you get the raw theme color or a broken unresolved `@key` string.
 
 ---
 
@@ -163,8 +161,8 @@ For any given node, the effective color is determined by:
 
 ### When palette is saved (propagation):
 
-1. `syncActivePalettePreview()` writes the edited palette to `window.xcpPaletteCache[activeName]`
-2. If the saved palette is the *currently active* palette, it also updates `window.xcpActivePalette`
+1. `syncActivePalettePreview()` writes the edited palette document to `window.xcpPaletteCache[activeName]`
+2. If the saved palette is the *currently active* palette, it mutates `window.xcpActivePalette.effects` and `window.xcpActivePalette.palettes`
 3. `schedulePalettePreviewRedraw()` iterates ALL Fatha/Uncle nodes, finds those with matching `_headerPaletteName`, and invalidates their caches
 
 ### When the theme manager changes a theme's palette:
@@ -177,7 +175,7 @@ For any given node, the effective color is determined by:
 ### When `Derp.Palette` ComfyUI setting changes:
 
 1. `loadDerpPalette(newPalette)` is called
-2. Sets `window.xcpActivePalette` to the new palette's entries
+2. Sets `window.xcpActivePalette` to the loaded palette document
 3. Sets `window.xcpActivePaletteName`
 4. `window.xcpPaletteCache` is NOT cleared — old palettes remain available for per-node header resolution
 5. All Fatha/Uncle nodes call `applyPalette()` → `handleThemeUpdate()` → re-compiles paint data
@@ -188,9 +186,9 @@ For any given node, the effective color is determined by:
 
 | Variable | Scope | Meaning |
 |----------|-------|---------|
-| `window.xcpActivePalette` | Global | Flattened `@key → [r,g,b,a]` map from the active palette. Used by `resolvePaletteColor()` in `masterPainter.js`. |
+| `window.xcpActivePalette` | Global | Active palette document, usually `{effects, palettes: [...]}`. Some legacy painter code also checks it for direct top-level `@key` arrays. |
 | `window.xcpActivePaletteName` | Global | File name of the active palette (e.g., `"_system/Derp_Default_v01.json"`) |
-| `window.xcpPaletteCache` | Global | `{fileName: {effects, palettes: [...]}}` — full raw data for all loaded palettes. Used by `headerPaletteIdentity.js` for per-node matching. |
+| `window.xcpPaletteCache` | Global | `{fileName: {effects, palettes: [...]}}` — raw loaded palette documents. Used by `headerPaletteIdentity.js` for per-node matching. |
 | `window.xcpDerpPaletteCache` | Global | `{fileName: [...]}` — palette entries array for non-derp nodes (populated by `paletteExtender.js`). Separate from `xcpPaletteCache`. |
 | `node._headerPaletteName` | Per-node | The palette file name this node should use for header colors. Set during `handleThemeUpdate()` from `theme._palette`. |
 | `node.properties.systemPaletteName` | Per-node (theme manager) | The system palette selected in the theme manager dropdown. |
@@ -238,8 +236,8 @@ Default palettes are shipped with the extension in `user/derpNodes/Palettes/_sys
 - The `None` value clears the per-theme `_palette` override. The node will fall through to the global `Derp.Palette` setting. If that's also set, the node will still get palette colors.
 
 ### "Colors are broken/garbled after palette change"
-- The `compileThemeData` cache is keyed by `state::paletteName`. If the palette name didn't change (same file, different contents), the stale cache is served. Force-invalidate by calling `invalidateCompiledThemeCache()` or changing `window.xcpActivePaletteName`.
-- `@key` references that fail silently return the raw string `"@key"` instead of an RGBA array. The painter will try to use this as a color and produce garbage.
+- The `compileThemeData` cache is keyed by `state::paletteName` per theme object. If the palette name did not change but the same theme object remains cached, stale compiled paint data can be served. Force-invalidate by calling `invalidateCompiledThemeCache(themeKeyObject)` or by triggering a normal theme update path that invalidates each theme key.
+- Direct `@key` references that fail silently return the raw string `"@key"` instead of an RGBA array. Fill colors fall back more safely than effect colors; unresolved shadow/stroke/glow values can still produce invalid CSS.
 
 ---
 
@@ -249,7 +247,7 @@ Default palettes are shipped with the extension in `user/derpNodes/Palettes/_sys
 |------|------|
 | `js/herbina/masterPainter.js` | `resolvePaletteColor()`, `compileThemeData()` — where `@key` references are resolved |
 | `js/fatha/helpers/headerPaletteIdentity.js` | Per-node header palette matching and color application |
-| `js/fatha/helpers/fathaThemeRuntime.js` | `handleThemeUpdate()` — sets `_headerPaletteName`, calls `loadDerpPalette()` |
+| `js/fatha/helpers/fathaThemeRuntime.js` | `handleThemeUpdate()` — compiles theme paint data, sets `_headerPaletteName`, calls `loadDerpPalette()` |
 | `js/fatha/fatha.js` | `applyPalette()` — re-applies theme + palette to a node |
 | `js/fatha/bastas/bastaPalette.js` | Palette Manager UI — load, edit, save, preview palettes |
 | `js/fatha/bastas/bastaColorDesigner.js` | Color picker for editing individual palette entries |
@@ -268,7 +266,7 @@ Default palettes are shipped with the extension in `user/derpNodes/Palettes/_sys
 ## Maintenance Notes
 
 - When adding a new node type that needs distinct header colors, add a `header_<NodeType>` entry to the palette file AND verify the aliases in `buildHeaderPaletteAliases()` match.
-- When changing how `@key` references work, update `resolvePaletteColor()` in `masterPainter.js` AND this document.
+- When changing how `@key` references work, update `resolvePaletteColor()` in `masterPainter.js`, color-key text resolution in `widgetsUtils.js`, and this document.
 - When changing the palette file format, update `bastaPalette.js` hydration logic AND the palette files in `user/derpNodes/Palettes/_system/`.
 - The `Derp.Palette` ComfyUI setting must be registered in the extension setup — if it's missing, `loadDerpPalette()` will never be called on startup.
 - `window.xcpDerpPaletteCache` and `window.xcpPaletteCache` are two different caches. Do not merge them — they serve different consumers (non-derp context menu vs. derp node rendering).
