@@ -293,12 +293,60 @@ For any given node, the effective color is determined by:
 
 ## The `paletteExtender.js` (Non-Derp Nodes)
 
-`paletteExtender` adds an "Apply Derp Palette" submenu to ALL non-Fatha, non-Uncle nodes via LiteGraph's native context menu. It is completely separate from the derp node palette system:
+`paletteExtender` is retained in the workspace for reference, but its `app.registerExtension(...)` block is intentionally commented out and it no longer registers itself with ComfyUI. Default-node palette application is moving to explicit utility-node flows such as `derpSwatch` instead of a global context menu extender.
+
+Historical behavior, when enabled:
 
 - Pre-fetches all palettes into `window.xcpDerpPaletteCache` at startup
 - Applies palette colors to `node.color` and `node.bgcolor` (LiteGraph's native properties)
 - Stores the selection in `node.properties._lastDerpPalette`
 - **Intentionally skips Fatha/Uncle nodes** — those get palette colors through the theme resolution chain, not through this extender
+
+---
+
+## Node 2.0 Changeable Elements (Default ComfyUI Nodes)
+
+Node 2.0/Vue-rendered default nodes expose more colorable surfaces than legacy LiteGraph nodes, but they do not all use the same mechanism. Header and body colors remain per-node LiteGraph properties, while most additional Node 2.0 surfaces are design-system CSS tokens.
+
+### Per-node LiteGraph Properties
+
+These can be changed per default node and are the safest fit for palette swatch application:
+
+| Element | Control | Notes |
+|---------|---------|-------|
+| Header shell / title bar background | `node.color` | Used by default-node palette application paths such as `paletteExtender.js`. |
+| Body background | `node.bgcolor` | Also maps into the Node 2.0 body background surface. |
+
+### Node 2.0 CSS Token Surfaces
+
+These are changeable through CSS variable overrides. Treat them as theme/global Node 2.0 controls unless a scoped per-node DOM strategy is deliberately implemented later.
+
+| Element | CSS token | Observed impact |
+|---------|-----------|-----------------|
+| Node border | `--node-component-border` | Normal Node 2.0 node border. |
+| Selected / focus outline | `--node-component-outline` | Selection, focus, and state outline styling. |
+| Executing outline | `--node-stroke-executing` | Node execution/running outline color. |
+| Header text | `--node-component-header` | Node title text color. |
+| Header icon | `--node-component-header-icon` | Header icon color. |
+| Slot text | `--node-component-slot-text` | Input/output slot label text color. |
+| Widget background | `--component-node-widget-background` | Default widget background. |
+| Widget hovered background | `--component-node-widget-background-hovered` | Widget hover state background. |
+| Widget selected background | `--component-node-widget-background-selected` | Widget selected state background. |
+| Widget disabled background | `--component-node-widget-background-disabled` | Disabled widget background. |
+| Widget highlighted background | `--component-node-widget-background-highlighted` | Highlighted widget background. |
+| Promoted widget marker/background | `--component-node-widget-promoted` | Promoted widget visual marker/background. |
+| Advanced widget marker/background | `--component-node-widget-advanced` | Advanced widget visual marker/background. |
+
+### Implementation Guidance
+
+Do not assume all Node 2.0 colors belong in one palette entry. The cleaner split is:
+
+| Layer | Intended scope | Recommended use |
+|-------|----------------|-----------------|
+| Swatch entry layer | Per default node | Apply `main._ON` / `main._OFF` to `node.color` / `node.bgcolor`. |
+| Node 2.0 token layer | Theme/global, or explicitly scoped DOM override | Control borders, outlines, header text/icons, slot text, widget backgrounds, and node state colors. |
+
+Slot-type colors are still separate from these Node 2.0 component tokens and should continue to be treated as Comfy palette `node_slot` colors unless Derp intentionally adds its own mapping layer.
 
 ---
 

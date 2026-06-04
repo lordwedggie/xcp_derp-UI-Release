@@ -12,7 +12,9 @@ function isVueNodesMode() {
     return !!(typeof LiteGraph !== "undefined" && LiteGraph.vueNodesMode);
 }
 
-app.registerExtension({
+// Retained for reference, but no longer registered. derpSwatch now covers
+// default-node palette application without adding a global context menu extender.
+/* app.registerExtension({
     name: "xcp.PaletteExtender",
 
     // THE LIFECYCLE FIX: Pre-fetch palettes on UI load to avoid async event wiping
@@ -124,4 +126,4 @@ app.registerExtension({
             });
         };
     }
-});
+}); */

@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file.
 - **Canvas Color Palettes**: ComfyUI's Color Palette system, now with easier loading — just pick a profile and go. Two default profiles included. No more spelunking through nested menus just to change the damn grid color.
 - **DerpNodes is now compatible with Node 2.0**: Full compatibility with ComfyUI's Vue-based Node 2.0 rendering — DOM shields, event pass-through, and native shell suppression all adapted for the new architecture.
 - **Multi-Color-Key Text Framework**: Every widget now supports `{{keyName}}` syntax in text strings for per-segment color from themes or palettes. Extended syntax supports `{{key:_ON::displayText}}` for state-specific coloring with custom display text. Framework-level — all widgets inherit automatically via `resolveWidgetEnv`.
+- **New node derpSwatch**: Drag-and-drop palette colors directly onto any default ComfyUI node to apply them. Replaces the old `paletteExtender` context menu approach — `paletteExtender` is now disabled and no longer registered.
 - **Two-color trigger display in derpLoraStack**: Trigger names render in `_ON` state colors, trigger tags in `_OFF` state colors, both in the collapsed trigger and the picker dropdown.
 - **bastaSystemMessage color-key support**: System messages now detect `{{...}}` in message text and render colored segments via `colorSegmentsToHTML`.
 

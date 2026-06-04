@@ -17,12 +17,78 @@ let _screenMouseY = -1000;
 window.addEventListener("pointermove", (e) => {
     _screenMouseX = e.clientX;
     _screenMouseY = e.clientY;
+    updateColorDragGhost();
 });
 
 // --- GLOBAL DRAG STATE ---
 if (!window._derpColorDrag) {
     window._derpColorDrag = { active: false, startTime: 0, lastEndTime: 0, color: null, sourceSuffix: null, sourceNodeId: null, sourceRegionKey: null };
 }
+if (!window._derpColorDragFallbacks) window._derpColorDragFallbacks = new Set();
+
+function dispatchColorDragFallback(payload) {
+    let handled = false;
+    for (const handler of window._derpColorDragFallbacks || []) {
+        if (typeof handler === "function" && handler(payload)) handled = true;
+    }
+    if (!handled && typeof window._derpColorDrag?.onFallbackDrop === "function") {
+        window._derpColorDrag.onFallbackDrop(payload);
+    }
+}
+
+function colorArrayToCss(color, fallback = "rgba(0,0,0,0)") {
+    if (!Array.isArray(color)) return fallback;
+    return `rgba(${color[0]},${color[1]},${color[2]},${color[3]})`;
+}
+
+function ensureColorDragGhost() {
+    let ghost = document.getElementById("derp-color-drag-ghost");
+    if (!ghost) {
+        ghost = document.createElement("div");
+        ghost.id = "derp-color-drag-ghost";
+        ghost.style.position = "fixed";
+        ghost.style.pointerEvents = "none";
+        ghost.style.zIndex = "2147483647";
+        ghost.style.border = "2px solid rgba(255,255,255,0.9)";
+        ghost.style.boxShadow = "0 4px 12px rgba(0,0,0,0.45)";
+        ghost.style.borderRadius = "4px";
+        ghost.style.opacity = "0";
+        ghost.style.transform = "translate(-50%, -50%)";
+        document.body.appendChild(ghost);
+    }
+    return ghost;
+}
+
+function updateColorDragGhost() {
+    const drag = window._derpColorDrag;
+    const ghost = document.getElementById("derp-color-drag-ghost");
+    if (!drag?.active || drag.ghostMode !== "comfySwatch") {
+        if (ghost) ghost.style.opacity = "0";
+        return;
+    }
+    const el = ensureColorDragGhost();
+    const on = colorArrayToCss(drag.ghostOn || drag.color);
+    const off = colorArrayToCss(drag.ghostOff || drag.color);
+    el.style.width = `${drag.ghostW || 64}px`;
+    el.style.height = `${drag.ghostH || 18}px`;
+    el.style.background = `linear-gradient(90deg, ${on} 0%, ${on} 50%, ${off} 50%, ${off} 100%)`;
+    el.style.left = `${_screenMouseX}px`;
+    el.style.top = `${_screenMouseY}px`;
+    el.style.opacity = Date.now() - (drag.startTime || 0) >= 150 ? "0.95" : "0";
+}
+
+function clearColorDragGhost() {
+    const ghost = document.getElementById("derp-color-drag-ghost");
+    if (ghost) ghost.style.opacity = "0";
+}
+
+window.addEventListener("pointerup", (e) => {
+    _screenMouseX = e.clientX;
+    _screenMouseY = e.clientY;
+    const drag = window._derpColorDrag;
+    if (!drag?.active || typeof drag.finishDrag !== "function") return;
+    drag.finishDrag(e);
+}, true);
 
 // --- CONFIGURATION ---
 const STROKE_COLOR_A = [255, 255, 255, 0.9]; // Pure White
@@ -105,6 +171,7 @@ export function syncColorKeyEdit(ctx, node, config) {
     const kDIS = sfx ? `${sfx}_DIS` : "_DIS";
     const kLockL = sfx ? `${sfx}_lockL` : "_lockL";
     const kLockR = sfx ? `${sfx}_lockR` : "_lockR";
+    const isComfySwatch = config.mode === "comfySwatch";
 
     // THE HYBRID FIX: Transparently route flat keys to nested palette objects
     const resolveVal = (key) => {
@@ -143,8 +210,8 @@ export function syncColorKeyEdit(ctx, node, config) {
 
     // 4. Compute Grid (Separated by sH gap)
     const lMap = node.layoutMap || {};
-    const gap = lMap.sH || 2;
-    const sW = (width - (gap * 2)) / 3;
+    const gap = isComfySwatch ? 0 : (lMap.sH || 2);
+    const sW = isComfySwatch ? (width / 2) : ((width - (gap * 2)) / 3);
 
     const xON  = x;
     const xOFF = xON + sW + gap;
@@ -168,11 +235,11 @@ export function syncColorKeyEdit(ctx, node, config) {
 
     const vON  = (cdState.isVisible) ? (isEditingThisWidget && checkState(kON)) : hitTest(xON, y, sW, height);
     const vOFF = (cdState.isVisible) ? (isEditingThisWidget && checkState(kOFF)) : hitTest(xOFF, y, sW, height);
-    const vDIS = (cdState.isVisible) ? (isEditingThisWidget && checkState(kDIS)) : hitTest(xDIS, y, sW, height);
+    const vDIS = !isComfySwatch && ((cdState.isVisible) ? (isEditingThisWidget && checkState(kDIS)) : hitTest(xDIS, y, sW, height));
 
     const hON  = !cdState.isVisible && hitTest(xON, y, sW, height);
     const hOFF = !cdState.isVisible && hitTest(xOFF, y, sW, height);
-    const hDIS = !cdState.isVisible && hitTest(xDIS, y, sW, height);
+    const hDIS = !isComfySwatch && !cdState.isVisible && hitTest(xDIS, y, sW, height);
 
     // 7. Draw Main Segments
     const drawSeg = (sx, sy, sw, sh, corners, rgba, isHover) => {
@@ -226,14 +293,18 @@ export function syncColorKeyEdit(ctx, node, config) {
     };
 
     // Draw buttons with separate rounding
-    drawSeg(xON, y, sW, height, [2, 2, 2, 2], resolveVal(kON), hON);
-    drawSeg(xOFF, y, sW, height, [2, 2, 2, 2], resolveVal(kOFF), hOFF);
-    drawSeg(xDIS, y, sW, height, [2, 2, 2, 2], resolveVal(kDIS), hDIS);
+    drawSeg(xON, y, sW, height, isComfySwatch ? [2, 0, 0, 2] : [2, 2, 2, 2], resolveVal(kON), hON);
+    drawSeg(xOFF, y, sW, height, isComfySwatch ? [0, 2, 2, 0] : [2, 2, 2, 2], resolveVal(kOFF), hOFF);
+    if (!isComfySwatch) drawSeg(xDIS, y, sW, height, [2, 2, 2, 2], resolveVal(kDIS), hDIS);
 
     // 8. Draw Inner Strokes
-    if (vON) drawInnerStroke(xON, y, sW, height, [2, 2, 2, 2], currentStrokeColor);
-    if (vOFF) drawInnerStroke(xOFF, y, sW, height, [2, 2, 2, 2], currentStrokeColor);
-    if (vDIS) drawInnerStroke(xDIS, y, sW, height, [2, 2, 2, 2], currentStrokeColor);
+    if (isComfySwatch) {
+        if (vON || vOFF) drawInnerStroke(x, y, width, height, [2, 2, 2, 2], currentStrokeColor);
+    } else {
+        if (vON) drawInnerStroke(xON, y, sW, height, [2, 2, 2, 2], currentStrokeColor);
+        if (vOFF) drawInnerStroke(xOFF, y, sW, height, [2, 2, 2, 2], currentStrokeColor);
+        if (vDIS) drawInnerStroke(xDIS, y, sW, height, [2, 2, 2, 2], currentStrokeColor);
+    }
 
     // 10. Interaction Handler
 // --- 10. Interaction Handler (RECALIBRATED FOR SEPARATED LAYOUT) ---
@@ -248,6 +319,7 @@ export function syncColorKeyEdit(ctx, node, config) {
 
             // THE STICKY DRAG FIX: Clear drag state on click to prevent the color from getting stuck
             if (window._derpColorDrag) window._derpColorDrag.active = false;
+            clearColorDragGhost();
 
             // 1. Safety Guard: Use physical geometry, as layout engine strips config.width
             if (width === 0 || height === 0) return;
@@ -274,7 +346,7 @@ export function syncColorKeyEdit(ctx, node, config) {
             else if (isHit(xOFF, y, sW, height)) {
                 if (config.onColorClick) config.onColorClick("_OFF", kOFF);
             }
-            else if (isHit(xDIS, y, sW, height)) {
+            else if (!isComfySwatch && isHit(xDIS, y, sW, height)) {
                 if (config.onColorClick) config.onColorClick("_DIS", kDIS);
             }
 
@@ -312,7 +384,7 @@ export function syncColorKeyEdit(ctx, node, config) {
             let sourceSuffix = null;
             if (isHit(xON, y, sW, height)) sourceSuffix = kON;
             else if (isHit(xOFF, y, sW, height)) sourceSuffix = kOFF;
-            else if (isHit(xDIS, y, sW, height)) sourceSuffix = kDIS;
+            else if (!isComfySwatch && isHit(xDIS, y, sW, height)) sourceSuffix = kDIS;
 
             if (sourceSuffix && colorData[sourceSuffix]) {
                 window._derpColorDrag.active = true;
@@ -321,6 +393,13 @@ export function syncColorKeyEdit(ctx, node, config) {
                 window._derpColorDrag.sourceSuffix = sourceSuffix;
                 window._derpColorDrag.sourceNodeId = node.id;
                 window._derpColorDrag.sourceRegionKey = config.key;
+                window._derpColorDrag.finishDrag = (evt) => persistentReg.onDragEnd?.(evt, null);
+                window._derpColorDrag.ghostMode = isComfySwatch ? "comfySwatch" : null;
+                window._derpColorDrag.ghostOn = isComfySwatch ? [...resolveVal(kON)] : null;
+                window._derpColorDrag.ghostOff = isComfySwatch ? [...resolveVal(kOFF)] : null;
+                window._derpColorDrag.ghostW = width;
+                window._derpColorDrag.ghostH = height;
+                updateColorDragGhost();
             }
         };
 
@@ -336,6 +415,8 @@ export function syncColorKeyEdit(ctx, node, config) {
             // THE DRAG THRESHOLD: Ignore drops that happen too quickly (prevents click confusion)
             if (Date.now() - (window._derpColorDrag.startTime || 0) < 150) {
                 window._derpColorDrag.active = false;
+                window._derpColorDrag.finishDrag = null;
+                clearColorDragGhost();
                 node.setDirtyCanvas(true, true);
                 return;
             }
@@ -343,6 +424,8 @@ export function syncColorKeyEdit(ctx, node, config) {
             const dragColor = window._derpColorDrag.color;
             window._derpColorDrag.active = false;
             window._derpColorDrag.lastEndTime = Date.now(); // THE DEBOUNCE TRACKER
+            window._derpColorDrag.finishDrag = null;
+            clearColorDragGhost();
 
             const ds = canvas.ds;
             const canvasX = (_screenMouseX - canvas.canvas.getBoundingClientRect().left) / ds.scale - ds.offset[0];
@@ -365,6 +448,7 @@ export function syncColorKeyEdit(ctx, node, config) {
             if (targetEntity && targetEntity.layout && targetEntity.themeToEdit && targetEntity._selectedKeyName) {
                 const localX = canvasX - targetEntity.pos[0];
                 const localY = canvasY - targetEntity.pos[1];
+                let droppedOnColorKey = false;
 
                 for (const [key, reg] of Object.entries(targetEntity.layout.regions)) {
                     if (reg.type === "colorKeyEdit" && targetEntity.layout.hitTest([localX, localY], reg)) {
@@ -377,8 +461,9 @@ export function syncColorKeyEdit(ctx, node, config) {
                         const tOFF = tSfx ? `${tSfx}_OFF` : "_OFF";
                         const tDIS = tSfx ? `${tSfx}_DIS` : "_DIS";
                         const tlMap = targetEntity.layoutMap || {};
-                        const tGap = tlMap.sH || 2;
-                        const tSW = (reg.w - (tGap * 2)) / 3;
+                        const tIsComfySwatch = reg.mode === "comfySwatch";
+                        const tGap = tIsComfySwatch ? 0 : (tlMap.sH || 2);
+                        const tSW = tIsComfySwatch ? (reg.w / 2) : ((reg.w - (tGap * 2)) / 3);
 
                         const txON  = reg.x;
                         const txOFF = txON + tSW + tGap;
@@ -389,9 +474,10 @@ export function syncColorKeyEdit(ctx, node, config) {
                         let dropSuffix = null;
                         if (isHitSeg(txON)) dropSuffix = tON;
                         else if (isHitSeg(txOFF)) dropSuffix = tOFF;
-                        else if (isHitSeg(txDIS)) dropSuffix = tDIS;
+                        else if (!tIsComfySwatch && isHitSeg(txDIS)) dropSuffix = tDIS;
 
                         if (dropSuffix && tTheme[tKey]) {
+                            droppedOnColorKey = true;
                             const targetData = tTheme[tKey];
                             const isSwap = e && e.shiftKey;
 
@@ -415,7 +501,7 @@ export function syncColorKeyEdit(ctx, node, config) {
                                     targetData[b][s] = [...dragColor];
                                     dropAssigned = true;
                                 } else if (!b && targetData.main && typeof targetData.main === 'object' && !Array.isArray(targetData.main)) {
-                                    targetData.main[suffix] = [...dragColor];
+                                    targetData.main[s] = [...dragColor];
                                     dropAssigned = true;
                                 }
                             }
@@ -471,12 +557,34 @@ export function syncColorKeyEdit(ctx, node, config) {
                         break;
                     }
                 }
+
+                if (!droppedOnColorKey) {
+                    dispatchColorDragFallback({
+                        canvasX,
+                        canvasY,
+                        event: e,
+                        dragColor,
+                        sourceNodeId: window._derpColorDrag.sourceNodeId,
+                        sourceRegionKey: window._derpColorDrag.sourceRegionKey,
+                        sourceSuffix: window._derpColorDrag.sourceSuffix,
+                    });
+                }
+            } else {
+                dispatchColorDragFallback({
+                    canvasX,
+                    canvasY,
+                    event: e,
+                    dragColor,
+                    sourceNodeId: window._derpColorDrag.sourceNodeId,
+                    sourceRegionKey: window._derpColorDrag.sourceRegionKey,
+                    sourceSuffix: window._derpColorDrag.sourceSuffix,
+                });
             }
             node.setDirtyCanvas(true, true);
         };
     }
 
-    if (window._derpColorDrag && window._derpColorDrag.active && window._derpColorDrag.sourceNodeId === node.id && config.key === window._derpColorDrag.sourceRegionKey) {
+    if (window._derpColorDrag && window._derpColorDrag.active && window._derpColorDrag.ghostMode !== "comfySwatch" && window._derpColorDrag.sourceNodeId === node.id && config.key === window._derpColorDrag.sourceRegionKey) {
         // THE GHOST DELAY: Only show the dragging color once the hold duration exceeds the threshold
         if (Date.now() - (window._derpColorDrag.startTime || 0) < 150) return;
 

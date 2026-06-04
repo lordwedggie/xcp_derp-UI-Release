@@ -5,6 +5,8 @@
 import { app } from "../../../scripts/app.js";
 import { fatha, initDerpGlobalListener } from "../fatha/fatha.js";
 
+const SWATCH_REGION_PREFIX = "swatchColor_";
+
 function tLocale(key, fallback = key) {
     if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
     const path = key.substring(1).split(".");
@@ -36,21 +38,19 @@ function toRgba(value, fallback = "rgba(0,0,0,0)") {
     return `rgba(${r}, ${g}, ${b}, ${a})`;
 }
 
-function resolveGraphPointer(event) {
-    const canvas = app.canvas;
-    const rect = canvas?.canvas?.getBoundingClientRect?.();
-    const ds = canvas?.ds;
-    if (!rect || !ds || !event) return null;
-    return [
-        (event.clientX - rect.left) / ds.scale - ds.offset[0],
-        (event.clientY - rect.top) / ds.scale - ds.offset[1],
-    ];
-}
-
-function findDefaultNodeAtPointer(sourceNode, event) {
-    const pointer = resolveGraphPointer(event);
+function findDefaultNodeAtPointer(sourceNode, pointer) {
     const nodes = app.graph?._nodes || [];
     if (!pointer || !nodes.length) return null;
+    const [px, py] = pointer;
+
+    if (typeof app.graph?.getNodeOnPos === "function") {
+        try {
+            const picked = app.graph.getNodeOnPos(px, py, nodes, 0);
+            if (picked && picked !== sourceNode && !picked.isFathaNode && !picked.isUncleNode) return picked;
+        } catch (err) {
+            console.warn("[derpSwatch] graph.getNodeOnPos failed", err);
+        }
+    }
 
     for (let i = nodes.length - 1; i >= 0; i -= 1) {
         const node = nodes[i];
@@ -60,9 +60,8 @@ function findDefaultNodeAtPointer(sourceNode, event) {
 
         const [x, y] = node.pos;
         const [w, h] = node.size;
-        if (pointer[0] >= x && pointer[0] <= x + w && pointer[1] >= y && pointer[1] <= y + h) {
-            return node;
-        }
+        const hit = px >= x && px <= x + w && py >= y && py <= y + h;
+        if (hit) return node;
     }
 
     return null;
@@ -86,6 +85,43 @@ function buildEntryList(node) {
         });
     }
     return entries;
+}
+
+function cloneColor(value, fallback = [0, 0, 0, 1]) {
+    return Array.isArray(value) ? [...value] : [...fallback];
+}
+
+function getSwatchTheme(node) {
+    node._derpSwatchTheme = node._derpSwatchTheme || {};
+    return node._derpSwatchTheme;
+}
+
+function getEntryFromSourceRegion(sourceNodeId, sourceRegionKey) {
+    if (!sourceRegionKey || !sourceRegionKey.startsWith(SWATCH_REGION_PREFIX)) return null;
+    const node = (app.graph?._nodes || []).find((candidate) => candidate?.id === sourceNodeId);
+    if (!node) return null;
+    const index = Number(sourceRegionKey.substring(SWATCH_REGION_PREFIX.length));
+    const entry = buildEntryList(node)[index];
+    return entry ? { node, entry } : null;
+}
+
+function syncSwatchTheme(node, entries) {
+    const theme = getSwatchTheme(node);
+    for (let i = 0; i < entries.length; i += 1) {
+        const entry = entries[i];
+        theme[`entry_${i}`] = {
+            _ON: cloneColor(entry.on),
+            _OFF: cloneColor(entry.off, entry.on),
+            _DIS: cloneColor(entry.dis || entry.off || entry.on),
+            _lockL: false,
+            _lockR: false,
+        };
+    }
+    for (const key of Object.keys(theme)) {
+        const index = Number(key.replace(/^entry_/, ""));
+        if (!Number.isInteger(index) || index < 0 || index >= entries.length) delete theme[key];
+    }
+    return theme;
 }
 
 function applySwatchToNode(targetNode, node, entry) {
@@ -143,30 +179,28 @@ async function loadPaletteFile(node, value) {
     }
 }
 
-function startSwatchDrag(node, entry) {
-    node._derpSwatchDrag = { entry, startTime: Date.now() };
-    node.setDirtyCanvas?.(true, true);
-}
-
-function endSwatchDrag(node, event) {
-    const drag = node._derpSwatchDrag;
-    node._derpSwatchDrag = null;
-    if (!drag?.entry || Date.now() - (drag.startTime || 0) < 100) return;
-
-    const targetNode = findDefaultNodeAtPointer(node, event);
-    if (applySwatchToNode(targetNode, node, drag.entry)) {
-        node._derpSwatchLastDrop = `${drag.entry.name} -> ${targetNode.title || targetNode.type || targetNode.id}`;
+function handleSwatchFallbackDrop(payload) {
+    const source = getEntryFromSourceRegion(payload?.sourceNodeId, payload?.sourceRegionKey);
+    if (!source) return false;
+    const targetNode = findDefaultNodeAtPointer(source.node, [payload.canvasX, payload.canvasY]);
+    if (applySwatchToNode(targetNode, source.node, source.entry)) {
+        source.node._derpSwatchLastDrop = `${source.entry.name} -> ${targetNode.title || targetNode.type || targetNode.id}`;
     } else {
-        node._derpSwatchLastDrop = tLocale("$derp_swatch.no_target", "No default node target");
+        source.node._derpSwatchLastDrop = tLocale("$derp_swatch.no_target", "No default node target");
     }
-    node.refreshNodeLayoutMap?.();
-    node.requestDerpSync?.();
+    source.node._layoutMapHash = null;
+    source.node.refreshNodeLayoutMap?.();
+    source.node.requestDerpSync?.();
+    source.node.setDirtyCanvas?.(true, true);
+    return true;
 }
 
 app.registerExtension({
     name: "xcp.derpSwatch_Extension",
     async setup() {
         initDerpGlobalListener();
+        window._derpColorDragFallbacks = window._derpColorDragFallbacks || new Set();
+        window._derpColorDragFallbacks.add(handleSwatchFallbackDrop);
     },
 
     async beforeRegisterNodeDef(nodeType, nodeData) {
@@ -196,6 +230,7 @@ app.registerExtension({
 
             const { mW, mH, sW, oY, pW, pH } = this.getDerpVars(this);
             const entries = buildEntryList(this).slice(0, 24);
+            const swatchTheme = syncSwatchTheme(this, entries);
             const fileItems = this._derpSwatchPaletteFiles || [];
             const hash = [
                 this.properties.paletteFile || "",
@@ -214,54 +249,37 @@ app.registerExtension({
 
             const swatchRows = entries.reduce((acc, entry, index) => {
                 const rowKey = `swatchRow_${index}`;
-                const label = entry.name;
                 acc[rowKey] = {
+                    type: this.UI_TYPES.REGION,
+                    themeKey: "panel",
                     dir: "row",
                     width: "full",
                     height: "auto",
                     spacing: [sW, 0],
                     margin: [0, 0, 0, mH],
+                    hoverEffect: true,
+                    regionOffset: [0, 0],
                     [`label_${index}`]: {
                         type: this.UI_TYPES.TEXT,
-                        text: label,
-                        themeKey: "t_textSmall",
+                        mouseOver: false,
+                        skipBackground: true,
+                        cutoff: true,
+                        text: entry.name,
+                        themeKey: "button, t_textSmall",
                         width: "full",
                         height: "auto",
                         padding: [pW, pH],
                     },
-                    [`on_${index}`]: {
-                        type: this.UI_TYPES.REGION,
-                        themeKey: "button",
-                        btnColor: toRgba(entry.on),
-                        width: 18,
-                        height: "fill",
-                        hoverEffect: true,
-                        onDragStart: () => startSwatchDrag(this, entry),
-                        onDrag: () => this.setDirtyCanvas?.(true, true),
-                        onDragEnd: (event) => endSwatchDrag(this, event),
-                    },
-                    [`off_${index}`]: {
-                        type: this.UI_TYPES.REGION,
-                        themeKey: "button",
-                        btnColor: toRgba(entry.off),
-                        width: 18,
-                        height: "fill",
-                        hoverEffect: true,
-                        onDragStart: () => startSwatchDrag(this, entry),
-                        onDrag: () => this.setDirtyCanvas?.(true, true),
-                        onDragEnd: (event) => endSwatchDrag(this, event),
-                    },
-                    [`dis_${index}`]: {
-                        type: this.UI_TYPES.REGION,
-                        themeKey: "button",
-                        btnColor: toRgba(entry.dis || entry.off),
-                        width: 18,
-                        height: "fill",
-                        alpha: entry.dis ? 1 : 0.35,
-                        hoverEffect: true,
-                        onDragStart: () => startSwatchDrag(this, entry),
-                        onDrag: () => this.setDirtyCanvas?.(true, true),
-                        onDragEnd: (event) => endSwatchDrag(this, event),
+                    [`${SWATCH_REGION_PREFIX}${index}`]: {
+                        type: this.UI_TYPES.COLORKEYEDIT,
+                        key: `${SWATCH_REGION_PREFIX}${index}`,
+                        themeKey: "button, t_textSmall",
+                        themeToEdit: swatchTheme,
+                        _selectedKeyName: `entry_${index}`,
+                        mode: "comfySwatch",
+                        width: 64,
+                        height: 18,
+                        onColorClick: () => {},
                     },
                 };
                 return acc;
