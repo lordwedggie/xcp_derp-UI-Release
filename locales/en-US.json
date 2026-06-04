@@ -109,6 +109,20 @@
       "false": "FALSE"
     }
   },
+  "derp_swatch": {
+    "title": "Derp Swatch",
+    "entry": "Entry",
+    "hint": "Drag a swatch onto a default ComfyUI node.",
+    "empty": "Select a palette with main entries.",
+    "no_target": "No default node target",
+    "browser": {
+      "root": "Palettes",
+      "select": "Select palette"
+    },
+    "system": {
+      "properties": "Derp Swatch properties:"
+    }
+  },
   "derp_vae_loader": {
     "title": "Derp Vae Loader",
     "port": {

@@ -57,6 +57,7 @@ Current UI pattern:
 | `derpVaeLoader.js` | `core/derpVaeLoader_core.js` | VAE loader |
 | `derpImageDeck.js` | `core/derpImageDeck_core.js` | Image deck/gallery |
 | `derpLatent.js` | — | Latent image node |
+| `derpSwatch.js` | — | Palette swatch drag/drop utility for default ComfyUI nodes |
 
 ### Controldeck Helpers
 | File | Role |
@@ -127,6 +128,13 @@ if (this._layoutMapHash === structureHash && this.layoutMap) {
 - Update locale JSON when adding user-visible text.
 - Add or refresh `_layoutMapHash` guards for structural layout rebuilds.
 - Check passive whole-wall cache keys if the node uses full-panel caching or changes visual state outside the normal layout map.
+
+## Palette Swatch Utility
+- `derpSwatch.js` is a Fatha utility node with a pure virtual backend shell (`DerpSwatchNode`).
+- It uses an in-node `FILEBROWSER` to select palette files from `/xcp/list/palettes` and `/xcp/load/palettes`.
+- Swatch rows are simple Fatha `REGION` controls with drag handlers; they intentionally do not rely on LiteGraph context menus or browser DOM drop events.
+- On drag end, the pointer is converted to graph coordinates and hit-tested against `app.graph._nodes`; Fatha and Uncle nodes are skipped.
+- Successful drops apply `entry.main._ON` to `node.color`, `entry.main._OFF` to `node.bgcolor`, and persist metadata in `node.properties._lastDerpPalette`.
 
 ## Maintenance Notes
 - Update this document when adding/removing node files, changing node registration patterns, or introducing shared node implementation rules.

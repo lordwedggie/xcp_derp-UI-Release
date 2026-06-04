@@ -109,6 +109,20 @@
       "false": "假"
     }
   },
+  "derp_swatch": {
+    "title": "老登色卡",
+    "entry": "条目",
+    "hint": "将色卡拖到默认 ComfyUI 节点上。",
+    "empty": "请选择包含 main 条目的调色板。",
+    "no_target": "没有默认节点目标",
+    "browser": {
+      "root": "调色板",
+      "select": "选择调色板"
+    },
+    "system": {
+      "properties": "老登色卡属性："
+    }
+  },
   "derp_vae_loader": {
     "title": "老登 VAE 加载器",
     "port": {

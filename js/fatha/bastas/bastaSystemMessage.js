@@ -10,6 +10,7 @@ import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
 import { lerpTo, animateAlpha } from "../../herbina/masterAnimator.js";
 import { MASTER_Z } from "../core/masterZ.js";
 
+const SYSTEM_MESSAGE_GLYPH = "\u{1F51E}\u00A0";
 const SYSTEM_MESSAGE_THEME_NAME = "_System/_bastaSystemMessage";
 const SYSTEM_MESSAGE_ENTRY_OFFSET_Y = 90;
 const SYSTEM_MESSAGE_TARGET_OFFSET_X = 10;
@@ -97,7 +98,7 @@ function getSystemMessageDimensions(themeNode, text, accentText, fixedW, pW, pH,
     const width = fixedW > 0
         ? fixedW
         : Math.ceil(
-            measureTextWidth(String(text || ""), fontSize, fontName, fontWeight)
+            measureTextWidth(SYSTEM_MESSAGE_GLYPH + String(text || ""), fontSize, fontName, fontWeight)
             + measureTextWidth(String(accentText || ""), accentFontSize, accentFontName, accentFontWeight)
         ) + (pW * 2) + 10;
     const height = Math.max(fontSize, accentFontSize) + (pH * 2) + 8;
@@ -315,12 +316,12 @@ function spawnBastaSystemMessage(host, text, duration = 3000, animations = {}, t
     if (hasColorKeys) {
         const { segments } = parseColorKeyText(String(text || ""), themeNode, "_OFF", labelPaint?.textColor || labelPaint?.fill || "rgba(255,255,255,1)");
         if (segments) {
-            label.innerHTML = colorSegmentsToHTML(segments);
+            label.innerHTML = `<span>${SYSTEM_MESSAGE_GLYPH}</span>${colorSegmentsToHTML(segments)}`;
         } else {
             label.innerText = String(text || "");
         }
     } else {
-        prefixEl.innerText = String(text || "");
+        prefixEl.innerText = SYSTEM_MESSAGE_GLYPH + String(text || "");
         accentEl.innerText = String(accentText || "");
         label.appendChild(prefixEl);
         if (accentText) label.appendChild(accentEl);
