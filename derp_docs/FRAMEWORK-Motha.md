@@ -3,10 +3,11 @@
 ## Overview
 Motha manages the theme/palette/effect system for all derp nodes. Themes are JSON objects stored in `ComfyUI/user/derpNodes/Palettes/_system/`. The active theme config lives at `window.xcpDerpThemeConfig`.
 
-**⚠️ PRIVATE MODULE:** `themeManagerV2.js` and `themeManagerV2_core.js` are excluded from public releases. Never publish these files.
+**PRIVATE MODULE:** `themeManagerV2.js` and `themeManagerV2_core.js` are excluded from public releases. Never publish these files.
 
 **Entry point:** `js/motha/themeManagerV2.js` → `themeManagerV2_core.js`
 **Core:** `js/motha/core/`
+**Last reviewed:** 2026-06-04
 
 ## Architecture
 
@@ -83,6 +84,7 @@ Each theme key has:
 - Per-node `_palette` key in theme JSON: node-specific palette override
 - `headerPaletteIdentity.js` handles per-node palette identity resolution
 - `bastaPalette.js` provides palette selection UI (Basta panel)
+- The system palette dropdown supports an explicit `None` item that clears `_palette`/`systemPaletteName` with an empty string value.
 
 ## Key Functions (themeManagerV2_core.js)
 - `getThemeManagerSystemTheme(node, cfg)` — resolve active theme with fallback chain
@@ -91,3 +93,8 @@ Each theme key has:
 - `safeClick(fn)` — 300ms debounce wrapper
 - `playSuccessSound()` — sound feedback on theme operations
 - `THEME_META_KEYS` — Set of `["_category", "_layout", "_palette"]`
+
+## Maintenance Notes
+- Any user-visible theme manager text should use locale keys rather than permanent hard-coded strings.
+- When changing palette dropdown behavior, check `themeManagerV2.js`, `themeManager_paletteUtils.js`, `widget_FileBrowser.js`, and FileBrowser helper drawing together.
+- Keep private-module release exclusions in mind before public release work.

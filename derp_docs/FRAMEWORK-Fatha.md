@@ -4,7 +4,7 @@
 Fatha is the master orchestration layer that hijacks ComfyUI's native LiteGraph render pipeline and replaces it with a custom layout/rendering/docking system. Every derp node registers through `fatha()` or `uncle()` and becomes a `isFathaNode` / `isUncleNode`.
 
 **Entry point:** `js/fatha/fatha.js`
-**Lines:** ~857
+**Last reviewed:** 2026-06-04
 
 ## Architecture Layers
 
@@ -49,6 +49,7 @@ Every frame:
 | `core/fathaHandler.js` | Node lifecycle: shield interaction routing, draw CTX dispatch, theme update, global listener init, `getDerpVars()`, sync, compute size, collapse anim, deck preview. |
 | `core/fathaDOMshield.js` | DOM overlay creation/sync/removal. Creates an interaction shield `<div>` over the node canvas for mouse events. |
 | `core/fathaWarp.js` | Warp/drag/movement helpers. `ensureScreenRectVisible()`, `isWarping()`. |
+| `core/fathaNode2Compat.js` | Compatibility shims for newer ComfyUI/LiteGraph behavior. |
 | `core/fathaNodeResize.js` | Node resize handling. |
 | `core/dockDrag.js` | Drag logic for docking. |
 | `core/dockResize.js` | Resize logic for docked stacks. |
@@ -56,6 +57,7 @@ Every frame:
 | `core/dockDimensions.js` | Dock dimension calculations. |
 | `core/dockDebugHelpers.js` | Debug logging for docking. |
 | `core/masterLayoutTypes.js` | `UI_TYPES` enum + `COMPONENT_BLUEPRINTS` registry. Maps type strings to Herbina widget creators/syncers. |
+| `core/masterZ.js` | Shared z-index constants and promotion helpers for shields, overlays, and debug layers. |
 
 ### 5. Helpers
 | File | Role |
@@ -85,3 +87,13 @@ A "hybrid" framework combining Fatha's modern engine with legacy node compatibil
 - **Layout Dirty:** `node._layoutDirty = true` triggers layout recompute
 - **Awake Frames:** `node._derpAwakeFrames` countdown for post-interaction animation frames
 - **Visual Press:** Recoil animation via `animateRecoil()` for press feedback
+
+## Docking / Resize Notes
+- Dock behavior is split across `masterDockEngine.js`, `dockDrag.js`, `dockTargetPicking.js`, `dockDimensions.js`, `dockResize.js`, and `fathaNodeResize.js`. Check all of them before changing docking rules.
+- Horizontal stacks support width resize only from outer stack boundaries. Internal shared seams should only expose width resize when both seam nodes are manual-width (`autoWidth === false`).
+- Vertical stack seam height resize should not expose handles when either connected node is collapsed or auto-height.
+- Avoid adding per-node docking hacks. Prefer shared fixes in the dock engine/resizer/shield layers.
+
+## Maintenance Notes
+- Do not trust old line-count comments in framework docs. Verify referenced files directly before editing.
+- When changing Fatha framework behavior, update this document if the change affects render hijack, DOM shield behavior, docking, resize, layout lifecycle, or Uncle compatibility.

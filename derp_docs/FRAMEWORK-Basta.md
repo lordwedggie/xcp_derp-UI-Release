@@ -5,6 +5,7 @@ Basta ("Bastard" Child Framework) is a multi-instance, canvas-native replacement
 
 **Entry point:** `js/fatha/basta.js` (1083 lines)
 **Panels:** `js/fatha/bastas/`
+**Last reviewed:** 2026-06-04
 
 ## Architecture
 
@@ -38,6 +39,7 @@ Basta ("Bastard" Child Framework) is a multi-instance, canvas-native replacement
 | `bastas/bastaToggle.js` | Toggle config panel |
 | `bastas/bastaTriggerWall.js` | Trigger wall config |
 | `bastas/bastaMessage.js` | Message panel |
+| `bastas/core/bastaLoraDetail_core.js` | LoRA detail panel implementation helpers/state logic. |
 
 ## Key Patterns
 
@@ -77,3 +79,8 @@ Nested `imageHTML` regions can have `clipChildren: true`. The clip chain walks p
 - `handleShieldInteraction` routes mouse events from the DOM shield
 - Bastas support the same interaction types as Fatha nodes (press, hover, drag, etc.)
 - `isHostActive(nodeId)` checks if any Basta is hosted by a given node
+
+## Maintenance Notes
+- Avoid creating one-off overlay systems when a Basta panel can use existing layout maps and shield routing.
+- If a Basta affects node visuals, check passive whole-wall cache invalidation in `fatha.js` and the owning node.
+- Update this document when adding/removing panels or changing global Basta lifecycle/registry behavior.

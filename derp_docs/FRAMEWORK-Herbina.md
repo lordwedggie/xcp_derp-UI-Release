@@ -4,7 +4,7 @@
 Herbina is the UI toolkit layer. All visual widgets — buttons, sliders, toggles, labels, file browsers, editors — are defined here. Fatha's `masterLayoutEngine` consumes them via `COMPONENT_BLUEPRINTS` in `masterLayoutTypes.js`.
 
 **Hub:** `js/herbina/masterWidgets.js`
-**Lines:** ~34 (just re-exports)
+**Last reviewed:** 2026-06-04
 
 ## Architecture
 
@@ -49,6 +49,14 @@ Herbina is the UI toolkit layer. All visual widgets — buttons, sliders, toggle
 | `masterSoundEffects.js` | Sound effects. `playKaChing()` and other sound triggers. |
 | `sound_lib/` | Sound asset library |
 
+### Extenders
+| File | Role |
+|------|------|
+| `extenders/paletteExtender.js` | Node context/palette extension behavior. |
+| `extenders/wirelessExtender.js` | Wireless signal extension behavior. |
+| `extenders/bypassExtender.js` | Remote bypass extension behavior. |
+| `extenders/helpers/bypassSignalPicker.js` | Shared bypass signal picker helper. |
+
 ### Utilities
 | File | Role |
 |------|------|
@@ -78,9 +86,18 @@ widgets/
 ├── widget_Trigger.js   — Trigger button
 ├── widget_ImageHTML.js — HTML image display
 └── helpers/
-    ├── fileBrowserHelpers.js   — (NEW, untracked)
-    └── fileBrowserPreview.js   — (NEW, untracked)
+    ├── dropdown_lib.js         — Shared dropdown/picker helper utilities
+    ├── fileBrowserHelpers.js   — FileBrowser state/data helpers
+    ├── fileBrowserDraw.js      — FileBrowser row/breadcrumb/picker drawing helpers
+    └── fileBrowserPreview.js   — FileBrowser preview loading/drawing helpers
 ```
+
+## FileBrowser Notes
+- `widget_FileBrowser.js` remains the main widget entry and orchestration point.
+- Keep pure data/state helpers in `helpers/fileBrowserHelpers.js`.
+- Keep drawing-only helper work in `helpers/fileBrowserDraw.js`.
+- Keep preview/pending state work in `helpers/fileBrowserPreview.js`.
+- For signal selection UIs, prefer `FILEBROWSER` with `mode: "signal"` instead of custom ad-hoc picker panels.
 
 ## ICONBUTTON Canonical Pattern
 ```js
@@ -121,3 +138,7 @@ Rules:
 - Return `{value, isAnimating}` matching the existing pattern
 - Skip lerp and return target + `isAnimating: false` when `useAnim` is false
 - Set `_derpAwakeFrames` only when actually animating
+
+## Maintenance Notes
+- Update this document when widget files are split, new extenders are added, or component blueprint expectations change.
+- Before changing a widget protocol, verify `masterWidgets.js`, `masterLayoutTypes.js`, and the specific widget file together.

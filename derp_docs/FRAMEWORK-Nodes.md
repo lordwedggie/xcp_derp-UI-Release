@@ -5,6 +5,7 @@ Controldeck contains the JS widget implementations for every derp node type. Eac
 
 **Directory:** `js/controldeck/`
 **Core engines:** `js/controldeck/core/` (files suffixed `_core.js`)
+**Last reviewed:** 2026-06-04
 
 ## Signal Out (Wireless Router) — Special
 The signal router lives at the top level rather than in controldeck/:
@@ -25,6 +26,18 @@ The signal router lives at the top level rather than in controldeck/:
 - `manageDerpOutputs()` — create/remove virtual output slots
 - `syncDerpRouterDisplayLabels()` — update display labels with localization
 - `formatDerpRouterSignalLabel()` — format signal label `[id] name [TYPE]`
+
+## Concatenate (String Utility) — Special
+The string concatenate node lives at the top level rather than in `controldeck/`:
+| File | Role |
+|------|------|
+| `js/derpConcatenate.js` | Fatha-compliant string signal display/concatenate UI |
+| `python/derpConcatenate.py` | Backend utility node returning `text_a + text_b` |
+
+Current UI pattern:
+- Uses in-node `FILEBROWSER` with `mode: "signal"` for signal selection.
+- Avoid replacing the primary signal selection flow with header-only wireless selector behavior.
+- Includes loop guards when listing candidate upstream string signals.
 
 ## Node Inventory
 
@@ -82,6 +95,7 @@ this.layoutMap = {
 - `hidden: true` — skip rendering
 - `text: "$locale.key"` — localized string
 - Dynamic regions use computed keys like `outputsRegion_display_0`, `outputsRegion_display_1`
+- New visible strings should use locale keys, not permanent hard-coded display strings.
 
 ## Layout Map Hash
 Nodes compute a `_layoutMapHash` from their structural state to skip rebuilds when nothing changed:
@@ -105,3 +119,15 @@ if (this._layoutMapHash === structureHash && this.layoutMap) {
 - Cache invalidated on: detail panel open, slider interaction, live control interaction
 - `_passiveWholeWallCacheSuspendUntil` — 220ms suspension on slider/press
 - Interaction bindings wrapped via `ensurePassiveCacheInteractionBindings()`
+
+## New Node Checklist
+- Start from `js/derpFathaTemplate.js` for new Fatha node templates.
+- Keep node-specific UI in the node file and reusable logic in `core/*_core.js` only when it is genuinely reusable or large enough to justify the split.
+- Update Python registration if the node needs a backend shell.
+- Update locale JSON when adding user-visible text.
+- Add or refresh `_layoutMapHash` guards for structural layout rebuilds.
+- Check passive whole-wall cache keys if the node uses full-panel caching or changes visual state outside the normal layout map.
+
+## Maintenance Notes
+- Update this document when adding/removing node files, changing node registration patterns, or introducing shared node implementation rules.
+- Before changing a node interaction pattern, verify the corresponding Fatha/Herbina docs and current implementation files.

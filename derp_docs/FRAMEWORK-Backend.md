@@ -5,6 +5,7 @@ The Python layer handles node registration, file serving, API routes, LoRA manag
 
 **Entry point:** `__init__.py`
 **Directory:** `python/` (node implementations), root (server/routes)
+**Last reviewed:** 2026-06-04
 
 ## Node Registration (`__init__.py`)
 Registers all node class mappings and display names into ComfyUI's registry:
@@ -16,6 +17,7 @@ NODE_CLASS_MAPPINGS.update(SEED_V2_NODES)       # from derpSeedV2
 NODE_CLASS_MAPPINGS.update(TEMPLATE_NODES)       # from derpTemplate
 NODE_CLASS_MAPPINGS.update(SIGNAL_OUT_NODES)     # from derpSignalOut
 NODE_CLASS_MAPPINGS.update(CONTROLDECK_NODES)    # from derpControldeck
+NODE_CLASS_MAPPINGS.update(CONCATENATE_NODES)    # from derpConcatenate
 ```
 
 Conditional imports:
@@ -32,7 +34,8 @@ Hard-registered nodes: `DerpImageDeckNode`, `DerpToggleNode` (always in root map
 | `python/derpSeedV2.py` | Seed node |
 | `python/derpStringV3.py` | String node |
 | `python/derpTemplate.py` | Template node |
-| `python/derpThemeManagerV2.py` | ⚠️ PRIVATE — Theme manager Python node |
+| `python/derpThemeManagerV2.py` | PRIVATE — Theme manager Python node |
+| `python/derpConcatenate.py` | String concatenate utility node |
 | `python/signalDictionaryDefault.py` | Signal fallback dictionary |
 
 ## File Server (`xcp_file_server.py`, 184 lines)
@@ -45,18 +48,20 @@ HTTP route wiring for the entire backend API. Uses `safe_post()` / `safe_get()` 
 | `xcp_file_image_routes.py` | Image serving/upload |
 | `xcp_file_json_routes.py` | JSON data endpoints |
 | `xcp_file_prompt_book_routes.py` | Prompt book CRUD |
+| `xcp_version_check.py` | Version/check endpoints |
 | `xcp_file_common.py` | `resolve_case_insensitive_path()` utility |
 | `xcp_file_categories.py` | `get_category_dir()` utility |
 
 ### LoRA Stack API (`xcp_loraStack.py`)
 | Handler | Endpoint |
 |---------|----------|
-| `handle_get_loras` | GET `/xcp/loras` |
+| `handle_get_loras` | GET `/xcp/get_loras` |
 | `handle_check_lora_files` | POST `/xcp/check_lora_files` |
-| `handle_get_lora_info` | GET `/xcp/lora_info` |
-| `handle_get_lora_triggers` | GET `/xcp/lora_triggers` |
-| `handle_get_lora_preview` | GET `/xcp/lora_preview` |
-| `handle_get_lora_image` | GET `/xcp/lora_image` |
+| `handle_get_lora_info` | GET `/xcp/get_lora_info` |
+| `handle_get_lora_triggers` | GET `/xcp/get_lora_triggers` |
+| `handle_get_lora_preview` | GET `/xcp/get_lora_preview` |
+| `handle_get_lora_image` | GET `/xcp/get_lora_image` |
+| `handle_list_lora_images` | GET `/xcp/list_lora_images` |
 | `handle_save_lora_rating` | POST `/xcp/save_lora_rating` |
 | `handle_save_lora_notes` | POST `/xcp/save_lora_notes` |
 | `handle_rename_lora_bundle` | POST `/xcp/rename_lora_bundle` |
@@ -64,10 +69,11 @@ HTTP route wiring for the entire backend API. Uses `safe_post()` / `safe_get()` 
 | `handle_delete_lora_image` | POST `/xcp/delete_lora_image` |
 | `handle_upload_lora_preview` | POST `/xcp/upload_lora_preview` |
 | `handle_set_lora_cover` | POST `/xcp/set_lora_cover` |
-| `handle_open_folder` | POST `/xcp/open_folder` |
-| `handle_save_derpLoraStack` | POST `/xcp/save_derpLoraStack` |
-| `handle_load_derpLoraStack` | POST `/xcp/load_derpLoraStack` |
-| `handle_list_derpLoraStack` | POST `/xcp/list_derpLoraStack` |
+| `handle_open_folder` | GET `/xcp/open_folder` |
+| `handle_save_derpLoraStack` | POST `/xcp/save/derpLoraStack` |
+| `handle_load_derpLoraStack` | GET `/xcp/load/derpLoraStack` |
+| `handle_list_derpLoraStack` | GET `/xcp/list/derpLoraStack` |
+| `load_settings_redirect` | GET `/xcp/load/settings` |
 
 ### Tag Handling (`xcp_tagHandling.py`)
 | Handler | Endpoint |
@@ -75,24 +81,14 @@ HTTP route wiring for the entire backend API. Uses `safe_post()` / `safe_get()` 
 | `handle_import_lora_tags` | POST `/xcp/import_lora_tags` |
 | `handle_manage_lora_tag` | POST `/xcp/manage_lora_tag` |
 
-## Bundled Asset Sync (`bundled_asset_sync.py`, 187 lines)
-Syncs default assets from extension's `user/derpNodes/` to ComfyUI's user directory:
-
-```python
-SYNC_FOLDERS = [
-    "Palettes",
-    "Themes",
-    "derpLoraStack",
-    "derpPromptBook",
-    "derpTriggerWall",
-    "nodeSettings",
-]
-```
+## Bundled Asset Sync (`bundled_asset_sync.py`)
+Syncs default assets from extension's `user/derpNodes/` to ComfyUI's user directory.
 
 - Source: `EXT_ROOT/user/derpNodes/`
 - Dest: `folder_paths.get_user_directory()/derpNodes/`
 - State tracking: `.xcp_sync_state.json` for differential sync
-- System-managed folders (prefixed with `_`) get special handling
+- Sync folders are discovered dynamically from directories under `user/derpNodes/`
+- System-managed folders/files (prefixed with `_`) get special handling
 - Called at startup via `sync_bundled_assets()` in `__init__.__init__.py`
 
 ## Signal System (Python)
@@ -117,3 +113,7 @@ class DerpLoraStackNode:
     def do_nothing(self):
         return (None,)  # Pure virtual — JS handles everything
 ```
+
+## Maintenance Notes
+- Treat this document as a route/register map, not implementation truth. Verify `__init__.py`, `xcp_file_server.py`, and route modules before backend edits.
+- Update this document whenever a Python node module, backend route, or bundled asset sync behavior changes.
