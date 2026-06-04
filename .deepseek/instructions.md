@@ -24,7 +24,7 @@
 
 ## FRAMEWORK Docs (derp_docs/) — MANDATORY READING
 
-**Every session must read ALL six `derp_docs/FRAMEWORK-*.md` files before doing any work.** These are the ground-truth architecture docs:
+**Every session must read ALL seven `derp_docs/FRAMEWORK-*.md` files before doing any work.** These are the ground-truth architecture docs:
 
 | Doc | Covers |
 |-----|--------|
@@ -34,6 +34,7 @@
 | `FRAMEWORK-Motha.md` | Theme system, palette resolution, theme update flow (PRIVATE — never publish) |
 | `FRAMEWORK-Basta.md` | Floating panel system, screen-space rendering, panel lifecycle |
 | `FRAMEWORK-Nodes.md` | Controldeck JS implementations, layout map pattern, node inventory |
+| `FRAMEWORK-ThemePalette.md` | Theme/palette resolution chain, `@key` mechanics, update flow, failure modes, variable reference |
 
 **Maintenance rule:** When a commit changes framework behavior (new widget type, layout engine change, theme resolution change, new Basta panel, etc.), the corresponding `FRAMEWORK-*.md` must be updated in the same commit. These docs are the coordination surface between sessions — stale docs are worse than no docs.
 
