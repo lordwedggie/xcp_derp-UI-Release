@@ -9,7 +9,7 @@ export function getFileBrowserLeafDisplay(value) {
         .replace(/[\\]/g, "/")
         .split("/")
         .pop()
-        .replace(/\.(safetensors|json)$/i, "");
+        .replace(/\.(safetensors|pt|pth|ckpt|bin|gguf|json)$/i, "");
 }
 
 export function stripFileBrowserHTML(value) {
@@ -75,6 +75,19 @@ export function getFileBrowserCurrentDisplay(config, items = [], isDropdownMode 
     }
 
     return getFileBrowserLeafDisplay(selectedValue || getFileBrowserItemValue(items[0]));
+}
+
+export function shouldShowFileBrowserRootName(config) {
+    return config?.showRootName === true;
+}
+
+export function getFileBrowserRootDisplayName(config, mode) {
+    if (!shouldShowFileBrowserRootName(config)) return "";
+    return t(config?.rootName || (mode === "folder" ? "/" : ""));
+}
+
+export function getFileBrowserRootBreadcrumbName(config) {
+    return t(config?.rootBreadcrumbName || "Root");
 }
 
 export function clampPickerScroll(state) {
@@ -208,13 +221,14 @@ export function rebuildFilePickerRows(state, deps) {
 
     const headerRows = [];
     const scrollRows = [];
-    const rootDisplayName = t(config.rootName || (mode === "folder" ? "/" : ""));
+    const rootDisplayName = getFileBrowserRootDisplayName(config, mode);
     let currentPathDisplay = rootDisplayName;
     if (dir && dir !== "/") {
-        const cleanDir = dir.replace(/\.(safetensors|json)$/i, "").replace(/\/$/, "").replace(/\//g, "\\");
+        const cleanDir = dir.replace(/\.(safetensors|pt|pth|ckpt|bin|gguf|json)$/i, "").replace(/\/$/, "").replace(/\//g, "\\");
         const sep = rootDisplayName && rootDisplayName !== "/" ? "\\" : "";
         currentPathDisplay = `${rootDisplayName}${sep}${cleanDir}`;
     }
+    if (!currentPathDisplay) currentPathDisplay = "/";
     headerRows.push({ id: "current", name: currentPathDisplay, type: "select_current", path: dir || "/", hidePrefix: true });
     if (mode !== "folder") {
         alwaysVisibleFiles.forEach((file, idx) => {

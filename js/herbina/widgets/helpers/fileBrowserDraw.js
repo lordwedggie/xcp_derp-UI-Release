@@ -37,7 +37,7 @@ export function drawPickerRow(ctx, state, row, rect, labelPaint, scale, deps = {
     const iconGap = state.prefixGap || 0;
     const iconOffset = (prefixText || row.reservePrefix) ? (normalizedPrefixW + iconGap) : 0;
     const maxTextWidth = Math.max(0, rect.w - (pX * 2) - iconOffset);
-    const rawLabel = row.type === "file" ? row.name.replace(/\.(safetensors|json)$/i, "") : row.name;
+    const rawLabel = row.type === "file" ? row.name.replace(/\.(safetensors|pt|pth|ckpt|bin|gguf|json)$/i, "") : row.name;
     const { segments: pickerSegments, hasColorKeys: pickerHasKeys } = parseColorKeyText(
         rawLabel, state.node, "_OFF", textColor
     );
@@ -98,6 +98,7 @@ export function drawBreadcrumbHeaderRow(ctx, state, row, rect, labelPaint, scale
         snapToScreenGrid = (value) => value,
         breadcrumbPadding = [4, 1],
         breadcrumbTextKey = "t_textSystem",
+        getRootBreadcrumbName = () => "Root",
     } = deps;
 
     const cfg = state.config || {};
@@ -106,10 +107,10 @@ export function drawBreadcrumbHeaderRow(ctx, state, row, rect, labelPaint, scale
         return;
     }
 
-    const rootLabel = String(translate(cfg.rootName || "/") || "/");
+    const rootLabel = String(getRootBreadcrumbName(cfg) || "Root");
     const dir = String(state.currentDir || "").replace(/^\/+|\/+$/g, "");
     const segs = dir ? dir.split("/") : [];
-    const crumbs = [{ label: rootLabel, path: "" }];
+    const crumbs = rootLabel ? [{ label: rootLabel, path: "" }] : [];
     let accum = "";
     for (const seg of segs) {
         accum = accum ? `${accum}/${seg}` : seg;

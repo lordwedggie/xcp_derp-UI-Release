@@ -334,7 +334,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                     indicator: true,
                     minWidth: 50,
                     themeKey: "dialog, t_textSmall",
-                    text: currentPath.split(/[\\/]/).pop() || tLocale("$basta_lora_detail.labels.unknown", "Unknown"),
+                    text: currentPath.split(/[\\/]/).pop().replace(/\.(safetensors|pt|pth|ckpt|bin|gguf)$/i, "") || tLocale("$basta_lora_detail.labels.unknown", "Unknown"),
                     value: currentPath,
                     fileType: "lora",
                     width: "full", height: "auto", padding: [pW, pH], spacing: [sW, 0], margin: [0, 0, 0, 0],

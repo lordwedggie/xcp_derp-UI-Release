@@ -78,7 +78,7 @@ export function syncDerpRegion(ctx, node, config) {
     const useAnim = config.useAnimations !== false && (node.properties?.useAnimations !== false) && frameworkUseAnim !== false && globalUseAnim;
 
     const animKey = `_derpRegion_anim_${config.key}`;
-    const rawBg = config.btnColor || paintData?.fill || "transparent";
+    const rawBg = paintData?.fill || config.btnColor || "transparent";
     const { fillColor, isAnimating } = animateWidgetColors(node, animKey, rawBg, "transparent", sysAlpha, useAnim);
 
     ctx.save();

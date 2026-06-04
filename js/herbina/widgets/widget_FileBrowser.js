@@ -11,6 +11,8 @@
  * - `callbacks.onChange`: Alternate place for the same selection callback if the caller uses nested callbacks.
  * - `mode`: Browser behavior mode. Use `"browser"` for the full file browser flow, `"folder"` for the same navigation flow without search-tab spawn plus explicit folder confirmation, or `"file"` for legacy file-style behavior.
  * - `rootName`: Optional root label shown in the trigger and breadcrumb/current-path header.
+ * - `showRootName`: Set `true` to include `rootName` in trigger/breadcrumb display. Defaults to hidden.
+ * - `rootBreadcrumbName`: Optional label for the root navigation crumb. Defaults to `Root`.
  * - `icon`: Trigger/picker glyph style. Supports mapped names like `folder`, `dropdown`, `palette`, `file`, `settings`.
  * - `indicator`: Controls whether the trigger/current-row indicator glyph is shown. Set false-like values to hide it.
  * - `themeKey`: Main widget theme string. Used for trigger body, picker body, and picker text theme resolution.
@@ -79,7 +81,6 @@ import {
 } from "../utils/widgetsUtils.js";
 import { lerpTo, animateAlpha, animateWidgetColors } from "../masterAnimator.js";
 import { getDerpVars } from "../../fatha/fatha.js";
-import { t } from "../../fatha/core/masterLayoutEngine.js";
 import { ensureScreenRectVisible } from "../../fatha/core/fathaWarp.js";
 import { activeBastas } from "../../fatha/basta.js";
 import { showBastaSearchTab, closeBastaSearchTab, getBastaSearchTabId } from "../../fatha/bastas/bastaSearchTab.js";
@@ -87,6 +88,8 @@ import {
     clampPickerScroll,
     ensurePickerSelectionVisible,
     getFileBrowserCurrentDisplay,
+    getFileBrowserRootBreadcrumbName,
+    getFileBrowserRootDisplayName,
     getFileBrowserItemValue,
     getFileRowPrefix as getFileRowPrefixHelper,
     getPickerScrollMetrics,
@@ -412,6 +415,7 @@ function openFilePicker(config, node) {
         key: config.key,
         node,
         config: { ...config, skipBackground: config.pickerSkipBackground || config.skipBackground },
+        mode,
         _rawConfig: config,
         callbacks: getFileBrowserCallbacks(config),
         glyphs,
@@ -808,7 +812,6 @@ function drawBreadcrumbHeaderRow(ctx, state, row, rect, labelPaint, scale) {
     return drawBreadcrumbHeaderRowHelper(ctx, state, row, rect, labelPaint, scale, {
         drawPickerRow,
         isDropdownFileBrowser,
-        translate: t,
         masterPainter,
         masterPainterText,
         inheritPickerCorners,
@@ -818,6 +821,7 @@ function drawBreadcrumbHeaderRow(ctx, state, row, rect, labelPaint, scale) {
         snapToScreenGrid,
         breadcrumbPadding: PICKER_BREADCRUMB_PADDING,
         breadcrumbTextKey: PICKER_BREADCRUMB_TEXT_KEY,
+        getRootBreadcrumbName: getFileBrowserRootBreadcrumbName,
     });
 }
 
@@ -1091,11 +1095,11 @@ export function syncFileBrowser(context, node, app, config, overlayPass = false)
 
     const dropdownDisplay = getFileBrowserCurrentDisplay(safeConfig, safeConfig.items || [], isDropdownFileBrowser(safeConfig));
     const mode = getFileBrowserMode(safeConfig);
-    const rootDisplayName = getFileBrowserMode(safeConfig) === "signal" ? "" : t(safeConfig.rootName || (mode === "folder" ? "/" : ""));
+    const rootDisplayName = getFileBrowserMode(safeConfig) === "signal" ? "" : getFileBrowserRootDisplayName(safeConfig, mode);
     const isSelection = typeof safeConfig.value === "string" && safeConfig.value !== "/" && (mode === "folder" || (safeConfig.items || []).some((item) => getFileBrowserItemValue(item) === safeConfig.value));
     let currentVal = rootDisplayName;
     if (isSelection) {
-        const cleanPath = safeConfig.value.replace(/\.(safetensors|json)$/i, "").replace(/\/$/, "").replace(/\//g, "\\");
+        const cleanPath = safeConfig.value.replace(/\.(safetensors|pt|pth|ckpt|bin|gguf|json)$/i, "").replace(/\/$/, "").replace(/\//g, "\\");
         const sep = rootDisplayName && rootDisplayName !== "/" ? "\\" : "";
         currentVal = String(safeConfig.icon || "").toLowerCase() === "signal" ? cleanPath : `${rootDisplayName}${sep}${cleanPath}`;
     }
