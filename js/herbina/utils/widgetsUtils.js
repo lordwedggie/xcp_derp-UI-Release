@@ -334,9 +334,9 @@ export function resolvePaintData(node, key, suffix = "", overrideColor = null, p
     // 1. Clone theme data (geometry source: font, fontSize, corners, etc.)
     // If key not found, try to inherit geometry from a fallback theme key
     if (!data) {
-        // Fallback geometry: use t_textSystem for text keys, background for body keys
+        // Fallback geometry: use t_textSystem for text keys, region for body keys
         const isTextKey = key.toLowerCase().includes("text") || key.toLowerCase().includes("tooltip");
-        const fallbackKey = isTextKey ? "t_textSystem" : "background";
+        const fallbackKey = isTextKey ? "t_textSystem" : "region";
         if (fallbackKey !== key) {
             const fallbackFull = `_${fallbackKey}PaintData${suffix}`.toLowerCase();
             const fallbackBase = `_${fallbackKey}PaintData`.toLowerCase();

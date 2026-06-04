@@ -265,7 +265,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
 
     return {
         contentRegion: {
-            themeKey: "background", palette: bgPal,
+            themeKey: "region", palette: bgPal, btnColor: [255, 0, 0, 255],
             anchor: { target: "headerRegion", axis: "y" },
             dir: "col",
             width: "full",
@@ -537,7 +537,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 }
             },
             externalRowBg: {
-                type: UI_TYPES.REGION, themeKey: "background", palette: bgPal, regionOffset: [sW, 0, sW, 0],
+                type: UI_TYPES.REGION, themeKey: "region", palette: bgPal, btnColor: [255, 0, 0, 255], regionOffset: [sW, 0, sW, 0],
                 corners: [0, 0, 2, 2],
                 hidden: !basta._externalReady && !basta._isDerpResizing,
                 spawnAnim: false,
@@ -591,7 +591,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 }
             },
             imageHandlingRegion: {
-                themeKey: "background", palette: bgPal,
+                themeKey: "region", palette: bgPal, btnColor: [255, 0, 0, 255],
                 type: UI_TYPES.REGION, regionOffset: [0, 0, mW + 1, 0], corners: [2, 2, 0, 0],
                 hidden: !hasImages,
                 spawnAnim: false,
@@ -699,7 +699,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 }
             },
             labelRegion: {
-                themeKey: "background", palette: bgPal,
+                themeKey: "region", palette: bgPal, btnColor: [255, 0, 0, 255],
                 type: UI_TYPES.REGION, regionOffset: [0, sH, 0, sH], corners: [0, 0, 0, 0],
                 hidden: !hasImages,
                 spawnAnim: false, alpha: basta._navAlpha,
@@ -731,7 +731,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 }
             },
             triggerControlRow: {
-                themeKey: "background",
+                themeKey: "region", btnColor: [255, 0, 0, 255],
                 anchor: { target: "loraPreview", axis: "y", offset: oY },
                 dir: "row", width: "full", height: "auto", spacing: [sW, 0], margin: [0, 0, 0, sH],
                 btnNew: {
@@ -865,7 +865,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 ...getLoraTriggerEditorProps(host, basta, loraData, currentPath, vars)
             },
             tagImportRow: {
-                themeKey: "background",
+                themeKey: "region", btnColor: [255, 0, 0, 255],
                 anchor: { target: "loraTriggersEditor", axis: "y", offset: oY },
                 dir: "row", width: "full", height: "auto", margin: [0, 0, 0, sH],
                 // THE DYNAMIC TXT DETECTION FIX: Scan the current triggers directly to ensure accurate UI state rather than relying on stale host flags
@@ -950,7 +950,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
         },
 
         footerRegion: {
-            themeKey: "background",
+            themeKey: "region", btnColor: [255, 0, 0, 255],
             anchor: { target: "contentRegion", axis: "y", offset: mH },
             dir: "row", width: "full", margin: [mW, 0, mW, mH],
             labelRating: {

@@ -54,6 +54,100 @@ Palettes are JSON files with an optional `effects` boolean and a `palettes` arra
 
 ---
 
+## Theme Key Reference
+
+Every theme JSON object is a flat dictionary of named keys (e.g., `"canvas"`, `"button"`, `"t_textNormal"`). Each key defines its own fill colors, corners, shadows, strokes, glow, font, and font size. Widgets reference these keys via `themeKey` in their layout map definitions.
+
+Keys fall into two categories: **container keys** (define backgrounds and effects for regions) and **text keys** (define font family, size, and text color). Most widgets use a **compound key** format: `"containerKey, textKey"` (optionally with a third font-size override).
+
+### Container Keys (Required keys for a theme file)
+
+These define the visual surface behind a widget — fill, corners, shadows, strokes, glow.
+
+| Key | Used By |
+|-----|---------|
+| `canvas` | All Fatha/Uncle node bodies. The main node background. |
+| `background` | ❌ Deprecated — removed from all code references (2026-06-04). Was used by `bastaLoraDetail.js` REGION widgets; now uses `region` key with diagnostic red `btnColor` fallback. Safe to delete from theme files. |
+| `dialog` | Mainly used for text editing field, by the EDITOR widget. |
+| `panel` | Mainly used for dropdown menus, by the FILEBROWSER widget. |
+| `button` | Standard interactive buttons — file browser rows, action buttons, LoRA detail buttons. |
+| `buttonNode` | Node header icon buttons — collapse, settings, signal, undock, pin, wireless. |
+| `systemBackground` | System panels and settings overlays (theme manager internal regions, Fatha settings panel). |
+| `systemButton` | System panel icon buttons — save, rename, copy, delete profile. |
+| `region` | Generic `UI_TYPES.REGION` container widgets. Heavily used — 15+ references across loader nodes, LoraStack, TriggerWall, SignalOut, Concatenate. Default for `UI_TYPES.REGION` in `masterLayoutTypes.js`. |
+| `header` | 🆕 Optional — detected at theme load time, not referenced via `themeKey` in layout maps. If present, used to render the node header section separately from the body. If absent, the `canvas` key renders the entire node background including the header area. |
+
+### Text Keys
+
+These define font family, font size, and text color (`_ON` / `_OFF` / `_DIS`). They have no corners, shadows, strokes, or glow — text rendering reads only `font`, `fontSize`, `fontWeight`, and `_ON`/`_OFF`/`_DIS` for color.
+
+| Key | Default Size | Used By |
+|-----|-------------|---------|
+| `t_textBig` | 14px | Node title labels, primary headings |
+| `t_textNormal` | 14px | File browser items, dropdown options, general labels, action buttons |
+| `t_textSmall` | 10px | Secondary labels, file browser row metadata, helper text, Basta panel labels |
+| `t_textSystem` | 12px | System panel labels, Fatha layout toolbar button text, warning/info messages |
+
+### Optional Override Keys (`#` prefix)
+
+Keys prefixed with `#` are optional overrides for specific widget rendering paths. The theme manager's save logic places them at the bottom of the theme key list. If a `#` key exists, the widget uses it instead of its layout map's `themeKey`. If absent, the widget falls back to its normal `themeKey` behavior.
+
+| Key | Overrides |
+|-----|-----------|
+| `#picker` | FILEBROWSER picker rect color. When present, the file browser's selection rectangle uses this key's fill instead of the widget's `themeKey`. |
+| `#picker_hightlight` | FILEBROWSER highlight box color. When present, the hover/keyboard-highlight box uses this key's fill instead of the widget's `themeKey`. |
+
+These are full theme keys with `_ON`/`_OFF`/`_DIS` fills and optional effects (corners, shadow, stroke, glow). They are **not** referenced by layout maps directly — the FILEBROWSER widget detects them at paint time.
+
+### Compound Key Format
+
+When a widget needs both a background and text styling, the `themeKey` uses a comma-separated compound:
+
+```
+"containerKey, textKey"
+```
+
+The layout engine parses this via `parseThemeKey()` in `widgetsUtils.js`. The first segment controls the widget's background surface; the second controls text rendering. An optional third segment overrides `fontSize`.
+
+**Common compounds seen across the codebase:**
+
+| Compound | Where |
+|----------|-------|
+| `"button, t_textNormal"` | Standard action buttons, file browser rows |
+| `"button, t_textSmall"` | Compact buttons, LoRA stack row labels |
+| `"buttonNode, t_textSystem"` | Node header icon buttons |
+| `"dialog, t_textNormal"` | File browser overlays, dropdown popups |
+| `"dialog, t_textSmall"` | Compact dropdowns, Basta message bodies |
+| `"dialog, t_textBig"` | Node title editor |
+| `"dialog, t_textSystem"` | System dropdowns, profile loaders |
+| `"systemButton, t_textSystem"` | System panel action buttons |
+| `"canvas, t_textSmall"` | (rare) small text directly on canvas background |
+
+### Minimal Required Key Set
+
+A theme MUST define at minimum these keys or nothing will render properly:
+
+| Key | Why it's required |
+|-----|-------------------|
+| `canvas` | Every node's body. Without it, nodes are invisible. |
+| `button` | File browsers, dropdowns, action buttons everywhere. Without it, all interactive widgets have no background. |
+| `dialog` | Text input fields (EDITOR widget). Without it, text editors have no background. |
+| `panel` | FILEBROWSER widget dropdowns and floating elements. Without it, file browsers and floating panels have no background. |
+| `t_textNormal` | Most text in the UI — file browser items, dropdowns, button labels. Without it, most text is invisible. |
+| `t_textSmall` | Secondary labels everywhere. Without it, LoRA stack metadata, helper text, Basta labels are invisible. |
+| `t_textBig` | Node titles. Without it, node title bars show no text. |
+| `t_textSystem` | System panel text, header button icons (via `buttonNode, t_textSystem`). Without it, system UI text and header buttons are invisible. |
+| `buttonNode` | Header collapse/settings/signal/undock buttons. Without it, header icon buttons have no background. |
+| `header` | 🆕 Optional — separates header background from node body. If absent, `canvas` covers the whole node. |
+| `systemBackground` | Fatha settings panel, theme manager internal regions. Without it, system panels have no background. |
+| `systemButton` | System panel save/rename/copy/delete buttons. Without it, system action buttons have no background. |
+
+**Practical minimum for a working theme:** `canvas`, `panel`, `dialog`, `button`, `buttonNode`, `systemBackground`, `systemButton`, `t_textBig`, `t_textNormal`, `t_textSmall`, `t_textSystem` — plus `region` for full coverage. `header` is optional (falls back to `canvas` if missing). `background` is deprecated and safe to delete.
+
+> **TODO: Fill in** — expand with actual RGBA values, corner presets, and shadow/stroke/glow defaults for each key.
+
+---
+
 ## The Palette Resolution Chain
 
 When a Fatha/Uncle node renders, its colors go through a four-stage resolution:
