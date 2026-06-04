@@ -1,14 +1,25 @@
 import { sysPanel } from "../helpers/fathaSysPanel.js";
-import { applyDockResizeResult, syncDockResizePair } from "./dockResize.js";
+import { applyDockResizeResult, canResizeHorizontalStackWidth, syncDockResizePair } from "./dockResize.js";
 import { getDockGroupAxisFromMembers, getDockNodeMinHeight, getDockNodeMinWidth, resolveDockResizeAxes } from "./dockDimensions.js";
 import { getDeckMembers, setDeckNodePos } from "./masterDockEngine.js";
 import { dockDebug, snapshotDockNode } from "./dockDebugHelpers.js";
 
 export function handleNodeResize(entity, data, scale) {
     const { SNAP, autoWidth, autoHeight } = entity.getDerpVars ? entity.getDerpVars(entity) : getDerpVars(entity);
+    const resizeAnchor = data.resizeAnchor || "bottom-right";
     const graph = entity.graph || globalThis?.app?.graph || null;
     const axis = graph ? getDockGroupAxisFromMembers(getDeckMembers(entity, graph)) : null;
     const resizeAxes = resolveDockResizeAxes(axis, { autoWidth, autoHeight });
+    const horizontalStackResizeSide = resizeAnchor === "left" || resizeAnchor === "top-left" || resizeAnchor === "bottom-left"
+        ? "left"
+        : (resizeAnchor === "right" || resizeAnchor === "top-right" || resizeAnchor === "bottom-right" ? "right" : null);
+    const allowHorizontalStackWidthResize = !!horizontalStackResizeSide
+        && axis === "horizontal"
+        && !resizeAxes.allowWidth
+        && canResizeHorizontalStackWidth(entity, graph, horizontalStackResizeSide);
+    if (allowHorizontalStackWidthResize) {
+        resizeAxes.allowWidth = true;
+    }
 
     // Block height resize on corners for collapsed nodes in vertical stacks
     const collapsedInVertical = axis === "vertical" && entity?.properties?.contentCollapsed === true;
@@ -33,7 +44,6 @@ export function handleNodeResize(entity, data, scale) {
     const minW = getDockNodeMinWidth(entity, 0, SNAP);
     const minH = getDockNodeMinHeight(entity, 0, SNAP);
 
-    const resizeAnchor = data.resizeAnchor || "bottom-right";
     const deltaX = data.dx / scale;
     const deltaY = data.dy / scale;
 
@@ -53,7 +63,9 @@ export function handleNodeResize(entity, data, scale) {
     
 
     const rawW = entity._startSize[0] + (deltaX * anchorMode.wSign);
-    const newW = allowWidthResize ? Math.max(minW, Math.round(rawW / SNAP) * SNAP) : entity.size[0];
+    const newW = allowWidthResize
+        ? (allowHorizontalStackWidthResize ? Math.round(rawW / SNAP) * SNAP : Math.max(minW, Math.round(rawW / SNAP) * SNAP))
+        : entity.size[0];
 
     const rawH = entity._startSize[1] + (deltaY * anchorMode.hSign);
     const newH = allowHeightResize ? Math.max(minH, Math.round(rawH / SNAP) * SNAP) : entity.size[1];
@@ -73,11 +85,6 @@ export function handleNodeResize(entity, data, scale) {
         },
     });
     if (dockResizeResult.handledAll) {
-        applyDockResizeResult(entity, dockResizeResult);
-        return;
-    }
-
-    if (dockResizeResult.handledHeight) {
         applyDockResizeResult(entity, dockResizeResult);
         return;
     }

@@ -1,0 +1,51 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+## [Unreleased]
+
+### Fixed
+- **NODE 2.0 right-click context submenu is broken**: Added (fake) derp context menus so now paletteExtender and bypassExtender are both working again in NODE 2.0.
+- **Docked stack overlay bug (one whole day of pain)**: Rare edge case where vertically and horizontally docked nodes would completely overlap — two nodes sitting at the exact same position like one sad ghost. Root cause: `normalizeSharedEdgePair` in the dock engine was using only the two seed nodes to calculate `totalHeight`, ignoring non-seed members in multi-column dock groups. Fixed by taking the max height across ALL column members.
+
+### Added
+- **Canvas Color Palettes**: ComfyUI's Color Palette system, now with easier loading — just pick a profile and go. Two default profiles included. No more spelunking through nested menus just to change the damn grid color.
+- **DerpNodes is now compatible with Node 2.0**: Full compatibility with ComfyUI's Vue-based Node 2.0 rendering — DOM shields, event pass-through, and native shell suppression all adapted for the new architecture.
+- **Multi-Color-Key Text Framework**: Every widget now supports `{{keyName}}` syntax in text strings for per-segment color from themes or palettes. Extended syntax supports `{{key:_ON::displayText}}` for state-specific coloring with custom display text. Framework-level — all widgets inherit automatically via `resolveWidgetEnv`.
+- **Two-color trigger display in derpLoraStack**: Trigger names render in `_ON` state colors, trigger tags in `_OFF` state colors, both in the collapsed trigger and the picker dropdown.
+- **bastaSystemMessage color-key support**: System messages now detect `{{...}}` in message text and render colored segments via `colorSegmentsToHTML`.
+
+### Changed
+- `masterPainterText` upgraded with optional `segments` parameter for per-segment colored Canvas rendering.
+- `resolveWidgetEnv` now auto-parses display text for color keys and returns `colorSegments` + `hasColorKeys`.
+- Cleaned up dead `widget_Dropdown` remnants from `derpLoraStack.js`.
+
+### Added
+- Major refactor of `xcp_file_server.py` — the very long messy file server code now lives in dedicated route modules (`xcp_file_asset_routes.py`, `xcp_file_categories.py`, `xcp_file_common.py`, `xcp_file_image_routes.py`, `xcp_file_json_routes.py`, `xcp_file_prompt_book_routes.py`).
+- Added Diffusion model loader for ZIT, Wan, and Flux.
+- Added CHANGELOG.md to keep versioned change logs.
+- Added parallax effect to background image pan and zoom. Added five background images and 3 ComfyUI appearance Color Palette themes.
+- Added background CSS image display. Select it in the derp global settings panel. Background images are stored in `user/derpNodes/background`.
+
+## [0.7.2] - 2026-05-24
+
+### Fixed
+- `__init__.py` now safely handles the absence of `derpThemeManagerV2` via try/except, preventing import crashes when the module is excluded from release builds.
+
+## [0.7.1] - 2026-05-24
+
+### Added
+- **i18n**: Full UI translations for English, Chinese, and Russian across all widgets, system messages, and confirmation dialogs.
+- **Tooltips**: Widget tooltips via `toolTip` property in layout maps, supported across the UI framework.
+- **Prompt Book**: Trigger-style clean button for resetting new prompt-book pages.
+
+### Fixed
+- **Docking**: Vertical docked-stack width sync bug corrected; page-refresh no longer disrupts vertical stack auto-height reflow.
+- **derpEditor**: Padding corrected in cutoff mode.
+- **derpImageDeck**: Restored stable expanded height on uncollapse; icons rendered at correct size.
+- **LoRA Tools**: Renaming a LoRA now renames its preview image and sidecar files together; confirmation dialogs routed through bastaSystemMessage; new trigger names default to the current LoRA basename.
+- **Signal / Corners**: Refactored signal handling and corner cap/radius application across `derpSignalOut`, `fathaHandler`, and `masterPainter`.
+
+### Changed
+- Removed unused prompt books and their assets; added new bundled themes (Derp Dark HD, Galactica Dark, Menace, Mono Neutral, NeonBlue Dark).
+- `cnr_id` references cleaned up (removed fork-base Flux-Continuum references).

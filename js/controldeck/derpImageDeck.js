@@ -906,7 +906,7 @@ app.registerExtension({
                             text: tLocale("$derp_image_deck.buttons.save_image", "SAVE IMAGE"),
                             themeKey: "button, t_textSmall",
                             width: "auto", height: "fill",
-                            spacing: [sW, 0], padding: [pW, pH],
+                            padding: [4, pH],
                             mouseOver: true,
                             state: "OFF",
                             onPress: async () => {
