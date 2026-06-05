@@ -1,6 +1,6 @@
 # <span style="color: #ff8080">Derp</span> <span style="color: #ffffff">Router</span>
 
-![image](derpRouter_01.jpg)
+![image](../_assets/images/derpRouter_01.jpg)
 The central nervous system of your derp-powered workflow. Routes wireless signals between nodes so your Model Loader, Sampler Loader, and every other loader can talk to each other without a single visible wire. Without this node, all those loaders are just very confident paperweights.
 
 <span style="color: #ffc680"><strong>Important:</strong></span> Every derp loader node requires at least one derpRouter in the workflow. Add it first. Always.

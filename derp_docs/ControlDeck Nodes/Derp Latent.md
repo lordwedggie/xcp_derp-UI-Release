@@ -1,6 +1,6 @@
 # <span style="color: #ff8080">Derp</span> <span style="color: #ffffff">Latent</span>
 
-![image](derpLatent_01.jpg)
+![image](../_assets/images/derpLatent_01.jpg)
 Generates an empty latent image with configurable width, height, and batch size. The node that starts it all — no models, no checkpoints, just a blank canvas and your questionable resolution choices.
 
 <span style="color: #ffc680"><strong>Note:</strong></span> This node broadcasts its output as a wireless signal. If you're using derp loaders downstream, you'll need a [derpRouter](Management%20Nodes/Derp%20Router.md) to route it. 
