@@ -3,7 +3,7 @@
 ![image](../_assets/images/derpSchedulerLoader_01.jpg)
 把调度器名字加载到面板上，点一下即可切换。
 
-<span style="color: #ffc680"><strong>重要：</strong></span> 需要 [derpRouter](Management%20Nodes/Derp%20Router.md) 才能工作。
+<span style="color: #ffc680"><strong>重要：</strong></span> 需要 [derpRouter](../Management%20Nodes/Derp%20Router.md) 才能工作。
 
 ### <span style="color: #80ffc0">能干什么</span>
 

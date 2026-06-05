@@ -3,7 +3,7 @@
 ![image](../_assets/images/derpSchedulerLoader_01.jpg)
 Loads scheduler names onto the node's deck for one-click switching. Because nothing says "I have my life together" like being able to jump from Normal to Karras without touching a dropdown.
 
-<span style="color: #ffc680"><strong>Important:</strong></span> This loader needs [derpRouter](Management%20Nodes/Derp%20Router.md) to function. Without it, it's just a list of scheduler names silently judging you.
+<span style="color: #ffc680"><strong>Important:</strong></span> This loader needs [derpRouter](../Management%20Nodes/Derp%20Router.md) to function. Without it, it's just a list of scheduler names silently judging you.
 
 ### <span style="color: #80ffc0">Features</span>
 

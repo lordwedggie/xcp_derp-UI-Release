@@ -3,7 +3,7 @@
 ![image](../_assets/images/derpVaeLoader_01.jpg)
 把 VAE 文件（.safetensors / .pt / .ckpt）加载到面板上，一键切换。支持直接从模型文件里提取 VAE，不用单独下载。
 
-<span style="color: #ffc680"><strong>重要：</strong></span> 需要 [derpRouter](Management%20Nodes/Derp%20Router.md) 才能工作。
+<span style="color: #ffc680"><strong>重要：</strong></span> 需要 [derpRouter](../Management%20Nodes/Derp%20Router.md) 才能工作。
 
 ### <span style="color: #80ffc0">能干什么</span>
 
