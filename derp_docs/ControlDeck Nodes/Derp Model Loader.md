@@ -1,6 +1,6 @@
 # <span style="color: #ff8080">Derp</span> <span style="color: #ffffff">Model Loader</span>
 
-![[derpModelLoader_01.jpg]]
+![image](derpModelLoader_01.jpg)
 Loads SDXL-based checkpoints (.safetensors and .pt files) onto the node's deck so you can hot-swap models with a single click — no dropdown menus, no scrolling through a list of 200 checkpoints named "final_final_v3_actually_final." 
 
 <span style="color: #ffc680"><strong>Important:</strong></span> This loader needs [derpRouter](Management%20Nodes/Derp%20Router.md) to function. Without it, it's just a very enthusiastic paperweight. 

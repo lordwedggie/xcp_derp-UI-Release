@@ -1,6 +1,6 @@
 # <span style="color: #ff8080">老登</span> <span style="color: #ffffff">路由器</span>
 
-![[derpRouter_01.jpg]]
+![image](derpRouter_01.jpg)
 老登工作流的中央路由节点。在节点之间无线路由信号，让加载器节点能够互相通信，无需手动连线。
 
 <span style="color: #ffc680"><strong>重要：</strong></span> 每个老登加载器节点都需要工作流中有至少一个路由器。请先添加此节点。

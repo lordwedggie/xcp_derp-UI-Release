@@ -1,6 +1,6 @@
 # <span style="color: #ff8080">Derp</span> <span style="color: #ffffff">Sampler Loader</span>
 
-![[derpSamplerLoader_01.jpg]]
+![image](derpSamplerLoader_01.jpg)
 Loads sampler names onto the node's deck so you can switch between them with a single click. Because life is too short to scroll through a dropdown every time you want to try Euler instead of DPM++ 2M.
 
 <span style="color: #ffc680"><strong>Important:</strong></span> This loader needs [derpRouter](Management%20Nodes/Derp%20Router.md) to function. Without it, it's just a very opinionated list of words.

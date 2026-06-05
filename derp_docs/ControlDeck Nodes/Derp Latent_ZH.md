@@ -1,6 +1,6 @@
 # <span style="color: #ff8080">老登</span> <span style="color: #ffffff">潜空间</span>
 
-![[derpLatent_01.jpg]]
+![image](derpLatent_01.jpg)
 生成一张空白的 latent 图像，可配置宽、高和批次数量。
 
 <span style="color: #ffc680"><strong>注意：</strong></span> 此节点以无线信号广播输出。如果下游使用老登加载器，需要 [derpRouter](Management%20Nodes/Derp%20Router.md) 来路由。

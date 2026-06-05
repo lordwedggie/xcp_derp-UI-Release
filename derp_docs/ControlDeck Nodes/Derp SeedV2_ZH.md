@@ -1,6 +1,6 @@
 # <span style="color: #ff8080">老登</span> <span style="color: #ffffff">种子 V2</span>
 
-![[derpSeedV2.jpg]]
+![image](derpSeedV2.jpg)
 为工作流输出一个种子值。点击数字随机生成、手动输入、或设为自动递增。
 
 <span style="color: #ffc680"><strong>注意：</strong></span> 此节点以无线信号广播种子值。如果下游使用老登加载器，需要 [derpRouter](Management%20Nodes/Derp%20Router.md) 来路由。

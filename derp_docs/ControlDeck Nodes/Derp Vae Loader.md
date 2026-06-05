@@ -1,6 +1,6 @@
 # <span style="color: #ff8080">Derp</span> <span style="color: #ffffff">VAE Loader</span>
 
-![[derpVaeLoader_01.jpg]]
+![image](derpVaeLoader_01.jpg)
 Loads VAE files (.safetensors, .pt, .ckpt) onto the node's deck for one-click switching without ever opening that godforsaken default dropdown again. Also capable of ripping VAEs straight out of your model files, because downloading them separately is for people with too much free time.
 
 <span style="color: #ffc680"><strong>Important:</strong></span> This loader needs [derpRouter](Management%20Nodes/Derp%20Router.md) to function. Without it, it's just a decorative rectangle.
