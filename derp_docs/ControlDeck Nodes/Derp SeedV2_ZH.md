@@ -3,7 +3,7 @@
 ![[derpSeedV2.jpg]]
 给工作流输出一个种子值。点数字随机摇号，手动输也行，还能设成自动递增——跟抽奖似的往框里敲数字，太掉价了。
 
-<span style="color: #ffc680"><strong>注意：</strong></span> 这节点走无线广播。下游用了老登加载器的话，需要 [[Management Nodes/Derp Router|derpRouter]] 来路由。有线直连不用。
+<span style="color: #ffc680"><strong>注意：</strong></span> 这节点走无线广播。下游用了老登加载器的话，需要 [[Management Nodes/Derp Router|derpRouter]] 来路由。
 
 ### <span style="color: #80ffc0">能干啥</span>
 

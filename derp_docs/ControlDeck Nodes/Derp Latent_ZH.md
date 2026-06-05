@@ -3,7 +3,7 @@
 ![[derpLatent_01.jpg]]
 生成一张空白的潜空间图。一切从这里开始——没模型，没 checkpoint，一张白纸，加上你那些值得商榷的分辨率选择。
 
-<span style="color: #ffc680"><strong>注意：</strong></span> 这节点走无线广播。下游用了老登加载器的话，需要 [[Management Nodes/Derp Router|derpRouter]] 来路由。有线直连不用。
+<span style="color: #ffc680"><strong>注意：</strong></span> 这节点走无线广播。下游用了老登加载器的话，需要 [[Management Nodes/Derp Router|derpRouter]] 来路由。
 
 ### <span style="color: #80ffc0">能干啥</span>
 
