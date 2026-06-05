@@ -59,7 +59,19 @@ These must be stripped before pushing to `release`:
 
 6. **%SystemDrive%/** — corrupted git tree entries, never for public
 
-## Release Process — CRITICAL: Must Sync main First
+## Comfy Registry Scanner Rules — CHECK BEFORE EVERY PUBLISH
+
+**Before starting the release process, scan the workspace for these. If any violation is found, STOP and warn the user:**
+
+1. **Bundled third-party code** — `_temp/` must be empty of other nodes' source code
+2. **Corrupted git entries** — `%SystemDrive%/` must not exist in `git ls-files`
+3. **NSFW content** — no NSFW file names, image names, or metadata anywhere in the repo
+4. **Private dev files** — `.deepseek/`, `notes.txt` must not be in the release commit
+5. **Private theme engine** — `themeManagerV2.js`, `themeManagerV2_core.js`, `derpThemeManagerV2.py` must not be in the release commit
+6. **Publish assets** — `derp_docs/_publish/` must not be in the release commit
+7. **User test data** — `user/derpNodes/` must be clean (no personal LoRA profiles, NSFW test data, autosave)
+
+**If any rule is violated, warn the user with the specific violation BEFORE doing anything else.**
 
 **RULE: Never do tag-only or side-branch-only publishes. Always sync release/main from daily-development.**
 
