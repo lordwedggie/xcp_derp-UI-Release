@@ -1,0 +1,1 @@
+An entirely different and derpy UI framework that works in both ComfyUI legacy and NODE 2.0 modes. It provides highly-optimized, themed nodes that connects to your existing workflows wirelessly, and will probably greatly increase productivity of the fine-tuning/seed hunting process. 

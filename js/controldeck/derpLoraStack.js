@@ -303,6 +303,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                     if (!isDetailOpen) this._activeDetailSlot = -1;
 
                     const dropGapHeight = estimateLoraDropGapHeight(this, "loraRow_");
+                    const dropGapWithTrailingSeparatorHeight = dropGapHeight + 1 + mH + oY;
 
                     const isDragPreviewActive = !!(this._dragTrig && this._dragThresholdMet);
                     const dragIdx = this._dragTrig?.index;
@@ -311,8 +312,10 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                     const hasPreviewIndex = Number.isInteger(rawDropIdx);
                     const dropIdx = hasPreviewIndex ? Math.max(0, Math.min(rawDropIdx, Math.max(0, stableCount))) : null;
                     const hasEffectiveDropTarget = isDragPreviewActive && Number.isInteger(dragIdx) && hasPreviewIndex;
+                    const draggedRowWasTail = isDragPreviewActive && dragIdx === stack.length - 1;
 
                     let lastVisibleRowKey = null;
+                    let draggedRowAnchorKey = null;
 
                     const stackRows = stack.reduce((acc, lora, i) => {
                         let prev = lastVisibleRowKey;
@@ -351,7 +354,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                 alpha: 0.18,
                                 dir: "row",
                                 width: "full",
-                                height: dropGapHeight,
+                                height: dropGapWithTrailingSeparatorHeight,
                                 margin: [mW * 2, 0, mW * 2, mH],
                                 regionOffset: [mW, 2, mW, 2],
                                 dropPreviewGhost: {
@@ -370,6 +373,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                         }
 
                         if (isDragged) {
+                            draggedRowAnchorKey = prev || lastVisibleRowKey;
                             return acc;
                         }
 
@@ -657,9 +661,13 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                     }, {});
 
                     const hasTailDropPreview = hasEffectiveDropTarget && dropIdx === stableCount;
+                    const stackFooterTarget = hasTailDropPreview
+                        ? "loraDropPreview_tail"
+                        : lastVisibleRowKey;
                     if (hasTailDropPreview) {
+                        const tailPreviewAnchorKey = draggedRowWasTail ? (draggedRowAnchorKey || lastVisibleRowKey) : lastVisibleRowKey;
                         stackRows.loraDropPreview_tail = {
-                            anchor: lastVisibleRowKey ? { target: lastVisibleRowKey, axis: "y", offset: oY } : null,
+                            anchor: tailPreviewAnchorKey ? { target: tailPreviewAnchorKey, axis: "y", offset: oY } : null,
                             type: this.UI_TYPES.REGION,
                             themeKey: "region",
                             state: "OFF",
@@ -667,7 +675,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                             alpha: 0.22,
                             dir: "row",
                             width: "full",
-                            height: dropGapHeight,
+                            height: draggedRowWasTail ? dropGapHeight : dropGapWithTrailingSeparatorHeight,
                             margin: [mW * 2, 0, mW * 2, mH],
                             regionOffset: [mW, 2, mW, 2],
                             dropPreviewGhost: {
@@ -693,9 +701,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                             ...stackRows,
                             footerControls: {
                                 anchor: {
-                                    target: hasTailDropPreview
-                                        ? "loraDropPreview_tail"
-                                        : (stack.length > 0 ? `loraRow_${stack.length - 1}` : null),
+                                    target: stackFooterTarget,
                                     axis: "y",
                                     offset: sH
                                 },
@@ -743,9 +749,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                             },
                             regionWarning: {
                                 anchor: {
-                                    target: hasTailDropPreview
-                                        ? "loraDropPreview_tail"
-                                        : (stack.length > 0 ? `loraRow_${stack.length - 1}` : null),
+                                    target: stackFooterTarget,
                                     axis: "y",
                                     offset: sH
                                 },
