@@ -205,10 +205,7 @@ app.registerExtension({
                         type: this.UI_TYPES.ICONBUTTON,
                         icon: "close",
                         hidden: !m.active,
-                        width: "match",
-                        height: "full",
-                        padding: [pW, pH],
-                        margin: [1, 1, 1, 1],
+                        width: "match", height: "fill", objectAlign: ["left", "middle"], spacing: [sW, 0], margin: [1, 1, 1, 1],
                         themeKey: "button, t_textNormal",
                     }
                 };
@@ -233,6 +230,8 @@ app.registerExtension({
                             text: "Clear",
                             width: "auto", height: "fill", padding: [pW, pH], spacing: [sW, 0],
                             labelAlign: ["center", "middle"],
+                            state: deck.length > 0 ? "ON" : "DIS",
+                            pulseStates: true,
                             themeKey: "button, t_textSmall",
                             onPress: () => {
                                 showBastaFileHandler(this, "none", "btnClear", {

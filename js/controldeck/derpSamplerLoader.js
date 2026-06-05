@@ -209,10 +209,7 @@ app.registerExtension({
                         type: this.UI_TYPES.ICONBUTTON,
                         icon: "close",
                         hidden: !m.active,
-                        width: "match",
-                        height: "full",
-                        padding: [pW, pH],
-                        margin: [0, sH, sW, sH],
+                        width: "match", height: "fill", objectAlign: ["left", "middle"], spacing: [sW, 0], margin: [1, 1, 1, 1],
                         themeKey: "button, t_textNormal",
                     }
                 };
@@ -237,6 +234,8 @@ app.registerExtension({
                             text: "Clear",
                             width: "auto", height: "fill", padding: [pW, pH], spacing: [sW, 0],
                             labelAlign: ["center", "middle"],
+                            state: deck.length > 0 ? "ON" : "DIS",
+                            pulseStates: true,
                             themeKey: "button, t_textSmall",
                             onPress: () => {
                                 showBastaFileHandler(this, "none", "btnClear", {
@@ -257,15 +256,15 @@ app.registerExtension({
                             }
                         },
                         browserSamplers: {
-                            type: this.UI_TYPES.FILEBROWSER,
+                            type: this.UI_TYPES.FILEBROWSER, searchTab: true,
                             icon: "dropdown",
                             items: samplerList.filter(name => !deck.some(m => m.name === name)),
+                            mode: "file", rootName: tLocale("$derp_sampler_loader.browser.root_name", "samplers"), fileType: "sampler", mouseOver: false,
                             value: tLocale("$derp_sampler_loader.browser.select", "Select Sampler..."),
                             width: "full", height: "auto",
-                            mode: "file",
-                            rootName: "samplers",
-                            themeKey: "panel, t_textNormal",
-                            canvasShield: true,
+                            fontSize: t_textNormal_size,
+                            themeKey: "dialog, t_textNormal", canvasShield: true,
+                            searchThemeKey: "panel, t_textSystem",
                             spacing: [sW, 0], padding: [pW, pH],
                             onChange: (v) => {
                                 if (!v || v === tLocale("$derp_sampler_loader.browser.select", "Select Sampler...")) return;

@@ -170,7 +170,8 @@
     },
     "browser": {
       "select": "Select Sampler...",
-      "refresh": "Refresh"
+      "refresh": "Refresh",
+      "root_name": "samplers"
     },
     "system": {
       "properties": "Derp Sampler Loader properties:"

@@ -244,6 +244,8 @@ app.registerExtension({
                             text: "Clear",
                             width: "auto", height: "fill", padding: [pW, pH], spacing: [sW, 0],
                             labelAlign: ["center", "middle"],
+                            state: diffusionDeck.length > 0 ? "ON" : "DIS",
+                            pulseStates: true,
                             themeKey: "button, t_textSmall",
                             onPress: () => {
                                 showBastaFileHandler(this, "none", "btnClearDiffusions", {
@@ -307,6 +309,8 @@ app.registerExtension({
                             text: "Clear",
                             width: "auto", height: "fill", padding: [pW, pH], spacing: [sW, 0],
                             labelAlign: ["center", "middle"],
+                            state: textEncoderDeck.length > 0 ? "ON" : "DIS",
+                            pulseStates: true,
                             themeKey: "button, t_textSmall",
                             onPress: () => {
                                 showBastaFileHandler(this, "none", "btnClearTextEncoders", {

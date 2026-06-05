@@ -170,7 +170,8 @@
     },
     "browser": {
       "select": "选择采样器...",
-      "refresh": "刷新"
+      "refresh": "刷新",
+      "root_name": "采样器"
     },
     "system": {
       "properties": "老登采样器加载器属性："

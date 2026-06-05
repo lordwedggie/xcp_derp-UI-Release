@@ -97,7 +97,7 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                     const isDraggingStack = !!(this._dragTrig && this._dragThresholdMet);
                     const isGhostDrawing = !!this._isGhostDrawing;
                     const oldIn = this.inputs, oldOut = this.outputs;
-                    if (isDraggingStack || isGhostDrawing) { this.inputs = null; this.outputs = null; }
+                    if (isDraggingStack || isGhostDrawing) { this.inputs = []; this.outputs = []; }
                     originalDrawNode.apply(this, arguments);
                     if (isDraggingStack || isGhostDrawing) { this.inputs = oldIn; this.outputs = oldOut; }
                 };
@@ -561,8 +561,8 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                             // Suppress LiteGraph slot circles for the entire ghost pass.
                             const oldInputs = this.inputs;
                             const oldOutputs = this.outputs;
-                            this.inputs = null;
-                            this.outputs = null;
+                            this.inputs = [];
+                            this.outputs = [];
 
                             try {
 
