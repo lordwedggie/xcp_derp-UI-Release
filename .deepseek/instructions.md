@@ -55,6 +55,8 @@ These must be stripped before pushing to `release`:
 
 4. **derp_docs/_publish/** — registry descriptions and publish assets, never for public
 
+5. **_temp/** — dev files, other nodes' code, never for public
+
 ## Release Process — CRITICAL: Must Sync main First
 
 **RULE: Never do tag-only or side-branch-only publishes. Always sync release/main from daily-development.**
@@ -64,14 +66,14 @@ Correct order (follow exactly):
 1. Bump version in `pyproject.toml` and `package.json` to X.Y.Z
 2. **Verify the bump took effect** — read both files back from disk after writing
 3. **Ensure __init__.py handles missing themeManagerV2** — the import must be wrapped in try/except so the node works when the file is stripped from public releases
-14. Strip excluded files: `git rm --cached js/motha/themeManagerV2.js js/motha/themeManagerV2_core.js python/derpThemeManagerV2.py` and `git rm --cached -r .deepseek/` and `git rm --cached notes.txt` and `git rm --cached -r derp_docs/_publish/`
+14. Strip excluded files: `git rm --cached js/motha/themeManagerV2.js js/motha/themeManagerV2_core.js python/derpThemeManagerV2.py` and `git rm --cached -r .deepseek/` and `git rm --cached notes.txt` and `git rm --cached -r derp_docs/_publish/` and `git rm --cached -r _temp/`
 14. Ensure `.github/workflows/publish_action.yml` is present
 14. Commit with message "release vX.Y.Z"
 14. **Sync main FIRST**: `git push --force release daily-development:main`
 14. Create tag: `git tag -a vX.Y.Z -m "vX.Y.Z"`
 14. Push tag: `git push release vX.Y.Z`
 14. Push release branch: `git push release daily-development:refs/heads/release/vX.Y.Z`
-14. Restore excluded files: `git add js/motha/themeManagerV2.js js/motha/themeManagerV2_core.js python/derpThemeManagerV2.py .deepseek/ notes.txt derp_docs/_publish/` and commit "restore excluded files to daily-development"
+14. Restore excluded files: `git add js/motha/themeManagerV2.js js/motha/themeManagerV2_core.js python/derpThemeManagerV2.py .deepseek/ notes.txt derp_docs/_publish/ _temp/` and commit "restore excluded files to daily-development"
 14. Push to origin: `git push --force-with-lease origin daily-development`
 14. **Verify**: confirm `release/main` pyproject.toml shows correct version, tag exists and points to same commit as main
 
