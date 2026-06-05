@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.7.4] - 2026-06-05
 
 ### Fixed
 - **NODE 2.0 right-click context submenu is broken**: Added (fake) derp context menus so now paletteExtender and bypassExtender are both working again in NODE 2.0.
