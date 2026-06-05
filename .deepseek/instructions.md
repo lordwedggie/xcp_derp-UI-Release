@@ -57,6 +57,8 @@ These must be stripped before pushing to `release`:
 
 5. **_temp/** — dev files, other nodes' code, never for public
 
+6. **%SystemDrive%/** — corrupted git tree entries, never for public
+
 ## Release Process — CRITICAL: Must Sync main First
 
 **RULE: Never do tag-only or side-branch-only publishes. Always sync release/main from daily-development.**
@@ -66,7 +68,7 @@ Correct order (follow exactly):
 1. Bump version in `pyproject.toml` and `package.json` to X.Y.Z
 2. **Verify the bump took effect** — read both files back from disk after writing
 3. **Ensure __init__.py handles missing themeManagerV2** — the import must be wrapped in try/except so the node works when the file is stripped from public releases
-14. Strip excluded files: `git rm --cached js/motha/themeManagerV2.js js/motha/themeManagerV2_core.js python/derpThemeManagerV2.py` and `git rm --cached -r .deepseek/` and `git rm --cached notes.txt` and `git rm --cached -r derp_docs/_publish/` and `git rm --cached -r _temp/`
+14. Strip excluded files: `git rm --cached js/motha/themeManagerV2.js js/motha/themeManagerV2_core.js python/derpThemeManagerV2.py` and `git rm --cached -r .deepseek/` and `git rm --cached notes.txt` and `git rm --cached -r derp_docs/_publish/` and `git rm --cached -r _temp/` and `git rm --cached -r %SystemDrive%/`
 14. Ensure `.github/workflows/publish_action.yml` is present
 14. Commit with message "release vX.Y.Z"
 14. **Sync main FIRST**: `git push --force release daily-development:main`
