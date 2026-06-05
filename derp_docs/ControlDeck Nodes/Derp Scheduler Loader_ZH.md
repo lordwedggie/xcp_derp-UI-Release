@@ -1,18 +1,18 @@
 # <span style="color: #ff8080">老登</span> <span style="color: #ffffff">调度器加载器</span>
 
 ![[derpSchedulerLoader_01.jpg]]
-放调度器的地方！Normal、Karras、Exponential……全都能放上去，点一下换。
+把调度器名字加载到面板上，点一下即可切换。
 
-<span style="color: #ffc680"><strong>重要：</strong></span> 你得先放一个 [[Management Nodes/Derp Router|derpRouter]] 在流程里，不然它不理你。
+<span style="color: #ffc680"><strong>重要：</strong></span> 需要 [[Management Nodes/Derp Router|derpRouter]] 才能工作。
 
 ### <span style="color: #80ffc0">能干什么</span>
 
-<span style="color: #80aaff"><strong>选择调度器</strong></span>：打开菜单挑一个，支持搜索。调度器名字都好长，还好能搜。
+<span style="color: #80aaff"><strong>选择调度器</strong></span>：从下拉菜单中浏览并添加调度器到面板，支持搜索。
 
-<span style="color: #80aaff"><strong>刷新</strong></span>：更新列表。
+<span style="color: #80aaff"><strong>刷新</strong></span>：更新调度器列表。
 
-<span style="color: #80aaff"><strong>清空</strong></span>：全部删掉。空的时候按钮是灰的。
+<span style="color: #80aaff"><strong>清空</strong></span>：一键清空整个面板。面板为空时按钮禁用。
 
-<span style="color: #80aaff"><strong>移除</strong></span>：只删一个。
+<span style="color: #80aaff"><strong>移除</strong></span>：从面板上单独删除一个调度器。
 
-<span style="color: #80aaff"><strong>拖拽排序</strong></span>：排着玩。
+<span style="color: #80aaff"><strong>拖拽排序</strong></span>：拖动调度器条目调整顺序。
