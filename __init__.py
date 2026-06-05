@@ -1,6 +1,6 @@
 # Path: ./__init__.py
 import os
-from .bundled_asset_sync import sync_bundled_assets
+from .python.bundled_asset_sync import sync_bundled_assets
 from .python.xcp_routes import xcp_file_server
 
 sync_bundled_assets()

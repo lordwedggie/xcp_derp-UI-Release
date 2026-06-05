@@ -7,7 +7,7 @@ from pathlib import Path
 import folder_paths
 
 
-EXT_ROOT = Path(__file__).resolve().parent
+EXT_ROOT = Path(__file__).resolve().parent.parent
 SOURCE_ROOT = EXT_ROOT / "user" / "derpNodes"
 DEST_ROOT = Path(folder_paths.get_user_directory()) / "derpNodes"
 STATE_FILE = DEST_ROOT / ".xcp_sync_state.json"
