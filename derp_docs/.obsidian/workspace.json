@@ -41,12 +41,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "ControlDeck Nodes/Derp Model Loader_ZH.md",
+                "file": "ControlDeck Nodes/Derp Scheduler Loader_ZH.md",
                 "mode": "preview",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "Derp Model Loader_ZH"
+              "title": "Derp Scheduler Loader_ZH"
             }
           }
         ],
@@ -123,7 +123,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "ControlDeck Nodes/Derp Model Loader_ZH.md",
+                "file": "ControlDeck Nodes/Derp Scheduler Loader_ZH.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -133,7 +133,7 @@
                 "unlinkedCollapsed": true
               },
               "icon": "links-coming-in",
-              "title": "Backlinks for Derp Model Loader_ZH"
+              "title": "Backlinks for Derp Scheduler Loader_ZH"
             }
           },
           {
@@ -213,23 +213,23 @@
   },
   "active": "8e77c97fda4bc99d",
   "lastOpenFiles": [
+    "ControlDeck Nodes/Derp Scheduler Loader.md",
+    "ControlDeck Nodes/Derp SeedV2_ZH.md",
+    "ControlDeck Nodes/Derp SeedV2.md",
     "ControlDeck Nodes/Derp Latent_ZH.md",
+    "ControlDeck Nodes/Derp Scheduler Loader_ZH.md",
+    "ControlDeck Nodes/Derp Sampler Loader_ZH.md",
+    "ControlDeck Nodes/Derp Model Loader_ZH.md",
     "ControlDeck Nodes/Derp Latent.md",
     "Management Nodes/Derp Router.md",
     "Management Nodes/Derp Router_ZH.md",
     "_publish/ComfyUI node manager description.md",
-    "ControlDeck Nodes/Derp SeedV2_ZH.md",
-    "ControlDeck Nodes/Derp SeedV2.md",
     "ControlDeck Nodes/Derp Vae Loader_ZH.md",
     "ControlDeck Nodes/Derp Vae Loader.md",
-    "ControlDeck Nodes/Derp Scheduler Loader_ZH.md",
-    "ControlDeck Nodes/Derp Scheduler Loader.md",
     "ControlDeck Nodes/Derp Sampler Loader.md",
-    "ControlDeck Nodes/Derp Model Loader_ZH.md",
     "ControlDeck Nodes/Derp Model Loader.md",
     "FRAMEWORK-Basta.md",
     "Management Nodes",
-    "ControlDeck Nodes/Derp Sampler Loader_ZH.md",
     "FRAMEWORK-Backend.md",
     "_assets/images/psB8C2.tmp",
     "_assets/images/derpModelLoader_01.jpg",
