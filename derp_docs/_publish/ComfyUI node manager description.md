@@ -1,1 +1,0 @@
-A derpy little UI framework for both ComfyUI Legacy and NODE 2.0. Adds fast, themed, wireless nodes that connect to your existing workflows as controllers, and may suspiciously (greatly) improve your ever day fine-tuning and seed-hunting activities, because comfyUI is now better looking and less laggy!
