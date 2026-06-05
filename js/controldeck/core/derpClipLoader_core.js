@@ -215,6 +215,7 @@ export function initDerpClipLoaderCore(nodeType) {
         this.properties.isWirelessTransmitter = true;
         this.properties.skipGenericWirelessHeartbeat = true;
         this.properties.drawSettingBtn = true;
+        this.properties.settingActive = true;
         this.properties.clipDeck = normalizeDeck(this.properties.clipDeck || []);
         if (typeof this.properties.showFolderNames !== "boolean") this.properties.showFolderNames = true;
         if (typeof this.properties.clipType !== "string") this.properties.clipType = "stable_diffusion";
@@ -237,6 +238,7 @@ export function initDerpClipLoaderCore(nodeType) {
         this._isDerpClipLoaderNode = true;
         this.properties.skipGenericWirelessHeartbeat = true;
         this.properties.drawSettingBtn = true;
+        if (typeof this.properties.settingActive !== "boolean") this.properties.settingActive = true;
         this.properties.clipDeck = normalizeDeck(this.properties.clipDeck || []);
         if (typeof this.properties.clipType !== "string") this.properties.clipType = "stable_diffusion";
         if (typeof this.properties.clipDevice !== "string") this.properties.clipDevice = "default";

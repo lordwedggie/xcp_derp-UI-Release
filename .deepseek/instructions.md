@@ -73,7 +73,7 @@ These must be stripped before pushing to `release`:
 
 **If any rule is violated, warn the user with the specific violation BEFORE doing anything else.**
 
-**RULE: Never do tag-only or side-branch-only publishes. Always sync release/main from daily-development.**
+**RULE: Never do tag-only or side-branch-only publishes. Always sync dev/main first, then release/main from daily-development.**
 
 Correct order (follow exactly):
 
@@ -83,7 +83,8 @@ Correct order (follow exactly):
 14. Strip excluded files: `git rm --cached js/motha/themeManagerV2.js js/motha/themeManagerV2_core.js python/derpThemeManagerV2.py` and `git rm --cached -r .deepseek/` and `git rm --cached notes.txt` and `git rm --cached -r derp_docs/_publish/` and `git rm --cached -r _temp/` and `git rm --cached -r %SystemDrive%/`
 14. Ensure `.github/workflows/publish_action.yml` is present
 14. Commit with message "release vX.Y.Z"
-14. **Sync main FIRST**: `git push --force release daily-development:main`
+14. **Sync dev main FIRST**: `git push --force github daily-development:main`
+14. **Sync release main**: `git push --force release daily-development:main`
 14. Create tag: `git tag -a vX.Y.Z -m "vX.Y.Z"`
 14. Push tag: `git push release vX.Y.Z`
 14. Push release branch: `git push release daily-development:refs/heads/release/vX.Y.Z`
@@ -93,7 +94,7 @@ Correct order (follow exactly):
 
 The release repo auto-publishes to Comfy Registry via `.github/workflows/publish_action.yml` which triggers on push to `main` when `pyproject.toml` changes.
 
-**To phrase for future sessions:** "Push daily-development to release/main and tag it vX.Y.Z" — be explicit about syncing main, not just tagging.
+**To phrase for future sessions:** "Push daily-development to github/main, then release/main, then tag it vX.Y.Z" — be explicit about syncing main, not just tagging.
 
 ## Comfy Registry Configuration
 

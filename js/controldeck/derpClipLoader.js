@@ -56,6 +56,7 @@ app.registerExtension({
                 this.properties.showFolderNames,
                 this.properties.clipType,
                 this.properties.clipDevice,
+                this.properties.settingActive ? 1 : 0,
                 (this._clipList || []).length,
                 window._xcpDerpSession,
                 this._dropPreviewIdx,
@@ -212,6 +213,7 @@ app.registerExtension({
                     },
                     regionClipLoader: {
                         dir: "row", width: "full", height: "auto", spacing: [sW, 0],
+                        hidden: this.properties.settingActive === false,
                         margin: [0, mH, 0, 0],
                         btnClearClips: {
                             type: this.UI_TYPES.BUTTON,
@@ -272,9 +274,11 @@ app.registerExtension({
                     },
                     regionClipOptions: {
                         dir: "col", width: "full", height: "auto", spacing: [0, sH],
+                        hidden: this.properties.settingActive === false,
                         margin: [0, mH, 0, 0],
                         regionClipType: {
                             dir: "row", width: "full", height: "auto", spacing: [sW, 0],
+                            hidden: this.properties.settingActive === false,
                             lblClipType: {
                                 type: this.UI_TYPES.TEXT,
                                 measureText: "device",
@@ -306,6 +310,7 @@ app.registerExtension({
                         },
                         regionClipDevice: {
                             dir: "row", width: "full", height: "auto", spacing: [sW, 0],
+                            hidden: this.properties.settingActive === false,
                             margin: [0, sH, 0, 0],
                             lblClipDevice: {
                                 type: this.UI_TYPES.TEXT,
@@ -438,6 +443,9 @@ app.registerExtension({
         const onCreated = nodeType.prototype.onNodeCreated;
         nodeType.prototype.onNodeCreated = function() {
             if (onCreated) onCreated.apply(this, arguments);
+            this.onDerpSettingsPress = () => {
+                this.refreshNodeLayoutMap();
+            };
             this.handleClipLoaderCreated();
         };
 
@@ -448,11 +456,15 @@ app.registerExtension({
             info.properties.clipDeck = this.properties.clipDeck;
             info.properties.clipType = this.properties.clipType;
             info.properties.clipDevice = this.properties.clipDevice;
+            info.properties.settingActive = this.properties.settingActive !== false;
         };
 
         const onConfigure = nodeType.prototype.onConfigure;
         nodeType.prototype.onConfigure = function(info) {
             if (onConfigure) onConfigure.apply(this, arguments);
+            this.onDerpSettingsPress = () => {
+                this.refreshNodeLayoutMap();
+            };
             if (info.properties?.clipDeck) this.properties.clipDeck = info.properties.clipDeck;
             if (typeof info.properties?.clipType === "string") this.properties.clipType = info.properties.clipType;
             if (typeof info.properties?.clipDevice === "string") this.properties.clipDevice = info.properties.clipDevice;
