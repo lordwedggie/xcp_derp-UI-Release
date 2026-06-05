@@ -115,9 +115,13 @@ def normalize_clip_type(clip_type):
     return getattr(comfy.sd.CLIPType, clip_type.upper(), comfy.sd.CLIPType.STABLE_DIFFUSION)
 
 def resolve_clip_type(text_encoder_name=None, clip_type=None):
+    lower_name = str(text_encoder_name or "").lower()
+    if "qwen_3_4b" in lower_name or "qwen3_4b" in lower_name or "qwen-3-4b" in lower_name or "qwen3-4b" in lower_name:
+        if clip_type in ["flux", "flux2"]:
+            return clip_type
+        return "stable_diffusion"
     if isinstance(clip_type, str) and clip_type not in ["", "default", "auto", "stable_diffusion"]:
         return clip_type
-    lower_name = str(text_encoder_name or "").lower()
     if "qwen" in lower_name:
         return "qwen_image"
     return "stable_diffusion"
@@ -149,6 +153,24 @@ def load_clip_model(text_encoder_name, registry, clip_type=None, clip_device=Non
     )
     registry[cache_key] = clip
     return safe_clone(clip)
+
+def load_diffusion_model(diffusion_name, registry, weight_dtype=None):
+    if not diffusion_name:
+        return None
+    cache_key = f"DIFFUSION:{diffusion_name}|DTYPE:{weight_dtype or 'auto'}"
+    cached = registry.get(cache_key)
+    if cached is not None:
+        return safe_clone(cached)
+
+    diffusion_path = find_full_path_from_categories(diffusion_name, "diffusion_models", "unet")
+    if not diffusion_path:
+        return None
+
+    model_options = {}
+    model_options.update(normalize_weight_dtype(weight_dtype))
+    model = comfy.sd.load_diffusion_model(diffusion_path, model_options=model_options)
+    registry[cache_key] = model
+    return safe_clone(model)
 
 def load_diffusion_and_clip(diffusion_name, text_encoder_name, registry, weight_dtype=None, clip_type=None, clip_device=None):
     if not diffusion_name or not text_encoder_name:
@@ -434,19 +456,13 @@ def process_signal_fallback(val, sig_type, registry):
 
         # Diffusion-family payload
         if isinstance(val, dict) and (val.get("diffusion_name") or val.get("text_encoder_name")):
-            model, clip = load_diffusion_and_clip(
-                val.get("diffusion_name"),
-                val.get("text_encoder_name"),
-                registry,
-                val.get("weight_dtype"),
-                val.get("clip_type"),
-                val.get("clip_device")
-            )
-            if "MODEL" in sig_type and model is not None:
-                return model
-            if "CLIP" in sig_type and clip is not None:
-                return clip
-            if "CLIP" in sig_type and val.get("text_encoder_name") and not val.get("diffusion_name"):
+            if "MODEL" in sig_type and val.get("diffusion_name"):
+                return load_diffusion_model(
+                    val.get("diffusion_name"),
+                    registry,
+                    val.get("weight_dtype")
+                )
+            if "CLIP" in sig_type and val.get("text_encoder_name"):
                 return load_clip_model(
                     val.get("text_encoder_name"),
                     registry,
