@@ -6,13 +6,13 @@ A custom node pack for derp-themed utilities that looks at standard UI framework
 
 ### Management Nodes
 
-- [[Management Nodes/Derp Router|Derp Router]] · [[Management Nodes/Derp Router_ZH|老登路由器]]
+- [Derp Router](derp_docs/Management%20Nodes/Derp%20Router.md) · [老登路由器](derp_docs/Management%20Nodes/Derp%20Router_ZH.md)
 
 ### ControlDeck Nodes
 
-- [[ControlDeck Nodes/Derp Latent|Derp Latent]] · [[ControlDeck Nodes/Derp Latent_ZH|老登潜空间]]
-- [[ControlDeck Nodes/Derp Model Loader|Derp Model Loader]] · [[ControlDeck Nodes/Derp Model Loader_ZH|老登模型加载器]]
-- [[ControlDeck Nodes/Derp Vae Loader|Derp VAE Loader]] · [[ControlDeck Nodes/Derp Vae Loader_ZH|老登 VAE 加载器]]
-- [[ControlDeck Nodes/Derp Sampler Loader|Derp Sampler Loader]] · [[ControlDeck Nodes/Derp Sampler Loader_ZH|老登采样器加载器]]
-- [[ControlDeck Nodes/Derp Scheduler Loader|Derp Scheduler Loader]] · [[ControlDeck Nodes/Derp Scheduler Loader_ZH|老登调度器加载器]]
-- [[ControlDeck Nodes/Derp SeedV2|Derp Seed V2]] · [[ControlDeck Nodes/Derp SeedV2_ZH|老登种子 V2]]
+- [Derp Latent](derp_docs/ControlDeck%20Nodes/Derp%20Latent.md) · [老登潜空间](derp_docs/ControlDeck%20Nodes/Derp%20Latent_ZH.md)
+- [Derp Model Loader](derp_docs/ControlDeck%20Nodes/Derp%20Model%20Loader.md) · [老登模型加载器](derp_docs/ControlDeck%20Nodes/Derp%20Model%20Loader_ZH.md)
+- [Derp VAE Loader](derp_docs/ControlDeck%20Nodes/Derp%20Vae%20Loader.md) · [老登 VAE 加载器](derp_docs/ControlDeck%20Nodes/Derp%20Vae%20Loader_ZH.md)
+- [Derp Sampler Loader](derp_docs/ControlDeck%20Nodes/Derp%20Sampler%20Loader.md) · [老登采样器加载器](derp_docs/ControlDeck%20Nodes/Derp%20Sampler%20Loader_ZH.md)
+- [Derp Scheduler Loader](derp_docs/ControlDeck%20Nodes/Derp%20Scheduler%20Loader.md) · [老登调度器加载器](derp_docs/ControlDeck%20Nodes/Derp%20Scheduler%20Loader_ZH.md)
+- [Derp Seed V2](derp_docs/ControlDeck%20Nodes/Derp%20SeedV2.md) · [老登种子 V2](derp_docs/ControlDeck%20Nodes/Derp%20SeedV2_ZH.md)
