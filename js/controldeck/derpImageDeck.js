@@ -720,8 +720,8 @@ app.registerExtension({
             if (baseOnAdded) baseOnAdded.apply(this, arguments);
 
             if (this.size?.[0] !== 220 || this.size?.[1] !== 50) return;
-            this.properties.nodeSize = [400, 400];
-            this.size = [400, 400];
+            this.properties.nodeSize = [500, 500];
+            this.size = [500, 500];
             if (typeof this.refreshNodeLayoutMap === "function") this.refreshNodeLayoutMap();
             if (typeof this.requestDerpSync === "function") this.requestDerpSync();
             if (typeof this.setDirtyCanvas === "function") this.setDirtyCanvas(true, true);

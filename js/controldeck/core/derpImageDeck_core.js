@@ -4,7 +4,6 @@
  */
 import { animateAlpha } from "../../herbina/masterAnimator.js";
 import { getPinnedVerticalDeckAnchor, restorePinnedVerticalDeckAnchor } from "../../fatha/core/dockResize.js";
-import { setDerpNodeSizeCompat } from "../../fatha/core/fathaNode2Compat.js";
 
 // Crossfade alpha interpolation speed.
 // Higher value = faster fade, lower value = slower fade.
@@ -191,7 +190,10 @@ function resizeNodeToImageAspect(node, img) {
 
     const bottomY = getNodeBottomY(node);
     const pinnedAnchor = getImageDeckPinnedAnchor(node);
-    setDerpNodeSizeCompat(node, currentNodeW, nextNodeH);
+    // Keep the legacy direct size mutation here: this path must preserve the
+    // canvas bottom edge while auto-fitting to each image aspect ratio.
+    node.size[0] = currentNodeW;
+    node.size[1] = nextNodeH;
     node.pos[1] = bottomY - nextNodeH;
     if (node.properties) node.properties.nodeSize = [currentNodeW, nextNodeH];
     node._preCollapseHeight = nextNodeH;
