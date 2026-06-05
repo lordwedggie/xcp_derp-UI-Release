@@ -200,7 +200,7 @@ app.registerExtension({
 
         nodeType.prototype.refreshNodeLayoutMap = function() {
             if (this.flags.collapsed || this.size[0] <= 0) return;
-            this.properties.drawSettingBtn = false;
+            this.properties.drawSettingBtn = true;
 
             const vars = this.getDerpVars(this);
             const [mW, mH, pW, pH, sH, sW, oY] = [vars.mW, vars.mH, vars.pW, vars.pH, vars.sH, vars.sW, vars.oY].map(v => Number(v.toFixed(2)));
