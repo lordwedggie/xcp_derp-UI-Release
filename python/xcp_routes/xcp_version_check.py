@@ -43,7 +43,7 @@ def compare_versions(local, remote):
 
 
 def get_local_version():
-    pyproject_path = Path(__file__).resolve().parent / "pyproject.toml"
+    pyproject_path = Path(__file__).resolve().parent.parent.parent / "pyproject.toml"
     text = pyproject_path.read_text(encoding="utf-8")
     version = parse_version_text(text)
     if not version:

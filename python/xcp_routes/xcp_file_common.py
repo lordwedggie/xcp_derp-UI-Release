@@ -16,7 +16,7 @@ from .xcp_loraStack import get_lora_stack_profiles_dir
 MODEL_FILE_EXTENSIONS = (".safetensors", ".ckpt", ".pt")
 
 
-EXT_ROOT = os.path.dirname(os.path.abspath(__file__))
+EXT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 PRIMARY_ROOT = os.path.join(folder_paths.get_user_directory(), "derpNodes")
 FALLBACK_ROOT = os.path.join(EXT_ROOT, "user", "derpNodes")
 USING_FALLBACK_ROOT = False
