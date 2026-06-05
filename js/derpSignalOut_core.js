@@ -313,6 +313,19 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                     };
                 };
 
+                const getSignalSourceNodeInGraph = (node, signalId) => {
+                    const graph = node?.graph || app.graph || window.app?.graph || null;
+                    if (!graph || !signalId) return null;
+                    const baseId = String(signalId).split(":")[0];
+                    const numericId = parseInt(baseId, 10);
+                    return graph.getNodeById?.(Number.isNaN(numericId) ? baseId : numericId) || null;
+                };
+
+                const isSignalInCurrentGraph = (node, sig) => {
+                    if (!sig?.nodeId) return false;
+                    return !!getSignalSourceNodeInGraph(node, sig.nodeId);
+                };
+
                 nodeType.prototype.collectDerpOutputLinks = function(slotIndices = []) {
                     const cachedLinks = [];
                     const outputs = this._xcpTrueOutputs || this.outputs;
@@ -592,7 +605,7 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                             let orphanStateChanged = false;
                             this.activeOutputs.forEach((sig, i) => {
                                 const freshSig = globalSignals[String(sig.nodeId)];
-                                if (freshSig) {
+                                if (freshSig && isSignalInCurrentGraph(this, freshSig)) {
                                     this.activeOutputs[i] = sanitizeDerpSignal(freshSig);
                                     if (sig.isOrphaned) {
                                         this.activeOutputs[i].isOrphaned = false;
@@ -600,7 +613,8 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                                     }
                                 } else if (!sig.isOrphaned) {
                                     const sourceBaseId = String(sig.nodeId).split(":")[0];
-                                    const nodeExists = !!window.app?.graph?.getNodeById(parseInt(sourceBaseId));
+                                    const sourceNode = getSignalSourceNodeInGraph(this, sourceBaseId);
+                                    const nodeExists = !!sourceNode;
 
                                     if (!nodeExists) {
                                         if (this.outputs && this.outputs[i] && this.outputs[i].links && window.app?.graph) {
@@ -612,7 +626,6 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                                         this.activeOutputs[i] = sanitizeDerpSignal({ ...sig, nodeId: preservedId, nodeName: "⚠️ Signal source deleted", isOrphaned: true });
                                         orphanStateChanged = true;
                                     } else {
-                                        const sourceNode = window.app?.graph?.getNodeById(parseInt(sourceBaseId));
                                         if (sourceNode && !sourceNode.properties?.isWirelessTransmitter) {
                                             orphanStateChanged = true;
                                             this.activeOutputs[i] = null;
@@ -630,6 +643,7 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                         const newReceived = Object.values(globalSignals)
                             .filter(sig => {
                                 if (!sig) return false;
+                                if (!isSignalInCurrentGraph(this, sig)) return false;
                                 if (sig.isPureVirtual && (sig.value === null || sig.value === undefined)) return false;
                                 return true;
                             })

@@ -308,7 +308,7 @@ app.registerExtension({
                         type: this.UI_TYPES.TEXT, mouseOver: false,
                         themeKey: "t_textSystem",
                         labelAlign: ["left", "middle"],
-                        text: tLocale("$derp_model_loader.system.properties", "Custom node properties:"),
+                        text: tLocale("$derp_model_loader.system.properties", "Derp Model Loader properties:"),
                         width: "full", padding: [pW, pH],
                     },
                     "regionSetting-1": {

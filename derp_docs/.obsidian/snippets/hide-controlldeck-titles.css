@@ -1,0 +1,4 @@
+/* Hide inline title for ControlDeck Nodes docs — the embedded image is the real title */
+[data-path*="ControlDeck Nodes"] .inline-title {
+  display: none;
+}

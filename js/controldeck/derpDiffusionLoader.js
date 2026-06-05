@@ -20,6 +20,10 @@ function stripModelName(name, showFolderNames) {
     return display.replace(/\.(safetensors|pt|ckpt)$/i, "");
 }
 
+function getWeightDtypeItems() {
+    return ["default", "fp8_e4m3fn", "fp8_e4m3fn_fast", "fp8_e5m2"];
+}
+
 function buildDeckRegions(node, deck, deckKey, rowPrefix, togglePrefix, removePrefix, removeDialogKey) {
     const vars = node.getDerpVars(node);
     const [pW, pH, sH, sW] = [vars.pW, vars.pH, vars.sH, vars.sW].map(v => Number(v.toFixed(2)));
@@ -202,14 +206,11 @@ app.registerExtension({
             const [mW, mH, pW, pH, sH, sW, oY] = [vars.mW, vars.mH, vars.pW, vars.pH, vars.sH, vars.sW, vars.oY].map(v => Number(v.toFixed(2)));
             const t_textNormal_size = vars.t_textNormal_size;
             const diffusionDeck = this.properties.diffusionDeck || [];
-            const textEncoderDeck = this.properties.textEncoderDeck || [];
             const deckHash = [
                 diffusionDeck.map(m => `${m.name}:${m.active}`).join("|"),
-                textEncoderDeck.map(m => `${m.name}:${m.active}`).join("|"),
                 this.properties.weightDtype,
                 this.properties.showFolderNames,
                 (this._diffusionList || []).length,
-                (this._textEncoderList || []).length,
                 window._xcpDerpSession,
                 this._dropPreviewIdx,
                 this._dragTrig?.index,
@@ -223,7 +224,6 @@ app.registerExtension({
             };
 
             const diffusionRegions = buildDeckRegions(this, diffusionDeck, "diffusionDeck", "diffusionRow_", "diffusionToggle_", "btnRemoveDiffusion_", "$derp_diffusion_loader.dialogs.remove_diffusion");
-            const textEncoderRegions = buildDeckRegions(this, textEncoderDeck, "textEncoderDeck", "textEncoderRow_", "textEncoderToggle_", "btnRemoveTextEncoder_", "$derp_diffusion_loader.dialogs.remove_text_encoder");
 
             this.layoutMap = {
                 sysContentRegion: {
@@ -296,61 +296,37 @@ app.registerExtension({
                             }
                         }
                     },
-                    regionTextEncoderDeck: {
-                        width: "full", height: "auto", dir: "col", spacing: [0, sH],
-                        hidden: textEncoderDeck.length === 0,
-                        margin: [0, mH, 0, mH],
-                        ...textEncoderRegions
-                    },
-                    regionTextEncoderLoader: {
+                    regionWeightDtype: {
                         dir: "row", width: "full", height: "auto", spacing: [sW, 0],
-                        btnClearTextEncoders: {
-                            type: this.UI_TYPES.BUTTON,
-                            text: "Clear",
-                            width: "auto", height: "fill", padding: [pW, pH], spacing: [sW, 0],
-                            labelAlign: ["center", "middle"],
-                            state: textEncoderDeck.length > 0 ? "ON" : "DIS",
-                            pulseStates: true,
-                            themeKey: "button, t_textSmall",
-                            onPress: () => {
-                                showBastaFileHandler(this, "none", "btnClearTextEncoders", {
-                                    title: tLocale("$derp_diffusion_loader.dialogs.clear_text_encoder_deck.title", "Clear Text Encoder Deck"),
-                                    message: tLocale("$derp_diffusion_loader.dialogs.clear_text_encoder_deck.message", "Clear the text encoder deck?"),
-                                    confirm: tLocale("$derp_diffusion_loader.dialogs.clear_text_encoder_deck.confirm", "Clear"),
-                                    mode: "delete",
-                                    playSound: "delete",
-                                    properties: { bastaMovalbe: false },
-                                    onConfirm: () => {
-                                        this.properties.textEncoderDeck = [];
-                                        sendSignal();
-                                        if (this.syncDerpOutputs) this.syncDerpOutputs();
-                                        this.refreshNodeLayoutMap();
-                                        this.requestDerpSync();
-                                    }
-                                });
-                            }
+                        margin: [0, mH, 0, 0],
+                        lblWeightDtype: {
+                            type: this.UI_TYPES.TEXT,
+                            themeKey: "t_textNormal",
+                            text: tLocale("$derp_diffusion_loader.system.weight_dtype", "Weight DType"),
+                            width: "auto", height: "auto", padding: [pW, pH]
                         },
-                        browserTextEncoders: {
+                        dropdownWeightDtype: {
                             type: this.UI_TYPES.FILEBROWSER,
-                            items: (this._textEncoderList || []).filter(name => !textEncoderDeck.some(m => m.name === name)),
-                            mode: "file", rootName: tLocale("$derp_diffusion_loader.browser.text_encoder_root_name", "text_encoders"), fileType: "model", mouseOver: false,
-                            value: tLocale("$derp_diffusion_loader.browser.select_text_encoder", "Select Text Encoder..."),
+                            icon: "dropdown",
+                            themeKey: "dialog, t_textNormal",
+                            canvasShield: true,
                             width: "full", height: "auto",
-                            fontSize: t_textNormal_size,
-                            themeKey: "dialog, t_textNormal", canvasShield: true,
-                            spacing: [sW, 0], padding: [pW, pH],
-                            onChange: (v) => {
-                                this.properties.textEncoderDeck = this.properties.textEncoderDeck || [];
-                                this.properties.textEncoderDeck.forEach(m => m.active = false);
-                                const existing = this.properties.textEncoderDeck.find(m => m.name === v);
-                                if (!existing) this.properties.textEncoderDeck.push({ name: v, active: true });
-                                else existing.active = true;
-                                sendSignal();
-                                if (this.syncDerpOutputs) this.syncDerpOutputs();
+                            padding: [pW, pH],
+                            mode: "file",
+                            rootName: "weight_dtype",
+                            items: getWeightDtypeItems(),
+                            value: this.properties.weightDtype || "default",
+                            onChange: (val) => {
+                                this.properties.weightDtype = val || "default";
+                                if (typeof window._xcpCloseActiveDropdown === "function") window._xcpCloseActiveDropdown();
+                                if (this.broadcastWirelessSignal) this.broadcastWirelessSignal();
                                 this.refreshNodeLayoutMap();
+                                this.refreshDerpTemplateSysMap();
+                                this.requestDerpSync();
+                                if (this.setDirtyCanvas) this.setDirtyCanvas(true, true);
                             }
                         }
-                    }
+                    },
                 }
             };
             this.requestDerpSync();
@@ -360,7 +336,6 @@ app.registerExtension({
         nodeType.prototype.refreshDerpTemplateSysMap = function() {
             const vars = this.getDerpVars(this);
             const [mW, mH, oY, pW, pH, sW] = [vars.mW, vars.mH, vars.oY, vars.pW, vars.pH, vars.sW].map(v => Number(v.toFixed(2)));
-            const weightDtypeItems = ["default", "fp16", "bf16", "fp32", "fp8_e4m3fn", "fp8_e5m2"];
             this.sysLayoutMap = {
                 sysContentRegion: {
                     dir: "col",
@@ -407,7 +382,7 @@ app.registerExtension({
                             padding: [pW, pH],
                             mode: "file",
                             rootName: "dtype",
-                            items: weightDtypeItems,
+                            items: getWeightDtypeItems(),
                             value: this.properties.weightDtype || "default",
                             onChange: (val) => {
                                 this.properties.weightDtype = val || "default";
@@ -435,7 +410,6 @@ app.registerExtension({
             if (onSerialize) onSerialize.apply(this, arguments);
             info.properties = info.properties || {};
             info.properties.diffusionDeck = this.properties.diffusionDeck;
-            info.properties.textEncoderDeck = this.properties.textEncoderDeck;
             info.properties.weightDtype = this.properties.weightDtype;
         };
 
@@ -443,7 +417,6 @@ app.registerExtension({
         nodeType.prototype.onConfigure = function(info) {
             if (onConfigure) onConfigure.apply(this, arguments);
             if (info.properties?.diffusionDeck) this.properties.diffusionDeck = info.properties.diffusionDeck;
-            if (info.properties?.textEncoderDeck) this.properties.textEncoderDeck = info.properties.textEncoderDeck;
             if (typeof info.properties?.weightDtype === "string") this.properties.weightDtype = info.properties.weightDtype;
             this.handleDiffusionLoaderConfigure();
         };

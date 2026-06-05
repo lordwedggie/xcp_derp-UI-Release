@@ -104,20 +104,16 @@ export function initDerpDiffusionLoaderCore(nodeType) {
         const suppressSignal = options?.suppressSignal === true;
         const session = window._xcpDerpSession || Date.now();
 
-        const [diffusionRes, unetRes, textEncoderRes] = await Promise.all([
+        const [diffusionRes, unetRes] = await Promise.all([
             fetch(`/xcp/list/diffusion_models?v=${session}`).then(r => r.json()),
-            fetch(`/xcp/list/unet?v=${session}`).then(r => r.json()),
-            fetch(`/xcp/list/text_encoders?v=${session}`).then(r => r.json())
+            fetch(`/xcp/list/unet?v=${session}`).then(r => r.json())
         ]);
 
         const diffusionItems = [...(diffusionRes.items || []), ...(unetRes.items || [])];
         this._diffusionList = [...new Set(diffusionItems)];
-        this._textEncoderList = textEncoderRes.items || [];
 
         const missingDiffusions = [];
         const healedDiffusions = [];
-        const missingTextEncoders = [];
-        const healedTextEncoders = [];
 
         this.properties.diffusionDeck = (this.properties.diffusionDeck || []).map((m) => {
             if (this._diffusionList.includes(m.name)) return m;
@@ -130,29 +126,16 @@ export function initDerpDiffusionLoaderCore(nodeType) {
             return null;
         }).filter(Boolean);
 
-        this.properties.textEncoderDeck = (this.properties.textEncoderDeck || []).map((m) => {
-            if (this._textEncoderList.includes(m.name)) return m;
-            const match = resolvePathMatch(this._textEncoderList, m.name);
-            if (match) {
-                healedTextEncoders.push(`${m.name.split(/[\\/]/).pop()} (Path Updated)`);
-                return { ...m, name: match };
-            }
-            missingTextEncoders.push(m.name.split(/[\\/]/).pop());
-            return null;
-        }).filter(Boolean);
-
         this.properties.diffusionDeck = normalizeDeck(this.properties.diffusionDeck);
-        this.properties.textEncoderDeck = normalizeDeck(this.properties.textEncoderDeck);
 
         if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
         if (!suppressSignal && this.broadcastWirelessSignal) this.broadcastWirelessSignal();
 
-        if (showNotification || missingDiffusions.length || missingTextEncoders.length) {
+        if (showNotification || missingDiffusions.length) {
             if (typeof playMicrowaveDing === "function") playMicrowaveDing();
-            if ((missingDiffusions.length || missingTextEncoders.length) && typeof showBastaMessage === "function") {
+            if (missingDiffusions.length && typeof showBastaMessage === "function") {
                 const parts = [];
                 if (missingDiffusions.length) parts.push(`${tLocale("$derp_diffusion_loader.messages.missing_diffusions_prefix", "Missing Diffusions Purged: ")}${missingDiffusions.join(", ")}`);
-                if (missingTextEncoders.length) parts.push(`${tLocale("$derp_diffusion_loader.messages.missing_text_encoders_prefix", "Missing Text Encoders Purged: ")}${missingTextEncoders.join(", ")}`);
                 showBastaMessage(this, parts.join(" | "), 6000, { fade: true, grow: true }, "btnRefreshDiffusions", false, "error");
             }
         }
@@ -162,8 +145,7 @@ export function initDerpDiffusionLoaderCore(nodeType) {
 
     proto.syncDerpOutputs = function() {
         const ports = [
-            { name: tLocale("$derp_diffusion_loader.ports.model", "Model"), type: "MODEL" },
-            { name: tLocale("$derp_diffusion_loader.ports.clip", "Clip"), type: "CLIP" }
+            { name: tLocale("$derp_diffusion_loader.ports.model", "Model"), type: "MODEL" }
         ];
 
         if (!this.outputs || this.outputs.length !== ports.length) {
@@ -174,64 +156,47 @@ export function initDerpDiffusionLoaderCore(nodeType) {
     };
 
     proto.broadcastWirelessSignal = function() {
-        if (this.id === -1 || this.mode === 4 || this.mode === 2) return;
+        if (this.id === -1) return;
+        const isBypassed = this.mode === 4 || this.mode === 2 || this._derpSpoofedBypass;
         const activeDiffusion = (this.properties.diffusionDeck || []).find(m => m.active);
-        const activeTextEncoder = (this.properties.textEncoderDeck || []).find(m => m.active);
-        if (!activeDiffusion || !activeTextEncoder) return;
 
-        const diffusionName = activeDiffusion.name;
-        const textEncoderName = activeTextEncoder.name;
+        const diffusionName = isBypassed ? null : activeDiffusion?.name;
         const weightDtype = this.properties.weightDtype || "default";
-        const sharedPayload = {
+        const modelPayload = diffusionName ? {
             diffusion_name: diffusionName,
-            text_encoder_name: textEncoderName,
             weight_dtype: weightDtype,
             model_name_prefix: diffusionName,
             model_name: diffusionName,
-            clip_name: textEncoderName,
             model_id: `${this.id}:0`,
-            clip_id: `${this.id}:1`
-        };
-        const modelPayload = {
-            ...sharedPayload,
             signal_role: "model"
-        };
-        const clipPayload = {
-            ...sharedPayload,
-            signal_role: "clip"
-        };
-        const aggregatePayload = {
-            ...sharedPayload,
-            diffusion_name: activeDiffusion.name,
-            text_encoder_name: activeTextEncoder.name,
+        } : null;
+        const aggregatePayload = modelPayload ? {
+            ...modelPayload,
+            diffusion_name: diffusionName,
             weight_dtype: this.properties.weightDtype || "default"
-        };
+        } : null;
 
         const nodeName = this.titleLabel || this.title || tLocale("$derp_diffusion_loader.title", "Derp Diffusion Loader");
         const modelPortLabel = tLocale("$derp_diffusion_loader.ports.model", "Model");
-        const clipPortLabel = tLocale("$derp_diffusion_loader.ports.clip", "Clip");
-        const fingerprint = JSON.stringify([diffusionName, textEncoderName, weightDtype, this.id, nodeName, modelPortLabel, clipPortLabel]);
+        const fingerprint = JSON.stringify([isBypassed, diffusionName, weightDtype, this.id, nodeName, modelPortLabel, (this.properties.diffusionDeck || []).length]);
         if (this._lastSignalFingerprint === fingerprint) return;
         this._lastSignalFingerprint = fingerprint;
 
-        if (this.widgets) {
+        if (diffusionName && this.widgets) {
             const diffusionWidget = this.widgets.find(w => w.name === "diffusion_name" || w.name === "model_name" || w.name === "unet_name");
             if (diffusionWidget) diffusionWidget.value = diffusionName;
-            const textEncoderWidget = this.widgets.find(w => w.name === "text_encoder_name" || w.name === "clip_name");
-            if (textEncoderWidget) textEncoderWidget.value = textEncoderName;
             const dtypeWidget = this.widgets.find(w => w.name === "weight_dtype" || w.name === "dtype");
             if (dtypeWidget) dtypeWidget.value = weightDtype;
         }
 
         const baseId = String(this.id);
-        pushDiffusionSignalToRegistry(this, `${baseId}:0`, nodeName, modelPortLabel, "model", modelPayload);
-        pushDiffusionSignalToRegistry(this, `${baseId}:1`, nodeName, clipPortLabel, "clip", clipPayload);
+        pushDiffusionSignalToRegistry(this, `${baseId}:0`, nodeName, modelPortLabel, modelPayload ? "model" : "null", modelPayload);
 
         const savedOutputs = this.outputs;
         if (this._xcpTrueOutputs && this._xcpTrueOutputs.length > 0) {
             this.outputs = this._xcpTrueOutputs;
         }
-        transmitDerpSignal(this, aggregatePayload);
+        if (aggregatePayload) transmitDerpSignal(this, aggregatePayload);
         this.outputs = savedOutputs;
     };
 
@@ -254,9 +219,7 @@ export function initDerpDiffusionLoaderCore(nodeType) {
         if (!this._sysProfileData || !this._sysProfileData[profileName] || profileName === "(No Profiles Found)") return;
         const profileObj = this._sysProfileData[profileName] || {};
         const diffusions = Array.isArray(profileObj?.diffusions) ? profileObj.diffusions : [];
-        const textEncoders = Array.isArray(profileObj?.text_encoders) ? profileObj.text_encoders : [];
         this.properties.diffusionDeck = normalizeDeck(diffusions.map((name, idx) => ({ name, active: idx === 0 })));
-        this.properties.textEncoderDeck = normalizeDeck(textEncoders.map((name, idx) => ({ name, active: idx === 0 })));
         this.properties.weightDtype = profileObj?.weight_dtype || this.properties.weightDtype || "default";
         if (this.syncDerpOutputs) this.syncDerpOutputs();
         if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
@@ -266,7 +229,6 @@ export function initDerpDiffusionLoaderCore(nodeType) {
     proto.exportDerpProfile = function() {
         return {
             diffusions: (this.properties.diffusionDeck || []).map(item => String(item?.name || "")).filter(Boolean),
-            text_encoders: (this.properties.textEncoderDeck || []).map(item => String(item?.name || "")).filter(Boolean),
             weight_dtype: this.properties.weightDtype || "default"
         };
     };
@@ -278,7 +240,6 @@ export function initDerpDiffusionLoaderCore(nodeType) {
         this.properties.skipGenericWirelessHeartbeat = true;
         this.properties.drawSettingBtn = false;
         this.properties.diffusionDeck = normalizeDeck(this.properties.diffusionDeck || []);
-        this.properties.textEncoderDeck = normalizeDeck(this.properties.textEncoderDeck || []);
         if (typeof this.properties.showFolderNames !== "boolean") this.properties.showFolderNames = true;
         if (typeof this.properties.weightDtype !== "string") this.properties.weightDtype = "default";
         this.properties.autoWidth = false;
@@ -300,7 +261,6 @@ export function initDerpDiffusionLoaderCore(nodeType) {
         this.properties.skipGenericWirelessHeartbeat = true;
         this.properties.drawSettingBtn = false;
         this.properties.diffusionDeck = normalizeDeck(this.properties.diffusionDeck || []);
-        this.properties.textEncoderDeck = normalizeDeck(this.properties.textEncoderDeck || []);
         if (typeof this.properties.weightDtype !== "string") this.properties.weightDtype = "default";
         this.fetchDiffusionData(false, { suppressSignal: true });
         setTimeout(() => {

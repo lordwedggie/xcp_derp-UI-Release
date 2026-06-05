@@ -93,7 +93,7 @@ class xcpDerpSignalOut:
                 if not is_live:
                     original_val = val
                     new_val = process_signal_fallback(val, sig_type, DERP_LIVE_REGISTRY)
-                    if new_val is not val:
+                    if new_val is not None and new_val is not val:
                         val = new_val
                         is_live = True
                         # Keep descriptor payloads in the live registry; do not overwrite

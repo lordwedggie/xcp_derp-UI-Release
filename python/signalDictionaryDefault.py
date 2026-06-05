@@ -80,17 +80,22 @@ def load_checkpoint_models(ckpt_name, registry):
 
 def normalize_weight_dtype(weight_dtype):
     if weight_dtype in [None, "", "default", "auto", "Auto"]:
-        return None
+        return {}
     if not isinstance(weight_dtype, str):
-        return None
-    dtype_map = {
-        "fp8_e4m3fn": torch.float8_e4m3fn if hasattr(torch, "float8_e4m3fn") else None,
-        "fp8_e5m2": torch.float8_e5m2 if hasattr(torch, "float8_e5m2") else None,
+        return {}
+    if weight_dtype == "fp8_e4m3fn" and hasattr(torch, "float8_e4m3fn"):
+        return {"dtype": torch.float8_e4m3fn}
+    if weight_dtype == "fp8_e4m3fn_fast" and hasattr(torch, "float8_e4m3fn"):
+        return {"dtype": torch.float8_e4m3fn, "fp8_optimizations": True}
+    if weight_dtype == "fp8_e5m2" and hasattr(torch, "float8_e5m2"):
+        return {"dtype": torch.float8_e5m2}
+    legacy_dtype_map = {
         "bf16": torch.bfloat16,
         "fp16": torch.float16,
         "fp32": torch.float32,
     }
-    return dtype_map.get(weight_dtype)
+    dtype = legacy_dtype_map.get(weight_dtype)
+    return {"dtype": dtype} if dtype is not None else {}
 
 def find_full_path_from_categories(filename, *categories):
     if not filename:
@@ -104,10 +109,52 @@ def find_full_path_from_categories(filename, *categories):
             return path
     return None
 
-def load_diffusion_and_clip(diffusion_name, text_encoder_name, registry, weight_dtype=None):
+def normalize_clip_type(clip_type):
+    if not isinstance(clip_type, str) or not clip_type:
+        return comfy.sd.CLIPType.STABLE_DIFFUSION
+    return getattr(comfy.sd.CLIPType, clip_type.upper(), comfy.sd.CLIPType.STABLE_DIFFUSION)
+
+def resolve_clip_type(text_encoder_name=None, clip_type=None):
+    if isinstance(clip_type, str) and clip_type not in ["", "default", "auto", "stable_diffusion"]:
+        return clip_type
+    lower_name = str(text_encoder_name or "").lower()
+    if "qwen" in lower_name:
+        return "qwen_image"
+    return "stable_diffusion"
+
+def build_clip_model_options(clip_device=None):
+    model_options = {}
+    if clip_device == "cpu":
+        model_options["load_device"] = model_options["offload_device"] = torch.device("cpu")
+    return model_options
+
+def load_clip_model(text_encoder_name, registry, clip_type=None, clip_device=None):
+    if not text_encoder_name:
+        return None
+    effective_clip_type = resolve_clip_type(text_encoder_name, clip_type)
+    cache_key = f"CLIP:{text_encoder_name}|TYPE:{effective_clip_type}|DEVICE:{clip_device or 'default'}"
+    cached = registry.get(cache_key)
+    if cached is not None:
+        return safe_clone(cached)
+
+    text_encoder_path = find_full_path_from_categories(text_encoder_name, "text_encoders")
+    if not text_encoder_path:
+        return None
+
+    clip = comfy.sd.load_clip(
+        ckpt_paths=[text_encoder_path],
+        embedding_directory=folder_paths.get_folder_paths("embeddings"),
+        clip_type=normalize_clip_type(effective_clip_type),
+        model_options=build_clip_model_options(clip_device)
+    )
+    registry[cache_key] = clip
+    return safe_clone(clip)
+
+def load_diffusion_and_clip(diffusion_name, text_encoder_name, registry, weight_dtype=None, clip_type=None, clip_device=None):
     if not diffusion_name or not text_encoder_name:
         return None, None
-    cache_key = f"DIFFUSION:{diffusion_name}|CLIP:{text_encoder_name}|DTYPE:{weight_dtype or 'auto'}"
+    effective_clip_type = resolve_clip_type(text_encoder_name, clip_type)
+    cache_key = f"DIFFUSION:{diffusion_name}|CLIP:{text_encoder_name}|DTYPE:{weight_dtype or 'auto'}|CLIPTYPE:{effective_clip_type}|CLIPDEVICE:{clip_device or 'default'}"
     cached = registry.get(cache_key)
     if cached is not None:
         model, clip = cached
@@ -119,14 +166,14 @@ def load_diffusion_and_clip(diffusion_name, text_encoder_name, registry, weight_
         return None, None
 
     model_options = {}
-    resolved_dtype = normalize_weight_dtype(weight_dtype)
-    if resolved_dtype is not None:
-        model_options["weight_dtype"] = resolved_dtype
+    model_options.update(normalize_weight_dtype(weight_dtype))
 
     model = comfy.sd.load_diffusion_model(diffusion_path, model_options=model_options)
     clip = comfy.sd.load_clip(
         ckpt_paths=[text_encoder_path],
-        embedding_directory=folder_paths.get_folder_paths("embeddings")
+        embedding_directory=folder_paths.get_folder_paths("embeddings"),
+        clip_type=normalize_clip_type(effective_clip_type),
+        model_options=build_clip_model_options(clip_device)
     )
     registry[cache_key] = (model, clip)
     return safe_clone(model), safe_clone(clip)
@@ -391,12 +438,21 @@ def process_signal_fallback(val, sig_type, registry):
                 val.get("diffusion_name"),
                 val.get("text_encoder_name"),
                 registry,
-                val.get("weight_dtype")
+                val.get("weight_dtype"),
+                val.get("clip_type"),
+                val.get("clip_device")
             )
             if "MODEL" in sig_type and model is not None:
                 return model
             if "CLIP" in sig_type and clip is not None:
                 return clip
+            if "CLIP" in sig_type and val.get("text_encoder_name") and not val.get("diffusion_name"):
+                return load_clip_model(
+                    val.get("text_encoder_name"),
+                    registry,
+                    val.get("clip_type"),
+                    val.get("clip_device")
+                )
             return None
 
         # Plain checkpoint name (string) or dict with ckpt_name

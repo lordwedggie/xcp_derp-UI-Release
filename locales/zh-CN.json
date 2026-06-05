@@ -433,9 +433,7 @@
     "title": "老登扩散加载器",
     "browser": {
       "diffusion_root_name": "diffusion_models + unet",
-      "text_encoder_root_name": "text_encoders",
       "select_diffusion": "选择扩散模型...",
-      "select_text_encoder": "选择文本编码器...",
       "refresh": "刷新"
     },
     "system": {
@@ -444,8 +442,7 @@
       "weight_dtype": "权重精度"
     },
     "ports": {
-      "model": "模型",
-      "clip": "Clip"
+      "model": "模型"
     },
     "dialogs": {
       "remove_diffusion": {
@@ -454,28 +451,51 @@
         "message_suffix": "从牌组中移除？",
         "confirm": "移除"
       },
-      "remove_text_encoder": {
-        "title": "移除文本编码器",
-        "message_prefix": "将",
-        "message_suffix": "从牌组中移除？",
-        "confirm": "移除"
-      },
       "clear_diffusion_deck": {
         "title": "清空扩散模型牌组",
         "message": "要清空扩散模型牌组吗？",
-        "confirm": "清空"
-      },
-      "clear_text_encoder_deck": {
-        "title": "清空文本编码器牌组",
-        "message": "要清空文本编码器牌组吗？",
         "confirm": "清空"
       }
     },
     "messages": {
       "relinked_diffusions_prefix": "扩散模型已重新关联：",
-      "relinked_text_encoders_prefix": "文本编码器已重新关联：",
-      "missing_diffusions_prefix": "已清除缺失扩散模型：",
-      "missing_text_encoders_prefix": "已清除缺失文本编码器："
+      "missing_diffusions_prefix": "已清除缺失扩散模型："
+    }
+  },
+  "derp_clip_loader": {
+    "title": "老登 CLIP 加载器",
+    "browser": {
+      "root_name": "text_encoders",
+      "select": "选择 CLIP...",
+      "refresh": "刷新"
+    },
+    "system": {
+      "properties": "自定义节点属性：",
+      "show_folder_names": "显示文件夹名称"
+    },
+    "options": {
+      "type": "type",
+      "device": "device"
+    },
+    "ports": {
+      "clip": "Clip"
+    },
+    "dialogs": {
+      "remove_clip": {
+        "title": "移除 CLIP",
+        "message_prefix": "将",
+        "message_suffix": "从牌组中移除？",
+        "confirm": "移除"
+      },
+      "clear_deck": {
+        "title": "清空 CLIP 牌组",
+        "message": "要清空 CLIP 牌组吗？",
+        "confirm": "清空"
+      }
+    },
+    "messages": {
+      "missing_purged_prefix": "已清除缺失 CLIP：",
+      "relinked_prefix": "CLIP 已重新关联："
     }
   },
   "derp_prompt_book": {

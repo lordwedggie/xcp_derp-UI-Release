@@ -137,13 +137,26 @@ class DerpDiffusionLoaderNode:
     def INPUT_TYPES(s):
         return {"required": {}}
 
-    RETURN_TYPES = ("MODEL", "CLIP")
-    RETURN_NAMES = ("model", "clip")
+    RETURN_TYPES = ("MODEL",)
+    RETURN_NAMES = ("model",)
     FUNCTION = "do_nothing"
     CATEGORY = "🔞 derpNodes/ControlDeck"
 
     def do_nothing(self):
-        return (None, None)
+        return (None,)
+
+class DerpClipLoaderNode:
+    @classmethod
+    def INPUT_TYPES(s):
+        return {"required": {}}
+
+    RETURN_TYPES = ("CLIP",)
+    RETURN_NAMES = ("clip",)
+    FUNCTION = "do_nothing"
+    CATEGORY = "🔞 derpNodes/ControlDeck"
+
+    def do_nothing(self):
+        return (None,)
 
 # THE NEW FATHA CHILD: Pure virtual vae loader shell
 class DerpVaeLoaderNode:
@@ -288,6 +301,7 @@ NODE_CLASS_MAPPINGS = {
     "DerpLatentNode": DerpLatentNode,
     "DerpModelLoaderNode": DerpModelLoaderNode,
     "DerpDiffusionLoaderNode": DerpDiffusionLoaderNode,
+    "DerpClipLoaderNode": DerpClipLoaderNode,
     "DerpVaeLoaderNode": DerpVaeLoaderNode,
     "derpSamplerLoader": derpSamplerLoader,
     "derpSchedulerLoader": derpSchedulerLoader,
@@ -305,6 +319,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "DerpLatentNode": "Derp Latent",
     "DerpModelLoaderNode": "Derp Model Loader",
     "DerpDiffusionLoaderNode": "Derp Diffusion Loader",
+    "DerpClipLoaderNode": "Derp Clip Loader",
     "DerpVaeLoaderNode": "Derp Vae Loader",
     "derpSamplerLoader": "Derp Sampler Loader",
     "derpSchedulerLoader": "Derp Scheduler Loader",
