@@ -239,6 +239,7 @@ export function initDerpDiffusionLoaderCore(nodeType) {
         this.properties.isWirelessTransmitter = true;
         this.properties.skipGenericWirelessHeartbeat = true;
         this.properties.drawSettingBtn = true;
+        this.properties.settingActive = true;
         this.properties.diffusionDeck = normalizeDeck(this.properties.diffusionDeck || []);
         if (typeof this.properties.showFolderNames !== "boolean") this.properties.showFolderNames = true;
         if (typeof this.properties.weightDtype !== "string") this.properties.weightDtype = "default";
@@ -260,6 +261,7 @@ export function initDerpDiffusionLoaderCore(nodeType) {
         this._isDerpDiffusionLoaderNode = true;
         this.properties.skipGenericWirelessHeartbeat = true;
         this.properties.drawSettingBtn = true;
+        if (typeof this.properties.settingActive !== "boolean") this.properties.settingActive = true;
         this.properties.diffusionDeck = normalizeDeck(this.properties.diffusionDeck || []);
         if (typeof this.properties.weightDtype !== "string") this.properties.weightDtype = "default";
         this.fetchDiffusionData(false, { suppressSignal: true });

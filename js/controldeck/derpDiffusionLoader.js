@@ -209,6 +209,7 @@ app.registerExtension({
             const deckHash = [
                 diffusionDeck.map(m => `${m.name}:${m.active}`).join("|"),
                 this.properties.weightDtype,
+                this.properties.settingActive ? 1 : 0,
                 this.properties.showFolderNames,
                 (this._diffusionList || []).length,
                 window._xcpDerpSession,
@@ -238,6 +239,7 @@ app.registerExtension({
                     },
                     regionDiffusionLoader: {
                         dir: "row", width: "full", height: "auto", spacing: [sW, 0],
+                        hidden: this.properties.settingActive === false,
                         margin: [0, mH, 0, 0],
                         btnClearDiffusions: {
                             type: this.UI_TYPES.BUTTON,
@@ -298,6 +300,7 @@ app.registerExtension({
                     },
                     regionWeightDtype: {
                         dir: "row", width: "full", height: "auto", spacing: [sW, 0],
+                        hidden: this.properties.settingActive === false,
                         margin: [0, mH, 0, 0],
                         lblWeightDtype: {
                             type: this.UI_TYPES.TEXT,
@@ -402,6 +405,9 @@ app.registerExtension({
         const onCreated = nodeType.prototype.onNodeCreated;
         nodeType.prototype.onNodeCreated = function() {
             if (onCreated) onCreated.apply(this, arguments);
+            this.onDerpSettingsPress = () => {
+                this.refreshNodeLayoutMap();
+            };
             this.handleDiffusionLoaderCreated();
         };
 
@@ -411,11 +417,15 @@ app.registerExtension({
             info.properties = info.properties || {};
             info.properties.diffusionDeck = this.properties.diffusionDeck;
             info.properties.weightDtype = this.properties.weightDtype;
+            info.properties.settingActive = this.properties.settingActive !== false;
         };
 
         const onConfigure = nodeType.prototype.onConfigure;
         nodeType.prototype.onConfigure = function(info) {
             if (onConfigure) onConfigure.apply(this, arguments);
+            this.onDerpSettingsPress = () => {
+                this.refreshNodeLayoutMap();
+            };
             if (info.properties?.diffusionDeck) this.properties.diffusionDeck = info.properties.diffusionDeck;
             if (typeof info.properties?.weightDtype === "string") this.properties.weightDtype = info.properties.weightDtype;
             this.handleDiffusionLoaderConfigure();
