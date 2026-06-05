@@ -6,6 +6,7 @@ import { app } from "../../../scripts/app.js";
 import { fatha, initDerpGlobalListener } from "../fatha/fatha.js";
 import { settleDerpSizeBeforeDraw } from "../fatha/core/fathaHandler.js";
 import { isLinearDeckGroup, isNodeDocked } from "../fatha/core/masterDockEngine.js";
+import { setDerpNodeSizeCompat } from "../fatha/core/fathaNode2Compat.js";
 import { startStackDrag } from "../fatha/helpers/fathaDragDrop.js";
 import { COMPONENT_BLUEPRINTS } from "../fatha/core/masterLayoutTypes.js";
 import {
@@ -441,7 +442,7 @@ app.registerExtension({
             const rawW = this.size?.[0] || 0;
             const clampedW = Math.max(minW, rawW);
             if (rawW !== clampedW) {
-                this.size[0] = clampedW;
+                setDerpNodeSizeCompat(this, clampedW, Number(this.size?.[1] || this.properties?.nodeSize?.[1] || 0));
                 if (this.properties?.nodeSize) this.properties.nodeSize[0] = clampedW;
             }
 

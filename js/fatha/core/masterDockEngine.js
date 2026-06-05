@@ -9,6 +9,7 @@ import { syncDerpShield } from "./fathaDOMshield.js";
 import { handleNodeResize } from "./fathaNodeResize.js";
 import { getVirtualNodeLayoutMap } from "../helpers/fathaLayoutMaps.js";
 import { getDockNodeMinHeight, getDockNodeMinWidth, getSharedDockMinWidth, getSharedDockWidth, resolveDockAttachDimensions, resolveRuntimeDockSize } from "./dockDimensions.js";
+import { setDerpNodeSizeCompat } from "./fathaNode2Compat.js";
 
 const DEFAULT_DECK_SNAP = 10;
 const DEFAULT_DECK_RADIUS = 48;
@@ -964,10 +965,7 @@ export function syncDeckNodeSize(node, width, height, options = {}) {
         changed,
     });
 
-    if (!Array.isArray(node.size)) node.size = [prevW, prevH];
-
-    node.size[0] = nextW;
-    node.size[1] = nextH;
+    setDerpNodeSizeCompat(node, nextW, nextH);
     if (!node.properties) node.properties = {};
     node.properties.nodeSize = [nextW, nextH];
     if (!changed) return false;

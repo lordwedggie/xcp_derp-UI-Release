@@ -123,3 +123,19 @@ export function markNode2LayoutDirty(node) {
     node.setDirtyCanvas?.(true, true);
     app?.canvas?.setDirty?.(true, true);
 }
+
+export function setDerpNodeSizeCompat(node, width, height) {
+    if (!node) return;
+    const nextW = Number(width) || 0;
+    const nextH = Number(height) || 0;
+    if (isDerpCustomNode(node) && isComfyVueNodesMode()) {
+        node.size = [nextW, nextH];
+        markNode2LayoutDirty(node);
+        return;
+    }
+    if (!Array.isArray(node.size)) node.size = [nextW, nextH];
+    else {
+        node.size[0] = nextW;
+        node.size[1] = nextH;
+    }
+}

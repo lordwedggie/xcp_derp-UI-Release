@@ -23,6 +23,7 @@ import {
 } from "./dockDimensions.js";
 import { dockDebug, snapshotDockNode } from "./dockDebugHelpers.js";
 import { getVirtualNodeLayoutMap } from "../helpers/fathaLayoutMaps.js";
+import { setDerpNodeSizeCompat } from "./fathaNode2Compat.js";
 
 globalThis.DERP_DOCK_RESIZE_DEBUG = true;
 globalThis.DERP_DOCK_RESIZE_CONSOLE = false;
@@ -289,8 +290,7 @@ export function animateDerpSizeImpl(node, targetW, targetH, useAnim, options = {
             hasDeckAnchor: !!deckAnchor,
             shouldAnchorAfterReflow,
         });
-        node.size[0] = targetW;
-        node.size[1] = targetH;
+        setDerpNodeSizeCompat(node, targetW, targetH);
         if (node.properties) node.properties.nodeSize = [targetW, targetH];
         const shiftDirection = allowCollapseShift ? resolveCollapseShiftDirection(node, graph) : 0;
         const skipCollapseShift = node._skipNextAnimateCollapseShift === true;
@@ -435,7 +435,7 @@ export function handleDerpCollapseImpl(entity, force, deps = {}) {
                     target.properties.nodeSize[1] = savedExpandedHeight;
                 }
                 if (Array.isArray(target.size) && savedExpandedHeight > 0) {
-                    target.size[1] = savedExpandedHeight;
+                    setDerpNodeSizeCompat(target, Number(target.size?.[0] || 0), savedExpandedHeight);
                 }
             }
         }

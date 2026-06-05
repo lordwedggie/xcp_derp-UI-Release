@@ -3,7 +3,7 @@ import { applyDockResizeResult, canResizeHorizontalStackWidth, syncDockResizePai
 import { getDockGroupAxisFromMembers, getDockNodeMinHeight, getDockNodeMinWidth, resolveDockResizeAxes } from "./dockDimensions.js";
 import { getDeckMembers, setDeckNodePos } from "./masterDockEngine.js";
 import { dockDebug, snapshotDockNode } from "./dockDebugHelpers.js";
-import { isComfyVueNodesMode, markNode2LayoutDirty } from "./fathaNode2Compat.js";
+import { setDerpNodeSizeCompat } from "./fathaNode2Compat.js";
 
 export function handleNodeResize(entity, data, scale) {
     const { SNAP, autoWidth, autoHeight } = entity.getDerpVars ? entity.getDerpVars(entity) : getDerpVars(entity);
@@ -103,13 +103,7 @@ export function handleNodeResize(entity, data, scale) {
         setDeckNodePos(entity, Number(entity.pos?.[0]) || 0, entity._startPos[1] + (entity._startSize[1] - appliedH));
     }
 
-    if (isComfyVueNodesMode()) {
-        entity.size = [appliedW, appliedH];
-        markNode2LayoutDirty(entity);
-    } else {
-        entity.size[0] = appliedW;
-        entity.size[1] = appliedH;
-    }
+    setDerpNodeSizeCompat(entity, appliedW, appliedH);
     if (entity.targetSize) {
         entity.targetSize[0] = appliedW;
         entity.targetSize[1] = appliedH;
