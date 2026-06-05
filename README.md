@@ -16,3 +16,5 @@ A custom node pack for derp-themed utilities that looks at standard UI framework
 - [Derp Sampler Loader](derp_docs/ControlDeck%20Nodes/Derp%20Sampler%20Loader.md) · [老登采样器加载器](derp_docs/ControlDeck%20Nodes/Derp%20Sampler%20Loader_ZH.md)
 - [Derp Scheduler Loader](derp_docs/ControlDeck%20Nodes/Derp%20Scheduler%20Loader.md) · [老登调度器加载器](derp_docs/ControlDeck%20Nodes/Derp%20Scheduler%20Loader_ZH.md)
 - [Derp Seed V2](derp_docs/ControlDeck%20Nodes/Derp%20SeedV2.md) · [老登种子 V2](derp_docs/ControlDeck%20Nodes/Derp%20SeedV2_ZH.md)
+- [Derp Diffusion Loader](derp_docs/ControlDeck%20Nodes/Derp%20Diffusion%20Loader.md) · [老登扩散模型加载器](derp_docs/ControlDeck%20Nodes/Derp%20Diffusion%20Loader_ZH.md)
+- [Derp CLIP Loader](derp_docs/ControlDeck%20Nodes/Derp%20Clip%20Loader.md) · [老登 CLIP 加载器](derp_docs/ControlDeck%20Nodes/Derp%20Clip%20Loader_ZH.md)

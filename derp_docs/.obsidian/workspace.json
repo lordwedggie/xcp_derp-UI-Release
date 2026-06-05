@@ -41,12 +41,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "ControlDeck Nodes/Derp Model Loader_ZH.md",
+                "file": "ControlDeck Nodes/Derp Diffusion Loader_ZH.md",
                 "mode": "preview",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "Derp Model Loader_ZH"
+              "title": "Derp Diffusion Loader_ZH"
             }
           }
         ],
@@ -123,7 +123,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "ControlDeck Nodes/Derp Model Loader_ZH.md",
+                "file": "ControlDeck Nodes/Derp Diffusion Loader_ZH.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -133,7 +133,7 @@
                 "unlinkedCollapsed": true
               },
               "icon": "links-coming-in",
-              "title": "Backlinks for Derp Model Loader_ZH"
+              "title": "Backlinks for Derp Diffusion Loader_ZH"
             }
           },
           {
@@ -213,8 +213,12 @@
   },
   "active": "8e77c97fda4bc99d",
   "lastOpenFiles": [
-    "ControlDeck Nodes/Derp Model Loader.md",
+    "ControlDeck Nodes/Derp Clip Loader.md",
+    "ControlDeck Nodes/Derp Diffusion Loader.md",
+    "ControlDeck Nodes/Derp Clip Loader_ZH.md",
+    "ControlDeck Nodes/Derp Diffusion Loader_ZH.md",
     "ControlDeck Nodes/Derp Model Loader_ZH.md",
+    "ControlDeck Nodes/Derp Model Loader.md",
     "ControlDeck Nodes/Derp Sampler Loader_ZH.md",
     "ControlDeck Nodes/Derp Scheduler Loader_ZH.md",
     "ControlDeck Nodes/Derp SeedV2.md",
@@ -245,12 +249,8 @@
     "FRAMEWORK-ThemePalette.md",
     "FRAMEWORK-Motha.md",
     "FRAMEWORK-Herbina.md",
-    "FRAMEWORK-Fatha.md",
-    "CHANGELOG.md",
     "_assets/cover_civitAI_v01.jpg",
     "_assets/ComfyUI_00340_.png",
-    "Welcome.md",
-    "00_Project_Name_MOC.md",
     "_assets/videos",
     "_assets/New folder",
     "_assets/images"
