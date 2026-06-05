@@ -11,10 +11,14 @@
             "id": "be52a0628c1fadc4",
             "type": "leaf",
             "state": {
-              "type": "graph",
-              "state": {},
-              "icon": "lucide-git-fork",
-              "title": "Graph view"
+              "type": "markdown",
+              "state": {
+                "file": "README.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "README"
             }
           }
         ]
@@ -90,6 +94,7 @@
             "state": {
               "type": "backlink",
               "state": {
+                "file": "README.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -99,7 +104,7 @@
                 "unlinkedCollapsed": true
               },
               "icon": "links-coming-in",
-              "title": "Backlinks"
+              "title": "Backlinks for README"
             }
           },
           {
@@ -108,11 +113,12 @@
             "state": {
               "type": "outgoing-link",
               "state": {
+                "file": "README.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
               "icon": "links-going-out",
-              "title": "Outgoing links"
+              "title": "Outgoing links from README"
             }
           },
           {
@@ -150,20 +156,20 @@
             "state": {
               "type": "outline",
               "state": {
+                "file": "README.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
               },
               "icon": "lucide-list",
-              "title": "Outline"
+              "title": "Outline of README"
             }
           }
         ]
       }
     ],
     "direction": "horizontal",
-    "width": 300,
-    "collapsed": true
+    "width": 200
   },
   "left-ribbon": {
     "hiddenItems": {
@@ -176,20 +182,29 @@
       "bases:Create new base": false
     }
   },
-  "active": "488434465c8018d5",
+  "active": "be52a0628c1fadc4",
   "lastOpenFiles": [
-    "_assets/videos",
-    "_assets/New folder",
-    "_assets/images",
-    "_assets",
-    "New folder",
+    "_assets/images/derp_performance_tracker.jpg",
+    "_assets/images/psF898.tmp",
+    "_assets/images/cover_civitAI_v01.jpg",
     "README.md",
+    "_assets/images/ps63C4.tmp",
+    "FRAMEWORK-ThemePalette.md",
     "FRAMEWORK-Nodes.md",
     "FRAMEWORK-Motha.md",
     "FRAMEWORK-Herbina.md",
     "FRAMEWORK-Fatha.md",
     "FRAMEWORK-Basta.md",
     "FRAMEWORK-Backend.md",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "_assets/cover_civitAI_v01.jpg",
+    "_assets/ComfyUI_00340_.png",
+    "Welcome.md",
+    "00_Project_Name_MOC.md",
+    "_assets/videos",
+    "_assets/New folder",
+    "_assets/images",
+    "_assets",
+    "New folder"
   ]
 }

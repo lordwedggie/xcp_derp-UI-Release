@@ -1,5 +1,5 @@
 """
-xcpDerpNodes version check route.
+xcp_derp-UI version check route.
 """
 
 import asyncio
@@ -11,7 +11,7 @@ from urllib.request import Request, urlopen
 from aiohttp import web
 
 
-REMOTE_PYPROJECT_URL = "https://raw.githubusercontent.com/lordwedggie/xcpDerpNodes_release/main/pyproject.toml"
+REMOTE_PYPROJECT_URL = "https://raw.githubusercontent.com/lordwedggie/xcp_derp-UI-Release/main/pyproject.toml"
 VERSION_RE = re.compile(r'^\s*version\s*=\s*["\']([^"\']+)["\']', re.MULTILINE)
 _version_notice_sent = False
 
@@ -52,7 +52,7 @@ def get_local_version():
 
 
 def fetch_remote_version():
-    request = Request(REMOTE_PYPROJECT_URL, headers={"User-Agent": "xcpDerpNodes-version-check"})
+    request = Request(REMOTE_PYPROJECT_URL, headers={"User-Agent": "xcp_derp-UI-version-check"})
     with urlopen(request, timeout=8) as response:
         text = response.read().decode("utf-8", errors="replace")
     version = parse_version_text(text)
@@ -81,4 +81,4 @@ async def check_version(request):
 
 def register_routes(safe_get, _safe_post=None):
     safe_get("/xcp/check_version", check_version)
-    print("[xcpDerp] Version check route registered: /xcp/check_version")
+    print("[xcp_derp-UI] Version check route registered: /xcp/check_version")
