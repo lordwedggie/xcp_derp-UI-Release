@@ -230,13 +230,14 @@ Before every release commit, verify:
    git rm --cached js/motha/themeManagerV2.js js/motha/themeManagerV2_core.js python/derpThemeManagerV2.py
    git rm --cached -r .deepseek/
    git rm --cached notes.txt
+   git rm --cached -r derp_docs/_publish/
    ```
 5. Verify `.github/workflows/publish_action.yml` is still staged
 6. Commit: `git commit -m "release vX.Y.Z"`
 7. Sync main: `git push --force release daily-development:main`
 8. Tag: `git tag -a vX.Y.Z -m "vX.Y.Z"` then `git push release vX.Y.Z`
 9. Push release branch: `git push release daily-development:refs/heads/release/vX.Y.Z`
-10. Restore excluded files: `git add js/motha/themeManagerV2.js js/motha/themeManagerV2_core.js python/derpThemeManagerV2.py .deepseek/ notes.txt` then `git commit -m "restore excluded files to daily-development"`
+10. Restore excluded files: `git add js/motha/themeManagerV2.js js/motha/themeManagerV2_core.js python/derpThemeManagerV2.py .deepseek/ notes.txt derp_docs/_publish/` then `git commit -m "restore excluded files to daily-development"`
 11. Push dev: `git push --force-with-lease github daily-development`
 
 ### Registry status after publish
