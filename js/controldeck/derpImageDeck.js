@@ -244,6 +244,10 @@ app.registerExtension({
         if (!nodeName.includes("imagedeck")) return;
 
         fatha(nodeType, nodeData, 220);
+        nodeType.prototype.computeSize = function(out) {
+            if (out) { out[0] = 500; out[1] = 500; return out; }
+            return [500, 500];
+        };
         nodeType.prototype.baseZIndex = "2";
         initDerpImageDeckCore(nodeType);
 
