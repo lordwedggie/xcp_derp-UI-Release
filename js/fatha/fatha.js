@@ -658,9 +658,10 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
         const targetH = resolvedSize.height;
 
         // During live resize, preserve the manually dragged axis but still let the auto-managed
-        // secondary axis respond immediately (e.g. width shrink causing auto-height growth).
-        const liveTargetW = this._isDerpResizing && !autoWidth ? this.size[0] : targetW;
-        const liveTargetH = this._isDerpResizing && !autoHeight ? this.size[1] : targetH;
+        // secondary axis respond immediately (e.g. width shrink causing auto-height growth). Same
+        // protection applies during drag so manual-size nodes don't snap to serialized dimensions.
+        const liveTargetW = (this._isDerpResizing || !!this._deckDragRootStartPos) && !autoWidth ? this.size[0] : targetW;
+        const liveTargetH = (this._isDerpResizing || !!this._deckDragRootStartPos) && !autoHeight ? this.size[1] : targetH;
         animateDerpSize(this, liveTargetW, liveTargetH, useAnim);
 
         const bounds = { x: 0, y: 0, w: this.size[0], h: this.size[1] };
