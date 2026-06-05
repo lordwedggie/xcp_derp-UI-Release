@@ -14,8 +14,8 @@ import {
     syncHorizontalDeckHeight as syncHorizontalDeckHeightForGraph,
     settleDerpSizeBeforeDrawImpl,
     animateDerpSizeImpl,
-    getPinnedVerticalDeckPositionAnchor,
-    restorePinnedVerticalDeckPositionAnchor,
+    getPinnedVerticalDeckAnchor,
+    restorePinnedVerticalDeckAnchor,
     resolveDerpRuntimeSizeImpl,
     resolveHorizontalDeckSharedHeightImpl,
     handleDerpComputeSizeImpl,
@@ -581,10 +581,10 @@ export function normalizeDerpDockedLayout(node) {
         }
         state.didNormalize = true;
         const positionAnchor = isComfyVueNodesMode()
-            ? getPinnedVerticalDeckPositionAnchor(node, graph)
+            ? getPinnedVerticalDeckAnchor(node, graph)
             : null;
         const moved = normalizeDockedLayout(node, graph, getDerpVars(node).SNAP);
-        if (positionAnchor) restorePinnedVerticalDeckPositionAnchor(positionAnchor);
+        if (positionAnchor) restorePinnedVerticalDeckAnchor(positionAnchor);
         if (state.skipState) state.skipState.normalizeSignature = signature;
         moved.forEach((member) => {
             if (typeof member.syncUncleSlots === "function") member.syncUncleSlots();

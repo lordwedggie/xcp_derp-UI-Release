@@ -366,38 +366,7 @@ app.registerExtension({
                             }
                         }
                     },
-                    regionSetting2: {
-                        anchor: { target: "regionSetting1", axis: "y", offset: oY },
-                        dir: "row", width: "full", height: "auto", spacing: [sW, 0],
-                        lblWeightDtype: {
-                            type: this.UI_TYPES.TEXT,
-                            themeKey: "t_textSystem",
-                            text: tLocale("$derp_diffusion_loader.system.weight_dtype", "Weight DType"),
-                            width: "auto", height: "auto", padding: [pW, pH]
-                        },
-                        dropdownWeightDtype: {
-                            type: this.UI_TYPES.FILEBROWSER,
-                            icon: "dropdown",
-                            themeKey: "panel, t_textSystem",
-                            canvasShield: true,
-                            width: "auto",
-                            height: "auto",
-                            padding: [pW, pH],
-                            mode: "file",
-                            rootName: "dtype",
-                            items: getWeightDtypeItems(),
-                            value: this.properties.weightDtype || "default",
-                            onChange: (val) => {
-                                this.properties.weightDtype = val || "default";
-                                if (typeof window._xcpCloseActiveDropdown === "function") window._xcpCloseActiveDropdown();
-                                if (this.broadcastWirelessSignal) this.broadcastWirelessSignal();
-                                this.refreshDerpTemplateSysMap();
-                                this.requestDerpSync();
-                                if (this.setDirtyCanvas) this.setDirtyCanvas(true, true);
-                            }
-                        }
-                    },
-                    layoutSpacer: { anchor: { target: "regionSetting2", axis: "y", offset: oY } }
+                    layoutSpacer: { anchor: { target: "regionSetting1", axis: "y", offset: oY } }
                 }
             };
         };

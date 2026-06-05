@@ -373,68 +373,6 @@ app.registerExtension({
                             this.refreshNodeLayoutMap();
                             this.refreshDerpTemplateSysMap();
                         }
-                    },
-                    regionClipType: {
-                        anchor: { target: "toggleShowFolder", axis: "y", offset: oY },
-                        dir: "row", width: "full", height: "auto", spacing: [sW, 0],
-                        lblClipType: {
-                            type: this.UI_TYPES.TEXT,
-                            themeKey: "t_textSystem",
-                            text: tLocale("$derp_clip_loader.options.type", "type"),
-                            width: "auto", height: "auto", padding: [pW, pH]
-                        },
-                        browserClipType: {
-                            type: this.UI_TYPES.FILEBROWSER,
-                            icon: "dropdown",
-                            themeKey: "panel, t_textSystem",
-                            canvasShield: true,
-                            width: "full", height: "auto",
-                            padding: [pW, pH],
-                            mode: "file",
-                            rootName: "type",
-                            items: getClipTypeItems(),
-                            value: this.properties.clipType || "stable_diffusion",
-                            onChange: (val) => {
-                                this.properties.clipType = val || "stable_diffusion";
-                                if (typeof window._xcpCloseActiveDropdown === "function") window._xcpCloseActiveDropdown();
-                                if (this.broadcastWirelessSignal) this.broadcastWirelessSignal();
-                                this.refreshNodeLayoutMap();
-                                this.refreshDerpTemplateSysMap();
-                                this.requestDerpSync();
-                                if (this.setDirtyCanvas) this.setDirtyCanvas(true, true);
-                            }
-                        }
-                    },
-                    regionClipDevice: {
-                        anchor: { target: "regionClipType", axis: "y", offset: oY },
-                        dir: "row", width: "full", height: "auto", spacing: [sW, 0],
-                        lblClipDevice: {
-                            type: this.UI_TYPES.TEXT,
-                            themeKey: "t_textSystem",
-                            text: tLocale("$derp_clip_loader.options.device", "device"),
-                            width: "auto", height: "auto", padding: [pW, pH]
-                        },
-                        browserClipDevice: {
-                            type: this.UI_TYPES.FILEBROWSER,
-                            icon: "dropdown",
-                            themeKey: "panel, t_textSystem",
-                            canvasShield: true,
-                            width: "full", height: "auto",
-                            padding: [pW, pH],
-                            mode: "file",
-                            rootName: "device",
-                            items: getClipDeviceItems(),
-                            value: this.properties.clipDevice || "default",
-                            onChange: (val) => {
-                                this.properties.clipDevice = val || "default";
-                                if (typeof window._xcpCloseActiveDropdown === "function") window._xcpCloseActiveDropdown();
-                                if (this.broadcastWirelessSignal) this.broadcastWirelessSignal();
-                                this.refreshNodeLayoutMap();
-                                this.refreshDerpTemplateSysMap();
-                                this.requestDerpSync();
-                                if (this.setDirtyCanvas) this.setDirtyCanvas(true, true);
-                            }
-                        }
                     }
                 }
             };
