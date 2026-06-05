@@ -3,7 +3,7 @@
 ![[derpModelLoader_01.jpg]]
 把普通SD模型（.safetensors / .pt）加载到面板上，点击直接切换下次执行使用的模型，不再需要翻下拉菜单找文件。使用大容量模型或现存不够时，切换模型时会自动清理现存（默认设置），避免ComfyUI进入“半死机”状态。
 
-<span style="color: #ffc680"><strong>重要：</strong></span> 需要 [[Management Nodes/Derp Router|derpRouter]] 才能工作。
+<span style="color: #ffc680"><strong>重要：</strong></span> 需要 [derpRouter](Management%20Nodes/Derp%20Router.md) 才能工作。
 
 ### <span style="color: #80ffc0">能干什么</span>
 

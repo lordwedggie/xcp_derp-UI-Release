@@ -1,4 +1,5 @@
 {
   "attachmentFolderPath": "_assets",
-  "showInlineTitle": false
+  "showInlineTitle": false,
+  "useMarkdownLinks": true
 }

@@ -3,7 +3,7 @@
 ![[derpSeedV2.jpg]]
 Outputs a seed value for your workflow. Click the number to randomize it, type a specific seed, or set it to auto-increment — because typing random numbers into a box like some kind of lottery addict is beneath you.
 
-<span style="color: #ffc680"><strong>Note:</strong></span> This node broadcasts its seed as a wireless signal. If you're using derp loaders downstream, you'll need a [[Management Nodes/Derp Router|derpRouter]] to route it. 
+<span style="color: #ffc680"><strong>Note:</strong></span> This node broadcasts its seed as a wireless signal. If you're using derp loaders downstream, you'll need a [derpRouter](Management%20Nodes/Derp%20Router.md) to route it. 
 
 ### <span style="color: #80ffc0">Features</span>
 
