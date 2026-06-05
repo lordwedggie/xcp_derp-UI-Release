@@ -499,11 +499,13 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
     nodeType.prototype.handleThemeUpdate = function(config) {
         handleThemeUpdate(this, config);
     };
-    nodeType.prototype.onThemeUpdate = function(config) {
+    const _fathaOnThemeUpdate = nodeType.prototype.onThemeUpdate;
+    nodeType.prototype.onThemeUpdate = _fathaOnThemeUpdate || function(config) {
         this.handleThemeUpdate(config);
         this.requestDerpSync();
     };
-    nodeType.prototype.applyPalette = function() {
+    const _fathaApplyPalette = nodeType.prototype.applyPalette;
+    nodeType.prototype.applyPalette = _fathaApplyPalette || function() {
         if (window.xcpDerpThemeConfig) this.handleThemeUpdate(window.xcpDerpThemeConfig);
         this.requestDerpSync();
     };
