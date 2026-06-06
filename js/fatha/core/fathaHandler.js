@@ -27,7 +27,9 @@ import { getDockGroupAxisFromMembers, shouldPreserveDockHeight, shouldPreserveDo
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
 import {
     getNodeHeaderPaletteFingerprint,
+    getNodeCanvasPaletteFingerprint,
     applyNodeHeaderPalette,
+    applyNodeCanvasPalette,
 } from "../helpers/headerPaletteIdentity.js";
 import { getPulseAlpha } from "../../herbina/masterAnimator.js";
 import { showBastaMessage, closeBastaMessage } from "../bastas/bastaMessage.js";
@@ -1037,8 +1039,12 @@ export function handleDrawCTX(entity, ctx, overlayPass = false) {
         const header = entity.layout?.regions?.headerRegion;
         const isCollapsed = !!entity.properties?.contentCollapsed;
         const backgroundPaintKey = entity.properties?.bastaBackgroundKey || "canvas";
-        const paintOFF = resolvePaintData(entity, backgroundPaintKey, isBypassed ? "_DIS" : "") || resolvePaintData(entity, "canvas", isBypassed ? "_DIS" : "");
-        const paintON = resolvePaintData(entity, backgroundPaintKey, isBypassed ? "_DIS" : "_ON") || resolvePaintData(entity, "canvas", isBypassed ? "_DIS" : "_ON");
+        const canvasPaletteStateOFF = isBypassed ? "_DIS" : "_OFF";
+        const canvasPaletteStateON = isBypassed ? "_DIS" : "_ON";
+        const basePaintOFF = resolvePaintData(entity, backgroundPaintKey, isBypassed ? "_DIS" : "") || resolvePaintData(entity, "canvas", isBypassed ? "_DIS" : "");
+        const basePaintON = resolvePaintData(entity, backgroundPaintKey, isBypassed ? "_DIS" : "_ON") || resolvePaintData(entity, "canvas", isBypassed ? "_DIS" : "_ON");
+        const paintOFF = applyNodeCanvasPalette(entity, basePaintOFF, canvasPaletteStateOFF, basePaintOFF, getPaletteCache);
+        const paintON = applyNodeCanvasPalette(entity, basePaintON, canvasPaletteStateON, basePaintON, getPaletteCache);
         // Zero bottom corners for search-tab-style bastas
         if (entity.properties?._bastaBottomCornersZero) {
             if (paintOFF?.corners?.length >= 4) paintOFF.corners = [paintOFF.corners[0], paintOFF.corners[1], 0, 0];
@@ -1163,6 +1169,7 @@ export function handleDrawCTX(entity, ctx, overlayPass = false) {
                     isSelected ? "selected" : "normal",
                     header ? `${header.y}_${header.h}_${header.margin?.join?.("_") || ""}` : "noheader",
                     getNodeHeaderPaletteFingerprint(entity, getPaletteCache),
+                    getNodeCanvasPaletteFingerprint(entity, getPaletteCache),
                     cornerOverride ? cornerOverride.join("_") : "nocorners",
                     backgroundPaintKey,
                     getPaintFingerprint(paintOFF),

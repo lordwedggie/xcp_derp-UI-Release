@@ -26,7 +26,18 @@ export function findHeaderPaletteEntry(palettes, entity, includeProfileFile = fa
     if (!Array.isArray(palettes)) return null;
     const names = getHeaderPaletteCandidateNames(entity, includeProfileFile);
     for (const name of names) {
-        const target = `header_${String(name || "")}`.toLowerCase();
+        const target = `${String(name || "")}_header`.toLowerCase();
+        const entry = palettes.find((item) => String(item?.name || "").toLowerCase() === target);
+        if (entry) return entry;
+    }
+    return null;
+}
+
+export function findCanvasPaletteEntry(palettes, entity, includeProfileFile = false) {
+    if (!Array.isArray(palettes)) return null;
+    const names = getHeaderPaletteCandidateNames(entity, includeProfileFile);
+    for (const name of names) {
+        const target = `${String(name || "")}_canvas`.toLowerCase();
         const entry = palettes.find((item) => String(item?.name || "").toLowerCase() === target);
         if (entry) return entry;
     }
@@ -88,9 +99,20 @@ export function resolveNodeHeaderPaletteMatch(entity, getPaletteCache) {
     return entry ? { entry, paletteData } : null;
 }
 
+export function resolveNodeCanvasPaletteMatch(entity, getPaletteCache) {
+    const paletteData = getNodePaletteData(entity, getPaletteCache);
+    const entry = findCanvasPaletteEntry(paletteData?.palettes, entity, true);
+    return entry ? { entry, paletteData } : null;
+}
+
 export function getNodeHeaderPaletteFingerprint(entity, getPaletteCache) {
     const match = resolveNodeHeaderPaletteMatch(entity, getPaletteCache);
     return match ? JSON.stringify({ effects: match.paletteData?.effects === true, entries: match.entry.entries || {} }) : "no-header-palette";
+}
+
+export function getNodeCanvasPaletteFingerprint(entity, getPaletteCache) {
+    const match = resolveNodeCanvasPaletteMatch(entity, getPaletteCache);
+    return match ? JSON.stringify({ effects: match.paletteData?.effects === true, entries: match.entry.entries || {} }) : "no-canvas-palette";
 }
 
 function applyPaletteEntryColors(paint, entry, state = "_OFF", effectSource = paint, effectsEnabled = false) {
@@ -111,5 +133,10 @@ function applyPaletteEntryColors(paint, entry, state = "_OFF", effectSource = pa
 
 export function applyNodeHeaderPalette(entity, paint, state = "_OFF", effectSource = paint, getPaletteCache) {
     const match = resolveNodeHeaderPaletteMatch(entity, getPaletteCache);
+    return applyPaletteEntryColors(paint, match?.entry, state, effectSource, match?.paletteData?.effects === true);
+}
+
+export function applyNodeCanvasPalette(entity, paint, state = "_OFF", effectSource = paint, getPaletteCache) {
+    const match = resolveNodeCanvasPaletteMatch(entity, getPaletteCache);
     return applyPaletteEntryColors(paint, match?.entry, state, effectSource, match?.paletteData?.effects === true);
 }

@@ -3,7 +3,7 @@
     "palettes": [
         {
             "id": "01",
-            "name": "header_derpVaeLoader",
+            "name": "derpVaeLoader_header",
             "entries": {
                 "main": {
                     "_ON": [
@@ -49,7 +49,7 @@
         },
         {
             "id": 2,
-            "name": "header_derpSamplerLoader",
+            "name": "derpSamplerLoader_header",
             "entries": {
                 "main": {
                     "_ON": [
@@ -115,7 +115,7 @@
         },
         {
             "id": 3,
-            "name": "header_derpSchedulerLoader",
+            "name": "derpSchedulerLoader_header",
             "entries": {
                 "main": {
                     "_ON": [
@@ -141,7 +141,7 @@
         },
         {
             "id": 4,
-            "name": "header_derpModelLoader",
+            "name": "derpModelLoader_header",
             "entries": {
                 "main": {
                     "_ON": [
@@ -167,7 +167,7 @@
         },
         {
             "id": 5,
-            "name": "header_derpTriggerWall",
+            "name": "derpTriggerWall_header",
             "entries": {
                 "main": {
                     "_ON": [
@@ -193,7 +193,7 @@
         },
         {
             "id": 6,
-            "name": "header_derpLoraStack",
+            "name": "derpLoraStack_header",
             "entries": {
                 "main": {
                     "_ON": [
