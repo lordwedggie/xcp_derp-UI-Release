@@ -13,8 +13,7 @@ import { COMPONENT_BLUEPRINTS } from "../../fatha/core/masterLayoutTypes.js";
 const BTN_LR_RATIO = 0.75;
 const BTN_LR_MARGIN = 1;
 const handleDerpSliderBtnLR = function() { var r = window.handleDerpSliderBtnLR; return r ? r.apply(null, arguments) : { handled: false }; };
-import { settleDerpSizeBeforeDraw, shouldPreserveHorizontalDeckHeight, syncHorizontalDeckHeight } from "../../fatha/core/fathaHandler.js";
-import { getDeckMembers } from "../../fatha/core/masterDockEngine.js";
+import { settleDerpSizeBeforeDraw, shouldPreserveHorizontalDeckHeight, syncHorizontalDeckHeight, resolveHorizontalDeckSharedHeight } from "../../fatha/core/fathaHandler.js";
 
 const LORA_DETAIL_BASTA_ID = "basta_lora_detail_global_unique_id";
 
@@ -121,13 +120,9 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                     if (typeof shouldPreserveHorizontalDeckHeight === "function" &&
                         typeof syncHorizontalDeckHeight === "function" &&
                         shouldPreserveHorizontalDeckHeight(this)) {
-                        const graph = app.graph || this.graph || null;
-                        const members = graph ? getDeckMembers(this, graph) : [];
-                        if (Array.isArray(members) && members.length > 1) {
-                            targetHeight = members.reduce((maxHeight, member) => {
-                                return Math.max(maxHeight, remeasureNode(member));
-                            }, 0);
-                        }
+                        targetHeight = typeof resolveHorizontalDeckSharedHeight === "function"
+                            ? resolveHorizontalDeckSharedHeight(this)
+                            : targetHeight;
                         if (targetHeight > 0) syncHorizontalDeckHeight(this, targetHeight);
                     }
 

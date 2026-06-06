@@ -15,11 +15,11 @@ function snapRound(value, snap = DEFAULT_SNAP) {
 }
 
 export function getDockNodeWidth(node) {
-    return Number(node?.properties?.nodeSize?.[0] ?? node?.size?.[0]) || 0;
+    return Number(node?.size?.[0] ?? node?.properties?.nodeSize?.[0]) || 0;
 }
 
 export function getDockNodeHeight(node) {
-    return Number(node?.properties?.nodeSize?.[1] ?? node?.size?.[1]) || 0;
+    return Number(node?.size?.[1] ?? node?.properties?.nodeSize?.[1]) || 0;
 }
 
 export function getDockNodeMinWidth(node, fallback = 0, snap = DEFAULT_SNAP) {
@@ -132,6 +132,7 @@ export function resolveDockAttachDimensions(node, leader, side, members = [], sn
     const nodeH = getDockNodeHeight(node);
     const leaderW = getDockNodeWidth(leader);
     const leaderH = getDockNodeHeight(leader);
+    const attachMembers = Array.isArray(members) ? [...members, node] : [leader, node];
 
     if (side === "top" || side === "bottom") {
         const stackWidth = Math.max(
@@ -149,7 +150,11 @@ export function resolveDockAttachDimensions(node, leader, side, members = [], sn
     }
 
     if (side === "left" || side === "right") {
-        const stackHeight = getSharedDockHeight(members, leaderH || nodeH);
+        const stackHeight = Math.max(
+            getSharedDockHeight(attachMembers, Math.max(leaderH, nodeH)),
+            getDockNodeMinHeight(node, 0, snap),
+            getDockNodeMinHeight(leader, 0, snap)
+        );
         return {
             nodeWidth: nodeW,
             nodeHeight: stackHeight,

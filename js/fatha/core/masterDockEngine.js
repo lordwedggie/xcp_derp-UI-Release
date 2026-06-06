@@ -161,11 +161,11 @@ function getRectEdgeLine(side, rect) {
 }
 
 function getNodeMinHeight(node, snap = DEFAULT_DECK_SNAP) {
-    return getDockNodeMinHeight(node, snap, snap);
+    return getDockNodeMinHeight(node, 0, snap);
 }
 
 function getNodeMinWidth(node, snap = DEFAULT_DECK_SNAP) {
-    return getDockNodeMinWidth(node, snap, snap);
+    return getDockNodeMinWidth(node, 0, snap);
 }
 
 export function ensureDeckProps(node) {
@@ -305,7 +305,7 @@ function fitSizesToTotal(nodes, axis = "width", targetTotal = 0, snap = DEFAULT_
         ? flexCurrent.map((value) => value / flexCurrentTotal)
         : nodes.map(() => 1 / nodes.length);
 
-    let assigned = minTotal;
+    let assigned = 0;
     for (let index = 0; index < nodes.length; index += 1) {
         if (index === nodes.length - 1) {
             sizes[index] = resolvedTarget - assigned;
@@ -346,7 +346,7 @@ function applyColumnLayout(nodes, x, y, width, heights) {
     let cursorY = y;
     nodes.forEach((node, index) => {
         const resolvedH = heights[index] || getNodeAxisSize(node, "height");
-        syncDeckNodeSize(node, width, resolvedH);
+        syncDeckNodeSize(node, width, resolvedH, { silent: true });
         setDeckNodePos(node, x, cursorY);
         if (typeof node.syncUncleSlots === "function") node.syncUncleSlots();
         cursorY += resolvedH;
@@ -356,7 +356,7 @@ function applyColumnLayout(nodes, x, y, width, heights) {
 function applyRowLayout(nodes, x, y, widths, height) {
     let cursorX = x;
     nodes.forEach((node, index) => {
-        syncDeckNodeSize(node, widths[index], height);
+        syncDeckNodeSize(node, widths[index], height, { silent: true });
         setDeckNodePos(node, cursorX, y);
         if (typeof node.syncUncleSlots === "function") node.syncUncleSlots();
         cursorX += widths[index];
@@ -960,7 +960,6 @@ export function syncDeckNodeSize(node, width, height, options = {}) {
         previous: { width: prevW, height: prevH },
         changed,
     });
-
     setDerpNodeSizeCompat(node, nextW, nextH);
     if (!node.properties) node.properties = {};
     node.properties.nodeSize = [nextW, nextH];
