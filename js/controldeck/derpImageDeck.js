@@ -675,6 +675,7 @@ app.registerExtension({
             const index = state && Number.isInteger(state.index) ? state.index : 0;
             this._derpImageDeckList = images;
             this._derpImageDeckIndex = index;
+            this._derpImageDeckRestoringState = images.length > 0;
             this.properties.toggleModelInfo = this.properties.toggleModelInfo !== false;
             this.properties.toggleSamplerInfo = this.properties.toggleSamplerInfo !== false;
             this.properties.toggleSchedulerInfo = this.properties.toggleSchedulerInfo !== false;

@@ -277,7 +277,7 @@ export function animateDerpSizeImpl(node, targetW, targetH, useAnim, options = {
         const deltaH = (Number(targetH) || 0) - prevH;
         const allowCollapseShift = node._allowDockCollapseShift === true;
         const deckAnchor = (deltaH !== 0)
-            ? getPinnedVerticalDeckAnchor(node, graph)
+            ? (allowCollapseShift ? getPinnedVerticalDeckAnchor(node, graph) : getPinnedVerticalDeckPositionAnchor(node, graph))
             : null;
         const shouldAnchorAfterReflow = !!deckAnchor && !allowCollapseShift;
         dockDebug("animate-size-before", {
@@ -310,7 +310,7 @@ export function animateDerpSizeImpl(node, targetW, targetH, useAnim, options = {
                 shouldAnchorAfterReflow,
             });
             if (shouldAnchorAfterReflow) {
-                restorePinnedVerticalDeckAnchor(deckAnchor);
+                restorePinnedVerticalDeckPositionAnchor(deckAnchor);
             }
             moved.forEach((child) => {
                 if (typeof child.syncUncleSlots === "function") child.syncUncleSlots();

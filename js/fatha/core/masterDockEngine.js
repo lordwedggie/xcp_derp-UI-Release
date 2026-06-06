@@ -345,11 +345,7 @@ function fitSizesToTotal(nodes, axis = "width", targetTotal = 0, snap = DEFAULT_
 function applyColumnLayout(nodes, x, y, width, heights) {
     let cursorY = y;
     nodes.forEach((node, index) => {
-        const contentH = resolveRuntimeDockSize(node, null,
-            { totalHeight: node.layout?.totalHeight, contentMinHeight: node.layout?.contentMinHeight },
-            { autoHeight: false, SNAP: 1 }
-        );
-        const resolvedH = contentH?.height || heights[index];
+        const resolvedH = heights[index] || getNodeAxisSize(node, "height");
         syncDeckNodeSize(node, width, resolvedH);
         setDeckNodePos(node, x, cursorY);
         if (typeof node.syncUncleSlots === "function") node.syncUncleSlots();

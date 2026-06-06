@@ -4,6 +4,8 @@
  */
 import { animateAlpha } from "../../herbina/masterAnimator.js";
 import { getPinnedVerticalDeckAnchor, restorePinnedVerticalDeckAnchor } from "../../fatha/core/dockResize.js";
+import { setDeckNodePos } from "../../fatha/core/masterDockEngine.js";
+import { setDerpNodeSizeCompat } from "../../fatha/core/fathaNode2Compat.js";
 
 // Crossfade alpha interpolation speed.
 // Higher value = faster fade, lower value = slower fade.
@@ -170,7 +172,7 @@ function buildComfyImageUrl(img) {
     return `/view?${q.toString()}`;
 }
 
-function resizeNodeToImageAspect(node, img) {
+function resizeNodeToImageAspect(node, img, options = {}) {
     if (!node || !img || !(img.naturalWidth > 0) || !(img.naturalHeight > 0)) return;
     if (node.flags?.collapsed || node.properties?.contentCollapsed === true) return;
 
@@ -189,16 +191,16 @@ function resizeNodeToImageAspect(node, img) {
     if (Math.abs(nextNodeH - currentNodeH) < 1) return;
 
     const bottomY = getNodeBottomY(node);
+    const preserveTop = options?.preserveTop === true;
+    const topY = Number(node.pos?.[1]) || 0;
     const pinnedAnchor = getImageDeckPinnedAnchor(node);
-    // Keep the legacy direct size mutation here: this path must preserve the
-    // canvas bottom edge while auto-fitting to each image aspect ratio.
-    node.size[0] = currentNodeW;
-    node.size[1] = nextNodeH;
-    node.pos[1] = bottomY - nextNodeH;
+    // New images preserve bottom; restored workflow images keep saved top/Y.
+    setDerpNodeSizeCompat(node, currentNodeW, nextNodeH);
+    setDeckNodePos(node, Number(node.pos?.[0]) || 0, preserveTop ? topY : bottomY - nextNodeH);
     if (node.properties) node.properties.nodeSize = [currentNodeW, nextNodeH];
     node._preCollapseHeight = nextNodeH;
-    restoreImageDeckPinnedAnchor(pinnedAnchor);
-    node._imageDeckPinnedAnchor = pinnedAnchor;
+    if (!preserveTop) restoreImageDeckPinnedAnchor(pinnedAnchor);
+    node._imageDeckPinnedAnchor = preserveTop ? null : pinnedAnchor;
     if (typeof node.syncUncleSlots === "function") node.syncUncleSlots();
     if (typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, true);
 }
@@ -236,7 +238,9 @@ function initDerpImageDeckCore(nodeType) {
             }
             this._derpImageDeckDisplayUrl = url;
             this._derpImageDeckPendingLoadId = null;
-            resizeNodeToImageAspect(this, img);
+            const preserveTop = this._derpImageDeckRestoringState === true;
+            this._derpImageDeckRestoringState = false;
+            resizeNodeToImageAspect(this, img, { preserveTop });
             this._layoutMapHash = null;
             if (typeof this.refreshNodeLayoutMap === "function") this.refreshNodeLayoutMap();
             if (this._imageDeckPinnedAnchor) {

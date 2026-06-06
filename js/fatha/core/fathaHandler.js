@@ -22,7 +22,7 @@ import {
     handleDerpCollapseImpl,
     handleHorizontalDeckTitleToggleImpl,
 } from "./dockResize.js";
-import { masterDockEngine, getDeckMembers, getDeckCornerOverride, isLinearDeckGroup, normalizeDockedLayout } from "./masterDockEngine.js";
+import { masterDockEngine, getDeckMembers, getDeckCornerOverride, isLinearDeckGroup, normalizeDockedLayout, setDeckNodePos } from "./masterDockEngine.js";
 import { getDockGroupAxisFromMembers, shouldPreserveDockHeight, shouldPreserveDockWidth } from "./dockDimensions.js";
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
 import {
@@ -125,7 +125,7 @@ function restoreHorizontalDeckPositionAnchor(anchor) {
     if (offsetX === 0 && offsetY === 0) return 0;
     anchor.members.forEach((member) => {
         if (!member?.pos) return;
-        member.pos = [(Number(member.pos?.[0]) || 0) + offsetX, (Number(member.pos?.[1]) || 0) + offsetY];
+        setDeckNodePos(member, (Number(member.pos?.[0]) || 0) + offsetX, (Number(member.pos?.[1]) || 0) + offsetY);
     });
     return Math.max(Math.abs(offsetX), Math.abs(offsetY));
 }
