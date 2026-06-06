@@ -6,15 +6,19 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 - **Clear buttons on all loader nodes now use `_OFF` state instead of `_ON`**: They looked like active toggles instead of neutral clickable buttons. Now they sit quietly until hovered.
-- **bastaPalette FILEBROWSER now sorts entries by name instead of ID**: Palette entries in the key dropdown are now alphabetically sorted by name, falling back to ID for ties.
 - **Fixed Vertical Stack and derpImageDeck's bottom edge anchor handling so they do not shift positions after page refreshes**: Anchor calculations now correctly account for resized layouts after page reload, preventing docked stacks and image decks from drifting downward on every refresh.
 - **Fixed derpSignalOut not sending out correct seed signals when derpSeed switches from fixed to increment mode**: Seed signals now properly re-evaluate the registry for live complex types (MODEL/CLIP/VAE) instead of caching stale scalar values, fixing increment-mode seed broadcasts going silent after switching modes.
 - **Critical bug causing some signal types (Diffusion model) to return 'None', causing Comfy runtime error**: derpSignalOut now properly raises descriptive errors for unresolved diffusion/text encoder signals instead of silently passing None. signalDictionaryDefault also raises FileNotFoundError instead of None when models can't be found, preventing silent downstream crashes.
 
 ### Added
+- **NE_Full_v01 palette**: Bright/neutral full palette with header and canvas entries for all loader nodes, scaled ~1.6× from the dark variant for readability on light themes.
 - **Canvas support for attached theme palettes**: Nodes can now have automatically applied header and body colors by node type (derp nodes only).
 - **Added padding overwrite for derpPromptBook's multiline editor**: Now it looks slightly better.
-- **VRAM clearing for Diffusion Loader**: derpDiffusionLoader now clears VRAM when switching between diffusion models, just like derpModelLoader. Toggle in system panel, default on.
+- **VRAM clearing for Diffusion Loader**: derpDiffusionLoader now clears VRAM when switching between diffusion models, just like derpModelLoader. Toggle in system 
+panel, default on.
+
+### Changed
+- **bastaPalette FILEBROWSER now sorts entries by name instead of ID**: Palette entries in the key dropdown are now alphabetically sorted by name, falling back to ID for ties.
 
 ## [0.7.4] - 2026-06-05
 
