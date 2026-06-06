@@ -439,6 +439,11 @@ export function showBastaPalette(host, targetRegion = null) {
             const activeDisplay = currentPal
                 ? `${String(currentPal.id).padStart(2, '0')}: ${currentPal.name}`
                 : (entryCount > 0 ? `${entryCount} Entries found` : "Select Entry...");
+            const sortedPaletteEntries = [...(basta._availablePalettes || [])].sort((a, b) => {
+                const nameA = String(a?.name || "").toLowerCase();
+                const nameB = String(b?.name || "").toLowerCase();
+                return nameA.localeCompare(nameB) || ((parseInt(a?.id) || 0) - (parseInt(b?.id) || 0));
+            });
 
             contentRegions.keysHandling = {
                 dir: "row", width: "full", height: "auto", margin: [0, mH], spacing: [sW, 0],
@@ -579,7 +584,7 @@ export function showBastaPalette(host, targetRegion = null) {
                     mode: "file",
                     rootName: "palettes",
                     state: basta.properties.activePaletteName ? "OFF" : "DIS",
-                    items: (basta._availablePalettes || []).map(p => `${String(p.id).padStart(2, '0')}: ${p.name}`),
+                    items: sortedPaletteEntries.map(p => `${String(p.id).padStart(2, '0')}: ${p.name}`),
                     value: activeDisplay,
                     text: activeDisplay,
                     onChange: (val) => {
