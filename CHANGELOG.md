@@ -11,8 +11,6 @@ All notable changes to this project will be documented in this file.
 - **Horizontal docking height collapse**: Nodes of different heights would collapse the taller node when docked horizontally (e.g., derpDiffusionLoader docked to derpSeedV2). Root cause was dual: (1) `fitSizesToTotal` initialized `assigned = minTotal` which double-counted minimums, causing single-node columns to receive `totalHeight - min` instead of the full target height. Changed to `assigned = 0`. (2) `applyColumnLayout`/`applyRowLayout` called `syncDeckNodeSize` non-silently, triggering an immediate `refreshNodeLayoutMap` that recalculated autoHeight and overwrote the normalized shared height. Changed to `{ silent: true }`.
 - **Fixed mouse hit detection is punching through the picker in widget_FileBrowser**
 
-## [0.7.6] - 2026-06-06
-
 ### Fixed
 - **README video now actually exists in the repo**: The `<video>` tag was there but the `.mp4` file was MIA. Now it's actually tracked.
 

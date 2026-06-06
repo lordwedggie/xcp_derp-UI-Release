@@ -182,7 +182,9 @@ function resizeNodeToImageAspect(node, img, options = {}) {
     const currentNodeH = Number(node.size?.[1] || node.properties?.nodeSize?.[1] || 0);
     if (!(currentNodeW > 0) || !(currentNodeH > 0)) return;
 
-    const nextNodeH = Math.max(1, currentNodeH + (nextDrawnImageH - currentDrawnImageH));
+    const SNAP = Number(node?.getDerpVars?.(node)?.SNAP) || 10;
+    const rawNodeH = Math.max(1, currentNodeH + (nextDrawnImageH - currentDrawnImageH));
+    const nextNodeH = Math.ceil(rawNodeH / SNAP) * SNAP;
     if (Math.abs(nextNodeH - currentNodeH) < 1) return;
 
     const bottomY = getNodeBottomY(node);
@@ -191,7 +193,8 @@ function resizeNodeToImageAspect(node, img, options = {}) {
     const pinnedAnchor = getImageDeckPinnedAnchor(node);
     // New images preserve bottom; restored workflow images keep saved top/Y.
     setDerpNodeSizeCompat(node, currentNodeW, nextNodeH);
-    setDeckNodePos(node, Number(node.pos?.[0]) || 0, preserveTop ? topY : bottomY - nextNodeH);
+    const snappedBottom = Math.ceil(bottomY / SNAP) * SNAP;
+    setDeckNodePos(node, Number(node.pos?.[0]) || 0, preserveTop ? topY : snappedBottom - nextNodeH);
     if (node.properties) node.properties.nodeSize = [currentNodeW, nextNodeH];
     node._preCollapseHeight = nextNodeH;
     if (!preserveTop) restoreImageDeckPinnedAnchor(pinnedAnchor);

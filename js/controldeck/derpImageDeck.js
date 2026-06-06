@@ -138,7 +138,9 @@ function restoreImageDeckRefreshAnchor(anchor) {
     if (!node?.pos || node?.properties?.pinActive !== true) return;
     const h = Number(node.size?.[1] ?? node.properties?.nodeSize?.[1]) || 0;
     if (!(h > 0)) return;
-    node.pos[1] = anchor.bottom - h;
+    const SNAP = node.getDerpVars ? node.getDerpVars(node).SNAP || 10 : 10;
+    const snappedBottom = Math.ceil(anchor.bottom / SNAP) * SNAP;
+    node.pos[1] = snappedBottom - h;
 }
 
 async function saveImageDeckCurrentImage(node, isAutoSave = false) {
