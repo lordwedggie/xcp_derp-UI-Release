@@ -93,11 +93,14 @@ class xcpDerpSignalOut:
                 elif not is_live and node_id in DERP_LIVE_REGISTRY:
                     reg_val = DERP_LIVE_REGISTRY[node_id]
                     is_media_dict = isinstance(reg_val, dict) and ("samples" in reg_val or "waveform" in reg_val)
-                    if not isinstance(reg_val, (str, dict)) or is_media_dict:
+                    registry_has_live_complex = is_media_dict or (sig_type in ["MODEL", "CLIP", "VAE"] and not isinstance(reg_val, (str, dict)))
+                    if val is None or registry_has_live_complex:
                         val = clone_runtime_signal_value(reg_val, sig_type)
-                        is_live = True
+                        is_live = registry_has_live_complex
                     else:
-                        val = reg_val
+                        # For scalar wireless values, the queued signal_data is newer than the
+                        # async browser-side registry update and must remain the source of truth.
+                        pass
 
                 # 3. Reconstruction engine
                 if not is_live:

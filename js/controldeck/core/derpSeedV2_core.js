@@ -484,7 +484,7 @@ export async function handleExecutePress(node, skipSeedUpdate = false) {
             node.properties.seedHistory = node.properties.seedHistory.slice(0, limit);
 
             broadcastSeedSignal(node);
-            syncHistoryToLayout(node, -1);
+            syncHistoryToLayout(node, -1, true);
             node.requestDerpSync();
             node.refreshNodeLayoutMap();
         }
