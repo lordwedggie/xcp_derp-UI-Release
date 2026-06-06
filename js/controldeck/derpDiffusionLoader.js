@@ -246,7 +246,7 @@ app.registerExtension({
                             text: "Clear",
                             width: "auto", height: "fill", padding: [pW, pH], spacing: [sW, 0],
                             labelAlign: ["center", "middle"],
-                            state: diffusionDeck.length > 0 ? "ON" : "DIS",
+                            state: diffusionDeck.length > 0 ? "OFF" : "DIS",
                             pulseStates: true,
                             themeKey: "button, t_textSmall",
                             onPress: () => {

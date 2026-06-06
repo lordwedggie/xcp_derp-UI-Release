@@ -232,7 +232,7 @@ app.registerExtension({
                             text: "Clear",
                             width: "auto", height: "fill", padding: [pW, pH], spacing: [sW, 0],
                             labelAlign: ["center", "middle"],
-                            state: deck.length > 0 ? "ON" : "DIS",
+                            state: deck.length > 0 ? "OFF" : "DIS",
                             pulseStates: true,
                             themeKey: "button, t_textSmall",
                             onPress: () => {
