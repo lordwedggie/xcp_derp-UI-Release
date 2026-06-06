@@ -2,19 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.7.4] - 2026-06-05
+## [Unreleased]
 
 ### Fixed
 - **Fixed Vertical Stack and derpImageDeck's bottom edge anchor handling so they do not shift positions after page refreshes**: Anchor calculations now correctly account for resized layouts after page reload, preventing docked stacks and image decks from drifting downward on every refresh.
 - **Fixed derpSignalOut not sending out correct seed signals when derpSeed switches from fixed to increment mode**: Seed signals now properly re-evaluate the registry for live complex types (MODEL/CLIP/VAE) instead of caching stale scalar values, fixing increment-mode seed broadcasts going silent after switching modes.
 - **Critical bug causing some signal types (Diffusion model) to return 'None', causing Comfy runtime error**: derpSignalOut now properly raises descriptive errors for unresolved diffusion/text encoder signals instead of silently passing None. signalDictionaryDefault also raises FileNotFoundError instead of None when models can't be found, preventing silent downstream crashes.
-- **NODE 2.0 right-click context submenu is broken**: Added (fake) derp context menus so now paletteExtender and bypassExtender are both working again in NODE 2.0.
-- **Docked stack overlay bug (one whole day of pain)**: Rare edge case where vertically and horizontally docked nodes would completely overlap — two nodes sitting at the exact same position like one sad ghost. Root cause: `normalizeSharedEdgePair` in the dock engine was using only the two seed nodes to calculate `totalHeight`, ignoring non-seed members in multi-column dock groups. Fixed by taking the max height across ALL column members.
 
 ### Added
 - **Canvas support for attached theme palettes**: Nodes can now have automatically applied header and body colors by node type (derp nodes only).
 - **Added padding overwrite for derpPromptBook's multiline editor**: Now it looks slightly better.
 - **VRAM clearing for Diffusion Loader**: derpDiffusionLoader now clears VRAM when switching between diffusion models, just like derpModelLoader. Toggle in system panel, default on.
+
+## [0.7.4] - 2026-06-05
+
+### Fixed
+- **NODE 2.0 right-click context submenu is broken**: Added (fake) derp context menus so now paletteExtender and bypassExtender are both working again in NODE 2.0.
+- **Docked stack overlay bug (one whole day of pain)**: Rare edge case where vertically and horizontally docked nodes would completely overlap — two nodes sitting at the exact same position like one sad ghost. Root cause: `normalizeSharedEdgePair` in the dock engine was using only the two seed nodes to calculate `totalHeight`, ignoring non-seed members in multi-column dock groups. Fixed by taking the max height across ALL column members.
+
+### Added
 - **Canvas Color Palettes**: ComfyUI's Color Palette system, now with easier loading — just pick a profile and go. Two default profiles included. No more spelunking through nested menus just to change the damn grid color.
 - **DerpNodes is now compatible with Node 2.0**: Full compatibility with ComfyUI's Vue-based Node 2.0 rendering — DOM shields, event pass-through, and native shell suppression all adapted for the new architecture.
 - **Multi-Color-Key Text Framework**: Every widget now supports `{{keyName}}` syntax in text strings for per-segment color from themes or palettes. Extended syntax supports `{{key:_ON::displayText}}` for state-specific coloring with custom display text. Framework-level — all widgets inherit automatically via `resolveWidgetEnv`.
