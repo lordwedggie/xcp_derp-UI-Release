@@ -111,7 +111,7 @@ app.registerExtension({
                         width: "full",
                         height: "auto",
                         padding: [pW, pH],
-                        themeKey: "button, t_textNormal",
+                        themeKey: "dialog, button, t_textNormal",
                         onDragStart: (e, data) => startStackDrag(this, data, idx, rowKey),
                         onDrag: (e, data) => { updateStackDrag(this, data, "schedulerRow_", deck.length); this.refreshNodeLayoutMap(); },
                         onDragEnd: () => endStackDrag(this, "schedulerDeck"),
@@ -201,7 +201,7 @@ app.registerExtension({
                         width: "full",
                         height: "auto",
                         padding: [pW, pH],
-                        themeKey: "button, t_textNormal",
+                        themeKey: "dialog, button, t_textNormal",
                     },
                     floatingRemoveBtn: {
                         type: this.UI_TYPES.ICONBUTTON,

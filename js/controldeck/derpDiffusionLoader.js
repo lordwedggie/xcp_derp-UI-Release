@@ -355,7 +355,7 @@ app.registerExtension({
                         anchor: { target: "lblTitle", axis: "y" },
                         dir: "row", width: "full", height: "auto", spacing: [sW, 0],
                         toggleShowFolder: {
-                            type: this.UI_TYPES.TOGGLE_V2, isTextOnly: true, themeKey: "button, t_textSystem",
+                            type: this.UI_TYPES.TOGGLE_V2, isTextOnly: true, themeKey: "dialog, button, t_textSystem",
                             text: tLocale("$derp_diffusion_loader.system.show_folder_names", "Show Folder Names"),
                             width: "full", height: "auto", padding: [pW, pH],
                             value: this.properties.showFolderNames !== false,
@@ -370,7 +370,7 @@ app.registerExtension({
                         anchor: { target: "regionSetting1", axis: "y", offset: oY },
                         dir: "row", width: "full", height: "auto", spacing: [sW, 0],
                         toggleDumpModelOnChange: {
-                            type: this.UI_TYPES.TOGGLE_V2, isTextOnly: true, themeKey: "button, t_textSystem",
+                            type: this.UI_TYPES.TOGGLE_V2, isTextOnly: true, themeKey: "dialog, button, t_textSystem",
                             text: tLocale("$derp_diffusion_loader.system.clear_vram_on_change", "Clear VRAM on new model selection"),
                             width: "full", height: "auto", padding: [pW, pH],
                             value: this.properties.toggleDumpModelOnChange !== false,

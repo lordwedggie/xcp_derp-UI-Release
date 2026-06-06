@@ -109,7 +109,7 @@ app.registerExtension({
                         playSound: m.active ? null : "powerup",
                         alpha: item.isPreviewGhost ? 0 : 1.0,
                         width: "full", height: "auto", padding: [pW, pH],
-                        themeKey: "button, t_textNormal",
+                        themeKey: "dialog, button, t_textNormal",
                         onDragStart: (e, data) => startStackDrag(this, data, idx, rowKey),
                         onDrag: (e, data) => { updateStackDrag(this, data, "vaeRow_", deck.length); this.refreshNodeLayoutMap(); },
                         onDragEnd: () => endStackDrag(this, "vaeDeck"),
@@ -197,7 +197,7 @@ app.registerExtension({
                         width: "full",
                         height: "auto",
                         padding: [pW, pH],
-                        themeKey: "button, t_textNormal",
+                        themeKey: "dialog, button, t_textNormal",
                     },
                     [`floatingRemoveBtn`]: {
                         type: this.UI_TYPES.ICONBUTTON,
@@ -316,7 +316,7 @@ app.registerExtension({
                         anchor: { target: "lblTitle", axis: "y" },
                         dir: "row", width: "full", height: "auto", spacing: [sW, 0],
                         toggleShowFolder: {
-                            type: this.UI_TYPES.TOGGLE_V2, isTextOnly: true, themeKey: "button, t_textSystem",
+                            type: this.UI_TYPES.TOGGLE_V2, isTextOnly: true, themeKey: "dialog, button, t_textSystem",
                             text: tLocale("$derp_vae_loader.system.show_folder_names", "Show Folder Names"),
                             width: "auto", height: "auto", padding: [pW, pH],
                             value: this.properties.showFolderNames !== false,
@@ -327,7 +327,7 @@ app.registerExtension({
                             }
                         },
                         toggleModelVAE: {
-                            type: this.UI_TYPES.TOGGLE_V2, isTextOnly: true, themeKey: "button, t_textSystem",
+                            type: this.UI_TYPES.TOGGLE_V2, isTextOnly: true, themeKey: "dialog, button, t_textSystem",
                             text: tLocale("$derp_vae_loader.system.extract_from_model", "Extract VAE from model"),
                             toolTip: tLocale("$derp_vae_loader.tooltips.extract_from_model", "Extract VAE data from a model file. If turned on, the dropdown will point to your models folder rather than the VAE folder."),
                             width: "auto", height: "auto", padding: [pW, pH],

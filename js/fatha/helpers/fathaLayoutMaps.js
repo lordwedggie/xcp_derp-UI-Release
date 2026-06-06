@@ -583,7 +583,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
             },
             dropdownThemes: {
                 type: UI_TYPES.FILEBROWSER,
-                themeKey: "dialog, t_textNormal",
+                themeKey: "dialog, t_textSystem",
                 toolTip: tLocale("$fatha_layout.tooltips.select_theme", "Select a new theme for the node"),
                 canvasShield: true,
                 indicator: true,

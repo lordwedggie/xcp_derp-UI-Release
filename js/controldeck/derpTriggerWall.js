@@ -909,7 +909,7 @@ app.registerExtension({
                 dir: "row", width: "full", height: "auto", margin: [mW, 0, mW, mH],
                 spacing: [sW, 0],
                 toggleExclusive: {
-                    type: this.UI_TYPES.TOGGLE_V2, themeKey: "button, t_textSmall",
+                    type: this.UI_TYPES.TOGGLE_V2, themeKey: "dialog, button, t_textSmall",
                     toolTip: tLocale("$derp_trigger_wall.tooltips.exclusive", "Only one trigger can be turned on in this Trigger Group when this is toggled on."),
                     isTextOnly: true, mouseOver: false, cutoff: false,
                     text: "$derp_trigger_wall.buttons.exclusive",

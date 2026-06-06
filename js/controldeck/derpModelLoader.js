@@ -111,7 +111,7 @@ app.registerExtension({
                         playSound: m.active ? null : "powerUp",
                         alpha: item.isPreviewGhost ? 0 : 1.0,
                         width: "full", height: "auto", padding: [pW, pH],
-                        themeKey: "button, t_textNormal",
+                        themeKey: "dialog, button, t_textNormal",
                         // FORWARD DRAG: Allow the inner widget to drive the parent stack movement
                         onDragStart: (e, data) => startStackDrag(this, data, idx, rowKey),
                         onDrag: (e, data) => { updateStackDrag(this, data, "modelRow_", deck.length); this.refreshNodeLayoutMap(); },
@@ -199,7 +199,7 @@ app.registerExtension({
                         width: "full",
                         height: "auto",
                         padding: [pW, pH],
-                        themeKey: "button, t_textNormal",
+                        themeKey: "dialog, button, t_textNormal",
                     },
                     [`floatingRemoveBtn`]: {
                         type: this.UI_TYPES.ICONBUTTON,
@@ -315,7 +315,7 @@ app.registerExtension({
                         anchor: { target: "lblTitle", axis: "y" },
                         dir: "row", width: "full", height: "auto", spacing: [sW, 0],
                         toggleShowFolder: {
-                            type: this.UI_TYPES.TOGGLE_V2, isTextOnly: true, themeKey: "button, t_textSystem",
+                            type: this.UI_TYPES.TOGGLE_V2, isTextOnly: true, themeKey: "dialog, button, t_textSystem",
                             text: tLocale("$derp_model_loader.system.show_folder_names", "Show Folder Names"),
                             width: "full", height: "auto", padding: [pW, pH],
                             value: this.properties.showFolderNames !== false,
@@ -330,7 +330,7 @@ app.registerExtension({
                         anchor: { target: "regionSetting-1", axis: "y", offset: oY },
                         dir: "row", width: "full", height: "auto", spacing: [sW, 0],
                         toggleDumpModelOnChange: {
-                            type: this.UI_TYPES.TOGGLE_V2, isTextOnly: true, themeKey: "button, t_textSystem",
+                            type: this.UI_TYPES.TOGGLE_V2, isTextOnly: true, themeKey: "dialog, button, t_textSystem",
                             text: tLocale("$derp_model_loader.system.clear_vram_on_change", "Clear VRAM on new model selection"),
                             width: "full", height: "auto", padding: [pW, pH],
                             value: this.properties.toggleDumpModelOnChange !== false,
