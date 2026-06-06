@@ -169,7 +169,7 @@ app.registerExtension({
                     display: full,
                     labelParts: [
                         { key: "aspect", text: ar, widthMode: "max" },
-                        { text: "- " },
+                        { text: " - " },
                         { text: res || "" },
                     ],
                     value: full

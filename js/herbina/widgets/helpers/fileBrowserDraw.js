@@ -5,6 +5,7 @@ export function drawPickerRow(ctx, state, row, rect, labelPaint, scale, deps = {
         inheritPickerCorners = () => 0,
         parseColorKeyText = () => ({ segments: null, hasColorKeys: false }),
         clampText = (text) => text,
+        measureTextWidth = () => 0,
         snapToScreenGrid = (value) => value,
     } = deps;
 
@@ -71,8 +72,12 @@ export function drawPickerRow(ctx, state, row, rect, labelPaint, scale, deps = {
     if (drawLabelParts && row.type !== "select_folder") {
         let partX = rect.x + pX + iconOffset;
         const partY = snapToScreenGrid(rect.y + (rect.h / 2), scale);
+        const measureFont = labelPaint?.font || "Arial";
+        const measureFontWeight = labelPaint?.fontWeight || "normal";
+        ctx.font = `${measureFontWeight} ${fontSize}px ${measureFont}`;
         for (const part of row.labelParts) {
             const text = String(part?.text ?? "");
+            const trailingSpaceMatch = text.match(/\s+$/);
             const key = part?.key;
             const slotWidth = (part?.widthMode === "max" && key)
                 ? (state.labelPartColumnWidths?.[key] || 0)
@@ -93,7 +98,7 @@ export function drawPickerRow(ctx, state, row, rect, labelPaint, scale, deps = {
             });
             partX += slotWidth !== null
                 ? slotWidth
-                : (ctx.measureText?.(text).width || 0);
+                : ((ctx.measureText?.(text).width || 0) + (trailingSpaceMatch ? (measureTextWidth(trailingSpaceMatch[0], fontSize, measureFont, measureFontWeight) || 0) : 0));
         }
     } else {
         masterPainterText(ctx, {

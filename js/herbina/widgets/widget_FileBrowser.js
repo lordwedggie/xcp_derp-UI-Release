@@ -431,6 +431,17 @@ function computePickerPrefixSlotWidth(state, ctx, labelPaint) {
     return maxWidth;
 }
 
+function computeTriggerIndicatorOffset(ctx, glyph, fontSize, labelPaint, glyphScale = 1.0) {
+    const fallback = fontSize * DROPDOWN_PICKER_GLYPH_LABEL_GAP_SCALE;
+    if (!ctx || !glyph) return fallback;
+    const prefixText = String(glyph).replace(/\s+$/, "");
+    ctx.save();
+    ctx.font = `${labelPaint?.fontWeight || "normal"} ${fontSize * glyphScale}px ${labelPaint?.font || "Arial"}`;
+    const measured = ctx.measureText?.(prefixText).width || fallback;
+    ctx.restore();
+    return Math.max(fallback, measured);
+}
+
 function computeLabelPartColumnWidths(state, ctx, labelPaint) {
     if (!state || !ctx) return {};
     const rows = [
@@ -954,6 +965,7 @@ function drawPickerRow(ctx, state, row, rect, labelPaint, scale) {
         inheritPickerCorners,
         parseColorKeyText,
         clampText,
+        measureTextWidth,
         snapToScreenGrid,
     });
 }
@@ -1280,7 +1292,7 @@ export function syncFileBrowser(context, node, app, config, overlayPass = false)
 
     if (labelPaint) {
         const pX = props.padding[0];
-        const iconOffset = fs * DROPDOWN_TRIGGER_GLYPH_LABEL_GAP_SCALE;
+        const iconOffset = computeTriggerIndicatorOffset(ctx, triggerGlyph, fs, labelPaint, triggerGlyphScale);
         const indicatorOffset = iconOffset;
         const textLimit = Math.max(0, w - (pX * 2) - indicatorOffset);
         const drawLabel = (labelHasKeys && labelSegments)
