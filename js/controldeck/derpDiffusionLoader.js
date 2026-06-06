@@ -86,7 +86,7 @@ function buildDeckRegions(node, deck, deckKey, rowPrefix, togglePrefix, removePr
                 playSound: m.active ? null : "powerUp",
                 alpha: item.isPreviewGhost ? 0 : 1.0,
                 width: "full", height: "auto", padding: [pW, pH],
-                themeKey: "button, t_textNormal",
+                themeKey: "dialog, button, t_textNormal",
                 onDragStart: (e, data) => {
                     node._dragDeckKey = deckKey;
                     startStackDrag(node, data, idx, rowKey);
@@ -170,6 +170,7 @@ function buildDeckRegions(node, deck, deckKey, rowPrefix, togglePrefix, removePr
             regionOffset: [0, 0],
             floatingToggle: {
                 type: node.UI_TYPES.TOGGLE_V2,
+                themeKey: "dialog, button, t_textNormal",
                 iconAlign: "left",
                 isTextOnly: true,
                 mouseOver: true,
@@ -179,7 +180,6 @@ function buildDeckRegions(node, deck, deckKey, rowPrefix, togglePrefix, removePr
                 width: "full",
                 height: "auto",
                 padding: [pW, pH],
-                themeKey: "button, t_textNormal",
             }
         };
     }

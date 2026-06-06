@@ -113,7 +113,7 @@ app.registerExtension({
                         playSound: m.active ? null : "powerUp",
                         alpha: item.isPreviewGhost ? 0 : 1.0,
                         width: "full", height: "auto", padding: [pW, pH],
-                        themeKey: "button, t_textNormal",
+                        themeKey: "dialog, button, t_textNormal",
                         onDragStart: (e, data) => startStackDrag(this, data, idx, rowKey),
                         onDrag: (e, data) => { updateStackDrag(this, data, "clipRow_", clipDeck.length); this.refreshNodeLayoutMap(); },
                         onDragEnd: () => endStackDrag(this, "clipDeck"),
@@ -196,7 +196,7 @@ app.registerExtension({
                         width: "full",
                         height: "auto",
                         padding: [pW, pH],
-                        themeKey: "button, t_textNormal"
+                        themeKey: "dialog, button, t_textNormal",
                     }
                 };
             }
@@ -365,7 +365,7 @@ app.registerExtension({
                     },
                     toggleShowFolder: {
                         anchor: { target: "lblTitle", axis: "y" },
-                        type: this.UI_TYPES.TOGGLE_V2, isTextOnly: true, themeKey: "button, t_textSystem",
+                        type: this.UI_TYPES.TOGGLE_V2, isTextOnly: true, themeKey: "dialog, button, t_textNormal",
                         text: tLocale("$derp_clip_loader.system.show_folder_names", "Show Folder Names"),
                         width: "full", height: "auto", padding: [pW, pH],
                         value: this.properties.showFolderNames !== false,

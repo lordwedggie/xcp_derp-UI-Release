@@ -252,6 +252,15 @@ export function uncle(nodeType, nodeData, minWidth = 100) {
         const { SNAP, autoWidth, autoHeight } = this.getDerpVars(this);
         const isMinState = this.properties.contentCollapsed;
 
+        if (Number(this._allowDockContentHeightShiftFrames) > 0) {
+            this.layout.compute({ x: 0, y: 0, w: this.size[0], h: this.size[1] }, getVirtualNodeLayoutMap(this), {
+                textTheme: this._t_textSmallPaintData || this._t_textNormalPaintData,
+                useAnim: false,
+                spawnAnim: false,
+                isVirtual: true
+            }, true);
+        }
+
         const preserveHorizontalDeckHeight = shouldPreserveHorizontalDeckHeight(this);
         const resolvedSize = resolveDerpRuntimeSize(this, {
             contentMinWidth: this.layout?.contentMinWidth || 0,

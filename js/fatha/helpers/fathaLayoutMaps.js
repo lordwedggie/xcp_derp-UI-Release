@@ -13,7 +13,7 @@ import { isNodeDocked, undockNodeEdges, isLinearDeckGroup, getDeckMembers } from
 import { clearBypassSignalDebouncers, transmitBypassedDerpSignals } from "../core/masterSignalEngine.js";
 import { ensureNodeVisibleInViewport } from "../core/fathaWarp.js";
 import { warpToPoint } from "../core/fathaWarp.js";
-import { handleDerpCollapse, handleHorizontalDeckTitleToggle } from "../core/fathaHandler.js";
+import { handleDerpCollapse, handleHorizontalDeckTitleToggle, settleDerpSizeBeforeDraw } from "../core/fathaHandler.js";
 import { findHeaderPaletteEntry } from "./headerPaletteIdentity.js";
 import { showBastaSystemMessage } from "../bastas/bastaSystemMessage.js";
 import { getDeckCornerOverride } from "../core/masterDockEngine.js";
@@ -397,7 +397,17 @@ export const getVirtualNodeLayoutMap = (node) => {
                     state: p.settingActive ? "ON" : "OFF",
                     onPress: () => {
                         node.properties.settingActive = !node.properties.settingActive;
+                        node._layoutMapHash = null;
+                        if (node.layout) node.layout._lastCacheKey = "";
                         if (node.onDerpSettingsPress) node.onDerpSettingsPress(node.properties.settingActive);
+                        if (node.refreshNodeLayoutMap) node.refreshNodeLayoutMap();
+                        if (node.properties?.autoHeight !== false) {
+                            node._allowDockContentHeightShiftFrames = 4;
+                            settleDerpSizeBeforeDraw(node, {
+                                forceAutoHeight: true,
+                                suppressRequestSync: true,
+                            });
+                        }
                         node.requestDerpSync();
                     }
                 },

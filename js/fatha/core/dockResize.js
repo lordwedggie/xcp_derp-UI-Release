@@ -275,7 +275,8 @@ export function animateDerpSizeImpl(node, targetW, targetH, useAnim, options = {
         const prevH = Number(node.size?.[1]) || 0;
         const graph = app.graph || node.graph || null;
         const deltaH = (Number(targetH) || 0) - prevH;
-        const allowCollapseShift = node._allowDockCollapseShift === true;
+        const allowContentHeightShift = deltaH !== 0 && Number(node._allowDockContentHeightShiftFrames) > 0;
+        const allowCollapseShift = node._allowDockCollapseShift === true || allowContentHeightShift;
         const deckAnchor = (deltaH !== 0)
             ? (allowCollapseShift ? getPinnedVerticalDeckAnchor(node, graph) : getPinnedVerticalDeckPositionAnchor(node, graph))
             : null;
@@ -298,6 +299,7 @@ export function animateDerpSizeImpl(node, targetW, targetH, useAnim, options = {
         if (!skipCollapseShift && deltaH !== 0 && shiftDirection !== 0) {
             setDeckNodePos(node, Number(node.pos?.[0]) || 0, (Number(node.pos?.[1]) || 0) + (deltaH * shiftDirection));
         }
+        if (allowContentHeightShift && deltaH !== 0) node._allowDockContentHeightShiftFrames = 0;
         const isVerticalDeck = graph && isLinearDeckGroup(node, graph, "vertical");
         const heightChanged = deltaH !== 0;
         const shouldReflow = allowCollapseShift || (isVerticalDeck && heightChanged);
