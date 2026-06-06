@@ -8,6 +8,7 @@ import { getPulsedColor } from "../masterAnimator.js";
 
 const NORMAL_STROKE_WEIGHT = 1;
 const SELECTION_STROKE_WEIGHT = 2;
+const DEFAULT_IMAGE_AREA_STROKE_COLOR = "rgba(0,0,0,0.3)";
 const BYPASS_BRIGHTNESS = 0.75; // THE DARKNESS FIX: Adjusts image brightness when bypassed
 
 // THE RESIZE TARGETS: Matches constants in loraImages.js to maintain quality vs performance balance
@@ -346,7 +347,7 @@ export function syncImageHTML(ctx, node, app, config, overlayPass = false) {
         }
 
         ctx.save();
-        let bColor = (config.isSelected && activePulseColor) ? activePulseColor : (config.borderColor || paintData?.border?.color || "black");
+        let bColor = (config.isSelected && activePulseColor) ? activePulseColor : (config.borderColor || paintData?.border?.color || DEFAULT_IMAGE_AREA_STROKE_COLOR);
         if (Array.isArray(bColor)) bColor = `rgba(${bColor[0]}, ${bColor[1]}, ${bColor[2]}, ${bColor[3] ?? 1})`;
         ctx.strokeStyle = bColor;
         const weight = (config.isSelected && config.showPasteOverlay)

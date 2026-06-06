@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Fixed
+- **Fixed Image widget's border not matching actual image's height (always a little bit taller).**
 - **Clear buttons on all loader nodes now use `_OFF` state instead of `_ON`**: They looked like active toggles instead of neutral clickable buttons. Now they sit quietly until hovered.
 - **Fixed Vertical Stack and derpImageDeck's bottom edge anchor handling so they do not shift positions after page refreshes**: Anchor calculations now correctly account for resized layouts after page reload, preventing docked stacks and image decks from drifting downward on every refresh.
 - **Fixed derpSignalOut not sending out correct seed signals when derpSeed switches from fixed to increment mode**: Seed signals now properly re-evaluate the registry for live complex types (MODEL/CLIP/VAE) instead of caching stale scalar values, fixing increment-mode seed broadcasts going silent after switching modes.

@@ -33,11 +33,6 @@ function restoreImageDeckPinnedAnchor(anchor) {
     restorePinnedVerticalDeckAnchor(anchor);
 }
 
-function snapImageDeckHeight(node, height) {
-    const snap = Number(node?.getDerpVars?.(node)?.SNAP) || 10;
-    return Math.max(snap, Math.ceil((Number(height) || 1) / snap) * snap);
-}
-
 function toArray(value) {
     if (Array.isArray(value)) return value;
     return value ? [value] : [];
@@ -177,17 +172,17 @@ function resizeNodeToImageAspect(node, img, options = {}) {
     if (node.flags?.collapsed || node.properties?.contentCollapsed === true) return;
 
     const imageRegion = node.layout?.regions?.imageRegion;
-    const imageW = Number(imageRegion?.w || 0);
-    const currentImageH = Number(imageRegion?.h || 0);
-    if (!(imageW > 0) || !(currentImageH > 0)) return;
+    const drawnImageW = Math.floor(Number(imageRegion?.w || 0));
+    const currentDrawnImageH = Math.floor(Number(imageRegion?.h || 0));
+    if (!(drawnImageW > 0) || !(currentDrawnImageH > 0)) return;
 
     const aspect = img.naturalWidth / img.naturalHeight;
-    const nextImageH = Math.max(1, imageW / aspect);
+    const nextDrawnImageH = Math.max(1, drawnImageW / aspect);
     const currentNodeW = Number(node.size?.[0] || node.properties?.nodeSize?.[0] || 0);
     const currentNodeH = Number(node.size?.[1] || node.properties?.nodeSize?.[1] || 0);
     if (!(currentNodeW > 0) || !(currentNodeH > 0)) return;
 
-    const nextNodeH = snapImageDeckHeight(node, currentNodeH + (nextImageH - currentImageH));
+    const nextNodeH = Math.max(1, currentNodeH + (nextDrawnImageH - currentDrawnImageH));
     if (Math.abs(nextNodeH - currentNodeH) < 1) return;
 
     const bottomY = getNodeBottomY(node);

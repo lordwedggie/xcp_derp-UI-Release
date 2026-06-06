@@ -1,11 +1,15 @@
 {
-    "ZIT Working Samplers": {
+    "_default": {
+        "samplers": []
+    },
+    "ZIT Samplers": {
         "samplers": [
+            "euler_ancestral",
+            "heun",
             "ddim",
-            "uni_pc",
             "seeds_2",
             "seeds_3",
-            "heun"
+            "uni_pc"
         ]
     }
 }
