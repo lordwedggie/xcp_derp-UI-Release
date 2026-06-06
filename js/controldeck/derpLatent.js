@@ -4,7 +4,6 @@
  */
 import { app } from "../../../scripts/app.js";
 import { fatha, initDerpGlobalListener } from "../fatha/fatha.js";
-import { measureTextWidth, resolvePaintData } from "../herbina/utils/widgetsUtils.js";
 import { transmitDerpSignal } from "../fatha/core/masterSignalEngine.js";
 
 function tLocale(key, fallback = key) {
@@ -162,27 +161,17 @@ app.registerExtension({
                 return `${ar} - ${w} x ${h}`;
             };
 
-            const paint = resolvePaintData(this, "t_textNormal") || { fontSize: 10, font: "DengXian Light" };
-            let maxW = 0, arLabel = "1:1";
-
-            presets.forEach(p => {
-                const ar = (isPortrait ? p.aspectRatio.split(" : ").reverse().join(":") : p.aspectRatio).replace(/\s*:\s*/g, ":");
-                const w = measureTextWidth(ar, paint.fontSize, paint.font, paint.fontWeight || "normal");
-                if (w > maxW) {
-                    maxW = w;
-                    arLabel = ar;
-                }
-            });
-
-            const emWidth = maxW / (paint.fontSize || 10);
-
             const dropdownItems = presets.map(p => {
                 const full = getLabel(p, mode);
-                const ar = full.split("- ")[0];
-                const res = full.split("- ")[1];
+                const ar = full.split(" - ")[0];
+                const res = full.split(" - ")[1];
                 return {
-                    label: `<span style="display:inline-block; width:${emWidth + 0.4}em">${ar}</span>`,
-                    display: " - " + res,
+                    display: full,
+                    labelParts: [
+                        { key: "aspect", text: ar, widthMode: "max" },
+                        { text: "- " },
+                        { text: res || "" },
+                    ],
                     value: full
                 };
             });

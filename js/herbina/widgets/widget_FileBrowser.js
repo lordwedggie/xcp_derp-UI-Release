@@ -20,6 +20,9 @@
  * - `searchTab`: Set to `true` to enable the search tab (bastaSearchTab). Defaults to `false`.
  * - `padding`: Optional `[x, y]` inner padding used for trigger text and picker row sizing.
  * - `displayMode`: Text overflow mode passed to `clampText`; use `"ellipsis"` when truncation should show ellipsis.
+ * - `labelParts`: Optional per-item array of text parts for aligned multi-column labels. Parts with
+ *   `widthMode: "max"` and the same `key` reserve the width of the longest matching part across visible
+ *   picker rows. Example: `[{ key: "aspect", text: "16:9", widthMode: "max" }, { text: "- " }, { text: "1024 x 576" }]`.
  * - `mouseOver`: Set to `false` to disable hover-state styling on the trigger.
  * - `skipBackground`: Set to `true` to skip drawing the trigger background panel.
  * - `btnColor`: Optional trigger background override used by the animated trigger paint.
@@ -131,6 +134,11 @@ const FILEBROWSER_ICON_MAP = {
     fallback: ["📁", "📂"],
 };
 
+const DROPDOWN_CLOSED_GLYPH_SCALE = 0.8;
+const DROPDOWN_OPEN_GLYPH_SCALE = 0.65;
+const DROPDOWN_TRIGGER_GLYPH_LABEL_GAP_SCALE = 0.9;
+const DROPDOWN_PICKER_GLYPH_LABEL_GAP_SCALE = 0.9;
+
 const BROWSER_ICONS = {
     DIR: "🗀 ",
     FILE: "🖺 ",
@@ -160,6 +168,7 @@ const DROPDOWN_ANIM_SETTINGS = {
 
 let activeFilePicker = null;
 let filePickerListenersInstalled = false;
+let filePickerEventShield = null;
 
 function getFileBrowserItemsFingerprint(items) {
     if (!Array.isArray(items) || items.length === 0) return "0:";
@@ -175,7 +184,10 @@ function getFileBrowserItemsFingerprint(items) {
             ? String(item.display ?? item.text ?? item.name ?? item.title ?? item.label ?? "")
             : "";
         const img = typeof item === "object" ? String(item.imageUrl ?? "") : "";
-        parts[i] = `${value}|${display}|${img}`;
+        const labelParts = Array.isArray(item?.labelParts)
+            ? item.labelParts.map((part) => `${part?.key || ""}:${part?.widthMode || ""}:${part?.text || ""}`).join("|")
+            : "";
+        parts[i] = `${value}|${display}|${img}|${labelParts}`;
     }
     return `${items.length}:${parts.join("\u0001")}`;
 }
@@ -206,6 +218,20 @@ function syncActiveFilePickerConfig(node, config) {
 function getFileBrowserGlyphs(iconName) {
     const key = String(iconName || "folder").toLowerCase();
     return FILEBROWSER_ICON_MAP[key] || FILEBROWSER_ICON_MAP.fallback;
+}
+
+function getFileBrowserGlyphScale(iconName, glyphIndex = 0) {
+    if (Array.isArray(iconName)) {
+        const closedGlyph = String(iconName[0] || "");
+        const openGlyph = String(iconName[1] || "");
+        if (closedGlyph === "▶" && openGlyph === "▼") {
+            return glyphIndex === 1 ? DROPDOWN_OPEN_GLYPH_SCALE : DROPDOWN_CLOSED_GLYPH_SCALE;
+        }
+        return 1.0;
+    }
+    const key = String(iconName || "folder").toLowerCase();
+    if (key !== "dropdown") return 1.0;
+    return glyphIndex === 1 ? DROPDOWN_OPEN_GLYPH_SCALE : DROPDOWN_CLOSED_GLYPH_SCALE;
 }
 
 function markNodeDirty(node, awakeFrames = 12) {
@@ -249,6 +275,31 @@ function computeScreenAnchorRect(node, app, geometry) {
         width: geometry.w * scale,
         height: geometry.h * scale,
     };
+}
+
+function graphRectToScreenRect(node, app, rect) {
+    const ds = app?.canvas?.ds;
+    const canvas = app?.canvas?.canvas;
+    if (!ds || !canvas || !rect) return null;
+
+    const canvasRect = canvas.getBoundingClientRect();
+    const scale = ds.scale;
+    return {
+        left: canvasRect.left + (((node?.pos?.[0] || 0) + rect.x + ds.offset[0]) * scale),
+        top: canvasRect.top + (((node?.pos?.[1] || 0) + rect.y + ds.offset[1]) * scale),
+        width: rect.w * scale,
+        height: rect.h * scale,
+    };
+}
+
+function unionScreenRects(rects) {
+    const validRects = rects.filter((rect) => rect && rect.width > 0 && rect.height > 0);
+    if (!validRects.length) return null;
+    const left = Math.min(...validRects.map((rect) => rect.left));
+    const top = Math.min(...validRects.map((rect) => rect.top));
+    const right = Math.max(...validRects.map((rect) => rect.left + rect.width));
+    const bottom = Math.max(...validRects.map((rect) => rect.top + rect.height));
+    return { left, top, width: right - left, height: bottom - top };
 }
 
 function getEventClientPoint(event, interactionData = null) {
@@ -330,6 +381,7 @@ function getFileRowPrefix(config, node, entry) {
     return getFileRowPrefixHelper(config, node, entry, {
         shouldShowFileBrowserIndicator,
         getFileBrowserGlyphs,
+        getFileBrowserGlyphScale,
         isDropdownFileBrowser,
         browserIcons: BROWSER_ICONS,
     });
@@ -341,6 +393,7 @@ function closeFilePicker() {
     closeBastaSearchTab(activeFilePicker.node, activeFilePicker.key, "implicit");
     activeFilePicker = null;
     window.__xcpHasActiveFileBrowser = false;
+    removeFilePickerEventShield();
     markNodeDirty(node, 8);
 }
 
@@ -358,7 +411,7 @@ function forceFileBrowserResync(node, config) {
 function computePickerPrefixSlotWidth(state, ctx, labelPaint) {
     if (!state || !ctx) return 0;
     const fontSize = state.rowPaintOFF?.fontSize || labelPaint?.fontSize || 10;
-    const fallback = fontSize * 1.2;
+    const fallback = fontSize * DROPDOWN_PICKER_GLYPH_LABEL_GAP_SCALE;
     const rows = [
         ...(state.headerRows || []),
         ...(state.scrollRows || []),
@@ -368,10 +421,41 @@ function computePickerPrefixSlotWidth(state, ctx, labelPaint) {
     for (const row of rows) {
         if (!row?.prefix) continue;
         const prefixText = String(row.prefix).replace(/\s+$/, "");
+        const prefixScale = Number(row.prefixScale || 1.0);
+        ctx.save();
+        ctx.font = `${labelPaint?.fontWeight || "normal"} ${fontSize * prefixScale}px ${labelPaint?.font || "Arial"}`;
         const measured = ctx.measureText?.(prefixText).width || fallback;
+        ctx.restore();
         if (measured > maxWidth) maxWidth = measured;
     }
     return maxWidth;
+}
+
+function computeLabelPartColumnWidths(state, ctx, labelPaint) {
+    if (!state || !ctx) return {};
+    const rows = [
+        ...(state.headerRows || []),
+        ...(state.scrollRows || []),
+        ...(state.footerRow ? [state.footerRow] : []),
+    ];
+    const fontSize = state.rowPaintOFF?.fontSize || labelPaint?.fontSize || 10;
+    const fontWeight = labelPaint?.fontWeight || "normal";
+    const font = labelPaint?.font || "Arial";
+    const widths = {};
+
+    ctx.save();
+    ctx.font = `${fontWeight} ${fontSize}px ${font}`;
+    for (const row of rows) {
+        if (!Array.isArray(row?.labelParts)) continue;
+        for (const part of row.labelParts) {
+            if (part?.widthMode !== "max" || !part.key) continue;
+            const measured = ctx.measureText?.(String(part.text ?? "")).width || 0;
+            widths[part.key] = Math.max(widths[part.key] || 0, measured);
+        }
+    }
+    ctx.restore();
+
+    return widths;
 }
 
 function rebuildFilePickerRows(state) {
@@ -379,6 +463,7 @@ function rebuildFilePickerRows(state) {
         getFileBrowserMode,
         isDropdownFileBrowser,
         getFileRowPrefix,
+        getFileBrowserGlyphScale,
     });
 }
 
@@ -531,6 +616,71 @@ function consumeEvent(event) {
     event.preventDefault();
     event.stopPropagation();
     if (typeof event.stopImmediatePropagation === "function") event.stopImmediatePropagation();
+}
+
+function ensureFilePickerEventShield() {
+    if (filePickerEventShield) return filePickerEventShield;
+    const el = document.createElement("div");
+    el.className = "xcp-file-picker-event-shield";
+    el.style.cssText = `
+        position: fixed;
+        left: 0;
+        top: 0;
+        width: 0;
+        height: 0;
+        z-index: 2147483647;
+        background: transparent;
+        pointer-events: auto;
+        touch-action: none;
+    `;
+    ["pointerdown", "pointermove", "pointerup", "click", "dblclick", "contextmenu", "wheel"].forEach((type) => {
+        el.addEventListener(type, consumeEvent, { capture: true, passive: false });
+    });
+    document.body.appendChild(el);
+    filePickerEventShield = el;
+    return el;
+}
+
+function syncFilePickerEventShield(rect) {
+    if (!rect) return;
+    const el = ensureFilePickerEventShield();
+    el.style.left = `${rect.left}px`;
+    el.style.top = `${rect.top}px`;
+    el.style.width = `${Math.max(0, rect.width)}px`;
+    el.style.height = `${Math.max(0, rect.height)}px`;
+}
+
+function removeFilePickerEventShield() {
+    if (!filePickerEventShield) return;
+    filePickerEventShield.remove();
+    filePickerEventShield = null;
+}
+
+function getPreviewPanelGraphRect(state, geometry) {
+    const previewAspect = state?._activePreviewAspect;
+    const previewUrl = state?._activePreviewUrl;
+    if (!previewAspect || !previewUrl || !state?._previewImageCache?.[previewUrl]?.loaded) return null;
+
+    const { panelX, panelY, panelW, panelH, scale } = geometry;
+    const previewW = panelW;
+    const previewH = Math.min(previewW / previewAspect, panelW);
+    const panelScreenTop = state.panelScreenRect?.top || 0;
+    const previewScreenH = previewH * scale;
+    const avoidRect = state.previewAvoidScreenRect || null;
+    let previewAboveScreenTop = panelScreenTop - previewScreenH;
+    const previewAboveScreenBottom = previewAboveScreenTop + previewScreenH;
+    if (avoidRect && previewAboveScreenBottom > avoidRect.top && previewAboveScreenTop < avoidRect.top + avoidRect.height) {
+        previewAboveScreenTop = avoidRect.top - previewScreenH;
+    }
+    const roomAbove = previewAboveScreenTop - 4;
+    const previewBelowScreenTop = panelScreenTop + (panelH * scale);
+    const roomBelow = window.innerHeight - previewBelowScreenTop - previewScreenH - 4;
+    const placeBelow = roomAbove < 8 && roomBelow > roomAbove;
+    const avoidOffsetUnits = avoidRect
+        ? Math.max(0, ((panelScreenTop - previewScreenH) - previewAboveScreenTop) / Math.max(0.0001, scale))
+        : 0;
+    const previewY = placeBelow ? (panelY + panelH) : (panelY - previewH - avoidOffsetUnits);
+    return { x: panelX, y: previewY, w: previewW, h: previewH };
 }
 
 function handlePickerRowAction(row) {
@@ -712,9 +862,6 @@ function ensureFilePickerListeners() {
 
     window.addEventListener("pointermove", (event) => {
         if (!activeFilePicker) return;
-        const insidePanel = isPointInRect(event.clientX, event.clientY, activeFilePicker.panelScreenRect);
-        const insideScrollbar = isPointInRect(event.clientX, event.clientY, activeFilePicker.scrollbarScreenRect);
-
         if (activeFilePicker.draggingScrollbar && activeFilePicker.dragScrollbarPointerId === event.pointerId) {
             consumeEvent(event);
             const state = activeFilePicker;
@@ -730,11 +877,6 @@ function ensureFilePickerListeners() {
             }
             return;
         }
-
-        if (insidePanel || insideScrollbar) {
-            consumeEvent(event);
-        }
-
         if (activeFilePicker.pendingOutsidePointerId === event.pointerId) {
             const dx = event.clientX - activeFilePicker.pendingOutsidePointerStartX;
             const dy = event.clientY - activeFilePicker.pendingOutsidePointerStartY;
@@ -845,6 +987,7 @@ function drawActiveFilePicker(ctx, node, app, config, scale) {
         rebuildFilePickerRows,
         ensurePickerSelectionVisible,
         getFileBrowserGlyphs,
+        getFileBrowserGlyphScale,
     });
 
     syncActiveFilePickerSearch(state, { getFileBrowserMode, syncPickerSearchScroll });
@@ -876,6 +1019,10 @@ function drawActiveFilePicker(ctx, node, app, config, scale) {
     state.panelScreenRect = panelScreenRect;
     state.previewAvoidScreenRect = getSearchTabScreenRect(state);
 
+    const panelEventRect = graphRectToScreenRect(node, app, { x: panelX, y: panelY, w: panelW, h: panelH });
+    const previewEventRect = graphRectToScreenRect(node, app, getPreviewPanelGraphRect(state, { panelX, panelY, panelW, panelH, scale }));
+    syncFilePickerEventShield(unionScreenRects([panelEventRect, previewEventRect]));
+
     syncPickerViewportFollow(state, scale, {
         ensureScreenRectVisible,
         warpMarginUnits: PICKER_WARP_MARGIN_UNITS,
@@ -893,6 +1040,7 @@ function drawActiveFilePicker(ctx, node, app, config, scale) {
     });
 
     const { labelPaint } = preparePickerDrawState(state, ctx, { computePickerPrefixSlotWidth });
+    state.labelPartColumnWidths = computeLabelPartColumnWidths(state, ctx, labelPaint);
     let cursorY = panelY;
     const firstRowGeometry = createFirstRowGeometry([firstRowMarginL, firstRowMarginT, firstRowMarginR, firstRowMarginB], scale);
 
@@ -1120,6 +1268,9 @@ export function syncFileBrowser(context, node, app, config, overlayPass = false)
         : null;
     const labelStr = triggerDisplay || dropdownDisplay || ((mode === "folder" || mode === "signal" || ((mode === "file" || mode === "browser") && isSelection)) ? currentVal : (props.displayText || "Browse Files..."));
     const glyphs = getFileBrowserGlyphs(safeConfig?.icon);
+    const glyphIndex = isAwake ? 1 : 0;
+    const triggerGlyph = glyphs[glyphIndex] || glyphs[0];
+    const triggerGlyphScale = getFileBrowserGlyphScale(safeConfig?.icon, glyphIndex);
 
     // Parse labelStr for color keys (may differ from props.displayText when items carry {{}} syntax)
     const suffix = stateStr === "DIS" ? "_DIS" : (stateStr === "ON" ? "_ON" : "_OFF");
@@ -1129,7 +1280,7 @@ export function syncFileBrowser(context, node, app, config, overlayPass = false)
 
     if (labelPaint) {
         const pX = props.padding[0];
-        const iconOffset = fs * 1.2;
+        const iconOffset = fs * DROPDOWN_TRIGGER_GLYPH_LABEL_GAP_SCALE;
         const indicatorOffset = iconOffset;
         const textLimit = Math.max(0, w - (pX * 2) - indicatorOffset);
         const drawLabel = (labelHasKeys && labelSegments)
@@ -1143,12 +1294,12 @@ export function syncFileBrowser(context, node, app, config, overlayPass = false)
 
         if (shouldShowFileBrowserIndicator(safeConfig)) {
             masterPainterText(ctx, {
-                text: glyphs[0],
+                text: triggerGlyph,
                 x: snapToScreenGrid(x + pX, dsScale),
                 y: snapToScreenGrid(y + (h / 2), dsScale),
                 align: "left",
                 baseline: "middle",
-                paintData: { ...labelPaint, fontSize: fs * 0.8, fill: animatedTextColor }
+                paintData: { ...labelPaint, fontSize: fs * 0.8 * triggerGlyphScale, fill: animatedTextColor }
             });
         }
 

@@ -32,6 +32,7 @@ export function drawPickerRow(ctx, state, row, rect, labelPaint, scale, deps = {
 
     const pX = state.config.padding?.[0] || 4;
     const fontSize = state.rowPaintOFF?.fontSize || labelPaint?.fontSize || 10;
+    const prefixScale = Number(row.prefixScale || 1.0);
     const prefixText = (!row.hidePrefix && row.prefix) ? String(row.prefix).replace(/\s+$/, "") : "";
     const normalizedPrefixW = state.prefixSlotWidth || (fontSize * 1.2);
     const iconGap = state.prefixGap || 0;
@@ -44,6 +45,8 @@ export function drawPickerRow(ctx, state, row, rect, labelPaint, scale, deps = {
     const drawLabel = (pickerHasKeys && pickerSegments)
         ? rawLabel
         : clampText(rawLabel, maxTextWidth, fontSize, labelPaint?.font || "Arial", labelPaint?.fontWeight || "normal", state.config.displayMode === "ellipsis");
+
+    const drawLabelParts = Array.isArray(row.labelParts) && row.labelParts.length > 0;
 
     ctx.save();
     ctx.beginPath();
@@ -59,27 +62,56 @@ export function drawPickerRow(ctx, state, row, rect, labelPaint, scale, deps = {
             baseline: "middle",
             paintData: {
                 ...labelPaint,
-                fontSize,
+                fontSize: fontSize * prefixScale,
                 fill: row.prefixColor || textColor,
             }
         });
     }
 
-    masterPainterText(ctx, {
-        text: drawLabel,
-        x: row.type === "select_folder"
-            ? snapToScreenGrid(rect.x + (rect.w / 2), scale)
-            : snapToScreenGrid(rect.x + pX + iconOffset, scale),
-        y: snapToScreenGrid(rect.y + (rect.h / 2), scale),
-        align: row.type === "select_folder" ? "center" : "left",
-        baseline: "middle",
-        paintData: {
-            ...labelPaint,
-            fontSize,
-            fill: textColor,
-        },
-        segments: (pickerHasKeys && pickerSegments) ? pickerSegments : null
-    });
+    if (drawLabelParts && row.type !== "select_folder") {
+        let partX = rect.x + pX + iconOffset;
+        const partY = snapToScreenGrid(rect.y + (rect.h / 2), scale);
+        for (const part of row.labelParts) {
+            const text = String(part?.text ?? "");
+            const key = part?.key;
+            const slotWidth = (part?.widthMode === "max" && key)
+                ? (state.labelPartColumnWidths?.[key] || 0)
+                : null;
+            const align = part?.align || "left";
+            const textX = align === "right" && slotWidth !== null ? partX + slotWidth : partX;
+            masterPainterText(ctx, {
+                text,
+                x: snapToScreenGrid(textX, scale),
+                y: partY,
+                align,
+                baseline: "middle",
+                paintData: {
+                    ...labelPaint,
+                    fontSize,
+                    fill: part?.color || textColor,
+                }
+            });
+            partX += slotWidth !== null
+                ? slotWidth
+                : (ctx.measureText?.(text).width || 0);
+        }
+    } else {
+        masterPainterText(ctx, {
+            text: drawLabel,
+            x: row.type === "select_folder"
+                ? snapToScreenGrid(rect.x + (rect.w / 2), scale)
+                : snapToScreenGrid(rect.x + pX + iconOffset, scale),
+            y: snapToScreenGrid(rect.y + (rect.h / 2), scale),
+            align: row.type === "select_folder" ? "center" : "left",
+            baseline: "middle",
+            paintData: {
+                ...labelPaint,
+                fontSize,
+                fill: textColor,
+            },
+            segments: (pickerHasKeys && pickerSegments) ? pickerSegments : null
+        });
+    }
 
     ctx.restore();
 }

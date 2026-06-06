@@ -125,9 +125,13 @@ export function ensurePickerSelectionVisible(state) {
 }
 
 export function getFileRowPrefix(config, node, entry, deps) {
-    const { shouldShowFileBrowserIndicator, getFileBrowserGlyphs, isDropdownFileBrowser, browserIcons } = deps;
+    const { shouldShowFileBrowserIndicator, getFileBrowserGlyphs, getFileBrowserGlyphScale, isDropdownFileBrowser, browserIcons } = deps;
     if (entry.type === "select_current") {
-        return { prefix: shouldShowFileBrowserIndicator(config) ? getFileBrowserGlyphs(config?.icon)[1] : null, prefixColor: null };
+        return {
+            prefix: shouldShowFileBrowserIndicator(config) ? getFileBrowserGlyphs(config?.icon)[1] : null,
+            prefixColor: null,
+            prefixScale: getFileBrowserGlyphScale ? getFileBrowserGlyphScale(config?.icon, 1) : 1.0,
+        };
     }
     if (entry.type === "dir") return { prefix: browserIcons.DIR, prefixColor: null };
     if (config.fileType === "palette") return { prefix: browserIcons.PALETTE, prefixColor: null };
@@ -169,7 +173,13 @@ export function rebuildFilePickerRows(state, deps) {
         const displayVal = getFileBrowserCurrentDisplay(config, items, dropdownMode);
         const selectedItem = items.find((item) => String(getFileBrowserItemValue(item)) === String(config?.value || ""));
         const triggerDisplay = (selectedItem && typeof selectedItem === "object" && selectedItem._triggerDisplay) ? selectedItem._triggerDisplay : null;
-        headerRows.push({ id: "current", name: triggerDisplay || displayVal, type: "select_current", path: displayVal });
+        headerRows.push({
+            id: "current",
+            name: triggerDisplay || displayVal,
+            type: "select_current",
+            path: displayVal,
+            labelParts: Array.isArray(selectedItem?.labelParts) ? selectedItem.labelParts : null,
+        });
         items.forEach((item, idx) => {
             const itemValue = getFileBrowserItemValue(item);
             const row = {
@@ -178,6 +188,7 @@ export function rebuildFilePickerRows(state, deps) {
                 path: itemValue,
                 type: "file",
                 item,
+                labelParts: Array.isArray(item?.labelParts) ? item.labelParts : null,
                 hidePrefix: !!(item && typeof item === "object" && item.hidePrefix),
                 reservePrefix: !!(item && typeof item === "object" && item.reservePrefix),
                 disableSelectedStyle: !!(item && typeof item === "object" && item.disableSelectedStyle),
@@ -239,6 +250,7 @@ export function rebuildFilePickerRows(state, deps) {
                 path: file.path,
                 type: "file",
                 item,
+                labelParts: Array.isArray(item?.labelParts) ? item.labelParts : null,
                 hidePrefix: !!(item && typeof item === "object" && item.hidePrefix),
                 reservePrefix: !!(item && typeof item === "object" && item.reservePrefix),
                 disableSelectedStyle: !!(item && typeof item === "object" && item.disableSelectedStyle),
@@ -257,6 +269,7 @@ export function rebuildFilePickerRows(state, deps) {
                 path: file.path,
                 type: "file",
                 item,
+                labelParts: Array.isArray(item?.labelParts) ? item.labelParts : null,
                 hidePrefix: !!(item && typeof item === "object" && item.hidePrefix),
                 reservePrefix: !!(item && typeof item === "object" && item.reservePrefix),
                 disableSelectedStyle: !!(item && typeof item === "object" && item.disableSelectedStyle),

@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **new labelParts layoutMap parameter**: Parsed display strings can be configured at different width and properly displayed in the picker now. Godamn I'm so an*l about these things...
+
 ### Fixed
 - **Fixed mouse hit detection is punching through the picker in widget_FileBrowser**
 
