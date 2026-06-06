@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 - **new labelParts layoutMap parameter**: Parsed display strings can be configured at different width and properly displayed in the picker now. Godamn I'm so an*l about these things...
 
 ### Fixed
+- **derpImageDeck height not snapping to 10px grid**: Height in `resizeNodeToImageAspect` now snaps via `Math.ceil / SNAP * SNAP`. Bottom edge anchoring snaps to grid coordinates so the bottom edge stays put after page refreshes and latent aspect ratio changes.
 - **Horizontal docking height collapse**: Nodes of different heights would collapse the taller node when docked horizontally (e.g., derpDiffusionLoader docked to derpSeedV2). Root cause was dual: (1) `fitSizesToTotal` initialized `assigned = minTotal` which double-counted minimums, causing single-node columns to receive `totalHeight - min` instead of the full target height. Changed to `assigned = 0`. (2) `applyColumnLayout`/`applyRowLayout` called `syncDeckNodeSize` non-silently, triggering an immediate `refreshNodeLayoutMap` that recalculated autoHeight and overwrote the normalized shared height. Changed to `{ silent: true }`.
 - **Fixed mouse hit detection is punching through the picker in widget_FileBrowser**
 
