@@ -2,7 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.7.6] - 2026-06-06
+
+### Fixed
+- **README video now actually exists in the repo**: The `<video>` tag was there but the `.mp4` file was MIA. Now it's actually tracked.
+
+## [0.7.5] - 2026-06-06
 
 ### Fixed
 - **Fixed Image widget's border not matching actual image's height (always a little bit taller).**

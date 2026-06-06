@@ -212,6 +212,8 @@
   },
   "active": "be52a0628c1fadc4",
   "lastOpenFiles": [
+    "_assets/videos/test.mp4",
+    "_assets/images/test.mp4",
     "_assets/videos/ComfyUI-EZi-recording-20260606_111244.mp4",
     "ControlDeck Nodes/Derp Latent.md",
     "ControlDeck Nodes/Derp Diffusion Loader_ZH.md",
@@ -250,8 +252,6 @@
     "_assets/images/cover_civitAI_v01.jpg",
     "_assets/images/ps63C4.tmp",
     "_assets/cover_civitAI_v01.jpg",
-    "_assets/ComfyUI_00340_.png",
-    "_assets/videos",
-    "_assets/New folder"
+    "_assets/ComfyUI_00340_.png"
   ]
 }
