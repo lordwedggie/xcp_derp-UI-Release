@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+- **Fixed mouse hit detection is punching through the picker in widget_FileBrowser**
+
 ## [0.7.6] - 2026-06-06
 
 ### Fixed

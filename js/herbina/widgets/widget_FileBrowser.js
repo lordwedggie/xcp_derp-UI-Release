@@ -712,6 +712,9 @@ function ensureFilePickerListeners() {
 
     window.addEventListener("pointermove", (event) => {
         if (!activeFilePicker) return;
+        const insidePanel = isPointInRect(event.clientX, event.clientY, activeFilePicker.panelScreenRect);
+        const insideScrollbar = isPointInRect(event.clientX, event.clientY, activeFilePicker.scrollbarScreenRect);
+
         if (activeFilePicker.draggingScrollbar && activeFilePicker.dragScrollbarPointerId === event.pointerId) {
             consumeEvent(event);
             const state = activeFilePicker;
@@ -727,6 +730,11 @@ function ensureFilePickerListeners() {
             }
             return;
         }
+
+        if (insidePanel || insideScrollbar) {
+            consumeEvent(event);
+        }
+
         if (activeFilePicker.pendingOutsidePointerId === event.pointerId) {
             const dx = event.clientX - activeFilePicker.pendingOutsidePointerStartX;
             const dy = event.clientY - activeFilePicker.pendingOutsidePointerStartY;
