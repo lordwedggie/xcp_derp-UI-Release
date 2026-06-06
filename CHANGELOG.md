@@ -11,7 +11,8 @@ All notable changes to this project will be documented in this file.
 - **Critical bug causing some signal types (Diffusion model) to return 'None', causing Comfy runtime error**: derpSignalOut now properly raises descriptive errors for unresolved diffusion/text encoder signals instead of silently passing None. signalDictionaryDefault also raises FileNotFoundError instead of None when models can't be found, preventing silent downstream crashes.
 
 ### Added
-- **NE_Full_v01 palette**: Bright/neutral full palette with header and canvas entries for all loader nodes, scaled ~1.6× from the dark variant for readability on light themes.
+- **Added ZIT samplers profile for derpSamplerLoader**
+- **NE_Full_v01 palette**: Bright/neutral full palette with header and canvas entries for all loader nodes, scaled ~1.6× from the dark variant for readability on neutral themes.
 - **Canvas support for attached theme palettes**: Nodes can now have automatically applied header and body colors by node type (derp nodes only).
 - **Added padding overwrite for derpPromptBook's multiline editor**: Now it looks slightly better.
 - **VRAM clearing for Diffusion Loader**: derpDiffusionLoader now clears VRAM when switching between diffusion models, just like derpModelLoader. Toggle in system 
