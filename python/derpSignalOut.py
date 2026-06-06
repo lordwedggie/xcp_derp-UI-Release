@@ -14,6 +14,16 @@ any_type = AnyType("*")
 
 DERP_LIVE_REGISTRY = {}
 
+def is_model_descriptor(value):
+    return isinstance(value, dict) and any(k in value for k in ["model_name_prefix", "ckpt_name", "stack", "triggers", "diffusion_name", "text_encoder_name"])
+
+def describe_unresolved_signal(value, sig_type):
+    if isinstance(value, dict):
+        name = value.get("diffusion_name") or value.get("text_encoder_name") or value.get("ckpt_name") or value.get("model_name_prefix") or value.get("vae_name")
+        if name:
+            return f"Could not resolve {sig_type} signal for '{name}'"
+    return f"Could not resolve {sig_type} signal"
+
 def clone_runtime_signal_value(value, sig_type=""):
     upper_type = str(sig_type or "").upper()
     if any(x in upper_type for x in ["MODEL", "CLIP", "VAE"]):
@@ -107,18 +117,22 @@ class xcpDerpSignalOut:
                 is_complex = any(x in sig_type for x in ["MODEL", "CLIP", "VAE", "IMAGE", "LATENT", "MASK", "CONDITIONING", "AUDIO"])
 
                 if is_complex:
-                    is_payload = isinstance(val, dict) and any(k in val for k in ["model_name_prefix", "ckpt_name", "stack", "triggers", "diffusion_name", "text_encoder_name"])
+                    is_payload = is_model_descriptor(val)
                     is_media = isinstance(val, dict) and ("samples" in val or "waveform" in val)
 
                     if not is_live and not is_media:
                         # For MODEL/CLIP/VAE, if still unresolved, try to load a default model
                         if sig_type in ["MODEL", "CLIP", "VAE"]:
+                            if is_payload and ("diffusion_name" in val or "text_encoder_name" in val):
+                                raise RuntimeError(describe_unresolved_signal(val, sig_type))
                             from .signalDictionaryDefault import find_first_checkpoint, load_checkpoint_models
                             descriptor = val if is_payload else None
                             resolved = process_signal_fallback(descriptor, sig_type, DERP_LIVE_REGISTRY) if descriptor is not None else None
                             if resolved is not None and not isinstance(resolved, (str, dict)):
                                 val = resolved
                             else:
+                                if is_payload:
+                                    raise RuntimeError(describe_unresolved_signal(val, sig_type))
                                 default_ckpt = find_first_checkpoint()
                                 if default_ckpt:
                                     m, c, v = load_checkpoint_models(default_ckpt, DERP_LIVE_REGISTRY)
@@ -135,8 +149,8 @@ class xcpDerpSignalOut:
                         else:
                             val = None
 
-                    if is_complex and isinstance(val, dict) and any(k in val for k in ["model_name_prefix", "ckpt_name", "stack", "triggers", "diffusion_name", "text_encoder_name"]):
-                        val = None
+                    if is_complex and is_model_descriptor(val):
+                        raise RuntimeError(describe_unresolved_signal(val, sig_type))
                 else:
                     if val is None:
                         val = ""

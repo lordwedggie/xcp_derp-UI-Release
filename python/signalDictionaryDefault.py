@@ -112,10 +112,9 @@ def find_full_path_from_categories(filename, *categories):
 def normalize_clip_type(clip_type):
     if not isinstance(clip_type, str) or not clip_type:
         return comfy.sd.CLIPType.STABLE_DIFFUSION
-    clip_key = clip_type.upper()
+    clip_key = clip_type.upper().replace("-", "_")
     clip_type_aliases = {
         "ZIT": ["Z_IMAGE", "ZIMAGE", "ZIT"],
-        "Z-IMAGE": ["Z_IMAGE", "ZIMAGE", "ZIT"],
         "Z_IMAGE": ["Z_IMAGE", "ZIMAGE", "ZIT"],
         "ZIMAGE": ["Z_IMAGE", "ZIMAGE", "ZIT"],
     }
@@ -159,7 +158,7 @@ def load_clip_model(text_encoder_name, registry, clip_type=None, clip_device=Non
 
     text_encoder_path = find_full_path_from_categories(text_encoder_name, "text_encoders")
     if not text_encoder_path:
-        return None
+        raise FileNotFoundError(f"Derp CLIP Loader could not find text encoder: {text_encoder_name}")
 
     clip = comfy.sd.load_clip(
         ckpt_paths=[text_encoder_path],
@@ -180,7 +179,7 @@ def load_diffusion_model(diffusion_name, registry, weight_dtype=None):
 
     diffusion_path = find_full_path_from_categories(diffusion_name, "diffusion_models", "unet")
     if not diffusion_path:
-        return None
+        raise FileNotFoundError(f"Derp Diffusion Loader could not find diffusion model: {diffusion_name}")
 
     model_options = {}
     model_options.update(normalize_weight_dtype(weight_dtype))
@@ -200,8 +199,10 @@ def load_diffusion_and_clip(diffusion_name, text_encoder_name, registry, weight_
 
     diffusion_path = find_full_path_from_categories(diffusion_name, "diffusion_models", "unet")
     text_encoder_path = find_full_path_from_categories(text_encoder_name, "text_encoders")
-    if not diffusion_path or not text_encoder_path:
-        return None, None
+    if not diffusion_path:
+        raise FileNotFoundError(f"Derp Diffusion Loader could not find diffusion model: {diffusion_name}")
+    if not text_encoder_path:
+        raise FileNotFoundError(f"Derp CLIP Loader could not find text encoder: {text_encoder_name}")
 
     model_options = {}
     model_options.update(normalize_weight_dtype(weight_dtype))
