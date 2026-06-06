@@ -33,6 +33,31 @@ function tLocale(key, fallback = key) {
     return target;
 }
 
+function parseEditorPaddingValue(value, fallback) {
+    const parts = String(value ?? "")
+        .split(/[,\s]+/)
+        .map(part => parseFloat(part.trim()))
+        .filter(num => !Number.isNaN(num));
+    if (parts.length <= 0) return fallback;
+    const clamp = (num) => Math.max(0, Math.min(9, num));
+    const x = clamp(parts[0]);
+    const y = clamp(parts.length > 1 ? parts[1] : parts[0]);
+    return [x, y];
+}
+
+function resolveEditorPaddingValue(value, themePadding) {
+    const parsed = parseEditorPaddingValue(value, [0, 0]);
+    return [
+        parsed[0] === 0 ? themePadding[0] : parsed[0],
+        parsed[1] === 0 ? themePadding[1] : parsed[1]
+    ];
+}
+
+function formatEditorPaddingValue(value, fallback) {
+    const [x, y] = parseEditorPaddingValue(value, fallback);
+    return `${x}, ${y}`;
+}
+
 app.registerExtension({
     name: "xcp.derpPromptBook_Extension",
     async setup() {
@@ -68,13 +93,15 @@ app.registerExtension({
             const [mW, mH, sW, sH, oX, oY, pW, pH] = [
                 vars.mW, vars.mH, vars.sW, vars.sH, vars.oX, vars.oY, vars.pW, vars.pH
             ].map(v => Number(v.toFixed(2)));
+            const editorPadding = resolveEditorPaddingValue(this.properties.editorPadding, [pW, pH]);
+            const editorPaddingHash = editorPadding.join(",");
             this.properties.footerHeight = 6 + mH;
 
             const book = this.properties.derpBook || (typeof createDefaultDerpBook === "function" ? createDefaultDerpBook() : []);
             const currentIndex = this.properties.currentPageIndex || 0;
             const safeIndex = Math.max(0, Math.min(currentIndex, Math.max(0, book.length - 1)));
 
-            const structureHash = `${book.length}_${safeIndex}_${this.properties.bookName}_${this.properties.coverPage}_${this.properties.showTotalPage}_${this.properties.drawHeader}_${(this._availableBooks || []).length}_${window._xcpDerpSession}`;
+            const structureHash = `${book.length}_${safeIndex}_${this.properties.bookName}_${this.properties.coverPage}_${this.properties.showTotalPage}_${this.properties.drawHeader}_${(this._availableBooks || []).length}_${editorPaddingHash}_${window._xcpDerpSession}`;
             this._layoutMapHash = structureHash;
 
             const activePage = book[safeIndex] || { title: tLocale("$derp_prompt_book.page.empty", "Empty"), content: "" };
@@ -101,6 +128,7 @@ app.registerExtension({
 
                 const cReg = this.layoutMap.contentRegion;
                 if (cReg && cReg.editorMain) {
+                    cReg.editorMain.padding = editorPadding;
                     const bName = this.properties.bookName || tLocale("$derp_prompt_book.book.untitled_name", "Untitled Book");
                     const editorValue = (activePage.content || "").replace(/\[\[IMG:(?!data:|http|\/|.*_IMG\/)([^\]]+)\]\]/g, (m, file) => {
                         return `[[IMG:/xcp/get_asset/derpPromptBook?name=${encodeURIComponent(file)}&bookName=${encodeURIComponent(bName)}]]`;
@@ -192,7 +220,7 @@ app.registerExtension({
                         type: this.UI_TYPES.EDITOR, multiline: true, noHover: true, canvasShield: true, switchOnEditing: true,
                         themeKey: "dialog, t_textNormal", mouseOver: false, 
                         labelAlign: ["left", "top"], measureText: "MEASURE_RESERVE_FLOOR",
-                        width: "full", height: "fill", padding: [pW, pH],
+                        width: "full", height: "fill", padding: editorPadding,
                         onBlur: () => {
                             const pIndex = this.properties.currentPageIndex || 0;
                             if (book[pIndex]) {
@@ -311,6 +339,28 @@ app.registerExtension({
                                 this.refreshNodeLayoutMap();
                                 this.refreshDerpPromptBookSysMap();
                             }
+                        },
+                        lblEditorPadding: {
+                            type: this.UI_TYPES.TEXT, themeKey: "t_textSystem", mouseOver: false,
+                            text: "Editor padding:", width: "auto", height: "auto",
+                            padding: [pW, pH], spacing: [sW, 0], objectAlign: ["left", "middle"]
+                        },
+                        editorPadding: {
+                            type: this.UI_TYPES.EDITOR, canvasShield: true, themeKey: "dialog, t_textSystem",
+                            value: formatEditorPaddingValue(this.properties.editorPadding, [0, 0]),
+                            measureText: " 9, 9 ", labelAlign: ["center", "middle"],
+                            width: "auto", height: "auto", padding: [pW, pH], spacing: [sW, 0],
+                            onInput: (val) => {
+                                this.properties.editorPadding = val;
+                                this.refreshNodeLayoutMap();
+                                if (this.requestDerpSync) this.requestDerpSync();
+                            },
+                            onBlur: (val) => {
+                                this.properties.editorPadding = formatEditorPaddingValue(val, [0, 0]);
+                                this.refreshNodeLayoutMap();
+                                this.refreshDerpPromptBookSysMap();
+                                if (this.requestDerpSync) this.requestDerpSync();
+                            }
                         }
                     }
                 }
@@ -340,7 +390,8 @@ app.registerExtension({
                 autoWidth: false,
                 autoHeight: false,
                 coverPage: true,
-                showTotalPage: true
+                showTotalPage: true,
+                editorPadding: formatEditorPaddingValue(this.properties.editorPadding, [0, 0])
             });
             this.size = [400, 400];
             this._lastSavedBookName = tLocale("$derp_prompt_book.book.untitled_name", "Untitled Book");
