@@ -366,7 +366,21 @@ app.registerExtension({
                             }
                         }
                     },
-                    layoutSpacer: { anchor: { target: "regionSetting1", axis: "y", offset: oY } }
+                    regionSetting2: {
+                        anchor: { target: "regionSetting1", axis: "y", offset: oY },
+                        dir: "row", width: "full", height: "auto", spacing: [sW, 0],
+                        toggleDumpModelOnChange: {
+                            type: this.UI_TYPES.TOGGLE_V2, isTextOnly: true, themeKey: "button, t_textSystem",
+                            text: tLocale("$derp_diffusion_loader.system.clear_vram_on_change", "Clear VRAM on new model selection"),
+                            width: "full", height: "auto", padding: [pW, pH],
+                            value: this.properties.toggleDumpModelOnChange !== false,
+                            onChange: (v) => {
+                                this.properties.toggleDumpModelOnChange = v;
+                                this.refreshDerpTemplateSysMap();
+                            }
+                        }
+                    },
+                    layoutSpacer: { anchor: { target: "regionSetting2", axis: "y", offset: oY } }
                 }
             };
         };
@@ -386,6 +400,7 @@ app.registerExtension({
             info.properties = info.properties || {};
             info.properties.diffusionDeck = this.properties.diffusionDeck;
             info.properties.weightDtype = this.properties.weightDtype;
+            info.properties.toggleDumpModelOnChange = this.properties.toggleDumpModelOnChange;
             info.properties.settingActive = this.properties.settingActive !== false;
         };
 

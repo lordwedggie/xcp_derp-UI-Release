@@ -439,7 +439,8 @@
     "system": {
       "properties": "自定义节点属性：",
       "show_folder_names": "显示文件夹名称",
-      "weight_dtype": "权重精度"
+      "weight_dtype": "权重精度",
+      "clear_vram_on_change": "切换模型时清理 VRAM"
     },
     "ports": {
       "model": "模型"
@@ -459,7 +460,8 @@
     },
     "messages": {
       "relinked_diffusions_prefix": "扩散模型已重新关联：",
-      "missing_diffusions_prefix": "已清除缺失扩散模型："
+      "missing_diffusions_prefix": "已清除缺失扩散模型：",
+      "vram_cleared_prefix": "VRAM 已清理："
     }
   },
   "derp_clip_loader": {

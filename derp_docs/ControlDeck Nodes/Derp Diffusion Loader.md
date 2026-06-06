@@ -26,3 +26,5 @@ Loads diffusion model files onto the deck for one-click switching, with configur
 <span style="color: #80aaff"><strong>Show Folder Names</strong></span>: Toggles folder paths in the display.
 
 <span style="color: #80aaff"><strong>Weight Dtype</strong></span>: Select precision for loading diffusion models. Options: default, fp8_e4m3fn, fp8_e4m3fn_fast, fp8_e5m2. Lower precision = less VRAM.
+
+<span style="color: #80aaff"><strong>Clear VRAM on new model selection</strong></span>: Unloads the previous diffusion model from VRAM before switching to a new one. Keeps your 4090 from throwing a fit. On by default.

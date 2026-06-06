@@ -439,7 +439,8 @@
     "system": {
       "properties": "Custom node properties:",
       "show_folder_names": "Show Folder Names",
-      "weight_dtype": "Weight DType"
+      "weight_dtype": "Weight DType",
+      "clear_vram_on_change": "Clear VRAM on new model selection"
     },
     "ports": {
       "model": "Model"
@@ -459,7 +460,8 @@
     },
     "messages": {
       "relinked_diffusions_prefix": "Diffusions Re-linked: ",
-      "missing_diffusions_prefix": "Missing Diffusions Purged: "
+      "missing_diffusions_prefix": "Missing Diffusions Purged: ",
+      "vram_cleared_prefix": "VRAM Cleared: "
     }
   },
   "derp_clip_loader": {

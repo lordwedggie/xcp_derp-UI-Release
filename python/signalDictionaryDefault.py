@@ -112,16 +112,32 @@ def find_full_path_from_categories(filename, *categories):
 def normalize_clip_type(clip_type):
     if not isinstance(clip_type, str) or not clip_type:
         return comfy.sd.CLIPType.STABLE_DIFFUSION
-    return getattr(comfy.sd.CLIPType, clip_type.upper(), comfy.sd.CLIPType.STABLE_DIFFUSION)
+    clip_key = clip_type.upper()
+    clip_type_aliases = {
+        "ZIT": ["Z_IMAGE", "ZIMAGE", "ZIT"],
+        "Z-IMAGE": ["Z_IMAGE", "ZIMAGE", "ZIT"],
+        "Z_IMAGE": ["Z_IMAGE", "ZIMAGE", "ZIT"],
+        "ZIMAGE": ["Z_IMAGE", "ZIMAGE", "ZIT"],
+    }
+    for candidate in clip_type_aliases.get(clip_key, [clip_key]):
+        resolved = getattr(comfy.sd.CLIPType, candidate, None)
+        if resolved is not None:
+            return resolved
+    return comfy.sd.CLIPType.STABLE_DIFFUSION
 
 def resolve_clip_type(text_encoder_name=None, clip_type=None):
     lower_name = str(text_encoder_name or "").lower()
+    lower_type = str(clip_type or "").lower()
     if "qwen_3_4b" in lower_name or "qwen3_4b" in lower_name or "qwen-3-4b" in lower_name or "qwen3-4b" in lower_name:
         if clip_type in ["flux", "flux2"]:
             return clip_type
         return "stable_diffusion"
     if isinstance(clip_type, str) and clip_type not in ["", "default", "auto", "stable_diffusion"]:
         return clip_type
+    if any(token in lower_name for token in ["z_image", "z-image", "zimage", "zit"]):
+        return "z_image"
+    if any(token in lower_type for token in ["z_image", "z-image", "zimage", "zit"]):
+        return "z_image"
     if "qwen" in lower_name:
         return "qwen_image"
     return "stable_diffusion"

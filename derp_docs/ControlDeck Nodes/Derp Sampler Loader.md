@@ -1,5 +1,5 @@
 # <span style="color: #ff8080">Derp</span> <span style="color: #ffffff">Sampler Loader</span>
-
+<video src="../_assets/videos/ComfyUI-EZi-recording-20260606_111244.mp4" controls muted loop style="max-width:100%"></video>
 ![image](../_assets/images/derpSamplerLoader_01.jpg)
 Loads sampler names onto the node's deck so you can switch between them with a single click. Because life is too short to scroll through a dropdown every time you want to try Euler instead of DPM++ 2M.
 

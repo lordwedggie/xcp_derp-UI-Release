@@ -28,6 +28,25 @@ function tLocale(key, fallback = key) {
     return target;
 }
 
+async function unloadPreviousModelFromVRAM(node, previousModel, nextModel) {
+    const res = await fetch("/free", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            unload_models: true,
+        })
+    });
+
+    if (!res.ok) {
+        let errorText = `HTTP ${res.status}`;
+        try {
+            const payload = await res.json();
+            errorText = payload?.error || errorText;
+        } catch (_) {}
+        throw new Error(errorText);
+    }
+}
+
 function syncDerpDiffusionLoaderLocaleLabels(node) {
     if (!node?.properties) return;
     const localizedTitle = tLocale("$derp_diffusion_loader.title", "Derp Diffusion Loader");
@@ -182,22 +201,64 @@ export function initDerpDiffusionLoaderCore(nodeType) {
         if (this._lastSignalFingerprint === fingerprint) return;
         this._lastSignalFingerprint = fingerprint;
 
-        if (diffusionName && this.widgets) {
-            const diffusionWidget = this.widgets.find(w => w.name === "diffusion_name" || w.name === "model_name" || w.name === "unet_name");
-            if (diffusionWidget) diffusionWidget.value = diffusionName;
-            const dtypeWidget = this.widgets.find(w => w.name === "weight_dtype" || w.name === "dtype");
-            if (dtypeWidget) dtypeWidget.value = weightDtype;
+        const previousModel = this._lastBroadcastModelName || null;
+        const shouldDumpModelOnChange = this.properties.toggleDumpModelOnChange !== false;
+        const isDifferentModelSelection = !!previousModel && previousModel !== diffusionName;
+        const unloadAlreadyPendingForTarget = this._pendingModelSwitchTarget === diffusionName;
+        const unloadAlreadyPerformedForQueuedPrompt = this._hasClearedVRAMSinceQueuePrompt === true;
+
+        const runTransmit = () => {
+            this._lastBroadcastModelName = diffusionName;
+
+            if (diffusionName && this.widgets) {
+                const diffusionWidget = this.widgets.find(w => w.name === "diffusion_name" || w.name === "model_name" || w.name === "unet_name");
+                if (diffusionWidget) diffusionWidget.value = diffusionName;
+                const dtypeWidget = this.widgets.find(w => w.name === "weight_dtype" || w.name === "dtype");
+                if (dtypeWidget) dtypeWidget.value = weightDtype;
+            }
+
+            const baseId = String(this.id);
+            pushDiffusionSignalToRegistry(this, `${baseId}:0`, nodeName, modelPortLabel, modelPayload ? "model" : "null", modelPayload);
+
+            const savedOutputs = this.outputs;
+            if (this._xcpTrueOutputs && this._xcpTrueOutputs.length > 0) {
+                this.outputs = this._xcpTrueOutputs;
+            }
+            if (aggregatePayload) transmitDerpSignal(this, aggregatePayload);
+            this.outputs = savedOutputs;
+        };
+
+        if (shouldDumpModelOnChange && isDifferentModelSelection && diffusionName) {
+            if (unloadAlreadyPendingForTarget || unloadAlreadyPerformedForQueuedPrompt) {
+                runTransmit();
+                return;
+            }
+
+            const unloadToken = `${Date.now()}:${diffusionName}`;
+            this._pendingModelUnloadToken = unloadToken;
+            this._pendingModelSwitchTarget = diffusionName;
+            this._lastSignalFingerprint = null;
+
+            unloadPreviousModelFromVRAM(this, previousModel, diffusionName)
+                .then(() => {
+                    this._lastUnloadedModelName = previousModel;
+                    this._hasClearedVRAMSinceQueuePrompt = true;
+                    if (typeof showBastaSystemMessage === "function") {
+                        showBastaSystemMessage(this, tLocale("$derp_diffusion_loader.messages.vram_cleared_prefix", "VRAM Cleared: "), 2600, { fade: true, grow: true, silent: true }, null, "success", false, previousModel.split(/[\\/]/).pop() || previousModel);
+                    }
+                })
+                .catch((error) => {
+                    console.error("[xcpDerp] Failed to unload previous model from VRAM:", error);
+                })
+                .finally(() => {
+                    if (this._pendingModelUnloadToken !== unloadToken) return;
+                    this._pendingModelUnloadToken = null;
+                    runTransmit();
+                });
+            return;
         }
 
-        const baseId = String(this.id);
-        pushDiffusionSignalToRegistry(this, `${baseId}:0`, nodeName, modelPortLabel, modelPayload ? "model" : "null", modelPayload);
-
-        const savedOutputs = this.outputs;
-        if (this._xcpTrueOutputs && this._xcpTrueOutputs.length > 0) {
-            this.outputs = this._xcpTrueOutputs;
-        }
-        if (aggregatePayload) transmitDerpSignal(this, aggregatePayload);
-        this.outputs = savedOutputs;
+        runTransmit();
     };
 
     proto.onDerpSysPanelOpen = function(panel) {
@@ -242,6 +303,7 @@ export function initDerpDiffusionLoaderCore(nodeType) {
         this.properties.settingActive = true;
         this.properties.diffusionDeck = normalizeDeck(this.properties.diffusionDeck || []);
         if (typeof this.properties.showFolderNames !== "boolean") this.properties.showFolderNames = true;
+        if (typeof this.properties.toggleDumpModelOnChange !== "boolean") this.properties.toggleDumpModelOnChange = true;
         if (typeof this.properties.weightDtype !== "string") this.properties.weightDtype = "default";
         this.properties.autoWidth = false;
         this.properties.autoHeight = true;

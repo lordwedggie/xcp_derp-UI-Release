@@ -26,3 +26,5 @@
 <span style="color: #80aaff"><strong>显示文件夹名</strong></span>：开关文件夹路径的显示。
 
 <span style="color: #80aaff"><strong>权重精度</strong></span>：选择扩散模型的加载精度。可选：default、fp8_e4m3fn、fp8_e4m3fn_fast、fp8_e5m2。低精度占用更少显存。
+
+<span style="color: #80aaff"><strong>切换模型时清理 VRAM</strong></span>：切换扩散模型时自动卸载上一个模型，避免显存爆炸。默认开启。
