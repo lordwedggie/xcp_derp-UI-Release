@@ -182,7 +182,7 @@ export function setupDerpSliderCore(nodeType) {
         while (data.length < count) {
             data.push({
                 name: `Slider_${(data.length + 1).toString().padStart(2, '0')}`,
-                min: 0, max: 1, step: 0.05, default: 0.5, decimal: 2, value: 0.5, btnLR: false, fillbarHeight: 1.0, knobWidthScale: 1.0
+                min: 0, max: 1, step: 0.05, default: 0.5, decimal: 2, value: 0.5, btnLR: false, fillbarHeight: 1.0, roundKnob: true, knobRadiusOffset: 0.8, knobWidthScale: 1.0, knobHeightOffset: 0
             });
             dataChanged = true;
         }
@@ -246,7 +246,7 @@ export function setupDerpSliderCore(nodeType) {
     nodeType.prototype.onNodeCreated = function() {
         if (!this.properties) this.properties = {};
         this.properties.sliderContainer = [{
-            name: "Slider_01", min: 0, max: 1, step: 0.05, default: 0.5, decimal: 2, value: 0.5, btnLR: false, fillbarHeight: 1.0, knobWidthScale: 1.0
+            name: "Slider_01", min: 0, max: 1, step: 0.05, default: 0.5, decimal: 2, value: 0.5, btnLR: false, fillbarHeight: 1.0, roundKnob: true, knobRadiusOffset: 0.8, knobWidthScale: 1.0, knobHeightOffset: 0
         }];
         this.properties.sliderCount = this.properties.sliderContainer.length;
 

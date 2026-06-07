@@ -96,8 +96,12 @@ Keys prefixed with `#` are optional overrides for specific widget rendering path
 |-----|-----------|
 | `#picker` | FILEBROWSER picker rect color. When present, the file browser's selection rectangle uses this key's fill instead of the widget's `themeKey`. |
 | `#picker_hightlight` | FILEBROWSER highlight box color. When present, the hover/keyboard-highlight box uses this key's fill instead of the widget's `themeKey`. |
+| `#slider_background` | SLIDER background track. When present, the slider track uses this key instead of the widget background key from `themeKey`. |
+| `#slider_fillbar` | SLIDER filled value bar. When present, the filled bar uses this key instead of the normal slider fill fallback. |
+| `#slider_knob` | SLIDER knob marker. When present, knob-style sliders use this key for rectangular or round knob rendering, including supported effects. |
+| `#slider_btnLR` | SLIDER left/right step buttons. When present, `btnLR` buttons use this key instead of the slider's normal button/body fallback. |
 
-These are full theme keys with `_ON`/`_OFF`/`_DIS` fills and optional effects (corners, shadow, stroke, glow). They are **not** referenced by layout maps directly — the FILEBROWSER widget detects them at paint time.
+These are full theme keys with `_ON`/`_OFF`/`_DIS` fills and optional effects (corners, shadow, stroke, glow). They are **not** referenced by layout maps directly — widgets detect them at paint time. Slider round knobs use a local circle painter so fill, shadow, stroke, and glow remain available even though the shape is not drawn by `masterPainter()`.
 
 ### Compound Key Format
 
@@ -387,7 +391,7 @@ Default palettes are shipped with the extension in `user/derpNodes/Palettes/_sys
 
 | File | Role |
 |------|------|
-| `js/herbina/widgets/widget_Slider.js` | Slider renderer — uses `#slider_btnLR` themeKey for btnLR buttons. Respects `fillbarHeight` and `knobWidthScale` per-slider geometry. |
+| `js/herbina/widgets/widget_Slider.js` | Slider renderer — detects `#slider_background`, `#slider_fillbar`, `#slider_knob`, and `#slider_btnLR` optional keys. Respects `fillbarHeight`, `knobWidthScale`, `knobHeightOffset`, `roundKnob`, and `knobRadiusOffset` per-slider geometry. |
 | `js/herbina/masterPainter.js` | `resolvePaletteColor()`, `compileThemeData()` — where `@key` references are resolved |
 | `js/fatha/helpers/headerPaletteIdentity.js` | Per-node header palette matching and color application |
 | `js/fatha/helpers/fathaThemeRuntime.js` | `handleThemeUpdate()` — compiles theme paint data, sets `_headerPaletteName`, calls `loadDerpPalette()` |

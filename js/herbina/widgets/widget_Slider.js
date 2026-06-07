@@ -32,6 +32,9 @@
  * - `fontSize`: Optional font-size override for the label text. Falls back to the theme's label `fontSize` or `10`.
  * - `style`: Drawing style variant. Accepted values: `"default"`, `"knob"`. Defaults to `"default"`.
  * - `knobWidthScale`: Optional width multiplier for the knob style marker. Defaults to `1.0`.
+ * - `knobHeightOffset`: Optional height offset added to the knob top and bottom. Defaults to `0`.
+ * - `roundKnob`: Optional boolean that draws the knob as a themed circle when true. Defaults to `true`.
+ * - `knobRadiusOffset`: Optional radius offset applied only when `roundKnob` is true. Defaults to `0.8`.
  * - Theme optional element keys: `#slider_background`, `#slider_fillbar`, `#slider_knob`, and
  *   `#slider_btnLR` can override the Background, fillBar, knob, and btnLR paint respectively.
  *
@@ -46,6 +49,9 @@
  * - `knob`: (style "knob" only) A small square rect overlaid on the fillBar at its right edge.
  *   Drawn after the fillBar using the same paint data. Width/height equal to fillH.
  * - `knobWidthScale`: Multiplies the knob width while preserving the existing default width at `1.0`.
+ * - `knobHeightOffset`: Adds extra height above and below the knob without changing knob width.
+ * - `roundKnob`: Uses the smaller final knob dimension as a circle diameter when enabled.
+ * - `knobRadiusOffset`: Adds to the calculated round knob radius when `roundKnob` is enabled.
  * - `btnLR`: The - / + stepper buttons rendered on the left and right edges of the Background. Sized
  *   relative to the fillBar height (BTN_LR_RATIO). Toggled by config.btnLR.
  * - `label`: The text string drawn on top of the Background. Uses displayText (preferred) or label/text.
@@ -86,6 +92,7 @@ var BTN_LR_MARGIN = 0;
 var BTN_LR_HEIGHTOFFSET = 1;
 var FILLBAR_KNOBOFFSET = 1;
 var FILLBAR_MARGIN = 0;
+var ROUND_KNOB = true;
 var SLIDER_POS_LERP = 0.1;  // knob position lerp speed on track click
 
 /**
@@ -107,7 +114,10 @@ export function createDerpSlider(callbacks = {}) {
         btnColor: callbacks.btnColor || null,
         labelColor: callbacks.labelColor || null,
         style: callbacks.style ?? "default",
-        knobWidthScale: callbacks.knobWidthScale ?? 1.0
+        knobWidthScale: callbacks.knobWidthScale ?? 1.0,
+        knobHeightOffset: callbacks.knobHeightOffset ?? 0,
+        roundKnob: callbacks.roundKnob ?? true,
+        knobRadiusOffset: callbacks.knobRadiusOffset ?? 0.8
     };
 }
 
@@ -126,15 +136,166 @@ export function syncDerpSliderHTML(el, node, app, config) {
  * Draw the knob marker for "knob" style sliders.
  * knobX is the absolute left-edge position (pre-computed by caller).
  */
-function drawSliderKnobAbs(ctx, style, activeData, knobW, knobH, knobX, y, insTop) {
+function drawSliderKnobAbs(ctx, style, activeData, knobW, knobH, knobX, y, insTop, knobHeightOffset = 0, roundKnob = ROUND_KNOB, knobRadiusOffset = 0.8) {
     if (style !== "knob" || !activeData || knobW <= 0 || knobH <= 0) return;
+    const finalKnobH = knobH + (FILLBAR_KNOBOFFSET * 2) + (knobHeightOffset * 2);
+    const finalKnobY = y + insTop - FILLBAR_KNOBOFFSET - knobHeightOffset;
+    if (roundKnob) {
+        const radius = Math.max(0, (Math.min(knobW, finalKnobH) / 2) + knobRadiusOffset);
+        if (radius <= 0) return;
+        drawThemedCircle(ctx, knobX + (knobW / 2), finalKnobY + (finalKnobH / 2), radius, activeData, activeData.fill);
+        return;
+    }
     masterPainter(ctx, {
         posX: knobX,
-        posY: y + insTop - FILLBAR_KNOBOFFSET,
+        posY: finalKnobY,
         width: knobW,
-        height: knobH + (FILLBAR_KNOBOFFSET * 2),
+        height: finalKnobH,
         paintData: activeData, color: activeData.fill
     });
+}
+
+function scaleAlpha(colorStr, factor) {
+    if (!colorStr) return "transparent";
+    const match = String(colorStr).match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+    if (match) {
+        const r = match[1];
+        const g = match[2];
+        const b = match[3];
+        const a = match[4] !== undefined ? parseFloat(match[4]) : 1.0;
+        return `rgba(${r}, ${g}, ${b}, ${a * factor})`;
+    }
+    return colorStr;
+}
+
+function isTransparentColor(colorStr) {
+    if (!colorStr) return true;
+    const match = String(colorStr).match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+    if (!match) return false;
+    const alpha = match[4] !== undefined ? parseFloat(match[4]) : 1.0;
+    return alpha <= 0.001;
+}
+
+function appendCirclePath(ctx, centerX, centerY, radius) {
+    ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+}
+
+function fillCircleWithShadow(ctx, centerX, centerY, radius, shadow, color, blurFactor, alphaFactor, offsetFactor) {
+    ctx.shadowColor = scaleAlpha(shadow.color, alphaFactor);
+    ctx.shadowBlur = shadow.blur * blurFactor;
+    ctx.shadowOffsetX = shadow.offsetX * offsetFactor;
+    ctx.shadowOffsetY = shadow.offsetY * offsetFactor;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    appendCirclePath(ctx, centerX, centerY, radius);
+    ctx.fill();
+}
+
+function drawThemedCircle(ctx, centerX, centerY, radius, paintData, color = "#1a1a1a") {
+    const glowClip = paintData?.glowClip || "c_glowNone";
+    const shadowClip = paintData?.shadowClip || "c_shadowNone";
+    const blurFactor = 2.0;
+    const alphaFactor = 0.7;
+    const offsetFactor = 1.5;
+
+    ctx.save();
+    ctx.shadowColor = "transparent";
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+
+    if (paintData?.shadow && shadowClip === "c_shadowOutside") {
+        const s = paintData.shadow;
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(centerX - radius - 5000, centerY - radius - 5000, (radius * 2) + 10000, (radius * 2) + 10000);
+        appendCirclePath(ctx, centerX, centerY, radius);
+        ctx.clip("evenodd");
+        fillCircleWithShadow(ctx, centerX, centerY, radius, s, "black", blurFactor, alphaFactor, 1);
+        ctx.restore();
+    }
+
+    ctx.save();
+    if (paintData?.shadow && shadowClip === "c_shadowNone") {
+        fillCircleWithShadow(ctx, centerX, centerY, radius, paintData.shadow, color, blurFactor, alphaFactor, offsetFactor);
+    } else {
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        appendCirclePath(ctx, centerX, centerY, radius);
+        ctx.fill();
+    }
+    ctx.restore();
+
+    if (paintData?.shadow && shadowClip === "c_shadowInside") {
+        const s = paintData.shadow;
+        ctx.save();
+        ctx.beginPath();
+        appendCirclePath(ctx, centerX, centerY, radius);
+        ctx.clip();
+        ctx.shadowColor = scaleAlpha(s.color, alphaFactor);
+        ctx.shadowBlur = s.blur * blurFactor;
+        ctx.shadowOffsetX = s.offsetX * offsetFactor;
+        ctx.shadowOffsetY = s.offsetY * offsetFactor;
+        ctx.beginPath();
+        ctx.rect(centerX - radius - 5000, centerY - radius - 5000, (radius * 2) + 10000, (radius * 2) + 10000);
+        appendCirclePath(ctx, centerX, centerY, radius);
+        ctx.fillStyle = "black";
+        ctx.fill("evenodd");
+        ctx.restore();
+    }
+
+    if (paintData?.glow) {
+        const g = paintData.glow;
+        const glowShadow = {
+            color: scaleAlpha(g.color, alphaFactor),
+            blur: g.blur,
+            offsetX: g.offsetX * offsetFactor,
+            offsetY: g.offsetY * offsetFactor,
+        };
+        if (glowClip === "c_glowOutside" || glowClip === "c_glowNone") {
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(centerX - radius - 5000, centerY - radius - 5000, (radius * 2) + 10000, (radius * 2) + 10000);
+            appendCirclePath(ctx, centerX, centerY, radius);
+            ctx.clip("evenodd");
+            fillCircleWithShadow(ctx, centerX, centerY, radius, glowShadow, "black", blurFactor, 1, 1);
+            ctx.restore();
+        }
+        if (glowClip === "c_glowInside" || glowClip === "c_glowNone") {
+            ctx.save();
+            ctx.beginPath();
+            appendCirclePath(ctx, centerX, centerY, radius);
+            ctx.clip();
+            ctx.shadowColor = glowShadow.color;
+            ctx.shadowBlur = glowShadow.blur * blurFactor;
+            ctx.shadowOffsetX = glowShadow.offsetX;
+            ctx.shadowOffsetY = glowShadow.offsetY;
+            ctx.beginPath();
+            ctx.rect(centerX - radius - 5000, centerY - radius - 5000, (radius * 2) + 10000, (radius * 2) + 10000);
+            appendCirclePath(ctx, centerX, centerY, radius);
+            ctx.fillStyle = "black";
+            ctx.fill("evenodd");
+            ctx.restore();
+        }
+    }
+
+    if (paintData?.border && paintData.border.width > 0 && !isTransparentColor(paintData.border.color)) {
+        const border = paintData.border;
+        const align = border.placement ?? 0;
+        const lineWidth = border.width;
+        const borderRadius = align === 1
+            ? Math.max(0, radius - (lineWidth / 2))
+            : (align === 2 ? radius + (lineWidth / 2) : radius);
+        ctx.save();
+        ctx.strokeStyle = border.color;
+        ctx.lineWidth = lineWidth;
+        ctx.beginPath();
+        appendCirclePath(ctx, centerX, centerY, borderRadius);
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    ctx.restore();
 }
 
 export function syncDerpSliderCanvas(ctx, node, config) {
@@ -193,7 +354,7 @@ export function syncDerpSliderCanvas(ctx, node, config) {
     if (props.fillbarHeight != null) {
         const fillbarHeight = Number(props.fillbarHeight);
         const baseH = Number.isFinite(fillbarHeight)
-            ? (fillbarHeight <= 1 ? h * fillbarHeight : fillbarHeight)
+            ? (h * Math.max(0.2, Math.min(1.0, fillbarHeight)))
             : h;
         fillH = Math.max(0, baseH - ins[0] - ins[2]);
         fillY = y + (h - baseH) / 2 + ins[0];
@@ -262,6 +423,9 @@ export function syncDerpSliderCanvas(ctx, node, config) {
 
     // Knob + fillBar positioning: exactly 1px spacing from btnLR at min/max
     const knobWidthScale = Number.isFinite(Number(props.knobWidthScale ?? config.knobWidthScale)) ? Math.max(0, Number(props.knobWidthScale ?? config.knobWidthScale)) : 1.0;
+    const knobHeightOffset = Number.isFinite(Number(props.knobHeightOffset ?? config.knobHeightOffset)) ? Math.max(-5, Math.min(5, Number(props.knobHeightOffset ?? config.knobHeightOffset))) : 0;
+    const roundKnob = (props.roundKnob ?? config.roundKnob ?? ROUND_KNOB) !== false;
+    const knobRadiusOffset = Number.isFinite(Number(props.knobRadiusOffset ?? config.knobRadiusOffset)) ? Math.max(-3, Math.min(3, Number(props.knobRadiusOffset ?? config.knobRadiusOffset))) : 0.8;
     const knobStyleW = (style === "knob") ? (fullFillH * knobWidthScale) : 0;
     const knobStyleH = (style === "knob") ? fullFillH : 0;
     const leftBtnRight = x + btnMargin + btnW;
@@ -281,9 +445,11 @@ export function syncDerpSliderCanvas(ctx, node, config) {
 
     if (sliderFillbarData && percent > 0 && fillbarDrawW > 0 && fillbarDrawH > 0) {
         const themeCorners = sliderFillbarData.corners;
-        const fillCorners = Array.isArray(themeCorners)
+        const rawFillCorners = Array.isArray(themeCorners)
             ? [themeCorners[0] || 0, 0, 0, themeCorners[3] || 0]
             : [themeCorners || 0, 0, 0, themeCorners || 0];
+        const maxFillCorner = fillbarDrawH / 2;
+        const fillCorners = rawFillCorners.map((corner) => Math.min(Math.max(0, Number(corner) || 0), maxFillCorner));
         masterPainter(ctx, {
             posX: fillbarDrawX,
             posY: fillbarDrawY,
@@ -295,7 +461,7 @@ export function syncDerpSliderCanvas(ctx, node, config) {
     }
 
     // Knob
-    drawSliderKnobAbs(ctx, style, knobData, knobStyleW, knobStyleH, knobX, y, ins[0]);
+    drawSliderKnobAbs(ctx, style, knobData, knobStyleW, knobStyleH, knobX, y, ins[0], knobHeightOffset, roundKnob, knobRadiusOffset);
 
     // 3. Draw Optional Label
     const sliderLabel = (props.label !== "") ? props.displayText : null;
