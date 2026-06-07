@@ -34,7 +34,7 @@
  * - `knobWidthScale`: Optional width multiplier for the knob style marker. Defaults to `1.0`.
  * - `knobHeightOffset`: Optional height offset added to the knob top and bottom. Defaults to `0`.
  * - `roundKnob`: Optional boolean that draws the knob as a themed circle when true. Defaults to `true`.
- * - `knobRadiusOffset`: Optional radius offset applied only when `roundKnob` is true. Defaults to `0.8`.
+ * - `knobRadiusOffset`: Optional radius offset applied only when `roundKnob` is true. Defaults to `0`.
  * - Theme optional element keys: `#slider_background`, `#slider_fillbar`, `#slider_knob`, and
  *   `#slider_btnLR` can override the Background, fillBar, knob, and btnLR paint respectively.
  *
@@ -117,7 +117,7 @@ export function createDerpSlider(callbacks = {}) {
         knobWidthScale: callbacks.knobWidthScale ?? 1.0,
         knobHeightOffset: callbacks.knobHeightOffset ?? 0,
         roundKnob: callbacks.roundKnob ?? true,
-        knobRadiusOffset: callbacks.knobRadiusOffset ?? 0.8
+        knobRadiusOffset: callbacks.knobRadiusOffset ?? 0
     };
 }
 
@@ -136,7 +136,7 @@ export function syncDerpSliderHTML(el, node, app, config) {
  * Draw the knob marker for "knob" style sliders.
  * knobX is the absolute left-edge position (pre-computed by caller).
  */
-function drawSliderKnobAbs(ctx, style, activeData, knobW, knobH, knobX, y, insTop, knobHeightOffset = 0, roundKnob = ROUND_KNOB, knobRadiusOffset = 0.8) {
+function drawSliderKnobAbs(ctx, style, activeData, knobW, knobH, knobX, y, insTop, knobHeightOffset = 0, roundKnob = ROUND_KNOB, knobRadiusOffset = 0) {
     if (style !== "knob" || !activeData || knobW <= 0 || knobH <= 0) return;
     const finalKnobH = knobH + (FILLBAR_KNOBOFFSET * 2) + (knobHeightOffset * 2);
     const finalKnobY = y + insTop - FILLBAR_KNOBOFFSET - knobHeightOffset;
@@ -422,10 +422,10 @@ export function syncDerpSliderCanvas(ctx, node, config) {
     const btnLRData = resolvePaintData(node, "#slider_btnLR", btnLRSuffix, config.btnColor);
 
     // Knob + fillBar positioning: exactly 1px spacing from btnLR at min/max
-    const knobWidthScale = Number.isFinite(Number(props.knobWidthScale ?? config.knobWidthScale)) ? Math.max(0, Number(props.knobWidthScale ?? config.knobWidthScale)) : 1.0;
+    const knobWidthScale = Number.isFinite(Number(props.knobWidthScale ?? config.knobWidthScale)) ? Math.max(0.2, Math.min(2.0, Number(props.knobWidthScale ?? config.knobWidthScale))) : 1.0;
     const knobHeightOffset = Number.isFinite(Number(props.knobHeightOffset ?? config.knobHeightOffset)) ? Math.max(-5, Math.min(5, Number(props.knobHeightOffset ?? config.knobHeightOffset))) : 0;
     const roundKnob = (props.roundKnob ?? config.roundKnob ?? ROUND_KNOB) !== false;
-    const knobRadiusOffset = Number.isFinite(Number(props.knobRadiusOffset ?? config.knobRadiusOffset)) ? Math.max(-3, Math.min(3, Number(props.knobRadiusOffset ?? config.knobRadiusOffset))) : 0.8;
+    const knobRadiusOffset = Number.isFinite(Number(props.knobRadiusOffset ?? config.knobRadiusOffset)) ? Math.max(-3, Math.min(3, Number(props.knobRadiusOffset ?? config.knobRadiusOffset))) : 0;
     const knobStyleW = (style === "knob") ? (fullFillH * knobWidthScale) : 0;
     const knobStyleH = (style === "knob") ? fullFillH : 0;
     const leftBtnRight = x + btnMargin + btnW;

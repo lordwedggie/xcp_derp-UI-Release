@@ -92,7 +92,7 @@ app.registerExtension({
             ].map(v => Number(v.toFixed(2)));
 
             const sliderData = this.properties.sliderContainer || [];
-            const structureHash = `${sliderData.length}_${this.properties.nameDisplay}_${this.properties.showValueInputbox !== false}_${sliderData.map(s => `${s.name}:${s.btnLR||false}:${s.fillbarHeight ?? 1.0}:${s.roundKnob !== false}:${s.knobRadiusOffset ?? 0.8}:${s.knobWidthScale ?? 1.0}:${s.knobHeightOffset ?? 0}:${s.min}:${s.max}:${s.step}:${s.decimal}`).join("|")}_${window._xcpDerpSession}_${mW}_${mH}_${(this.size?.[0] || 0).toFixed(2)}`;
+            const structureHash = `${sliderData.length}_${this.properties.nameDisplay}_${this.properties.showValueInputbox !== false}_${sliderData.map(s => `${s.name}:${s.btnLR||false}:${s.fillbarHeight ?? 1.0}:${s.roundKnob !== false}:${s.knobRadiusOffset ?? 0}:${s.knobWidthScale ?? 1.0}:${s.knobHeightOffset ?? 0}:${s.min}:${s.max}:${s.step}:${s.decimal}`).join("|")}_${window._xcpDerpSession}_${mW}_${mH}_${(this.size?.[0] || 0).toFixed(2)}`;
             const valueHash = sliderData.map(s => `${s.value}`).join("|");
 
             if (this._lastMapStructure === structureHash && this.layoutMap) {
@@ -171,7 +171,7 @@ app.registerExtension({
                             hidden: this.properties.nameDisplay !== "Top",
                             labelAlign: ["left", "middle"],
                             text: this.properties.sliderContainer?.[i]?.name || `Slider_${i + 1}`,
-                            width: labelWidthSmall, padding: [0, 0], spacing: [sW, 0],
+                            width: labelWidthSmall, padding: [0, 0],
                             onBlur: (v) => {
                                 if (this.properties.sliderContainer?.[i]) {
                                     this.properties.sliderContainer[i].name = v;
@@ -203,7 +203,7 @@ app.registerExtension({
                                 knobWidthScale: parseFloat(this.properties.sliderContainer?.[i]?.knobWidthScale ?? 1.0),
                                 knobHeightOffset: parseFloat(this.properties.sliderContainer?.[i]?.knobHeightOffset ?? 0),
                                 roundKnob: this.properties.sliderContainer?.[i]?.roundKnob !== false,
-                                knobRadiusOffset: parseFloat(this.properties.sliderContainer?.[i]?.knobRadiusOffset ?? 0.8),
+                                knobRadiusOffset: parseFloat(this.properties.sliderContainer?.[i]?.knobRadiusOffset ?? 0),
                                 themeKey: "panel, button, t_textSmall", labelAlign: ["center", "middle"], mouseOver: false,
                                 width: "full", height: "auto", minWidth: 100, padding: [pW, pH],
                                 fillPadding: [1, 1],
@@ -261,7 +261,7 @@ app.registerExtension({
                     margin: [mW, sH], width: "full", height: "auto",
                     lblTitle: {
                         type: this.UI_TYPES.TEXT, mouseOver: false,
-                        themeKey: "t_textsystem", state: "_DIS", hidden: true,
+                        themeKey: "t_textsystem",
                         labelAlign: ["left", "middle"],
                         text: tLocale("$derp_slider.system.properties", "Derp Slider properties:"),
                         width: "full", padding: [pW, pH],
@@ -385,7 +385,7 @@ app.registerExtension({
                             measureText: "9.99",
                             onBlur: (v) => {
                                 const raw = parseFloat(v);
-                                const value = Number.isFinite(raw) ? Math.max(0.2, Math.min(1.5, raw)) : 1.0;
+                                const value = Number.isFinite(raw) ? Math.max(0.2, Math.min(2.0, raw)) : 1.0;
                                 (this.properties.sliderContainer || []).forEach((item) => { item.knobWidthScale = value; });
                                 if (this.syncDerpOutputs) this.syncDerpOutputs();
                                 this.refreshNodeLayoutMap();
@@ -430,12 +430,12 @@ app.registerExtension({
                             type: this.UI_TYPES.EDITOR, canvasShield: true,
                             hidden: !roundKnobEnabled,
                             themeKey: "dialog, t_textSystem", labelAlign: ["center", "middle"],
-                            text: (this.properties.sliderContainer?.[0]?.knobRadiusOffset ?? 0.8).toString(), measureText: "9.99",
+                            text: (this.properties.sliderContainer?.[0]?.knobRadiusOffset ?? 0).toString(), measureText: "9.99",
                             width: "auto", height: "auto", padding: [pW, pH], spacing: [sW, 0],
                             measureText: "9.99",
                             onBlur: (v) => {
                                 const raw = parseFloat(v);
-                                const value = Number.isFinite(raw) ? Math.max(-3, Math.min(3, raw)) : 0.8;
+                                const value = Number.isFinite(raw) ? Math.max(-3, Math.min(3, raw)) : 0;
                                 (this.properties.sliderContainer || []).forEach((item) => { item.knobRadiusOffset = value; });
                                 if (this.syncDerpOutputs) this.syncDerpOutputs();
                                 this.refreshNodeLayoutMap();

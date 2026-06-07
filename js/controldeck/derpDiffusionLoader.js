@@ -310,7 +310,7 @@ app.registerExtension({
                         },
                         dropdownWeightDtype: {
                             type: this.UI_TYPES.FILEBROWSER,
-                            icon: "dropdown",
+                            icon: "dropdown", mouseOver: false,
                             themeKey: "dialog, t_textNormal",
                             canvasShield: true,
                             width: "full", height: "auto",
@@ -346,7 +346,7 @@ app.registerExtension({
                     width: "full", height: "auto", margin: [mW, mH, mW, 0],
                     lblTitle: {
                         type: this.UI_TYPES.TEXT, mouseOver: false,
-                        themeKey: "t_textSystem",
+                        themeKey: "t_textSystem", hidden: true,
                         labelAlign: ["left", "middle"],
                         text: tLocale("$derp_diffusion_loader.system.properties", "Custom node properties:"),
                         width: "full", padding: [pW, pH],
