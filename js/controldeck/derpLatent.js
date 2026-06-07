@@ -145,7 +145,7 @@ app.registerExtension({
                 vars.mW, vars.mH, vars.sW, vars.sH, vars.oX, vars.oY, vars.pW, vars.pH
             ].map(v => Number(v.toFixed(2)));
 
-            const structureHash = `${mode}_${this.properties.selectedLatent}_${this.properties.batchSize}_${presets.length}_${mW}_${mH}_${sW}_${sH}_${window._xcpDerpSession}_${this.properties.drawHeader}_${this.titleLabel}`;
+            const structureHash = `${mode}_${this.properties.selectedLatent}_${this.properties.batchSize}_${presets.length}_${mW}_${mH}_${sW}_${sH}_${window._xcpDerpSession}_${this.properties.drawHeader}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}`;
 
             if (this._lastMapStructure === structureHash && this.layoutMap) {
                 this.requestDerpSync();

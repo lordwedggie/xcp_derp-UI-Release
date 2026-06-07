@@ -108,7 +108,6 @@ import {
     calculatePickerScrollViewport,
     createFirstRowGeometry,
     drawBreadcrumbHeaderRow as drawBreadcrumbHeaderRowHelper,
-    drawPickerBottomGap,
     drawPickerRow as drawPickerRowHelper,
     drawPickerRows,
     drawPickerSeparator,
@@ -1121,8 +1120,6 @@ function drawActiveFilePicker(ctx, node, app, config, scale) {
             scrollbarMinThumb: PICKER_SCROLLBAR_MIN_THUMB,
         });
     }
-
-    drawPickerBottomGap(ctx, state, { panelX, panelY, panelW, panelH, bottomGap }, { masterPainter, inheritPickerCorners });
 
     if (state.footerRow) {
         const footerY = panelY + panelH - state.rowHeight;

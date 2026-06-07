@@ -309,12 +309,13 @@ export function initDerpDiffusionLoaderCore(nodeType) {
         this.properties.autoHeight = true;
         this.properties.nodeSize = [320, 180];
         this.size = [320, 180];
-        if (this.syncDerpOutputs) this.syncDerpOutputs();
+        if (!this._restoreDiffusionDeckPending && this.syncDerpOutputs) this.syncDerpOutputs();
         this.refreshNodeLayoutMap();
         this.refreshDerpTemplateSysMap();
         setTimeout(() => {
+            if (this._restoreDiffusionDeckPending) return;
             this.fetchDiffusionData();
-            if (typeof this.syncDerpOutputs === "function" && this.id !== -1) this.syncDerpOutputs();
+            if (!this._restoreDiffusionDeckPending && typeof this.syncDerpOutputs === "function" && this.id !== -1) this.syncDerpOutputs();
         }, 32);
     };
 
@@ -324,14 +325,28 @@ export function initDerpDiffusionLoaderCore(nodeType) {
         this.properties.skipGenericWirelessHeartbeat = true;
         this.properties.drawSettingBtn = true;
         if (typeof this.properties.settingActive !== "boolean") this.properties.settingActive = true;
+        this._restoreDiffusionDeckPending = true;
+        const savedDeck = JSON.parse(JSON.stringify(this.properties.diffusionDeck || []));
         this.properties.diffusionDeck = normalizeDeck(this.properties.diffusionDeck || []);
         if (typeof this.properties.weightDtype !== "string") this.properties.weightDtype = "default";
         this.fetchDiffusionData(false, { suppressSignal: true });
         setTimeout(() => {
+            if (savedDeck && savedDeck.length > 0) {
+                const currentList = this._diffusionList || [];
+                const restored = savedDeck.map(saved => {
+                    const match = resolvePathMatch(currentList, saved.name);
+                    if (match) return { ...saved, name: match, active: !!saved.active };
+                    return null;
+                }).filter(Boolean);
+                if (restored.length > 0) {
+                    this.properties.diffusionDeck = normalizeDeck(restored);
+                }
+            }
+            this._restoreDiffusionDeckPending = false;
             if (this.syncDerpOutputs) this.syncDerpOutputs();
             if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
             this.refreshDerpTemplateSysMap();
-        }, 32);
+        }, 50);
     };
 
     proto.handleLoaderDraw = function() {

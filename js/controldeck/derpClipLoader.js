@@ -52,19 +52,14 @@ app.registerExtension({
             const [mW, mH, pW, pH, sH, sW, oY] = [vars.mW, vars.mH, vars.pW, vars.pH, vars.sH, vars.sW, vars.oY].map(v => Number(v.toFixed(2)));
             const t_textNormal_size = vars.t_textNormal_size;
             const clipDeck = this.properties.clipDeck || [];
-            const deckHash = [
-                clipDeck.map(m => `${m.name}:${m.active}`).join("|"),
-                this.properties.showFolderNames,
-                this.properties.clipType,
-                this.properties.clipDevice,
-                this.properties.settingActive ? 1 : 0,
-                (this._clipList || []).length,
-                window._xcpDerpSession,
-                this._dropPreviewIdx,
-                this._dragTrig?.index
-            ].join("_");
-            if (this._layoutMapHash === deckHash && this.layoutMap) return;
-            this._layoutMapHash = deckHash;
+            const clipList = this._clipList || [];
+            const deckHash = clipDeck.map(m => `${m.name}:${m.active}`).join("|");
+            const structureHash = `${deckHash}_${clipList.join("|")}_${this.properties.showFolderNames}_${this.properties.clipType}_${this.properties.clipDevice}_${this.properties.settingActive ? 1 : 0}_${window._xcpDerpSession}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}_${mW}_${mH}_${this._dropPreviewIdx}_${this._dragTrig?.index}_${this._dragThresholdMet}_${this._dragMouse?.join(",")}`;
+            if (this._layoutMapHash === structureHash && this.layoutMap) {
+                this.requestDerpSync();
+                return;
+            }
+            this._layoutMapHash = structureHash;
 
             const sendSignal = () => {
                 if (this.broadcastWirelessSignal) this.broadcastWirelessSignal();
@@ -244,7 +239,7 @@ app.registerExtension({
                         },
                         browserClips: {
                             type: this.UI_TYPES.FILEBROWSER,
-                            items: (this._clipList || []).filter(name => !clipDeck.some(m => m.name === name)),
+                            items: clipList.filter(name => !clipDeck.some(m => m.name === name)),
                             mode: "file", rootName: tLocale("$derp_clip_loader.browser.root_name", "text_encoders"), fileType: "model", mouseOver: false,
                             value: tLocale("$derp_clip_loader.browser.select", "Select CLIP..."),
                             width: "full", height: "auto",
@@ -344,6 +339,7 @@ app.registerExtension({
                     }
                 }
             };
+            if (this.layout) this.layout._lastCacheKey = "";
             this.requestDerpSync();
             if (this.setDirtyCanvas) this.setDirtyCanvas(true, true);
         };

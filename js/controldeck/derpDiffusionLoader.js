@@ -206,19 +206,14 @@ app.registerExtension({
             const [mW, mH, pW, pH, sH, sW, oY] = [vars.mW, vars.mH, vars.pW, vars.pH, vars.sH, vars.sW, vars.oY].map(v => Number(v.toFixed(2)));
             const t_textNormal_size = vars.t_textNormal_size;
             const diffusionDeck = this.properties.diffusionDeck || [];
-            const deckHash = [
-                diffusionDeck.map(m => `${m.name}:${m.active}`).join("|"),
-                this.properties.weightDtype,
-                this.properties.settingActive ? 1 : 0,
-                this.properties.showFolderNames,
-                (this._diffusionList || []).length,
-                window._xcpDerpSession,
-                this._dropPreviewIdx,
-                this._dragTrig?.index,
-                this._dragDeckKey
-            ].join("_");
-            if (this._layoutMapHash === deckHash && this.layoutMap) return;
-            this._layoutMapHash = deckHash;
+            const diffusionList = this._diffusionList || [];
+            const deckHash = diffusionDeck.map(m => `${m.name}:${m.active}`).join("|");
+            const structureHash = `${deckHash}_${diffusionList.join("|")}_${this.properties.weightDtype}_${this.properties.settingActive ? 1 : 0}_${this.properties.showFolderNames}_${window._xcpDerpSession}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}_${mW}_${mH}_${this._dropPreviewIdx}_${this._dragTrig?.index}_${this._dragThresholdMet}_${this._dragMouse?.join(",")}_${this._dragDeckKey}`;
+            if (this._layoutMapHash === structureHash && this.layoutMap) {
+                this.requestDerpSync();
+                return;
+            }
+            this._layoutMapHash = structureHash;
 
             const sendSignal = () => {
                 if (this.broadcastWirelessSignal) this.broadcastWirelessSignal();
@@ -269,7 +264,7 @@ app.registerExtension({
                         },
                         browserDiffusions: {
                             type: this.UI_TYPES.FILEBROWSER,
-                            items: (this._diffusionList || []).filter(name => !diffusionDeck.some(m => m.name === name)),
+                            items: diffusionList.filter(name => !diffusionDeck.some(m => m.name === name)),
                             mode: "file", rootName: tLocale("$derp_diffusion_loader.browser.diffusion_root_name", "diffusion_models + unet"), fileType: "model", mouseOver: false,
                             value: tLocale("$derp_diffusion_loader.browser.select_diffusion", "Select Diffusion..."),
                             width: "full", height: "auto",
@@ -310,7 +305,7 @@ app.registerExtension({
                         },
                         dropdownWeightDtype: {
                             type: this.UI_TYPES.FILEBROWSER,
-                            icon: "dropdown", mouseOver: false,
+                            icon: "dropdown",
                             themeKey: "dialog, t_textNormal",
                             canvasShield: true,
                             width: "full", height: "auto",
@@ -332,6 +327,7 @@ app.registerExtension({
                     },
                 }
             };
+            if (this.layout) this.layout._lastCacheKey = "";
             this.requestDerpSync();
             if (this.setDirtyCanvas) this.setDirtyCanvas(true, true);
         };
@@ -346,7 +342,7 @@ app.registerExtension({
                     width: "full", height: "auto", margin: [mW, mH, mW, 0],
                     lblTitle: {
                         type: this.UI_TYPES.TEXT, mouseOver: false,
-                        themeKey: "t_textSystem", hidden: true,
+                        themeKey: "t_textSystem",
                         labelAlign: ["left", "middle"],
                         text: tLocale("$derp_diffusion_loader.system.properties", "Custom node properties:"),
                         width: "full", padding: [pW, pH],

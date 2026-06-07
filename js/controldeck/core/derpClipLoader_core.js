@@ -224,12 +224,13 @@ export function initDerpClipLoaderCore(nodeType) {
         this.properties.autoHeight = true;
         this.properties.nodeSize = [320, 120];
         this.size = [320, 120];
-        if (this.syncDerpOutputs) this.syncDerpOutputs();
+        if (!this._restoreClipDeckPending && this.syncDerpOutputs) this.syncDerpOutputs();
         this.refreshNodeLayoutMap();
         this.refreshDerpTemplateSysMap();
         setTimeout(() => {
+            if (this._restoreClipDeckPending) return;
             this.fetchClipData();
-            if (typeof this.syncDerpOutputs === "function" && this.id !== -1) this.syncDerpOutputs();
+            if (!this._restoreClipDeckPending && typeof this.syncDerpOutputs === "function" && this.id !== -1) this.syncDerpOutputs();
         }, 32);
     };
 
@@ -239,15 +240,29 @@ export function initDerpClipLoaderCore(nodeType) {
         this.properties.skipGenericWirelessHeartbeat = true;
         this.properties.drawSettingBtn = true;
         if (typeof this.properties.settingActive !== "boolean") this.properties.settingActive = true;
+        this._restoreClipDeckPending = true;
+        const savedDeck = JSON.parse(JSON.stringify(this.properties.clipDeck || []));
         this.properties.clipDeck = normalizeDeck(this.properties.clipDeck || []);
         if (typeof this.properties.clipType !== "string") this.properties.clipType = "stable_diffusion";
         if (typeof this.properties.clipDevice !== "string") this.properties.clipDevice = "default";
         this.fetchClipData(false, { suppressSignal: true });
         setTimeout(() => {
+            if (savedDeck && savedDeck.length > 0) {
+                const currentList = this._clipList || [];
+                const restored = savedDeck.map(saved => {
+                    const match = resolvePathMatch(currentList, saved.name);
+                    if (match) return { ...saved, name: match, active: !!saved.active };
+                    return null;
+                }).filter(Boolean);
+                if (restored.length > 0) {
+                    this.properties.clipDeck = normalizeDeck(restored);
+                }
+            }
+            this._restoreClipDeckPending = false;
             if (this.syncDerpOutputs) this.syncDerpOutputs();
             if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
             this.refreshDerpTemplateSysMap();
-        }, 32);
+        }, 50);
     };
 
     proto.handleClipLoaderDraw = function() {

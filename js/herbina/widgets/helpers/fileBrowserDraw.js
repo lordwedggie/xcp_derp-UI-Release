@@ -154,15 +154,6 @@ export function drawBreadcrumbHeaderRow(ctx, state, row, rect, labelPaint, scale
         crumbs.push({ label: seg, path: accum });
     }
 
-    masterPainter(ctx, {
-        width: rect.w,
-        height: rect.h,
-        posX: rect.x,
-        posY: rect.y,
-        paintData: { ...state.listPaint, corners: inheritPickerCorners(state.listPaint, state.listPaint) },
-        color: state.listPaint?.fill || "transparent"
-    });
-
     const pX = state.config.padding?.[0] || 4;
     const [crumbPadX, crumbPadY] = breadcrumbPadding;
     const btnPaintOFF = resolvePaintData(state.node, "button", "_OFF") || state.listPaint;
