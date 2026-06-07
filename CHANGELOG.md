@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Slider theme and geometry customization**: Each slider now supports `fillbarHeight` (1.0 = full height, scales down proportionally) and `knobWidthScale` (1.0 = default, scales knob diameter). New themeKey `#slider_btnLR` for left/right increment button styling. Fillbar renders with separate `sliderFillbarData` paint data independent of the active track. `FILLBAR_MARGIN` and `BTN_LR_HEIGHTOFFSET` constants for visual fine-tuning. Layout structure hash updated to include fillbar/knob geometry.
 - **new labelParts layoutMap parameter**: Parsed display strings can be configured at different width and properly displayed in the picker now. Godamn I'm so an*l about these things...
 
 ### Fixed

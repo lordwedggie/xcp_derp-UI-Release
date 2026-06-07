@@ -31,6 +31,9 @@
  * - `alpha`: Optional opacity override for the entire widget (`0`–`1`). Defaults to `1`.
  * - `fontSize`: Optional font-size override for the label text. Falls back to the theme's label `fontSize` or `10`.
  * - `style`: Drawing style variant. Accepted values: `"default"`, `"knob"`. Defaults to `"default"`.
+ * - `knobWidthScale`: Optional width multiplier for the knob style marker. Defaults to `1.0`.
+ * - Theme optional element keys: `#slider_background`, `#slider_fillbar`, `#slider_knob`, and
+ *   `#slider_btnLR` can override the Background, fillBar, knob, and btnLR paint respectively.
  *
  * Terminology — named parts of the Slider widget:
  * - `Background`: The full-width background rounded rect that spans the entire widget. Drawn first.
@@ -42,6 +45,7 @@
  *   FillBar centers vertically. When unset, fillBar fills the track minus fillPadding.
  * - `knob`: (style "knob" only) A small square rect overlaid on the fillBar at its right edge.
  *   Drawn after the fillBar using the same paint data. Width/height equal to fillH.
+ * - `knobWidthScale`: Multiplies the knob width while preserving the existing default width at `1.0`.
  * - `btnLR`: The - / + stepper buttons rendered on the left and right edges of the Background. Sized
  *   relative to the fillBar height (BTN_LR_RATIO). Toggled by config.btnLR.
  * - `label`: The text string drawn on top of the Background. Uses displayText (preferred) or label/text.
@@ -53,6 +57,10 @@
  *   fillKey takes precedence; bodyKey is the fallback.
  * - `themeKey`: The main theme string ("panel, t_textsmall") that resolves body paint (Background) and
  *   label paint (label) for the entire widget.
+ * - `#slider_background`: Optional theme key that overrides Background paint while falling back to `themeKey`.
+ * - `#slider_fillbar`: Optional theme key that overrides fillBar paint while falling back to `fillKey` / `bodyKey`.
+ * - `#slider_knob`: Optional theme key that overrides knob paint while falling back to `fillKey` / `bodyKey`.
+ * - `#slider_btnLR`: Optional theme key that overrides btnLR stepper paint while falling back to `fillKey` / `bodyKey`.
  * - `paintData`: Resolved theme paint object for the Background (body paint).
  * - `labelData`: Resolved theme paint object for the label text (label paint).
  * - `corners`: Rounded corner radii applied to the Background, read from paintData.corners.
@@ -74,7 +82,10 @@ import { syncDerpSliderHTML as syncHTML } from "./widget_SliderHTML.js";
 
 var BTN_LR_RATIO = 0.75;
 var BTN_LR_FONTSIZE = 6;
-var BTN_LR_MARGIN = 1;
+var BTN_LR_MARGIN = 0;
+var BTN_LR_HEIGHTOFFSET = 1;
+var FILLBAR_KNOBOFFSET = 1;
+var FILLBAR_MARGIN = 0;
 var SLIDER_POS_LERP = 0.1;  // knob position lerp speed on track click
 
 /**
@@ -95,7 +106,8 @@ export function createDerpSlider(callbacks = {}) {
         onChange: callbacks.onChange || null,
         btnColor: callbacks.btnColor || null,
         labelColor: callbacks.labelColor || null,
-        style: callbacks.style ?? "default"
+        style: callbacks.style ?? "default",
+        knobWidthScale: callbacks.knobWidthScale ?? 1.0
     };
 }
 
@@ -114,13 +126,13 @@ export function syncDerpSliderHTML(el, node, app, config) {
  * Draw the knob marker for "knob" style sliders.
  * knobX is the absolute left-edge position (pre-computed by caller).
  */
-function drawSliderKnobAbs(ctx, style, activeData, knobW, knobX, y, insTop) {
-    if (style !== "knob" || !activeData || knobW <= 0) return;
+function drawSliderKnobAbs(ctx, style, activeData, knobW, knobH, knobX, y, insTop) {
+    if (style !== "knob" || !activeData || knobW <= 0 || knobH <= 0) return;
     masterPainter(ctx, {
         posX: knobX,
-        posY: y + insTop,
+        posY: y + insTop - FILLBAR_KNOBOFFSET,
         width: knobW,
-        height: knobW,
+        height: knobH + (FILLBAR_KNOBOFFSET * 2),
         paintData: activeData, color: activeData.fill
     });
 }
@@ -136,7 +148,8 @@ export function syncDerpSliderCanvas(ctx, node, config) {
     const { props, stateStr, bodyPaint: paintData, labelPaint: labelData, alpha, colorSegments, hasColorKeys } = resolveWidgetEnv(node, config);
 
     // 2. Centralized Animated Colors & Alpha
-    const rawBg = paintData?.fill || config.btnColor || "transparent";
+    const sliderBackgroundData = resolvePaintData(node, "#slider_background", `_${stateStr}`, config.btnColor) || paintData;
+    const rawBg = sliderBackgroundData?.fill || config.btnColor || "transparent";
     // THE THEME FIX: Removed hardcoded DIS alpha override so the _DIS theme key is strictly respected
     let rawIc = labelData?.textColor || labelData?.fill || "red";
 
@@ -161,10 +174,10 @@ export function syncDerpSliderCanvas(ctx, node, config) {
     };
 
     // 1. Draw Background (Animated)
-    if (paintData) {
+    if (sliderBackgroundData) {
         masterPainter(ctx, {
             posX: x, posY: y, width: w, height: h,
-            paintData: paintData, color: fillColor
+            paintData: sliderBackgroundData, color: fillColor
         });
     }
 
@@ -178,7 +191,10 @@ export function syncDerpSliderCanvas(ctx, node, config) {
     const fullFillH = Math.max(0, h - ins[0] - ins[2]);
     let fillH, fillY;
     if (props.fillbarHeight != null) {
-        const baseH = Number.isInteger(props.fillbarHeight) ? props.fillbarHeight : h * props.fillbarHeight;
+        const fillbarHeight = Number(props.fillbarHeight);
+        const baseH = Number.isFinite(fillbarHeight)
+            ? (fillbarHeight <= 1 ? h * fillbarHeight : fillbarHeight)
+            : h;
         fillH = Math.max(0, baseH - ins[0] - ins[2]);
         fillY = y + (h - baseH) / 2 + ins[0];
     } else {
@@ -229,23 +245,25 @@ export function syncDerpSliderCanvas(ctx, node, config) {
     // THE FILL STRENGTH FIX: If active, interpolate between states based on value.
     const fillKey = props.fillKey || props.bodyKey;
     const fillSuffix = props.fillKey ? "_OFF" : "_ON";
+    const fillbarKey = resolvePaintData(node, "#slider_fillbar", fillSuffix, config.btnColor) ? "#slider_fillbar" : fillKey;
     const activeData = (stateStr === "DIS") ? paintData : (
         props.fillStrength ?
-            resolveInterpolatedPaint(node, fillKey, percent, config.btnColor, config.palette) :
-            (resolvePaintData(node, fillKey, fillSuffix, config.btnColor) || paintData)
+            resolveInterpolatedPaint(node, fillbarKey, percent, config.btnColor, config.palette) :
+            (resolvePaintData(node, fillbarKey, fillSuffix, config.btnColor) || paintData)
     );
+    const sliderFillbarData = activeData;
 
     const knobSuffix = (stateStr === "DIS") ? "_DIS" : (isPressedVisualState ? "_ON" : "_OFF");
     const knobData = (style === "knob")
-        ? (resolvePaintData(node, fillKey, knobSuffix, config.btnColor) || paintData)
+        ? (resolvePaintData(node, "#slider_knob", knobSuffix, config.btnColor) || resolvePaintData(node, fillKey, knobSuffix, config.btnColor) || paintData)
         : null;
     const btnLRSuffix = (stateStr === "DIS") ? "_DIS" : "_OFF";
-    const btnLRData = (style === "knob")
-        ? (resolvePaintData(node, fillKey, btnLRSuffix, config.btnColor) || paintData)
-        : null;
+    const btnLRData = resolvePaintData(node, "#slider_btnLR", btnLRSuffix, config.btnColor);
 
     // Knob + fillBar positioning: exactly 1px spacing from btnLR at min/max
-    const knobStyleW = (style === "knob") ? fullFillH : 0;
+    const knobWidthScale = Number.isFinite(Number(props.knobWidthScale ?? config.knobWidthScale)) ? Math.max(0, Number(props.knobWidthScale ?? config.knobWidthScale)) : 1.0;
+    const knobStyleW = (style === "knob") ? (fullFillH * knobWidthScale) : 0;
+    const knobStyleH = (style === "knob") ? fullFillH : 0;
     const leftBtnRight = x + btnMargin + btnW;
     const rightBtnLeft = x + w - btnW - btnMargin;
     const trackStart = config.btnLR ? leftBtnRight + 1 : x + ins[3];
@@ -255,24 +273,29 @@ export function syncDerpSliderCanvas(ctx, node, config) {
     const knobX = trackStart + knobTravelW * Math.max(0, percent);
     const fillStartX = trackStart;
     const fillProgressW = Math.max(0, (knobX + 1) - fillStartX);
+    const fillbarMargin = Math.max(0, FILLBAR_MARGIN);
+    const fillbarDrawX = fillStartX + fillbarMargin;
+    const fillbarDrawY = fillY;
+    const fillbarDrawW = Math.max(0, fillProgressW - fillbarMargin);
+    const fillbarDrawH = fillH;
 
-    if (activeData && percent > 0) {
-        const themeCorners = activeData.corners;
+    if (sliderFillbarData && percent > 0 && fillbarDrawW > 0 && fillbarDrawH > 0) {
+        const themeCorners = sliderFillbarData.corners;
         const fillCorners = Array.isArray(themeCorners)
             ? [themeCorners[0] || 0, 0, 0, themeCorners[3] || 0]
             : [themeCorners || 0, 0, 0, themeCorners || 0];
         masterPainter(ctx, {
-            posX: fillStartX,
-            posY: fillY,
-            width: fillProgressW,
-            height: fillH,
-            paintData: { ...activeData, corners: fillCorners },
-            color: activeData.fill
+            posX: fillbarDrawX,
+            posY: fillbarDrawY,
+            width: fillbarDrawW,
+            height: fillbarDrawH,
+            paintData: { ...sliderFillbarData, corners: fillCorners },
+            color: sliderFillbarData.fill
         });
     }
 
     // Knob
-    drawSliderKnobAbs(ctx, style, knobData, knobStyleW, knobX, y, ins[0]);
+    drawSliderKnobAbs(ctx, style, knobData, knobStyleW, knobStyleH, knobX, y, ins[0]);
 
     // 3. Draw Optional Label
     const sliderLabel = (props.label !== "") ? props.displayText : null;
@@ -294,16 +317,16 @@ export function syncDerpSliderCanvas(ctx, node, config) {
     }
     // 4. Draw btnLR Buttons
     if (config.btnLR) {
-        const btnY = y + ins[0];
-        const btnH = fullFillH;
+        const btnY = y + ins[0] - BTN_LR_HEIGHTOFFSET;
+        const btnH = Math.max(0, fullFillH + (BTN_LR_HEIGHTOFFSET * 2));
         // Knob style: btnLR uses fixed _ON state (ignoring fillStrength)
-        const btnSource = (style === "knob") ? (btnLRData || paintData) : (activeData || paintData);
+        const btnSource = btnLRData || ((style === "knob") ? paintData : (activeData || paintData));
         // Per-button state: _OFF at boundaries, _ON otherwise
         const atMin = (value <= min);
         const atMax = (value >= max);
         const boundarySuffix = "_DIS";  // always use disabled-look at boundaries
-        const leftBtnData  = (stateStr === "DIS" || atMin) ? (resolvePaintData(node, fillKey, boundarySuffix, config.btnColor) || paintData) : btnSource;
-        const rightBtnData = (stateStr === "DIS" || atMax) ? (resolvePaintData(node, fillKey, boundarySuffix, config.btnColor) || paintData) : btnSource;
+        const leftBtnData  = (stateStr === "DIS" || atMin) ? (resolvePaintData(node, "#slider_btnLR", boundarySuffix, config.btnColor) || resolvePaintData(node, fillKey, boundarySuffix, config.btnColor) || paintData) : btnSource;
+        const rightBtnData = (stateStr === "DIS" || atMax) ? (resolvePaintData(node, "#slider_btnLR", boundarySuffix, config.btnColor) || resolvePaintData(node, fillKey, boundarySuffix, config.btnColor) || paintData) : btnSource;
         const btnTextPaint = { ...(labelData || {}), fill: iconColor, fontSize: BTN_LR_FONTSIZE, fontWeight: finalPaint.fontWeight };
 
         // Left button (-): flat right corners, _OFF at min

@@ -842,7 +842,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
             dir: "row", height: "auto", width: "full", margin: [mW, mH, mW, mH],
             themeKey: "panel",
             settingsLabel: {
-                type: UI_TYPES.TEXT, text: "$fatha_layout.load_settings", themeKey: "t_textSystem",
+                type: UI_TYPES.TEXT, text: "$fatha_layout.load_settings", themeKey: "t_textSystem", mouseOver: false,
                 width: "auto", height: "auto", objectAlign: ["left", "middle"], disabled: false, spacing: [2, 0],
             },
             dropdownProfiles: {

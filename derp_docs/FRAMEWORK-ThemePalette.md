@@ -387,6 +387,7 @@ Default palettes are shipped with the extension in `user/derpNodes/Palettes/_sys
 
 | File | Role |
 |------|------|
+| `js/herbina/widgets/widget_Slider.js` | Slider renderer — uses `#slider_btnLR` themeKey for btnLR buttons. Respects `fillbarHeight` and `knobWidthScale` per-slider geometry. |
 | `js/herbina/masterPainter.js` | `resolvePaletteColor()`, `compileThemeData()` — where `@key` references are resolved |
 | `js/fatha/helpers/headerPaletteIdentity.js` | Per-node header palette matching and color application |
 | `js/fatha/helpers/fathaThemeRuntime.js` | `handleThemeUpdate()` — compiles theme paint data, sets `_headerPaletteName`, calls `loadDerpPalette()` |

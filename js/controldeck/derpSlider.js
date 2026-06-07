@@ -92,7 +92,7 @@ app.registerExtension({
             ].map(v => Number(v.toFixed(2)));
 
             const sliderData = this.properties.sliderContainer || [];
-            const structureHash = `${sliderData.length}_${this.properties.nameDisplay}_${this.properties.showValueInputbox !== false}_${sliderData.map(s => `${s.name}:${s.btnLR||false}:${s.min}:${s.max}:${s.step}:${s.decimal}`).join("|")}_${window._xcpDerpSession}_${mW}_${mH}_${(this.size?.[0] || 0).toFixed(2)}`;
+            const structureHash = `${sliderData.length}_${this.properties.nameDisplay}_${this.properties.showValueInputbox !== false}_${sliderData.map(s => `${s.name}:${s.btnLR||false}:${s.fillbarHeight ?? 1.0}:${s.knobWidthScale ?? 1.0}:${s.min}:${s.max}:${s.step}:${s.decimal}`).join("|")}_${window._xcpDerpSession}_${mW}_${mH}_${(this.size?.[0] || 0).toFixed(2)}`;
             const valueHash = sliderData.map(s => `${s.value}`).join("|");
 
             if (this._lastMapStructure === structureHash && this.layoutMap) {
@@ -200,9 +200,11 @@ app.registerExtension({
                             },
                             [`dynamicSlider_${i}`]: {
                                 type: this.UI_TYPES.SLIDER, style: "knob",
+                                knobWidthScale: parseFloat(this.properties.sliderContainer?.[i]?.knobWidthScale ?? 1.0),
                                 themeKey: "panel, button, t_textSmall", labelAlign: ["center", "middle"], mouseOver: false,
                                 width: "full", height: "auto", minWidth: 100, padding: [pW, pH],
                                 fillPadding: [1, 1],
+                                fillbarHeight: parseFloat(this.properties.sliderContainer?.[i]?.fillbarHeight ?? 1.0),
                                 text: (this.properties.nameDisplay === "Slider") ? (this.properties.sliderContainer?.[i]?.name || `Slider_${i + 1}`) : "",
                                 value: parseFloat(this.properties.sliderContainer?.[i]?.value ?? 0.5),
                                 min: parseFloat(this.properties.sliderContainer?.[i]?.min ?? 0),
@@ -262,9 +264,9 @@ app.registerExtension({
                     },
                     optionsRowOne: {
                         dir: "row", width: "full", height: "auto", spacing: [0, sW],
-                        padding: [pW, 0],
+                        padding: [pW, pH],
                         lblSliderCount: {
-                            type: this.UI_TYPES.TEXT,
+                            type: this.UI_TYPES.TEXT, mouseOver: false,
                             themeKey: "t_textsystem",
                             labelAlign: ["left", "middle"],
                             text: tLocale("$derp_slider.system.sliders", "Sliders:"),
@@ -274,7 +276,7 @@ app.registerExtension({
                             type: this.UI_TYPES.EDITOR, canvasShield: true,
                             themeKey: "dialog, t_textSystem", labelAlign: ["center", "middle"],
                             text: (this.properties.sliderCount || 1).toString(), measureText: "9",
-                            width: "auto", height: "auto", padding: [pW, 0], spacing: [sW, 0],
+                            width: "auto", height: "auto", padding: [pW, pH], spacing: [sW, 0],
                             onBlur: (v) => {
                                 const val = parseInt(v);
                                 if (!isNaN(val) && val >= 1) {
@@ -284,7 +286,7 @@ app.registerExtension({
                             }
                         },
                         lblNameDisply: {
-                            type: this.UI_TYPES.TEXT,
+                            type: this.UI_TYPES.TEXT, mouseOver: false,
                             themeKey: "t_textsystem",
                             labelAlign: ["left", "middle"],
                             text: tLocale("$derp_slider.system.name_display", "Name display:"),
@@ -312,7 +314,7 @@ app.registerExtension({
                             type: this.UI_TYPES.TOGGLE_V2, themeKey: "dialog, button, t_textSystem",
                             isTextOnly: true, mouseOver: false,
                             label: tLocale("$derp_slider.system.value_inputbox", "Value Inputbox"),
-                            width: "auto", height: "auto", padding: [pW, 0], spacing: [sW, 0],
+                            width: "auto", height: "auto", padding: [pW, pH], spacing: [sW, 0],
                             value: this.properties.showValueInputbox !== false,
                             onPress: () => {
                                 this.properties.showValueInputbox = !(this.properties.showValueInputbox !== false);
@@ -320,6 +322,55 @@ app.registerExtension({
                                 if (this.refreshDerpSliderSysMap) this.refreshDerpSliderSysMap();
                                 this.requestDerpSync();
                             },
+                        },
+                    },
+                    optionsRowTwo: {
+                        dir: "row", width: "full", height: "auto", spacing: [0, sW],
+                        padding: [pW, pH],
+                        lblSliderHeight: {
+                            type: this.UI_TYPES.TEXT, mouseOver: false,
+                            themeKey: "t_textsystem",
+                            labelAlign: ["left", "middle"],
+                            text: "Slider Height:",
+                            width: "auto", spacing: [sW, 0],
+                        },
+                        editorFillbarHeight: {
+                            type: this.UI_TYPES.EDITOR, canvasShield: true,
+                            themeKey: "dialog, t_textSystem", labelAlign: ["center", "middle"],
+                            text: (this.properties.sliderContainer?.[0]?.fillbarHeight ?? 1.0).toString(), measureText: "9.99",
+                            width: "auto", height: "auto", padding: [pW, pH], spacing: [sW, 0],
+                            onBlur: (v) => {
+                                const raw = parseFloat(v);
+                                const value = Number.isFinite(raw) ? raw : 1.0;
+                                (this.properties.sliderContainer || []).forEach((item) => { item.fillbarHeight = value; });
+                                if (this.syncDerpOutputs) this.syncDerpOutputs();
+                                this.refreshNodeLayoutMap();
+                                if (this.refreshDerpSliderSysMap) this.refreshDerpSliderSysMap();
+                                this.requestDerpSync();
+                            }
+                        },
+                        lblKnobWidth: {
+                            type: this.UI_TYPES.TEXT, mouseOver: false,
+                            themeKey: "t_textsystem",
+                            labelAlign: ["left", "middle"],
+                            text: "Knob Width:",
+                            width: "auto", spacing: [sW, 0],
+                        },
+                        editorKnobWidthScale: {
+                            type: this.UI_TYPES.EDITOR, canvasShield: true,
+                            themeKey: "dialog, t_textSystem", labelAlign: ["center", "middle"],
+                            text: (this.properties.sliderContainer?.[0]?.knobWidthScale ?? 1.0).toString(), measureText: "9.99",
+                            width: "auto", height: "auto", padding: [pW, pH], spacing: [sW, 0],
+                            measureText: "9.99",
+                            onBlur: (v) => {
+                                const raw = parseFloat(v);
+                                const value = Number.isFinite(raw) ? Math.max(0.2, Math.min(1.5, raw)) : 1.0;
+                                (this.properties.sliderContainer || []).forEach((item) => { item.knobWidthScale = value; });
+                                if (this.syncDerpOutputs) this.syncDerpOutputs();
+                                this.refreshNodeLayoutMap();
+                                if (this.refreshDerpSliderSysMap) this.refreshDerpSliderSysMap();
+                                this.requestDerpSync();
+                            }
                         },
                     },
                     sliderSettingsLabels: {
@@ -330,49 +381,49 @@ app.registerExtension({
                             themeKey: "dialog, t_textSystem, 4", state: "DIS", skipBackground: true,
                             labelAlign: ["center", "middle"],
                             text: tLocale("$derp_slider.headers.name", "NAME"), minWidth: 50,
-                            width: "fit", padding: [pW, 0], spacing: [sW, 0],
+                            width: "fit", padding: [pW, pH], spacing: [sW, 0],
                         },
                         lblSliderMin: {
                             type: this.UI_TYPES.TEXT,
                             themeKey: "dialog, t_textSystem, 4", state: "DIS", skipBackground: true,
                             labelAlign: ["center", "middle"],
                             text: tLocale("$derp_slider.headers.min", "MIN"),
-                            width: sysWidthInput, padding: [pW, 0], spacing: [sW, 0],
+                            width: sysWidthInput, padding: [pW, pH], spacing: [sW, 0],
                         },
                         lblSliderMax: {
                             type: this.UI_TYPES.TEXT,
                             themeKey: "dialog, t_textSystem, 4", state: "DIS", skipBackground: true,
                             labelAlign: ["center", "middle"],
                             text: tLocale("$derp_slider.headers.max", "MAX"),
-                            width: sysWidthInput, padding: [pW, 0], spacing: [sW, 0],
+                            width: sysWidthInput, padding: [pW, pH], spacing: [sW, 0],
                         },
                         lblSliderStep: {
                             type: this.UI_TYPES.TEXT,
                             themeKey: "dialog, t_textSystem, 4", state: "DIS", skipBackground: true,
                             labelAlign: ["center", "middle"],
                             text: tLocale("$derp_slider.headers.step", "STEP"),
-                            width: sysWidthInput, padding: [pW, 0], spacing: [sW, 0],
+                            width: sysWidthInput, padding: [pW, pH], spacing: [sW, 0],
                         },
                         lblSliderDefault: {
                             type: this.UI_TYPES.TEXT,
                             themeKey: "dialog, t_textSystem, 4", state: "DIS", skipBackground: true,
                             labelAlign: ["center", "middle"],
                             text: tLocale("$derp_slider.headers.default", "DEFAULT"),
-                            width: sysWidthInput, padding: [pW, 0], spacing: [sW, 0],
+                            width: sysWidthInput, padding: [pW, pH], spacing: [sW, 0],
                         },
                         lblSliderDecimal: {
                             type: this.UI_TYPES.TEXT,
                             themeKey: "dialog, t_textSystem, 4", state: "DIS", skipBackground: true,
                             labelAlign: ["center", "middle"],
                             text: tLocale("$derp_slider.headers.decimal", "DECIMAL"),
-                            width: sysWidthInput, padding: [pW, 0], spacing: [sW, 0],
+                            width: sysWidthInput, padding: [pW, pH], spacing: [sW, 0],
                         },
                         lblSliderBtnLR: {
                             type: this.UI_TYPES.TEXT,
                             themeKey: "dialog, t_textSystem, 4", state: "DIS", skipBackground: true,
                             labelAlign: ["center", "middle"],
                             text: tLocale("$derp_slider.headers.btn", "BTN"),
-                            width: sysWidthInput, padding: [pW, 0], spacing: [sW, 0],
+                            width: sysWidthInput, padding: [pW, pH], spacing: [sW, 0],
                         },
                     },
                     sliderSettings: {
@@ -384,32 +435,32 @@ app.registerExtension({
                                 padding: [pW, 2], spacing: [0, 0],
                                 [`editorSliderName_${i}`]: {
                                     type: this.UI_TYPES.EDITOR, canvasShield: true, themeKey: "dialog, t_textsystem",
-                                    labelAlign: ["center", "middle"], text: item.name || "", minWidth: 50, width: "fit", padding: [pW, 0], spacing: [sW, 0],
+                                    labelAlign: ["center", "middle"], text: item.name || "", minWidth: 50, width: "fit", padding: [pW, pH], spacing: [sW, 0],
                                     onBlur: (v) => { this.properties.sliderContainer[i].name = v; if (this.syncDerpOutputs) this.syncDerpOutputs(); }
                                 },
                                 [`editorSliderMin_${i}`]: {
                                     type: this.UI_TYPES.EDITOR, canvasShield: true, themeKey: "dialog, t_textsystem",
-                                    labelAlign: ["center", "middle"], text: (item.min ?? 0).toString(), width: sysWidthInput, padding: [pW, 0], spacing: [sW, 0],
+                                    labelAlign: ["center", "middle"], text: (item.min ?? 0).toString(), width: sysWidthInput, padding: [pW, pH], spacing: [sW, 0],
                                     onBlur: (v) => { this.properties.sliderContainer[i].min = parseFloat(v) || 0; if (this.syncDerpOutputs) this.syncDerpOutputs(); }
                                 },
                                 [`editorSliderMax_${i}`]: {
                                     type: this.UI_TYPES.EDITOR, canvasShield: true, themeKey: "dialog, t_textsystem",
-                                    labelAlign: ["center", "middle"], text: (item.max ?? 1).toString(), width: sysWidthInput, padding: [pW, 0], spacing: [sW, 0],
+                                    labelAlign: ["center", "middle"], text: (item.max ?? 1).toString(), width: sysWidthInput, padding: [pW, pH], spacing: [sW, 0],
                                     onBlur: (v) => { this.properties.sliderContainer[i].max = parseFloat(v) || 1; if (this.syncDerpOutputs) this.syncDerpOutputs(); }
                                 },
                                 [`editorSliderStep_${i}`]: {
                                     type: this.UI_TYPES.EDITOR, canvasShield: true, themeKey: "dialog, t_textsystem",
-                                    labelAlign: ["center", "middle"], text: (item.step ?? 0.05).toString(), width: sysWidthInput, padding: [pW, 0], spacing: [sW, 0],
+                                    labelAlign: ["center", "middle"], text: (item.step ?? 0.05).toString(), width: sysWidthInput, padding: [pW, pH], spacing: [sW, 0],
                                     onBlur: (v) => { this.properties.sliderContainer[i].step = parseFloat(v) || 0.05; if (this.syncDerpOutputs) this.syncDerpOutputs(); }
                                 },
                                 [`editorSliderDefault_${i}`]: {
                                     type: this.UI_TYPES.EDITOR, canvasShield: true, themeKey: "dialog, t_textsystem",
-                                    labelAlign: ["center", "middle"], text: (item.default ?? 0.5).toString(), width: sysWidthInput, padding: [pW, 0], spacing: [sW, 0],
+                                    labelAlign: ["center", "middle"], text: (item.default ?? 0.5).toString(), width: sysWidthInput, padding: [pW, pH], spacing: [sW, 0],
                                     onBlur: (v) => { this.properties.sliderContainer[i].default = parseFloat(v) || 0.5; if (this.syncDerpOutputs) this.syncDerpOutputs(); }
                                 },
                                 [`editorSliderDecimal_${i}`]: {
                                     type: this.UI_TYPES.EDITOR, canvasShield: true, themeKey: "dialog, t_textsystem",
-                                    labelAlign: ["center", "middle"], text: (item.decimal ?? 2).toString(), width: sysWidthInput, padding: [pW, 0], spacing: [sW, 0],
+                                    labelAlign: ["center", "middle"], text: (item.decimal ?? 2).toString(), width: sysWidthInput, padding: [pW, pH], spacing: [sW, 0],
                                     onBlur: (v) => {
                                         this.properties.sliderContainer[i].decimal = parseInt(v) || 0;
                                         if (this.syncDerpOutputs) this.syncDerpOutputs();
@@ -419,7 +470,7 @@ app.registerExtension({
                                     type: this.UI_TYPES.TOGGLE_V2, themeKey: "dialog, button, t_textSystem",
                                     isTextOnly: true, mouseOver: false, icon: "ring",
                                     label: tLocale("$derp_slider.headers.btn_lr", "btnLR"),
-                                    width: "auto", height: "auto", padding: [pW, 0], spacing: [sW, 0],
+                                    width: "auto", height: "auto", padding: [pW, pH], spacing: [sW, 0],
                                     value: item.btnLR ?? false,
                                     onPress: () => {
                                         this.properties.sliderContainer[i].btnLR = !this.properties.sliderContainer[i].btnLR;
