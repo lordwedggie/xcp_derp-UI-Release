@@ -493,7 +493,7 @@ app.registerExtension({
             this.properties.toggleModelInfo = this.properties.toggleModelInfo !== false;
             this.properties.toggleSamplerInfo = this.properties.toggleSamplerInfo !== false;
             this.properties.toggleSchedulerInfo = this.properties.toggleSchedulerInfo !== false;
-            this.properties.toggleAutoFit = this.properties.toggleAutoFit !== false;
+            this.properties.toggleAutoFit = this.properties.toggleAutoFit === true;
             this.properties.toggleAutoSave = this.properties.toggleAutoSave === true;
             this.properties.imageDeckSamplerNames = Array.isArray(this.properties.imageDeckSamplerNames) ? this.properties.imageDeckSamplerNames : [];
             this.properties.imageDeckSchedulerNames = Array.isArray(this.properties.imageDeckSchedulerNames) ? this.properties.imageDeckSchedulerNames : [];
@@ -680,7 +680,7 @@ app.registerExtension({
             this.properties.toggleModelInfo = this.properties.toggleModelInfo !== false;
             this.properties.toggleSamplerInfo = this.properties.toggleSamplerInfo !== false;
             this.properties.toggleSchedulerInfo = this.properties.toggleSchedulerInfo !== false;
-            this.properties.toggleAutoFit = this.properties.toggleAutoFit !== false;
+            this.properties.toggleAutoFit = this.properties.toggleAutoFit === true;
             this.properties.toggleAutoSave = this.properties.toggleAutoSave === true;
             this.properties.imageDeckSamplerNames = Array.isArray(this.properties.imageDeckSamplerNames) ? this.properties.imageDeckSamplerNames : [];
             this.properties.imageDeckSchedulerNames = Array.isArray(this.properties.imageDeckSchedulerNames) ? this.properties.imageDeckSchedulerNames : [];
@@ -959,69 +959,43 @@ app.registerExtension({
                         width: "full",
                         height: "auto",
                         spacing: [sW, 0],
-                        toggleModelInfo: {
-                            type: this.UI_TYPES.TOGGLE,
-                            textThemeKey: "t_textSystem",
-                            icon: "radio",
-                            label: tLocale("$derp_image_deck.system.get_model_name", "Get model name"),
-                            value: this.properties.toggleModelInfo !== false,
+                        lblNodeSize: {
+                            type: this.UI_TYPES.TEXT,
+                            mouseOver: false,
+                            themeKey: "t_textSystem",
+                            labelAlign: ["left", "middle"],
+                            text: "Node size:",
                             width: "auto",
                             height: "auto",
                             padding: [pW, pH],
-                            onPress: () => {
-                                this.properties.toggleModelInfo = this.properties.toggleModelInfo === false;
-                                this.updateImageDeckSignalFilters();
-                                this.refreshOpenImageDeckSignalReceiver();
-                                this.refreshDerpImageDeckSysMap();
-                                this.refreshNodeLayoutMap();
-                                this.requestDerpSync();
-                            }
                         },
-                        toggleSamplerInfo: {
-                            type: this.UI_TYPES.TOGGLE,
-                            textThemeKey: "t_textSystem",
-                            icon: "radio",
-                            label: tLocale("$derp_image_deck.system.get_sampler_name", "Get sampler name"),
-                            value: this.properties.toggleSamplerInfo !== false,
+                        editorNodeSize: {
+                            type: this.UI_TYPES.EDITOR,
+                            canvasShield: true,
+                            themeKey: "dialog, t_textSmall",
+                            labelAlign: ["center", "middle"],
+                            text: `${Math.round(this.size[0])}, ${Math.round(this.size[1])}`,
+                            value: `${Math.round(this.size[0])}, ${Math.round(this.size[1])}`,
+                            measureText: "9999, 9999",
                             width: "auto",
                             height: "auto",
-                            padding: [pW, pH],
-                            onPress: () => {
-                                this.properties.toggleSamplerInfo = this.properties.toggleSamplerInfo === false;
-                                if (this.properties.toggleSamplerInfo !== false) this.fetchImageDeckKSamplerInfo();
-                                this.updateImageDeckSignalFilters();
-                                this.refreshOpenImageDeckSignalReceiver();
-                                this.refreshDerpImageDeckSysMap();
-                                this.refreshNodeLayoutMap();
-                                this.requestDerpSync();
-                            }
+                            padding: [pW, 1],
+                            spacing: [sW, 0],
+                            onBlur: (v) => {
+                                const parts = String(v || "").split(/[,\sx]+/);
+                                const w = Math.round(parseFloat(parts[0]));
+                                const h = Math.round(parseFloat(parts[1]));
+                                if (!isNaN(w) && !isNaN(h)) {
+                                    const minW = 200, minH = 100, max = 2000;
+                                    const cw = Math.min(max, Math.max(minW, w));
+                                    const ch = Math.min(max, Math.max(minH, h));
+                                    this.size = [cw, ch];
+                                    if (this.properties) this.properties.nodeSize = [cw, ch];
+                                    if (this.refreshDerpImageDeckSysMap) this.refreshDerpImageDeckSysMap();
+                                    if (this.requestDerpSync) this.requestDerpSync();
+                                }
+                            },
                         },
-                        toggleSchedulerInfo: {
-                            type: this.UI_TYPES.TOGGLE,
-                            textThemeKey: "t_textSystem",
-                            icon: "radio",
-                            label: tLocale("$derp_image_deck.system.get_scheduler_name", "Get scheduler name"),
-                            value: this.properties.toggleSchedulerInfo !== false,
-                            width: "auto",
-                            height: "auto",
-                            padding: [pW, pH],
-                            onPress: () => {
-                                this.properties.toggleSchedulerInfo = this.properties.toggleSchedulerInfo === false;
-                                if (this.properties.toggleSchedulerInfo !== false) this.fetchImageDeckKSamplerInfo();
-                                this.updateImageDeckSignalFilters();
-                                this.refreshOpenImageDeckSignalReceiver();
-                                this.refreshDerpImageDeckSysMap();
-                                this.refreshNodeLayoutMap();
-                                this.requestDerpSync();
-                            }
-                        }
-                    },
-                    regionOption2: {
-                        anchor: { target: "regionOption1", axis: "y", offset: oY },
-                        dir: "row",
-                        width: "full",
-                        height: "auto",
-                        spacing: [sW, 0],
                         toggleAutoFit: {
                             type: this.UI_TYPES.TOGGLE_V2,
                             themeKey: "dialog, button, t_textSystem",
@@ -1030,7 +1004,7 @@ app.registerExtension({
                             iconAlign: "right",
                             icon: "ring",
                             label: tLocale("$derp_image_deck.system.auto_adjust_height", "Auto adjust node height"),
-                            value: this.properties.toggleAutoFit !== false,
+                            value: this.properties.toggleAutoFit === true,
                             width: "auto",
                             height: "auto",
                             padding: [pW, pH],
@@ -1098,7 +1072,81 @@ app.registerExtension({
                                 this.requestDerpSync();
                             }
                         }
-                    }
+                    },
+
+                    regionOption2: {
+                        anchor: { target: "regionOption1", axis: "y", offset: oY },
+                        dir: "row",
+                        width: "full",
+                        height: "auto",
+                        spacing: [sW, 0],
+                        lblParseFilename: {
+                            type: this.UI_TYPES.TEXT,
+                            mouseOver: false,
+                            themeKey: "t_textSystem",
+                            labelAlign: ["left", "middle"],
+                            text: "Parse filename:",
+                            width: "auto",
+                            height: "auto",
+                            padding: [pW, pH],
+                        },
+                        toggleModelInfo: {
+                            type: this.UI_TYPES.TOGGLE_V2,
+                            themeKey: "dialog, button, t_textSystem", isTextOnly: true,
+                            icon: "radio",
+                            label: tLocale("$derp_image_deck.system.get_model_name", "Get model name"),
+                            value: this.properties.toggleModelInfo !== false,
+                            width: "auto",
+                            height: "auto",
+                            padding: [pW, pH],
+                            onPress: () => {
+                                this.properties.toggleModelInfo = this.properties.toggleModelInfo === false;
+                                this.updateImageDeckSignalFilters();
+                                this.refreshOpenImageDeckSignalReceiver();
+                                this.refreshDerpImageDeckSysMap();
+                                this.refreshNodeLayoutMap();
+                                this.requestDerpSync();
+                            }
+                        },
+                        toggleSamplerInfo: {
+                            type: this.UI_TYPES.TOGGLE_V2,
+                            themeKey: "dialog, button, t_textSystem", isTextOnly: true,
+                            icon: "radio",
+                            label: tLocale("$derp_image_deck.system.get_sampler_name", "Get sampler name"),
+                            value: this.properties.toggleSamplerInfo !== false,
+                            width: "auto",
+                            height: "auto",
+                            padding: [pW, pH],
+                            onPress: () => {
+                                this.properties.toggleSamplerInfo = this.properties.toggleSamplerInfo === false;
+                                if (this.properties.toggleSamplerInfo !== false) this.fetchImageDeckKSamplerInfo();
+                                this.updateImageDeckSignalFilters();
+                                this.refreshOpenImageDeckSignalReceiver();
+                                this.refreshDerpImageDeckSysMap();
+                                this.refreshNodeLayoutMap();
+                                this.requestDerpSync();
+                            }
+                        },
+                        toggleSchedulerInfo: {
+                            type: this.UI_TYPES.TOGGLE_V2,
+                            themeKey: "dialog, button, t_textSystem", isTextOnly: true,
+                            icon: "radio",
+                            label: tLocale("$derp_image_deck.system.get_scheduler_name", "Get scheduler name"),
+                            value: this.properties.toggleSchedulerInfo !== false,
+                            width: "auto",
+                            height: "auto",
+                            padding: [pW, pH],
+                            onPress: () => {
+                                this.properties.toggleSchedulerInfo = this.properties.toggleSchedulerInfo === false;
+                                if (this.properties.toggleSchedulerInfo !== false) this.fetchImageDeckKSamplerInfo();
+                                this.updateImageDeckSignalFilters();
+                                this.refreshOpenImageDeckSignalReceiver();
+                                this.refreshDerpImageDeckSysMap();
+                                this.refreshNodeLayoutMap();
+                                this.requestDerpSync();
+                            }
+                        }
+                    },
                 }
             };
             if (this._derpPanel) this._derpPanel.setLayoutMap(this.sysLayoutMap);
