@@ -1039,6 +1039,13 @@ app.registerExtension({
                             spacing: [sW, 0],
                             onPress: () => {
                                 this.properties.toggleAutoFit = this.properties.toggleAutoFit === false;
+                                if (this.properties.toggleAutoFit === false) {
+                                    const currentW = Number(this.size?.[0] || this.properties?.nodeSize?.[0] || 500);
+                                    const currentH = Number(this.size?.[1] || this.properties?.nodeSize?.[1] || 500);
+                                    this.properties.nodeSize = [currentW, currentH];
+                                    this._preCollapseHeight = currentH;
+                                    this._imageDeckPinnedAnchor = null;
+                                }
                                 if (this.refreshDerpImageDeckSysMap) this.refreshDerpImageDeckSysMap();
                                 if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
                                 if (typeof this.syncDerpImageDeckDisplayUrl === "function") this.syncDerpImageDeckDisplayUrl();

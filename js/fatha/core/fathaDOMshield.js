@@ -868,6 +868,21 @@ function canResizeHorizontalSharedEdge(node, graph, side) {
     return node.properties?.autoWidth === false && neighbor.properties?.autoWidth === false;
 }
 
+function disableResizeHandles(shield) {
+    [
+        shield?._resizeHandle,
+        shield?._resizeHandleLeft,
+        shield?._resizeHandleTopLeft,
+        shield?._resizeHandleTopRight,
+    ].forEach((handle) => {
+        if (!handle) return;
+        handle.style.display = "none";
+        handle.style.pointerEvents = "none";
+        handle.style.cursor = "default";
+        handle._resizeAnchorOverride = null;
+    });
+}
+
 export function syncDerpShield(node) {
     if (!node.interactionShield) return;
     const ds = app.canvas.ds;
@@ -939,7 +954,10 @@ export function syncDerpShield(node) {
 
     // THE DYNAMIC RESIZE CURSOR FIX:
     // Update the handle's cursor and interaction state based on the node's auto-resize properties.
-    if (node.interactionShield._resizeHandle) {
+    if (node.isSystemPanel || node.isSysPanel) {
+        node.resizable = false;
+        disableResizeHandles(node.interactionShield);
+    } else if (node.interactionShield._resizeHandle) {
         const vars = node.getDerpVars ? node.getDerpVars(node) : { autoWidth: true, autoHeight: true };
         const themedBottomCornerSize = Math.max(6 * scale, (Number(vars.mW || 0) + Number(vars.mH || 0)) * 0.5 * scale);
         const themedTopCornerSize = Math.max(6 * scale, Number(vars.mH || 0) * scale);

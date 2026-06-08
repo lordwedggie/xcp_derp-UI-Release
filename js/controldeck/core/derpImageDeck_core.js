@@ -170,6 +170,7 @@ function buildComfyImageUrl(img) {
 function resizeNodeToImageAspect(node, img, options = {}) {
     if (!node || !img || !(img.naturalWidth > 0) || !(img.naturalHeight > 0)) return;
     if (node.flags?.collapsed || node.properties?.contentCollapsed === true) return;
+    if (node.properties?.toggleAutoFit === false) return;
 
     const imageRegion = node.layout?.regions?.imageRegion;
     const drawnImageW = Math.floor(Number(imageRegion?.w || 0));

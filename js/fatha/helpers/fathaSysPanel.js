@@ -785,9 +785,6 @@ export async function toggleDerpSysPanel(hostNode) {
     sysPanel._layoutDirty = true;
 
     createDerpShield(sysPanel);
-    if (sysPanel.interactionShield?._resizeHandle) {
-        sysPanel.interactionShield._resizeHandle.style.display = "none"; // THE FIX: Kill the resize handle for the panel
-    }
 
     if (hostNode.onDerpSysPanelOpen) {
         hostNode.onDerpSysPanelOpen({

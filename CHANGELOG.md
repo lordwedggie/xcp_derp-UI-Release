@@ -11,6 +11,8 @@ All notable changes to this project will be documented in this file.
 - **Legacy xcpDerpLoraLoader registration**: Removed from `__init__.py` — fully replaced by `derpLoraStack`. Stripped dead API routes (`get_civitai_url`, `fetch_lora_tags`, `open_lora_folder`, `open_lora_file_location`) from `xcpDerpLoraLoader.py` — these endpoints are now served by `xcp_file_server.py`. Cleaned unused imports. CATEGORY updated from `xcpDerpNodes` to `xcp_derp-UI`.
 
 ### Fixed
+- **derpImageDeck toggleAutoFit now locks the node at its current size**: Toggling auto-fit off now snapshots the current dimensions into `nodeSize`, clears the pinned anchor, and blocks `resizeNodeToImageAspect` from snapping to image dimensions. The deck stays put until you toggle auto-fit back on — no more phantom snapping after you've deliberately set a size.
+- **System panel resize handles disabled**: System panels (`fathaSysPanel`) now have their resize handles hidden systemically via `disableResizeHandles()` in `syncDerpShield` instead of an ad-hoc inline `style.display = "none"` hack. The old ad-hoc code in `toggleDerpSysPanel` has been removed. System panels also get `resizable = false` for good measure.
 - **Vertical dock resize min-height**: `syncDockResizePair` now uses `getDockNodeMinHeight` per-node instead of a shared `minH`, preventing taller nodes from being crushed below their minimum when resizing vertical dock pairs.
 - **Pure vertical resize cursors**: Top/bottom shared-edge resize anchors now show `ns-resize` cursor and block horizontal width changes instead of using the corner resize cursor. No more diagonal cursors on purely vertical drags.
 
