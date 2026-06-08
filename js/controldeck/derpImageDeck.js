@@ -814,7 +814,6 @@ app.registerExtension({
                         transitionAlpha: fadeAlpha,
                         aspectFit: "contain",
                         cornerRadius: 0,
-                        hideBackgroundWhenImage: true,
                         suppressPlaceholder: false,
                         drawMode: "both",
                         strokeZIndex: true,

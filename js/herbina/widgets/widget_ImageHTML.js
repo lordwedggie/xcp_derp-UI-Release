@@ -9,6 +9,7 @@ import { getPulsedColor } from "../masterAnimator.js";
 const NORMAL_STROKE_WEIGHT = 1;
 const SELECTION_STROKE_WEIGHT = 2;
 const DEFAULT_IMAGE_AREA_STROKE_COLOR = "rgba(0,0,0,0.3)";
+const DEFAULT_IMAGE_AREA_FILL_COLOR = "rgba(0,0,0,0.5)";
 const BYPASS_BRIGHTNESS = 0.75; // THE DARKNESS FIX: Adjusts image brightness when bypassed
 
 // THE RESIZE TARGETS: Matches constants in loraImages.js to maintain quality vs performance balance
@@ -127,6 +128,19 @@ export function syncImageHTML(ctx, node, app, config, overlayPass = false) {
     if (alpha < 1) ctx.globalAlpha *= alpha;
 
     if (!overlayPass && (drawMode === "both" || drawMode === "image")) {
+        if (drawBackground) {
+            ctx.save();
+            ctx.fillStyle = DEFAULT_IMAGE_AREA_FILL_COLOR;
+            if (ctx.roundRect && cornerRadius > 0) {
+                ctx.beginPath();
+                ctx.roundRect(x, y, w, h, cornerRadius);
+                ctx.fill();
+            } else {
+                ctx.fillRect(x, y, w, h);
+            }
+            ctx.restore();
+        }
+
         if (paintData && drawBackground) {
             masterPainter(ctx, {
                 posX: x, posY: y, width: w, height: h,

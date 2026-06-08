@@ -6,29 +6,36 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 - **Loader node registration**: `DerpLoraStack`, `DerpModelLoader`, `DerpDiffusionLoader`, and `DerpVaeLoader` now registered as loader nodes (`🔞 derpNodes/Loaders` category) alongside existing `derpSamplerLoader` and `derpSchedulerLoader`, so ComfyUI's loader menus pick them all up.
+- **Slider theme and geometry customization**: Each slider now supports `fillbarHeight` (1.0 = full height, scales down proportionally) and `knobWidthScale` (1.0 = default, scales knob diameter). New themeKey `#slider_btnLR` for left/right increment button styling. Fillbar renders with separate `sliderFillbarData` paint data independent of the active track. `FILLBAR_MARGIN` and `BTN_LR_HEIGHTOFFSET` constants for visual fine-tuning. Layout structure hash updated to include fillbar/knob geometry.
+- **new labelParts layoutMap parameter**: Parsed display strings can be configured at different width and properly displayed in the picker now. Godamn I'm so an*l about these things...
+
+### Changed
 
 ### Removed
 - **Legacy xcpDerpLoraLoader registration**: Removed from `__init__.py` — fully replaced by `derpLoraStack`. Stripped dead API routes (`get_civitai_url`, `fetch_lora_tags`, `open_lora_folder`, `open_lora_file_location`) from `xcpDerpLoraLoader.py` — these endpoints are now served by `xcp_file_server.py`. Cleaned unused imports. CATEGORY updated from `xcpDerpNodes` to `xcp_derp-UI`.
 
 ### Fixed
+- **Image widget now shows a dark background fill behind images**: When `drawBackground` is enabled, the image widget now draws a semi-transparent black fill (`rgba(0,0,0,0.5)`) behind the image area before the paintData background. The `hideBackgroundWhenImage` flag on derpImageDeck has been removed so the background is always visible — no more empty transparent gaps when images load in.
 - **derpImageDeck toggleAutoFit now locks the node at its current size**: Toggling auto-fit off now snapshots the current dimensions into `nodeSize`, clears the pinned anchor, and blocks `resizeNodeToImageAspect` from snapping to image dimensions. The deck stays put until you toggle auto-fit back on — no more phantom snapping after you've deliberately set a size.
 - **System panel resize handles disabled**: System panels (`fathaSysPanel`) now have their resize handles hidden systemically via `disableResizeHandles()` in `syncDerpShield` instead of an ad-hoc inline `style.display = "none"` hack. The old ad-hoc code in `toggleDerpSysPanel` has been removed. System panels also get `resizable = false` for good measure.
 - **Vertical dock resize min-height**: `syncDockResizePair` now uses `getDockNodeMinHeight` per-node instead of a shared `minH`, preventing taller nodes from being crushed below their minimum when resizing vertical dock pairs.
 - **Pure vertical resize cursors**: Top/bottom shared-edge resize anchors now show `ns-resize` cursor and block horizontal width changes instead of using the corner resize cursor. No more diagonal cursors on purely vertical drags.
-
-### Added
-- **Slider theme and geometry customization**: Each slider now supports `fillbarHeight` (1.0 = full height, scales down proportionally) and `knobWidthScale` (1.0 = default, scales knob diameter). New themeKey `#slider_btnLR` for left/right increment button styling. Fillbar renders with separate `sliderFillbarData` paint data independent of the active track. `FILLBAR_MARGIN` and `BTN_LR_HEIGHTOFFSET` constants for visual fine-tuning. Layout structure hash updated to include fillbar/knob geometry.
-- **new labelParts layoutMap parameter**: Parsed display strings can be configured at different width and properly displayed in the picker now. Godamn I'm so an*l about these things...
-
-### Fixed
 - **derpImageDeck height not snapping to 10px grid**: Height in `resizeNodeToImageAspect` now snaps via `Math.ceil / SNAP * SNAP`. Bottom edge anchoring snaps to grid coordinates so the bottom edge stays put after page refreshes and latent aspect ratio changes.
 - **Horizontal docking height collapse**: Nodes of different heights would collapse the taller node when docked horizontally (e.g., derpDiffusionLoader docked to derpSeedV2). Root cause was dual: (1) `fitSizesToTotal` initialized `assigned = minTotal` which double-counted minimums, causing single-node columns to receive `totalHeight - min` instead of the full target height. Changed to `assigned = 0`. (2) `applyColumnLayout`/`applyRowLayout` called `syncDeckNodeSize` non-silently, triggering an immediate `refreshNodeLayoutMap` that recalculated autoHeight and overwrote the normalized shared height. Changed to `{ silent: true }`.
 - **Fixed mouse hit detection is punching through the picker in widget_FileBrowser**
-
-### Fixed
 - **README video now actually exists in the repo**: The `<video>` tag was there but the `.mp4` file was MIA. Now it's actually tracked.
 
 ## [0.7.5] - 2026-06-06
+
+### Added
+- **Added ZIT samplers profile for derpSamplerLoader**
+- **NE_Full_v01 palette**: Bright/neutral full palette with header and canvas entries for all loader nodes, scaled ~1.6× from the dark variant for readability on neutral themes.
+- **Canvas support for attached theme palettes**: Nodes can now have automatically applied header and body colors by node type (derp nodes only).
+- **Added padding overwrite for derpPromptBook's multiline editor**: Now it looks slightly better.
+- **VRAM clearing for Diffusion Loader**: derpDiffusionLoader now clears VRAM when switching between diffusion models, just like derpModelLoader. Toggle in system panel, default on.
+
+### Changed
+- **bastaPalette FILEBROWSER now sorts entries by name instead of ID**: Palette entries in the key dropdown are now alphabetically sorted by name, falling back to ID for ties.
 
 ### Fixed
 - **Fixed Image widget's border not matching actual image's height (always a little bit taller).**
@@ -37,22 +44,7 @@ All notable changes to this project will be documented in this file.
 - **Fixed derpSignalOut not sending out correct seed signals when derpSeed switches from fixed to increment mode**: Seed signals now properly re-evaluate the registry for live complex types (MODEL/CLIP/VAE) instead of caching stale scalar values, fixing increment-mode seed broadcasts going silent after switching modes.
 - **Critical bug causing some signal types (Diffusion model) to return 'None', causing Comfy runtime error**: derpSignalOut now properly raises descriptive errors for unresolved diffusion/text encoder signals instead of silently passing None. signalDictionaryDefault also raises FileNotFoundError instead of None when models can't be found, preventing silent downstream crashes.
 
-### Added
-- **Added ZIT samplers profile for derpSamplerLoader**
-- **NE_Full_v01 palette**: Bright/neutral full palette with header and canvas entries for all loader nodes, scaled ~1.6× from the dark variant for readability on neutral themes.
-- **Canvas support for attached theme palettes**: Nodes can now have automatically applied header and body colors by node type (derp nodes only).
-- **Added padding overwrite for derpPromptBook's multiline editor**: Now it looks slightly better.
-- **VRAM clearing for Diffusion Loader**: derpDiffusionLoader now clears VRAM when switching between diffusion models, just like derpModelLoader. Toggle in system 
-panel, default on.
-
-### Changed
-- **bastaPalette FILEBROWSER now sorts entries by name instead of ID**: Palette entries in the key dropdown are now alphabetically sorted by name, falling back to ID for ties.
-
 ## [0.7.4] - 2026-06-05
-
-### Fixed
-- **NODE 2.0 right-click context submenu is broken**: Added (fake) derp context menus so now paletteExtender and bypassExtender are both working again in NODE 2.0.
-- **Docked stack overlay bug (one whole day of pain)**: Rare edge case where vertically and horizontally docked nodes would completely overlap — two nodes sitting at the exact same position like one sad ghost. Root cause: `normalizeSharedEdgePair` in the dock engine was using only the two seed nodes to calculate `totalHeight`, ignoring non-seed members in multi-column dock groups. Fixed by taking the max height across ALL column members.
 
 ### Added
 - **Canvas Color Palettes**: ComfyUI's Color Palette system, now with easier loading — just pick a profile and go. Two default profiles included. No more spelunking through nested menus just to change the damn grid color.
@@ -60,18 +52,20 @@ panel, default on.
 - **Multi-Color-Key Text Framework**: Every widget now supports `{{keyName}}` syntax in text strings for per-segment color from themes or palettes. Extended syntax supports `{{key:_ON::displayText}}` for state-specific coloring with custom display text. Framework-level — all widgets inherit automatically via `resolveWidgetEnv`.
 - **Two-color trigger display in derpLoraStack**: Trigger names render in `_ON` state colors, trigger tags in `_OFF` state colors, both in the collapsed trigger and the picker dropdown.
 - **bastaSystemMessage color-key support**: System messages now detect `{{...}}` in message text and render colored segments via `colorSegmentsToHTML`.
+- Major refactor of `xcp_file_server.py` — the very long messy file server code now lives in dedicated route modules (`xcp_file_asset_routes.py`, `xcp_file_categories.py`, `xcp_file_common.py`, `xcp_file_image_routes.py`, `xcp_file_json_routes.py`, `xcp_file_prompt_book_routes.py`).
+- Added Diffusion model loader for ZIT, Wan, and Flux.
+- Added CHANGELOG.md to keep versioned change logs.
+- Added parallax effect to background image pan and zoom. Added five background images and 3 ComfyUI appearance Color Palette themes.
+- Added background CSS image display. Select it in the derp global settings panel. Background images are stored in `user/derpNodes/background`.
 
 ### Changed
 - `masterPainterText` upgraded with optional `segments` parameter for per-segment colored Canvas rendering.
 - `resolveWidgetEnv` now auto-parses display text for color keys and returns `colorSegments` + `hasColorKeys`.
 - Cleaned up dead `widget_Dropdown` remnants from `derpLoraStack.js`.
 
-### Added
-- Major refactor of `xcp_file_server.py` — the very long messy file server code now lives in dedicated route modules (`xcp_file_asset_routes.py`, `xcp_file_categories.py`, `xcp_file_common.py`, `xcp_file_image_routes.py`, `xcp_file_json_routes.py`, `xcp_file_prompt_book_routes.py`).
-- Added Diffusion model loader for ZIT, Wan, and Flux.
-- Added CHANGELOG.md to keep versioned change logs.
-- Added parallax effect to background image pan and zoom. Added five background images and 3 ComfyUI appearance Color Palette themes.
-- Added background CSS image display. Select it in the derp global settings panel. Background images are stored in `user/derpNodes/background`.
+### Fixed
+- **NODE 2.0 right-click context submenu is broken**: Added (fake) derp context menus so now paletteExtender and bypassExtender are both working again in NODE 2.0.
+- **Docked stack overlay bug (one whole day of pain)**: Rare edge case where vertically and horizontally docked nodes would completely overlap — two nodes sitting at the exact same position like one sad ghost. Root cause: `normalizeSharedEdgePair` in the dock engine was using only the two seed nodes to calculate `totalHeight`, ignoring non-seed members in multi-column dock groups. Fixed by taking the max height across ALL column members.
 
 ## [1.0.2] - 2026-05-24
 
@@ -85,13 +79,13 @@ panel, default on.
 - **Tooltips**: Widget tooltips via `toolTip` property in layout maps, supported across the UI framework.
 - **Prompt Book**: Trigger-style clean button for resetting new prompt-book pages.
 
+### Changed
+- Removed unused prompt books and their assets; added new bundled themes (Derp Dark HD, Galactica Dark, Menace, Mono Neutral, NeonBlue Dark).
+- `cnr_id` references cleaned up (removed fork-base Flux-Continuum references).
+
 ### Fixed
 - **Docking**: Vertical docked-stack width sync bug corrected; page-refresh no longer disrupts vertical stack auto-height reflow.
 - **derpEditor**: Padding corrected in cutoff mode.
 - **derpImageDeck**: Restored stable expanded height on uncollapse; icons rendered at correct size.
 - **LoRA Tools**: Renaming a LoRA now renames its preview image and sidecar files together; confirmation dialogs routed through bastaSystemMessage; new trigger names default to the current LoRA basename.
 - **Signal / Corners**: Refactored signal handling and corner cap/radius application across `derpSignalOut`, `fathaHandler`, and `masterPainter`.
-
-### Changed
-- Removed unused prompt books and their assets; added new bundled themes (Derp Dark HD, Galactica Dark, Menace, Mono Neutral, NeonBlue Dark).
-- `cnr_id` references cleaned up (removed fork-base Flux-Continuum references).
