@@ -55,7 +55,7 @@ Every frame:
 | `core/dockResize.js` | Resize logic for docked stacks. |
 | `core/dockTargetPicking.js` | Target detection for dock zones. |
 | `core/dockDimensions.js` | Dock dimension calculations. |
-| `core/dockDebugHelpers.js` | Debug logging for docking. |
+| `core/dockDebugHelpers.js` | Debug logging for docking. *Disabled by hardcode since we no longer have any layout problems...well for a while now. |
 | `core/masterLayoutTypes.js` | `UI_TYPES` enum + `COMPONENT_BLUEPRINTS` registry. Maps type strings to Herbina widget creators/syncers. |
 | `core/masterZ.js` | Shared z-index constants and promotion helpers for shields, overlays, and debug layers. |
 
@@ -87,6 +87,12 @@ A "hybrid" framework combining Fatha's modern engine with legacy node compatibil
 - **Layout Dirty:** `node._layoutDirty = true` triggers layout recompute
 - **Awake Frames:** `node._derpAwakeFrames` countdown for post-interaction animation frames
 - **Visual Press:** Recoil animation via `animateRecoil()` for press feedback
+
+## Localized Default Titles
+- Default derp node titles are synchronized by `syncDerpLocalizedDefaultTitle()` in `core/fathaHandler.js`.
+- The registry tracks known default title translations from all available locale files so a workflow saved in one language can relocalize after switching languages or reloading ComfyUI.
+- User-renamed titles are protected by `properties._derpCustomTitle`; title editors must set this flag when writing `properties.titleLabel`.
+- Keep node default title keys in the top-level `derp_* .title` locale entries so the shared registry can distinguish them from dialog titles.
 
 ## Stack Drag-and-Hold DnD
 - Stack/list reordering uses `helpers/fathaDragDrop.js` with `startStackDrag()`, `updateStackDrag()`, and `endStackDrag()`.

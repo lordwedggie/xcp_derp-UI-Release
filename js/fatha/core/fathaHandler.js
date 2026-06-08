@@ -50,9 +50,144 @@ const TOOLTIP_DELAY_MS = 650;
 const TOOLTIP_DURATION_MS = 0; // 0 = infinite, stays until mouse moves
 const TOOLTIP_MOVE_THRESHOLD = 5;
 const DERP_BACKGROUND_SETTING_ID = "Derp.BackgroundImage";
+const DERP_DEFAULT_TITLE_LOCALE_KEYS = [
+    "fatha_layout.title_default",
+    "derp_latent.title",
+    "derp_slider.title",
+    "derp_toggle.title",
+    "derp_swatch.title",
+    "derp_vae_loader.title",
+    "derp_sampler_loader.title",
+    "derp_scheduler_loader.title",
+    "derp_concatenate.title",
+    "derp_image_deck.title",
+    "derp_lora_stack.title",
+    "derp_trigger_wall.title",
+    "derp_model_loader.title",
+    "derp_diffusion_loader.title",
+    "derp_clip_loader.title",
+    "derp_prompt_book.title",
+    "derp_router.title",
+];
+const derpDefaultTitleValues = new Set(["Node", "Virtual Node", "Derp Nodes"]);
+const derpDefaultTitleValuesByKey = new Map();
+let derpDefaultTitleRegistryPromise = null;
 const deckFrameCache = new Map();
 const deckNodeFrameCache = new Map();
 let deckCacheFrame = null;
+
+function normalizeDerpLocaleKey(key) {
+    return String(key || "").replace(/^\$/, "");
+}
+
+function getLocalePathValue(localeData, key) {
+    const path = normalizeDerpLocaleKey(key).split(".").filter(Boolean);
+    let target = localeData || {};
+    for (const segment of path) {
+        target = target?.[segment];
+        if (target === undefined) return undefined;
+    }
+    return typeof target === "string" ? target : undefined;
+}
+
+function registerDefaultTitleValue(key, value) {
+    if (typeof value !== "string" || value.trim() === "") return;
+    const normalizedKey = normalizeDerpLocaleKey(key);
+    derpDefaultTitleValues.add(value);
+    if (normalizedKey) {
+        if (!derpDefaultTitleValuesByKey.has(normalizedKey)) {
+            derpDefaultTitleValuesByKey.set(normalizedKey, new Set());
+        }
+        derpDefaultTitleValuesByKey.get(normalizedKey).add(value);
+    }
+}
+
+function registerDerpDefaultTitles(localeData) {
+    DERP_DEFAULT_TITLE_LOCALE_KEYS.forEach((key) => registerDefaultTitleValue(key, getLocalePathValue(localeData, key)));
+}
+
+async function ensureDerpDefaultTitleRegistry(activeLocale, activeData) {
+    registerDerpDefaultTitles(activeData);
+    if (derpDefaultTitleRegistryPromise) return derpDefaultTitleRegistryPromise;
+
+    derpDefaultTitleRegistryPromise = (async () => {
+        const locales = Array.isArray(window.xcpDerpLocales) ? window.xcpDerpLocales : [];
+        await Promise.all(locales.map(async (localeName) => {
+            try {
+                if (localeName === activeLocale) return;
+                const response = await fetch(`/xcp/load/locales?name=${encodeURIComponent(localeName)}`);
+                if (!response.ok) return;
+                const result = await response.json();
+                if (result?.data) registerDerpDefaultTitles(result.data);
+            } catch (e) {
+            }
+        }));
+    })();
+
+    return derpDefaultTitleRegistryPromise;
+}
+
+function inferDerpTitleLocaleKey(entity) {
+    const raw = [entity?.type, entity?.comfyClass, entity?.constructor?.comfyClass, entity?.constructor?.type]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+    const patterns = [
+        ["concatenate", "derp_concatenate.title"],
+        ["signalout", "derp_router.title"],
+        ["router", "derp_router.title"],
+        ["imagedeck", "derp_image_deck.title"],
+        ["lorastack", "derp_lora_stack.title"],
+        ["triggerwall", "derp_trigger_wall.title"],
+        ["modelloader", "derp_model_loader.title"],
+        ["diffusionloader", "derp_diffusion_loader.title"],
+        ["cliploader", "derp_clip_loader.title"],
+        ["vaeloader", "derp_vae_loader.title"],
+        ["samplerloader", "derp_sampler_loader.title"],
+        ["schedulerloader", "derp_scheduler_loader.title"],
+        ["promptbook", "derp_prompt_book.title"],
+        ["latent", "derp_latent.title"],
+        ["slider", "derp_slider.title"],
+        ["toggle", "derp_toggle.title"],
+        ["swatch", "derp_swatch.title"],
+    ];
+    return patterns.find(([needle]) => raw.includes(needle))?.[1] || null;
+}
+
+export function isDerpDefaultLocalizedTitle(value, key = null) {
+    if (typeof value !== "string" || value.trim() === "") return true;
+    if (key && derpDefaultTitleValuesByKey.get(normalizeDerpLocaleKey(key))?.has(value)) return true;
+    return derpDefaultTitleValues.has(value);
+}
+
+export function syncDerpLocalizedDefaultTitle(entity, titleKey = null, fallback = null) {
+    if (!entity?.properties || entity.properties._derpCustomTitle === true) return false;
+    const key = normalizeDerpLocaleKey(titleKey || entity.properties._derpTitleLocaleKey || inferDerpTitleLocaleKey(entity));
+    if (!key) return false;
+
+    const localizedTitle = getLocalePathValue(window.xcpDerpLocaleData, key) || fallback;
+    if (typeof localizedTitle !== "string" || localizedTitle.trim() === "") return false;
+    registerDefaultTitleValue(key, localizedTitle);
+    if (fallback) registerDefaultTitleValue(key, fallback);
+
+    const currentTitle = entity.properties.titleLabel || entity.titleLabel || "";
+    const previousKey = entity.properties._derpTitleLocaleKey;
+    const isDefaultTitle = isDerpDefaultLocalizedTitle(currentTitle, key) ||
+        (previousKey && isDerpDefaultLocalizedTitle(currentTitle, previousKey));
+    if (!isDefaultTitle) {
+        entity.properties._derpCustomTitle = true;
+        return false;
+    }
+
+    entity.properties._derpTitleLocaleKey = key;
+    entity.properties._derpCustomTitle = false;
+    if (entity.titleLabel !== localizedTitle || entity.properties.titleLabel !== localizedTitle) {
+        entity.titleLabel = localizedTitle;
+        entity.properties.titleLabel = localizedTitle;
+        return true;
+    }
+    return false;
+}
 
 function getDeckFrameKey(node, members) {
     const frame = Number(app.canvas?.frame) || 0;
@@ -503,6 +638,7 @@ export async function loadDerpLocale(langCode = "en-US") {
         if (result.data) {
             window.xcpDerpLocaleData = result.data;
             window.xcpDerpActiveLocale = target;
+            await ensureDerpDefaultTitleRegistry(target, result.data);
             if (app.graph && app.graph._nodes) {
                 app.graph._nodes.forEach(node => {
                     if (!(node.isFathaNode || node.isUncleNode)) return;
@@ -510,6 +646,9 @@ export async function loadDerpLocale(langCode = "en-US") {
                         node.onThemeUpdate(window.xcpDerpThemeConfig);
                     } else if (node.requestDerpSync) {
                         node.requestDerpSync();
+                    }
+                    if (syncDerpLocalizedDefaultTitle(node) && typeof node.refreshNodeLayoutMap === "function") {
+                        node.refreshNodeLayoutMap();
                     }
                 });
             }
@@ -967,6 +1106,7 @@ function handleHeaderRenameDblClick(entity, localMouse) {
     if (newTitle !== null && newTitle !== currentTitle) {
         entity.titleLabel = newTitle;
         entity.properties.titleLabel = newTitle;
+        entity.properties._derpCustomTitle = !isDerpDefaultLocalizedTitle(newTitle, entity.properties._derpTitleLocaleKey);
         if (typeof entity.syncDerpOutputs === "function") {
             entity.syncDerpOutputs();
         }

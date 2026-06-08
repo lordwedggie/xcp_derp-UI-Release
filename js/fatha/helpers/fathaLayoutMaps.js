@@ -13,7 +13,7 @@ import { isNodeDocked, undockNodeEdges, isLinearDeckGroup, getDeckMembers } from
 import { clearBypassSignalDebouncers, transmitBypassedDerpSignals } from "../core/masterSignalEngine.js";
 import { ensureNodeVisibleInViewport } from "../core/fathaWarp.js";
 import { warpToPoint } from "../core/fathaWarp.js";
-import { handleDerpCollapse, handleHorizontalDeckTitleToggle, settleDerpSizeBeforeDraw } from "../core/fathaHandler.js";
+import { handleDerpCollapse, handleHorizontalDeckTitleToggle, isDerpDefaultLocalizedTitle, settleDerpSizeBeforeDraw } from "../core/fathaHandler.js";
 import { findHeaderPaletteEntry } from "./headerPaletteIdentity.js";
 import { showBastaSystemMessage } from "../bastas/bastaSystemMessage.js";
 import { getDeckCornerOverride } from "../core/masterDockEngine.js";
@@ -352,6 +352,7 @@ export const getVirtualNodeLayoutMap = (node) => {
                         if (newVal !== undefined) {
                             node.titleLabel = newVal;
                             node.properties.titleLabel = newVal;
+                            node.properties._derpCustomTitle = !isDerpDefaultLocalizedTitle(newVal, node.properties._derpTitleLocaleKey);
                             if (node.refreshNodeLayoutMap) node.refreshNodeLayoutMap();
                             if (typeof node.syncDerpOutputs === "function") node.syncDerpOutputs();
                             node.requestDerpSync();

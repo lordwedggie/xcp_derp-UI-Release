@@ -6,7 +6,7 @@
 import { app } from "../../../../scripts/app.js";
 import { createDerpShield, syncDerpShield, removeDerpShield } from "./core/fathaDOMshield.js";
 import { masterLayoutEngine } from "./core/masterLayoutEngine.js";
-import { handleShieldInteraction, handleDrawCTX, handleThemeUpdate, handleInitDerpGlobalListener, getDerpVars, handleDerpRequestSync, handleDerpComputeSize, handleDerpCollapse, animateDerpSize, drawDeckPreviewGlobal, shouldPreserveHorizontalDeckHeight, syncHorizontalDeckHeight, resolveDerpRuntimeSize, resolveHorizontalDeckSharedHeight, normalizeDerpDockedLayout } from "./core/fathaHandler.js";
+import { handleShieldInteraction, handleDrawCTX, handleThemeUpdate, handleInitDerpGlobalListener, getDerpVars, handleDerpRequestSync, handleDerpComputeSize, handleDerpCollapse, animateDerpSize, drawDeckPreviewGlobal, shouldPreserveHorizontalDeckHeight, syncHorizontalDeckHeight, resolveDerpRuntimeSize, resolveHorizontalDeckSharedHeight, normalizeDerpDockedLayout, syncDerpLocalizedDefaultTitle } from "./core/fathaHandler.js";
 export { getDerpVars };
 import { suppressDefaultWidgets, syncUncleSlots, lerpUnclePadding, drawUncleSlots } from "./helpers/uncleSlotHelper.js";
 import { drawDerpSysPanelGlobal, isHostActive, closeDerpSysPanel, sysPanel } from "./helpers/fathaSysPanel.js";
@@ -84,6 +84,7 @@ export function uncle(nodeType, nodeData, minWidth = 100) {
     // THE FIX: Standardize the listener hook so the global refresher can find it
     nodeType.prototype.onThemeUpdate = function(config) {
         this.handleThemeUpdate(config);
+        syncDerpLocalizedDefaultTitle(this);
         this.requestDerpSync();
     };
     nodeType.prototype.applyPalette = function() {
@@ -433,6 +434,7 @@ export function uncle(nodeType, nodeData, minWidth = 100) {
 
         // THE SERIALIZATION SYNC: Restore the titleLabel to the instance for layout engine usage
         if (this.properties.titleLabel) this.titleLabel = this.properties.titleLabel;
+        syncDerpLocalizedDefaultTitle(this);
 
         // THE REFRESH FIX: Re-resolve theme data once properties are loaded from the workflow file
         if (window.xcpDerpThemeConfig) {

@@ -6,7 +6,7 @@
 import { app } from "../../../scripts/app.js";
 import { createDerpShield, syncDerpShield, removeDerpShield } from "./core/fathaDOMshield.js";
 import { masterLayoutEngine } from "./core/masterLayoutEngine.js";
-import { handleShieldInteraction, handleDrawCTX, handleThemeUpdate, handleInitDerpGlobalListener, getDerpVars, handleDerpRequestSync, handleDerpComputeSize, handleDerpCollapse, animateDerpSize, drawDeckPreviewGlobal, shouldPreserveHorizontalDeckHeight, syncHorizontalDeckHeight, resolveDerpRuntimeSize, resolveHorizontalDeckSharedHeight, normalizeDerpDockedLayout } from "./core/fathaHandler.js";
+import { handleShieldInteraction, handleDrawCTX, handleThemeUpdate, handleInitDerpGlobalListener, getDerpVars, handleDerpRequestSync, handleDerpComputeSize, handleDerpCollapse, animateDerpSize, drawDeckPreviewGlobal, shouldPreserveHorizontalDeckHeight, syncHorizontalDeckHeight, resolveDerpRuntimeSize, resolveHorizontalDeckSharedHeight, normalizeDerpDockedLayout, syncDerpLocalizedDefaultTitle } from "./core/fathaHandler.js";
 export { getDerpVars };
 import { drawDerpSysPanelGlobal, isHostActive, closeDerpSysPanel, sysPanel } from "./helpers/fathaSysPanel.js";
 import { drawBastaLayer } from "./basta.js";
@@ -500,9 +500,14 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
         handleThemeUpdate(this, config);
     };
     const _fathaOnThemeUpdate = nodeType.prototype.onThemeUpdate;
-    nodeType.prototype.onThemeUpdate = _fathaOnThemeUpdate || function(config) {
-        this.handleThemeUpdate(config);
-        this.requestDerpSync();
+    nodeType.prototype.onThemeUpdate = function(config) {
+        if (_fathaOnThemeUpdate) {
+            _fathaOnThemeUpdate.apply(this, arguments);
+        } else {
+            this.handleThemeUpdate(config);
+            this.requestDerpSync();
+        }
+        syncDerpLocalizedDefaultTitle(this);
     };
     const _fathaApplyPalette = nodeType.prototype.applyPalette;
     nodeType.prototype.applyPalette = _fathaApplyPalette || function() {
@@ -541,6 +546,7 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
 
         // THE SERIALIZATION SYNC: Restore the titleLabel to the instance for layout engine usage
         if (this.properties.titleLabel) this.titleLabel = this.properties.titleLabel;
+        syncDerpLocalizedDefaultTitle(this);
 
         // THE REFRESH FIX: Re-resolve theme data once properties are restored from the workflow
         if (window.xcpDerpThemeConfig) {
