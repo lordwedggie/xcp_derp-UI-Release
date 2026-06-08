@@ -16,6 +16,21 @@ const DEFAULT_SHADOW = { _ON: [0, 0, 0, 0.5], _OFF: [0, 0, 0, 0.5], _DIS: [0, 0,
 const DEFAULT_STROKE = { _ON: [0, 0, 0, 1], _OFF: [0, 0, 0, 1], _DIS: [0, 0, 0, 1] };
 const DEFAULT_GLOW = { _ON: [0, 255, 255, 0.5], _OFF: [0, 255, 255, 0.5], _DIS: [0, 255, 255, 0.5] };
 
+const EFFECT_DEFAULTS = {
+    shadow: DEFAULT_SHADOW,
+    stroke: DEFAULT_STROKE,
+    glow: DEFAULT_GLOW,
+};
+
+function setPaletteEffectVisibility(paletteEntry, effectKey, visible) {
+    if (!paletteEntry) return;
+    if (!paletteEntry.entries) paletteEntry.entries = {};
+    paletteEntry[`show${effectKey.charAt(0).toUpperCase()}${effectKey.slice(1)}`] = visible;
+    if (visible && !paletteEntry.entries[effectKey]) {
+        paletteEntry.entries[effectKey] = JSON.parse(JSON.stringify(EFFECT_DEFAULTS[effectKey]));
+    }
+}
+
 const getPaletteHash = (palettes, effects) => {
     if (!palettes) return JSON.stringify({ palettes: [], effects: !!effects });
     try {
@@ -364,17 +379,13 @@ export function showBastaPalette(host, targetRegion = null) {
                             basta.properties.activePaletteName = normalizedSelected;
                             basta._availablePalettes = json.data?.palettes || [];
 
-                            // THE UI INITIALIZATION: Set default visibility flags and hydrate missing effect keys
+                            // THE UI INITIALIZATION: Preserve missing effect keys so they save as disabled effects
                             basta._availablePalettes.forEach(p => {
                                 const hasShadow = !!p.entries?.shadow;
                                 const hasStroke = !!p.entries?.stroke;
                                 const hasGlow = !!p.entries?.glow;
 
                                 if (!p.entries) p.entries = {};
-                                if (!hasShadow) p.entries.shadow = JSON.parse(JSON.stringify(DEFAULT_SHADOW));
-                                if (!hasStroke) p.entries.stroke = JSON.parse(JSON.stringify(DEFAULT_STROKE));
-                                if (!hasGlow) p.entries.glow = JSON.parse(JSON.stringify(DEFAULT_GLOW));
-
                                 p.showShadow = p.showShadow ?? hasShadow;
                                 p.showStroke = p.showStroke ?? hasStroke;
                                 p.showGlow = p.showGlow ?? hasGlow;
@@ -651,7 +662,7 @@ export function showBastaPalette(host, targetRegion = null) {
                         isTextOnly: true, mouseOver: false,
                         // THE NULL GUARD: Prevent crash if no entry is currently selected
                         value: palEntry?.showShadow ?? !!palEntry?.entries?.shadow,
-                        onPress: () => { if (palEntry) { const cur = palEntry.showShadow ?? !!palEntry?.entries?.shadow; palEntry.showShadow = !cur; markPaletteDirty(basta); } }
+                        onPress: () => { if (palEntry) { const cur = palEntry.showShadow ?? !!palEntry?.entries?.shadow; setPaletteEffectVisibility(palEntry, "shadow", !cur); markPaletteDirty(basta); } }
                     },
                     fileShadowContainer: {
                         hidden: !(palEntry?.showShadow ?? !!palEntry?.entries?.shadow),
@@ -677,7 +688,7 @@ export function showBastaPalette(host, targetRegion = null) {
                         isTextOnly: true, mouseOver: false,
                         // THE NULL GUARD: Prevent crash if no entry is currently selected
                         value: palEntry?.showStroke ?? !!palEntry?.entries?.stroke,
-                        onPress: () => { if (palEntry) { const cur = palEntry.showStroke ?? !!palEntry?.entries?.stroke; palEntry.showStroke = !cur; markPaletteDirty(basta); } }
+                        onPress: () => { if (palEntry) { const cur = palEntry.showStroke ?? !!palEntry?.entries?.stroke; setPaletteEffectVisibility(palEntry, "stroke", !cur); markPaletteDirty(basta); } }
                     },
                     fileStrokeContainer: {
                         hidden: !(palEntry?.showStroke ?? !!palEntry?.entries?.stroke),
@@ -702,7 +713,7 @@ export function showBastaPalette(host, targetRegion = null) {
                         width: "auto", height: "auto", padding: [1, pH],
                         isTextOnly: true, mouseOver: false,
                         value: palEntry?.showGlow ?? !!palEntry?.entries?.glow,
-                        onPress: () => { if (palEntry) { const cur = palEntry.showGlow ?? !!palEntry?.entries?.glow; palEntry.showGlow = !cur; markPaletteDirty(basta); } }
+                        onPress: () => { if (palEntry) { const cur = palEntry.showGlow ?? !!palEntry?.entries?.glow; setPaletteEffectVisibility(palEntry, "glow", !cur); markPaletteDirty(basta); } }
                     },
                     fileGlowContainer: {
                         hidden: !(palEntry?.showGlow ?? !!palEntry?.entries?.glow),

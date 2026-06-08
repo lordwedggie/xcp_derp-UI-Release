@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
 - **new labelParts layoutMap parameter**: Parsed display strings can be configured at different width and properly displayed in the picker now. Godamn I'm so an*l about these things...
 
 ### Changed
+- **Palette effects are now opt-in per-toggle**: Palette entries no longer auto-hydrate missing `shadow`/`stroke`/`glow` effect keys with defaults. The Palette Manager's effect toggles now create default entries only when explicitly enabled; disabling a toggle omits that effect on save. `_defaultTheme.json` no longer carries auto-generated defaults.
 - **derpImageDeck toggleAutoFit now locks the node at its current size**: Toggling auto-fit off now snapshots the current dimensions into `nodeSize`, clears the pinned anchor, and blocks `resizeNodeToImageAspect` from snapping to image dimensions. The deck stays put until you toggle auto-fit back on — no more phantom snapping after you've deliberately set a size.
 
 ### Removed
@@ -18,7 +19,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 - **Color-key text rendering consistency**: Color-key markup is now stripped from text measurement/cutoff/shrink calculations, missing color-key entries no longer force fallback colors, and unresolved segments render through the normal layoutMap text paint path.
-- **Segmented text effects**: Canvas segmented text and HTML `textLabel` rendering now preserve theme text shadow/glow effects instead of flattening color-key text to a single fill pass.
+- **Per-segment text effects from palette string color keys**: Palette string color entries now carry per-segment `shadow`/`glow` effect colors alongside fill colors. `masterPainterText` applies per-segment shadow/glow passes using the segment's effect color with the theme text key's offset/blur physics. HTML `textLabel` and `btnSimple` map per-segment shadow/glow to CSS `text-shadow`. Missing effect keys on a palette entry disable that effect for the segment entirely. Segments now merge only when both fill color AND effects match.
 - **Node 2.0 group-release dock drift**: Moving a default ComfyUI group containing Derp docked stacks no longer nudges already-aligned vertical or horizontal stacks on mouse release. Vue-mode dock maintenance now skips shared-height sync and normalization when docked edges are already geometrically aligned.
 - **Image widget now shows a dark background fill behind images**: When `drawBackground` is enabled, the image widget now draws a semi-transparent black fill (`rgba(0,0,0,0.5)`) behind the image area before the paintData background. The `hideBackgroundWhenImage` flag on derpImageDeck has been removed so the background is always visible — no more empty transparent gaps when images load in.
 - **System panel resize handles disabled**: System panels (`fathaSysPanel`) now have their resize handles hidden systemically via `disableResizeHandles()` in `syncDerpShield` instead of an ad-hoc inline `style.display = "none"` hack. The old ad-hoc code in `toggleDerpSysPanel` has been removed. System panels also get `resizable = false` for good measure.

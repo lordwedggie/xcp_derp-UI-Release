@@ -6,6 +6,10 @@ import { toRGBA, lerpColor } from "./colorMath.js";
 import { parseColor } from "../masterAnimator.js";
 import { showBastaSystemMessage } from "../../fatha/bastas/bastaSystemMessage.js";
 
+const TEXT_EFFECT_ALPHA_FACTOR = 0.7;
+const TEXT_EFFECT_BLUR_FACTOR = 2.0;
+const TEXT_EFFECT_OFFSET_FACTOR = 1.5;
+
 const _measureCanvas = document.createElement("canvas");
 const _measureCtx = _measureCanvas.getContext("2d");
 
@@ -132,24 +136,45 @@ export function stripColorKeyTags(text) {
     });
 }
 
-function findPaletteColor(palette, keyName, stateSuffix = "_OFF") {
+function colorValueToCss(value) {
+    if (!value) return null;
+    if (Array.isArray(value)) return `rgba(${Math.round(value[0])},${Math.round(value[1])},${Math.round(value[2])},${value[3] ?? 1})`;
+    return typeof value === 'string' ? value : null;
+}
+
+function resolveEntryStateColor(entry, stateSuffix = "_OFF") {
+    const value = entry?.[stateSuffix] || entry?._OFF;
+    return colorValueToCss(value);
+}
+
+function buildPaletteSegmentPaint(entry, stateSuffix = "_OFF") {
+    if (!entry?.entries) return null;
+    const color = resolveEntryStateColor(entry.entries.main, stateSuffix);
+    if (!color) return null;
+    return {
+        color,
+        effects: {
+            shadow: resolveEntryStateColor(entry.entries.shadow, stateSuffix),
+            border: resolveEntryStateColor(entry.entries.stroke, stateSuffix),
+            glow: resolveEntryStateColor(entry.entries.glow, stateSuffix)
+        }
+    };
+}
+
+function findPalettePaint(palette, keyName, stateSuffix = "_OFF") {
     if (!palette || !keyName) return null;
     const keyLower = keyName.toLowerCase();
     if (palette?.palettes) {
         for (const entry of palette.palettes) {
             if (String(entry?.name || "").toLowerCase() === keyLower) {
-                const mainColor = entry?.entries?.main?.[stateSuffix] || entry?.entries?.main?._OFF;
-                if (mainColor && Array.isArray(mainColor)) {
-                    return `rgba(${Math.round(mainColor[0])},${Math.round(mainColor[1])},${Math.round(mainColor[2])},${mainColor[3] ?? 1})`;
-                }
-                if (typeof mainColor === 'string') return mainColor;
+                return buildPaletteSegmentPaint(entry, stateSuffix);
             }
         }
     }
     if (palette && palette[keyName] !== undefined) {
         const val = palette[keyName];
-        if (Array.isArray(val)) return toRGBA(val);
-        if (typeof val === 'string') return val;
+        const color = Array.isArray(val) ? toRGBA(val) : typeof val === 'string' ? val : null;
+        return color ? { color, effects: undefined } : null;
     }
     return null;
 }
@@ -183,25 +208,32 @@ function resolveExactColorKeyPaint(node, keyName, stateSuffix = "_OFF") {
     };
     const paintData = findData(node) || findData(node.hostNode);
     const color = paintData?.fill || paintData?.textColor;
-    if (Array.isArray(color)) return toRGBA(color);
-    return typeof color === 'string' ? color : null;
+    const cssColor = Array.isArray(color) ? toRGBA(color) : typeof color === 'string' ? color : null;
+    if (!cssColor) return null;
+    return {
+        color: cssColor,
+        effects: {
+            shadow: paintData?.shadow?.color || null,
+            border: paintData?.border?.color || null,
+            glow: paintData?.glow?.color || null
+        }
+    };
 }
 
 function resolveColorKey(node, keyName, stateSuffix = "_OFF", palette = null) {
     const stringPaletteContext = getNodeStringPaletteContext(node, palette);
     const stringPaletteData = getNodeStringPaletteData(node, stringPaletteContext);
-    const stringPaletteColor = findPaletteColor(stringPaletteData, keyName, stateSuffix);
-    if (stringPaletteColor) return stringPaletteColor;
+    const stringPalettePaint = findPalettePaint(stringPaletteData, keyName, stateSuffix);
+    if (stringPalettePaint) return stringPalettePaint;
 
     if (stringPaletteContext?.path) {
         const entry = resolvePaletteEntry(node, stringPaletteContext.path, keyName);
-        const mainColor = entry?.entries?.main?.[stateSuffix] || entry?.entries?.main?._OFF;
-        if (Array.isArray(mainColor)) return `rgba(${Math.round(mainColor[0])},${Math.round(mainColor[1])},${Math.round(mainColor[2])},${mainColor[3] ?? 1})`;
-        if (typeof mainColor === 'string') return mainColor;
+        const entryPaint = buildPaletteSegmentPaint(entry, stateSuffix);
+        if (entryPaint) return entryPaint;
     }
 
-    const globalPaletteColor = findPaletteColor(window.xcpActivePalette, keyName, stateSuffix);
-    if (globalPaletteColor) return globalPaletteColor;
+    const globalPalettePaint = findPalettePaint(window.xcpActivePalette, keyName, stateSuffix);
+    if (globalPalettePaint) return globalPalettePaint;
 
     return resolveExactColorKeyPaint(node, keyName, stateSuffix);
 }
@@ -213,32 +245,69 @@ export function parseColorKeyText(text, node, stateSuffix = "_OFF", fallbackColo
     let lastIndex = 0, match, found = false;
     while ((match = COLOR_KEY_REGEX.exec(text)) !== null) {
         found = true;
-        if (match.index > lastIndex) raw.push({ text: text.slice(lastIndex, match.index), color: null });
+        if (match.index > lastIndex) raw.push({ text: text.slice(lastIndex, match.index), color: null, effects: undefined });
         const tokenState = match[2] || stateSuffix;
         const displayText = match[3] !== undefined ? match[3] : match[0];
-        raw.push({ text: displayText, color: resolveColorKey(node, match[1], tokenState, palette) || null });
+        const paint = resolveColorKey(node, match[1], tokenState, palette);
+        raw.push({ text: displayText, color: paint?.color || null, effects: paint?.effects });
         lastIndex = COLOR_KEY_REGEX.lastIndex;
     }
-    if (lastIndex < text.length) raw.push({ text: text.slice(lastIndex), color: null });
+    if (lastIndex < text.length) raw.push({ text: text.slice(lastIndex), color: null, effects: undefined });
     if (!found) return { segments: null, hasColorKeys: false };
     const segments = [];
     for (const seg of raw) {
         const prev = segments[segments.length - 1];
-        if (prev && prev.color === seg.color) prev.text += seg.text;
+        const sameEffects = JSON.stringify(prev?.effects) === JSON.stringify(seg.effects);
+        if (prev && prev.color === seg.color && sameEffects) prev.text += seg.text;
         else segments.push(seg);
     }
     return { segments, hasColorKeys: true };
 }
 
-export function colorSegmentsToHTML(segments, fallbackColor = null) {
+export function colorSegmentsToHTML(segments, fallbackColor = null, options = {}) {
     if (!segments || segments.length === 0) return "";
     const div = document.createElement("div");
     return segments.map(seg => {
         div.textContent = seg.text;
         const escaped = div.innerHTML;
         const color = seg.color || fallbackColor;
-        return color ? `<span style="color:${color}">${escaped}</span>` : escaped;
+        const styles = [];
+        if (color) styles.push(`color:${color}`);
+        if (typeof options.getTextShadow === "function") {
+            const textShadow = options.getTextShadow(seg);
+            if (textShadow) styles.push(`text-shadow:${textShadow}`);
+        }
+        return styles.length ? `<span style="${styles.join(";")}">${escaped}</span>` : escaped;
     }).join('');
+}
+
+function scaleTextEffectAlpha(colorStr, factor) {
+    if (!colorStr) return "transparent";
+    const match = String(colorStr).match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+    if (!match) return colorStr;
+    const alpha = match[4] !== undefined ? parseFloat(match[4]) : 1;
+    return `rgba(${match[1]}, ${match[2]}, ${match[3]}, ${alpha * factor})`;
+}
+
+function buildTextShadowLayer(effect, scale) {
+    if (!effect) return null;
+    const offX = (Number(effect.offsetX) || 0) * TEXT_EFFECT_OFFSET_FACTOR * scale;
+    const offY = (Number(effect.offsetY) || 0) * TEXT_EFFECT_OFFSET_FACTOR * scale;
+    const blur = Math.max(0, (Number(effect.blur) || 0) * TEXT_EFFECT_BLUR_FACTOR * scale);
+    const color = scaleTextEffectAlpha(effect.color, TEXT_EFFECT_ALPHA_FACTOR);
+    return `${offX}px ${offY}px ${blur}px ${color}`;
+}
+
+export function buildColorSegmentTextShadow(segment, paintData, scale = 1) {
+    if (!segment?.effects) return null;
+    const shadow = segment.effects.shadow && paintData?.shadow
+        ? { ...paintData.shadow, color: segment.effects.shadow }
+        : null;
+    const glow = segment.effects.glow && paintData?.glow
+        ? { ...paintData.glow, color: segment.effects.glow }
+        : null;
+    const layers = [buildTextShadowLayer(shadow, scale), buildTextShadowLayer(glow, scale)].filter(Boolean);
+    return layers.length ? layers.join(", ") : "none";
 }
 
 // --- UNIFIED DERP TEXT METRICS ---

@@ -5,7 +5,7 @@
 import { masterPainter, masterPainterText } from "../masterPainter.js";
 import { applyHTMLTheme, DERP_HTML_ALPHA_FACTOR, DERP_HTML_BLUR_FACTOR, DERP_HTML_OFFSET_FACTOR } from "../masterPainterHTML.js";
 import { toRGBA } from "../utils/colorMath.js";
-import { resolveWidgetEnv, measureTextWidth, resolvePaintData, colorSegmentsToHTML, getDerpTextLineHeight } from "../utils/widgetsUtils.js";
+import { resolveWidgetEnv, measureTextWidth, resolvePaintData, colorSegmentsToHTML, getDerpTextLineHeight, buildColorSegmentTextShadow } from "../utils/widgetsUtils.js";
 import { animateWidgetColors, getPulsedColor, parseColor } from "../masterAnimator.js";
 
 function scaleEffectAlpha(colorStr, factor) {
@@ -294,7 +294,11 @@ export function syncTextLabelHTML(element, node, app, config) {
 
         // THE FIX: Move Content Handling INSIDE the thrash gate to prevent constant DOM invalidation
         if (hasColorKeys && colorSegments) {
-            element.innerHTML = colorSegmentsToHTML(colorSegments, rawIc || labelPaintData?.fill || labelPaintData?.textColor);
+            element.innerHTML = colorSegmentsToHTML(
+                colorSegments,
+                rawIc || labelPaintData?.fill || labelPaintData?.textColor,
+                { getTextShadow: (segment) => buildColorSegmentTextShadow(segment, labelPaintData, scale) }
+            );
         } else if (displayText.includes("<") && displayText.includes(">")) {
             element.innerHTML = displayText;
         } else {

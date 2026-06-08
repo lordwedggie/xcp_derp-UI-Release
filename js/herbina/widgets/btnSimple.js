@@ -4,7 +4,7 @@
  */
 import { masterPainter, masterPainterText, compileThemeData } from "../masterPainter.js";
 import { applyHTMLTheme } from "../masterPainterHTML.js";
-import { resolveWidgetEnv, parseThemeKey, resolvePaletteEntry, resolvePaintData, compileAnimatedPaint, measureTextWidth, colorSegmentsToHTML } from "../utils/widgetsUtils.js";
+import { resolveWidgetEnv, parseThemeKey, resolvePaletteEntry, resolvePaintData, compileAnimatedPaint, measureTextWidth, colorSegmentsToHTML, buildColorSegmentTextShadow } from "../utils/widgetsUtils.js";
 import { animateWidgetColors, getPulsedColor, parseColor } from "../masterAnimator.js";
 
 // --- CHECKERBOARD FINETUNING VARIABLES ---
@@ -258,7 +258,9 @@ export function syncBtnSimpleHTML(element, node, app, config) {
         }
 
         if (hasColorKeys && colorSegments) {
-            element.innerHTML = colorSegmentsToHTML(colorSegments);
+            element.innerHTML = colorSegmentsToHTML(colorSegments, null, {
+                getTextShadow: (segment) => buildColorSegmentTextShadow(segment, labelData, scale)
+            });
         } else {
             element.innerText = displayText;
         }

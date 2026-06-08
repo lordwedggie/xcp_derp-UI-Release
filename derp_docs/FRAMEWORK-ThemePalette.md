@@ -50,7 +50,7 @@ Palettes are JSON files with an optional `effects` boolean and a `palettes` arra
 - `effects: true` enables shadow/stroke/glow color replacement. When `false` (or omitted), only `main` fill colors are applied; effects keep their theme-defined colors.
 - A theme's `_palette` is inherited by generic widget paint resolution. Explicit widget palette config still wins, but otherwise matching palette entries can override theme-key `main`, `shadow`, `stroke`, and `glow` colors while preserving theme geometry and effect physics.
 - Each palette entry is keyed by `name`. The `name` determines which theme key it overrides (e.g., `header_DerpSeedV2` overrides the `header` theme key for nodes of type `DerpSeedV2`).
-- Missing effect keys (`shadow`, `stroke`, `glow`) are auto-hydrated with defaults when the palette loads in `bastaPalette.js`.
+- Missing effect keys (`shadow`, `stroke`, `glow`) stay omitted when a palette loads. In the Palette Manager, enabling an effect toggle creates a default entry for that effect; disabling the toggle omits that effect on save.
 - Storage location: `ComfyUI/user/derpNodes/Palettes/_system/` (system-managed) or subdirectories. The `_system/` prefix is stripped for display but preserved internally.
 
 ---
@@ -244,7 +244,7 @@ For any given node, the effective color is determined by:
 
 **Practical rule:** The per-theme `_palette` is the source for `node._headerPaletteName`, so it controls per-node header palette matching. Framework text color-key strings use the per-node `node._derpStringPalette` context first; by default this loads `_system/_defaultTheme.json` from the root palette folder whenever a Fatha/Uncle node loads its theme. The global `Derp.Palette` setting remains the fallback active palette document for legacy/color-key lookups. If nothing resolves, you get the raw theme color or a broken unresolved `@key` string.
 
-Color-key markup is display-only. Framework text measurement paths strip `{{key::display}}` down to `display`, so color tags do not contribute to auto width, wrapped height, cutoff, overflow detection, or shrink calculations. Missing color-key entries leave the visible segment uncolored, so rendering uses the same layoutMap text theme key paint path it would have used without color-key markup. Color-key lookup must not use generic `resolvePaintData()` fallback behavior for missing keys; only exact palette entries or exact hydrated paint keys should colorize a segment. Segmented canvas text preserves the same theme text effects as normal text rendering, including shadow and glow passes. `textLabel` HTML rendering maps theme text shadow/glow onto CSS `text-shadow` because `applyHTMLTheme()` clears glyph shadows while applying box effects. Prefer the `t_text_*` key pattern for string color entries, such as `{{t_text_accent::Accent}}`, `{{t_text_highlight::Highlight}}`, and `{{t_text_warning::Warning}}`.
+Color-key markup is display-only. Framework text measurement paths strip `{{key::display}}` down to `display`, so color tags do not contribute to auto width, wrapped height, cutoff, overflow detection, or shrink calculations. Missing color-key entries leave the visible segment uncolored, so rendering uses the same layoutMap text theme key paint path it would have used without color-key markup. Color-key lookup must not use generic `resolvePaintData()` fallback behavior for missing keys; only exact palette entries or exact hydrated paint keys should colorize a segment. Segmented canvas text preserves the same theme text effects as normal text rendering, including shadow and glow passes. Palette string color keys control segment-level effect colors and effect enablement: if a palette key has `shadow` or `glow`, that segment uses the palette effect color with the current theme text key's offset/blur physics; if an effect key is missing, that effect is disabled for the segment. `textLabel` HTML rendering maps theme text shadow/glow onto CSS `text-shadow` because `applyHTMLTheme()` clears glyph shadows while applying box effects. Prefer the `t_text_*` key pattern for string color entries, such as `{{t_text_accent::Accent}}`, `{{t_text_highlight::Highlight}}`, and `{{t_text_warning::Warning}}`.
 
 ---
 
@@ -255,7 +255,7 @@ Color-key markup is display-only. Framework text measurement paths strip `{{key:
 1. `showBastaPalette(host)` is called from a Fatha/Uncle node
 2. `refreshPaletteFileList()` fetches `/xcp/list/palettes` for the file list
 3. User selects a palette file → `fetch(/xcp/load/palettes?name=...)` loads it
-4. Default effect keys are hydrated if missing
+4. Existing effect keys set their visibility toggles; missing effect keys stay omitted unless the user enables their toggle
 5. User edits colors via `bastaColorDesigner.js` → writes directly to `basta._availablePalettes`
 6. `markPaletteColorEdited()` fires → `schedulePalettePreviewRedraw()` updates all nodes using that palette in real-time
 7. User clicks Save → `fetch(/xcp/save/palettes, {method: "POST", body: ...})` persists to disk

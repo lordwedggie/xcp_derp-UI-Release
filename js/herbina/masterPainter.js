@@ -403,7 +403,7 @@ export function masterPainterText(ctx, options) {
         let totalWidth = 0;
         for (const seg of segments) totalWidth += ctx.measureText(seg.text).width;
         const fallbackFill = paintData.fill || paintData.textColor || "rgba(255,255,255,1)";
-        const renderSegments = () => {
+        const renderSegments = (effectName = null) => {
             let cursorX;
             if (align === "center") cursorX = x - totalWidth / 2;
             else if (align === "right") cursorX = x - totalWidth;
@@ -411,6 +411,18 @@ export function masterPainterText(ctx, options) {
             ctx.textAlign = "left";
             for (const seg of segments) {
                 const segWidth = ctx.measureText(seg.text).width;
+                if (effectName) {
+                    const baseEffect = paintData[effectName];
+                    const effectColor = seg.effects ? seg.effects[effectName] : baseEffect?.color;
+                    if (!baseEffect || !effectColor) {
+                        cursorX += segWidth;
+                        continue;
+                    }
+                    ctx.shadowColor = effectColor;
+                    ctx.shadowBlur = baseEffect.blur;
+                    ctx.shadowOffsetX = baseEffect.offsetX;
+                    ctx.shadowOffsetY = baseEffect.offsetY;
+                }
                 ctx.fillStyle = seg.color || fallbackFill;
                 ctx.fillText(seg.text, cursorX, y);
                 cursorX += segWidth;
@@ -419,21 +431,13 @@ export function masterPainterText(ctx, options) {
 
         if (paintData.glow) {
             ctx.save();
-            ctx.shadowColor = paintData.glow.color;
-            ctx.shadowBlur = paintData.glow.blur;
-            ctx.shadowOffsetX = paintData.glow.offsetX;
-            ctx.shadowOffsetY = paintData.glow.offsetY;
-            renderSegments();
+            renderSegments("glow");
             ctx.restore();
         }
 
         if (paintData.shadow) {
             ctx.save();
-            ctx.shadowColor = paintData.shadow.color;
-            ctx.shadowBlur = paintData.shadow.blur;
-            ctx.shadowOffsetX = paintData.shadow.offsetX;
-            ctx.shadowOffsetY = paintData.shadow.offsetY;
-            renderSegments();
+            renderSegments("shadow");
             ctx.restore();
         }
 
