@@ -87,14 +87,15 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                     };
                     const formatSignalFaceLabel = (signal) => {
                         if (!signal) return "";
+                        if (signal.isOrphaned === true) return `{{t_text_error::${formatSignalLabel(signal)}}}`;
                         const type = normalizeSignalType(signal.type);
                         const showName = !!this.properties.showSlotNames;
                         const showType = !!this.properties.showSlotTypes;
-                        const idPrefix = showSignalIds ? `{{t_text_warning::[${signal.nodeId}]}} ` : "";
+                        const idPrefix = showSignalIds ? `{{t_text_accent::[${signal.nodeId}]}} ` : "";
                         const displayName = showName ? signal.nodeName : (signal.nodeName || "").replace(/\s\[[^\]]+\]$/, "");
                         const tag = showType ? ` {{t_text_highlight::[${type}]}}` : "";
                         const colorizedName = showName
-                            ? String(displayName || "").replace(/(\s*)(\[[^\]]+\])$/, "$1{{t_text_accent::$2}}")
+                            ? String(displayName || "").replace(/(\s*)(\[[^\]]+\])$/, "$1{{t_text_warning::$2}}")
                             : displayName;
                         return `${idPrefix}${colorizedName}${tag}`;
                     };
@@ -163,9 +164,11 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                         }));
                     const signalItems = selectableSignals
                         .map(sig => {
-                            const label = formatSignalLabel(sig);
-                            this._signalLabelToId.set(label, String(sig.nodeId));
-                            return label;
+                            const plainLabel = formatSignalLabel(sig);
+                            const colorLabel = formatSignalFaceLabel(sig);
+                            this._signalLabelToId.set(plainLabel, String(sig.nodeId));
+                            this._signalLabelToId.set(colorLabel, String(sig.nodeId));
+                            return colorLabel;
                         });
                     const signalPromptLabel = tLocale("$derp_router.signals.select", "Select signal...");
                     const signalEmptyLabel = tLocale("$derp_router.signals.none_detected", "No signals detected...");
@@ -301,6 +304,9 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                         onDragEnd: endOutputRowDrag,
                                         onPress: () => handleSignalOutEntryPress(this),
                                         pulse: sig.isOrphaned === true,
+                                        pulseStates: sig.isOrphaned === true,
+                                        pulseFromState: "_DIS",
+                                        pulseToState: "_ON",
                                         pulseSpeed: ORPHAN_PULSE_SPEED,
                                     },
                                     [`btnOutputDelete_${idx}`]: {
@@ -388,6 +394,9 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                             spacing: [sW, 0],
                                             state: "ON",
                                             pulse: sig.isOrphaned === true,
+                                            pulseStates: sig.isOrphaned === true,
+                                            pulseFromState: "_DIS",
+                                            pulseToState: "_ON",
                                             pulseSpeed: ORPHAN_PULSE_SPEED,
                                         },
                                         floatingSignalOutDelete: {

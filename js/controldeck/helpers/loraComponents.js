@@ -60,8 +60,7 @@ export function buildTriggerDropdownItems(loraName, triggers) {
             ...t,
             name: cleanName,
             display: cleanName,
-            // _triggerDisplay carries {{}} syntax for two-color trigger rendering
-            _triggerDisplay: hasTag ? `{{t_textSmall:_ON::${t.name}:\u00A0}}${t.tag}` : t.name,
+            _triggerDisplay: hasTag ? `{{t_text_highlight::${t.name}:\u00A0}}${t.tag}` : `{{t_text_highlight::${t.name}}}`,
             value: t.key,
             imageUrl: t.image ? getLoraImageUrl(loraName, t.image) : null
         };

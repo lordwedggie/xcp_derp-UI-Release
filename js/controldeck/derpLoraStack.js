@@ -606,7 +606,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                         icon: "dropdown",
                                         themeKey: "dialog, t_textSmall",
                                         canvasShield: true, width: "full", height: "auto", padding: [pW, pH], alpha: rowAlpha,
-                                        state: isBypassed ? "DIS" : (isSelected ? "ON" : "OFF"),
+                                        state: (isBypassed || !(this._loraTriggerArrayCache?.[lora[0]] || []).length) ? "DIS" : (isSelected ? "ON" : "OFF"),
                                         mouseOver: false,
                                         mode: "file",
                                         rootName: "triggers",

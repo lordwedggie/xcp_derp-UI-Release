@@ -790,7 +790,7 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                     this.activeOutputs = [];
                     this.properties.activeOutputs = 0;
                     this.properties.showSignalIds = false;
-                    this.properties.showSlotNames = false;
+                    this.properties.showSlotNames = true;
                     this.properties.showSlotTypes = true;
                     this.properties.signalSortMode = "Type";
                     this.properties.showVirtualLinks = false;

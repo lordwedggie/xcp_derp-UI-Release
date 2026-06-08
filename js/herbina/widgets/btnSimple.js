@@ -4,7 +4,7 @@
  */
 import { masterPainter, masterPainterText, compileThemeData } from "../masterPainter.js";
 import { applyHTMLTheme } from "../masterPainterHTML.js";
-import { resolveWidgetEnv, parseThemeKey, resolvePaletteEntry, resolvePaintData, compileAnimatedPaint, measureTextWidth, colorSegmentsToHTML, buildColorSegmentTextShadow } from "../utils/widgetsUtils.js";
+import { resolveWidgetEnv, parseThemeKey, resolvePaletteEntry, resolvePaintData, compileAnimatedPaint, measureTextWidth, colorSegmentsToHTML, buildColorSegmentTextShadow, parseColorKeyText } from "../utils/widgetsUtils.js";
 import { animateWidgetColors, getPulsedColor, parseColor } from "../masterAnimator.js";
 
 // --- CHECKERBOARD FINETUNING VARIABLES ---
@@ -45,6 +45,32 @@ function drawCanvasChecker(ctx, x, y, w, h) {
         }
     }
     ctx.restore();
+}
+
+function arrayColorToCss(color) {
+    if (!Array.isArray(color)) return color;
+    return `rgba(${Math.round(color[0])},${Math.round(color[1])},${Math.round(color[2])},${color[3] ?? 1})`;
+}
+
+function buildPulsedColorSegments(text, node, fromState, toState, fallbackColor, speed) {
+    const from = parseColorKeyText(text, node, fromState, fallbackColor);
+    const to = parseColorKeyText(text, node, toState, fallbackColor);
+    if (!from.hasColorKeys || !to.hasColorKeys || !from.segments || !to.segments || from.segments.length !== to.segments.length) {
+        return null;
+    }
+    const segments = [];
+    for (let i = 0; i < from.segments.length; i++) {
+        const fromSegment = from.segments[i];
+        const toSegment = to.segments[i];
+        if (fromSegment.text !== toSegment.text) return null;
+        const fromColor = parseColor(fromSegment.color || fallbackColor);
+        const toColor = parseColor(toSegment.color || fallbackColor);
+        segments.push({
+            ...toSegment,
+            color: (fromColor && toColor) ? arrayColorToCss(getPulsedColor(fromColor, toColor, speed)) : (toSegment.color || fromSegment.color)
+        });
+    }
+    return segments;
 }
 
 export function syncBtnSimple(ctx, node, config) {
@@ -155,11 +181,15 @@ export function syncBtnSimple(ctx, node, config) {
         ctx.beginPath();
         ctx.rect(Math.floor(x + pW), Math.floor(y), Math.floor(clipW), Math.floor(clipH));
         ctx.clip();
+        const drawSegments = (config.pulseStates === true && hasColorKeys)
+            ? (buildPulsedColorSegments(btnText, node, config.pulseFromState || "_DIS", config.pulseToState || "_ON", iconColor, config.pulseSpeed || 0.005) || colorSegments)
+            : colorSegments;
+
         masterPainterText(ctx, {
             x: textX, y: textAnchor.y, width: w, height: h, text: btnText,
             paintData: { ...labelData, fill: iconColor, fontSize: fontSize, fontWeight },
             align: alignX, baseline: props.labelAlign?.[1] || "middle",
-            segments: hasColorKeys ? colorSegments : null
+            segments: hasColorKeys ? drawSegments : null
         });
         ctx.restore();
     }
@@ -257,8 +287,12 @@ export function syncBtnSimpleHTML(element, node, app, config) {
             element.style.fontStyle = "normal";
         }
 
-        if (hasColorKeys && colorSegments) {
-            element.innerHTML = colorSegmentsToHTML(colorSegments, null, {
+        const htmlSegments = (config.pulseStates === true && hasColorKeys)
+            ? (buildPulsedColorSegments(displayText, node, config.pulseFromState || "_DIS", config.pulseToState || "_ON", iconColor, config.pulseSpeed || 0.005) || colorSegments)
+            : colorSegments;
+
+        if (hasColorKeys && htmlSegments) {
+            element.innerHTML = colorSegmentsToHTML(htmlSegments, null, {
                 getTextShadow: (segment) => buildColorSegmentTextShadow(segment, labelData, scale)
             });
         } else {
