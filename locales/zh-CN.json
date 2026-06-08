@@ -234,7 +234,7 @@
     "signal_entry": "信号 {0}",
     "add_signal": "添加新的 STRING 信号...",
     "select_signal": "选择一个 STRING 信号。",
-    "concatenated_text": "已拼接文本：",
+    "concatenated_text": "{{t_text_highlight::已拼接文本：}}",
     "concatenated_suffix": "[已拼接]",
     "empty_signal": "传入信号是一个{{t_text_error::空字符串...}}"
   },

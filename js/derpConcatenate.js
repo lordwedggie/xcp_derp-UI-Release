@@ -592,18 +592,49 @@ app.registerExtension({
                         type: this.UI_TYPES.REGION,
                         dir: "col",
                         width: "full", height: "auto",
-                        lblConcatHeader: {
-                            type: this.UI_TYPES.TEXT,
-                            themeKey: "t_textNormal",
-                            text: tLocale("$derp_concatenate.concatenated_text", "Concatenated text:"),
+                        onContextMenu: () => {
+                            this.properties.concatContentCollapsed = !this.properties.concatContentCollapsed;
+                            this.refreshNodeLayoutMap();
+                            return false;
+                        },
+                        regionConcatHeader: {
+                            dir: "row",
                             width: "full", height: "auto",
-                            padding: [pW, pH],
-                            labelAlign: ["left", "middle"],
-                            displayMode: "cutoff",
-                            mouseOver: false,
+                            spacing: [0, 0],
+                            btnCollapseConcat: {
+                                type: this.UI_TYPES.ICONBUTTON,
+                                margin: [sW, 0, 0, 0],
+                                icon: this.properties.concatContentCollapsed ? "add" : "subtract",
+                                themeKey: "button, t_textSystem",
+                                width: "match", height: "auto",
+                                spacing: [0, 0],
+                                onPress: () => {
+                                    this.properties.concatContentCollapsed = !this.properties.concatContentCollapsed;
+                                    this.refreshNodeLayoutMap();
+                                },
+                            },
+                            lblConcatHeader: {
+                                type: this.UI_TYPES.TEXT,
+                                themeKey: "t_textNormal",
+                                text: tLocale("$derp_concatenate.concatenated_text", "{{t_text_highlight::Concatenated text:}}"),
+                                width: "full", height: "auto",
+                                padding: [pW, pH],
+                                margin: [0, 0, sW, 0],
+                                labelAlign: ["left", "middle"],
+                                displayMode: "cutoff",
+                                mouseOver: false,
+                            },
+                        },
+                        linebreakConcat: {
+                            type: this.UI_TYPES.LINEBREAK,
+                            hidden: this.properties.concatContentCollapsed,
+                            themeKey: "line",
+                            width: "full",
+                            height: 1,
+                            margin: [0, 0, 0, sH],
                         },
                         lbelConcatContent: {
-                            anchor: { target: "lblConcatHeader", axis: "y" },
+                            hidden: this.properties.concatContentCollapsed,
                             type: this.UI_TYPES.TEXT,
                             themeKey: "t_textSmall",
                             text: combinedValue || " ",
