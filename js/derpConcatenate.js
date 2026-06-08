@@ -50,6 +50,19 @@ function normalizeConcatSignalValue(value) {
     }
 }
 
+function formatConcatSignalLabel(name, slotOrId) {
+    const raw = String(name || "");
+    if (!raw) return String(slotOrId || "Unknown");
+    // If name already contains [slot], split and colorize only the node name portion
+    const bracketIdx = raw.lastIndexOf(" [");
+    if (bracketIdx >= 0) {
+        return `{{t_text_accent::${raw.slice(0, bracketIdx)}}}${raw.slice(bracketIdx)}`;
+    }
+    // Otherwise append slotOrId as the bracket suffix
+    const suffix = slotOrId ? ` [${slotOrId}]` : "";
+    return `{{t_text_accent::${raw}}}${suffix}`;
+}
+
 function getConcatSignalItems(node) {
     const ownId = node ? String(node.id) : null;
     const alreadySelected = new Set();
@@ -97,7 +110,7 @@ function getConcatSignalItems(node) {
             if (Array.isArray(sig.upstreamIds) && sig.upstreamIds.some(id => String(id) === ownId)) return false;
             return true;
         })
-        .map((sig) => `${sig.nodeName || sig.nodeId} [${sig.nodeId}]`);
+        .map((sig) => formatConcatSignalLabel(sig.nodeName, sig.nodeId));
 }
 
 function getConcatSignalIdFromLabel(label) {
@@ -198,7 +211,7 @@ function getConcatSignalStates(node) {
         return {
             idx: order,
             activeSignalId: activeSignalId || "",
-            label: signal?.nodeName || activeSignalId || `Signal ${order + 1}`,
+            label: signal ? formatConcatSignalLabel(signal.nodeName, signal.slotName || activeSignalId) : (activeSignalId || `Signal ${order + 1}`),
             value,
             preview: value,
             hasSignal: !!signal,
@@ -381,6 +394,16 @@ app.registerExtension({
                             applyConcatSignalDeckOrder(this);
                             if (this.syncDerpOutputs) this.syncDerpOutputs();
                         },
+                        [`btnCollapseEntry_${index}`]: {
+                            type: this.UI_TYPES.ICONBUTTON,
+                            margin: [sW, 0, 0 ,0],
+                            icon: isPreviewHidden ? "add" : "subtract",
+                            themeKey: "button, t_textSystem",
+                            alpha: item.isPreviewGhost ? 0 : 1.0,
+                            width: "match", height: "auto",
+                            spacing: [0, 0],
+                            onPress: () => { this.toggleDerpSignalPreview(index); },
+                        },
                         [`btnHeaderLabel_${index}`]: {
                             type: this.UI_TYPES.BUTTON,
                             themeKey: "t_textNormal",
@@ -391,6 +414,7 @@ app.registerExtension({
                             displayMode: "cutoff",
                             mouseOver: true,
                             alpha: item.isPreviewGhost ? 0 : 1.0,
+                            onPress: () => true,
                             onDragStart: (e, data) => startStackDrag(this, data, index, entryKey),
                             onDrag: (e, data) => { updateStackDrag(this, data, "regionSignalEntry_", signalStates.length); this.refreshNodeLayoutMap(); },
                             onDragEnd: () => {
@@ -398,7 +422,6 @@ app.registerExtension({
                                 applyConcatSignalDeckOrder(this);
                                 if (this.syncDerpOutputs) this.syncDerpOutputs();
                             },
-                            onPress: () => true,
                         },
                         [`btnRemoveSignal_${index}`]: {
                             type: this.UI_TYPES.ICONBUTTON,
@@ -413,6 +436,14 @@ app.registerExtension({
                             },
                         },
                     },
+                    [`linebreakSignal_${index}`]: {
+                        type: this.UI_TYPES.LINEBREAK,
+                        hidden: previewHidden,
+                        themeKey: "line",
+                        width: "full",
+                        height: 1,
+                        margin: [0, 0, 0, sH],
+                    },
                     [`regionSignalContent_${index}`]: {
                         themeKey: "region",
                         dir: "col",
@@ -422,11 +453,12 @@ app.registerExtension({
                             hidden: previewHidden,
                             type: this.UI_TYPES.TEXT,
                             themeKey: "t_textSmall",
-                            text: signalState.preview || " ",
+                            text: (signalState.hasSignal && !signalState.preview) ? tLocale("$derp_concatenate.empty_signal", "Incoming signal is an empty string...") : (signalState.preview || " "),
                             width: "full", height: previewHidden ? 0 : previewHeight,
                             padding: [pW, pH],
                             labelAlign: ["left", "top"],
                             wrap: true,
+                            margin: [0, 0, 0, sH],
                         },
                     },
                 };

@@ -12,7 +12,7 @@ All notable changes to this project will be documented in this file.
 - **new labelParts layoutMap parameter**: Parsed display strings can be configured at different width and properly displayed in the picker now. Godamn I'm so an*l about these things...
 
 ### Changed
-- **Docked vertical stack auto-height is now opt-out**: When docking top/bottom, `lockDeckNodeAxes()` sets `autoHeight = false` to allow free manual height adjustment, but nodes can now opt out via `properties.deckForceAutoHeight = true` to keep automatic height after docking.
+- **Docked vertical stack auto-height is now opt-out**: When docking top/bottom, `lockDeckNodeAxes()` sets `autoHeight = false` to allow free manual height adjustment, but nodes can now opt out via `properties.deckForceAutoHeight = true` to keep automatic height after docking. (Due to failure to implement stack-node-stack docking. New idea is to use stack containers, but that's a lot of work so... we'll just allow manual placement for now.)
 - **Palette effects are now opt-in per-toggle**: Palette entries no longer auto-hydrate missing `shadow`/`stroke`/`glow` effect keys with defaults. The Palette Manager's effect toggles now create default entries only when explicitly enabled; disabling a toggle omits that effect on save. `_defaultTheme.json` no longer carries auto-generated defaults.
 - **derpImageDeck toggleAutoFit now locks the node at its current size**: Toggling auto-fit off now snapshots the current dimensions into `nodeSize`, clears the pinned anchor, and blocks `resizeNodeToImageAspect` from snapping to image dimensions. The deck stays put until you toggle auto-fit back on — no more phantom snapping after you've deliberately set a size.
 
