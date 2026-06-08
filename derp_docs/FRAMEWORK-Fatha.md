@@ -88,6 +88,14 @@ A "hybrid" framework combining Fatha's modern engine with legacy node compatibil
 - **Awake Frames:** `node._derpAwakeFrames` countdown for post-interaction animation frames
 - **Visual Press:** Recoil animation via `animateRecoil()` for press feedback
 
+## Stack Drag-and-Hold DnD
+- Stack/list reordering uses `helpers/fathaDragDrop.js` with `startStackDrag()`, `updateStackDrag()`, and `endStackDrag()`.
+- `startStackDrag()` is hold-first by default: pointer-down arms `_dragHoldTimer`, and pickup only becomes visual/structural after `_dragThresholdMet` is true.
+- Row/list layout hashes should ignore `_dragTrig`, `_dropPreviewIdx`, and `_dragMouse` until `_dragThresholdMet` is true, otherwise a plain click can rebuild into a drag-looking state.
+- Normal click actions inside draggable rows must call `endStackDrag(node, arrayKey)` before toggling, selecting, expanding, or removing items; this cancels the pending hold timer.
+- `fathaHandler.js` stores `_dragEndRegionKey` separately from `_pressedRegionKey`, because pointer-up click activation clears `_pressedRegionKey` before `dockDrag.js` runs `onDragEnd`.
+- Drag-capable row regions should implement `onDragEnd` and call `endStackDrag(node, arrayKey)` so release cleanup runs even when no click action fires.
+
 ## Docking / Resize Notes
 - Dock behavior is split across `masterDockEngine.js`, `dockDrag.js`, `dockTargetPicking.js`, `dockDimensions.js`, `dockResize.js`, and `fathaNodeResize.js`. Check all of them before changing docking rules.
 - Horizontal stacks support width resize only from outer stack boundaries. Internal shared seams should only expose width resize when both seam nodes are manual-width (`autoWidth === false`).

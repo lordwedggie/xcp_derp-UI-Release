@@ -235,7 +235,8 @@
     "add_signal": "Add new STRING signal...",
     "select_signal": "Select a STRING signal.",
     "concatenated_text": "Concatenated text:",
-    "concatenated_suffix": "[Concatenated]"
+    "concatenated_suffix": "[Concatenated]",
+    "empty_signal": "Incoming signal is an {{t_text_error::empty string...}}"
   },
   "derp_image_deck": {
     "title": "Derp Image Deck",

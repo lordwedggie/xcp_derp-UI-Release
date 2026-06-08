@@ -33,6 +33,39 @@ function buildTextShadow(paintData, scale) {
     return layers.length ? layers.join(", ") : "none";
 }
 
+function sliceColorSegmentsByVisibleRange(segments, startIndex, endIndex) {
+    if (!segments || startIndex >= endIndex) return null;
+    const lineSegments = [];
+    let cursor = 0;
+
+    for (const segment of segments) {
+        const text = String(segment.text || "");
+        const segmentStart = cursor;
+        const segmentEnd = cursor + text.length;
+        cursor = segmentEnd;
+
+        if (segmentEnd <= startIndex) continue;
+        if (segmentStart >= endIndex) break;
+
+        const from = Math.max(0, startIndex - segmentStart);
+        const to = Math.min(text.length, endIndex - segmentStart);
+        if (from >= to) continue;
+
+        lineSegments.push({ ...segment, text: text.slice(from, to) });
+    }
+
+    return lineSegments.length ? lineSegments : null;
+}
+
+function getLineColorSegments(segments, line, cursorRef) {
+    if (!segments || !line) return null;
+    const lineText = String(line);
+    const start = cursorRef.value;
+    const end = start + lineText.length;
+    cursorRef.value = end;
+    return sliceColorSegmentsByVisibleRange(segments, start, end);
+}
+
 export function createTextLabel(callbacks = {}) {
     return {
         type: "textLabel",
@@ -195,7 +228,9 @@ export function syncTextLabel(ctx, node, config) {
     if (alignY === "middle") startY = y + (h / 2) - (totalTextH / 2) + (lineHeight / 2);
     if (alignY === "bottom") startY = y + h - pY - totalTextH + (lineHeight / 2);
 
+    const colorLineCursor = { value: 0 };
     lines.forEach((line, i) => {
+        const lineSegments = hasColorKeys ? getLineColorSegments(colorSegments, line, colorLineCursor) : null;
         masterPainterText(ctx, {
             x: (alignX === "center") ? x + (w / 2) : (alignX === "right" ? x + w - pX : x + pX),
             y: startY + (i * lineHeight) + (props.fontOffset || 0),
@@ -203,7 +238,7 @@ export function syncTextLabel(ctx, node, config) {
             paintData: finalPaint,
             align: alignX,
             baseline: "middle",
-            segments: (!config.wrap && hasColorKeys) ? colorSegments : null
+            segments: lineSegments
         });
     });
 

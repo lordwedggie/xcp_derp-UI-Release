@@ -38,6 +38,8 @@ Current UI pattern:
 - Uses in-node `FILEBROWSER` with `mode: "signal"` for signal selection.
 - Avoid replacing the primary signal selection flow with header-only wireless selector behavior.
 - Includes loop guards when listing candidate upstream string signals.
+- Signal row reordering uses `fathaDragDrop.js` hold-first DnD; all normal click actions inside a draggable row must call `endStackDrag(node, "signalDeck")` to cancel the pending hold timer before toggling/removing/selecting.
+- Follow the stack drag-and-hold DnD rules in `FRAMEWORK-Fatha.md` for layout hash gating, click cancellation, and `onDragEnd` cleanup.
 
 ## Node Inventory
 

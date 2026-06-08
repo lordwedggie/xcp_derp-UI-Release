@@ -811,6 +811,7 @@ function handleShieldDragStart(entity, data, localMouse, scale, deckEngine) {
     entity._startPos = [...(entity.pos || [0, 0])];
     entity._startSize = [...(entity.size || [0, 0])];
     entity._deckDragAltActive = !!data.originalEvent?.altKey;
+    entity._dragEndRegionKey = null;
 
     if (isSystemButtonHit(entity, localMouse, scale)) {
         entity._pressedRegionKey = "systemBtn";
@@ -822,6 +823,7 @@ function handleShieldDragStart(entity, data, localMouse, scale, deckEngine) {
         entity._pressedRegionKey = hit.key;
         entity._pressedRegionType = hit.reg?.type || null;
         entity._pressedRegionIsDragHandle = !!hit.reg.onDragStart || !!hit.reg.onDrag || hit.reg.type === UI_TYPES.SLIDER;
+        if (hit.reg.onDragStart || hit.reg.onDrag || hit.reg.onDragEnd) entity._dragEndRegionKey = hit.key;
         if (hit.reg.onDragStart) hit.reg.onDragStart(data.originalEvent, data);
         entity._derpAwakeFrames = 15;
         entity.setDirtyCanvas(true);

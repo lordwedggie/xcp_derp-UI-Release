@@ -69,8 +69,9 @@ export function updateDockDrag(entity, deckEngine, data, scale) {
 export function endDockDrag(entity, deckEngine, data) {
     const shouldFinalizeAltDock = !!data.originalEvent?.altKey || !!entity._deckDragAltActive;
     let handledRegionDragEnd = false;
-    if (entity._pressedRegionKey) {
-        const reg = entity.layout?.regions[entity._pressedRegionKey];
+    const dragEndRegionKey = entity._dragEndRegionKey || entity._pressedRegionKey;
+    if (dragEndRegionKey) {
+        const reg = entity.layout?.regions[dragEndRegionKey];
         if (reg && reg.onDragEnd) {
             reg.onDragEnd(data.originalEvent, data);
             handledRegionDragEnd = true;
@@ -103,6 +104,7 @@ export function endDockDrag(entity, deckEngine, data) {
         }
     }
     entity._pressedRegionKey = null;
+    entity._dragEndRegionKey = null;
     entity._deckDragAltActive = false;
     entity._deckDragSideLock = null;
     entity._deckDragRootId = null;

@@ -255,6 +255,11 @@ function applyConcatSignalDeckOrder(node) {
     node.properties.hiddenSignalPreviews = nextHiddenPreviews;
 }
 
+function cancelConcatStackDrag(node) {
+    endStackDrag(node, "signalDeck");
+    applyConcatSignalDeckOrder(node);
+}
+
 function buildConcatLayoutHash(node, vars, signalStates) {
     const width = (Number(node?.size?.[0]) || 0).toFixed(2);
     const mW = Number(vars.mW || 0).toFixed(2);
@@ -267,10 +272,10 @@ function buildConcatLayoutHash(node, vars, signalStates) {
         width,
         signalStates.map((state) => `${state.activeSignalId}\u0002${state.preview}`).join("\u0003"),
         signalItems.join("\u0001"),
-        node?._dropPreviewIdx ?? "",
-        node?._dragTrig?.index ?? "",
+        node?._dragThresholdMet ? (node?._dropPreviewIdx ?? "") : "",
+        node?._dragThresholdMet ? (node?._dragTrig?.index ?? "") : "",
         node?._dragThresholdMet ? "1" : "0",
-        Array.isArray(node?._dragMouse) ? node._dragMouse.join(",") : "",
+        node?._dragThresholdMet && Array.isArray(node?._dragMouse) ? node._dragMouse.join(",") : "",
         mW,
         mH,
         oY,
@@ -375,8 +380,15 @@ app.registerExtension({
                     width: "full", height: "auto",
                     state: item.isPreviewGhost ? "DIS" : (isPickedUp ? "ON" : "OFF"),
                     alpha: item.isPreviewGhost ? 0 : 1.0,
+                    onPress: () => {
+                        cancelConcatStackDrag(this);
+                        return true;
+                    },
                     onDragStart: (e, data) => startStackDrag(this, data, index, entryKey),
-                    onDrag: (e, data) => { updateStackDrag(this, data, "regionSignalEntry_", signalStates.length); this.refreshNodeLayoutMap(); },
+                    onDrag: (e, data) => {
+                        updateStackDrag(this, data, "regionSignalEntry_", signalStates.length);
+                        if (this._dragThresholdMet) this.refreshNodeLayoutMap();
+                    },
                     onDragEnd: () => {
                         endStackDrag(this, "signalDeck");
                         applyConcatSignalDeckOrder(this);
@@ -387,8 +399,15 @@ app.registerExtension({
                         width: "full", height: "auto",
                         spacing: [0, 0],
                         alpha: item.isPreviewGhost ? 0 : 1.0,
+                        onPress: () => {
+                            cancelConcatStackDrag(this);
+                            return true;
+                        },
                         onDragStart: (e, data) => startStackDrag(this, data, index, entryKey),
-                        onDrag: (e, data) => { updateStackDrag(this, data, "regionSignalEntry_", signalStates.length); this.refreshNodeLayoutMap(); },
+                        onDrag: (e, data) => {
+                            updateStackDrag(this, data, "regionSignalEntry_", signalStates.length);
+                            if (this._dragThresholdMet) this.refreshNodeLayoutMap();
+                        },
                         onDragEnd: () => {
                             endStackDrag(this, "signalDeck");
                             applyConcatSignalDeckOrder(this);
@@ -402,7 +421,10 @@ app.registerExtension({
                             alpha: item.isPreviewGhost ? 0 : 1.0,
                             width: "match", height: "auto",
                             spacing: [0, 0],
-                            onPress: () => { this.toggleDerpSignalPreview(index); },
+                            onPress: () => {
+                                cancelConcatStackDrag(this);
+                                this.toggleDerpSignalPreview(index);
+                            },
                         },
                         [`btnHeaderLabel_${index}`]: {
                             type: this.UI_TYPES.BUTTON,
@@ -414,9 +436,15 @@ app.registerExtension({
                             displayMode: "cutoff",
                             mouseOver: true,
                             alpha: item.isPreviewGhost ? 0 : 1.0,
-                            onPress: () => true,
+                            onPress: () => {
+                                cancelConcatStackDrag(this);
+                                return true;
+                            },
                             onDragStart: (e, data) => startStackDrag(this, data, index, entryKey),
-                            onDrag: (e, data) => { updateStackDrag(this, data, "regionSignalEntry_", signalStates.length); this.refreshNodeLayoutMap(); },
+                            onDrag: (e, data) => {
+                                updateStackDrag(this, data, "regionSignalEntry_", signalStates.length);
+                                if (this._dragThresholdMet) this.refreshNodeLayoutMap();
+                            },
                             onDragEnd: () => {
                                 endStackDrag(this, "signalDeck");
                                 applyConcatSignalDeckOrder(this);
@@ -432,6 +460,7 @@ app.registerExtension({
                             margin: [sW, sH, sW, sH],
                             spacing: [0, 0],
                             onPress: () => {
+                                cancelConcatStackDrag(this);
                                 this.removeDerpSelectedSignal(index);
                             },
                         },
@@ -453,7 +482,7 @@ app.registerExtension({
                             hidden: previewHidden,
                             type: this.UI_TYPES.TEXT,
                             themeKey: "t_textSmall",
-                            text: (signalState.hasSignal && !signalState.preview) ? tLocale("$derp_concatenate.empty_signal", "Incoming signal is an empty string...") : (signalState.preview || " "),
+                            text: (signalState.hasSignal && !signalState.preview) ? tLocale("$derp_concatenate.empty_signal", "Incoming signal is an {{t_text_error::empty string...}}") : (signalState.preview || " "),
                             width: "full", height: previewHidden ? 0 : previewHeight,
                             padding: [pW, pH],
                             labelAlign: ["left", "top"],
