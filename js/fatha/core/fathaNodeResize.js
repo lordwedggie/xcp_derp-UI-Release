@@ -8,6 +8,7 @@ import { setDerpNodeSizeCompat } from "./fathaNode2Compat.js";
 export function handleNodeResize(entity, data, scale) {
     const { SNAP, autoWidth, autoHeight } = entity.getDerpVars ? entity.getDerpVars(entity) : getDerpVars(entity);
     const resizeAnchor = data.resizeAnchor || "bottom-right";
+    const isPureVerticalSharedEdgeResize = resizeAnchor === "top" || resizeAnchor === "bottom";
     const graph = entity.graph || globalThis?.app?.graph || null;
     const axis = graph ? getDockGroupAxisFromMembers(getDeckMembers(entity, graph)) : null;
     const resizeAxes = resolveDockResizeAxes(axis, { autoWidth, autoHeight });
@@ -20,6 +21,10 @@ export function handleNodeResize(entity, data, scale) {
         && canResizeHorizontalStackWidth(entity, graph, horizontalStackResizeSide);
     if (allowHorizontalStackWidthResize) {
         resizeAxes.allowWidth = true;
+    }
+    if (isPureVerticalSharedEdgeResize) {
+        resizeAxes.allowWidth = false;
+        resizeAxes.allowHeight = !autoHeight;
     }
 
     // Block height resize on corners for collapsed nodes in vertical stacks

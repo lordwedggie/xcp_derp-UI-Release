@@ -14,6 +14,7 @@ import {
     getDockGroupAxisFromMembers,
     getDockNodeHeight,
     getDockNodeWidth,
+    getDockNodeMinHeight,
     getDockNodeMinWidth,
     getSharedDockHeight,
     resolveDockResizeDimensions,
@@ -895,8 +896,21 @@ export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH,
             return result;
         }
 
-        const draggedHeight = Math.min(totalHeight - minH, Math.max(minH, newH));
-        const counterpartHeight = Math.max(minH, totalHeight - draggedHeight);
+        const topMinH = getDockNodeMinHeight(topNode, minH, snap);
+        const bottomMinH = getDockNodeMinHeight(bottomNode, minH, snap);
+        if (totalHeight < topMinH + bottomMinH) {
+            result.handledHeight = true;
+            result.handledAll = true;
+            result.appliedHeight = getDockNodeHeight(entity);
+            addCounterpart(topNode);
+            addCounterpart(bottomNode);
+            return result;
+        }
+
+        const draggedMinH = entity.id === topNode.id ? topMinH : bottomMinH;
+        const counterpartMinH = entity.id === topNode.id ? bottomMinH : topMinH;
+        const draggedHeight = Math.min(totalHeight - counterpartMinH, Math.max(draggedMinH, newH));
+        const counterpartHeight = totalHeight - draggedHeight;
         const adjustedTopH = topNode.id === entity.id ? draggedHeight : counterpartHeight;
         const adjustedBottomH = bottomNode.id === entity.id ? draggedHeight : counterpartHeight;
 

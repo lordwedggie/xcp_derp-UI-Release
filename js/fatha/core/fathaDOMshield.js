@@ -599,7 +599,9 @@ export function createDerpShield(node) {
         const canH = !vars.autoHeight;
         const isLeftOrRightCorner = anchor === "top-left" || anchor === "top-right" || anchor === "bottom-left" || anchor === "bottom-right";
         let dragCursor = "default";
-        if (canW && canH && isLeftOrRightCorner) {
+        if (anchor === "top" || anchor === "bottom") {
+            dragCursor = canH ? "ns-resize" : "default";
+        } else if (canW && canH && isLeftOrRightCorner) {
             dragCursor = (anchor === "top-left" || anchor === "bottom-right") ? "nwse-resize" : "nesw-resize";
         } else if (canW) dragCursor = "ew-resize";
         else if (canH) dragCursor = "ns-resize";

@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Loader node registration**: `DerpLoraStack`, `DerpModelLoader`, `DerpDiffusionLoader`, and `DerpVaeLoader` now registered as loader nodes (`🔞 derpNodes/Loaders` category) alongside existing `derpSamplerLoader` and `derpSchedulerLoader`, so ComfyUI's loader menus pick them all up.
+
+### Removed
+- **Legacy xcpDerpLoraLoader registration**: Removed from `__init__.py` — fully replaced by `derpLoraStack`. Stripped dead API routes (`get_civitai_url`, `fetch_lora_tags`, `open_lora_folder`, `open_lora_file_location`) from `xcpDerpLoraLoader.py` — these endpoints are now served by `xcp_file_server.py`. Cleaned unused imports. CATEGORY updated from `xcpDerpNodes` to `xcp_derp-UI`.
+
+### Fixed
+- **Vertical dock resize min-height**: `syncDockResizePair` now uses `getDockNodeMinHeight` per-node instead of a shared `minH`, preventing taller nodes from being crushed below their minimum when resizing vertical dock pairs.
+- **Pure vertical resize cursors**: Top/bottom shared-edge resize anchors now show `ns-resize` cursor and block horizontal width changes instead of using the corner resize cursor. No more diagonal cursors on purely vertical drags.
+
+### Added
 - **Slider theme and geometry customization**: Each slider now supports `fillbarHeight` (1.0 = full height, scales down proportionally) and `knobWidthScale` (1.0 = default, scales knob diameter). New themeKey `#slider_btnLR` for left/right increment button styling. Fillbar renders with separate `sliderFillbarData` paint data independent of the active track. `FILLBAR_MARGIN` and `BTN_LR_HEIGHTOFFSET` constants for visual fine-tuning. Layout structure hash updated to include fillbar/knob geometry.
 - **new labelParts layoutMap parameter**: Parsed display strings can be configured at different width and properly displayed in the picker now. Godamn I'm so an*l about these things...
 

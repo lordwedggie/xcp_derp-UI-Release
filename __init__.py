@@ -19,13 +19,6 @@ from .python.derpControldeck import NODE_CLASS_MAPPINGS as CONTROLDECK_NODES, NO
 from .python.derpSignalOut import NODE_CLASS_MAPPINGS as SIGNAL_OUT_NODES, NODE_DISPLAY_NAME_MAPPINGS as SIGNAL_OUT_DISPLAY
 from .python.derpConcatenate import NODE_CLASS_MAPPINGS as CONCATENATE_NODES, NODE_DISPLAY_NAME_MAPPINGS as CONCATENATE_DISPLAY
 
-# Import Lora Loader with safety check
-try:
-    from .python import xcpDerpLoraLoader
-except ImportError:
-    class xcpDerpLoraLoader:
-        xcpDerpLoraLoader = None
-
 # --- 1. MAPPINGS ---
 NODE_CLASS_MAPPINGS = {}
 
@@ -36,9 +29,6 @@ NODE_CLASS_MAPPINGS.update(TEMPLATE_NODES)
 NODE_CLASS_MAPPINGS.update(SIGNAL_OUT_NODES)
 NODE_CLASS_MAPPINGS.update(CONTROLDECK_NODES)
 NODE_CLASS_MAPPINGS.update(CONCATENATE_NODES)
-
-if xcpDerpLoraLoader.xcpDerpLoraLoader is not None:
-    NODE_CLASS_MAPPINGS["xcpDerpLoraLoader"] = xcpDerpLoraLoader.xcpDerpLoraLoader
 
 NODE_DISPLAY_NAME_MAPPINGS = {
     **THEME_V2_DISPLAY,

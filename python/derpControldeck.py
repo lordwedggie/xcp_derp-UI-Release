@@ -44,7 +44,7 @@ class DerpLoraStackNode:
     RETURN_TYPES = ("LORA_STACK",)
     RETURN_NAMES = ("lora_stack",)
     FUNCTION = "do_nothing"
-    CATEGORY = "🔞 derpNodes/ControlDeck"
+    CATEGORY = "🔞 derpNodes/Loaders"
 
     def do_nothing(self):
         # THE PURE VIRTUAL FIX: Return None to force wireless signal handling
@@ -126,7 +126,7 @@ class DerpModelLoaderNode:
     RETURN_TYPES = ("MODEL", "CLIP", "VAE")
     RETURN_NAMES = ("model", "clip", "vae")
     FUNCTION = "do_nothing"
-    CATEGORY = "🔞 derpNodes/ControlDeck"
+    CATEGORY = "🔞 derpNodes/Loaders"
 
     def do_nothing(self):
         # THE PURE VIRTUAL FIX: Return None to force wireless signal handling
@@ -140,7 +140,7 @@ class DerpDiffusionLoaderNode:
     RETURN_TYPES = ("MODEL",)
     RETURN_NAMES = ("model",)
     FUNCTION = "do_nothing"
-    CATEGORY = "🔞 derpNodes/ControlDeck"
+    CATEGORY = "🔞 derpNodes/Loaders"
 
     def do_nothing(self):
         return (None,)
@@ -167,7 +167,7 @@ class DerpVaeLoaderNode:
     RETURN_TYPES = ("VAE",)
     RETURN_NAMES = ("vae",)
     FUNCTION = "do_nothing"
-    CATEGORY = "🔞 derpNodes/ControlDeck"
+    CATEGORY = "🔞 derpNodes/Loaders"
 
     def do_nothing(self):
         # THE PURE VIRTUAL FIX: Return None to force wireless signal handling
