@@ -675,7 +675,8 @@ if (!window._xcp_derpSignalOut_Core_Loaded) {
                             const nodeName = this.titleLabel || this.title || "Derp Router";
 
                             activeIds.forEach((sigId, idx) => {
-                                const sourceSig = globalSignals[sigId];
+                                const activeSig = this.activeOutputs?.[idx];
+                                const sourceSig = globalSignals[sigId] || (activeSig && isSignalInCurrentGraph(this, activeSig) ? activeSig : null);
                                 if (sourceSig) activeSignals[sigId] = sourceSig;
 
                                 if (sourceSig) {
