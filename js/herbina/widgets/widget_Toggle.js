@@ -49,7 +49,7 @@ export function syncDerpToggle(ctx, node, app, config) {
     }
 
     // 2. Resolve Base Environment
-    const { props, stateStr: state, bodyPaint: envBodyPaint, labelPaint: envLabelPaint, content, textAnchor, colorSegments, hasColorKeys } = resolveWidgetEnv(node, { ...config, state: activeState }, app);
+    const { props, stateStr: state, bodyPaint: envBodyPaint, labelPaint: envLabelPaint, content, textAnchor, colorSegments, hasColorKeys, visibleDisplayText } = resolveWidgetEnv(node, { ...config, state: activeState }, app);
     if (!props || node.flags?.collapsed || props.width === 0 || node._isDerpCulled) return;
 
     // 3. Resolve Dual Theme Data
@@ -115,7 +115,7 @@ export function syncDerpToggle(ctx, node, app, config) {
     }
 
     // 6. Resolve Text & Glyph
-    const labelText = t(config.text || config.label || content?.text || "");
+    const labelText = t(visibleDisplayText || content?.text || "");
     const isActive = (config.value !== undefined) ? !!config.value : (state === "ON");
     const glyphPair = TOGGLE_GLYPHS[config.icon] || TOGGLE_GLYPHS["check"];
     const currentGlyph = isActive ? glyphPair[1] : glyphPair[0];

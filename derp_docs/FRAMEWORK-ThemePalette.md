@@ -47,7 +47,8 @@ Palettes are JSON files with an optional `effects` boolean and a `palettes` arra
 ```
 
 **Key rules:**
-- `effects: true` enables shadow/stroke/glow color replacement. When `false` (or omitted), only `main` fill colors are applied — effects keep their theme-defined colors.
+- `effects: true` enables shadow/stroke/glow color replacement. When `false` (or omitted), only `main` fill colors are applied; effects keep their theme-defined colors.
+- A theme's `_palette` is inherited by generic widget paint resolution. Explicit widget palette config still wins, but otherwise matching palette entries can override theme-key `main`, `shadow`, `stroke`, and `glow` colors while preserving theme geometry and effect physics.
 - Each palette entry is keyed by `name`. The `name` determines which theme key it overrides (e.g., `header_DerpSeedV2` overrides the `header` theme key for nodes of type `DerpSeedV2`).
 - Missing effect keys (`shadow`, `stroke`, `glow`) are auto-hydrated with defaults when the palette loads in `bastaPalette.js`.
 - Storage location: `ComfyUI/user/derpNodes/Palettes/_system/` (system-managed) or subdirectories. The `_system/` prefix is stripped for display but preserved internally.
@@ -241,7 +242,9 @@ For any given node, the effective color is determined by:
 5. Fallback: raw theme key value (if no @key, or palette not loaded)
 ```
 
-**Practical rule:** The per-theme `_palette` is the source for `node._headerPaletteName`, so it controls per-node header palette matching. The global `Derp.Palette` setting controls the default active palette document and legacy/color-key lookups. If nothing resolves, you get the raw theme color or a broken unresolved `@key` string.
+**Practical rule:** The per-theme `_palette` is the source for `node._headerPaletteName`, so it controls per-node header palette matching. Framework text color-key strings use the per-node `node._derpStringPalette` context first; by default this loads `_system/_defaultTheme.json` from the root palette folder whenever a Fatha/Uncle node loads its theme. The global `Derp.Palette` setting remains the fallback active palette document for legacy/color-key lookups. If nothing resolves, you get the raw theme color or a broken unresolved `@key` string.
+
+Color-key markup is display-only. Framework text measurement paths strip `{{key::display}}` down to `display`, so color tags do not contribute to auto width, wrapped height, cutoff, overflow detection, or shrink calculations. Missing color-key entries leave the visible segment uncolored, so rendering uses the same layoutMap text theme key paint path it would have used without color-key markup. Color-key lookup must not use generic `resolvePaintData()` fallback behavior for missing keys; only exact palette entries or exact hydrated paint keys should colorize a segment. Segmented canvas text preserves the same theme text effects as normal text rendering, including shadow and glow passes. `textLabel` HTML rendering maps theme text shadow/glow onto CSS `text-shadow` because `applyHTMLTheme()` clears glyph shadows while applying box effects. Prefer the `t_text_*` key pattern for string color entries, such as `{{t_text_accent::Accent}}`, `{{t_text_highlight::Highlight}}`, and `{{t_text_warning::Warning}}`.
 
 ---
 
@@ -289,6 +292,8 @@ For any given node, the effective color is determined by:
 | `window.xcpPaletteCache` | Global | `{fileName: {effects, palettes: [...]}}` — raw loaded palette documents. Used by `headerPaletteIdentity.js` for per-node matching. |
 | `window.xcpDerpPaletteCache` | Global | `{fileName: [...]}` — palette entries array for non-derp nodes (populated by `paletteExtender.js`). Separate from `xcpPaletteCache`. |
 | `node._headerPaletteName` | Per-node | The palette file name this node should use for header colors. Set during `handleThemeUpdate()` from `theme._palette`. |
+| `node._derpStringPalette` | Per-node | The palette context used by multi color-key strings, defaulting to `{ path: "_system/_defaultTheme.json" }`. Future nodes can override this with their own palette file. |
+| `node._derpStringPaletteData` | Per-node | Cached raw palette document used by `parseColorKeyText()` before falling back to the global active palette. |
 | `node.properties.systemPaletteName` | Per-node (theme manager) | The system palette selected in the theme manager dropdown. |
 | `theme._palette` | Per-theme | The palette file name this theme should use. Set via theme manager dropdown. Stored in `window.xcpDerpThemeConfig.themes[name]._palette`. |
 | `basta._availablePalettes` | Per-Basta | The currently loaded palette entries being edited in the Palette Manager. |

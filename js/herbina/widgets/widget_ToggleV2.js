@@ -12,7 +12,7 @@ export function syncDerpToggleV2(ctx, node, app, config) {
     const { x, y, w, h } = config.geometry;
 
     const {
-        props, bodyPaint, labelPaint, content, textAnchor, suffix, useAnim, playSound, alpha, colorSegments, hasColorKeys
+        props, bodyPaint, labelPaint, content, textAnchor, suffix, useAnim, playSound, alpha, colorSegments, hasColorKeys, visibleDisplayText
     } = resolveWidgetEnv(node, config, app);
 
     const isTextOnly = config.isTextOnly === true || config.skipBackground === true;
@@ -77,7 +77,7 @@ export function syncDerpToggleV2(ctx, node, app, config) {
     if (style === "default") {
         const pW = props.padding ? props.padding[0] : 4;
         const gap = config.gap ?? 4; // THE GAP PARAMETER: Explicit spacing between glyph and text
-        const labelText = t(props.displayText || content.text || "");
+        const labelText = t(visibleDisplayText || content.text || "");
         const themeFontSize = props.fontSize || finalLabelPaint.fontSize || 10;
         const fontWeight = config.fontWeight || finalLabelPaint?.fontWeight || props.fontWeight || "normal";
         // THE FONT SYNC FIX: Apply the same fallback font logic to the context state
@@ -149,7 +149,7 @@ export function syncDerpToggleV2(ctx, node, app, config) {
     } else if (style === "rect") {
         const pW = props.padding ? props.padding[0] : 4;
         const gap = config.gap ?? 4; // THE GAP PARAMETER: Explicit spacing between glyph and text
-        const labelText = t(props.displayText || content.text || "");
+        const labelText = t(visibleDisplayText || content.text || "");
         const themeFontSize = props.fontSize || finalLabelPaint.fontSize || 10;
         const fontWeight = config.fontWeight || finalLabelPaint?.fontWeight || props.fontWeight || "normal";
         const themeFont = finalLabelPaint.font || (window.xcpDerpThemeConfig ? "DengXian Light" : "Arial");

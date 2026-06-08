@@ -125,8 +125,15 @@ export function resolvePaletteEntry(node, path, entryName) {
 
 const COLOR_KEY_REGEX = /\{\{([a-zA-Z0-9_]+)(?::(_[A-Z]+))?(?:::([^}]*))?\}\}/g;
 
-function resolveColorKey(node, keyName, stateSuffix = "_OFF") {
-    const palette = window.xcpActivePalette;
+export function stripColorKeyTags(text) {
+    if (text === null || text === undefined) return "";
+    return String(text).replace(COLOR_KEY_REGEX, (match, keyName, stateSuffix, displayText) => {
+        return displayText !== undefined ? displayText : match;
+    });
+}
+
+function findPaletteColor(palette, keyName, stateSuffix = "_OFF") {
+    if (!palette || !keyName) return null;
     const keyLower = keyName.toLowerCase();
     if (palette?.palettes) {
         for (const entry of palette.palettes) {
@@ -144,33 +151,75 @@ function resolveColorKey(node, keyName, stateSuffix = "_OFF") {
         if (Array.isArray(val)) return toRGBA(val);
         if (typeof val === 'string') return val;
     }
-    if (node) {
-        const paintData = resolvePaintData(node, keyName, stateSuffix);
-        if (paintData?.fill) {
-            if (Array.isArray(paintData.fill)) return toRGBA(paintData.fill);
-            return paintData.fill;
-        }
-    }
     return null;
 }
 
-export function parseColorKeyText(text, node, stateSuffix = "_OFF", fallbackColor = null) {
+function getNodeStringPaletteContext(node, palette = null) {
+    if (palette) return palette;
+    if (node?._derpStringPalette) return node._derpStringPalette;
+    if (node?.hostNode?._derpStringPalette) return node.hostNode._derpStringPalette;
+    if (node?.properties?._derpStringPalette) return node.properties._derpStringPalette;
+    if (node?.hostNode?.properties?._derpStringPalette) return node.hostNode.properties._derpStringPalette;
+    return null;
+}
+
+function getNodeStringPaletteData(node, context = null) {
+    if (context?.data) return context.data;
+    if (node?._derpStringPaletteData) return node._derpStringPaletteData;
+    if (node?.hostNode?._derpStringPaletteData) return node.hostNode._derpStringPaletteData;
+    return null;
+}
+
+function resolveExactColorKeyPaint(node, keyName, stateSuffix = "_OFF") {
+    if (!node || !keyName) return null;
+    const targetFull = `_${keyName}PaintData${stateSuffix}`.toLowerCase();
+    const targetBase = `_${keyName}PaintData`.toLowerCase();
+    const findData = (owner) => {
+        if (!owner) return null;
+        const keys = Object.keys(owner);
+        const match = keys.find(key => key.toLowerCase() === targetFull)
+            || keys.find(key => key.toLowerCase() === targetBase);
+        return match ? owner[match] : null;
+    };
+    const paintData = findData(node) || findData(node.hostNode);
+    const color = paintData?.fill || paintData?.textColor;
+    if (Array.isArray(color)) return toRGBA(color);
+    return typeof color === 'string' ? color : null;
+}
+
+function resolveColorKey(node, keyName, stateSuffix = "_OFF", palette = null) {
+    const stringPaletteContext = getNodeStringPaletteContext(node, palette);
+    const stringPaletteData = getNodeStringPaletteData(node, stringPaletteContext);
+    const stringPaletteColor = findPaletteColor(stringPaletteData, keyName, stateSuffix);
+    if (stringPaletteColor) return stringPaletteColor;
+
+    if (stringPaletteContext?.path) {
+        const entry = resolvePaletteEntry(node, stringPaletteContext.path, keyName);
+        const mainColor = entry?.entries?.main?.[stateSuffix] || entry?.entries?.main?._OFF;
+        if (Array.isArray(mainColor)) return `rgba(${Math.round(mainColor[0])},${Math.round(mainColor[1])},${Math.round(mainColor[2])},${mainColor[3] ?? 1})`;
+        if (typeof mainColor === 'string') return mainColor;
+    }
+
+    const globalPaletteColor = findPaletteColor(window.xcpActivePalette, keyName, stateSuffix);
+    if (globalPaletteColor) return globalPaletteColor;
+
+    return resolveExactColorKeyPaint(node, keyName, stateSuffix);
+}
+
+export function parseColorKeyText(text, node, stateSuffix = "_OFF", fallbackColor = null, palette = null) {
     if (!text || typeof text !== 'string') return { segments: null, hasColorKeys: false };
-    // Normalize fallback to a valid CSS color string
-    if (Array.isArray(fallbackColor)) fallbackColor = toRGBA(fallbackColor);
-    else if (fallbackColor && typeof fallbackColor !== 'string') fallbackColor = null;
     COLOR_KEY_REGEX.lastIndex = 0;
     const raw = [];
     let lastIndex = 0, match, found = false;
     while ((match = COLOR_KEY_REGEX.exec(text)) !== null) {
         found = true;
-        if (match.index > lastIndex) raw.push({ text: text.slice(lastIndex, match.index), color: fallbackColor });
+        if (match.index > lastIndex) raw.push({ text: text.slice(lastIndex, match.index), color: null });
         const tokenState = match[2] || stateSuffix;
         const displayText = match[3] !== undefined ? match[3] : match[0];
-        raw.push({ text: displayText, color: resolveColorKey(node, match[1], tokenState) || fallbackColor });
+        raw.push({ text: displayText, color: resolveColorKey(node, match[1], tokenState, palette) || null });
         lastIndex = COLOR_KEY_REGEX.lastIndex;
     }
-    if (lastIndex < text.length) raw.push({ text: text.slice(lastIndex), color: fallbackColor });
+    if (lastIndex < text.length) raw.push({ text: text.slice(lastIndex), color: null });
     if (!found) return { segments: null, hasColorKeys: false };
     const segments = [];
     for (const seg of raw) {
@@ -181,13 +230,14 @@ export function parseColorKeyText(text, node, stateSuffix = "_OFF", fallbackColo
     return { segments, hasColorKeys: true };
 }
 
-export function colorSegmentsToHTML(segments) {
+export function colorSegmentsToHTML(segments, fallbackColor = null) {
     if (!segments || segments.length === 0) return "";
     const div = document.createElement("div");
     return segments.map(seg => {
         div.textContent = seg.text;
         const escaped = div.innerHTML;
-        return seg.color ? `<span style="color:${seg.color}">${escaped}</span>` : escaped;
+        const color = seg.color || fallbackColor;
+        return color ? `<span style="color:${color}">${escaped}</span>` : escaped;
     }).join('');
 }
 
@@ -234,6 +284,7 @@ let currentZ = 10001;
 export function getNextZIndex() { return currentZ++; }
 
 export function measureTextHeight(text, maxWidth, themeData, paddingH = 0) {
+    const visibleText = stripColorKeyTags(text);
     const fontSize = themeData?.fontSize;
     const fontFamily = themeData?.font || "arial";
     const fontWeight = themeData?.fontWeight || "normal";
@@ -250,7 +301,7 @@ export function measureTextHeight(text, maxWidth, themeData, paddingH = 0) {
 
     // THE FIX: If maxWidth is provided (wrapping enabled), calculate total line height
     if (maxWidth > 0) {
-        const words = String(text).split(' ');
+        const words = String(visibleText).split(' ');
         let lines = 1;
         let currentLine = '';
         for (let n = 0; n < words.length; n++) {
@@ -267,12 +318,13 @@ export function measureTextHeight(text, maxWidth, themeData, paddingH = 0) {
     }
 
     // THE ACCURACY FIX: Measure the actual text provided and remove the 1.2x floor
-    const metrics = _measureCtx.measureText(text || "Hgyj");
+    const metrics = _measureCtx.measureText(visibleText || "Hgyj");
     const inkHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
     return Math.max(inkHeight, fontSize);
 }
 
 export function measureTextWidth(text, fontSize, fontFamily, fontWeight = "normal") {
+    const visibleText = stripColorKeyTags(text);
     const baseFont = fontFamily || "arial";
     const cleanFont = baseFont.replace(/\bpx\b/gi, "").trim(); // THE FIX: Remove rogue "px"
     const safeFont = (cleanFont.includes(",") || cleanFont.includes('"') || cleanFont.includes("'"))
@@ -280,7 +332,7 @@ export function measureTextWidth(text, fontSize, fontFamily, fontWeight = "norma
         : `"${cleanFont}"`;
 
     _measureCtx.font = `${fontWeight} ${fontSize}px ${safeFont}`;
-    return _measureCtx.measureText(text || "").width;
+    return _measureCtx.measureText(visibleText || "").width;
 }
 /**
  * Standardizes the parsing of themeKey strings: "BodyKey, LabelKey, FontSizeOverride"
@@ -830,8 +882,9 @@ export function resolveWidgetEnv(node, config, app = null, element = null) {
     // --- COLOR-KEY TEXT PARSING ---
     const defaultTextColor = labelPaint?.textColor || labelPaint?.fill;
     const resolvedDisplayText = props.displayText || "";
+    const visibleDisplayText = stripColorKeyTags(resolvedDisplayText);
     const { segments: colorSegments, hasColorKeys } = parseColorKeyText(
-        resolvedDisplayText, node, suffix, defaultTextColor
+        resolvedDisplayText, node, suffix, defaultTextColor, config.stringPalette
     );
 
     // --- CONSOLIDATED UTILITY HANDLING ---
@@ -843,7 +896,7 @@ export function resolveWidgetEnv(node, config, app = null, element = null) {
     // --- UNIFIED TEXT ANCHOR RESOLUTION ---
     let textAnchor = null;
     if (config.geometry && (props.displayText || content.text)) {
-        const textToMeasure = props.displayText || content.text;
+        const textToMeasure = props.displayText ? visibleDisplayText : stripColorKeyTags(content.text);
         const fontSize = props.fontSize || labelPaint?.fontSize || 10;
         const font = labelPaint?.font || "arial";
         const fontWeight = config.fontWeight || labelPaint?.fontWeight || props.fontWeight || "normal";
@@ -894,7 +947,7 @@ export function resolveWidgetEnv(node, config, app = null, element = null) {
     return {
         props, stateStr, suffix, bodyPaint, labelPaint,
         content, callbacks, alignments, coords, textAnchor,
-        colorSegments, hasColorKeys,
+        colorSegments, hasColorKeys, visibleDisplayText,
         useAnim, playSound, alpha
     };
 }

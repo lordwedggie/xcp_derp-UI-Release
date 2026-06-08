@@ -4,6 +4,15 @@
  */
 
 // Replace compileThemeData: Prepares theme data before painting
+const COLOR_KEY_TEXT_REGEX = /\{\{([a-zA-Z0-9_]+)(?::(_[A-Z]+))?(?:::([^}]*))?\}\}/g;
+
+function stripColorKeyTags(text) {
+    if (text === null || text === undefined) return "";
+    return String(text).replace(COLOR_KEY_TEXT_REGEX, (match, keyName, stateSuffix, displayText) => {
+        return displayText !== undefined ? displayText : match;
+    });
+}
+
 function resolvePaletteColor(val) {
     if (typeof val === 'string' && val.startsWith('@')) {
         const key = val.substring(1);
@@ -378,7 +387,7 @@ export function masterPainterText(ctx, options) {
     ctx.textAlign = align;
     ctx.textBaseline = baseline;
 
-    let displayText = text;
+    let displayText = stripColorKeyTags(text);
     if (options.cutoff && options.width > 0) {
         const cutoffMargin = Number(options.cutoffMargin) || 0;
         const maxWidth = Math.max(0, options.width - cutoffMargin);
@@ -393,19 +402,46 @@ export function masterPainterText(ctx, options) {
     if (segments && segments.length > 0) {
         let totalWidth = 0;
         for (const seg of segments) totalWidth += ctx.measureText(seg.text).width;
-        let cursorX;
-        if (align === "center") cursorX = x - totalWidth / 2;
-        else if (align === "right") cursorX = x - totalWidth;
-        else cursorX = x;
-        ctx.textAlign = "left";
-        for (const seg of segments) {
-            const segWidth = ctx.measureText(seg.text).width;
-            if (seg.color) {
-                ctx.fillStyle = seg.color;
+        const fallbackFill = paintData.fill || paintData.textColor || "rgba(255,255,255,1)";
+        const renderSegments = () => {
+            let cursorX;
+            if (align === "center") cursorX = x - totalWidth / 2;
+            else if (align === "right") cursorX = x - totalWidth;
+            else cursorX = x;
+            ctx.textAlign = "left";
+            for (const seg of segments) {
+                const segWidth = ctx.measureText(seg.text).width;
+                ctx.fillStyle = seg.color || fallbackFill;
                 ctx.fillText(seg.text, cursorX, y);
+                cursorX += segWidth;
             }
-            cursorX += segWidth;
+        };
+
+        if (paintData.glow) {
+            ctx.save();
+            ctx.shadowColor = paintData.glow.color;
+            ctx.shadowBlur = paintData.glow.blur;
+            ctx.shadowOffsetX = paintData.glow.offsetX;
+            ctx.shadowOffsetY = paintData.glow.offsetY;
+            renderSegments();
+            ctx.restore();
         }
+
+        if (paintData.shadow) {
+            ctx.save();
+            ctx.shadowColor = paintData.shadow.color;
+            ctx.shadowBlur = paintData.shadow.blur;
+            ctx.shadowOffsetX = paintData.shadow.offsetX;
+            ctx.shadowOffsetY = paintData.shadow.offsetY;
+            renderSegments();
+            ctx.restore();
+        }
+
+        ctx.shadowColor = "transparent";
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+        renderSegments();
     } else {
         const renderShape = () => {
             if (paintData.fill) {

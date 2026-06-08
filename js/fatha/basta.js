@@ -94,7 +94,7 @@ function drawAnimatedTooltipLabel(ctx, basta, region) {
 
     const tipColor = rawTheme.textColor || rawTheme.fill || "rgba(180,180,180,0.6)";
     const { segments: tipSegs, hasColorKeys: tipKeys } = parseColorKeyText(
-        text, basta, "_OFF", tipColor
+        text, basta, "_OFF", tipColor, tooltipPalette
     );
 
     masterPainterText(ctx, {

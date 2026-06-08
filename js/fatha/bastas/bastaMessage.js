@@ -58,7 +58,8 @@ export function showBastaMessage(host, text, duration = 3000, animations = {}, t
         || host._t_textsystemPaintData_OFF;
     const tooltipLabelFallback = sysTextPaint?.textColor || sysTextPaint?.fill || "rgba(180,180,180,0.6)";
     // Pre-parse tooltip text for color keys so the widget doesn't need to
-    const tooltipParsed = isTooltipMessage ? parseColorKeyText(String(text || ""), host, "_OFF", tooltipLabelFallback) : null;
+    const tooltipPalette = { path: "_system/_toolTip.json" };
+    const tooltipParsed = isTooltipMessage ? parseColorKeyText(String(text || ""), host, "_OFF", tooltipLabelFallback, tooltipPalette) : null;
     const BASTA_HEADER_H = 20;
 
     let initialW = 50;
@@ -108,7 +109,8 @@ export function showBastaMessage(host, text, duration = 3000, animations = {}, t
                 lblMessage: {
                     type: isTooltipMessage ? UI_TYPES.BUTTON : UI_TYPES.TEXT,
                     themeKey: textThemeKey,
-                    palette: isTooltipMessage ? { path: "_system/_toolTip.json" } : undefined,
+                    palette: isTooltipMessage ? tooltipPalette : undefined,
+                    stringPalette: isTooltipMessage ? tooltipPalette : undefined,
                     text: text,
                     width: isTooltipMessage ? "full" : (hasFixedW ? "full" : "auto"),
                     height: "auto",
@@ -131,7 +133,7 @@ export function showBastaMessage(host, text, duration = 3000, animations = {}, t
         basta.properties.messageThemeKey = textThemeKey;
         if (backgroundThemeKey) basta.properties.bastaBackgroundKey = backgroundThemeKey;
         basta.offset[1] -= sH; // default gap above target region
-        if (isTooltipMessage) basta.properties.palette = { path: "_system/_toolTip.json" };
+        if (isTooltipMessage) basta.properties.palette = tooltipPalette;
         if (isTooltipMessage) {
             basta.properties.nodeSize = [initialW, initialH];
             basta.targetSize = [initialW, initialH];

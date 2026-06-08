@@ -64,6 +64,51 @@ function getPaletteCache() {
     return window.xcpPaletteCache;
 }
 
+function getStringPaletteCache() {
+    if (!window.xcpStringPaletteCache || typeof window.xcpStringPaletteCache !== "object") window.xcpStringPaletteCache = {};
+    return window.xcpStringPaletteCache;
+}
+
+function attachStringPalette(node, paletteName = "_system/_defaultTheme.json") {
+    if (!node) return;
+    const normalizedName = normalizePaletteName(paletteName || "_system/_defaultTheme.json");
+    if (!normalizedName) return;
+    node._derpStringPalette = { path: normalizedName };
+    const cache = getStringPaletteCache();
+    const cachedKey = findCaseInsensitiveKey(cache, normalizedName);
+    if (cachedKey && cache[cachedKey]) {
+        node._derpStringPaletteData = cache[cachedKey];
+        node._derpStringPalette.data = cache[cachedKey];
+        return;
+    }
+    if (node._derpStringPalettePendingName === normalizedName) return;
+    node._derpStringPalettePendingName = normalizedName;
+    fetch(`/xcp/load/palettes?name=${encodeURIComponent(normalizedName)}&t=${Date.now()}`)
+        .then(response => {
+            if (!response.ok) throw new Error(`String palette ${normalizedName} not found.`);
+            return response.json();
+        })
+        .then(result => {
+            if (!result?.data) return;
+            cache[normalizedName] = result.data;
+            node._derpStringPaletteData = result.data;
+            node._derpStringPalette = { path: normalizedName, data: result.data };
+            if (node.requestDerpSync) node.requestDerpSync();
+            if (node.setDirtyCanvas) node.setDirtyCanvas(true, true);
+        })
+        .catch(error => {
+            if (window._xcpStringPaletteMissingWarnings?.[normalizedName] !== true) {
+                window._xcpStringPaletteMissingWarnings = window._xcpStringPaletteMissingWarnings || {};
+                window._xcpStringPaletteMissingWarnings[normalizedName] = true;
+                showFallbackStatusMessage(node, "palette", normalizedName, "missing");
+            }
+            console.error("[xcpDerp] String Palette Load Error:", error);
+        })
+        .finally(() => {
+            if (node._derpStringPalettePendingName === normalizedName) node._derpStringPalettePendingName = "";
+        });
+}
+
 function clearHydratedPaintData(target) {
     if (!target) return;
     Object.keys(target).forEach((key) => {
@@ -209,6 +254,7 @@ export function handleThemeUpdateImpl(node, config, deps = {}) {
             window._xcpPaletteRequesters[node._headerPaletteName] = resolvedThemeKey || themeName;
             loadDerpPalette(node._headerPaletteName);
         }
+        attachStringPalette(node);
     }
 
     if (node._derpBgCache) {

@@ -85,6 +85,19 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                         const tag = showType ? ` [${type}]` : "";
                         return `${idPrefix}${displayName}${tag}`;
                     };
+                    const formatSignalFaceLabel = (signal) => {
+                        if (!signal) return "";
+                        const type = normalizeSignalType(signal.type);
+                        const showName = !!this.properties.showSlotNames;
+                        const showType = !!this.properties.showSlotTypes;
+                        const idPrefix = showSignalIds ? `{{t_text_warning::[${signal.nodeId}]}} ` : "";
+                        const displayName = showName ? signal.nodeName : (signal.nodeName || "").replace(/\s\[[^\]]+\]$/, "");
+                        const tag = showType ? ` {{t_text_highlight::[${type}]}}` : "";
+                        const colorizedName = showName
+                            ? String(displayName || "").replace(/(\s*)(\[[^\]]+\])$/, "$1{{t_text_accent::$2}}")
+                            : displayName;
+                        return `${idPrefix}${colorizedName}${tag}`;
+                    };
                     const resolveSignalIdFromLabel = (label) => {
                         const match = String(label || "").match(/\[([\d:]+)\]/);
                         if (match) return match[1];
@@ -279,7 +292,7 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                         themeKey: "panel, t_textNormal",
                                         mouseOver: true,
                                         hidden: shouldGhostHideChildren,
-                                        text: formatSignalLabel(sig),
+                                        text: formatSignalFaceLabel(sig),
                                         width: "full", padding: [pW, pH], spacing: [sW, 0],
                                         state: isPickedUp ? "ON" : ((isBypassed || !isConnected) ? "DIS" : "OFF"),
                                         alpha: rowAlpha,
@@ -368,7 +381,7 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                             type: UI_TYPES.BUTTON,
                                             themeKey: "panel, t_textNormal",
                                             mouseOver: false,
-                                            text: formatSignalLabel(sig),
+                                            text: formatSignalFaceLabel(sig),
                                             width: "full",
                                             height: "auto",
                                             padding: [pW, pH],

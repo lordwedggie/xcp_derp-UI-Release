@@ -3,10 +3,35 @@
  * STATUS: PROTOCOL COMPLIANT | UNIFIED ENVIRONMENT INTEGRATED
  */
 import { masterPainter, masterPainterText } from "../masterPainter.js";
-import { applyHTMLTheme } from "../masterPainterHTML.js";
+import { applyHTMLTheme, DERP_HTML_ALPHA_FACTOR, DERP_HTML_BLUR_FACTOR, DERP_HTML_OFFSET_FACTOR } from "../masterPainterHTML.js";
 import { toRGBA } from "../utils/colorMath.js";
 import { resolveWidgetEnv, measureTextWidth, resolvePaintData, colorSegmentsToHTML, getDerpTextLineHeight } from "../utils/widgetsUtils.js";
 import { animateWidgetColors, getPulsedColor, parseColor } from "../masterAnimator.js";
+
+function scaleEffectAlpha(colorStr, factor) {
+    if (!colorStr) return "transparent";
+    const match = String(colorStr).match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+    if (!match) return colorStr;
+    const alpha = match[4] !== undefined ? parseFloat(match[4]) : 1;
+    return `rgba(${match[1]}, ${match[2]}, ${match[3]}, ${alpha * factor})`;
+}
+
+function buildTextShadowLayer(effect, scale) {
+    if (!effect) return null;
+    const offX = (Number(effect.offsetX) || 0) * DERP_HTML_OFFSET_FACTOR * scale;
+    const offY = (Number(effect.offsetY) || 0) * DERP_HTML_OFFSET_FACTOR * scale;
+    const blur = Math.max(0, (Number(effect.blur) || 0) * DERP_HTML_BLUR_FACTOR * scale);
+    const color = scaleEffectAlpha(effect.color, DERP_HTML_ALPHA_FACTOR);
+    return `${offX}px ${offY}px ${blur}px ${color}`;
+}
+
+function buildTextShadow(paintData, scale) {
+    const layers = [
+        buildTextShadowLayer(paintData?.shadow, scale),
+        buildTextShadowLayer(paintData?.glow, scale)
+    ].filter(Boolean);
+    return layers.length ? layers.join(", ") : "none";
+}
 
 export function createTextLabel(callbacks = {}) {
     return {
@@ -36,11 +61,11 @@ export function syncTextLabel(ctx, node, config) {
     const itemCache = cache[config.key] || (cache[config.key] = {});
 
     if (itemCache.hash === stateHash && itemCache.res && !node._forceSync) {
-        var { props, stateStr, bodyPaint: envBodyPaint, labelPaint: labelPaintData, alpha, colorSegments, hasColorKeys } = itemCache.res;
+        var { props, stateStr, bodyPaint: envBodyPaint, labelPaint: labelPaintData, alpha, colorSegments, hasColorKeys, visibleDisplayText } = itemCache.res;
     } else {
-        var { props, stateStr, bodyPaint: envBodyPaint, labelPaint: labelPaintData, alpha, colorSegments, hasColorKeys } = resolveWidgetEnv(node, config);
+        var { props, stateStr, bodyPaint: envBodyPaint, labelPaint: labelPaintData, alpha, colorSegments, hasColorKeys, visibleDisplayText } = resolveWidgetEnv(node, config);
         itemCache.hash = stateHash;
-        itemCache.res = { props, stateStr, bodyPaint: envBodyPaint, labelPaint: labelPaintData, alpha };
+        itemCache.res = { props, stateStr, bodyPaint: envBodyPaint, labelPaint: labelPaintData, alpha, colorSegments, hasColorKeys, visibleDisplayText };
     }
 
     // THE SKIP FIX: Background is hidden if themeKey is simple OR skipBackground is explicit
@@ -101,6 +126,7 @@ export function syncTextLabel(ctx, node, config) {
 
     // 2. Text Logic (Canvas)
     const displayText = props.displayText;
+    const measureDisplayText = visibleDisplayText || displayText;
     if (displayText == null || displayText === "") return;
 
     // Resolve color and paint data
@@ -132,14 +158,14 @@ export function syncTextLabel(ctx, node, config) {
     const font = finalPaint.font || "arial";
     const fontWeight = finalPaint.fontWeight || "normal";
     const cacheW = Math.round(innerW * 10) / 10;
-    const cacheKey = `${displayText}_${cacheW}_${finalPaint.fontSize}_${font}_${fontWeight}`;
+    const cacheKey = `${measureDisplayText}_${cacheW}_${finalPaint.fontSize}_${font}_${fontWeight}`;
     if (!node._textLabelCache) node._textLabelCache = {};
     let lines = node._textLabelCache[config.key]?.key === cacheKey ? node._textLabelCache[config.key].lines : null;
 
     if (!lines) {
         lines = [];
         if (config.wrap && innerW > 0) {
-            const words = displayText.toString().split(' ');
+            const words = measureDisplayText.toString().split(' ');
             let currentLine = '';
 
             for (let n = 0; n < words.length; n++) {
@@ -154,7 +180,7 @@ export function syncTextLabel(ctx, node, config) {
             }
             lines.push(currentLine.trim());
         } else {
-            lines = [displayText.toString()];
+            lines = [measureDisplayText.toString()];
         }
         node._textLabelCache[config.key] = { key: cacheKey, lines };
     }
@@ -197,10 +223,10 @@ export function syncTextLabelHTML(element, node, app, config) {
     const needsFullSync = node._shouldSync || element._lastStateHash !== stateHash || (element._isAnimating && (window.xcpDerpSettings?.useAnimations !== false));
 
     if (!needsFullSync && element._lastProps && !node._forceSync) {
-        var { props, stateStr, bodyPaint: envBodyPaint, labelPaint: labelPaintData, alignments, coords, textAnchor, alpha, colorSegments, hasColorKeys } = element._lastProps;
+        var { props, stateStr, bodyPaint: envBodyPaint, labelPaint: labelPaintData, alignments, coords, textAnchor, alpha, colorSegments, hasColorKeys, visibleDisplayText } = element._lastProps;
     } else {
-        var { props, stateStr, bodyPaint: envBodyPaint, labelPaint: labelPaintData, alignments, coords, textAnchor, alpha, colorSegments, hasColorKeys } = resolveWidgetEnv(node, config, app, element);
-        element._lastProps = { props, stateStr, bodyPaint: envBodyPaint, labelPaint: labelPaintData, alignments, coords, textAnchor, alpha, colorSegments, hasColorKeys };
+        var { props, stateStr, bodyPaint: envBodyPaint, labelPaint: labelPaintData, alignments, coords, textAnchor, alpha, colorSegments, hasColorKeys, visibleDisplayText } = resolveWidgetEnv(node, config, app, element);
+        element._lastProps = { props, stateStr, bodyPaint: envBodyPaint, labelPaint: labelPaintData, alignments, coords, textAnchor, alpha, colorSegments, hasColorKeys, visibleDisplayText };
         element._lastStateHash = stateHash;
     }
 
@@ -255,18 +281,20 @@ export function syncTextLabelHTML(element, node, app, config) {
 
     // Content Handling
     const displayText = props.displayText || "";
+    const measureDisplayText = visibleDisplayText || displayText;
     const isCutoff = config.displayMode === "cutoff";
     const fontWeight = config.fontWeight || labelPaintData?.fontWeight || props.fontWeight || "normal";
+    const textShadow = buildTextShadow(labelPaintData, coords?.scale || 1);
 
     // THE OPTIMIZATION: DOM Thrash Gate using stable theme colors and content
     const alignKey = Array.isArray(props.labelAlign) ? props.labelAlign.join(",") : "";
-    const syncKey = `${stateStr}-${rawBg}-${rawIc}-${displayText}-${scale}-${isWrapping}-${isCutoff}-${coords.width}-${coords.height}-${props.padding?.[0]}-${props.padding?.[1]}-${fontWeight}-${alignKey}`;
+    const syncKey = `${stateStr}-${rawBg}-${rawIc}-${displayText}-${scale}-${isWrapping}-${isCutoff}-${coords.width}-${coords.height}-${props.padding?.[0]}-${props.padding?.[1]}-${fontWeight}-${alignKey}-${textShadow}`;
     if (element._lastSyncKey !== syncKey || node._forceSync) {
         element._lastSyncKey = syncKey;
 
         // THE FIX: Move Content Handling INSIDE the thrash gate to prevent constant DOM invalidation
         if (hasColorKeys && colorSegments) {
-            element.innerHTML = colorSegmentsToHTML(colorSegments);
+            element.innerHTML = colorSegmentsToHTML(colorSegments, rawIc || labelPaintData?.fill || labelPaintData?.textColor);
         } else if (displayText.includes("<") && displayText.includes(">")) {
             element.innerHTML = displayText;
         } else {
@@ -295,9 +323,9 @@ export function syncTextLabelHTML(element, node, app, config) {
 
         // Font Sizing and Shrinking logic
         let fontSize = props.fontSize || labelPaintData?.fontSize || 10;
-        if (!isWrapping && !config.noShrink && element.innerText.length > 0) {
+        if (!isWrapping && !config.noShrink && measureDisplayText.length > 0) {
             const limit = w - (props.padding?.[0] * 2 || 0);
-            while (measureTextWidth(element.innerText, fontSize, labelPaintData?.font || "arial", fontWeight) > limit && fontSize > 4) {
+            while (measureTextWidth(measureDisplayText, fontSize, labelPaintData?.font || "arial", fontWeight) > limit && fontSize > 4) {
                 fontSize -= 0.5;
             }
         }
@@ -326,6 +354,7 @@ export function syncTextLabelHTML(element, node, app, config) {
             fill: rawBg,
             textColor: rawIc
         }, scale);
+        element.style.textShadow = textShadow;
 
         // Text-Only Overrides
         if (isTextOnly) {
