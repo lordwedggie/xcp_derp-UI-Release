@@ -90,12 +90,15 @@ When ComfyUI Node 2.0/Vue mode moves a default group containing docked Derp stac
 - Widths are normalized to the widest member
 - Heights are distributed across available vertical space
 - `allowWidth = false` during resize — only height can be dragged
+- `masterDockEngine.lockDeckNodeAxes()` saves each node's original `autoHeight`, sets `autoHeight = false` for top/bottom docking so member height can be freely adjusted, and restores the saved value on undock
+- A node that must keep automatic height can opt out by setting `properties.deckForceAutoHeight = true` before docking
 
 ### Vertical Stack
 - Nodes are stacked vertically with their own independent heights
 - Widths are normalized to the widest member
 - Each node keeps its own height (no height normalization)
 - `allowWidth = false` during resize
+- Member height defaults to free/manual resize through temporary `autoHeight = false` unless the node explicitly forces auto-height on
 
 ## Known Pitfalls
 

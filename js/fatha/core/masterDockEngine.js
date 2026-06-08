@@ -1001,6 +1001,9 @@ function lockDeckNodeAxes(node, side = null) {
         node.properties.autoHeight = false;
     } else if (side === "top" || side === "bottom") {
         node.properties.autoWidth = false;
+        if (node.properties.deckForceAutoHeight !== true) {
+            node.properties.autoHeight = false;
+        }
     }
 }
 
