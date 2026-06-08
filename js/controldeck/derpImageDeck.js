@@ -475,9 +475,8 @@ app.registerExtension({
             const displayName = `${baseName}${extension}`;
             const customFolder = normalizeImageDeckFolderPath(this.properties.imageDeckCustomFolder || "");
             if (!customFolder) return displayName;
-            // Two-color display: path in _DIS, filename in _OFF
-            const folderPath = `\\${customFolder.replace(/\//g, "\\")}\\`;
-            return `{{t_textNormal:_DIS::${folderPath}}}${displayName}`;
+            const folderPath = `${customFolder.replace(/\\/g, "/")}/`;
+            return `{{t_text_highlight::${folderPath}}}${displayName}`;
         };
 
         nodeType.prototype.applyPalette = function() {

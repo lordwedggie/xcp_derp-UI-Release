@@ -16,8 +16,16 @@ function tLocale(key, fallback = key) {
 }
 
 function stripModelName(name, showFolderNames) {
-    const display = showFolderNames ? name : String(name || "").split(/[\\/]/).pop();
-    return display.replace(/\.(safetensors|pt|ckpt)$/i, "");
+    if (!showFolderNames) {
+        return String(name || "").split(/[\\/]/).pop().replace(/\.(safetensors|pt|ckpt)$/i, "");
+    }
+    const raw = String(name || "");
+    const display = raw.replace(/\.(safetensors|pt|ckpt)$/i, "");
+    const lastSep = Math.max(display.lastIndexOf("/"), display.lastIndexOf("\\"));
+    if (lastSep < 0) return display;
+    const folder = display.slice(0, lastSep + 1);
+    const file = display.slice(lastSep + 1);
+    return `{{t_text_highlight::${folder}}}${file}`;
 }
 
 function getWeightDtypeItems() {

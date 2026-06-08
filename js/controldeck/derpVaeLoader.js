@@ -19,6 +19,19 @@ function tLocale(key, fallback = key) {
     return target;
 }
 
+function stripModelDisplay(name, showFolderNames) {
+    if (!showFolderNames) {
+        return String(name || "").split(/[\\/]/).pop().replace(/\.(safetensors|pt|ckpt)$/i, "");
+    }
+    const raw = String(name || "");
+    const display = raw.replace(/\.(safetensors|pt|ckpt)$/i, "");
+    const lastSep = Math.max(display.lastIndexOf("/"), display.lastIndexOf("\\"));
+    if (lastSep < 0) return display;
+    const folder = display.slice(0, lastSep + 1);
+    const file = display.slice(lastSep + 1);
+    return `{{t_text_highlight::${folder}}}${file}`;
+}
+
 app.registerExtension({
     name: "xcp.derpVaeLoader_Extension",
     async setup() {
@@ -104,7 +117,7 @@ app.registerExtension({
                     [`vaeToggle_${idx}`]: {
                         type: this.UI_TYPES.TOGGLE_V2, iconAlign: "left", isTextOnly: true, mouseOver: true, cutoff: true,
                         key: `vaeToggle_${idx}`,
-                        text: (this.properties.showFolderNames ? m.name : m.name.split(/[\\/]/).pop()).replace(/\.(safetensors|pt|ckpt)$/i, ""),
+                        text: stripModelDisplay(m.name, this.properties.showFolderNames !== false),
                         value: m.active,
                         playSound: m.active ? null : "powerup",
                         alpha: item.isPreviewGhost ? 0 : 1.0,
@@ -192,7 +205,7 @@ app.registerExtension({
                         isTextOnly: true,
                         mouseOver: true,
                         cutoff: true,
-                        text: (this.properties.showFolderNames ? m.name : m.name.split(/[\\/]/).pop()).replace(/\.(safetensors|pt|ckpt)$/i, ""),
+                        text: stripModelDisplay(m.name, this.properties.showFolderNames !== false),
                         value: m.active,
                         width: "full",
                         height: "auto",
