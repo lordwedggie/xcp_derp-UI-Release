@@ -3,7 +3,7 @@
 ## Overview
 The docking system allows derp nodes to be dragged into horizontal/vertical stacks where they share edges, normalize sizes, and resize together as a group. It's implemented entirely within the Fatha framework, bypassing LiteGraph's native node positioning.
 
-**Last reviewed:** 2026-06-07
+**Last reviewed:** 2026-06-08
 
 ## Key Files
 
@@ -70,6 +70,13 @@ When a user drags a resize handle on a docked node:
 ### settleDerpSizeBeforeDrawImpl (dockResize.js)
 Handles SNAP alignment for nodes whose size isn't yet on the SNAP grid. Called for autoHeight nodes and nodes with explicit size changes. Uses `getNodeSizeBounds` for min/max clamping and `syncDockResizePair` for group propagation.
 
+### Node 2.0 Group Release Maintenance (fathaHandler.js)
+When ComfyUI Node 2.0/Vue mode moves a default group containing docked Derp stacks, positions can be correct during drag but still enter Derp's draw-time dock maintenance on mouse release. `fathaHandler.js` now checks whether every recorded dock edge is already geometrically aligned before running release-time maintenance:
+- `areDockedEdgesAligned()` compares each connected edge with a small tolerance.
+- `syncHorizontalDeckHeight()` skips shared-height sync when horizontal stack edges and heights are already aligned.
+- `normalizeDerpDockedLayout()` skips vertical and horizontal relayout when edges are already aligned.
+- Legacy LiteGraph mode does not use this aligned-edge skip; it keeps the existing normalization flow.
+
 ## Dock Types
 
 ### Horizontal Dock
@@ -107,3 +114,10 @@ Handles SNAP alignment for nodes whose size isn't yet on the SNAP grid. Called f
 **Root cause:** `resizeNodeToImageAspect` computed raw height delta without snapping. `restoreImageDeckRefreshAnchor` positioned without snapping the bottom coordinate.
 
 **Fix:** Height snapped via `Math.ceil / SNAP * SNAP` in `resizeNodeToImageAspect`. Bottom coordinate snapped in both `resizeNodeToImageAspect` and `restoreImageDeckRefreshAnchor`.
+
+### Node 2.0 Group Release Dock Drift (fixed 2026-06-08)
+**Symptom:** In Node 2.0/Vue mode only, moving a default ComfyUI group containing a Derp docked stack showed correct positions during drag, then shifted slightly on mouse release. Legacy mode did not reproduce it.
+
+**Root cause:** After group movement ended, Derp's Vue-mode dock maintenance ran shared-height sync or normalization even when the stack was already edge-aligned. The release-time pass could move members to a recomputed top/left and introduce a small visual drift.
+
+**Fix:** `fathaHandler.js` now skips horizontal shared-height sync and vertical/horizontal normalization when `areDockedEdgesAligned()` confirms the dock stack is already geometrically aligned.

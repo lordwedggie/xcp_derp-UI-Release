@@ -22,7 +22,7 @@ import {
     handleDerpCollapseImpl,
     handleHorizontalDeckTitleToggleImpl,
 } from "./dockResize.js";
-import { masterDockEngine, getDeckMembers, getDeckCornerOverride, isLinearDeckGroup, normalizeDockedLayout, setDeckNodePos } from "./masterDockEngine.js";
+import { masterDockEngine, getDeckMembers, getDeckCornerOverride, getNodeOnDeckEdge, isLinearDeckGroup, normalizeDockedLayout, setDeckNodePos } from "./masterDockEngine.js";
 import { getDockGroupAxisFromMembers, shouldPreserveDockHeight, shouldPreserveDockWidth } from "./dockDimensions.js";
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
 import {
@@ -130,6 +130,48 @@ function restoreHorizontalDeckPositionAnchor(anchor) {
         setDeckNodePos(member, (Number(member.pos?.[0]) || 0) + offsetX, (Number(member.pos?.[1]) || 0) + offsetY);
     });
     return Math.max(Math.abs(offsetX), Math.abs(offsetY));
+}
+
+function getNodeGeometry(node) {
+    return {
+        x: Number(node?.pos?.[0]) || 0,
+        y: Number(node?.pos?.[1]) || 0,
+        w: Number(node?.size?.[0] ?? node?.properties?.nodeSize?.[0]) || 0,
+        h: Number(node?.size?.[1] ?? node?.properties?.nodeSize?.[1]) || 0,
+    };
+}
+
+function areDockedEdgesAligned(members = [], graph = null, tolerance = 0.75) {
+    if (!graph || !Array.isArray(members) || members.length <= 1) return false;
+    const seenEdges = new Set();
+    let edgeCount = 0;
+
+    for (const member of members) {
+        for (const side of ["left", "right", "top", "bottom"]) {
+            const neighbor = getNodeOnDeckEdge(member, graph, side);
+            if (!neighbor) continue;
+            const edgeKey = [Math.min(member.id, neighbor.id), Math.max(member.id, neighbor.id), side === "left" || side === "right" ? "h" : "v"].join(":");
+            if (seenEdges.has(edgeKey)) continue;
+            seenEdges.add(edgeKey);
+            edgeCount += 1;
+
+            const a = getNodeGeometry(member);
+            const b = getNodeGeometry(neighbor);
+            let aligned = false;
+            if (side === "right") {
+                aligned = Math.abs((a.x + a.w) - b.x) <= tolerance && Math.abs(a.y - b.y) <= tolerance;
+            } else if (side === "left") {
+                aligned = Math.abs(a.x - (b.x + b.w)) <= tolerance && Math.abs(a.y - b.y) <= tolerance;
+            } else if (side === "bottom") {
+                aligned = Math.abs((a.y + a.h) - b.y) <= tolerance && Math.abs(a.x - b.x) <= tolerance;
+            } else if (side === "top") {
+                aligned = Math.abs(a.y - (b.y + b.h)) <= tolerance && Math.abs(a.x - b.x) <= tolerance;
+            }
+            if (!aligned) return false;
+        }
+    }
+
+    return edgeCount > 0;
 }
 
 function getDeckFrameState(node) {
@@ -554,6 +596,12 @@ export function syncHorizontalDeckHeight(node, targetHeight = 0) {
         const nextHeight = Number(targetHeight) || 0;
         if (nextHeight > 0) state.sharedHeight = Math.max(Number(state.sharedHeight) || 0, nextHeight);
         const signature = getDeckGeometrySignature(state.members, nextHeight, "horizontal");
+        if (nextHeight > 0 && isComfyVueNodesMode() && areDockedEdgesAligned(state.members, app.graph || node?.graph || null) && isDeckHeightAligned(state.members, nextHeight)) {
+            state.didSync = true;
+            state.syncedHeight = Math.max(Number(state.syncedHeight) || 0, nextHeight);
+            if (state.skipState) state.skipState.syncSignature = signature;
+            return false;
+        }
         if (nextHeight > 0 && state.skipState?.syncSignature === signature && isDeckHeightAligned(state.members, nextHeight)) {
             state.didSync = true;
             state.syncedHeight = Math.max(Number(state.syncedHeight) || 0, nextHeight);
@@ -578,7 +626,8 @@ export function normalizeDerpDockedLayout(node) {
     const graph = app.graph || node?.graph || null;
     if (state?.preserveWidth === true) {
         const signature = getDeckGeometrySignature(state.members, 0, "vertical");
-        if (state.skipState?.normalizeSignature === signature) {
+        if (state.skipState?.normalizeSignature === signature || (isComfyVueNodesMode() && areDockedEdgesAligned(state.members, graph))) {
+            if (state.skipState) state.skipState.normalizeSignature = signature;
             return [];
         }
         state.didNormalize = true;
@@ -599,9 +648,10 @@ export function normalizeDerpDockedLayout(node) {
     if (state?.preserveHeight === true) {
         const sharedHeight = Number(state.sharedHeight) || 0;
         const signature = getDeckGeometrySignature(state.members, sharedHeight, "horizontal");
-        if (sharedHeight > 0 && state.skipState?.normalizeSignature === signature) {
+        if (state.skipState?.normalizeSignature === signature || (isComfyVueNodesMode() && areDockedEdgesAligned(state.members, graph))) {
             state.didNormalize = true;
             state.normalizedHeight = Math.max(Number(state.normalizedHeight) || 0, sharedHeight);
+            if (state.skipState) state.skipState.normalizeSignature = signature;
             return [];
         }
         if (state.didNormalize && sharedHeight <= (Number(state.normalizedHeight) || 0)) {

@@ -4,7 +4,7 @@
 Fatha is the master orchestration layer that hijacks ComfyUI's native LiteGraph render pipeline and replaces it with a custom layout/rendering/docking system. Every derp node registers through `fatha()` or `uncle()` and becomes a `isFathaNode` / `isUncleNode`.
 
 **Entry point:** `js/fatha/fatha.js`
-**Last reviewed:** 2026-06-04
+**Last reviewed:** 2026-06-08
 
 ## Architecture Layers
 
@@ -92,6 +92,7 @@ A "hybrid" framework combining Fatha's modern engine with legacy node compatibil
 - Dock behavior is split across `masterDockEngine.js`, `dockDrag.js`, `dockTargetPicking.js`, `dockDimensions.js`, `dockResize.js`, and `fathaNodeResize.js`. Check all of them before changing docking rules.
 - Horizontal stacks support width resize only from outer stack boundaries. Internal shared seams should only expose width resize when both seam nodes are manual-width (`autoWidth === false`).
 - Vertical stack seam height resize should not expose handles when either connected node is collapsed or auto-height.
+- In Node 2.0/Vue mode, `fathaHandler.js` performs an aligned-edge guard before release-time dock maintenance. If a default ComfyUI group move leaves a docked Derp stack already edge-aligned, shared-height sync and normalization should not re-layout the stack on mouse release.
 - Avoid adding per-node docking hacks. Prefer shared fixes in the dock engine/resizer/shield layers.
 
 ## Maintenance Notes
