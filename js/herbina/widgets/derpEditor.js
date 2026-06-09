@@ -34,7 +34,6 @@ import {
 import { animateWidgetColors } from "../masterAnimator.js";
 
 const BYPASS_BRIGHTNESS = 0.6;
-const SINGLE_LINE_EDIT_BASELINE_NUDGE = 0.08;
 
 function measureDerpEditorPrefixGlyphWidth(glyphText, fontSize, fontFamily, fontWeight) {
     if (!glyphText) return 0;
@@ -292,8 +291,12 @@ export function syncDerpEditor(context, node, app, config) {
 
     const isCanvas = !!context.canvas || (context instanceof CanvasRenderingContext2D);
     const safeConfig = config || {};
-    const useCanvasShield = safeConfig.canvasShield !== false;
+    const requestedCanvasShield = safeConfig.canvasShield !== false;
+    const useCanvasShield = false;
     const isMultiline = !!(safeConfig.multiline || safeConfig.wrap);
+    if (isCanvas && requestedCanvasShield && !useCanvasShield) {
+        node._hasVisibleDerpEditorDom = true;
+    }
 
     let el;
     if (isCanvas) {
@@ -448,8 +451,16 @@ export function syncDerpEditor(context, node, app, config) {
                 const pressWrapper = safeConfig.prefixGlyph ? ensureDerpEditorWrapper(el) : null;
                 const pressPositionEl = pressWrapper || el;
 
-                pressPositionEl.style.left = `${physL}px`;
-                pressPositionEl.style.top = `${physT}px`;
+                if (!useCanvasShield && node.interactionShield) {
+                    if (pressPositionEl.parentNode !== node.interactionShield) node.interactionShield.appendChild(pressPositionEl);
+                    pressPositionEl.style.position = "absolute";
+                    pressPositionEl.style.left = `${x * ds.scale}px`;
+                    pressPositionEl.style.top = `${y * ds.scale}px`;
+                } else {
+                    pressPositionEl.style.position = "fixed";
+                    pressPositionEl.style.left = `${physL}px`;
+                    pressPositionEl.style.top = `${physT}px`;
+                }
                 el.style.width = `${w}px`;
                 el.style.height = `${h}px`;
                 pressPositionEl.style.transformOrigin = "0 0";
@@ -726,6 +737,9 @@ export function syncDerpEditor(context, node, app, config) {
 
         // THE FIX: Strict Hybrid Gating. Canvas ONLY draws when the widget is asleep.
         if (!isAwake) {
+            if (requestedCanvasShield && !useCanvasShield) {
+                // Canvas shield is intentionally bypassed: HTML is the only visible layer.
+            } else {
             if (sysAlpha <= 0) return;
             // THE SINGLE-KEY FIX: If only one key is present (text theme), skip the background container.
             const themeKeys = String(safeConfig.themeKey || "").split(",").filter(k => k.trim().length > 0);
@@ -821,6 +835,7 @@ export function syncDerpEditor(context, node, app, config) {
             }
 
             ctx.restore();
+            }
         }
     }
 
@@ -837,16 +852,22 @@ export function syncDerpEditor(context, node, app, config) {
     // Instead, lock the width/height to base local values and use CSS `transform: scale`.
     // This forces the browser to calculate text wrapping exactly once, guaranteeing
     // identical layout across all zoom levels.
-    const physL = Math.round(rect.left + (node.pos[0] + ds.offset[0] + x) * ds.scale);
-    const physT = Math.round(rect.top + (node.pos[1] + ds.offset[1] + y) * ds.scale);
     if (!prefixGlyphText && el._derpEditorWrapper) removeDerpEditorWrapper(el);
     const editorWrapper = prefixGlyphText ? ensureDerpEditorWrapper(el) : null;
     const editorPositionEl = editorWrapper || el;
+    const useShieldHost = isCanvas && !useCanvasShield && node.interactionShield;
+    const physL = useShieldHost ? x * ds.scale : Math.round(rect.left + (node.pos[0] + ds.offset[0] + x) * ds.scale);
+    const physT = useShieldHost ? y * ds.scale : Math.round(rect.top + (node.pos[1] + ds.offset[1] + y) * ds.scale);
+
+    if (useShieldHost && editorPositionEl.parentNode !== node.interactionShield) {
+        node.interactionShield.appendChild(editorPositionEl);
+    }
 
     const masterZ = node?._masterZHtml || 10000;
     const geoKey = `${physL}-${physT}-${w}-${h}-${ds.scale}-${isAwake}-${masterZ}`;
     if (el._lastGeoKey !== geoKey) {
         el._lastGeoKey = geoKey;
+        setStyleIfChanged(editorPositionEl, "position", useShieldHost ? "absolute" : "fixed");
         setStyleIfChanged(editorPositionEl, "left", `${physL}px`);
         setStyleIfChanged(editorPositionEl, "top", `${physT}px`);
 
@@ -894,13 +915,12 @@ export function syncDerpEditor(context, node, app, config) {
 
     // Because we are CSS-scaling, EVERYTHING inside must be in 1x unscaled coordinates
     
-const scaledFS = fontSize;
+    const scaledFS = fontSize;
     const uiLineHeight = getDerpTextLineHeight(fontSize);
 
     const isSingleLineMiddle = false;
     const finalPadY = isSingleLineMiddle ? 0 : Math.max(0, baseRelativeStartY);
-    const editBaselineNudge = (!isMultiline && isAwake && alignY !== "middle") ? (fontSize * SINGLE_LINE_EDIT_BASELINE_NUDGE) : 0;
-    const htmlPadTop = finalPadY + editBaselineNudge;
+    const htmlPadTop = finalPadY;
     const htmlPadX = textPadX;
     const htmlPadRight = htmlPadX + cutoffRightPad;
     const syncKey = `${ds.scale}-${effectiveState}-${rawIc}-${rawBg}_${prefixGlyphText}_${prefixGlyphScale}_${prefixGlyphMargin}_${prefixGlyphSpacing}-${valToSync}-${finalPadY}-${htmlPadTop}-${htmlPadX}-${htmlPadRight}-${scaledFS}-${fontWeight}-${isMultiline}-${isAwake}-${safeConfig.btnColor}`;

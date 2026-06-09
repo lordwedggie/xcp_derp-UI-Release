@@ -58,36 +58,47 @@
     "KSampler-ZIT": {
         "sliders": [
             {
-                "name": "Steps",
+                "name": "STEP",
                 "min": 1,
                 "max": 12,
                 "step": 1,
                 "default": 8,
                 "decimals": 0,
-                "value": 9
+                "value": 9,
+                "_isDraggingSlider": false,
+                "btnLR": true,
+                "knobWidthScale": 0.6,
+                "fillbarHeight": 0.5
             },
             {
-                "name": "Cfg",
+                "name": "CFG",
                 "min": 0,
                 "max": 2,
                 "step": 0.01,
                 "default": 1,
                 "decimals": 2,
-                "value": 1
+                "value": 1.94,
+                "_isDraggingSlider": false,
+                "btnLR": true,
+                "knobWidthScale": 0.6,
+                "fillbarHeight": 0.5
             },
             {
-                "name": "Auro Flow",
+                "name": "AURA",
                 "min": 1,
                 "max": 6,
-                "step": 0.1,
+                "step": 0.01,
                 "default": 3,
                 "decimal": 2,
-                "value": 4.2,
-                "btnLR": false
+                "value": 5.3,
+                "btnLR": true,
+                "_isDraggingSlider": false,
+                "knobWidthScale": 0.6,
+                "fillbarHeight": 0.5
             }
         ],
         "sliderCount": 3,
-        "nameDisplay": "Slider"
+        "nameDisplay": "Left"
     },
     "KSampler-ZIB": {
         "count": 2,

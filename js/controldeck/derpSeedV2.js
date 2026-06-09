@@ -74,7 +74,7 @@ app.registerExtension({
                                 height: "auto",
                                 spacing: [0, sH],
                                 [`labelSeed_${i}`]: i === 0 ? {
-                                    type: UI_TYPES.EDITOR, canvasShield: true,
+                                    type: UI_TYPES.EDITOR, canvasShield: false,
                                     themeKey: "panel, t_textSmall", numberOnly: false,
                                     text: formatSeedHistoryDisplayText(this._seedAnimStates?.[i] ? this._seedAnimStates[i].text : seed, i),
                                     value: this._seedAnimStates?.[i] ? this._seedAnimStates[i].text : seed.toString(),

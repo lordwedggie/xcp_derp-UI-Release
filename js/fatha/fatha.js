@@ -192,6 +192,7 @@ function buildPassiveWholeWallCacheState(node, passiveCacheScale) {
             !node._dragThresholdMet &&
             !node._loraFloatingSnapshot &&
             !hasOpenPicker &&
+            !node._hasVisibleDerpEditorDom &&
             !hasLiveControlInteraction &&
             !isDetailOpen &&
             (node._activeDetailSlot == null || node._activeDetailSlot < 0)
@@ -237,6 +238,7 @@ function buildPassiveWholeWallCacheState(node, passiveCacheScale) {
             !node._dragTrig &&
             !node._dragThresholdMet &&
             !hasOpenPicker &&
+            !node._hasVisibleDerpEditorDom &&
             !hasAwakeDom &&
             !hasLiveControlInteraction
         );
