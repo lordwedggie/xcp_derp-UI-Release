@@ -161,10 +161,10 @@ app.registerExtension({
             this.sysLayoutMap = {
                 sysCustomRegion: {
                     anchor: { target: "sysDefaultControlsRegion", axis: "y"},
-                    dir: "row", width: "full", height: "auto", margin: [mW, mH + sH, mW, mH],
+                    dir: "row", width: "full", height: "auto", margin: [mW * 2, mH, mW + sH, mH],
                     historyCountLabel: {
-                        type: UI_TYPES.TEXT_HTML, text: "History Logs:", themeKey: "t_textsystem", mouseOver: false,
-                        width: "auto", height: "auto", objectAlign: ["left", "middle"], 
+                        type: UI_TYPES.TEXT, text: "History Logs:", themeKey: "t_textsystem", mouseOver: false,
+                        width: "auto", height: "auto", 
                     },
                     historyCount: {
                         type: UI_TYPES.EDITOR, themeKey: "dialog, t_textsystem",
@@ -177,7 +177,7 @@ app.registerExtension({
                         onBlur: (val) => handleHistoryCountBlur(this, val)
                     },
                     digitLabel: {
-                        type: UI_TYPES.TEXT_HTML, text: "Decimals:", themeKey: "t_textsystem", mouseOver: false,
+                        type: UI_TYPES.TEXT, text: "Decimals:", themeKey: "t_textsystem", mouseOver: false,
                         width: "auto", height: "auto", objectAlign: ["left", "middle"], 
                     },
                     digitValue: {

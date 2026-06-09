@@ -571,8 +571,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
     return {
         sysHeaderRegion: {
             width: "full", height: "auto", dir: "row",
-            margin: [0, mH, mW, 0],
-            padding: [0, 0], spacing: [0, sH],
+            margin: [mW, mH, mW + sW, 0], 
             lblTheme: {
                 type: UI_TYPES.TEXT, mouseOver: false,
                 themeKey: "t_textSystem",
@@ -663,10 +662,9 @@ export function getPanelBaseMap(hostNode, app, sysState) {
         regionWarp: {
             hidden: !showWarpRegion,
             anchor: { target: "sysHeaderRegion", axis: "y"},
-            dir: "row",
-            spacing: [sW, sH],
+            dir: "row",            
             width: "full", height: "auto",
-            margin: [0, sH, mW, 0],
+            margin: [mW, mH, mW + sW, 0], 
             lblShortcut: {
                 type: UI_TYPES.TEXT,
                 themeKey: "t_textSystem",
@@ -742,8 +740,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
         },
         sysDefaultControlsRegion: {
             anchor: { target: showWarpRegion ? "regionWarp" : "sysHeaderRegion", axis: "y" },
-            dir: "row", margin: [0, sH, mW, sH],
-            padding: [0, 0],
+            dir: "row", margin: [mW, sH, mW + sW, mH],             
             width: "full", height: "auto",
             btnAutoWidth: {
                 type: UI_TYPES.TOGGLE_V2,
@@ -840,11 +837,11 @@ export function getPanelBaseMap(hostNode, app, sysState) {
         sysProfileRegion: {
             hidden: !hostNode._sysProfileActive,
             anchor: { target: lastSysRegion, axis: "y"},
-            dir: "row", height: "auto", width: "full", margin: [mW, mH, mW, mH],
+            dir: "row", height: "auto", width: "full", margin: [mW * 2, mH, mW + sW, mH],
             themeKey: "panel",
             settingsLabel: {
                 type: UI_TYPES.TEXT, text: "$fatha_layout.load_settings", themeKey: "t_textSystem", mouseOver: false,
-                width: "auto", height: "auto", objectAlign: ["left", "middle"], disabled: false, spacing: [2, 0],
+                width: "auto", height: "auto", objectAlign: ["left", "middle"], disabled: false, 
             },
             dropdownProfiles: {
                 type: UI_TYPES.FILEBROWSER,

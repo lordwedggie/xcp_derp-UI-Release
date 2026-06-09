@@ -793,15 +793,8 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                             dir: "col",
                             anchor: { target: "sysDefaultControlsRegion", axis: "y", }, margin: [mW, mH],
                             width: "full", height: "auto",
-                            lblTitle: {
-                                type: this.UI_TYPES.TEXT, mouseOver: false,
-                                themeKey: "t_textsystem",
-                                labelAlign: ["left", "middle"],
-                                text: tLocale("$derp_lora_stack.system.properties", "Derp Lora Stack properties:"),
-                                width: "full", padding: [pW, pH],
-                            },
                             sysRow_1: {
-                                dir: "row", width: "full", height: "auto", spacing: [sW, 0],                                
+                                dir: "row", width: "full", height: "auto", margin: [mW, mH],                                
                                 btnToggleMode: {
                                     type: this.UI_TYPES.BUTTON, themeKey: "button, t_textSystem",
                                     text: `${tLocale("$derp_lora_stack.system.mode", "Mode")}: ${this.properties.attentionMode || "Cross-Attention"}`,
@@ -854,8 +847,8 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                 },
                             },
                             sysRow_2: {
-                                anchor: { target: "sysRow_1", axis: "y", offset: sH },
-                                dir: "row", width: "full", height: "auto", spacing: [sW, 0],
+                                anchor: { target: "sysRow_1", axis: "y"},
+                                dir: "row", width: "full", height: "auto", margin: [mW, sH], 
                                 labelHeader: {
                                     type: this.UI_TYPES.TEXT, themeKey: "t_textSystem",
                                     text: tLocale("$derp_lora_stack.system.strength_setting", "Strength Setting"), width: "auto", spacing: [sW, 0],
