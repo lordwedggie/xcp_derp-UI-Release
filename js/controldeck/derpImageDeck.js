@@ -970,14 +970,14 @@ app.registerExtension({
                         editorNodeSize: {
                             type: this.UI_TYPES.EDITOR,
                             canvasShield: true,
-                            themeKey: "dialog, t_textSmall",
+                            themeKey: "dialog, t_textSystem",
                             labelAlign: ["center", "middle"],
                             text: `${Math.round(this.size[0])}, ${Math.round(this.size[1])}`,
                             value: `${Math.round(this.size[0])}, ${Math.round(this.size[1])}`,
                             measureText: "9999, 9999",
                             width: "auto",
                             height: "auto",
-                            padding: [pW, 1],
+                            padding: [pW, pH],
                             spacing: [sW, 0],
                             onBlur: (v) => {
                                 const parts = String(v || "").split(/[,\sx]+/);

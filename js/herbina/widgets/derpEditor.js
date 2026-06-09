@@ -11,7 +11,7 @@
  * @param {string} themeKey - Style identifier used to resolve colors and typography from the palette.
  * @param {Array} labelAlign - Horizontal and vertical alignment (e.g., ["left", "top"]).
  * @param {number} alpha - Global transparency override for the editor.
- * @param {boolean} isSysPanel - Internal flag to enable flex-based alignment for system panels.
+ * @param {boolean} isSysPanel - Internal flag identifying system panel hosts.
  * @param {boolean} useCanvasShield - If true, hides the DOM element when not in an 'awake' (editing) state.
  * @param {function} onChange - Callback triggered immediately upon content change.
  * @param {function} onBlur - Callback triggered when the editor loses focus.
@@ -365,7 +365,8 @@ export function syncDerpEditor(context, node, app, config) {
 
     // THE OPTIMIZATION FIX: Move skipBg initialization above the stateHash to prevent ReferenceError.
     const skipBg = safeConfig.skipBackground || false;
-    const stateHash = `${isAwake}_${isHovered}_${node.mode}_${window._xcpDerpSession}_${valStr}_${currentScroll}_${w}_${h}_${skipBg}`;
+    const hashScale = app?.canvas?.ds?.scale || 1;
+    const stateHash = `${isAwake}_${isHovered}_${node.mode}_${window._xcpDerpSession}_${valStr}_${currentScroll}_${w}_${h}_${skipBg}_${safeConfig.labelAlign}_${safeConfig.padding}_${safeConfig.themeKey}_${safeConfig.fontSize}_${safeConfig.fontWeight}_${safeConfig.numberOnly}_${hashScale}`;
     const needsFullSync = node._shouldSync || el._lastStateHash !== stateHash || (el._isAnimating && (window.xcpDerpSettings?.useAnimations !== false));
 
     if (!needsFullSync && el._lastProps) {
@@ -704,17 +705,10 @@ export function syncDerpEditor(context, node, app, config) {
         });
 
         const physicalHeight = h * ds.scale;
-        const isFlex = safeConfig.isSysPanel;
         const [_, alignY] = props.labelAlign || ["left", "middle"];
         if (alignY === "middle") {
-            const nudge = props.numberOnly ? (fontSize * 0.12) : 0;
-            if (isFlex) {
-                const physCenterY = (physicalHeight / 2) - (totalPhysicalTextHeight / 2);
-                var baseRelativeStartY = (physCenterY / ds.scale) + nudge;
-            } else {
-                const physCenterY = (physicalHeight / 2) - (totalPhysicalTextHeight / 2);
-                var baseRelativeStartY = (physCenterY / ds.scale) + nudge;
-            }
+            const physCenterY = (physicalHeight / 2) - (totalPhysicalTextHeight / 2);
+            var baseRelativeStartY = physCenterY / ds.scale;
         } else if (alignY === "bottom") {
             var baseRelativeStartY = h - padY - (totalPhysicalTextHeight / ds.scale);
         } else {
@@ -737,9 +731,6 @@ export function syncDerpEditor(context, node, app, config) {
 
         // THE FIX: Strict Hybrid Gating. Canvas ONLY draws when the widget is asleep.
         if (!isAwake) {
-            if (requestedCanvasShield && !useCanvasShield) {
-                // Canvas shield is intentionally bypassed: HTML is the only visible layer.
-            } else {
             if (sysAlpha <= 0) return;
             // THE SINGLE-KEY FIX: If only one key is present (text theme), skip the background container.
             const themeKeys = String(safeConfig.themeKey || "").split(",").filter(k => k.trim().length > 0);
@@ -756,7 +747,7 @@ export function syncDerpEditor(context, node, app, config) {
                 });
             }
 
-            if (labelPaint && useCanvasShield) {
+            if (labelPaint && requestedCanvasShield) {
                 // THE FIX: Use pre-resolved alignments from the environment instead of calling utility
                 const canvasAlignMap = alignments.canvas;
 
@@ -835,7 +826,6 @@ export function syncDerpEditor(context, node, app, config) {
             }
 
             ctx.restore();
-            }
         }
     }
 
@@ -848,14 +838,15 @@ export function syncDerpEditor(context, node, app, config) {
 
     if (!coords) return; // coords was resolved at the top of syncDerpEditor
 
-    // THE CSS SCALE FIX: Stop resizing the physical width of the HTML container on zoom.
-    // Instead, lock the width/height to base local values and use CSS `transform: scale`.
-    // This forces the browser to calculate text wrapping exactly once, guaranteeing
-    // identical layout across all zoom levels.
+    // Canvas owns asleep editor visuals. DOM remains as the hit/focus surface and
+    // switches back to visible text/background only while editing.
     if (!prefixGlyphText && el._derpEditorWrapper) removeDerpEditorWrapper(el);
     const editorWrapper = prefixGlyphText ? ensureDerpEditorWrapper(el) : null;
     const editorPositionEl = editorWrapper || el;
     const useShieldHost = isCanvas && !useCanvasShield && node.interactionShield;
+    const htmlScale = useShieldHost ? Math.max(ds.scale || 1, 0.0001) : 1;
+    const editorCssWidth = useShieldHost ? (w * htmlScale) : w;
+    const editorCssHeight = useShieldHost ? (h * htmlScale) : h;
     const physL = useShieldHost ? x * ds.scale : Math.round(rect.left + (node.pos[0] + ds.offset[0] + x) * ds.scale);
     const physT = useShieldHost ? y * ds.scale : Math.round(rect.top + (node.pos[1] + ds.offset[1] + y) * ds.scale);
 
@@ -864,7 +855,7 @@ export function syncDerpEditor(context, node, app, config) {
     }
 
     const masterZ = node?._masterZHtml || 10000;
-    const geoKey = `${physL}-${physT}-${w}-${h}-${ds.scale}-${isAwake}-${masterZ}`;
+    const geoKey = `${physL}-${physT}-${editorCssWidth}-${editorCssHeight}-${ds.scale}-${isAwake}-${masterZ}`;
     if (el._lastGeoKey !== geoKey) {
         el._lastGeoKey = geoKey;
         setStyleIfChanged(editorPositionEl, "position", useShieldHost ? "absolute" : "fixed");
@@ -888,41 +879,39 @@ export function syncDerpEditor(context, node, app, config) {
 
         if (isAwake && node.size && shouldExpand) {
             const expandedWidth = node.size[0] - x - padX;
-            setStyleIfChanged(el, "width", `${Math.max(w, expandedWidth)}px`);
+            setStyleIfChanged(el, "width", `${Math.max(editorCssWidth, expandedWidth * htmlScale)}px`);
             el._lastAwakeZ = baseZ + 500;
             setStyleIfChanged(editorPositionEl, "zIndex", String(el._lastAwakeZ));
         } else {
-            setStyleIfChanged(el, "width", `${w}px`);
+            setStyleIfChanged(el, "width", `${editorCssWidth}px`);
             el._lastAwakeZ = null;
             setStyleIfChanged(editorPositionEl, "zIndex", String(baseZ));
         }
         setStyleIfChanged(el, "zIndex", editorWrapper ? "auto" : editorPositionEl.style.zIndex);
-        setStyleIfChanged(el, "height", `${h}px`);
+        setStyleIfChanged(el, "height", `${editorCssHeight}px`);
         if (editorWrapper) {
-            setStyleIfChanged(editorWrapper, "width", `${w}px`);
-            setStyleIfChanged(editorWrapper, "height", `${h}px`);
+            setStyleIfChanged(editorWrapper, "width", `${editorCssWidth}px`);
+            setStyleIfChanged(editorWrapper, "height", `${editorCssHeight}px`);
             setStyleIfChanged(el, "left", "0px");
             setStyleIfChanged(el, "top", "0px");
             setStyleIfChanged(el, "transform", "none");
         }
 
-        // Scale the entire element natively
         setStyleIfChanged(editorPositionEl, "transformOrigin", "0 0");
-        // THE PARITY FIX: Only apply the scale() transform.
-        // Internal padding (finalPadY) handles the vertical centering to match Canvas.
-        setStyleIfChanged(editorPositionEl, "transform", `scale(${ds.scale})`);
+        setStyleIfChanged(editorPositionEl, "transform", useShieldHost ? "none" : `scale(${ds.scale})`);
     }
 
-    // Because we are CSS-scaling, EVERYTHING inside must be in 1x unscaled coordinates
-    
     const scaledFS = fontSize;
     const uiLineHeight = getDerpTextLineHeight(fontSize);
+    const cssFontSize = fontSize * htmlScale;
+    const cssLineHeight = uiLineHeight * htmlScale;
 
-    const isSingleLineMiddle = false;
+    const isSingleLineMiddle = !isMultiline && alignY === "middle";
+    const useSingleLineFlex = isSingleLineMiddle && !prefixGlyphText && alignX === "left";
     const finalPadY = isSingleLineMiddle ? 0 : Math.max(0, baseRelativeStartY);
-    const htmlPadTop = finalPadY;
-    const htmlPadX = textPadX;
-    const htmlPadRight = htmlPadX + cutoffRightPad;
+    const htmlPadTop = finalPadY * htmlScale;
+    const htmlPadX = textPadX * htmlScale;
+    const htmlPadRight = htmlPadX + (cutoffRightPad * htmlScale);
     const syncKey = `${ds.scale}-${effectiveState}-${rawIc}-${rawBg}_${prefixGlyphText}_${prefixGlyphScale}_${prefixGlyphMargin}_${prefixGlyphSpacing}-${valToSync}-${finalPadY}-${htmlPadTop}-${htmlPadX}-${htmlPadRight}-${scaledFS}-${fontWeight}-${isMultiline}-${isAwake}-${safeConfig.btnColor}`;
 
     if (el._lastSyncKey !== syncKey) {
@@ -945,12 +934,12 @@ export function syncDerpEditor(context, node, app, config) {
 
         // THE THEME SYNC FIX: Explicitly bind the resolved layout font metrics to the element
         el.style.fontFamily = font;
-        el.style.fontSize = `${fontSize}px`;
+        el.style.fontSize = `${cssFontSize}px`;
         el.style.fontWeight = fontWeight;
 
         el.style.textAlign = textAnchor ? textAnchor.align : alignX;
-        el.style.display = "block";
-        el.style.alignItems = "";
+        el.style.display = useSingleLineFlex ? "flex" : "block";
+        el.style.alignItems = useSingleLineFlex ? "center" : "";
         el.style.justifyContent = "";
 
         el.style.outline = "none";
@@ -959,7 +948,7 @@ export function syncDerpEditor(context, node, app, config) {
         el.style.padding = isSingleLineMiddle
             ? `0px ${htmlPadRight}px 0px ${htmlPadX}px`
             : `${htmlPadTop}px ${htmlPadRight}px 0px ${htmlPadX}px`;
-        el.style.lineHeight = isSingleLineMiddle ? `${h}px` : `${uiLineHeight}px`;
+        el.style.lineHeight = useSingleLineFlex ? `${cssLineHeight}px` : (isSingleLineMiddle ? `${editorCssHeight}px` : `${cssLineHeight}px`);
         el.style.overflowX = "hidden";
         el.style.overflowY = isMultiline ? "auto" : "hidden";
         el.style.resize = "none";
@@ -977,7 +966,13 @@ export function syncDerpEditor(context, node, app, config) {
 
     // THE FAST-PATH FIX: Apply animated colors inline without expensive theme re-application
     if (el.style.color !== animatedTextColor) el.style.color = animatedTextColor;
-    if (bodyPaint && !skipBg) {
+    const canvasOwnsAsleepVisuals = isCanvas && requestedCanvasShield && !isAwake;
+    if (canvasOwnsAsleepVisuals && bodyPaint && !skipBg) {
+        el.style.backgroundColor = "transparent";
+        el.style.border = "none";
+        el.style.boxShadow = "none";
+        el.style.outline = "none";
+    } else if (bodyPaint && !skipBg) {
         if (el.style.backgroundColor !== animatedFillColor) el.style.backgroundColor = animatedFillColor;
     } else if (skipBg) {
         el.style.backgroundColor = "transparent";
@@ -985,13 +980,9 @@ export function syncDerpEditor(context, node, app, config) {
 
     const baseAlpha = sysAlpha;
 
-    if (safeConfig.isSysPanel) {
-        if (el.style.display !== "flex") el.style.display = "flex";
-        el.style.alignItems = "center";
-        el.style.justifyContent = (alignX === "center") ? "center" : (alignX === "right" ? "flex-end" : "flex-start");
-    } else {
-        el.style.display = "block";
-    }
+    el.style.display = useSingleLineFlex ? "flex" : "block";
+    el.style.alignItems = useSingleLineFlex ? "center" : "";
+    el.style.justifyContent = "";
 
     // Keep PromptBook inline images visually consistent with bypassed IMAGE_HTML previews.
     const imageFilter = isEditorBypassed ? `grayscale(100%) brightness(${BYPASS_BRIGHTNESS})` : "none";
@@ -1007,8 +998,8 @@ export function syncDerpEditor(context, node, app, config) {
     if (isCanvas && useCanvasShield && !isAwake) {
         el.style.display = "none";
     } else {
-        el.style.display = safeConfig.isSysPanel ? "flex" : "block";
-        el.style.opacity = String(baseAlpha);
+        el.style.display = useSingleLineFlex ? "flex" : "block";
+        el.style.opacity = canvasOwnsAsleepVisuals ? "0" : String(baseAlpha);
         el.style.pointerEvents = (effectiveState === "DIS") ? "none" : "auto";
     }
 
