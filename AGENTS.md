@@ -45,6 +45,9 @@ xcp_derp-UI is a ComfyUI custom node pack (v0.7.6) that replaces ComfyUI's defau
 - When framework code changes (e.g., new widget API, theme key parsing, palette resolution), the relevant FRAMEWORK doc must be updated at commit time to reflect the changes.
 - Docs are kept in sync with code � stale docs are a bug.
 
+### CHANGELOG
+- When updating `CHANGELOG.md`, each version (including `[Unreleased]`) must have at most three sections: `### Added`, `### Changed`, `### Fixed`. Do not create duplicate section headers. Merge entries into the existing section of the same name. If a needed section does not exist, add it once.
+
 ### i18n
 - Locale strings in `locales/{lang}.json`. Keep EN and ZH in sync when adding keys.
 
