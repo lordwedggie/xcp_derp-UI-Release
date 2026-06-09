@@ -359,11 +359,11 @@ function resolvePickerTheme(config, node) {
     const resolvedPickerKey = pickerKey || bodyKey;
     const hashPickerPaint = resolvePaintData(node, "#picker", "_OFF");
     const rawListPaint = hashPickerPaint || resolvePaintData(node, resolvedPickerKey, "_OFF") || resolvePaintData(node, bodyKey, "_OFF") || node._panelPaintData_OFF;
-    if (config.searchTab && rawListPaint?.corners?.length >= 4) {
-        rawListPaint.corners = [0, 0, rawListPaint.corners[2], rawListPaint.corners[3]];
-    }
+    const listPaint = (config.searchTab && rawListPaint?.corners?.length >= 4)
+        ? { ...rawListPaint, corners: [0, 0, rawListPaint.corners[2], rawListPaint.corners[3]] }
+        : rawListPaint;
     return {
-        listPaint: rawListPaint,
+        listPaint,
         rowPaintOFF: resolvePaintData(node, textKey, "_OFF") || node._t_textnormalPaintData_OFF,
         rowTextON: resolvePaintData(node, textKey, "_ON") || resolvePaintData(node, textKey, "_OFF") || node._t_textnormalPaintData_OFF,
         rowPaintON: resolvePaintData(node, "#picker_highlight", "_ON") || resolvePaintData(node, bodyKey, "_ON") || node._t_textnormalPaintData_ON,
