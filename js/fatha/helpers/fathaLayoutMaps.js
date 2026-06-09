@@ -571,10 +571,10 @@ export function getPanelBaseMap(hostNode, app, sysState) {
     return {
         sysHeaderRegion: {
             width: "full", height: "auto", dir: "row",
-            margin: [mW, mH, mW, 0],
+            margin: [0, mH, mW, 0],
             padding: [0, 0], spacing: [0, sH],
             lblTheme: {
-                type: UI_TYPES.TEXT,
+                type: UI_TYPES.TEXT, mouseOver: false,
                 themeKey: "t_textSystem",
                 text: "$fatha_layout.theme",
                 width: "auto", height: "auto",
@@ -666,7 +666,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
             dir: "row",
             spacing: [sW, sH],
             width: "full", height: "auto",
-            margin: [mW, sH, mW, 0],
+            margin: [0, sH, mW, 0],
             lblShortcut: {
                 type: UI_TYPES.TEXT,
                 themeKey: "t_textSystem",
@@ -742,7 +742,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
         },
         sysDefaultControlsRegion: {
             anchor: { target: showWarpRegion ? "regionWarp" : "sysHeaderRegion", axis: "y" },
-            dir: "row", margin: [mW, sH, mW, sH],
+            dir: "row", margin: [0, sH, mW, sH],
             padding: [0, 0],
             width: "full", height: "auto",
             btnAutoWidth: {

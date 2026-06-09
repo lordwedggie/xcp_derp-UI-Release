@@ -75,7 +75,7 @@ app.registerExtension({
                                 spacing: [0, sH],
                                 [`labelSeed_${i}`]: i === 0 ? {
                                     type: UI_TYPES.EDITOR, canvasShield: true,
-                                    themeKey: "dialog, t_textSmall", numberOnly: false,
+                                    themeKey: "panel, t_textSmall", numberOnly: false,
                                     text: formatSeedHistoryDisplayText(this._seedAnimStates?.[i] ? this._seedAnimStates[i].text : seed, i),
                                     value: this._seedAnimStates?.[i] ? this._seedAnimStates[i].text : seed.toString(),
                                     alpha: this._seedAnimStates?.[i] ? this._seedAnimStates[i].alpha : 1,
@@ -152,32 +152,34 @@ app.registerExtension({
             const { mW, mH, sW, oX, oY, pW, pH } = this.getDerpVars(this);
             this.sysLayoutMap = {
                 sysCustomRegion: {
-                    anchor: { target: "sysDefaultControlsRegion", axis: "y", offset: oY },
-                    dir: "row", width: "full", height: "auto", margin: [mW, mH],
+                    anchor: { target: "sysDefaultControlsRegion", axis: "y"},
+                    dir: "row", width: "full", height: "auto", margin: [mW, mH, mW, mH],
                     historyCountLabel: {
-                        type: UI_TYPES.TEXT_HTML, text: "History Logs:", themeKey: "t_textsystem",
-                        width: "auto", height: "auto", objectAlign: ["left", "middle"], spacing: [sW, 0],
+                        type: UI_TYPES.TEXT_HTML, text: "History Logs:", themeKey: "t_textsystem", mouseOver: false,
+                        width: "auto", height: "auto", objectAlign: ["left", "middle"], 
                     },
                     historyCount: {
-                        type: UI_TYPES.EDITOR_HTML, themeKey: "dialog, t_textsystem",
-                        width: 30, height: "auto", objectAlign: ["left", "middle"], labelAlign: ["center", "middle"], spacing: [sW, 0],
+                        type: UI_TYPES.EDITOR, themeKey: "dialog, t_textsystem",
+                        canvasShield: true,
+                        paddings: [pW, pH],
+                        width: 20, height: "auto", 
+                        objectAlign: ["left", "middle"], labelAlign: ["center", "middle"], 
                         value: this.properties.seedHistoryLimit || 5,
+                        spacing: [mW, 0],
                         onBlur: (val) => handleHistoryCountBlur(this, val)
                     },
                     digitLabel: {
-                        type: UI_TYPES.TEXT_HTML, text: "Decimals:", themeKey: "t_textsystem",
-                        width: "auto", height: "auto", objectAlign: ["left", "middle"], spacing: [sW, 0],
+                        type: UI_TYPES.TEXT_HTML, text: "Decimals:", themeKey: "t_textsystem", mouseOver: false,
+                        width: "auto", height: "auto", objectAlign: ["left", "middle"], 
                     },
                     digitValue: {
-                        type: UI_TYPES.EDITOR_HTML, themeKey: "dialog, t_textsystem",
-                        width: 30, height: "auto", objectAlign: ["left", "middle"], labelAlign: ["center", "middle"], spacing: [sW, 0],
+                        type: UI_TYPES.EDITOR, themeKey: "dialog, t_textsystem",
+                        measureText: "999", paddings: [pW, pH],
+                        width: 20, height: "auto", objectAlign: ["left", "middle"], labelAlign: ["center", "middle"], spacing: [sW, 0],
                         value: this.properties.seedDigits || 15,
                         text: (this.properties.seedDigits || 15).toString(),
+                        spacing: [sW, 0],
                         onBlur: (val) => handleDigitValueBlur(this, val)
-                    },
-                    luckyLabel: {
-                        type: UI_TYPES.TEXT_HTML, text: "Lucky Num:", themeKey: "t_textsystem",
-                        width: "auto", height: "auto", objectAlign: ["left", "middle"], spacing: [sW, 0],
                     },
                 },
             };

@@ -842,6 +842,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                     width: "auto", height: "auto",
                                     mode: "file",
                                     rootName: "display",
+                                    mouseOver: false,
                                     items: ["Slider", "Top", "None"],
                                     value: this.properties.nameDisplay || "Top",
                                     onChange: (v) => {
