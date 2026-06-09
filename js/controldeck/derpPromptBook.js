@@ -146,7 +146,7 @@ app.registerExtension({
                         liveEditor._lastProps = null;
                         liveEditor._lastMetrics = null;
                         if (document.activeElement !== liveEditor) {
-                            liveEditor.value = editorValue;
+                            liveEditor.innerText = editorValue;
                         }
                     }
                 }
@@ -218,6 +218,7 @@ app.registerExtension({
                     minHeight: 100,
                     editorMain: {
                         type: this.UI_TYPES.EDITOR, multiline: true, noHover: true, canvasShield: true, switchOnEditing: true,
+                        richImageContent: true,
                         themeKey: "dialog, t_textNormal", mouseOver: false, 
                         labelAlign: ["left", "top"], measureText: "MEASURE_RESERVE_FLOOR",
                         width: "full", height: "fill", padding: editorPadding,

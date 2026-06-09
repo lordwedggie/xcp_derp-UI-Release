@@ -20,6 +20,7 @@
  * @param {number} minWidth|minHeight - Minimum dimension constraints for layout calculation.
  * @param {boolean} skipBackground - If true, skips background rendering and draws text only. Default: false.
  * @param {boolean} deferAsleepDomHitTest - If true, asleep DOM pointer hits fall through to layout hit testing.
+ * @param {boolean} richImageContent - If true, syncs DOM content through innerText so PromptBook image embeds survive.
  *  */
 import { app as comfyApp } from "../../../../scripts/app.js";
 import { applyHTMLTheme } from "../masterPainterHTML.js";
@@ -43,6 +44,16 @@ function measureDerpEditorPrefixGlyphWidth(glyphText, fontSize, fontFamily, font
 
 function setStyleIfChanged(el, key, value) {
     if (el && el.style[key] !== value) el.style[key] = value;
+}
+
+function getDerpEditorDomValue(el) {
+    return el?._config?.richImageContent ? el.innerText : el.value;
+}
+
+function setDerpEditorDomValue(el, value) {
+    if (!el) return;
+    if (el._config?.richImageContent) el.innerText = value;
+    else el.value = value;
 }
 
 function ensureDerpEditorWrapper(el) {
@@ -186,7 +197,7 @@ export function createDerpEditorHTML(callbacks = {}) {
                 e.preventDefault();
                 const originalValue = el._editStartValue ?? "";
                 el._cancelEdit = true;
-                el.value = originalValue;
+                setDerpEditorDomValue(el, originalValue);
                 if (el._config) {
                     el._config.value = originalValue;
                     el._config.text = originalValue;
@@ -217,7 +228,7 @@ export function createDerpEditorHTML(callbacks = {}) {
         if (e.stopImmediatePropagation) e.stopImmediatePropagation();
     });
     el.addEventListener("input", () => {
-        const nextValue = el.value;
+        const nextValue = getDerpEditorDomValue(el);
         if (el._config) {
             el._config.value = nextValue;
             el._config.text = nextValue;
@@ -229,7 +240,7 @@ export function createDerpEditorHTML(callbacks = {}) {
 
     el.addEventListener("focus", () => {
         el._isAwake = true;
-        el._editStartValue = el.value;
+        el._editStartValue = getDerpEditorDomValue(el);
         el._cancelEdit = false;
         if (el._nodeRef) {
             el._nodeRef._derpAwakeFrames = 10;
@@ -260,7 +271,7 @@ export function createDerpEditorHTML(callbacks = {}) {
     });
 
     el.addEventListener("blur", () => {
-        const finalValue = el._cancelEdit ? (el._editStartValue ?? "") : el.value;
+        const finalValue = el._cancelEdit ? (el._editStartValue ?? "") : getDerpEditorDomValue(el);
         el._isAwake = false;
         if (el._config) {
             el._config.value = finalValue;
@@ -1037,8 +1048,8 @@ export function syncDerpEditor(context, node, app, config) {
         }
     }
 
-    if (!isAwake && document.activeElement !== el && domVal !== undefined && el.value !== domVal) {
-        el.value = domVal;
+    if (!isAwake && document.activeElement !== el && domVal !== undefined && getDerpEditorDomValue(el) !== domVal) {
+        setDerpEditorDomValue(el, domVal);
     }
 
     // THE SCROLL FIX: Only force the HTML element to match the node's scroll state

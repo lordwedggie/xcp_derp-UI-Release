@@ -27,6 +27,10 @@ All notable changes to this project will be documented in this file.
 - **Palette effects are now opt-in per-toggle**: Palette entries no longer auto-hydrate missing `shadow`/`stroke`/`glow` effect keys with defaults. The Palette Manager's effect toggles now create default entries only when explicitly enabled; disabling a toggle omits that effect on save. `_defaultTheme.json` no longer carries auto-generated defaults.
 - **derpImageDeck toggleAutoFit now locks the node at its current size**: Toggling auto-fit off now snapshots the current dimensions into `nodeSize`, clears the pinned anchor, and blocks `resizeNodeToImageAspect` from snapping to image dimensions. The deck stays put until you toggle auto-fit back on — no more phantom snapping after you've deliberately set a size.
 
+
+### Fixed
+
+- **derpPromptBook embedded images lost on edit**: Editors in PromptBook use `contentEditable` with inline `<img>` tags for embedded images. Using `textContent` (the default for non-`richImageContent` editors) stripped image HTML when entering/exiting editing mode. New `richImageContent` config flag switches the editor to `innerText`-based DOM sync via `getDerpEditorDomValue`/`setDerpEditorDomValue` helpers, preserving image embeds through focus/blur/escape transitions.
 ### Removed
 - **Legacy xcpDerpLoraLoader registration**: Removed from `__init__.py` — fully replaced by `derpLoraStack`. Stripped dead API routes (`get_civitai_url`, `fetch_lora_tags`, `open_lora_folder`, `open_lora_file_location`) from `xcpDerpLoraLoader.py` — these endpoints are now served by `xcp_file_server.py`. Cleaned unused imports. CATEGORY updated from `xcpDerpNodes` to `xcp_derp-UI`.
 
