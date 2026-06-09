@@ -14,7 +14,8 @@ import {
     handleExecutePress,
     handleStopPress,
     handleHistoryCountBlur,
-    handleDigitValueBlur
+    handleDigitValueBlur,
+    formatSeedHistoryDisplayText
 } from "./core/derpSeedV2_core.js";
 
 app.registerExtension({
@@ -75,7 +76,7 @@ app.registerExtension({
                                 [`labelSeed_${i}`]: i === 0 ? {
                                     type: UI_TYPES.EDITOR, canvasShield: true,
                                     themeKey: "dialog, t_textSmall", numberOnly: false,
-                                    text: this._seedAnimStates?.[i] ? this._seedAnimStates[i].text : seed.toString(),
+                                    text: formatSeedHistoryDisplayText(this._seedAnimStates?.[i] ? this._seedAnimStates[i].text : seed, i),
                                     value: this._seedAnimStates?.[i] ? this._seedAnimStates[i].text : seed.toString(),
                                     alpha: this._seedAnimStates?.[i] ? this._seedAnimStates[i].alpha : 1,
                                     measureText: [measurementStr],
@@ -110,7 +111,7 @@ app.registerExtension({
                             type: UI_TYPES.BUTTON,
                             themeKey: "button, t_textSmall", measureText: "Increment",
                             state: this._comfyIsBusy ? "DIS" : "OFF",
-                            text: this.properties.seedMode || "Random",
+                            text: `{{t_text_warning::${this.properties.seedMode || "Random"}}}`,
                             noHover: false, width: "full", height: "auto", padding: [pW, pH], spacing: [sW, sH],
                             objectAlign: ["left", "top"], labelAlign: ["center", "middle"],
                             onPress: () => handleModeControlPress(this)
@@ -118,6 +119,7 @@ app.registerExtension({
                         btnExecute: {
                             type: UI_TYPES.ICONBUTTON,
                             themeKey: "button, t_textNormal",
+                            iconColorKey: "t_text_accent",
                             state: this._comfyIsBusy ? "DIS" : "OFF",
                             noHover: false, noFilter: true,
                             icon: "play", width: "full", height: "fill", padding: [pW, pH], spacing: [0, sH],
@@ -127,6 +129,7 @@ app.registerExtension({
                         btnStop: {
                             type: UI_TYPES.ICONBUTTON,
                             themeKey: "button, t_textBig",
+                            iconColorKey: "t_text_error",
                             state: this._comfyIsBusy ? "OFF" : "DIS",
                             noHover: false,
                             icon: "stop", width: "full", height: "auto", padding: [pW, pH],

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Herbina Master Widgets Utils | Path: ./Herbina/utils/widgetsUtils.js
  */
 

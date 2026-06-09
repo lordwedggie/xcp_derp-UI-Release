@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+
+- **ICONBUTTON `iconColorKey` parameter**: New `iconColorKey` config property for icon buttons that accepts a palette/theme string color key (e.g., `"t_text_accent"`, `"t_text_error"`). Resolves the key through the full `{{}}` token pipeline (`parseColorKeyText` → `resolveColorKey`) with proper state suffix, effects (shadow/glow), and cache hash integration. Both HTML and canvas rendering paths supported.
+- **derpEditor color-key text support**: Editor DOM now renders `{{keyName}}` color-key markup when not in editing mode, preserving palette-colored text display. `syncDerpEditorDomContent` uses `colorSegmentsToHTML` with per-segment text shadows. Raw/visible value tracking added for proper focus/blur transitions without losing markup.
+- **derpSeedV2 color-key highlighting**: Active seed value uses `formatSeedHistoryDisplayText` wrapping in `{{t_text_highlight}}` tokens for the editor widget. `btnSeedControl` mode text uses `{{t_text_warning}}` color key. Execute button (▶) uses `iconColorKey: "t_text_accent"`. Stop button (⏹) uses `iconColorKey: "t_text_error"`.
+
+### Changed
+- **derpImageDeck system panel**: Option row margins tightened, `lblInfo` hidden.
 - **Framework color-key string palette support**: Fatha/Uncle nodes now attach a per-node string palette context for color-key text, defaulting to `_system/_defaultTheme.json`; `derpSignalOut` face labels now use `t_text_warning` (signal names), `t_text_accent` (node IDs), `t_text_highlight` (signal types), and `t_text_error` (orphaned signals) segments. Orphaned signal rows and the signal picker both use color-key labels. LoRA trigger dropdown items use `t_text_highlight` for trigger names.
 - **Color-key text state pulsing**: `btnSimple` now supports `pulseStates`, `pulseFromState`, and `pulseToState` config — when enabled, color-key text is parsed in both states and each segment's color is interpolated via `getPulsedColor`, producing animated per-segment pulsing between two palette states. Works for both canvas and HTML rendering.
 - **Loader node registration**: `DerpLoraStack`, `DerpModelLoader`, `DerpDiffusionLoader`, and `DerpVaeLoader` now registered as loader nodes (`🔞 derpNodes/Loaders` category) alongside existing `derpSamplerLoader` and `derpSchedulerLoader`, so ComfyUI's loader menus pick them all up.
@@ -46,6 +53,13 @@ All notable changes to this project will be documented in this file.
 ## [0.7.5] - 2026-06-06
 
 ### Added
+
+- **ICONBUTTON `iconColorKey` parameter**: New `iconColorKey` config property for icon buttons that accepts a palette/theme string color key (e.g., `"t_text_accent"`, `"t_text_error"`). Resolves the key through the full `{{}}` token pipeline (`parseColorKeyText` → `resolveColorKey`) with proper state suffix, effects (shadow/glow), and cache hash integration. Both HTML and canvas rendering paths supported.
+- **derpEditor color-key text support**: Editor DOM now renders `{{keyName}}` color-key markup when not in editing mode, preserving palette-colored text display. `syncDerpEditorDomContent` uses `colorSegmentsToHTML` with per-segment text shadows. Raw/visible value tracking added for proper focus/blur transitions without losing markup.
+- **derpSeedV2 color-key highlighting**: Active seed value uses `formatSeedHistoryDisplayText` wrapping in `{{t_text_highlight}}` tokens for the editor widget. `btnSeedControl` mode text uses `{{t_text_warning}}` color key. Execute button (▶) uses `iconColorKey: "t_text_accent"`. Stop button (⏹) uses `iconColorKey: "t_text_error"`.
+
+### Changed
+- **derpImageDeck system panel**: Option row margins tightened, `lblInfo` hidden.
 - **Added ZIT samplers profile for derpSamplerLoader**
 - **NE_Full_v01 palette**: Bright/neutral full palette with header and canvas entries for all loader nodes, scaled ~1.6× from the dark variant for readability on neutral themes.
 - **Canvas support for attached theme palettes**: Nodes can now have automatically applied header and body colors by node type (derp nodes only).
@@ -65,6 +79,13 @@ All notable changes to this project will be documented in this file.
 ## [0.7.4] - 2026-06-05
 
 ### Added
+
+- **ICONBUTTON `iconColorKey` parameter**: New `iconColorKey` config property for icon buttons that accepts a palette/theme string color key (e.g., `"t_text_accent"`, `"t_text_error"`). Resolves the key through the full `{{}}` token pipeline (`parseColorKeyText` → `resolveColorKey`) with proper state suffix, effects (shadow/glow), and cache hash integration. Both HTML and canvas rendering paths supported.
+- **derpEditor color-key text support**: Editor DOM now renders `{{keyName}}` color-key markup when not in editing mode, preserving palette-colored text display. `syncDerpEditorDomContent` uses `colorSegmentsToHTML` with per-segment text shadows. Raw/visible value tracking added for proper focus/blur transitions without losing markup.
+- **derpSeedV2 color-key highlighting**: Active seed value uses `formatSeedHistoryDisplayText` wrapping in `{{t_text_highlight}}` tokens for the editor widget. `btnSeedControl` mode text uses `{{t_text_warning}}` color key. Execute button (▶) uses `iconColorKey: "t_text_accent"`. Stop button (⏹) uses `iconColorKey: "t_text_error"`.
+
+### Changed
+- **derpImageDeck system panel**: Option row margins tightened, `lblInfo` hidden.
 - **Canvas Color Palettes**: ComfyUI's Color Palette system, now with easier loading — just pick a profile and go. Two default profiles included. No more spelunking through nested menus just to change the damn grid color.
 - **DerpNodes is now compatible with Node 2.0**: Full compatibility with ComfyUI's Vue-based Node 2.0 rendering — DOM shields, event pass-through, and native shell suppression all adapted for the new architecture.
 - **Multi-Color-Key Text Framework**: Every widget now supports `{{keyName}}` syntax in text strings for per-segment color from themes or palettes. Extended syntax supports `{{key:_ON::displayText}}` for state-specific coloring with custom display text. Framework-level — all widgets inherit automatically via `resolveWidgetEnv`.
@@ -93,6 +114,13 @@ All notable changes to this project will be documented in this file.
 ## [1.0.1] - 2026-05-24
 
 ### Added
+
+- **ICONBUTTON `iconColorKey` parameter**: New `iconColorKey` config property for icon buttons that accepts a palette/theme string color key (e.g., `"t_text_accent"`, `"t_text_error"`). Resolves the key through the full `{{}}` token pipeline (`parseColorKeyText` → `resolveColorKey`) with proper state suffix, effects (shadow/glow), and cache hash integration. Both HTML and canvas rendering paths supported.
+- **derpEditor color-key text support**: Editor DOM now renders `{{keyName}}` color-key markup when not in editing mode, preserving palette-colored text display. `syncDerpEditorDomContent` uses `colorSegmentsToHTML` with per-segment text shadows. Raw/visible value tracking added for proper focus/blur transitions without losing markup.
+- **derpSeedV2 color-key highlighting**: Active seed value uses `formatSeedHistoryDisplayText` wrapping in `{{t_text_highlight}}` tokens for the editor widget. `btnSeedControl` mode text uses `{{t_text_warning}}` color key. Execute button (▶) uses `iconColorKey: "t_text_accent"`. Stop button (⏹) uses `iconColorKey: "t_text_error"`.
+
+### Changed
+- **derpImageDeck system panel**: Option row margins tightened, `lblInfo` hidden.
 - **i18n**: Full UI translations for English, Chinese, and Russian across all widgets, system messages, and confirmation dialogs.
 - **Tooltips**: Widget tooltips via `toolTip` property in layout maps, supported across the UI framework.
 - **Prompt Book**: Trigger-style clean button for resetting new prompt-book pages.

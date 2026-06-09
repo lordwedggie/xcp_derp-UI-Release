@@ -1,10 +1,11 @@
-/**
+﻿/**
  * Specialist: ./herbina/widgets/btnIcon.js
  * PURPOSE: Emoji-based icons for high-visibility IDE aesthetics.
  * STATUS: PROTOCOL COMPLIANT
  * * ACCEPTED PARAMETERS:
  * @param {string} icon - The key from ICON_MAP (e.g., "add", "save", "power").
  * @param {number} iconIndex - For array-based icons, selects the specific symbol (default: 0).
+ * @param {string} iconColorKey - Palette/string color key used to color the icon glyph.
  * @param {string} btnColor - Hardcoded background color override.
  * @param {string} labelColor - Hardcoded icon/text color override.
  * @param {string} state - Force a specific state: "DIS" (disabled), "OFF", "ON".
@@ -34,6 +35,8 @@ import {
     getWidgetCallbacks,
     getAlignmentMaps,
     resolvePaletteEntry,
+    colorSegmentsToHTML,
+    parseColorKeyText,
     compileAnimatedPaint
 } from "../utils/widgetsUtils.js";
 
@@ -78,6 +81,45 @@ const ICON_MAP = {
     // ⌕, 👁, 🎚, 🗁, 🗀, 🗂, 
 };
 
+function resolveBtnIconGlyph(config = {}) {
+    const lookup = String(config.icon || "fallback").toLowerCase();
+    const iconEntry = ICON_MAP[lookup];
+    if (Array.isArray(iconEntry)) {
+        const idx = config.iconIndex !== undefined ? config.iconIndex : 0;
+        return iconEntry[idx] ?? "";
+    }
+    return iconEntry || ICON_MAP.fallback;
+}
+
+function resolveBtnIconColorSegments(node, config, stateSuffix, fallbackColor, glyph) {
+    const keyName = String(config.iconColorKey || "").trim();
+    if (!keyName || !glyph) return null;
+    const colorText = `{{${keyName}:${stateSuffix}::${glyph}}}`;
+    const { segments, hasColorKeys } = parseColorKeyText(colorText, node, stateSuffix, fallbackColor, config.stringPalette);
+    return hasColorKeys ? segments : null;
+}
+
+function buildBtnIconTextShadow(segment, paintData) {
+    if (!segment || !paintData) return "";
+    const shadows = [];
+    const addEffect = (name) => {
+        const baseEffect = paintData[name];
+        const effectColor = segment.effects ? segment.effects[name] : baseEffect?.color;
+        if (!baseEffect || !effectColor) return;
+        shadows.push(`${baseEffect.offsetX || 0}px ${baseEffect.offsetY || 0}px ${baseEffect.blur || 0}px ${effectColor}`);
+    };
+    addEffect("shadow");
+    addEffect("glow");
+    return shadows.join(", ");
+}
+
+function getBtnIconColorKeyStatus(node, config) {
+    const keyName = String(config.iconColorKey || "").trim();
+    if (!keyName) return "";
+    const palettePath = config.stringPalette?.path || node?._derpStringPalette?.path || node?.hostNode?._derpStringPalette?.path || node?.properties?._derpStringPalette?.path || node?.hostNode?.properties?._derpStringPalette?.path;
+    return palettePath ? `${keyName}:${!!resolvePaletteEntry(node, palettePath, keyName)}` : keyName;
+}
+
 /**
  * HTML Constructor
  */
@@ -96,12 +138,7 @@ export function createBtnIcon(callbacks = {}, iconName = "fallback") {
     el.style.userSelect = "none";
 
     const lookup = String(iconName).toLowerCase();
-    const iconEntry = ICON_MAP[lookup];
-    if (Array.isArray(iconEntry)) {
-        el.innerText = iconEntry[callbacks.iconIndex || 0] || "";
-    } else {
-        el.innerText = iconEntry || ICON_MAP.fallback;
-    }
+    el.innerText = resolveBtnIconGlyph({ ...callbacks, icon: iconName });
     el.dataset.icon = lookup;
 
     el.dataset.isHovered = "false";
@@ -180,7 +217,8 @@ export function syncBtnIconHTML(el, node, app, config) {
     // THE FAST-HASH GATING: Only resolve theme and recalculate animations if the interactive state,
     // bypass mode, or global session has changed.
     const palStatus = config.palette ? !!resolvePaletteEntry(node, config.palette.path, config.palette.entry || config.key) : false;
-    const stateHash = `${activeState}_${isPressed}_${isHovered}_${node.mode}_${window._xcpDerpSession}_${config.iconIndex || 0}_${config.icon}_${config.btnColor || ""}_${palStatus}_${config.alpha ?? 1}`;
+    const iconColorKeyStatus = getBtnIconColorKeyStatus(node, config);
+    const stateHash = `${activeState}_${isPressed}_${isHovered}_${node.mode}_${window._xcpDerpSession}_${config.iconIndex || 0}_${config.icon}_${config.btnColor || ""}_${config.iconColorKey || ""}_${iconColorKeyStatus}_${palStatus}_${config.alpha ?? 1}`;
     const needsFullSync = node._shouldSync || el._lastStateHash !== stateHash || (el._isAnimating && (node.properties?.useAnimations !== false));
 
     if (!needsFullSync && el._lastProps) {
@@ -225,14 +263,7 @@ export function syncBtnIconHTML(el, node, app, config) {
     // THE FIX: Padding is handled by geometry now. CSS padding shifts the flexbox center.
     el.style.padding = "0px";
 
-    const lookup = String(config.icon || "fallback").toLowerCase();
-    const iconEntry = ICON_MAP[lookup];
-    if (Array.isArray(iconEntry)) {
-        const idx = config.iconIndex !== undefined ? config.iconIndex : 0;
-        el.innerText = iconEntry[idx] ?? "";
-    } else {
-        el.innerText = iconEntry || ICON_MAP.fallback;
-    }
+    const glyph = resolveBtnIconGlyph(config);
 
     // THE FIX: HTML Centralized Animation Implementation
     // THE FIX: HTML Centralized Animation Implementation
@@ -271,6 +302,7 @@ export function syncBtnIconHTML(el, node, app, config) {
 
         const { fillColor, iconColor, isAnimating } = animateWidgetColors(node, animKey, rawBg, rawIc, alpha, useAnim);
         el._isAnimating = isAnimating;
+        const iconColorSegments = resolveBtnIconColorSegments(node, config, `_${activeState}`, iconColor, glyph);
 
         if (useAnim && isAnimating) {
             if (node._derpAwakeFrames !== undefined) node._derpAwakeFrames = 2;
@@ -281,6 +313,18 @@ export function syncBtnIconHTML(el, node, app, config) {
 
         // 1. Apply theme FIRST so it doesn't overwrite our custom font math below
         applyHTMLTheme(el, animatedPaint, coords.scale);
+
+        const iconPaint = { ...labelPaint, fill: iconColor, textColor: iconColor };
+        const iconHTML = iconColorSegments
+            ? colorSegmentsToHTML(iconColorSegments, iconColor, {
+                getTextShadow: (segment) => buildBtnIconTextShadow(segment, iconPaint)
+            })
+            : null;
+        if (iconHTML !== null) {
+            if (el.innerHTML !== iconHTML) el.innerHTML = iconHTML;
+        } else if (el.innerText !== glyph) {
+            el.innerText = glyph;
+        }
 
         // 2. THE PARITY FIX: Match Canvas sizing math exactly.
         // 2. THE PARITY FIX: Match Canvas sizing math exactly.
@@ -336,7 +380,8 @@ export function syncBtnIcon(ctx, node, config) {
     // THE FAST-HASH GATING: Reuse resolved theme properties if the button's visual state is static.
     // THE PALETTE HASH FIX: Include palette load status so the cache busts when the async fetch completes.
     const palStatus = config.palette ? !!resolvePaletteEntry(node, config.palette.path, config.palette.entry || config.key) : false;
-    const stateHash = `${activeState}_${isPressed}_${isHovered}_${node.mode}_${window._xcpDerpSession}_${config.iconIndex || 0}_${config.icon}_${config.btnColor || ""}_${palStatus}_${config.alpha ?? 1}`;
+    const iconColorKeyStatus = getBtnIconColorKeyStatus(node, config);
+    const stateHash = `${activeState}_${isPressed}_${isHovered}_${node.mode}_${window._xcpDerpSession}_${config.iconIndex || 0}_${config.icon}_${config.btnColor || ""}_${config.iconColorKey || ""}_${iconColorKeyStatus}_${palStatus}_${config.alpha ?? 1}`;
     const cache = node._btnCache || (node._btnCache = {});
     const itemCache = cache[config.key] || (cache[config.key] = {});
 
@@ -413,10 +458,8 @@ export function syncBtnIcon(ctx, node, config) {
         });
     }
 
-    const lookup = String(config.icon || "fallback").toLowerCase();
-    const iconEntry = ICON_MAP[lookup];
-    const idx = config.iconIndex !== undefined ? config.iconIndex : 0;
-    const symbol = Array.isArray(iconEntry) ? (iconEntry[idx] ?? "") : (iconEntry || ICON_MAP.fallback);
+    const symbol = resolveBtnIconGlyph(config);
+    const iconColorSegments = resolveBtnIconColorSegments(node, config, `_${state}`, iconColor, symbol);
 
     // Text Geometry
     const padW = (props.padding ? props.padding[0] * 2 : 0);
@@ -447,7 +490,8 @@ export function syncBtnIcon(ctx, node, config) {
             fontSize: fontSize,
             fontWeight: props.fontWeight || labelPaint?.fontWeight || "normal",
             fill: iconColor
-        }
+        },
+        segments: iconColorSegments
     });
 
     if (alpha < 1) ctx.restore();

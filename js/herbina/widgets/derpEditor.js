@@ -26,9 +26,12 @@ import { masterPainter, masterPainterText } from "../masterPainter.js";
 import { toRGBA } from "../utils/colorMath.js";
 import {
     resolveWidgetEnv,
+    buildColorSegmentTextShadow,
+    colorSegmentsToHTML,
     getNextZIndex,
     measureTextWidth,
     getDerpTextLineHeight,
+    parseColorKeyText,
     snapToScreenGrid
 } from "../utils/widgetsUtils.js";
 import { animateWidgetColors } from "../masterAnimator.js";
@@ -43,6 +46,31 @@ function measureDerpEditorPrefixGlyphWidth(glyphText, fontSize, fontFamily, font
 
 function setStyleIfChanged(el, key, value) {
     if (el && el.style[key] !== value) el.style[key] = value;
+}
+
+function getDerpEditorVisibleText(value) {
+    return String(value || "").replace(/\{\{([a-zA-Z0-9_]+)(?::(_[A-Z]+))?(?:::([^}]*))?\}\}/g, (match, keyName, stateSuffix, displayText) => {
+        return displayText !== undefined ? displayText : match;
+    });
+}
+
+function syncDerpEditorDomContent(el, rawValue, visibleValue, options = {}) {
+    if (!el || document.activeElement === el || el._isAwake) return;
+    const useColorKeys = options.hasColorKeys && options.segments;
+    if (useColorKeys) {
+        const html = colorSegmentsToHTML(options.segments, options.fallbackColor, {
+            getTextShadow: (segment) => buildColorSegmentTextShadow(segment, options.paintData, 1)
+        });
+        if (el._lastDerpColorKeyHTML !== html || el.innerHTML !== html) {
+            el.innerHTML = html;
+            el._lastDerpColorKeyHTML = html;
+        }
+        el._derpEditorRawValue = rawValue;
+        return;
+    }
+    el._lastDerpColorKeyHTML = null;
+    if (el.value !== visibleValue) el.value = visibleValue;
+    el._derpEditorRawValue = rawValue;
 }
 
 function ensureDerpEditorWrapper(el) {
@@ -217,6 +245,7 @@ export function createDerpEditorHTML(callbacks = {}) {
         if (e.stopImmediatePropagation) e.stopImmediatePropagation();
     });
     el.addEventListener("input", () => {
+        el._derpEditorDidInput = true;
         const nextValue = el.value;
         if (el._config) {
             el._config.value = nextValue;
@@ -229,8 +258,12 @@ export function createDerpEditorHTML(callbacks = {}) {
 
     el.addEventListener("focus", () => {
         el._isAwake = true;
-        el._editStartValue = el.value;
+        el._editStartValue = el._derpEditorRawValue ?? el.value;
+        el._derpEditorDidInput = false;
         el._cancelEdit = false;
+        if (el._derpEditorRawValue !== undefined) {
+            el.value = getDerpEditorVisibleText(el._derpEditorRawValue);
+        }
         if (el._nodeRef) {
             el._nodeRef._derpAwakeFrames = 10;
             if (el._nodeRef.requestDerpSync) el._nodeRef.requestDerpSync();
@@ -260,7 +293,7 @@ export function createDerpEditorHTML(callbacks = {}) {
     });
 
     el.addEventListener("blur", () => {
-        const finalValue = el._cancelEdit ? (el._editStartValue ?? "") : el.value;
+        const finalValue = (el._cancelEdit || !el._derpEditorDidInput) ? (el._editStartValue ?? "") : el.value;
         el._isAwake = false;
         if (el._config) {
             el._config.value = finalValue;
@@ -269,6 +302,7 @@ export function createDerpEditorHTML(callbacks = {}) {
         const cb = el._config?.onBlur || callbacks.onBlur;
         if (cb) cb(finalValue);
         el._cancelEdit = false;
+        el._derpEditorDidInput = false;
         if (el._nodeRef) {
             el._nodeRef._derpAwakeFrames = 5;
             if (el._nodeRef.requestDerpSync) el._nodeRef.requestDerpSync();
@@ -425,8 +459,7 @@ export function syncDerpEditor(context, node, app, config) {
         displayVal = node.properties?.[safeConfig.propertyName] ?? "";
     }
     const valToSync = (displayVal !== undefined ? displayVal : "").toString().replace(/\r/g, "");
-    // Strip {{}} color-key syntax for DOM display (canvas handles colors via segments)
-    const domVal = valToSync.replace(/\{\{[^}]+\}\}/g, "");
+    const domVal = getDerpEditorVisibleText(valToSync);
     if (isCanvas && node.layout?.regions?.[safeConfig.key]) {
         const liveReg = node.layout.regions[safeConfig.key];
 
@@ -549,6 +582,9 @@ export function syncDerpEditor(context, node, app, config) {
     const { fillColor: animatedFillColor, iconColor: animatedTextColor, isAnimating } = animateWidgetColors(node, animKey, rawBg, rawIc, sysAlpha, useAnim);
     el._isAnimating = isAnimating;
     let textColor = animatedTextColor;
+    const domColorData = parseColorKeyText(valToSync, node, effectiveState, animatedTextColor);
+    const domColorSegments = domColorData.hasColorKeys ? domColorData.segments : null;
+    const domColorKeyHash = domColorSegments ? JSON.stringify(domColorSegments) : "";
 
     // THE AWAKE GATE: Ensure framework identifies active color transitions
     if (isAnimating && node) node._derpAwakeFrames = 5;
@@ -902,7 +938,7 @@ export function syncDerpEditor(context, node, app, config) {
     const htmlPadTop = finalPadY + editBaselineNudge;
     const htmlPadX = textPadX;
     const htmlPadRight = htmlPadX + cutoffRightPad;
-    const syncKey = `${ds.scale}-${effectiveState}-${rawIc}-${rawBg}_${prefixGlyphText}_${prefixGlyphScale}_${prefixGlyphMargin}_${prefixGlyphSpacing}-${valToSync}-${finalPadY}-${htmlPadTop}-${htmlPadX}-${htmlPadRight}-${scaledFS}-${fontWeight}-${isMultiline}-${isAwake}-${safeConfig.btnColor}`;
+    const syncKey = `${ds.scale}-${effectiveState}-${rawIc}-${rawBg}_${prefixGlyphText}_${prefixGlyphScale}_${prefixGlyphMargin}_${prefixGlyphSpacing}-${valToSync}-${domColorKeyHash}-${finalPadY}-${htmlPadTop}-${htmlPadX}-${htmlPadRight}-${scaledFS}-${fontWeight}-${isMultiline}-${isAwake}-${safeConfig.btnColor}`;
 
     if (el._lastSyncKey !== syncKey) {
         el._lastSyncKey = syncKey;
@@ -1021,9 +1057,12 @@ export function syncDerpEditor(context, node, app, config) {
         }
     }
 
-    if (!isAwake && document.activeElement !== el && domVal !== undefined && el.value !== domVal) {
-        el.value = domVal;
-    }
+    syncDerpEditorDomContent(el, valToSync, domVal, {
+        hasColorKeys: domColorData.hasColorKeys,
+        segments: domColorSegments,
+        fallbackColor: animatedTextColor,
+        paintData: labelPaint,
+    });
 
     // THE SCROLL FIX: Only force the HTML element to match the node's scroll state
     // when NOT awake to avoid fighting the user's manual scrolling.

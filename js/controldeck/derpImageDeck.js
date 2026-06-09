@@ -937,7 +937,7 @@ app.registerExtension({
 
         nodeType.prototype.refreshDerpImageDeckSysMap = function() {
             const vars = this.getDerpVars(this);
-            const mW = vars.mW, mH = vars.mH, oY = vars.oY, pW = vars.pW, pH = vars.pH, sW = vars.sW;
+            const mW = vars.mW, mH = vars.mH, oY = vars.oY, pW = vars.pW, pH = vars.pH, sW = vars.sW, sH = vars.sH;
             this.sysLayoutMap = {
                 sysContentRegion: {
                     dir: "col",
@@ -946,7 +946,7 @@ app.registerExtension({
                     margin: [mW, 0, mW, mH],
                     anchor: { target: "sysDefaultControlsRegion", axis: "y", offset: oY },
                     lblInfo: {
-                        type: this.UI_TYPES.TEXT,
+                        type: this.UI_TYPES.TEXT, hidden: true,
                         mouseOver: false,
                         themeKey: "t_textsystem",
                         labelAlign: ["left", "middle"],
@@ -955,12 +955,10 @@ app.registerExtension({
                         padding: [pW, pH],
                     },
                     regionOption1: {
-                        dir: "row",
-                        width: "full",
-                        height: "auto",
-                        spacing: [sW, 0],
+                        dir: "row", margin: [0, mH, 0, sH],
+                        width: "full", height: "auto",                        
                         lblNodeSize: {
-                            type: this.UI_TYPES.TEXT,
+                            type: this.UI_TYPES.TEXT, 
                             mouseOver: false,
                             themeKey: "t_textSystem",
                             labelAlign: ["left", "middle"],
@@ -1075,7 +1073,7 @@ app.registerExtension({
                     },
 
                     regionOption2: {
-                        anchor: { target: "regionOption1", axis: "y", offset: oY },
+                        anchor: { target: "regionOption1", axis: "y"},
                         dir: "row",
                         width: "full",
                         height: "auto",

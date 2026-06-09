@@ -13,6 +13,11 @@ export const SEED_FADE_SPEED = 0.6;
 export const SEED_FADE_DELAY_FRAMES = 5;
 export const SEED_VOLUME_DECAY = 0.10; // 20% volume reduction per subsequent line
 
+export const formatSeedHistoryDisplayText = (seed, index) => {
+    const seedText = seed?.toString() ?? "";
+    return index === 0 ? `{{t_text_highlight::${seedText}}}` : seedText;
+};
+
 const refreshSeedState = (node) => {
     // THE UNCLE FIX: Delegate slot suppression to the prototype helper
     node.suppressDefaultWidgets();
@@ -125,7 +130,7 @@ export const syncHistoryToLayout = (node, affectedIndex = -1, forceSnap = false)
 
             const row = dynamic[`rowSeed_${i}`];
             if (row && row[`labelSeed_${i}`]) {
-                row[`labelSeed_${i}`].text = newVal;
+                row[`labelSeed_${i}`].text = formatSeedHistoryDisplayText(newVal, i);
                 row[`labelSeed_${i}`].alpha = 1;
                 if (i === 0) row[`labelSeed_${0}`].value = newVal;
             }
