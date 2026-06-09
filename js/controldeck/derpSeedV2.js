@@ -5,6 +5,7 @@
 import { app } from "../../../../scripts/app.js";
 import { uncle, initDerpGlobalListener } from "../fatha/uncle.js";
 import { UI_TYPES } from "../fatha/core/masterLayoutTypes.js";
+import { parseColorKeyText } from "../herbina/utils/widgetsUtils.js";
 import {
     attachDerpSeedLogic,
     handleSeedInput,
@@ -56,7 +57,13 @@ app.registerExtension({
             const measurementStr = "9".repeat(digits);
 
             const history = this.properties.seedHistory || [];
-
+            const _highlight = parseColorKeyText("{{t_text_highlight:::_}}", this, "_OFF");
+            const highlightColor = _highlight.segments?.[0]?.color;
+            const useColorKeys = this.properties.toggleColorKey !== false;
+            const seedDisplayText = (seed, index) => {
+                const rawText = seed?.toString() ?? "";
+                return useColorKeys ? formatSeedHistoryDisplayText(rawText, index) : rawText;
+            };
             this.layoutMap = {
                 mainRow: {
                     // THE ANCHOR FIX: Apply oY offset to ensure content starts below the header, stabilizing anchor coordinates
@@ -74,9 +81,10 @@ app.registerExtension({
                                 height: "auto",
                                 spacing: [0, sH],
                                 [`labelSeed_${i}`]: i === 0 ? {
-                                    type: UI_TYPES.EDITOR, canvasShield: false,
+                                    type: UI_TYPES.EDITOR, canvasShield: true,
+                                    labelColor: useColorKeys ? highlightColor : undefined,
                                     themeKey: "panel, t_textSmall", numberOnly: false,
-                                    text: formatSeedHistoryDisplayText(this._seedAnimStates?.[i] ? this._seedAnimStates[i].text : seed, i),
+                                    text: seedDisplayText(this._seedAnimStates?.[i] ? this._seedAnimStates[i].text : seed, i),
                                     value: this._seedAnimStates?.[i] ? this._seedAnimStates[i].text : seed.toString(),
                                     alpha: this._seedAnimStates?.[i] ? this._seedAnimStates[i].alpha : 1,
                                     measureText: [measurementStr],
@@ -111,7 +119,7 @@ app.registerExtension({
                             type: UI_TYPES.BUTTON,
                             themeKey: "button, t_textSmall", measureText: "Increment",
                             state: this._comfyIsBusy ? "DIS" : "OFF",
-                            text: `{{t_text_warning::${this.properties.seedMode || "Random"}}}`,
+                            text: useColorKeys ? `{{t_text_warning::${this.properties.seedMode || "Random"}}}` : (this.properties.seedMode || "Random"),
                             noHover: false, width: "full", height: "auto", padding: [pW, pH], spacing: [sW, sH],
                             objectAlign: ["left", "top"], labelAlign: ["center", "middle"],
                             onPress: () => handleModeControlPress(this)
@@ -119,7 +127,7 @@ app.registerExtension({
                         btnExecute: {
                             type: UI_TYPES.ICONBUTTON,
                             themeKey: "button, t_textNormal",
-                            iconColorKey: "t_text_accent",
+                            ...(useColorKeys ? { iconColorKey: "t_text_accent" } : {}),
                             state: this._comfyIsBusy ? "DIS" : "OFF",
                             noHover: false, noFilter: true,
                             icon: "play", width: "full", height: "fill", padding: [pW, pH], spacing: [0, sH],
@@ -129,7 +137,7 @@ app.registerExtension({
                         btnStop: {
                             type: UI_TYPES.ICONBUTTON,
                             themeKey: "button, t_textBig",
-                            iconColorKey: "t_text_error",
+                            ...(useColorKeys ? { iconColorKey: "t_text_error" } : {}),
                             state: this._comfyIsBusy ? "OFF" : "DIS",
                             noHover: false,
                             icon: "stop", width: "full", height: "auto", padding: [pW, pH],
@@ -149,11 +157,11 @@ app.registerExtension({
 
         // --- SYSTEM PANEL LAYOUT ---
         nodeType.prototype.refreshDerpSeedSysMap = function() {
-            const { mW, mH, sW, oX, oY, pW, pH } = this.getDerpVars(this);
+            const { mW, mH, sW, sH, oX, oY, pW, pH } = this.getDerpVars(this);
             this.sysLayoutMap = {
                 sysCustomRegion: {
                     anchor: { target: "sysDefaultControlsRegion", axis: "y"},
-                    dir: "row", width: "full", height: "auto", margin: [mW, mH, mW, mH],
+                    dir: "row", width: "full", height: "auto", margin: [mW, mH + sH, mW, mH],
                     historyCountLabel: {
                         type: UI_TYPES.TEXT_HTML, text: "History Logs:", themeKey: "t_textsystem", mouseOver: false,
                         width: "auto", height: "auto", objectAlign: ["left", "middle"], 
@@ -181,6 +189,19 @@ app.registerExtension({
                         spacing: [sW, 0],
                         onBlur: (val) => handleDigitValueBlur(this, val)
                     },
+                    toggleColorKey: {
+                        type: UI_TYPES.TOGGLE_V2, isTextOnly: true,
+                        themeKey: "dialog, button, t_textSystem",
+                        text: "Color Overlay",
+                        width: "full", height: "auto", padding: [pW, pH],
+                        value: this.properties.toggleColorKey !== false,
+                        onChange: (v) => {
+                            this.properties.toggleColorKey = v;
+                            this._layoutDirty = true;
+                            this.refreshNodeLayoutMap();
+                            this.refreshDerpSeedSysMap();
+                    }
+                    }
                 },
             };
 

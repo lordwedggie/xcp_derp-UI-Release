@@ -130,7 +130,8 @@ export const syncHistoryToLayout = (node, affectedIndex = -1, forceSnap = false)
 
             const row = dynamic[`rowSeed_${i}`];
             if (row && row[`labelSeed_${i}`]) {
-                row[`labelSeed_${i}`].text = formatSeedHistoryDisplayText(newVal, i);
+                const useColorKeys = node.properties.toggleColorKey !== false;
+                row[`labelSeed_${i}`].text = useColorKeys ? formatSeedHistoryDisplayText(newVal, i) : newVal;
                 row[`labelSeed_${i}`].alpha = 1;
                 if (i === 0) row[`labelSeed_${0}`].value = newVal;
             }
