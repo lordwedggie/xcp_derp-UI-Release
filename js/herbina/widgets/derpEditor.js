@@ -19,6 +19,7 @@
  * @param {number|string} width|height - Dimensions for the editor region.
  * @param {number} minWidth|minHeight - Minimum dimension constraints for layout calculation.
  * @param {boolean} skipBackground - If true, skips background rendering and draws text only. Default: false.
+ * @param {boolean} deferAsleepDomHitTest - If true, asleep DOM pointer hits fall through to layout hit testing.
  *  */
 import { app as comfyApp } from "../../../../scripts/app.js";
 import { applyHTMLTheme } from "../masterPainterHTML.js";
@@ -292,7 +293,7 @@ export function syncDerpEditor(context, node, app, config) {
     const isCanvas = !!context.canvas || (context instanceof CanvasRenderingContext2D);
     const safeConfig = config || {};
     const requestedCanvasShield = safeConfig.canvasShield !== false;
-    const useCanvasShield = false;
+    const useCanvasShield = requestedCanvasShield;
     const isMultiline = !!(safeConfig.multiline || safeConfig.wrap);
     if (isCanvas && requestedCanvasShield && !useCanvasShield) {
         node._hasVisibleDerpEditorDom = true;
@@ -979,6 +980,7 @@ export function syncDerpEditor(context, node, app, config) {
     }
 
     const baseAlpha = sysAlpha;
+    const domPointerEvents = (effectiveState === "DIS" || (safeConfig.deferAsleepDomHitTest && !isAwake)) ? "none" : "auto";
 
     el.style.display = useSingleLineFlex ? "flex" : "block";
     el.style.alignItems = useSingleLineFlex ? "center" : "";
@@ -996,11 +998,13 @@ export function syncDerpEditor(context, node, app, config) {
     // THE THEME FIX: Removed hardcoded opacity multipliers for DIS state.
     // The theme's _DIS key handles transparency via its own fill/textColor.
     if (isCanvas && useCanvasShield && !isAwake) {
-        el.style.display = "none";
+        el.style.display = useSingleLineFlex ? "flex" : "block";
+        el.style.opacity = "0";
+        el.style.pointerEvents = domPointerEvents;
     } else {
         el.style.display = useSingleLineFlex ? "flex" : "block";
         el.style.opacity = canvasOwnsAsleepVisuals ? "0" : String(baseAlpha);
-        el.style.pointerEvents = (effectiveState === "DIS") ? "none" : "auto";
+        el.style.pointerEvents = domPointerEvents;
     }
 
     if (editorWrapper) {
@@ -1026,10 +1030,10 @@ export function syncDerpEditor(context, node, app, config) {
         if (isCanvas && useCanvasShield && !isAwake) {
             el.style.display = "block";
             el.style.opacity = "0";
-            el.style.pointerEvents = (effectiveState === "DIS") ? "none" : "auto";
+            el.style.pointerEvents = domPointerEvents;
         } else {
             el.style.opacity = String(baseAlpha);
-            el.style.pointerEvents = (effectiveState === "DIS") ? "none" : "auto";
+            el.style.pointerEvents = domPointerEvents;
         }
     }
 

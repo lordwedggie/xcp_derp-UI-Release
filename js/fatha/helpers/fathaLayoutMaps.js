@@ -332,7 +332,7 @@ export const getVirtualNodeLayoutMap = (node) => {
                     type: UI_TYPES.EDITOR, skipBackground: true, mouseOver: false,
                     themeKey: "dialog, t_textBig",
                     width: "full", height: "auto", padding: [pW, 0],
-                    hitTest: isTitleTextHit,
+                    hitTest: isTitleTextHit, deferAsleepDomHitTest: true,
                     
                     text: node.titleLabel || "Virtual Node",
                     noDragLock: true, spacing: [sW, 0],
