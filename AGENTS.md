@@ -373,6 +373,10 @@ egionOffset for visual padding expansion. Three-tier paint resolution: (1) expli
 - **ThemeManager font weight:** font weight support may drop legacy italic/both semantics; include font weight in change detection and JSON persistence, and prefer actual font weight detection when available.
 - **Bundled user assets:** `bundled_asset_sync.py` should sync all direct subdirectories under `user/derpNodes/`, not a fixed whitelist.
 
+
+### CHANGELOG version awareness (2026-06-10)
+- **Check the latest version number in CHANGELOG before adding entries.** The topmost `## [X.Y.Z]` section may already be released. If the latest version is released, create a new `## [Unreleased]` section at the top with the appropriate `### Added`/`### Changed`/`### Fixed` subsections. Never add new entries to an already-released version section.
+
 ### Debugging and failed-fix lessons (2026-06-09)
 - **Investigate before broad FileBrowser punch-through fixes.** Prior ineffective attempts included global pointermove consumption, Basta wrapper hover blocking, client-coordinate hover payloads, shared handler panel-rect checks, and active-owner blocking.
 - **Do not stabilize LoRA drag by rendering transparent full rows.** That creates ghost entries; stabilize the add-LoRA anchor/drag preview without generating extra rows.

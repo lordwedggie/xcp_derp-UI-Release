@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- **Category-aware string palette defaults**: `fathaThemeRuntime.js` now selects the per-node string palette based on the theme's `Category` property. Dark themes use `_system/_DK_defaultTheme.json`, Light uses `_system/_LT_defaultTheme.json`, Neutral uses `_system/_NE_defaultTheme.json`; all others (including `Other` and missing `Category`) fall back to `_system/_defaultTheme.json`. If the category-specific file is missing, it auto-falls-back to the default palette. `getThemeStringPaletteName(theme)` handles resolution; `attachStringPalette` accepts a fallback path for graceful degradation.
+- **Theme `Category` system**: New top-level `Category` theme property (Light/Neutral/Dark/Other) stored first in serialized JSON; legacy `_category` normalized at load time. `sortThemeTopLevelKeys()` extracted to `themeDataUtils.js` with Category-first ordering. `dropdownCategory` FILEBROWSER added to themeManagerV2 `themeManagementRegion` for category selection, wired with full onChange/sync/dirty-state handling.
+
+
 ## [0.7.7] - 2026-06-10
 
 ### Added
@@ -11,8 +19,6 @@ All notable changes to this project will be documented in this file.
 - **derpSeedV2 color-key highlighting**: Active seed value uses `formatSeedHistoryDisplayText` wrapping in `{{t_text_highlight}}` tokens for the editor widget. `btnSeedControl` mode text uses `{{t_text_warning}}` color key. Execute button (▶) uses `iconColorKey: "t_text_accent"`. Stop button (⏹) uses `iconColorKey: "t_text_error"`.
 - **derpSeedV2 Color Overlay toggle**: New `toggleColorKey` TOGGLE_V2 in system panel `sysCustomRegion`. When ON (default), active seed value uses `t_text_highlight` palette color (via `labelColor` override on EDITOR), mode text uses `{{t_text_warning}}`, execute button uses `t_text_accent`, stop button uses `t_text_error`. When OFF, all color keys are stripped — plain text and default button glyphs. `seedDisplayText` wrapper gates `formatSeedHistoryDisplayText` to omit `{{t_text_highlight}}` tokens when toggle is off.
 - **derpEditor stateHash cache hardening**: `safeConfig.text`, `labelColor`, and `btnColor` now included in the editor widget state hash, ensuring cache invalidation when only color overrides change (no geometry/layout shift).
-
-- **Category-aware string palette defaults**: `fathaThemeRuntime.js` now selects the per-node string palette based on the theme's `Category` property. Dark themes use `_system/_DK_defaultTheme.json`, Light uses `_system/_LT_defaultTheme.json`, Neutral uses `_system/_NE_defaultTheme.json`; all others (including `Other` and missing `Category`) fall back to `_system/_defaultTheme.json`. If the category-specific file is missing, it auto-falls-back to the default palette. `getThemeStringPaletteName(theme)` handles resolution; `attachStringPalette` accepts a fallback path for graceful degradation.
 
 ### Changed
 - **derpImageDeck system panel**: Option row margins tightened, `lblInfo` hidden.
@@ -65,8 +71,6 @@ All notable changes to this project will be documented in this file.
 - **derpEditor color-key text support**: Editor DOM now renders `{{keyName}}` color-key markup when not in editing mode, preserving palette-colored text display. `syncDerpEditorDomContent` uses `colorSegmentsToHTML` with per-segment text shadows. Raw/visible value tracking added for proper focus/blur transitions without losing markup.
 - **derpSeedV2 color-key highlighting**: Active seed value uses `formatSeedHistoryDisplayText` wrapping in `{{t_text_highlight}}` tokens for the editor widget. `btnSeedControl` mode text uses `{{t_text_warning}}` color key. Execute button (▶) uses `iconColorKey: "t_text_accent"`. Stop button (⏹) uses `iconColorKey: "t_text_error"`.
 
-- **Category-aware string palette defaults**: `fathaThemeRuntime.js` now selects the per-node string palette based on the theme's `Category` property. Dark themes use `_system/_DK_defaultTheme.json`, Light uses `_system/_LT_defaultTheme.json`, Neutral uses `_system/_NE_defaultTheme.json`; all others (including `Other` and missing `Category`) fall back to `_system/_defaultTheme.json`. If the category-specific file is missing, it auto-falls-back to the default palette. `getThemeStringPaletteName(theme)` handles resolution; `attachStringPalette` accepts a fallback path for graceful degradation.
-
 ### Changed
 - **derpImageDeck system panel**: Option row margins tightened, `lblInfo` hidden.
 - **Added ZIT samplers profile for derpSamplerLoader**
@@ -74,8 +78,6 @@ All notable changes to this project will be documented in this file.
 - **Canvas support for attached theme palettes**: Nodes can now have automatically applied header and body colors by node type (derp nodes only).
 - **Added padding overwrite for derpPromptBook's multiline editor**: Now it looks slightly better.
 - **VRAM clearing for Diffusion Loader**: derpDiffusionLoader now clears VRAM when switching between diffusion models, just like derpModelLoader. Toggle in system panel, default on.
-
-- **Category-aware string palette defaults**: `fathaThemeRuntime.js` now selects the per-node string palette based on the theme's `Category` property. Dark themes use `_system/_DK_defaultTheme.json`, Light uses `_system/_LT_defaultTheme.json`, Neutral uses `_system/_NE_defaultTheme.json`; all others (including `Other` and missing `Category`) fall back to `_system/_defaultTheme.json`. If the category-specific file is missing, it auto-falls-back to the default palette. `getThemeStringPaletteName(theme)` handles resolution; `attachStringPalette` accepts a fallback path for graceful degradation.
 
 ### Changed
 - **bastaPalette FILEBROWSER now sorts entries by name instead of ID**: Palette entries in the key dropdown are now alphabetically sorted by name, falling back to ID for ties.
@@ -95,8 +97,6 @@ All notable changes to this project will be documented in this file.
 - **derpEditor color-key text support**: Editor DOM now renders `{{keyName}}` color-key markup when not in editing mode, preserving palette-colored text display. `syncDerpEditorDomContent` uses `colorSegmentsToHTML` with per-segment text shadows. Raw/visible value tracking added for proper focus/blur transitions without losing markup.
 - **derpSeedV2 color-key highlighting**: Active seed value uses `formatSeedHistoryDisplayText` wrapping in `{{t_text_highlight}}` tokens for the editor widget. `btnSeedControl` mode text uses `{{t_text_warning}}` color key. Execute button (▶) uses `iconColorKey: "t_text_accent"`. Stop button (⏹) uses `iconColorKey: "t_text_error"`.
 
-- **Category-aware string palette defaults**: `fathaThemeRuntime.js` now selects the per-node string palette based on the theme's `Category` property. Dark themes use `_system/_DK_defaultTheme.json`, Light uses `_system/_LT_defaultTheme.json`, Neutral uses `_system/_NE_defaultTheme.json`; all others (including `Other` and missing `Category`) fall back to `_system/_defaultTheme.json`. If the category-specific file is missing, it auto-falls-back to the default palette. `getThemeStringPaletteName(theme)` handles resolution; `attachStringPalette` accepts a fallback path for graceful degradation.
-
 ### Changed
 - **derpImageDeck system panel**: Option row margins tightened, `lblInfo` hidden.
 - **Canvas Color Palettes**: ComfyUI's Color Palette system, now with easier loading — just pick a profile and go. Two default profiles included. No more spelunking through nested menus just to change the damn grid color.
@@ -109,8 +109,6 @@ All notable changes to this project will be documented in this file.
 - Added CHANGELOG.md to keep versioned change logs.
 - Added parallax effect to background image pan and zoom. Added five background images and 3 ComfyUI appearance Color Palette themes.
 - Added background CSS image display. Select it in the derp global settings panel. Background images are stored in `user/derpNodes/background`.
-
-- **Category-aware string palette defaults**: `fathaThemeRuntime.js` now selects the per-node string palette based on the theme's `Category` property. Dark themes use `_system/_DK_defaultTheme.json`, Light uses `_system/_LT_defaultTheme.json`, Neutral uses `_system/_NE_defaultTheme.json`; all others (including `Other` and missing `Category`) fall back to `_system/_defaultTheme.json`. If the category-specific file is missing, it auto-falls-back to the default palette. `getThemeStringPaletteName(theme)` handles resolution; `attachStringPalette` accepts a fallback path for graceful degradation.
 
 ### Changed
 - `masterPainterText` upgraded with optional `segments` parameter for per-segment colored Canvas rendering.
@@ -134,15 +132,11 @@ All notable changes to this project will be documented in this file.
 - **derpEditor color-key text support**: Editor DOM now renders `{{keyName}}` color-key markup when not in editing mode, preserving palette-colored text display. `syncDerpEditorDomContent` uses `colorSegmentsToHTML` with per-segment text shadows. Raw/visible value tracking added for proper focus/blur transitions without losing markup.
 - **derpSeedV2 color-key highlighting**: Active seed value uses `formatSeedHistoryDisplayText` wrapping in `{{t_text_highlight}}` tokens for the editor widget. `btnSeedControl` mode text uses `{{t_text_warning}}` color key. Execute button (▶) uses `iconColorKey: "t_text_accent"`. Stop button (⏹) uses `iconColorKey: "t_text_error"`.
 
-- **Category-aware string palette defaults**: `fathaThemeRuntime.js` now selects the per-node string palette based on the theme's `Category` property. Dark themes use `_system/_DK_defaultTheme.json`, Light uses `_system/_LT_defaultTheme.json`, Neutral uses `_system/_NE_defaultTheme.json`; all others (including `Other` and missing `Category`) fall back to `_system/_defaultTheme.json`. If the category-specific file is missing, it auto-falls-back to the default palette. `getThemeStringPaletteName(theme)` handles resolution; `attachStringPalette` accepts a fallback path for graceful degradation.
-
 ### Changed
 - **derpImageDeck system panel**: Option row margins tightened, `lblInfo` hidden.
 - **i18n**: Full UI translations for English, Chinese, and Russian across all widgets, system messages, and confirmation dialogs.
 - **Tooltips**: Widget tooltips via `toolTip` property in layout maps, supported across the UI framework.
 - **Prompt Book**: Trigger-style clean button for resetting new prompt-book pages.
-
-- **Category-aware string palette defaults**: `fathaThemeRuntime.js` now selects the per-node string palette based on the theme's `Category` property. Dark themes use `_system/_DK_defaultTheme.json`, Light uses `_system/_LT_defaultTheme.json`, Neutral uses `_system/_NE_defaultTheme.json`; all others (including `Other` and missing `Category`) fall back to `_system/_defaultTheme.json`. If the category-specific file is missing, it auto-falls-back to the default palette. `getThemeStringPaletteName(theme)` handles resolution; `attachStringPalette` accepts a fallback path for graceful degradation.
 
 ### Changed
 - Removed unused prompt books and their assets; added new bundled themes (Derp Dark HD, Galactica Dark, Menace, Mono Neutral, NeonBlue Dark).
