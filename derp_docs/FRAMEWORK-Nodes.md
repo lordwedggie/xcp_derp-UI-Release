@@ -1,11 +1,11 @@
-# Controldeck â€” Node Implementations
+# derpNodes — Node Implementations
 
 ## Overview
-Controldeck contains the JS widget implementations for every derp node type. Each node registers via `fatha()` or `uncle()` and provides a `refreshNodeLayoutMap()` method that declaratively defines its UI via the layout map system.
+derpNodes contains the JS widget implementations for every derp node type, organized into category subfolders under `js/derps/`. Each node registers via `fatha()` or `uncle()` and provides a `refreshNodeLayoutMap()` method that declaratively defines its UI via the layout map system.
 
-**Directory:** `js/derps/`
-**Core engines:** `js/derps/core/` (files suffixed `_core.js`)
-**Last reviewed:** 2026-06-04
+**Directory:** `js/derps/` (loaders/ | controldeck/ | utils/)
+**Core engines:** `_core.js` files live in `core/` within each category subfolder
+**Last reviewed:** 2026-06-10
 
 ## Signal Out (Wireless Router) â€” Special
 The signal router lives at the top level rather than in derps/:
@@ -27,11 +27,11 @@ The signal router lives at the top level rather than in derps/:
 - `syncDerpRouterDisplayLabels()` â€” update display labels with localization
 - `formatDerpRouterSignalLabel()` â€” format signal label `[id] name [TYPE]`
 
-## Concatenate (String Utility) â€” Special
-The string concatenate node lives at the top level rather than in `derps/`:
+## Concatenate (String Utility)
+The string concatenate node lives in `js/derps/utils/`:
 | File | Role |
 |------|------|
-| `js/derpConcatenate.js` | Fatha-compliant string signal display/concatenate UI |
+| `js/derps/utils/derpConcatenate.js` | Fatha-compliant string signal display/concatenate UI |
 | `python/derpConcatenate.py` | Backend utility node returning `text_a + text_b` |
 
 Current UI pattern:
@@ -43,30 +43,41 @@ Current UI pattern:
 
 ## Node Inventory
 
-### Controldeck Widgets
+### Loaders (`loaders/`)
 | JS File | Core File | Node(s) |
 |---------|-----------|---------|
-| `derpSeedV2.js` | `core/derpSeedV2_core.js` | Seed control node |
-| `derpSlider.js` | `core/derpSlider_core.js` | Generic slider node |
-| `derpToggle.js` | â€” | Boolean toggle node |
-| `derpTriggerWall.js` | `core/derpTriggerWall_core.js` | Trigger wall (grid of triggers) |
-| `derpLoraStack.js` | `core/derpLoraStack_core.js` | LoRA stack manager |
-| `derpPromptBook.js` | `core/derpPromptBook_core.js` | Prompt book/browser |
-| `derpModelLoader.js` | `core/derpModelLoader_core.js` | Model loader |
+| `derpClipLoader.js` | `core/derpClipLoader_core.js` | CLIP model loader |
 | `derpDiffusionLoader.js` | `core/derpDiffusionLoader_core.js` | Diffusion model loader |
+| `derpModelLoader.js` | `core/derpModelLoader_core.js` | Combined model/CLIP/VAE loader |
 | `derpSamplerLoader.js` | `core/derpSamplerLoader_core.js` | Sampler selector |
 | `derpSchedulerLoader.js` | `core/derpSchedulerLoader_core.js` | Scheduler selector |
 | `derpVaeLoader.js` | `core/derpVaeLoader_core.js` | VAE loader |
-| `derpImageDeck.js` | `core/derpImageDeck_core.js` | Image deck/gallery |
-| `derpLatent.js` | â€” | Latent image node |
-| `derpSwatch.js` | â€” | Palette swatch drag/drop utility for default ComfyUI nodes |
 
-### Controldeck Helpers
+### ControlDeck Widgets (`controldeck/`)
+| JS File | Core File | Node(s) |
+|---------|-----------|---------|
+| `derpImageDeck.js` | `core/derpImageDeck_core.js` | Image deck/gallery |
+| `derpLatent.js` | — | Latent image node |
+| `derpLoraStack.js` | `core/derpLoraStack_core.js` | LoRA stack manager |
+| `derpPromptBook.js` | `core/derpPromptBook_core.js` | Prompt book/browser |
+| `derpSeedV2.js` | `core/derpSeedV2_core.js` | Seed control node |
+| `derpSlider.js` | `core/derpSlider_core.js` | Generic slider node |
+| `derpSwatch.js` | — | Palette swatch drag/drop utility |
+| `derpToggle.js` | — | Boolean toggle node |
+| `derpTriggerWall.js` | `core/derpTriggerWall_core.js` | Trigger wall (grid of triggers) |
+
+### ControlDeck Helpers (`controldeck/helpers/`)
 | File | Role |
 |------|------|
-| `helpers/loraComponents.js` | Shared LoRA UI components |
-| `helpers/loraImages.js` | LoRA preview image handling |
-| `helpers/derpPromptBook_imageHandler.js` | Prompt book image management |
+| `loraComponents.js` | Shared LoRA UI components |
+| `loraImages.js` | LoRA preview image handling |
+| `derpPromptBook_imageHandler.js` | Prompt book image management |
+
+### Utilities (`utils/`)
+| JS File | Core File | Node(s) |
+|---------|-----------|---------|
+| `derpConcatenate.js` | — | String concatenate/signal display |
+| `derpSkunk.js` | — | Skunkworks prototyping/test node |
 
 ## Layout Map Pattern
 Every node defines its UI through `refreshNodeLayoutMap()` which builds a declarative tree:
@@ -125,7 +136,7 @@ if (this._layoutMapHash === structureHash && this.layoutMap) {
 - `properties.stackData` entries use array slots `[path, modelStrength, clipStrength, triggerKey, triggerText, bypassed, fuseQKV, noTriggerRequired]`; slot `7` is persisted workflow UI metadata for LoRAs with no trigger file.
 
 ## New Node Checklist
-- Start from `js/derpFathaTemplate.js` for new Fatha node templates.
+- Start from the appropriate category folder under `js/derps/` for new Fatha node templates.
 - Keep node-specific UI in the node file and reusable logic in `core/*_core.js` only when it is genuinely reusable or large enough to justify the split.
 - Update Python registration if the node needs a backend shell.
 - Update locale JSON when adding user-visible text.

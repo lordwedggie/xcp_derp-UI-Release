@@ -30,7 +30,7 @@ xcp_derp-UI is a ComfyUI custom node pack (v0.7.6) that replaces ComfyUI's defau
 ### Python nodes
 - Each node module in `python/` exports `NODE_CLASS_MAPPINGS` and `NODE_DISPLAY_NAME_MAPPINGS` dicts.
 - New nodes must be imported and merged in `__init__.py`.
-- JS counterpart files in `js/derps/` share the same name stem (e.g., `derpSeedV2.py` ? `derpSeedV2.js`).
+- JS counterpart files live in `js/derps/` subfolders (`loaders/`, `controldeck/`, `utils/`) sharing the same name stem as their Python node (e.g., `derpSeedV2.py` ? `derpSeedV2.js` in `controldeck/`).
 - Core logic split into `*_core.js` files when the main file is a thin ComfyUI glue layer.
 
 ### JavaScript frontend
