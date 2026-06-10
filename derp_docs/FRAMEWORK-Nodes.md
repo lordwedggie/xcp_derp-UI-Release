@@ -122,6 +122,7 @@ if (this._layoutMapHash === structureHash && this.layoutMap) {
 - Cache invalidated on: detail panel open, slider interaction, live control interaction
 - `_passiveWholeWallCacheSuspendUntil` — 220ms suspension on slider/press
 - Interaction bindings wrapped via `ensurePassiveCacheInteractionBindings()`
+- `properties.stackData` entries use array slots `[path, modelStrength, clipStrength, triggerKey, triggerText, bypassed, fuseQKV, noTriggerRequired]`; slot `7` is persisted workflow UI metadata for LoRAs with no trigger file.
 
 ## New Node Checklist
 - Start from `js/derpFathaTemplate.js` for new Fatha node templates.

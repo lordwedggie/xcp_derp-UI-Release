@@ -308,6 +308,7 @@
     },
     "trigger": {
       "none": "无",
+      "no_trigger_required": "LoRA 不需要触发词",
       "select": "选择触发词..."
     },
     "warnings": {

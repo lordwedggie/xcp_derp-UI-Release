@@ -11,7 +11,7 @@ import { showBastaMessage } from "../bastaMessage.js";
 import { showBastaFileHandler } from "../bastaFileHandler.js";
 import { resolvePaintData, measureTextHeight } from "../../../herbina/utils/widgetsUtils.js";
 import { initLoraImageHandlers, calculatePreviewAspectRatio, refreshLoraImageList } from "../../../controldeck/helpers/loraImages.js";
-import { getLoraDetailTitle } from "../../../controldeck/helpers/loraComponents.js";
+import { getLoraDetailTitle, isLoraNoTriggerRequired } from "../../../controldeck/helpers/loraComponents.js";
 
 function tLocale(key, fallback = key) {
     if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
@@ -648,6 +648,8 @@ export const getLoraTriggerEditorProps = (host, basta, loraData, currentPath, va
 };
 
 export const getLoraTriggerDropdownProps = (host, basta, loraData, triggerItems, currentPath, vars) => {
+    const liveStack = host.properties?.stackData || [];
+    const noTriggerRequired = isLoraNoTriggerRequired(liveStack[loraData.slotIndex]);
     return {
         // THE PREVIEW FIX: Ensure trigger preview images match the dropdown item height and keep aspect ratio.
         itemImageHeight: "match",
@@ -661,11 +663,11 @@ export const getLoraTriggerDropdownProps = (host, basta, loraData, triggerItems,
             const active = triggerItems.find(t => t.key === basta._activeTagKey);
             return (active && active.image) ? `/xcp/get_lora_image?name=${encodeURIComponent(currentPath)}&file=${encodeURIComponent(active.image)}&v=${window._xcpDerpSession || Date.now()}` : null;
         })(),
-        value: basta._activeTagKey || (triggerItems.length > 0 ? triggerItems[0].key : (host._noTriggerRequired ? tLocale("$basta_lora_detail.trigger.no_trigger_required", "LoRA requires no trigger") : "No triggers found")),
+        value: basta._activeTagKey || (triggerItems.length > 0 ? triggerItems[0].key : (noTriggerRequired ? tLocale("$basta_lora_detail.trigger.no_trigger_required", "LoRA requires no trigger") : "No triggers found")),
         text: (() => {
             const active = triggerItems.find(t => t.key === basta._activeTagKey);
             if (active) return active.display;
-            if (host._noTriggerRequired) return tLocale("$basta_lora_detail.trigger.no_trigger_required", "LoRA requires no trigger");
+            if (noTriggerRequired) return tLocale("$basta_lora_detail.trigger.no_trigger_required", "LoRA requires no trigger");
             // THE PENDING FIX: Display the new name immediately while fetch/rebuild is in flight
             return basta._activeTagName || (triggerItems.length > 0 ? triggerItems[0].display : tLocale("$basta_lora_detail.trigger.none_found", "No triggers found"));
         })(),

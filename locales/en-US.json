@@ -308,6 +308,7 @@
     },
     "trigger": {
       "none": "None",
+      "no_trigger_required": "LoRA requires no trigger",
       "select": "Select Trigger..."
     },
     "warnings": {

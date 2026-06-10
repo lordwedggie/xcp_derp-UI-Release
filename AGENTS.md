@@ -388,3 +388,6 @@ egionOffset for visual padding expansion. Three-tier paint resolution: (1) expli
 
 ### Trigger widget paint overrides (2026-06-10)
 - **`bodyPaint` overrides `themeKey` state resolution in `COMPOSITE_TRIGGER`.** Use explicit `bodyPaint` only when intentionally decoupling visual colors from functional widget state, such as clickable inactive TriggerWall triggers that need `_DIS` colors while remaining functional `_OFF`. Otherwise prefer the normal `themeKey` + suffix path so ThemeManager edits apply predictably.
+
+### LoRA no-trigger-required state (2026-06-10)
+- **LoRA no-trigger-required is per-row persisted state.** Store/read it from `properties.stackData[i][7]`, not a node-level runtime `_noTriggerRequired` flag. The runtime flag may mirror the active Basta state for convenience, but it is not serialized. For `FILEBROWSER` closed labels with `value: "None"`, pass an object fallback item with `display` set to the desired label; a primitive `"None"` item will always render as `None`.

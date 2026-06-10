@@ -1206,7 +1206,8 @@ export function syncFileBrowser(context, node, app, config, overlayPass = false)
     if (isAwake) return;
 
     const itemsHash = getFileBrowserItemsFingerprint(safeConfig.items || []);
-    const stateHash = `${isPressed}_${isHovered}_${node.mode}_${window._xcpDerpSession}_${safeConfig.value}_${itemsHash}_${isAwake}`;
+    const displayHash = `${safeConfig.display || ""}_${safeConfig.text || ""}_${safeConfig.label || ""}`;
+    const stateHash = `${isPressed}_${isHovered}_${node.mode}_${window._xcpDerpSession}_${safeConfig.value}_${displayHash}_${itemsHash}_${isAwake}`;
 
     const cache = node._fileBrowserCache || (node._fileBrowserCache = {});
     const itemCache = cache[safeConfig.key] || (cache[safeConfig.key] = {});

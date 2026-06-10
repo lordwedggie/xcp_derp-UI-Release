@@ -6,6 +6,8 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- **LoRA "no trigger required" toggle**: New `toggleNoTrigger` TOGGLE_V2 in bastaLoraDetail `triggerControlRow`. When ON for a LoRA with no trigger files, the trigger selector FILEBROWSER and derpLoraStack dropdown both display "LoRA requires no trigger" instead of "None"/"No triggers found". State persisted per-LoRA-entry in `stackData[i][7]` via `isLoraNoTriggerRequired`/`setLoraNoTriggerRequired` helpers in `loraComponents.js`. FILEBROWSER state hash expanded to include display/label/text for cache invalidation. New locale keys added (EN/ZH). FRAMEWORK-Nodes.md updated with stackData slot documentation.
+
 - **Category-aware string palette defaults**: `fathaThemeRuntime.js` now selects the per-node string palette based on the theme's `Category` property. Dark themes use `_system/_DK_defaultTheme.json`, Light uses `_system/_LT_defaultTheme.json`, Neutral uses `_system/_NE_defaultTheme.json`; all others (including `Other` and missing `Category`) fall back to `_system/_defaultTheme.json`. If the category-specific file is missing, it auto-falls-back to the default palette. `getThemeStringPaletteName(theme)` handles resolution; `attachStringPalette` accepts a fallback path for graceful degradation.
 - **Theme `Category` system**: New top-level `Category` theme property (Light/Neutral/Dark/Other) stored first in serialized JSON; legacy `_category` normalized at load time. `sortThemeTopLevelKeys()` extracted to `themeDataUtils.js` with Category-first ordering. `dropdownCategory` FILEBROWSER added to themeManagerV2 `themeManagementRegion` for category selection, wired with full onChange/sync/dirty-state handling.
 

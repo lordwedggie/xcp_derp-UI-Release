@@ -52,7 +52,16 @@ export function getMatchedTrigger(triggers, selectedKey) {
     return (triggers || []).find(t => t.key === selectedKey) || null;
 }
 
-export function buildTriggerDropdownItems(loraName, triggers) {
+export function isLoraNoTriggerRequired(loraEntry) {
+    return Array.isArray(loraEntry) && loraEntry[7] === true;
+}
+
+export function setLoraNoTriggerRequired(loraEntry, value) {
+    if (!Array.isArray(loraEntry)) return;
+    loraEntry[7] = value === true;
+}
+
+export function buildTriggerDropdownItems(loraName, triggers, fallbackText = "None") {
     const mapped = (triggers || []).map(t => {
         const hasTag = t.tag && t.tag !== t.name;
         const cleanName = hasTag ? `${t.name}:\u00A0${t.tag}` : t.name;
@@ -65,17 +74,21 @@ export function buildTriggerDropdownItems(loraName, triggers) {
             imageUrl: t.image ? getLoraImageUrl(loraName, t.image) : null
         };
     });
-    return mapped.length > 0 ? mapped : ["None"];
+    if (mapped.length > 0) return mapped;
+
+    const display = fallbackText || "None";
+    return [{ key: "None", value: "None", name: display, display, tag: "" }];
 }
 
-export function resolveTriggerDisplayState(loraName, triggers, selectedKey, selectedTag) {
+export function resolveTriggerDisplayState(loraName, triggers, selectedKey, selectedTag, fallbackText = "None") {
     const matched = getMatchedTrigger(triggers, selectedKey);
+    const fallback = fallbackText || "None";
     return {
         matched,
         imageUrl: matched?.image ? getLoraImageUrl(loraName, matched.image) : null,
         value: matched ? matched.key : (selectedKey || "None"),
         label: matched ? `${matched.display}:\u00A0` : "",
-        text: (selectedTag && selectedTag !== "") ? selectedTag : (matched ? (matched.tag || matched.name) : (selectedKey || "None"))
+        text: (selectedTag && selectedTag !== "") ? selectedTag : (matched ? (matched.tag || matched.name) : (selectedKey && selectedKey !== "None" ? selectedKey : fallback))
     };
 }
 

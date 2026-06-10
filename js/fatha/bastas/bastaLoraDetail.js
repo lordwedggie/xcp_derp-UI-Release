@@ -11,7 +11,7 @@ import { showBastaFileHandler } from "./bastaFileHandler.js";
 import { getLoraDetailId, handleBastaLoraDetail, cleanTriggerText,
     openCivitAI, openCivArchive, getLoraTriggerEditorProps, renameLoraBundle,
     getLoraNotesEditorPropsWrapped, getLoraTriggerDropdownProps } from "./core/bastaLoraDetail_core.js";
-import { manageLoraTrigger, getRatingColor, getLoraRatingDropdownProps, getLoraLoaderProps, processTriggerData } from "../../controldeck/helpers/loraComponents.js";
+import { manageLoraTrigger, getRatingColor, getLoraRatingDropdownProps, getLoraLoaderProps, processTriggerData, isLoraNoTriggerRequired, setLoraNoTriggerRequired } from "../../controldeck/helpers/loraComponents.js";
 import { colorPulse2, parseColor, animateAlpha } from "../../herbina/masterAnimator.js";
 import { resolvePaintData, measureTextHeight } from "../../herbina/utils/widgetsUtils.js";
 import { calculatePreviewDisplayHeight, switchLoraImage, setLoraCover, calculatePreviewAspectRatio, deleteLoraDetailImage } from "../../controldeck/helpers/loraImages.js";
@@ -134,6 +134,10 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
 
     const liveStack = host.properties?.stackData || [];
     const currentPath = loraData.loraPath || liveStack[loraData.slotIndex]?.[0] || loraData.rawFileName || loraData.name || "";
+    const liveLoraEntry = liveStack[loraData.slotIndex];
+    const noTriggerRequired = isLoraNoTriggerRequired(liveLoraEntry);
+    host._noTriggerRequired = noTriggerRequired;
+    basta._noTriggerRequired = noTriggerRequired;
 
     const hasImages = (loraData.images ? loraData.images.length : (loraData.imageCount || 0)) >= 1;
 
@@ -738,22 +742,28 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                     type: UI_TYPES.TOGGLE_V2, themeKey: "panel, button, t_textSmall", isTextOnly: true,
                     text: tLocale("$basta_lora_detail.toggle.no_trigger", "LoRA requires no trigger"),
                     hidden: triggerItems.length > 0,
-                    value: host._noTriggerRequired === true,
-                    state: host._noTriggerRequired === true ? "ON" : "OFF",
+                    value: noTriggerRequired,
+                    state: noTriggerRequired ? "ON" : "OFF",
                     width: "auto", height: "match", spacing: [sW, 0],
                     onPress: () => {
-                        host._noTriggerRequired = !host._noTriggerRequired;
-                        basta._noTriggerRequired = host._noTriggerRequired;
+                        const liveStack = host.properties?.stackData || [];
+                        const liveEntry = liveStack[loraData.slotIndex];
+                        const nextNoTriggerRequired = !isLoraNoTriggerRequired(liveEntry);
+                        setLoraNoTriggerRequired(liveEntry, nextNoTriggerRequired);
+                        host._noTriggerRequired = nextNoTriggerRequired;
+                        basta._noTriggerRequired = nextNoTriggerRequired;
+                        if (host.syncDerpOutputs) host.syncDerpOutputs();
                         basta._forceSync = true;
                         basta.requestDerpSync();
                         host._forceSync = true;
+                        if (host.refreshNodeLayoutMap) host.refreshNodeLayoutMap();
                         host.setDirtyCanvas(true, true);
                     }
                 },
                 btnNew: {
                     type: UI_TYPES.ICONBUTTON, icon: "new", themeKey: "button, t_textSmall",
                     width: "match", height: "full", spacing: [sW, 0],
-                    state: host._noTriggerRequired === true ? "DIS" : "OFF",
+                    state: noTriggerRequired ? "DIS" : "OFF",
                     onPress: () => {
                         const liveStack = host.properties?.stackData || [];
                         const livePath = (liveStack[loraData.slotIndex]?.[0] || currentPath || loraData.name || "").replace(/\\/g, "/");
