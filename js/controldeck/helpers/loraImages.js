@@ -295,7 +295,11 @@ export function initLoraImageHandlers(getLoraDetailIdFunc) {
                                         return sig?.value?.model_name_prefix || h?.properties?.selectedModel || "Unknown_Model";
                                     })()
                                 })
-                            }).then(r => r.json()).then(data => {
+                            }).then(async (r) => {
+                                const data = await r.json().catch(() => ({}));
+                                if (!r.ok || data.success !== true) throw new Error(data.error || `Preview upload failed (${r.status})`);
+                                return data;
+                            }).then(data => {
                                 if (data.success) {
                                     const msg = isCover ? "Image set as primary cover" : "Image saved to subfolder";
                                     showBastaMessage(basta, msg, 3000, {}, "loraPreview", false);
@@ -324,6 +328,8 @@ export function initLoraImageHandlers(getLoraDetailIdFunc) {
                                         });
                                     }
                                 }
+                            }).catch((err) => {
+                                console.error("[xcpDerp] Preview Upload Error:", err);
                             });
                         });
                     };

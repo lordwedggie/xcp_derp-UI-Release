@@ -427,7 +427,11 @@ export async function saveLoraRating(node, basta, loraName, rating) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ name: loraName, rating: rating })
         });
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.success !== true) {
+            throw new Error(data.error || `Rating save failed (${res.status})`);
+        }
+
         if (data.success) {
             playKaChing();
             if (node._loraRatings) node._loraRatings[loraName] = rating;

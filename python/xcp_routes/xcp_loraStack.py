@@ -19,12 +19,24 @@ def get_existing_lora_full_path(name):
     if not clean_name:
         return None
 
+    if os.path.isabs(clean_name) and os.path.exists(clean_name):
+        return clean_name
+
     full_path = folder_paths.get_full_path("loras", clean_name)
     if full_path:
         return full_path
 
     name_no_ext = os.path.splitext(clean_name)[0]
-    return folder_paths.get_full_path("loras", name_no_ext)
+    full_path = folder_paths.get_full_path("loras", name_no_ext)
+    if full_path:
+        return full_path
+
+    base_name = os.path.basename(clean_name)
+    full_path = folder_paths.get_full_path("loras", base_name)
+    if full_path:
+        return full_path
+
+    return folder_paths.get_full_path("loras", os.path.splitext(base_name)[0])
 
 
 def get_lora_bundle_preview_info(base_path_no_ext):
@@ -140,7 +152,7 @@ async def handle_save_lora_rating(request):
     try:
         body = await request.json()
         name, rating = body.get("name"), body.get("rating")
-        if not name: return web.Response(status=400)
+        if not name: return web.json_response({"error": "Missing name"}, status=400)
         full_path = get_existing_lora_full_path(name)
         if full_path:
             trigger_dir = os.path.splitext(full_path)[0]
@@ -170,8 +182,9 @@ async def handle_save_lora_rating(request):
             with open(info_path, "w", encoding="utf-8") as f:
                 json.dump(new_data, f, indent=4)
             return web.json_response({"success": True})
-        return web.Response(status=404)
-    except: return web.Response(status=500)
+        return web.json_response({"error": "LoRA not found"}, status=404)
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=500)
 
 async def handle_save_lora_notes(request):
     try:
