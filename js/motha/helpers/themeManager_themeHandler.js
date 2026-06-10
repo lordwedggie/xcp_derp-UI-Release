@@ -10,6 +10,61 @@ import { safeClick, safePersist, playSuccessSound, normalizeThemeCategory, syncT
 import { getSystemPaletteDisplayName } from "./themeManager_paletteUtils.js";
 
 const THEME_META_KEYS = new Set(["Category", "_category", "_layout", "_palette"]);
+const THEME_WEIGHT_PREFIX = "_WT";
+const THEME_WEIGHT_SYSTEM_DIR = "_system";
+const THEME_WEIGHT_META_VERSION = 1;
+
+function cloneWeightValue(value) {
+    return JSON.parse(JSON.stringify(value));
+}
+
+function normalizeThemeWeightName(name) {
+    const raw = String(name || "ThemeWeight").replace(/\\/g, "/").split("/").pop().replace(/\.json$/i, "").trim() || "ThemeWeight";
+    const prefixed = raw.toLowerCase().startsWith(THEME_WEIGHT_PREFIX.toLowerCase()) ? raw : `${THEME_WEIGHT_PREFIX}${raw}`;
+    return `${THEME_WEIGHT_SYSTEM_DIR}/${prefixed}`;
+}
+
+function collectEffectWeightData(keyData) {
+    const out = {};
+    ["shadow", "shadowDisabled", "stroke", "strokeDisabled", "glow", "glowDisabled"].forEach((prop) => {
+        const value = keyData?.[prop];
+        if (Array.isArray(value)) {
+            const dimensionLength = prop.startsWith("stroke") ? 2 : 3;
+            out[prop] = cloneWeightValue(value.slice(0, dimensionLength));
+        }
+    });
+    ["shadowClip", "strokeClip", "glowClip"].forEach((prop) => {
+        if (keyData?.[prop] !== undefined) out[prop] = keyData[prop];
+    });
+    return out;
+}
+
+function collectThemeWeightData(themeObj, sourceThemeName = "") {
+    const weightData = {
+        meta: {
+            type: "xcpThemeWeight",
+            version: THEME_WEIGHT_META_VERSION,
+            sourceTheme: sourceThemeName,
+        },
+        _layout: cloneWeightValue(themeObj?._layout || [4, 2, 2, 2, 2, 4, 2, 4]),
+        keys: {},
+    };
+
+    Object.entries(themeObj || {}).forEach(([keyName, keyData]) => {
+        if (THEME_META_KEYS.has(keyName) || !keyData || typeof keyData !== "object" || Array.isArray(keyData)) return;
+        const entry = {};
+        if (keyData.corners !== undefined) entry.corners = cloneWeightValue(keyData.corners);
+        if (String(keyName).startsWith("t_")) {
+            if (keyData.font !== undefined) entry.font = keyData.font;
+            if (keyData.fontSize !== undefined) entry.fontSize = keyData.fontSize;
+            if (keyData.fontWeight !== undefined) entry.fontWeight = keyData.fontWeight;
+        }
+        Object.assign(entry, collectEffectWeightData(keyData));
+        if (Object.keys(entry).length > 0) weightData.keys[keyName] = entry;
+    });
+
+    return weightData;
+}
 
 export const handleThemeDeleteAction = (node, updateThemeLayoutFn) => {
     const currentTheme = node._selectedThemeName;
@@ -185,6 +240,36 @@ export const handleThemeSaveAction = (node, updateThemeLayoutFn) => {
             } catch (err) {
                 showBastaSystemMessage(node, "Save Failed", 3000, { fade: true, grow: true }, "btnThemeSave", "error", null, "");
                 console.error("Theme Save Error:", err);
+            }
+            node.requestDerpSync();
+        }
+    });
+};
+
+export const handleThemeSaveWeightAction = (node) => {
+    const themeName = node._selectedThemeName || node.properties?.selectedThemeName || "ThemeWeight";
+    const themeObj = node.themeToEdit;
+    if (!themeObj) return;
+
+    showBastaFileHandler(node, "themes", "btnSaveWeight", {
+        title: "Save Theme Weight",
+        mode: "save",
+        message: "Save layout, corners, fonts, and effect weights?",
+        originalName: `${THEME_WEIGHT_PREFIX}${themeName}`,
+        onConfirm: async (newName) => {
+            const targetName = normalizeThemeWeightName(newName || themeName);
+            const weightData = collectThemeWeightData(themeObj, themeName);
+            try {
+                const res = await fetch("/xcp/save/themes", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name: targetName, data: weightData })
+                });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                showBastaSystemMessage(node, "Theme Weight Saved: ", 2000, { fade: true, grow: true }, "btnSaveWeight", "success", null, targetName);
+            } catch (err) {
+                showBastaSystemMessage(node, "Weight Save Failed", 3000, { fade: true, grow: true }, "btnSaveWeight", "error", null, "");
+                console.error("Theme Weight Save Error:", err);
             }
             node.requestDerpSync();
         }

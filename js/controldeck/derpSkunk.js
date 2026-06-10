@@ -6,6 +6,75 @@ import { app } from "../../../scripts/app.js";
 import { fatha, initDerpGlobalListener } from "../fatha/fatha.js";
 import { UI_TYPES } from "../fatha/core/masterLayoutTypes.js";
 
+const SKUNK_SLIDER_MIN = 0;
+const SKUNK_SLIDER_MAX = 1;
+const SKUNK_SLIDER_STEP = 0.01;
+const SKUNK_SLIDER_DEFAULT = 0.5;
+const SKUNK_SLIDER_DECIMALS = 2;
+const SKUNK_SLIDER_KEYS = ["sliderNormal", "sliderSmall", "sliderSystem"];
+
+const SKUNK_TRIGGER_SLIDER_MAP = {
+    triggerNormal: "sliderNormal",
+    triggerSmall: "sliderSmall",
+    triggerSystem: "sliderSystem",
+};
+
+function clampSkunkSliderValue(value) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return SKUNK_SLIDER_DEFAULT;
+    const stepped = Math.round(numeric / SKUNK_SLIDER_STEP) * SKUNK_SLIDER_STEP;
+    return Math.max(SKUNK_SLIDER_MIN, Math.min(SKUNK_SLIDER_MAX, Number(stepped.toFixed(SKUNK_SLIDER_DECIMALS))));
+}
+
+function ensureSkunkSliderValues(node) {
+    if (!node.properties._skunkSliderValues || typeof node.properties._skunkSliderValues !== "object") {
+        node.properties._skunkSliderValues = {};
+    }
+    SKUNK_SLIDER_KEYS.forEach((key) => {
+        node.properties._skunkSliderValues[key] = clampSkunkSliderValue(node.properties._skunkSliderValues[key]);
+    });
+    return node.properties._skunkSliderValues;
+}
+
+function setSkunkSliderValue(node, sliderKey, value) {
+    const values = ensureSkunkSliderValues(node);
+    values[sliderKey] = clampSkunkSliderValue(value);
+    const liveReg = node.layoutMap?.regionSlider?.[sliderKey];
+    if (liveReg) liveReg.value = values[sliderKey];
+    node._layoutMapHash = null;
+    node._derpAwakeFrames = Math.max(node._derpAwakeFrames || 0, 3);
+    node.requestDerpSync?.();
+    node.setDirtyCanvas?.(true, true);
+}
+
+function setSkunkSliderValueFromPointer(node, sliderKey, data) {
+    const reg = node.layout?.computedRegions?.[sliderKey] || node.layout?.regions?.[sliderKey];
+    if (!reg || !Number.isFinite(reg.w) || reg.w <= 0) return;
+    const percent = Math.max(0, Math.min(1, ((data?.localX || 0) - reg.x) / reg.w));
+    setSkunkSliderValue(node, sliderKey, SKUNK_SLIDER_MIN + (percent * (SKUNK_SLIDER_MAX - SKUNK_SLIDER_MIN)));
+}
+
+function ensureSkunkSliderBtnLRStates(node) {
+    if (!node.properties._skunkSliderBtnLR || typeof node.properties._skunkSliderBtnLR !== "object") {
+        node.properties._skunkSliderBtnLR = {};
+    }
+    SKUNK_SLIDER_KEYS.forEach((key) => {
+        node.properties._skunkSliderBtnLR[key] = node.properties._skunkSliderBtnLR[key] === true;
+    });
+    return node.properties._skunkSliderBtnLR;
+}
+
+function toggleSkunkSliderBtnLR(node, sliderKey) {
+    const btnLRStates = ensureSkunkSliderBtnLRStates(node);
+    btnLRStates[sliderKey] = !btnLRStates[sliderKey];
+    const liveReg = node.layoutMap?.regionSlider?.[sliderKey];
+    if (liveReg) liveReg.btnLR = btnLRStates[sliderKey];
+    node._layoutMapHash = null;
+    node.refreshNodeLayoutMap?.();
+    node.requestDerpSync?.();
+    node.setDirtyCanvas?.(true, true);
+}
+
 function buildSkunkLayoutHash(node, vars) {
     const width = (Number(node?.size?.[0]) || 0).toFixed(2);
     const mW = Number(vars.mW || 0).toFixed(2);
@@ -20,7 +89,11 @@ function buildSkunkLayoutHash(node, vars) {
     const btnHash = `${bs.btnBig ? 1 : 0}_${bs.btnNormal ? 1 : 0}_${bs.btnSmall ? 1 : 0}_${bs.btnSystem ? 1 : 0}`;
     const is = node?.properties?._skunkIconStates || {};
     const iconHash = Object.keys(is).sort().map(k => `${k}:${is[k] ? 1 : 0}`).join('_') || '0';
-    return `${width}_${mW}_${mH}_${oY}_${toggleBtnState}_${toggleIconState}_${toggleEditorState}_${toggleSliderState}_${toggleToggleState}_${btnHash}_${iconHash}`;
+    const sv = node?.properties?._skunkSliderValues || {};
+    const sliderHash = SKUNK_SLIDER_KEYS.map(k => clampSkunkSliderValue(sv[k]).toFixed(SKUNK_SLIDER_DECIMALS)).join('_');
+    const blr = node?.properties?._skunkSliderBtnLR || {};
+    const btnLRHash = SKUNK_SLIDER_KEYS.map(k => blr[k] === true ? 1 : 0).join('_');
+    return `${width}_${mW}_${mH}_${oY}_${toggleBtnState}_${toggleIconState}_${toggleEditorState}_${toggleSliderState}_${toggleToggleState}_${btnHash}_${iconHash}_${sliderHash}_${btnLRHash}`;
 }
 
 app.registerExtension({
@@ -79,6 +152,37 @@ app.registerExtension({
             const btnOn = (key) => toggleBtnState ? false : (btnStates[key] === true);
             const iconStates = this.properties._skunkIconStates || {};
             const iconOn = (key) => toggleIconState ? false : (iconStates[key] === true);
+            const sliderValues = ensureSkunkSliderValues(this);
+            const sliderBtnLR = ensureSkunkSliderBtnLRStates(this);
+            const sliderConfig = (key) => ({
+                value: sliderValues[key],
+                min: SKUNK_SLIDER_MIN,
+                max: SKUNK_SLIDER_MAX,
+                step: SKUNK_SLIDER_STEP,
+                btnLR: sliderBtnLR[key] === true,
+                onChange: (value) => setSkunkSliderValue(this, key, value),
+                onPress: (event, data) => setSkunkSliderValueFromPointer(this, key, data),
+                onDragStart: (event, data) => setSkunkSliderValueFromPointer(this, key, data),
+                onDrag: (event, data) => setSkunkSliderValueFromPointer(this, key, data),
+            });
+            const triggerConfig = (key, text) => {
+                const sliderKey = SKUNK_TRIGGER_SLIDER_MAP[key];
+                const active = sliderBtnLR[sliderKey] === true;
+                return {
+                    type: UI_TYPES.COMPOSITE_TRIGGER,
+                    themeKey: "button, button, t_textNormal",
+                    text,
+                    value: active,
+                    width: "full", height: "auto",
+                    padding: [pW, pH],
+                    spacing: [sW, 0],
+                    state: toggleToggleState ? "DIS" : (active ? "ON" : "OFF"),
+                    onPress: () => {
+                        if (toggleToggleState) return;
+                        toggleSkunkSliderBtnLR(this, sliderKey);
+                    },
+                };
+            };
 
             this.layoutMap = {
                 themeLoading: {
@@ -809,7 +913,7 @@ app.registerExtension({
                         type: UI_TYPES.SLIDER,
                         themeKey: "slider, t_textNormal",
                         style: "knob",
-                        value: 0.5, min: 0, max: 1, step: 0.01,
+                        ...sliderConfig("sliderNormal"),
                         width: "full", height: "auto",
                         padding: [pW, pH],
                         spacing: [sW, 0],
@@ -819,7 +923,7 @@ app.registerExtension({
                         type: UI_TYPES.SLIDER,
                         themeKey: "slider, t_textSmall",
                         style: "knob",
-                        value: 0.5, min: 0, max: 1, step: 0.01,
+                        ...sliderConfig("sliderSmall"),
                         width: "full", height: "auto",
                         padding: [pW, pH],
                         spacing: [sW, 0],
@@ -829,7 +933,7 @@ app.registerExtension({
                         type: UI_TYPES.SLIDER,
                         themeKey: "slider, t_textSystem",
                         style: "knob",
-                        value: 0.5, min: 0, max: 1, step: 0.01,
+                        ...sliderConfig("sliderSystem"),
                         width: "full", height: "auto",
                         padding: [pW, pH],
                         spacing: [sW, 0],
@@ -856,40 +960,13 @@ app.registerExtension({
                     type: UI_TYPES.LINEBREAK,
                     width: "full", height: 1,
                 },
-                regionToggle: {
+                regionTrigger: {
                     dir: "row", width: "full", height: "auto",
                     margin: [mW, mH],
                     spacing: [sW, 0],
-                    toggleNormal: {
-                        type: UI_TYPES.TOGGLE,
-                        themeKey: "button, t_textNormal",
-                        text: "Toggle Normal",
-                        value: true, icon: "radio",
-                        width: "full", height: "auto",
-                        padding: [pW, pH],
-                        spacing: [sW, 0],
-                        state: toggleToggleState ? "DIS" : "OFF",
-                    },
-                    toggleSmall: {
-                        type: UI_TYPES.TOGGLE,
-                        themeKey: "button, t_textSmall",
-                        text: "Toggle Small",
-                        value: true, icon: "radio",
-                        width: "full", height: "auto",
-                        padding: [pW, pH],
-                        spacing: [sW, 0],
-                        state: toggleToggleState ? "DIS" : "OFF",
-                    },
-                    toggleSystem: {
-                        type: UI_TYPES.TOGGLE,
-                        themeKey: "button, t_textSystem",
-                        text: "Toggle Ststem",
-                        value: true, icon: "radio",
-                        width: "full", height: "auto",
-                        padding: [pW, pH],
-                        spacing: [sW, 0],
-                        state: toggleToggleState ? "DIS" : "OFF",
-                    },
+                    triggerNormal: triggerConfig("triggerNormal", "Normal btnLR"),
+                    triggerSmall: triggerConfig("triggerSmall", "Small btnLR"),
+                    triggerSystem: triggerConfig("triggerSystem", "System btnLR"),
                     spring: { width: "full", height: 0 },
                     toggleToggleDIS: {
                         type: UI_TYPES.TOGGLE_V2,
@@ -972,6 +1049,8 @@ app.registerExtension({
             this.properties.autoHeight = true;
             this.properties.nodeSize = [250, 100];
             this.size = [250, 100];
+            ensureSkunkSliderValues(this);
+            ensureSkunkSliderBtnLRStates(this);
 
             this.refreshNodeLayoutMap();
             this.refreshDerpSkunkSysMap();
@@ -991,6 +1070,8 @@ app.registerExtension({
             this.properties.skipGenericWirelessHeartbeat = true;
             this.isPureVirtual = true;
             this.properties.isPureVirtual = true;
+            ensureSkunkSliderValues(this);
+            ensureSkunkSliderBtnLRStates(this);
 
             // THE PURE VIRTUAL ENFORCER: Purge physical slots immediately on load
             if (this.outputs && this.outputs.length > 0) {

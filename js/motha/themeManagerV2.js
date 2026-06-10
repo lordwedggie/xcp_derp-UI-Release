@@ -228,6 +228,12 @@ app.registerExtension({
                         spacing: [sW, 0],
                         pulse: this._isThemeDirty,
                     },
+                    btnSaveWeight: {
+                        type: UI_TYPES.BUTTON, themeKey: "button, t_textSmall", mouseOver: true,
+                        state: "OFF", text: "Save Weight", width: "auto", height: "fill", objectAlign: ["left", "middle"],
+                        spacing: [sW, 0], padding: [pW, pH],
+                        toolTip: "Save theme weight file",
+                    },
                     dropdownTheme: {
                         type: UI_TYPES.FILEBROWSER, themeKey: "dialog, t_textNormal", canvasShield: true,
                         indicator: true, mode: "file", fileType: "theme", rootName: "themes",

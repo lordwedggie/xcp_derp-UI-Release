@@ -14,7 +14,8 @@ import {
     handleThemeDropdownChange,
     handleThemeRenameAction,
     handleThemeCopyAction,
-    handleThemeSaveAction
+    handleThemeSaveAction,
+    handleThemeSaveWeightAction
 } from "./helpers/themeManager_themeHandler.js";
 import { getSystemPaletteDisplayName } from "./helpers/themeManager_paletteUtils.js";
 
@@ -358,6 +359,7 @@ export function bindThemeEvents(node) {
     tReg.btnThemeRename.onClick = safeClick(() => handleThemeRenameAction(node, updateThemeLayout));
     tReg.btnThemeCopy.onClick = safeClick(() => handleThemeCopyAction(node, updateThemeLayout));
     tReg.btnThemeSave.onClick = safeClick(() => handleThemeSaveAction(node, updateThemeLayout));
+    if (tReg.btnSaveWeight) tReg.btnSaveWeight.onClick = safeClick(() => handleThemeSaveWeightAction(node));
 
     bindKeyMainEvents(node, updateThemeLayout);
 
