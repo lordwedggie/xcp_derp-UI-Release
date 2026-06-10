@@ -4,7 +4,7 @@ Path: ./xcp_tagHandling.py
 import os
 import json
 from aiohttp import web
-import folder_paths
+from .xcp_loraStack import get_existing_lora_full_path, get_lora_sidecar_base_path
 
 async def handle_import_lora_tags(request):
     try:
@@ -15,11 +15,11 @@ async def handle_import_lora_tags(request):
         if not lora_name:
             return web.json_response({"error": "Missing parameters"}, status=400)
 
-        full_path = folder_paths.get_full_path("loras", lora_name.replace("\\", "/"))
+        full_path = get_existing_lora_full_path(lora_name)
         if not full_path:
             return web.json_response({"error": "LoRA not found"}, status=404)
 
-        target_dir = os.path.splitext(full_path)[0]
+        target_dir = get_lora_sidecar_base_path(full_path)
         info_path = os.path.join(target_dir, "_info.json")
 
         data = {}
@@ -77,10 +77,10 @@ async def handle_manage_lora_tag(request):
         if not tag_key and action not in ["update_setup", "init"]:
             return web.json_response({"error": "Missing parameters"}, status=400)
 
-        full_path = folder_paths.get_full_path("loras", lora_name.replace("\\", "/"))
+        full_path = get_existing_lora_full_path(lora_name)
         if not full_path: return web.json_response({"error": "LoRA not found"}, status=404)
 
-        target_dir = os.path.splitext(full_path)[0]
+        target_dir = get_lora_sidecar_base_path(full_path)
         # THE CONFLICT FIX: Ensure we aren't trying to create a folder where a file (like the LoRA itself) already exists
         if os.path.exists(target_dir) and not os.path.isdir(target_dir):
             target_dir = target_dir + "_triggers"

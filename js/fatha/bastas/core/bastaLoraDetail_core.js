@@ -661,10 +661,11 @@ export const getLoraTriggerDropdownProps = (host, basta, loraData, triggerItems,
             const active = triggerItems.find(t => t.key === basta._activeTagKey);
             return (active && active.image) ? `/xcp/get_lora_image?name=${encodeURIComponent(currentPath)}&file=${encodeURIComponent(active.image)}&v=${window._xcpDerpSession || Date.now()}` : null;
         })(),
-        value: basta._activeTagKey || (triggerItems.length > 0 ? triggerItems[0].key : "No triggers found"),
+        value: basta._activeTagKey || (triggerItems.length > 0 ? triggerItems[0].key : (host._noTriggerRequired ? tLocale("$basta_lora_detail.trigger.no_trigger_required", "LoRA requires no trigger") : "No triggers found")),
         text: (() => {
             const active = triggerItems.find(t => t.key === basta._activeTagKey);
             if (active) return active.display;
+            if (host._noTriggerRequired) return tLocale("$basta_lora_detail.trigger.no_trigger_required", "LoRA requires no trigger");
             // THE PENDING FIX: Display the new name immediately while fetch/rebuild is in flight
             return basta._activeTagName || (triggerItems.length > 0 ? triggerItems[0].display : tLocale("$basta_lora_detail.trigger.none_found", "No triggers found"));
         })(),

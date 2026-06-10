@@ -177,7 +177,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                     // Hover already has a dedicated visual invalidation path in Fatha.
                     // Keeping it out of the stack value hash prevents idle hover-key jitter
                     // from re-triggering value hydration and passive whole-wall cache churn.
-                    const valueHash = stack.map(l => `${l[1]}_${l[2]}_${l[3]}_${l[4]}_${l[5]}_${l[6]}`).join('|') + `_${this.mode}_${signalSelectionHash}`;
+                    const valueHash = stack.map(l => `${l[1]}_${l[2]}_${l[3]}_${l[4]}_${l[5]}_${l[6]}`).join('|') + `_${this.mode}_${signalSelectionHash}_${this._noTriggerRequired ? 1 : 0}`;
 
                     // SYNCHRONIZED CACHE CHECK
                     if (this._layoutMapHash === structureHash && this.layoutMap) {
@@ -277,8 +277,11 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                         if (trigRow[`dropTrigger_${i}`]) {
                                             const widget = trigRow[`dropTrigger_${i}`];
                                             widget.value = matched ? matched.key : (lora[3] || "None");
-                                            const triggerNoneText = tLocale("$derp_lora_stack.trigger.none", "None");
-                                            const fallbackTriggerKey = lora[3] || "None";
+                                            const noTriggerRequired = this._noTriggerRequired === true;
+                                            const triggerNoneText = noTriggerRequired
+                                                ? tLocale("$derp_lora_stack.trigger.no_trigger_required", "LoRA requires no trigger")
+                                                : tLocale("$derp_lora_stack.trigger.none", "None");
+                                            const fallbackTriggerKey = lora[3] || (noTriggerRequired ? tLocale("$derp_lora_stack.trigger.no_trigger_required", "LoRA requires no trigger") : "None");
                                             const fallbackTriggerText = fallbackTriggerKey === "None" ? triggerNoneText : fallbackTriggerKey;
                                             widget.text = (lora[4] && lora[4] !== "") ? lora[4] : (matched ? (matched.tag || matched.name) : fallbackTriggerText);
                                             widget.state = (isBypassed || !(this._loraTriggerArrayCache?.[lora[0]] || []).length) ? "DIS" : (isSelected ? "ON" : "OFF");

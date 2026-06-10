@@ -46,6 +46,13 @@ def get_lora_bundle_preview_info(base_path_no_ext):
             return preview_path, ext
     return None, None
 
+
+def get_lora_sidecar_base_path(full_path):
+    base_path = os.path.splitext(full_path)[0]
+    parent_dir = os.path.dirname(base_path)
+    base_name = os.path.basename(base_path).rstrip()
+    return os.path.join(parent_dir, base_name)
+
 async def handle_list_lora_images(request):
     try:
         lora_name = request.query.get("name")
@@ -54,7 +61,7 @@ async def handle_list_lora_images(request):
         full_path = get_existing_lora_full_path(lora_name)
         if not full_path: return web.json_response({"error": "LoRA not found"}, status=404)
 
-        base_path_no_ext = os.path.splitext(full_path)[0]
+        base_path_no_ext = get_lora_sidecar_base_path(full_path)
         target_dir = base_path_no_ext
         images = []
 
@@ -86,7 +93,7 @@ async def handle_get_lora_image(request):
         full_path = get_existing_lora_full_path(lora_name)
         if not full_path: return web.json_response({"error": "LoRA not found"}, status=404)
 
-        base_path_no_ext = os.path.splitext(full_path)[0]
+        base_path_no_ext = get_lora_sidecar_base_path(full_path)
 
         # THE PRIMARY FETCH FIX: Handle the reserved keyword for the main preview image
         if file_name.startswith("__PRIMARY_PREVIEW__"):
@@ -155,7 +162,7 @@ async def handle_save_lora_rating(request):
         if not name: return web.json_response({"error": "Missing name"}, status=400)
         full_path = get_existing_lora_full_path(name)
         if full_path:
-            trigger_dir = os.path.splitext(full_path)[0]
+            trigger_dir = get_lora_sidecar_base_path(full_path)
             os.makedirs(trigger_dir, exist_ok=True)
             info_path = os.path.join(trigger_dir, "_info.json")
             data = {}
@@ -193,7 +200,7 @@ async def handle_save_lora_notes(request):
         if not name: return web.Response(status=400)
         full_path = get_existing_lora_full_path(name)
         if full_path:
-            trigger_dir = os.path.splitext(full_path)[0]
+            trigger_dir = get_lora_sidecar_base_path(full_path)
             os.makedirs(trigger_dir, exist_ok=True)
             info_path = os.path.join(trigger_dir, "_info.json")
             data = {}
@@ -222,7 +229,7 @@ async def handle_get_loras(request):
         for f in files:
             full_path = get_existing_lora_full_path(f)
             if full_path:
-                base = os.path.splitext(full_path)[0]
+                base = get_lora_sidecar_base_path(full_path)
                 if any(os.path.exists(base + ext) for ext in [".png", ".jpg", ".jpeg", ".webp"]):
                     has_preview.append(f)
 
@@ -273,7 +280,7 @@ async def handle_get_lora_preview(request):
         full_path = get_existing_lora_full_path(clean_name)
         if not full_path: return web.Response(status=404)
 
-        base_path = os.path.splitext(full_path)[0]
+        base_path = get_lora_sidecar_base_path(full_path)
         trigger_dir = base_path
         thumb_path = os.path.join(trigger_dir, "_thumbnail.jpg")
 
@@ -337,7 +344,7 @@ async def handle_get_lora_triggers(request):
         if not full_path: return web.json_response({"triggers": {}})
 
         # Folder matches lora filename (e.g., path/to/lora.safetensors -> path/to/lora/)
-        trigger_dir = os.path.splitext(full_path)[0]
+        trigger_dir = get_lora_sidecar_base_path(full_path)
         triggers = {}
 
         if os.path.exists(trigger_dir) and os.path.isdir(trigger_dir):
@@ -376,7 +383,7 @@ async def handle_get_lora_info(request):
         rating = 0
         notes = ""
         setup = {}
-        info_path = os.path.join(os.path.splitext(full_path)[0], "_info.json")
+        info_path = os.path.join(get_lora_sidecar_base_path(full_path), "_info.json")
         if os.path.exists(info_path):
             try:
                 with open(info_path, "r", encoding="utf-8") as f:
@@ -389,7 +396,7 @@ async def handle_get_lora_info(request):
         if is_lite:
             # THE PREVIEW STATE FIX: The frontend relies on lite metadata to rebuild preview state
             # immediately after swapping LoRAs in bastaLoraDetail.
-            base_path = os.path.splitext(full_path)[0]
+            base_path = get_lora_sidecar_base_path(full_path)
             has_preview = any(os.path.exists(base_path + ext) for ext in [".png", ".jpg", ".jpeg", ".webp"])
             # THE MODEL NAME FIX: Ensure lite response also returns the clean model name without extension
             return web.json_response({
@@ -421,7 +428,7 @@ async def handle_get_lora_info(request):
                 print(f"⚠️ [xcpDerp] Failed to read safetensors header for {clean_name}: {e}")
 
         # THE PYSSSSS REPLICATION: Search for CivitAI sidecar files (.civitai.info or .info) to find the direct link
-        base_path = os.path.splitext(full_path)[0]
+        base_path = get_lora_sidecar_base_path(full_path)
         for sidecar_ext in [".civitai.info", ".info"]:
             info_path = base_path + sidecar_ext
             if os.path.exists(info_path):
@@ -509,7 +516,7 @@ async def handle_open_folder(request):
         if full_path and os.path.exists(full_path):
             # THE BEHAVIOR SWAP FIX: Normal click (subfolder=true) opens metadata dir. Shift click opens parent dir.
             if request.query.get("subfolder") == "true":
-                target_dir = os.path.splitext(full_path)[0]
+                target_dir = get_lora_sidecar_base_path(full_path)
                 # Ensure the metadata folder exists before attempting to open it
                 if not os.path.exists(target_dir): os.makedirs(target_dir, exist_ok=True)
             else:
@@ -533,7 +540,7 @@ async def handle_delete_lora_preview(request):
         full_path = folder_paths.get_full_path("loras", clean_name)
         if not full_path: return web.json_response({"error": "LoRA not found"}, status=404)
 
-        base_name = os.path.splitext(full_path)[0]
+        base_name = get_lora_sidecar_base_path(full_path)
         sidecar_dir = base_name
         os.makedirs(sidecar_dir, exist_ok=True)
 
@@ -577,7 +584,7 @@ async def handle_set_lora_cover(request):
         full_path = get_existing_lora_full_path(name)
         if not full_path: return web.json_response({"error": "LoRA not found"}, status=404)
 
-        base_path_no_ext = os.path.splitext(full_path)[0]
+        base_path_no_ext = get_lora_sidecar_base_path(full_path)
         sidecar_dir = base_path_no_ext
 
         # 1. Find the current primary preview
@@ -618,7 +625,7 @@ async def handle_delete_lora_image(request):
         full_path = get_existing_lora_full_path(name)
         if not full_path: return web.json_response({"error": "LoRA not found"}, status=404)
 
-        base_path = os.path.splitext(full_path)[0]
+        base_path = get_lora_sidecar_base_path(full_path)
         # PRIMARY PREVIEW: Deletes the root image + sidecar thumbnail
         if filename.startswith("__PRIMARY_PREVIEW__"):
             ext = os.path.splitext(filename)[1]
@@ -651,8 +658,9 @@ async def handle_upload_lora_preview(request):
 
         # THE MODEL NAME FIX: Explicitly derive the clean model name (filename only) for image saving
         model_name = os.path.splitext(os.path.basename(full_path))[0]
-        base_name = os.path.join(os.path.dirname(full_path), model_name)
-        sidecar_dir = os.path.splitext(full_path)[0]
+        base_name = get_lora_sidecar_base_path(full_path)
+        model_name = os.path.basename(base_name)
+        sidecar_dir = base_name
         os.makedirs(sidecar_dir, exist_ok=True)
 
         if "," in image_b64:
