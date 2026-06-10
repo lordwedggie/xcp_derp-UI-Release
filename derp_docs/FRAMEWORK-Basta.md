@@ -16,7 +16,7 @@ Basta ("Bastard" Child Framework) is a multi-instance, canvas-native replacement
 - Uses same `masterLayoutEngine`, `COMPONENT_BLUEPRINTS`, `handleShieldInteraction`, `handleDrawCTX`
 - Fade animation: `animateAlpha()` with `BASTA_FADE_SPEED = 0.4`
 - Clip chain: `getRegionClipChain()` for nested clipping regions
-- Tooltip animation: `drawAnimatedTooltipLabel()` for expanding labels
+- Tooltip animation: `drawAnimatedTooltipLabel()` for expanding labels; tooltip text/background paint resolves through the host node's category-aware string palette context rather than a dedicated tooltip palette file.
 
 ### Basta Lifecycle
 1. Created via `showBasta*()` functions in panel modules

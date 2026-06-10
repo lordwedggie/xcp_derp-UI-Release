@@ -53,6 +53,14 @@ function normalizePaletteName(name) {
     return String(name || "").replace(/\\/g, "/").trim();
 }
 
+function isRetiredPaletteName(name) {
+    const normalizedName = normalizePaletteName(name)
+        .replace(/\.json$/i, "")
+        .replace(/^\/+/, "")
+        .toLowerCase();
+    return normalizedName === "_system/_tooltip" || normalizedName.endsWith("/_system/_tooltip");
+}
+
 function findCaseInsensitiveKey(source, target) {
     if (!source || !target) return null;
     const normalizedTarget = String(target).toLowerCase();
@@ -144,6 +152,7 @@ export async function loadDerpPaletteImpl(paletteName = "Derp_Default_v01") {
     if (!paletteName) return;
     const normalizedName = normalizePaletteName(paletteName);
     if (!normalizedName) return;
+    if (isRetiredPaletteName(normalizedName)) return loadDerpPaletteImpl("Derp_Default_v01");
     const paletteCache = getPaletteCache();
     const cachedKey = findCaseInsensitiveKey(paletteCache, normalizedName);
     if (window.xcpActivePaletteName === normalizedName && paletteCache[normalizedName]) return;
@@ -267,6 +276,7 @@ export function handleThemeUpdateImpl(node, config, deps = {}) {
         });
         const paletteName = typeof theme._palette === "string" ? theme._palette.trim() : "";
         node._headerPaletteName = normalizePaletteName(paletteName);
+        if (isRetiredPaletteName(node._headerPaletteName)) node._headerPaletteName = "";
         if (node._headerPaletteName && typeof loadDerpPalette === "function") {
             window._xcpPaletteRequesters = window._xcpPaletteRequesters || {};
             window._xcpPaletteRequesters[node._headerPaletteName] = resolvedThemeKey || themeName;
@@ -310,7 +320,8 @@ export function handleInitDerpGlobalListenerImpl(appInstance, deps = {}) {
     const initialLocale = appInstance.ui.settings.getSettingValue("Comfy.Locale") || "en-US";
     if (typeof loadDerpLocale === "function") loadDerpLocale(initialLocale);
 
-    const initialPalette = appInstance.ui.settings.getSettingValue("Derp.Palette") || "Derp_Default_v01";
+    const configuredPalette = appInstance.ui.settings.getSettingValue("Derp.Palette") || "Derp_Default_v01";
+    const initialPalette = isRetiredPaletteName(configuredPalette) ? "Derp_Default_v01" : configuredPalette;
     if (typeof loadDerpPalette === "function") loadDerpPalette(initialPalette);
 
     if (typeof hydrateDerpBackgroundSetting === "function") hydrateDerpBackgroundSetting();

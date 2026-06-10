@@ -281,7 +281,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                             const fallbackTriggerKey = lora[3] || "None";
                                             const fallbackTriggerText = fallbackTriggerKey === "None" ? triggerNoneText : fallbackTriggerKey;
                                             widget.text = (lora[4] && lora[4] !== "") ? lora[4] : (matched ? (matched.tag || matched.name) : fallbackTriggerText);
-                                            widget.state = isBypassed ? "DIS" : (isSelected ? "ON" : "OFF");
+                                            widget.state = (isBypassed || !(this._loraTriggerArrayCache?.[lora[0]] || []).length) ? "DIS" : (isSelected ? "ON" : "OFF");
                                         }
                                         if (trigRow[`toggleFuseQKV_${i}`]) {
                                             trigRow[`toggleFuseQKV_${i}`].state = (i === activeSlot) ? "ON" : (isBypassed ? "DIS" : "OFF");

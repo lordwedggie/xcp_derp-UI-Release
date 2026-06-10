@@ -10,6 +10,21 @@ export const TOOLTIP_EXPAND_START_WIDTH = 1;
 export const TOOLTIP_EXPAND_ANIMATION_SPEED = 0.22;
 export const TOOLTIP_EXPAND_Y_SHIFT_ROWS = 1;
 
+function getTooltipPalette(host) {
+    const path = host?._derpStringPalette?.path || host?.properties?._derpStringPalette?.path;
+    const data = host?._derpStringPalette?.data || host?._derpStringPaletteData || host?.properties?._derpStringPalette?.data;
+    return path ? { path, data } : null;
+}
+
+function getLabelThemeKey(themeKey) {
+    const parts = String(themeKey || "").split(",").map(p => p.trim());
+    return parts.length > 1 ? (parts[1] || parts[0]) : parts[0];
+}
+
+function getBodyThemeKey(themeKey) {
+    return String(themeKey || "").split(",").map(p => p.trim())[0] || "toolTip_background";
+}
+
 export function getBastaMessageId(host, targetRegion = null) {
     return `basta_msg_${host.id}_${targetRegion || 'node'}`;
 }
@@ -38,27 +53,27 @@ export function showBastaMessage(host, text, duration = 3000, animations = {}, t
 
     const hasFixedW = animations && animations.width;
     const isTooltipMessage = animations?.tooltipExpand === true;
-    // Tooltip uses _toolTip palette with background rect and dedicated text key
     const textThemeKey = isTooltipMessage
-        ? (animations?.textThemeKey || "background, t_toolTip_normal")
+        ? (animations?.textThemeKey || "toolTip_background, t_toolTip_normal")
         : (animations?.textThemeKey || animations?.messageThemeKey || "t_textnormal");
+    const labelThemeKey = getLabelThemeKey(textThemeKey);
+    const tooltipPalette = isTooltipMessage ? getTooltipPalette(host) : null;
     const backgroundThemeKey = isTooltipMessage
-        ? "background"
+        ? getBodyThemeKey(textThemeKey)
         : (animations?.backgroundThemeKey || null);
-    const fontData = resolvePaintData(host, textThemeKey, "_OFF")
+    const fontData = resolvePaintData(host, labelThemeKey, "_OFF", null, tooltipPalette)
+        || resolvePaintData(host, labelThemeKey, "_OFF")
         || host._t_textsystemPaintData_OFF
         || host._t_textSystemPaintData_OFF
         || host._t_textnormalPaintData
         || host._t_textNormalPaintData
         || { fontSize: 12 };
     const fontSize = parseFloat(fontData.fontSize) || 12;
-    // Fallback text color when _toolTip palette isn't loaded yet
+    // Fallback text color while the node's string palette is still loading.
     const sysTextPaint = resolvePaintData(host, "t_textSystem", "_OFF")
         || host._t_textSystemPaintData_OFF
         || host._t_textsystemPaintData_OFF;
     const tooltipLabelFallback = sysTextPaint?.textColor || sysTextPaint?.fill || "rgba(180,180,180,0.6)";
-    // Pre-parse tooltip text for color keys so the widget doesn't need to
-    const tooltipPalette = { path: "_system/_toolTip.json" };
     const tooltipParsed = isTooltipMessage ? parseColorKeyText(String(text || ""), host, "_OFF", tooltipLabelFallback, tooltipPalette) : null;
     const BASTA_HEADER_H = 20;
 
@@ -95,7 +110,9 @@ export function showBastaMessage(host, text, duration = 3000, animations = {}, t
             tooltipExpand: isTooltipMessage,
             tooltipExpandAnimationSpeed: TOOLTIP_EXPAND_ANIMATION_SPEED,
             tooltipExpandPaddingX: pW,
-            tooltipExpandTargetWidth: initialW
+            tooltipExpandTargetWidth: initialW,
+            palette: tooltipPalette || undefined,
+            _derpStringPalette: tooltipPalette || undefined
         },
         layoutMap: {
             contentRegion: {
@@ -109,8 +126,6 @@ export function showBastaMessage(host, text, duration = 3000, animations = {}, t
                 lblMessage: {
                     type: isTooltipMessage ? UI_TYPES.BUTTON : UI_TYPES.TEXT,
                     themeKey: textThemeKey,
-                    palette: isTooltipMessage ? tooltipPalette : undefined,
-                    stringPalette: isTooltipMessage ? tooltipPalette : undefined,
                     text: text,
                     width: isTooltipMessage ? "full" : (hasFixedW ? "full" : "auto"),
                     height: "auto",
@@ -133,7 +148,6 @@ export function showBastaMessage(host, text, duration = 3000, animations = {}, t
         basta.properties.messageThemeKey = textThemeKey;
         if (backgroundThemeKey) basta.properties.bastaBackgroundKey = backgroundThemeKey;
         basta.offset[1] -= sH; // default gap above target region
-        if (isTooltipMessage) basta.properties.palette = tooltipPalette;
         if (isTooltipMessage) {
             basta.properties.nodeSize = [initialW, initialH];
             basta.targetSize = [initialW, initialH];

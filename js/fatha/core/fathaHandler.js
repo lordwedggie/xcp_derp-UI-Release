@@ -397,6 +397,16 @@ function getTooltipState(entity) {
     return entity._xcpTooltipState;
 }
 
+function getTooltipHostPalette(entity) {
+    if (entity?.properties?.tooltipExpand !== true) return null;
+    const host = entity.hostNode || entity;
+    const palette = entity.properties?.palette || null;
+    const stringPalette = host?._derpStringPalette || host?.properties?._derpStringPalette || null;
+    const path = palette?.path || stringPalette?.path || entity._derpStringPalette?.path || entity.properties?._derpStringPalette?.path;
+    const data = palette?.data || stringPalette?.data || host?._derpStringPaletteData || entity._derpStringPaletteData || entity._derpStringPalette?.data || entity.properties?._derpStringPalette?.data;
+    return path ? { path, data } : null;
+}
+
 function isPointerOverEditableTitleText(entity, localMouse) {
     const titleReg = entity?.layout?.regions?.titleLabel;
     if (!titleReg || !Array.isArray(localMouse)) return false;
@@ -473,7 +483,7 @@ function scheduleTooltip(entity, regionKey, tooltipText) {
         closeBastaMessage(host, regionKey, "tooltip-refresh");
         const basta = showBastaMessage(host, tooltipText, TOOLTIP_DURATION_MS, {
             fade: true,
-            textThemeKey: "background, t_toolTip_normal",
+            textThemeKey: "toolTip_background, t_toolTip_normal",
             tooltipExpand: true
         }, regionKey, false, "info", false);
         if (!basta) return;
@@ -1231,12 +1241,14 @@ export function handleDrawCTX(entity, ctx, overlayPass = false) {
         const header = entity.layout?.regions?.headerRegion;
         const isCollapsed = !!entity.properties?.contentCollapsed;
         const backgroundPaintKey = entity.properties?.bastaBackgroundKey || "canvas";
+        const backgroundPalette = getTooltipHostPalette(entity);
+        const skipNodePaletteInjection = entity.properties?.tooltipExpand === true && !!backgroundPalette;
         const canvasPaletteStateOFF = isBypassed ? "_DIS" : "_OFF";
         const canvasPaletteStateON = isBypassed ? "_DIS" : "_ON";
-        const basePaintOFF = resolvePaintData(entity, backgroundPaintKey, isBypassed ? "_DIS" : "") || resolvePaintData(entity, "canvas", isBypassed ? "_DIS" : "");
-        const basePaintON = resolvePaintData(entity, backgroundPaintKey, isBypassed ? "_DIS" : "_ON") || resolvePaintData(entity, "canvas", isBypassed ? "_DIS" : "_ON");
-        const paintOFF = applyNodeCanvasPalette(entity, basePaintOFF, canvasPaletteStateOFF, basePaintOFF, getPaletteCache);
-        const paintON = applyNodeCanvasPalette(entity, basePaintON, canvasPaletteStateON, basePaintON, getPaletteCache);
+        const basePaintOFF = resolvePaintData(entity, backgroundPaintKey, isBypassed ? "_DIS" : "", null, backgroundPalette) || resolvePaintData(entity, "canvas", isBypassed ? "_DIS" : "", null, backgroundPalette);
+        const basePaintON = resolvePaintData(entity, backgroundPaintKey, isBypassed ? "_DIS" : "_ON", null, backgroundPalette) || resolvePaintData(entity, "canvas", isBypassed ? "_DIS" : "_ON", null, backgroundPalette);
+        const paintOFF = skipNodePaletteInjection ? basePaintOFF : applyNodeCanvasPalette(entity, basePaintOFF, canvasPaletteStateOFF, basePaintOFF, getPaletteCache);
+        const paintON = skipNodePaletteInjection ? basePaintON : applyNodeCanvasPalette(entity, basePaintON, canvasPaletteStateON, basePaintON, getPaletteCache);
         // Zero bottom corners for search-tab-style bastas
         if (entity.properties?._bastaBottomCornersZero) {
             if (paintOFF?.corners?.length >= 4) paintOFF.corners = [paintOFF.corners[0], paintOFF.corners[1], 0, 0];

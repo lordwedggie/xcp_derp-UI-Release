@@ -52,10 +52,20 @@ function applyRegionClipChain(ctx, clipChain) {
     return true;
 }
 
+function getTooltipPaletteContext(basta) {
+    const host = basta?.hostNode || basta;
+    const palette = basta?.properties?.palette || null;
+    const stringPalette = host?._derpStringPalette || host?.properties?._derpStringPalette || null;
+    const path = palette?.path || stringPalette?.path;
+    const data = palette?.data || stringPalette?.data || host?._derpStringPaletteData;
+    return path ? { host, palette: { path, data } } : { host, palette: null };
+}
+
 function drawAnimatedTooltipLabel(ctx, basta, region) {
     if (!ctx || !basta?.properties?.tooltipExpand || !region) return false;
     const text = String(basta.properties?.tooltipText || region.text || "");
     if (!text) return false;
+    const { host: tooltipPaletteHost, palette: tooltipPalette } = getTooltipPaletteContext(basta);
 
     const paddingX = Number(region.padding?.[0] ?? basta._tooltipExpandPaddingX ?? 0) || 0;
     const paddingY = Number(region.padding?.[1] ?? 0) || 0;
@@ -69,11 +79,11 @@ function drawAnimatedTooltipLabel(ctx, basta, region) {
     // Parse compound key: "bodyKey, labelKey" → use labelKey for text
     const parts = String(rawKey).split(",").map(p => p.trim());
     const paintKey = parts.length > 1 ? (parts[1] || parts[0]) : parts[0];
-    const tooltipPalette = { path: "_system/_toolTip.json" };
-    const sysFallback = resolvePaintData(basta, "t_textSystem", "_OFF")
+    const sysFallback = resolvePaintData(tooltipPaletteHost, "t_textSystem", "_OFF", null, tooltipPalette)
+        || resolvePaintData(basta, "t_textSystem", "_OFF")
         || basta.hostNode?._t_textSystemPaintData_OFF
         || basta.hostNode?._t_textsystemPaintData_OFF;
-    const rawTheme = resolvePaintData(basta, paintKey, "_OFF", null, tooltipPalette)
+    const rawTheme = resolvePaintData(tooltipPaletteHost, paintKey, "_OFF", null, tooltipPalette)
         || resolvePaintData(basta, paintKey, "_OFF")
         || basta[`_${paintKey}PaintData`]
         || basta.hostNode?.[`_${paintKey}PaintData`]
@@ -94,7 +104,7 @@ function drawAnimatedTooltipLabel(ctx, basta, region) {
 
     const tipColor = rawTheme.textColor || rawTheme.fill || "rgba(180,180,180,0.6)";
     const { segments: tipSegs, hasColorKeys: tipKeys } = parseColorKeyText(
-        text, basta, "_OFF", tipColor, tooltipPalette
+        text, tooltipPaletteHost, "_OFF", tipColor, tooltipPalette
     );
 
     masterPainterText(ctx, {
@@ -405,8 +415,8 @@ class BastaInstance {
             const rawMeasureKey = this.properties.messageThemeKey || "t_textNormal";
             const measureParts = String(rawMeasureKey).split(",").map(p => p.trim());
             const measureThemeKey = measureParts.length > 1 ? (measureParts[1] || measureParts[0]) : measureParts[0];
-            const tooltipPal = { path: "_system/_toolTip.json" };
-            const tTheme = resolvePaintData(this, measureThemeKey, "_OFF", null, tooltipPal)
+            const { host: tooltipPaletteHost, palette: tooltipPalette } = getTooltipPaletteContext(this);
+            const tTheme = resolvePaintData(tooltipPaletteHost, measureThemeKey, "_OFF", null, tooltipPalette)
                 || resolvePaintData(this, measureThemeKey, "_OFF")
                 || this.hostNode?._t_textsystemPaintData_OFF
                 || this.hostNode?._t_textSystemPaintData_OFF

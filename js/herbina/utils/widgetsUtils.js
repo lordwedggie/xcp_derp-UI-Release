@@ -220,6 +220,13 @@ function resolveExactColorKeyPaint(node, keyName, stateSuffix = "_OFF") {
     };
 }
 
+function findInlinePaletteEntry(palette, entryName) {
+    const palettes = palette?.data?.palettes || palette?.palettes;
+    if (!Array.isArray(palettes) || !entryName) return null;
+    const target = String(entryName).toLowerCase();
+    return palettes.find(item => String(item?.name || "").toLowerCase() === target) || null;
+}
+
 function resolveColorKey(node, keyName, stateSuffix = "_OFF", palette = null) {
     const stringPaletteContext = getNodeStringPaletteContext(node, palette);
     const stringPaletteData = getNodeStringPaletteData(node, stringPaletteContext);
@@ -565,11 +572,13 @@ export function resolvePaintData(node, key, suffix = "", overrideColor = null, p
         // THE FUZZY FALLBACK FIX: If no entry is provided, try the specific key (buttonNode),
         // then fall back to the generic type (button, text) to match the "Only Colors" palette JSON.
         const targetEntry = activePalette.entry || key;
-        let pal = resolvePaletteEntry(owner, activePalette.path, targetEntry);
+        let pal = findInlinePaletteEntry(activePalette, targetEntry);
+        if (!pal) pal = resolvePaletteEntry(owner, activePalette.path, targetEntry);
 
         if (!pal && !activePalette.entry) {
             const genericKey = key.toLowerCase().includes("button") ? "button" : (key.toLowerCase().includes("text") ? "text" : null);
-            if (genericKey) pal = resolvePaletteEntry(owner, activePalette.path, genericKey);
+            if (genericKey) pal = findInlinePaletteEntry(activePalette, genericKey);
+            if (!pal && genericKey) pal = resolvePaletteEntry(owner, activePalette.path, genericKey);
         }
 
         if (pal?.entries) {

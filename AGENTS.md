@@ -114,6 +114,7 @@ esolveInterpolatedPaint handles this with illStrength: true config.
 esolveColorKey:** (1) Node's stringPaletteData (in-memory), (2) Async-fetched stringPalette entry (triggers redraw on arrival), (3) window.xcpActivePalette (global), (4) 
 esolveExactColorKeyPaint (legacy exact match). Palette entries are fetched via /xcp/load/palettes?name=... and cached in _paletteCache.
 - **String palette defaults are theme-category aware.** Missing/`Other` theme `Category` uses `_system/_defaultTheme.json`; `Dark`, `Light`, and `Neutral` use `_system/_DK_defaultTheme.json`, `_system/_LT_defaultTheme.json`, and `_system/_NE_defaultTheme.json`, falling back to `_system/_defaultTheme.json` if the category file is missing.
+- **Tooltip color keys use the host string palette context.** Tooltip entries live in the category-aware `_defaultTheme` palette files and resolve through the host node's `_derpStringPalette`; retired `_system/_toolTip` palette names are tolerated only as legacy settings and must not be used by new tooltip code.
 - **parseColorKeyText regex:** Matches {{keyName:stateSuffix:::displayText}}. ::: separates state from display text. If displayText is omitted, the raw {{...}} token is shown. Returns { segments: [{text, color, effects}], hasColorKeys: boolean }.
 - **Effects carry through segments:** Each segment carries effects (shadow/glow/border) from the palette entry. Adjacent segments with identical color+effects are merged. colorSegmentsToHTML applies 	ext-shadow via options.getTextShadow(seg).
 - **
@@ -373,10 +374,6 @@ egionOffset for visual padding expansion. Three-tier paint resolution: (1) expli
 - **ThemeManager font weight:** font weight support may drop legacy italic/both semantics; include font weight in change detection and JSON persistence, and prefer actual font weight detection when available.
 - **Bundled user assets:** `bundled_asset_sync.py` should sync all direct subdirectories under `user/derpNodes/`, not a fixed whitelist.
 
-
-### CHANGELOG version awareness (2026-06-10)
-- **Check the latest version number in CHANGELOG before adding entries.** The topmost `## [X.Y.Z]` section may already be released. If the latest version is released, create a new `## [Unreleased]` section at the top with the appropriate `### Added`/`### Changed`/`### Fixed` subsections. Never add new entries to an already-released version section.
-
 ### Debugging and failed-fix lessons (2026-06-09)
 - **Investigate before broad FileBrowser punch-through fixes.** Prior ineffective attempts included global pointermove consumption, Basta wrapper hover blocking, client-coordinate hover payloads, shared handler panel-rect checks, and active-owner blocking.
 - **Do not stabilize LoRA drag by rendering transparent full rows.** That creates ghost entries; stabilize the add-LoRA anchor/drag preview without generating extra rows.
@@ -385,3 +382,6 @@ egionOffset for visual padding expansion. Three-tier paint resolution: (1) expli
 - **For layout anomalies, trace `masterLayoutEngine` and `widget_Region` first** before patching symptoms.
 - **Color-key tokens override paint overrides on the same widget.** If a widget has both `{{keyName}}` tokens in its text AND `labelColor`/`btnColor` overrides, the `{{}}` tokens produce explicit `colorSegments` that the canvas renders per-segment, silently bypassing the unified `fill`/`textColor` from the paint override. Either remove `{{}}` tokens when the toggle is off (gate the format function), or use only one coloring mechanism. **Fix pattern:** create a wrapper like `seedDisplayText(text, index)` that calls the format function only when `useColorKeys` is true, returns plain text otherwise.
 - **When asking user to enable debug logs, include exact console commands** in the same response.
+
+### Dual-path state logic must stay in sync (2026-06-10)
+- **Layout map widgets with a value-hydration fast-path have two code paths that set `state`**: the initial layout map definition and the value-hydration block inside the structure-hash cache check. Both must contain identical state logic. When one path has extra conditions (e.g., `no triggers ? DIS`) and the other doesn't, unrelated toggle changes that hit the hydration path will silently reset the widget to the wrong state.

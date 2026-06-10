@@ -10,6 +10,11 @@ All notable changes to this project will be documented in this file.
 - **Theme `Category` system**: New top-level `Category` theme property (Light/Neutral/Dark/Other) stored first in serialized JSON; legacy `_category` normalized at load time. `sortThemeTopLevelKeys()` extracted to `themeDataUtils.js` with Category-first ordering. `dropdownCategory` FILEBROWSER added to themeManagerV2 `themeManagementRegion` for category selection, wired with full onChange/sync/dirty-state handling.
 
 
+### Fixed
+
+- **derpLoraStack trigger selector DIS state regression**: Toggling Fuse QKV no longer incorrectly re-enables the trigger FILEBROWSER when there are no triggers available. The value-hydration fast-path now includes the same `triggerArrayCache` length check as the initial layout definition.
+
+
 ## [0.7.7] - 2026-06-10
 
 ### Added
