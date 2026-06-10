@@ -15,7 +15,10 @@ import {
     handleThemeRenameAction,
     handleThemeCopyAction,
     handleThemeSaveAction,
-    handleThemeSaveWeightAction
+    handleThemeSaveWeightAction,
+    loadThemeWeightData,
+    applyThemeWeightToTheme,
+    isThemeWeightPath
 } from "./helpers/themeManager_themeHandler.js";
 import { getSystemPaletteDisplayName } from "./helpers/themeManager_paletteUtils.js";
 
@@ -230,6 +233,9 @@ export function updateThemeLayout(node) {
             uiNeedsRefresh = true;
         }
     }
+    if (tReg?.dropdownThemeWeight && !tReg.dropdownThemeWeight.value) {
+        tReg.dropdownThemeWeight.value = "_System/";
+    }
 
     if (!val) return;
 
@@ -354,6 +360,33 @@ export function bindThemeEvents(node) {
             node._layoutMapHash = null;
             if (node.refreshNodeLayoutMap) node.refreshNodeLayoutMap();
             node.requestDerpSync();
+        };
+    }
+    if (tReg.dropdownThemeWeight) {
+        tReg.dropdownThemeWeight.onChange = async (v) => {
+            if (!isThemeWeightPath(v) || !node.themeToEdit || !node._selectedThemeName) return;
+            try {
+                const weightData = await loadThemeWeightData(v);
+                if (!weightData) return;
+                const changedEdit = applyThemeWeightToTheme(node.themeToEdit, weightData);
+                const cfg = window.xcpDerpThemeConfig;
+                const targetTheme = cfg?.themes?.[node._selectedThemeName];
+                const changedLive = applyThemeWeightToTheme(targetTheme, weightData);
+                if (!changedEdit && !changedLive) return;
+
+                if (cfg?.touchTheme) cfg.touchTheme(node._selectedThemeName);
+                if (cfg?.markDirty) cfg.markDirty();
+                node._isThemeDirty = true;
+                if (tReg.btnThemeSave) tReg.btnThemeSave.pulse = true;
+                tReg.dropdownThemeWeight.value = v;
+                node._layoutMapHash = null;
+                node._lastUISyncHash = "";
+                if (node.refreshNodeLayoutMap) node.refreshNodeLayoutMap();
+                updateThemeLayout(node);
+                node.requestDerpSync();
+            } catch (err) {
+                console.error("[xcpDerp] ThemeManager weight load failed:", err);
+            }
         };
     }
     tReg.btnThemeRename.onClick = safeClick(() => handleThemeRenameAction(node, updateThemeLayout));

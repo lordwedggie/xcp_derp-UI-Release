@@ -94,6 +94,9 @@ Each theme key has:
 - `playSuccessSound()` — sound feedback on theme operations
 - `THEME_META_KEYS` — includes top-level `Category` plus internal `_layout` / `_palette` metadata
 - `Category` is saved as the first top-level key in each theme JSON file. Old themes without `Category`, or legacy `_category`, load as `"Other"` unless a category value is present.
+- `handleThemeSaveWeightAction(node)` — opens `bastaFileHandler` in save mode and writes theme-weight JSON files under `Themes/_System/` with a case-insensitive `_WT_` filename prefix. The dialog includes an optional `_WT_` file picker so an existing weight file can be selected and overwritten. Weight files contain `_layout`, per-key `corners`, and text-key `font` / `fontSize` / `fontWeight`; they deliberately exclude shadow, stroke, glow, color, clip, and palette data. `_WT_` weight files are protected from ThemeManager delete actions.
+- ThemeManager's `themeManagementRegion.dropdownThemeWeight` appears between `dropdownCategory` and `btnThemeDelete`. It loads a `_WT_` file into `node.themeToEdit` and `window.xcpDerpThemeConfig.themes[node._selectedThemeName]`, so the active edit target receives the weight values rather than ThemeManagerV2's own appearance theme.
+- System panel `dropdownThemeWeight` loads those `_WT_` files as node-local overlays. It stores the selected file in `properties.selectedThemeWeight`, keeps the loaded data on `node._themeWeightOverlay`, and leaves the shared theme config untouched so the weight change affects only the selected node.
 
 ## Maintenance Notes
 - Any user-visible theme manager text should use locale keys rather than permanent hard-coded strings.

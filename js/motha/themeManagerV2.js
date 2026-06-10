@@ -28,7 +28,7 @@ import {
     normalizeThemeCategory,
     syncThemeCategory
 } from "./themeManagerV2_core.js";
-import { handleThemeDropdownChange } from "./helpers/themeManager_themeHandler.js";
+import { handleThemeDropdownChange, getThemeWeightRootValue, isThemeWeightPath, mapThemeKeyPickerItem, mapThemeWeightPickerItem } from "./helpers/themeManager_themeHandler.js";
 import { getSystemPaletteDisplayName, toSystemPaletteDropdownItem } from "./helpers/themeManager_paletteUtils.js";
 
 const CSS_FONT_WEIGHTS = ["100", "200", "300", "400", "500", "600", "700", "800", "900"];
@@ -101,6 +101,23 @@ function refreshSystemPaletteList(node) {
         });
 }
 
+function refreshThemeWeightList(node) {
+    if (!node || node._loadingThemeWeightList) return;
+    node._loadingThemeWeightList = true;
+    fetch(`/xcp/list/themes?t=${Date.now()}`)
+        .then(r => r.json())
+        .then(data => {
+            node._themeWeightList = (data.items || [])
+                .filter(isThemeWeightPath)
+                .sort((a, b) => String(a).localeCompare(String(b)));
+            node._themeWeightListLoaded = true;
+            node._layoutMapHash = null;
+            if (typeof node.refreshNodeLayoutMap === "function") node.refreshNodeLayoutMap();
+        })
+        .catch(err => console.warn("[ThemeManager] Failed to list theme weights", err))
+        .finally(() => { node._loadingThemeWeightList = false; });
+}
+
 app.registerExtension({
     name: "xcp.derpThemeManagerV2_Extension",
     async setup() { initDerpGlobalListener(); },
@@ -125,6 +142,7 @@ app.registerExtension({
         // THE FIX: Protocol Authority. Using Fatha's centralized variable resolver
         nodeType.prototype.refreshNodeLayoutMap = function() {
             if (!Array.isArray(this._systemPaletteList)) refreshSystemPaletteList(this);
+            if (!Array.isArray(this._themeWeightList)) refreshThemeWeightList(this);
             const paletteBasta = activeBastas.get(getPaletteId(this));
             const isPaletteOpen = paletteBasta && !paletteBasta.isClosing;
             // THE STRUCTURAL HASH FIX: Include the active theme to ensure
@@ -167,7 +185,7 @@ app.registerExtension({
             this._dirtyKeyNames = dirtyKeys;
 
             const selectedCategory = normalizeThemeCategory(this.themeToEdit);
-            const layoutHash = `${this._selectedThemeName}_${this._selectedKeyName}_${this._cachedFonts?.length || 0}_${this._systemPaletteList?.length || 0}_${this._systemPaletteListLoaded ? 1 : 0}_${this.properties.systemPaletteName || ""}_${selectedCategory}_${isPaletteOpen}_${window.xcpDerpThemeConfig?.activeTheme}`;
+            const layoutHash = `${this._selectedThemeName}_${this._selectedKeyName}_${this._cachedFonts?.length || 0}_${this._systemPaletteList?.length || 0}_${this._systemPaletteListLoaded ? 1 : 0}_${this._themeWeightList?.length || 0}_${this._themeWeightListLoaded ? 1 : 0}_${this.properties.systemPaletteName || ""}_${selectedCategory}_${isPaletteOpen}_${window.xcpDerpThemeConfig?.activeTheme}`;
 
             if (this._layoutMapHash === layoutHash && this.layoutMap) return;
             const mapChanged = this._layoutMapHash !== layoutHash;
@@ -207,6 +225,10 @@ app.registerExtension({
             const selectedSystemPaletteText = !selectedSystemPalette
                 ? "None"
                 : getSystemPaletteDisplayName(selectedSystemPalette);
+            const themeWeightRootValue = getThemeWeightRootValue();
+            const themeWeightItems = Array.isArray(this._themeWeightList) && this._themeWeightList.length > 0
+                ? this._themeWeightList.map(mapThemeWeightPickerItem)
+                : [{ value: themeWeightRootValue, display: this._themeWeightListLoaded ? "No _WT_ weights found" : "Loading weights...", disableSelectedStyle: true }];
 
             this.layoutMap = {
                 themeManagementRegion: {
@@ -227,12 +249,6 @@ app.registerExtension({
                         state: "OFF", icon: "save", width: "match", height: "fill", objectAlign: ["left", "middle"],
                         spacing: [sW, 0],
                         pulse: this._isThemeDirty,
-                    },
-                    btnSaveWeight: {
-                        type: UI_TYPES.BUTTON, themeKey: "button, t_textSmall", mouseOver: true,
-                        state: "OFF", text: "Save Weight", width: "auto", height: "fill", objectAlign: ["left", "middle"],
-                        spacing: [sW, 0], padding: [pW, pH],
-                        toolTip: "Save theme weight file",
                     },
                     dropdownTheme: {
                         type: UI_TYPES.FILEBROWSER, themeKey: "dialog, t_textNormal", canvasShield: true,
@@ -256,6 +272,21 @@ app.registerExtension({
                         rootName: "categories",
                         items: ["Light", "Neutral", "Dark", "Other"],
                         value: selectedCategory,
+                        spacing: [sW, 0],
+                    },
+                    dropdownThemeWeight: {
+                        type: UI_TYPES.FILEBROWSER,
+                        icon: "dropdown", indicator: true,
+                        displayText: "Load Weight",
+                        toolTip: "Load a saved theme weight into the theme being edited",
+                        themeKey: "dialog, t_textNormal", canvasShield: true,
+                        width: "auto", height: "auto", minWidth: 92,
+                        padding: [pW, pH],
+                        mode: "file",
+                        fileType: "theme",
+                        rootName: "themes",
+                        items: themeWeightItems,
+                        value: themeWeightRootValue,
                         spacing: [sW, 0],
                     },
                     btnThemeDelete: {
@@ -375,7 +406,7 @@ app.registerExtension({
                         mode: "file",
                         rootName: "keys",
                         items: keyList.length > 0
-                            ? keyList.map(k => (this._dirtyKeyNames?.has(k) ? "* " : "") + k)
+                            ? keyList.map(k => mapThemeKeyPickerItem(k, this._dirtyKeyNames))
                             : [this._selectedKeyName || "None"],
                         value: this._selectedKeyName, padding: [pW, pH], spacing: [sW, 0],
                         onChange: (val) => {

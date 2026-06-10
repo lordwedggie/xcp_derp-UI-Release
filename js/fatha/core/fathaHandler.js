@@ -840,6 +840,7 @@ export const getDerpVars = (node) => {
         const target = themes[tName];
         if (target && Array.isArray(target._layout)) tLayout = target._layout;
     }
+    if (Array.isArray(safeNode._themeWeightOverlay?._layout)) tLayout = safeNode._themeWeightOverlay._layout;
 
     const getV = (prop, i1, i2, d1, d2) => {
         if (tLayout) return [tLayout[i1] ?? d1, tLayout[i2] ?? d2];

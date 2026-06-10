@@ -29,6 +29,17 @@ const COLLAPSED_HEADER_VERTICAL_MARGIN = 0;
 const HEADER_ICON_SIZE = { width: "match", height: "auto" };
 const HEADER_CORNER_MARGIN_THRESHOLD = 5;
 const HEADER_CORNER_MARGIN_PER_POINT = 1;
+const THEME_WEIGHT_PREFIX = "_WT_";
+const THEME_WEIGHT_SYSTEM_DIR = "_System";
+const THEME_WEIGHT_ROOT_VALUE = `${THEME_WEIGHT_SYSTEM_DIR}/`;
+const THEME_WEIGHT_RESET_VALUE = "__theme_weight_reset__";
+const THEME_WEIGHT_RESET_ITEM = {
+    value: THEME_WEIGHT_RESET_VALUE,
+    display: "Revert to Theme's weight",
+    alwaysVisible: true,
+    hidePrefix: true,
+    disableSelectedStyle: true,
+};
 
 function tLocale(key, fallback = key) {
     if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
@@ -95,6 +106,65 @@ function resolveHeaderSideInsetBoost(node) {
         left: calcBoost(topLeft),
         right: calcBoost(topRight),
     };
+}
+
+function isThemeWeightFileName(name) {
+    return String(name || "").replace(/\\/g, "/").split("/").pop().toLowerCase().startsWith(THEME_WEIGHT_PREFIX.toLowerCase());
+}
+
+function getThemeWeightItems(showResetItem = false) {
+    const cachedItems = Array.isArray(window.xcpDerpThemeWeightItems) ? window.xcpDerpThemeWeightItems : [];
+    if (!window.xcpDerpThemeWeightListPromise) {
+        window.xcpDerpThemeWeightListPromise = fetch(`/xcp/list/themes?t=${Date.now()}`)
+            .then((res) => res.ok ? res.json() : { items: [] })
+            .then((data) => {
+                const items = Array.isArray(data?.items) ? data.items : [];
+                window.xcpDerpThemeWeightItems = items
+                    .filter((item) => typeof item === "string" && item.replace(/\\/g, "/").toLowerCase().startsWith(`${THEME_WEIGHT_SYSTEM_DIR.toLowerCase()}/`))
+                    .filter(isThemeWeightFileName)
+                    .sort((a, b) => a.localeCompare(b))
+                    .map((item) => ({ value: item, display: item.replace(/\\/g, "/").split("/").pop() }));
+                return window.xcpDerpThemeWeightItems;
+            })
+            .catch((err) => {
+                console.warn("[xcpDerp] Failed to list theme weights:", err);
+                window.xcpDerpThemeWeightItems = [];
+                return [];
+            })
+            .finally(() => { window.xcpDerpThemeWeightListPromise = null; });
+    }
+    return showResetItem ? [THEME_WEIGHT_RESET_ITEM, ...cachedItems] : cachedItems;
+}
+
+async function loadThemeJson(themeName) {
+    if (!themeName) return null;
+    const res = await fetch(`/xcp/load/themes?name=${encodeURIComponent(themeName)}&t=${Date.now()}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    return data?.data || null;
+}
+
+async function applyThemeWeightSelection(hostNode, sysState, themeName, weightName) {
+    const cfg = window.xcpDerpThemeConfig;
+    if (!cfg) return;
+
+    if (weightName === THEME_WEIGHT_RESET_VALUE) {
+        hostNode.properties.selectedThemeWeight = "";
+        hostNode._themeWeightOverlay = null;
+        hostNode._themeWeightOverlayName = "";
+    } else {
+        const sourceData = await loadThemeJson(weightName);
+        if (!sourceData) return;
+        hostNode.properties.selectedThemeWeight = weightName;
+        hostNode._themeWeightOverlay = sourceData;
+        hostNode._themeWeightOverlayName = weightName;
+    }
+
+    if (typeof hostNode.onThemeUpdate === "function") hostNode.onThemeUpdate(cfg);
+    if (hostNode.layout) hostNode.layout._lastCacheKey = "";
+    if (sysState?.layout) sysState.layout._lastCacheKey = "";
+    if (typeof hostNode.requestDerpSync === "function") hostNode.requestDerpSync();
+    else if (typeof hostNode.setDirtyCanvas === "function") hostNode.setDirtyCanvas(true, true);
 }
 
 function getHeaderInsetLayoutHash(node, insetBoost) {
@@ -559,6 +629,8 @@ export function getPanelBaseMap(hostNode, app, sysState) {
     const requestedTheme = hostNode.properties?.[themePropertyName] || cfg?.activeTheme || (availableThemes.length > 0 ? availableThemes[0] : "Default");
     const fallbackTheme = cfg?.activeTheme || (availableThemes.includes("Template_Standard_v02") ? "Template_Standard_v02" : (availableThemes[0] || "Default"));
     const activeTheme = availableThemes.includes(requestedTheme) ? requestedTheme : fallbackTheme;
+    const selectedThemeWeight = String(hostNode.properties.selectedThemeWeight || "");
+    const hasSelectedThemeWeight = !!selectedThemeWeight && selectedThemeWeight !== THEME_WEIGHT_RESET_VALUE;
 
     if (requestedTheme && requestedTheme !== activeTheme && hostNode._lastMissingThemeDropdownWarning !== requestedTheme) {
         hostNode._lastMissingThemeDropdownWarning = requestedTheme;
@@ -602,9 +674,16 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                     if (node && sysCfg) {
                         sysCfg.activeTheme = val;
                         node.properties[themePropertyName] = val;
+                        node.properties.selectedThemeWeight = "";
+                        node._themeWeightOverlay = null;
+                        node._themeWeightOverlayName = "";
 
                         if (sysState.sysLayoutMap?.sysHeaderRegion?.dropdownThemes) {
                             sysState.sysLayoutMap.sysHeaderRegion.dropdownThemes.value = val;
+                        }
+                        if (sysState.sysLayoutMap?.sysHeaderRegion?.dropdownThemeWeight) {
+                            sysState.sysLayoutMap.sysHeaderRegion.dropdownThemeWeight.value = THEME_WEIGHT_ROOT_VALUE;
+                            sysState.sysLayoutMap.sysHeaderRegion.dropdownThemeWeight.items = getThemeWeightItems(false);
                         }
 
                         if (node.layout) node.layout._lastCacheKey = "";
@@ -616,6 +695,36 @@ export function getPanelBaseMap(hostNode, app, sysState) {
 
                         if (typeof node.requestDerpSync === "function") node.requestDerpSync();
                         else node.setDirtyCanvas(true, true);
+                    }
+                }
+            },
+            dropdownThemeWeight: {
+                type: UI_TYPES.FILEBROWSER,
+                themeKey: "dialog, t_textSystem",
+                toolTip: tLocale("$fatha_layout.tooltips.select_theme_weight", "Apply saved theme weight settings to the selected theme"),
+                canvasShield: true,
+                indicator: true,
+                displayMode: "cutoff",
+                displayText: "Load theme weight",
+                spacing: [sW, 0],
+                padding: [pW, pH],
+                width: "auto", height: "auto", minWidth: 82,
+                mode: "file",
+                icon: "dropdown",
+                fileType: "theme",
+                rootName: "themes",
+                value: hasSelectedThemeWeight ? selectedThemeWeight : THEME_WEIGHT_ROOT_VALUE,
+                items: getThemeWeightItems(hasSelectedThemeWeight),
+                onChange: async (val) => {
+                    if (!val) return;
+                    try {
+                        await applyThemeWeightSelection(hostNode, sysState, activeTheme, val);
+                        if (sysState.sysLayoutMap?.sysHeaderRegion?.dropdownThemeWeight) {
+                            sysState.sysLayoutMap.sysHeaderRegion.dropdownThemeWeight.value = val;
+                        }
+                    } catch (err) {
+                        console.error("[xcpDerp] Theme weight apply failed:", err);
+                        showBastaSystemMessage(hostNode, "Theme Weight Failed", 3000, { fade: true, grow: true }, "dropdownThemeWeight", "error", null, "");
                     }
                 }
             },

@@ -11,6 +11,7 @@
  * - `mode`: Handler mode such as `rename`, `duplicate`, `delete`, `save`, `new`, `create`, or `folder`.
  * - `onConfirm`: Optional async/sync callback invoked on confirm. In `folder` mode it receives the selected folder path.
  * - `fileList`: Optional preloaded file/folder list to avoid server fetch.
+ * - `filePicker`: Optional file-mode picker config for selecting an existing target path before confirm.
  * - `originalName`: Optional original file name/path used by rename-like flows.
  * - `initialSize`: Optional `[w, h]` starting dialog size.
  * - `properties`: Extra Basta properties merged into the handler instance.
@@ -242,6 +243,13 @@ export function showBastaFileHandler(host, category = "settings", targetRegion =
             const isDelete = mode === "delete";
             const isSave = mode === "save";
             const isNew = mode === "new" || mode === "newTrigger" || mode === "create";
+            const filePicker = basta.properties.filePicker || null;
+            const showFilePicker = !isDelete && !isFolderMode && !!filePicker;
+            const pickerItems = showFilePicker
+                ? (basta._fileList || [])
+                    .filter((item) => !filePicker.filter || filePicker.filter(item))
+                    .map((item) => filePicker.mapItem ? filePicker.mapItem(item) : item)
+                : [];
 
             // THE COMMIT FIX: Only valid (non-empty) names allowed. Duplicates trigger Overwrite mode.
             const isInvalid = currentName.trim() === "";
@@ -328,9 +336,43 @@ export function showBastaFileHandler(host, category = "settings", targetRegion =
                             width: "full"
                         }
                     },
+                    pickerRegion: {
+                        hidden: !showFilePicker,
+                        anchor: { target: "infoRegion", axis: "y", offset: oY },
+                        dir: "col", width: "full", height: "auto",
+                        dropdownExistingFile: {
+                            type: UI_TYPES.FILEBROWSER,
+                            themeKey: "dialog, t_textNormal",
+                            canvasShield: true,
+                            indicator: true,
+                            displayMode: "cutoff",
+                            displayText: filePicker?.displayText || "Select existing file",
+                            width: "full", height: "auto",
+                            minWidth: filePicker?.minWidth || 120,
+                            padding: [pW, pH], spacing: [0, sH],
+                            mode: "file",
+                            fileType: filePicker?.fileType || currentCategory,
+                            rootName: filePicker?.rootName || currentCategory,
+                            items: pickerItems,
+                            value: basta.properties.selectedPickerFile || filePicker?.rootValue || "",
+                            onChange: (v) => {
+                                basta.properties.selectedPickerFile = v;
+                                basta.properties.pendingName = filePicker?.valueToName ? filePicker.valueToName(v) : v;
+                                const editorReg = basta.layout?.regions?.editorNewName;
+                                if (editorReg) {
+                                    editorReg.text = basta.properties.pendingName;
+                                    editorReg.value = basta.properties.pendingName;
+                                }
+                                if (basta._compDataCache) delete basta._compDataCache.editorNewName;
+                                if (basta._fileBrowserCache) delete basta._fileBrowserCache.dropdownExistingFile;
+                                basta._forceSync = true;
+                                basta.requestDerpSync();
+                            }
+                        }
+                    },
                     editorRegion: {
                         hidden: isDelete || isFolderMode,
-                        anchor: { target: "infoRegion", axis: "y", offset: oY },
+                        anchor: { target: showFilePicker ? "pickerRegion" : "infoRegion", axis: "y", offset: oY },
                         dir: "col",
                         editorNewName: {
                             type: UI_TYPES.EDITOR,

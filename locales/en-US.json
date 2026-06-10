@@ -37,6 +37,7 @@
       "bypass_node": "Bypass the node. Works the same as default ComfyUI and uses the same shortcut",
       "open_system_panel": "Open the node system panel for advanced settings, similar to ComfyUI right-click Properties",
       "select_theme": "Select a new theme for the node",
+      "select_theme_weight": "Apply saved theme weight settings to the selected theme",
       "add_warp_point": "Assign a Warp Point hotkey to this node so the canvas can center on it",
       "delete_warp_point": "Remove this node's Warp Point and free the shortcut key",
       "auto_width": "If disabled, the node width can be resized manually",

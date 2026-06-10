@@ -84,10 +84,71 @@ const CATEGORY_STRING_PALETTES = {
     neutral: "_system/_NE_defaultTheme.json",
     netural: "_system/_NE_defaultTheme.json",
 };
+const THEME_WEIGHT_ROOT_VALUE = "_System/";
+const THEME_WEIGHT_RESET_VALUE = "__theme_weight_reset__";
 
 function getThemeStringPaletteName(theme) {
     const category = String(theme?.Category || "").trim().toLowerCase();
     return CATEGORY_STRING_PALETTES[category] || DEFAULT_STRING_PALETTE;
+}
+
+function cloneThemeWeightValue(value) {
+    return JSON.parse(JSON.stringify(value));
+}
+
+function applyThemeWeightOverlay(baseTheme, overlay) {
+    if (!baseTheme || !overlay || typeof overlay !== "object") return baseTheme;
+    const sourceKeys = overlay.keys && typeof overlay.keys === "object" ? overlay.keys : overlay;
+    const effectiveTheme = { ...baseTheme };
+    if (Array.isArray(overlay._layout)) effectiveTheme._layout = cloneThemeWeightValue(overlay._layout);
+
+    Object.entries(sourceKeys || {}).forEach(([keyName, weightEntry]) => {
+        if (keyName === "keys" || keyName === "meta" || keyName === "Category" || keyName === "_category" || keyName === "_layout" || keyName === "_palette") return;
+        const baseKey = baseTheme[keyName];
+        if (!baseKey || !weightEntry || typeof baseKey !== "object" || typeof weightEntry !== "object" || Array.isArray(baseKey)) return;
+        const nextKey = { ...baseKey };
+        ["corners", "font", "fontSize", "fontWeight"].forEach((prop) => {
+            if (weightEntry[prop] !== undefined) nextKey[prop] = cloneThemeWeightValue(weightEntry[prop]);
+        });
+        effectiveTheme[keyName] = nextKey;
+    });
+
+    return effectiveTheme;
+}
+
+function requestThemeWeightOverlayHydration(node) {
+    const selectedWeight = String(node?.properties?.selectedThemeWeight || "");
+    if (!node || !selectedWeight || selectedWeight === THEME_WEIGHT_ROOT_VALUE || selectedWeight === THEME_WEIGHT_RESET_VALUE) {
+        if (node) {
+            node._themeWeightOverlay = null;
+            node._themeWeightOverlayName = "";
+            node._themeWeightOverlayPendingName = "";
+        }
+        return;
+    }
+    if (node._themeWeightOverlayName === selectedWeight && node._themeWeightOverlay) return;
+    if (node._themeWeightOverlayPendingName === selectedWeight) return;
+
+    node._themeWeightOverlayPendingName = selectedWeight;
+    fetch(`/xcp/load/themes?name=${encodeURIComponent(selectedWeight)}&t=${Date.now()}`)
+        .then((res) => {
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            return res.json();
+        })
+        .then((data) => {
+            if (node.properties?.selectedThemeWeight !== selectedWeight) return;
+            node._themeWeightOverlayName = selectedWeight;
+            node._themeWeightOverlay = data?.data || null;
+            if (node._themeWeightOverlay && typeof node.onThemeUpdate === "function" && window.xcpDerpThemeConfig) {
+                node.onThemeUpdate(window.xcpDerpThemeConfig);
+            }
+        })
+        .catch((err) => {
+            console.warn("[xcpDerp] Failed to hydrate theme weight:", err);
+        })
+        .finally(() => {
+            if (node._themeWeightOverlayPendingName === selectedWeight) node._themeWeightOverlayPendingName = "";
+        });
 }
 
 function attachStringPalette(node, paletteName = DEFAULT_STRING_PALETTE, fallbackPaletteName = DEFAULT_STRING_PALETTE) {
@@ -253,6 +314,7 @@ export function handleThemeUpdateImpl(node, config, deps = {}) {
     }
 
     if (theme) {
+        requestThemeWeightOverlayHydration(node);
         clearHydratedPaintData(node);
         clearHydratedPaintData(sysPanel);
         if (node.properties?.selectedTheme !== undefined) node.properties.selectedTheme = resolvedThemeKey;
@@ -262,7 +324,8 @@ export function handleThemeUpdateImpl(node, config, deps = {}) {
             if (node.properties?.selectedThemeName !== undefined) node.properties.selectedThemeName = resolvedThemeKey;
             if (node._selectedThemeName !== undefined) node._selectedThemeName = resolvedThemeKey;
         }
-        Object.entries(theme).forEach(([key, val]) => {
+        const effectiveTheme = applyThemeWeightOverlay(theme, node._themeWeightOverlay);
+        Object.entries(effectiveTheme).forEach(([key, val]) => {
             if (key.startsWith("_") || typeof val !== "object" || Array.isArray(val)) return;
             invalidateCompiledThemeCache(val);
             node[`_${key}PaintData`] = compileThemeData(val, key, "OFF");
@@ -274,7 +337,7 @@ export function handleThemeUpdateImpl(node, config, deps = {}) {
                 sysPanel[`_${key}PaintData_DIS`] = node[`_${key}PaintData_DIS`];
             }
         });
-        const paletteName = typeof theme._palette === "string" ? theme._palette.trim() : "";
+        const paletteName = typeof effectiveTheme._palette === "string" ? effectiveTheme._palette.trim() : "";
         node._headerPaletteName = normalizePaletteName(paletteName);
         if (isRetiredPaletteName(node._headerPaletteName)) node._headerPaletteName = "";
         if (node._headerPaletteName && typeof loadDerpPalette === "function") {
@@ -282,7 +345,7 @@ export function handleThemeUpdateImpl(node, config, deps = {}) {
             window._xcpPaletteRequesters[node._headerPaletteName] = resolvedThemeKey || themeName;
             loadDerpPalette(node._headerPaletteName);
         }
-        attachStringPalette(node, getThemeStringPaletteName(theme));
+        attachStringPalette(node, getThemeStringPaletteName(effectiveTheme));
     }
 
     if (node._derpBgCache) {

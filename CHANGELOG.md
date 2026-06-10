@@ -12,10 +12,20 @@ All notable changes to this project will be documented in this file.
 - **Theme `Category` system**: New top-level `Category` theme property (Light/Neutral/Dark/Other) stored first in serialized JSON; legacy `_category` normalized at load time. `sortThemeTopLevelKeys()` extracted to `themeDataUtils.js` with Category-first ordering. `dropdownCategory` FILEBROWSER added to themeManagerV2 `themeManagementRegion` for category selection, wired with full onChange/sync/dirty-state handling.
 
 
+- **Theme Weight loading & editing**: New system for saving and loading partial theme presets ("weights") that include layout metrics, corners, and font properties without overriding colors or effects.
+  - ThemeManagerV2 `dropdownThemeWeight` FILEBROWSER loads `_WT_` weight files into the active edit target. Weights are listed from `Themes/_System/_WT_*.json`.
+  - System panel `dropdownThemeWeight` applies a node-local weight overlay (`node._themeWeightOverlay`) without mutating shared theme config. Includes "Revert to Theme's weight" reset option.
+  - `handleThemeSaveWeightAction` saves `_layout`, per-key `corners`, and text-key `font`/`fontSize`/`fontWeight` to `Themes/_System/_WT_*.json`. Dialog includes optional file picker to overwrite existing weights.
+  - `bastaFileHandler` extended with optional `filePicker` property for save/rename flows, enabling file-mode FILEBROWSER above the name editor.
+  - Weight files are protected from ThemeManager delete actions. `_WT_` weight file key deleted from ICON_MAP (was unused).
+
 ### Changed
 
 - **Tooltip palette migration to _defaultTheme**: Legacy `_system/_toolTip.json` palette retired. Tooltip text and background paint now resolves through the host node's category-aware string palette context (`_system/_defaultTheme.json` or category-specific variants `_DK_`/`_LT_`/`_NE_`), eliminating the separate tooltip palette file. `isRetiredPaletteName()` detects legacy `_toolTip` references and redirects them to `Derp_Default_v01`. New `getTooltipPaletteContext()` in `basta.js` derives tooltip palette from the host node's `_derpStringPalette`. `findInlinePaletteEntry()` added to `widgetsUtils.js` for inline palette entry resolution before fallback file lookups. FRAMEWORK-Basta.md and FRAMEWORK-ThemePalette.md updated.
 
+
+- **btnIcon glyph refresh**: Removed unused `anchor` and `warpto` entries from ICON_MAP. Restored `fallback: "⏹"` (BLACK SQUARE FOR STOP) for icon fallback resolution (used by derpSeedV2 stop button).
+- **Key picker dirty markers**: `dropdownKey` items in ThemeManagerV2 now display `* ` prefix for dirty keys via `mapThemeKeyPickerItem()`, using object-based `{value, display}` items.
 
 ### Fixed
 

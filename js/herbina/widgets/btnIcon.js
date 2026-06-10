@@ -52,6 +52,7 @@ const ICON_MAP = {
     dockbottom: "⊥",
     docktopbottom: "⊤⊥",
     delete: "✕️",
+    fallback: "⏹",
     new: "🗋",
     copy: "⧉", //⧉, ❐,
     rename: "✎", // 🖌

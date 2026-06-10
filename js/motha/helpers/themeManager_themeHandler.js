@@ -10,8 +10,8 @@ import { safeClick, safePersist, playSuccessSound, normalizeThemeCategory, syncT
 import { getSystemPaletteDisplayName } from "./themeManager_paletteUtils.js";
 
 const THEME_META_KEYS = new Set(["Category", "_category", "_layout", "_palette"]);
-const THEME_WEIGHT_PREFIX = "_WT";
-const THEME_WEIGHT_SYSTEM_DIR = "_system";
+const THEME_WEIGHT_PREFIX = "_WT_";
+const THEME_WEIGHT_SYSTEM_DIR = "_System";
 const THEME_WEIGHT_META_VERSION = 1;
 
 function cloneWeightValue(value) {
@@ -24,19 +24,62 @@ function normalizeThemeWeightName(name) {
     return `${THEME_WEIGHT_SYSTEM_DIR}/${prefixed}`;
 }
 
-function collectEffectWeightData(keyData) {
-    const out = {};
-    ["shadow", "shadowDisabled", "stroke", "strokeDisabled", "glow", "glowDisabled"].forEach((prop) => {
-        const value = keyData?.[prop];
-        if (Array.isArray(value)) {
-            const dimensionLength = prop.startsWith("stroke") ? 2 : 3;
-            out[prop] = cloneWeightValue(value.slice(0, dimensionLength));
-        }
+function isThemeWeightName(name) {
+    const raw = String(name || "").replace(/\\/g, "/").split("/").pop().replace(/\.json$/i, "");
+    return raw.toLowerCase().startsWith(THEME_WEIGHT_PREFIX.toLowerCase());
+}
+
+export function isThemeWeightPath(name) {
+    const normalized = String(name || "").replace(/\\/g, "/");
+    return normalized.toLowerCase().startsWith(`${THEME_WEIGHT_SYSTEM_DIR.toLowerCase()}/`) && isThemeWeightName(normalized);
+}
+
+export function mapThemeWeightPickerItem(name) {
+    const normalized = String(name || "").replace(/\\/g, "/");
+    return { value: normalized, display: normalized.split("/").pop() };
+}
+
+export function mapThemeKeyPickerItem(key, dirtyKeyNames) {
+    return {
+        value: key,
+        display: `${dirtyKeyNames?.has(key) ? "* " : ""}${key}`,
+    };
+}
+
+export function getThemeWeightRootValue() {
+    return `${THEME_WEIGHT_SYSTEM_DIR}/`;
+}
+
+export async function loadThemeWeightData(weightName) {
+    if (!isThemeWeightPath(weightName)) return null;
+    const res = await fetch(`/xcp/load/themes?name=${encodeURIComponent(weightName)}&t=${Date.now()}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    return data?.data || null;
+}
+
+export function applyThemeWeightToTheme(targetTheme, weightData) {
+    if (!targetTheme || !weightData || typeof weightData !== "object") return false;
+    const sourceKeys = weightData.keys && typeof weightData.keys === "object" ? weightData.keys : weightData;
+    let changed = false;
+
+    if (Array.isArray(weightData._layout)) {
+        targetTheme._layout = cloneWeightValue(weightData._layout);
+        changed = true;
+    }
+
+    Object.entries(sourceKeys || {}).forEach(([keyName, weightEntry]) => {
+        if (THEME_META_KEYS.has(keyName) || keyName === "keys" || keyName === "meta" || !weightEntry || typeof weightEntry !== "object") return;
+        const targetKey = targetTheme[keyName];
+        if (!targetKey || typeof targetKey !== "object" || Array.isArray(targetKey)) return;
+        ["corners", "font", "fontSize", "fontWeight"].forEach((prop) => {
+            if (weightEntry[prop] === undefined) return;
+            targetKey[prop] = cloneWeightValue(weightEntry[prop]);
+            changed = true;
+        });
     });
-    ["shadowClip", "strokeClip", "glowClip"].forEach((prop) => {
-        if (keyData?.[prop] !== undefined) out[prop] = keyData[prop];
-    });
-    return out;
+
+    return changed;
 }
 
 function collectThemeWeightData(themeObj, sourceThemeName = "") {
@@ -59,7 +102,6 @@ function collectThemeWeightData(themeObj, sourceThemeName = "") {
             if (keyData.fontSize !== undefined) entry.fontSize = keyData.fontSize;
             if (keyData.fontWeight !== undefined) entry.fontWeight = keyData.fontWeight;
         }
-        Object.assign(entry, collectEffectWeightData(keyData));
         if (Object.keys(entry).length > 0) weightData.keys[keyName] = entry;
     });
 
@@ -69,6 +111,11 @@ function collectThemeWeightData(themeObj, sourceThemeName = "") {
 export const handleThemeDeleteAction = (node, updateThemeLayoutFn) => {
     const currentTheme = node._selectedThemeName;
     if (!currentTheme) return;
+    if (isThemeWeightName(currentTheme)) {
+        showBastaSystemMessage(node, "Theme Weight files cannot be deleted", 3000, { fade: true, grow: true }, "btnThemeDelete", "warning", null, currentTheme);
+        node.requestDerpSync();
+        return;
+    }
 
     showBastaFileHandler(node, "themes", "btnThemeDelete", {
         title: "Delete Current Theme",
@@ -131,7 +178,7 @@ export const handleThemeDropdownChange = (node, val, updateThemeLayoutFn) => {
         const availableKeys = Object.keys(node.themeToEdit).filter(k => !THEME_META_KEYS.has(k));
         node._selectedKeyName = availableKeys[0] || "";
         if (node.layoutMap?.keyManagementRegion?.dropdownKey) {
-            node.layoutMap.keyManagementRegion.dropdownKey.items = availableKeys;
+            node.layoutMap.keyManagementRegion.dropdownKey.items = availableKeys.map(k => mapThemeKeyPickerItem(k, node._dirtyKeyNames));
             node.layoutMap.keyManagementRegion.dropdownKey.value = node._selectedKeyName;
         }
     }
@@ -254,8 +301,20 @@ export const handleThemeSaveWeightAction = (node) => {
     showBastaFileHandler(node, "themes", "btnSaveWeight", {
         title: "Save Theme Weight",
         mode: "save",
-        message: "Save layout, corners, fonts, and effect weights?",
+        message: "Save layout, corners, and fonts?",
         originalName: `${THEME_WEIGHT_PREFIX}${themeName}`,
+        initialSize: [300, 120],
+        properties: {
+            filePicker: {
+                displayText: "Replace existing weight",
+                fileType: "theme",
+                rootName: "themes",
+                rootValue: `${THEME_WEIGHT_SYSTEM_DIR}/`,
+                filter: isThemeWeightPath,
+                mapItem: mapThemeWeightPickerItem,
+                valueToName: (value) => String(value || ""),
+            },
+        },
         onConfirm: async (newName) => {
             const targetName = normalizeThemeWeightName(newName || themeName);
             const weightData = collectThemeWeightData(themeObj, themeName);

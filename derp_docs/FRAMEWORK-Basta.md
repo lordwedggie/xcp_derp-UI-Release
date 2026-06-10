@@ -82,5 +82,6 @@ Nested `imageHTML` regions can have `clipChildren: true`. The clip chain walks p
 
 ## Maintenance Notes
 - Avoid creating one-off overlay systems when a Basta panel can use existing layout maps and shield routing.
+- `bastaFileHandler` save/rename flows can accept a `filePicker` property to render an optional file-mode `FILEBROWSER` above the name editor. Selecting a file updates `pendingName`, allowing callers such as Theme Weight save to overwrite an existing managed file without custom dialog code.
 - If a Basta affects node visuals, check passive whole-wall cache invalidation in `fatha.js` and the owning node.
 - Update this document when adding/removing panels or changing global Basta lifecycle/registry behavior.

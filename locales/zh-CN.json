@@ -37,6 +37,7 @@
       "bypass_node": "旁路该节点。行为与默认 ComfyUI 一致，并使用相同快捷键",
       "open_system_panel": "打开节点系统面板以访问高级设置，类似 ComfyUI 右键菜单中的 Properties",
       "select_theme": "为该节点选择新主题",
+      "select_theme_weight": "将已保存的主题权重设置应用到当前选中主题",
       "add_warp_point": "为该节点分配一个传送点快捷键，按下后会自动将画布居中到该节点",
       "delete_warp_point": "删除该节点的传送点并释放对应快捷键",
       "auto_width": "关闭后，可手动调整节点宽度",

@@ -15,6 +15,13 @@ import { safeClick, safePersist, playSuccessSound } from "../themeManagerV2_core
 const THEME_META_KEYS = new Set(["Category", "_category", "_layout", "_palette"]);
 const FONT_WEIGHT_OPTIONS = ["100", "200", "300", "400", "500", "600", "700", "800", "900"];
 
+function mapThemeKeyPickerItem(key, dirtyKeyNames) {
+    return {
+        value: key,
+        display: `${dirtyKeyNames?.has(key) ? "* " : ""}${key}`,
+    };
+}
+
 function normalizeFontWeight(weight) {
     const val = String(weight || "normal");
     if (val === "normal") return "400";
@@ -247,7 +254,7 @@ const syncAndPersistKey = async (node, newKey, updateThemeLayoutFn) => {
     const remainingKeys = Object.keys(node.themeToEdit).filter(k => !THEME_META_KEYS.has(k));
     const safeKey = newKey || remainingKeys[0] || "";
     if (dropdown) {
-        dropdown.items = remainingKeys;
+        dropdown.items = remainingKeys.map(k => mapThemeKeyPickerItem(k, node._dirtyKeyNames));
         dropdown.value = safeKey;
     }
     node._selectedKeyName = safeKey;

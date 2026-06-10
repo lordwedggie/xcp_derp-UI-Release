@@ -94,6 +94,13 @@ A "hybrid" framework combining Fatha's modern engine with legacy node compatibil
 - User-renamed titles are protected by `properties._derpCustomTitle`; title editors must set this flag when writing `properties.titleLabel`.
 - Keep node default title keys in the top-level `derp_* .title` locale entries so the shared registry can distinguish them from dialog titles.
 
+## System Panel Theme Weights
+- The system panel header includes `dropdownThemeWeight` between `dropdownThemes` and the Warp controls.
+- It lists theme files under `Themes/_System/` whose leaf filename starts with `_WT_`; when an external weight is selected, the first pinned item is `Revert to Theme's weight`. When the theme uses its own weights, the reset item is hidden and the trigger shows `Load theme weight`.
+- Selecting a `_WT_` file stores a node-local theme weight overlay in `node._themeWeightOverlay` and recompiles that node's paint data from an effective theme. The overlay only applies `_layout`, `corners`, and text `font` / `fontSize` / `fontWeight`; effect settings are ignored. It does not mutate `window.xcpDerpThemeConfig.themes`, so other nodes using the same theme keep their original weights.
+- `getDerpVars()` also checks `node._themeWeightOverlay._layout` so node-local weight files affect margins, spacing, offsets, and padding without writing those values back into the shared theme.
+- Selecting `Revert to Theme's weight` clears `properties.selectedThemeWeight` and the node-local overlay. Saved workflows rehydrate `selectedThemeWeight` lazily during the node's theme update path.
+
 ## Stack Drag-and-Hold DnD
 - Stack/list reordering uses `helpers/fathaDragDrop.js` with `startStackDrag()`, `updateStackDrag()`, and `endStackDrag()`.
 - `startStackDrag()` is hold-first by default: pointer-down arms `_dragHoldTimer`, and pickup only becomes visual/structural after `_dragThresholdMet` is true.

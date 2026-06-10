@@ -183,6 +183,13 @@ esolvePaletteColor(val) resolves @keyName strings against window.xcpActivePalett
 - **handleThemeUpdate(node, config):** Called on theme change for ALL derp nodes. Recompiles theme paint data, sets _headerPaletteName, calls loadDerpPalette(), then 
 equestDerpSync().
 
+### Theme weight files (2026-06-10)
+- **Read docs first:** For weight-file changes, check `derp_docs/FRAMEWORK-Motha.md` for ThemeManager save/load behavior, `derp_docs/FRAMEWORK-Fatha.md` for runtime node-local overlay application, and `derp_docs/FRAMEWORK-Basta.md` if the save dialog/file picker changes.
+- **Storage/name:** Theme weight files live under `Themes/_System/` and use a `_WT_` filename prefix. They are managed through the `themes` backend file category.
+- **Payload scope:** Weight files save/apply only `_layout`, per-key `corners`, and text-key `font` / `fontSize` / `fontWeight`. They must not save/apply shadow, stroke, glow, color, clip, or palette data.
+- **Two load paths:** System panel `dropdownThemeWeight` applies a node-local overlay (`node._themeWeightOverlay`) and must not mutate shared theme config. ThemeManagerV2 `dropdownThemeWeight` mutates the active edit target (`node.themeToEdit` and `cfg.themes[node._selectedThemeName]`), not ThemeManagerV2's own appearance theme.
+- **Application chain:** `_layout` affects nodes through `getDerpVars()` checking `node._themeWeightOverlay._layout`; `corners` and font fields apply through the theme overlay before `compileThemeData()`.
+
 ### Painting pipeline (2026-06-09)
 - **masterPainter(ctx, options):** 5-layer canvas rendering: (1) outside shadow (evenodd clip), (2) background fill (with optional attached shadow), (3) inside shadow (inverse evenodd), (4) glow (Outside/Inside/None clip modes), (5) border (center/inside/outside placement). Canvas tuning factors: blur �2.0, alpha �0.7, offset �1.5.
 - **masterPainterText(ctx, options):** Triple-pass vector text rendering. Supports segments for per-segment color-key text, cutoff for text clipping, lign/aseline positioning.
@@ -396,3 +403,6 @@ egionOffset for visual padding expansion. Three-tier paint resolution: (1) expli
 
 ### LoRA no-trigger-required state (2026-06-10)
 - **LoRA no-trigger-required is per-row persisted state.** Store/read it from `properties.stackData[i][7]`, not a node-level runtime `_noTriggerRequired` flag. The runtime flag may mirror the active Basta state for convenience, but it is not serialized. For `FILEBROWSER` closed labels with `value: "None"`, pass an object fallback item with `display` set to the desired label; a primitive `"None"` item will always render as `None`.
+
+### FileBrowser display/value separation (2026-06-10)
+- **Never decorate persisted dropdown values for display state.** If a `FILEBROWSER` row needs a visual marker such as `* canvas`, pass object items like `{ value: "canvas", display: "* canvas" }`; do not prepend markers to the string item itself, or `onChange` will store a non-existent value and downstream editors will blank/disable.
