@@ -5,6 +5,9 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **New node: derpSkunk** — utility/test node for theme file testing and skunkworks prototyping. Virtual fatha shell with layout map exercising toggles and icon buttons.
+
+### Added
 
 - **LoRA "no trigger required" toggle**: New `toggleNoTrigger` TOGGLE_V2 in bastaLoraDetail `triggerControlRow`. When ON for a LoRA with no trigger files, the trigger selector FILEBROWSER and derpLoraStack dropdown both display "LoRA requires no trigger" instead of "None"/"No triggers found". State persisted per-LoRA-entry in `stackData[i][7]` via `isLoraNoTriggerRequired`/`setLoraNoTriggerRequired` helpers in `loraComponents.js`. FILEBROWSER state hash expanded to include display/label/text for cache invalidation. New locale keys added (EN/ZH). FRAMEWORK-Nodes.md updated with stackData slot documentation.
 

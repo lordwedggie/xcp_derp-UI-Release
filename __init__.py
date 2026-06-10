@@ -1,4 +1,4 @@
-# Path: ./__init__.py
+﻿# Path: ./__init__.py
 import os
 from .python.bundled_asset_sync import sync_bundled_assets
 from .python.xcp_routes import xcp_file_server
@@ -18,6 +18,7 @@ from .python.derpTemplate import NODE_CLASS_MAPPINGS as TEMPLATE_NODES, NODE_DIS
 from .python.derpControldeck import NODE_CLASS_MAPPINGS as CONTROLDECK_NODES, NODE_DISPLAY_NAME_MAPPINGS as CONTROLDECK_DISPLAY
 from .python.derpSignalOut import NODE_CLASS_MAPPINGS as SIGNAL_OUT_NODES, NODE_DISPLAY_NAME_MAPPINGS as SIGNAL_OUT_DISPLAY
 from .python.derpConcatenate import NODE_CLASS_MAPPINGS as CONCATENATE_NODES, NODE_DISPLAY_NAME_MAPPINGS as CONCATENATE_DISPLAY
+from .python.derpUtilities import NODE_CLASS_MAPPINGS as UTILITIES_NODES, NODE_DISPLAY_NAME_MAPPINGS as UTILITIES_DISPLAY
 
 # --- 1. MAPPINGS ---
 NODE_CLASS_MAPPINGS = {}
@@ -29,6 +30,7 @@ NODE_CLASS_MAPPINGS.update(TEMPLATE_NODES)
 NODE_CLASS_MAPPINGS.update(SIGNAL_OUT_NODES)
 NODE_CLASS_MAPPINGS.update(CONTROLDECK_NODES)
 NODE_CLASS_MAPPINGS.update(CONCATENATE_NODES)
+NODE_CLASS_MAPPINGS.update(UTILITIES_NODES)
 
 NODE_DISPLAY_NAME_MAPPINGS = {
     **THEME_V2_DISPLAY,
@@ -37,6 +39,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     **CONTROLDECK_DISPLAY,
     **SIGNAL_OUT_DISPLAY,
     **CONCATENATE_DISPLAY,
+    **UTILITIES_DISPLAY,
 }
 
 # Ensure new ControlDeck nodes are always exposed from package root mappings.

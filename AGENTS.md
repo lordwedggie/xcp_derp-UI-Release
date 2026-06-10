@@ -109,6 +109,11 @@ esolveInterpolatedPaint handles this with illStrength: true config.
 - **Bitmap caching for performance:** TriggerWall nodes use offscreen OffscreenCanvas bitmaps to cache entire widget renders. The _triggerBitmapCache Map stores { key: cacheKey, bitmap } entries. Cache invalidates on _forceSync, drag, or alpha < 1. Always include all visual state in the cache key.
 - **Overlay picker lifecycle:** FileBrowser manages a complex overlay picker via xcpActiveFileBrowser global state. Pickers auto-flip direction based on screen space, have scrollable panes with custom scrollbars, breadcrumb navigation, and search-tab integration. Always test overlay positioning at screen edges.
 
+
+
+### TEXT widget padding trap (2026-06-10)
+- **Never use `padding` on TEXT widgets when the background is disabled (default).** TEXT supports drawing a background rect but it defaults to off. Without a background, padding invisibly offsets the text from its anchor position, creating the illusion of unbalanced margins. Use zero padding and rely on the parent region's margin/spacing for positioning instead.
+
 ### Color-key resolution chain (2026-06-09)
 - **4-step lookup in 
 esolveColorKey:** (1) Node's stringPaletteData (in-memory), (2) Async-fetched stringPalette entry (triggers redraw on arrival), (3) window.xcpActivePalette (global), (4) 
