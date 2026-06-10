@@ -29,9 +29,6 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
 - **derpPromptBook embedded images lost on edit**: Editors in PromptBook use `contentEditable` with inline `<img>` tags for embedded images. Using `textContent` (the default for non-`richImageContent` editors) stripped image HTML when entering/exiting editing mode. New `richImageContent` config flag switches the editor to `innerText`-based DOM sync via `getDerpEditorDomValue`/`setDerpEditorDomValue` helpers, preserving image embeds through focus/blur/escape transitions.
-### Removed
-- **Legacy xcpDerpLoraLoader registration**: Removed from `__init__.py` — fully replaced by `derpLoraStack`. Stripped dead API routes (`get_civitai_url`, `fetch_lora_tags`, `open_lora_folder`, `open_lora_file_location`) from `xcpDerpLoraLoader.py` — these endpoints are now served by `xcp_file_server.py`. Cleaned unused imports. CATEGORY updated from `xcpDerpNodes` to `xcp_derp-UI`.
-- **derpEditor performance and correctness**: Removed color-key DOM handling (`getDerpEditorVisibleText`, `syncDerpEditorDomContent`, `parseColorKeyText` imports) — color keys now handled by canvas renderer only. `innerText` replaced with `textContent` for value getter/setter, eliminating forced reflow. Focus/blur logic simplified, `_derpEditorDidInput` flag removed. Physical positioning uses `Math.round` instead of `Math.floor` to prevent sub-pixel drift.
 - **Panel layout margins**: `fathaLayoutMaps` panel base map left margins zeroed (`mW` → `0`) to remove unnecessary left gutter. `mouseOver: false` added to `lblTheme`.
 - **derpSeedV2 system panel**: History/log editors switched from `EDITOR_HTML` to `EDITOR` with `canvasShield`. Margins tightened. "Lucky Num" row removed.
 - **derpSchedulerLoader / derpLoraStack**: Browser theming fixed (`dialog, t_textNormal` + `fontSize`), root name localized. `mouseOver: false` on dropdowns.
@@ -53,8 +50,10 @@ All notable changes to this project will be documented in this file.
 - **Pure vertical resize cursors**: Top/bottom shared-edge resize anchors now show `ns-resize` cursor and block horizontal width changes instead of using the corner resize cursor. No more diagonal cursors on purely vertical drags.
 - **derpImageDeck height not snapping to 10px grid**: Height in `resizeNodeToImageAspect` now snaps via `Math.ceil / SNAP * SNAP`. Bottom edge anchoring snaps to grid coordinates so the bottom edge stays put after page refreshes and latent aspect ratio changes.
 - **Horizontal docking height collapse**: Nodes of different heights would collapse the taller node when docked horizontally (e.g., derpDiffusionLoader docked to derpSeedV2). Root cause was dual: (1) `fitSizesToTotal` initialized `assigned = minTotal` which double-counted minimums, causing single-node columns to receive `totalHeight - min` instead of the full target height. Changed to `assigned = 0`. (2) `applyColumnLayout`/`applyRowLayout` called `syncDeckNodeSize` non-silently, triggering an immediate `refreshNodeLayoutMap` that recalculated autoHeight and overwrote the normalized shared height. Changed to `{ silent: true }`.
-- **Fixed mouse hit detection is punching through the picker in widget_FileBrowser**
-- **README video now actually exists in the repo**: The `<video>` tag was there but the `.mp4` file was MIA. Now it's actually tracked.
+
+### Removed
+- **Legacy xcpDerpLoraLoader registration**: Removed from `__init__.py` — fully replaced by `derpLoraStack`. Stripped dead API routes (`get_civitai_url`, `fetch_lora_tags`, `open_lora_folder`, `open_lora_file_location`) from `xcpDerpLoraLoader.py` — these endpoints are now served by `xcp_file_server.py`. Cleaned unused imports. CATEGORY updated from `xcpDerpNodes` to `xcp_derp-UI`.
+- **derpEditor performance and correctness**: Removed color-key DOM handling (`getDerpEditorVisibleText`, `syncDerpEditorDomContent`, `parseColorKeyText` imports) — color keys now handled by canvas renderer only. `innerText` replaced with `textContent` for value getter/setter, eliminating forced reflow. Focus/blur logic simplified, `_derpEditorDidInput` flag removed. Physical positioning uses `Math.round` instead of `Math.floor` to prevent sub-pixel drift.
 
 ## [0.7.5] - 2026-06-06
 

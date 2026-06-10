@@ -105,6 +105,12 @@ widgets/
 - While asleep, keep the DOM editor present for interaction but transparent; while awake/editing, let the DOM editor show text/background so native selection and keyboard input work.
 - Do not fix zoom-dependent EDITOR drift with per-zoom height, baseline, or translation nudges. If an asleep editor visual drifts, move that visual back into the Canvas path.
 - Keep vertical alignment math host-independent. System panels, Fatha nodes, ThemeManager fields, and numeric editors should use the same `labelAlign` calculation unless a concrete renderer bug requires a shared fix.
+- PromptBook image embeds use `richImageContent: true`; this makes `EDITOR` sync through `innerText` so the PromptBook image handler can preserve real `<img>` nodes instead of being overwritten by `textContent`.
+
+## Text Wrapping
+- `textLabel` Canvas wrapping and layout height measurement use `wrapTextToLines()` from `widgetsUtils.js`; keep these paths in sync so rendered line count matches measured auto-height.
+- CJK text must wrap at character boundaries because Chinese/Japanese/Korean strings often have no spaces. Do not use space-only splitting for wrapped labels.
+- HTML `textLabel` wrapping should allow continuous CJK text to break with `overflow-wrap: anywhere` while preserving normal nowrap behavior when `wrap` is false.
 
 ## ICONBUTTON Canonical Pattern
 ```js

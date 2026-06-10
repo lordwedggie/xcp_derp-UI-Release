@@ -273,7 +273,7 @@ export function showBastaFileHandler(host, category = "settings", targetRegion =
                         dir: "row", width: "full", minWidth: basta.properties.folderRowMinWidth || 0,
                         dropdownFolder: {
                             type: UI_TYPES.FILEBROWSER || "fileBrowser", themeKey: "dialog, t_textNormal",
-                            width: "full", height: 20, padding: [pW, pH], spacing: [0, sH],
+                            width: "full", height: "auto", padding: [pW, pH], spacing: [0, sH],
                             minWidth: basta.properties.folderBrowserMinWidth || 0,
                             items: basta._fileList || [],
                             value: basta.properties.selectedFolder || "/",

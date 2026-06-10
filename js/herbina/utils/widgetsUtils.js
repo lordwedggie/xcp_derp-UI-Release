@@ -370,20 +370,8 @@ export function measureTextHeight(text, maxWidth, themeData, paddingH = 0) {
 
     // THE FIX: If maxWidth is provided (wrapping enabled), calculate total line height
     if (maxWidth > 0) {
-        const words = String(visibleText).split(' ');
-        let lines = 1;
-        let currentLine = '';
-        for (let n = 0; n < words.length; n++) {
-            let testLine = currentLine + words[n] + ' ';
-            let metrics = _measureCtx.measureText(testLine);
-            if (metrics.width > maxWidth && n > 0) {
-                lines++;
-                currentLine = words[n] + ' ';
-            } else {
-                currentLine = testLine;
-            }
-        }
-        return (lines * fontSize) + paddingH;
+        const lines = wrapTextToLines(visibleText, maxWidth, fontSize, fontFamily, fontWeight);
+        return (Math.max(1, lines.length) * fontSize) + paddingH;
     }
 
     // THE ACCURACY FIX: Measure the actual text provided and remove the 1.2x floor
@@ -402,6 +390,91 @@ export function measureTextWidth(text, fontSize, fontFamily, fontWeight = "norma
 
     _measureCtx.font = `${fontWeight} ${fontSize}px ${safeFont}`;
     return _measureCtx.measureText(visibleText || "").width;
+}
+
+const CJK_WRAP_CHAR_RE = /[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff\uac00-\ud7af]/;
+
+function getWrapTokens(text) {
+    const tokens = [];
+    let buffer = "";
+    let bufferType = null;
+
+    for (const char of Array.from(String(text || ""))) {
+        if (char === "\n") {
+            if (buffer) tokens.push(buffer);
+            buffer = "";
+            bufferType = null;
+            tokens.push("\n");
+            continue;
+        }
+
+        const type = /\s/.test(char) ? "space" : (CJK_WRAP_CHAR_RE.test(char) ? "cjk" : "word");
+        if (type === "cjk") {
+            if (buffer) tokens.push(buffer);
+            buffer = "";
+            bufferType = null;
+            tokens.push(char);
+            continue;
+        }
+
+        if (bufferType === type) {
+            buffer += char;
+        } else {
+            if (buffer) tokens.push(buffer);
+            buffer = char;
+            bufferType = type;
+        }
+    }
+
+    if (buffer) tokens.push(buffer);
+    return tokens;
+}
+
+function pushWrappedLine(lines, line) {
+    lines.push(String(line || "").trimEnd());
+}
+
+export function wrapTextToLines(text, maxWidth, fontSize, fontFamily, fontWeight = "normal") {
+    const visibleText = stripColorKeyTags(text);
+    if (!(maxWidth > 0)) return [String(visibleText || "")];
+
+    const lines = [];
+    let currentLine = "";
+
+    for (const token of getWrapTokens(visibleText)) {
+        if (token === "\n") {
+            pushWrappedLine(lines, currentLine);
+            currentLine = "";
+            continue;
+        }
+
+        if (/^\s+$/.test(token) && currentLine === "") continue;
+
+        const testLine = currentLine + token;
+        if (currentLine && measureTextWidth(testLine, fontSize, fontFamily, fontWeight) > maxWidth) {
+            pushWrappedLine(lines, currentLine);
+            currentLine = /^\s+$/.test(token) ? "" : token;
+        } else {
+            currentLine = testLine;
+        }
+
+        if (currentLine && measureTextWidth(currentLine, fontSize, fontFamily, fontWeight) > maxWidth) {
+            const chars = Array.from(currentLine);
+            currentLine = "";
+            for (const char of chars) {
+                const testCharLine = currentLine + char;
+                if (currentLine && measureTextWidth(testCharLine, fontSize, fontFamily, fontWeight) > maxWidth) {
+                    pushWrappedLine(lines, currentLine);
+                    currentLine = char;
+                } else {
+                    currentLine = testCharLine;
+                }
+            }
+        }
+    }
+
+    pushWrappedLine(lines, currentLine);
+    return lines.length ? lines : [""];
 }
 /**
  * Standardizes the parsing of themeKey strings: "BodyKey, LabelKey, FontSizeOverride"

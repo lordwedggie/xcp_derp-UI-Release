@@ -5,7 +5,7 @@
 import { masterPainter, masterPainterText } from "../masterPainter.js";
 import { applyHTMLTheme, DERP_HTML_ALPHA_FACTOR, DERP_HTML_BLUR_FACTOR, DERP_HTML_OFFSET_FACTOR } from "../masterPainterHTML.js";
 import { toRGBA } from "../utils/colorMath.js";
-import { resolveWidgetEnv, measureTextWidth, resolvePaintData, colorSegmentsToHTML, getDerpTextLineHeight, buildColorSegmentTextShadow } from "../utils/widgetsUtils.js";
+import { resolveWidgetEnv, measureTextWidth, resolvePaintData, colorSegmentsToHTML, getDerpTextLineHeight, buildColorSegmentTextShadow, wrapTextToLines } from "../utils/widgetsUtils.js";
 import { animateWidgetColors, getPulsedColor, parseColor } from "../masterAnimator.js";
 
 function scaleEffectAlpha(colorStr, factor) {
@@ -198,20 +198,7 @@ export function syncTextLabel(ctx, node, config) {
     if (!lines) {
         lines = [];
         if (config.wrap && innerW > 0) {
-            const words = measureDisplayText.toString().split(' ');
-            let currentLine = '';
-
-            for (let n = 0; n < words.length; n++) {
-                let testLine = currentLine + words[n] + ' ';
-                let metrics = measureTextWidth(testLine, finalPaint.fontSize, font, fontWeight);
-                if (metrics > innerW && n > 0) {
-                    lines.push(currentLine.trim());
-                    currentLine = words[n] + ' ';
-                } else {
-                    currentLine = testLine;
-                }
-            }
-            lines.push(currentLine.trim());
+            lines = wrapTextToLines(measureDisplayText, innerW, finalPaint.fontSize, font, fontWeight);
         } else {
             lines = [measureDisplayText.toString()];
         }
@@ -354,6 +341,7 @@ export function syncTextLabelHTML(element, node, app, config) {
             pointerEvents: "auto",
             cursor: "default",
             whiteSpace: isWrapping ? "normal" : "nowrap",
+            overflowWrap: isWrapping ? "anywhere" : "normal",
             wordBreak: isWrapping ? "break-word" : "normal",
             // THE CUTOFF FIX: Correctly map HTML CSS properties for native clipping support
             overflow: isCutoff ? "hidden" : "visible",
