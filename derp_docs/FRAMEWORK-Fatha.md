@@ -66,7 +66,7 @@ Every frame:
 | `helpers/fathaLayoutMaps.js` | Virtual node layout map generation |
 | `helpers/fathaSysPanel.js` | System settings panel overlay |
 | `helpers/fathaPerfOverlay.js` | FPS/performance overlay |
-| `helpers/fathaThemeRuntime.js` | Runtime theme application |
+| `helpers/fathaThemeRuntime.js` | Runtime theme application, including category-specific string palette defaults |
 | `helpers/bastaLayoutMaps.js` | Layout maps for floating Basta panels |
 | `helpers/debugPainter.js` | Layout debug visualization |
 | `helpers/derpBackgroundParallax.js` | Parallax background effect |

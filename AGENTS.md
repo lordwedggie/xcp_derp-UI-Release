@@ -113,6 +113,7 @@ esolveInterpolatedPaint handles this with illStrength: true config.
 - **4-step lookup in 
 esolveColorKey:** (1) Node's stringPaletteData (in-memory), (2) Async-fetched stringPalette entry (triggers redraw on arrival), (3) window.xcpActivePalette (global), (4) 
 esolveExactColorKeyPaint (legacy exact match). Palette entries are fetched via /xcp/load/palettes?name=... and cached in _paletteCache.
+- **String palette defaults are theme-category aware.** Missing/`Other` theme `Category` uses `_system/_defaultTheme.json`; `Dark`, `Light`, and `Neutral` use `_system/_DK_defaultTheme.json`, `_system/_LT_defaultTheme.json`, and `_system/_NE_defaultTheme.json`, falling back to `_system/_defaultTheme.json` if the category file is missing.
 - **parseColorKeyText regex:** Matches {{keyName:stateSuffix:::displayText}}. ::: separates state from display text. If displayText is omitted, the raw {{...}} token is shown. Returns { segments: [{text, color, effects}], hasColorKeys: boolean }.
 - **Effects carry through segments:** Each segment carries effects (shadow/glow/border) from the palette entry. Adjacent segments with identical color+effects are merged. colorSegmentsToHTML applies 	ext-shadow via options.getTextShadow(seg).
 - **
@@ -313,7 +314,6 @@ egionOffset for visual padding expansion. Three-tier paint resolution: (1) expli
 - **Never use broad untracked-file stash/cleanup on agent data.** In particular, do not use `git stash -u` or similar workflows that can hide `.monkeycode/`.
 - **Public release flow is separate.** Public release state should be synced to the public repo `main` before version/tag/release work; Deepseek handles remote/ComfyUI Registry publishing.
 - **Repository names:** private repo is `xcpDerpNodes`; public release repo is `xcpDerpNodes-release`.
-- **AGENTS.md is private-only.** `AGENTS.md` must be pushed to the private repo's `main` branch but excluded from the public release repo. It contains agent workspace instructions, internal conventions, and hard-learned lessons not intended for public distribution.
 
 ### Localization and text rules (2026-06-09)
 - **Node/user-visible text requires locale updates.** Add/update locale entries instead of leaving final UI strings hardcoded in layout maps.
@@ -365,20 +365,6 @@ egionOffset for visual padding expansion. Three-tier paint resolution: (1) expli
 - **Force `derpSignalOut` refresh for one-shot title changes.** Its 200ms throttle can swallow immediate title-change notifications unless a force-refresh path is used.
 - **Signal-source rename warnings use `showBastaSystemMessage`.** Use warning mode and accent text with default registered source names.
 
-
-### Theme category system (2026-06-10)
-- **`Category` is a top-level theme property** stored as the first key in serialized theme JSON files. Legacy `_category` is normalized to `Category` at load time via `normalizeThemeForRuntime()`.
-- **`THEME_META_KEYS`** in both `themeManagerV2.js` and `themeManager_themeHandler.js` must include `"Category"` alongside `"_category"`, `"_layout"`, `"_palette"`. Meta keys are excluded from key-list filtering and use `JSON.stringify` for dirty-detection.
-- **`sortThemeTopLevelKeys()`** in `themeDataUtils.js` controls persisted key ordering. `Category` always comes first, then `_` meta keys, then body/text/hash keys.
-- **When adding a FILEBROWSER dropdown to themeManagerV2**, ensure three-way sync:
-  1. `value` and `text` set dynamically from `normalizeThemeCategory(node.themeToEdit)` in `refreshNodeLayoutMap()`.
-  2. `onChange` wired in `bindThemeEvents()` calling `syncThemeCategory()`, updating save-button pulse, and marking dirty.
-  3. `updateThemeLayout()` checks for value/text drift and refreshes the UI.
-- **Include Category in the layoutHash** so toggling category rebuilds the layout map.
-
-### LayoutMap region placement precision (2026-06-10)
-- **When the user says "add X to region Y", add it INSIDE region Y**, not in a new standalone region. Misplacing a widget into its own region breaks the anchor chain and changes layout flow.
-- **Read the target region's full braces scope** before inserting. Match the indentation and trailing comma style of sibling widgets exactly.
 ### Node-specific lessons (2026-06-09)
 - **Derp Concatenate signal selection:** use in-node `FILEBROWSER` with `mode: "signal"`, not the header Basta wireless selector; signal entries should become a dynamic array-driven list.
 - **Diffusion Loader structure:** `derpDiffusionLoader.js` lives in `js/controldeck/`; core logic in `js/controldeck/core/derpDiffusionLoader_core.js`; backend source covers both `diffusion_models` and `unet`.

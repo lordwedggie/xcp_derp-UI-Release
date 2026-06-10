@@ -69,9 +69,22 @@ function getStringPaletteCache() {
     return window.xcpStringPaletteCache;
 }
 
-function attachStringPalette(node, paletteName = "_system/_defaultTheme.json") {
+const DEFAULT_STRING_PALETTE = "_system/_defaultTheme.json";
+const CATEGORY_STRING_PALETTES = {
+    dark: "_system/_DK_defaultTheme.json",
+    light: "_system/_LT_defaultTheme.json",
+    neutral: "_system/_NE_defaultTheme.json",
+    netural: "_system/_NE_defaultTheme.json",
+};
+
+function getThemeStringPaletteName(theme) {
+    const category = String(theme?.Category || "").trim().toLowerCase();
+    return CATEGORY_STRING_PALETTES[category] || DEFAULT_STRING_PALETTE;
+}
+
+function attachStringPalette(node, paletteName = DEFAULT_STRING_PALETTE, fallbackPaletteName = DEFAULT_STRING_PALETTE) {
     if (!node) return;
-    const normalizedName = normalizePaletteName(paletteName || "_system/_defaultTheme.json");
+    const normalizedName = normalizePaletteName(paletteName || DEFAULT_STRING_PALETTE);
     if (!normalizedName) return;
     node._derpStringPalette = { path: normalizedName };
     const cache = getStringPaletteCache();
@@ -97,6 +110,11 @@ function attachStringPalette(node, paletteName = "_system/_defaultTheme.json") {
             if (node.setDirtyCanvas) node.setDirtyCanvas(true, true);
         })
         .catch(error => {
+            const normalizedFallback = normalizePaletteName(fallbackPaletteName || DEFAULT_STRING_PALETTE);
+            if (normalizedName !== normalizedFallback) {
+                attachStringPalette(node, normalizedFallback, normalizedFallback);
+                return;
+            }
             if (window._xcpStringPaletteMissingWarnings?.[normalizedName] !== true) {
                 window._xcpStringPaletteMissingWarnings = window._xcpStringPaletteMissingWarnings || {};
                 window._xcpStringPaletteMissingWarnings[normalizedName] = true;
@@ -254,7 +272,7 @@ export function handleThemeUpdateImpl(node, config, deps = {}) {
             window._xcpPaletteRequesters[node._headerPaletteName] = resolvedThemeKey || themeName;
             loadDerpPalette(node._headerPaletteName);
         }
-        attachStringPalette(node);
+        attachStringPalette(node, getThemeStringPaletteName(theme));
     }
 
     if (node._derpBgCache) {
