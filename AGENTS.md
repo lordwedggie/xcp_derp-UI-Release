@@ -385,3 +385,6 @@ egionOffset for visual padding expansion. Three-tier paint resolution: (1) expli
 
 ### Dual-path state logic must stay in sync (2026-06-10)
 - **Layout map widgets with a value-hydration fast-path have two code paths that set `state`**: the initial layout map definition and the value-hydration block inside the structure-hash cache check. Both must contain identical state logic. When one path has extra conditions (e.g., `no triggers ? DIS`) and the other doesn't, unrelated toggle changes that hit the hydration path will silently reset the widget to the wrong state.
+
+### Trigger widget paint overrides (2026-06-10)
+- **`bodyPaint` overrides `themeKey` state resolution in `COMPOSITE_TRIGGER`.** Use explicit `bodyPaint` only when intentionally decoupling visual colors from functional widget state, such as clickable inactive TriggerWall triggers that need `_DIS` colors while remaining functional `_OFF`. Otherwise prefer the normal `themeKey` + suffix path so ThemeManager edits apply predictably.

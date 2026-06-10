@@ -567,7 +567,7 @@ app.registerExtension({
                     measureCacheMisses += 1;
                     cachedAddWidth = Math.ceil(this.layout.measure({
                         type: this.UI_TYPES.ICONBUTTON, themeKey: "button, t_textsmall",
-                        icon: "add", width: "auto", height: "match", minHeight: 22, baseHeight: 22, padding: [triggerPadW, triggerPadH, triggerPadW, triggerPadH], margin: [0, 0]
+                        icon: "add", width: "match", height: "fill", minHeight: 22, baseHeight: 22, objectAlign: ["left", "middle"], margin: [0, 0]
                     }, { textTheme: measureTextTheme }));
                     this._triggerMeasureCache.set(addMeasureKey, cachedAddWidth);
                 } else {
@@ -640,10 +640,11 @@ app.registerExtension({
                             if (item.type === "trig") {
                                 const isModalActive = this._triggerWallModalOpen === true && this._activeModalItemKey === `triggerItem_${gIdx}_${item.idx}`;
                                 const triggerEnabled = !isBypassed && item.trig.disabled !== true;
-                                const triggerActive = item.trig.active && triggerEnabled;
-                                const triggerSuffix = (isBypassed || item.trig.disabled === true)
+                                const triggerDisabled = isBypassed || item.trig.disabled === true;
+                                const triggerVisuallyDisabled = triggerDisabled || item.trig.active !== true;
+                                const triggerSuffix = triggerDisabled
                                     ? "_DIS"
-                                    : ((isModalActive || triggerActive) ? "_ON" : "_OFF");
+                                    : "_OFF";
                                 const triggerItemKey = rowAnchorPrefix === "triggerRow" ? `triggerItem_${gIdx}_${item.idx}` : `${rowAnchorPrefix}Item_${gIdx}_${item.idx}`;
                                 return [triggerItemKey, {
                                     type: this.UI_TYPES.COMPOSITE_TRIGGER, themeKey: "button, panel, t_textsmall",
@@ -656,9 +657,9 @@ app.registerExtension({
                                     suffix: triggerSuffix,
                                     state: triggerSuffix === "_DIS" ? "DIS" : (triggerSuffix === "_ON" ? "ON" : "OFF"),
                                     disabled: item.trig.disabled === true,
-                                    bodyPaint: item.isTriggerPreviewGhost ? this._buttonPaintData_DIS : ((isBypassed || item.trig.disabled === true) ? this._panelPaintData_DIS : (isModalActive || triggerActive ? this._panelPaintData_ON : this._panelPaintData_OFF)),
-                                    slotPaint: (isBypassed || item.trig.disabled === true) ? this._buttonPaintData_DIS : (isModalActive || triggerActive ? this._buttonPaintData_ON : this._buttonPaintData_OFF),
-                                    labelPaint: (isBypassed || item.trig.disabled === true) ? this._t_textSmallPaintData_DIS : (isModalActive || triggerActive ? this._t_textSmallPaintData_ON : this._t_textSmallPaintData_OFF),
+                                    bodyPaint: item.isTriggerPreviewGhost ? this._buttonPaintData_DIS : (triggerVisuallyDisabled ? this._buttonPaintData_DIS : this._buttonPaintData_OFF),
+                                    slotPaint: triggerVisuallyDisabled ? this._buttonPaintData_DIS : this._buttonPaintData_OFF,
+                                    labelPaint: triggerVisuallyDisabled ? this._t_textSmallPaintData_DIS : this._t_textSmallPaintData_OFF,
                                     onDragStart: itemDragEnabled ? ((e, data) => triggerWall_itemDragStart(this, e, data, gIdx, item.idx)) : undefined,
                                     onDrag: itemDragEnabled ? ((e, data) => triggerWall_itemDrag(this, e, data)) : undefined,
                                     onDragEnd: itemDragEnabled ? ((e, data) => triggerWall_itemDragEnd(this, e, data)) : undefined,
@@ -670,7 +671,7 @@ app.registerExtension({
                             const addItemKey = rowAnchorPrefix === "triggerRow" ? `btnAdd_${gIdx}` : `${rowAnchorPrefix}Add_${gIdx}`;
                             return [addItemKey, {
                                 type: this.UI_TYPES.ICONBUTTON, themeKey: "button, t_textsmall",
-                                icon: "add", width: "match", height: trigHeight, padding: [triggerPadW, triggerPadH, triggerPadW, triggerPadH], margin: [0, 0],
+                                icon: "add", width: "match", height: "fill", objectAlign: ["left", "middle"], margin: [0, 0],
                                 alpha: groupWidgetAlpha,
                                 hidden: !(this.properties.toggleAddAlways || isSelected),
                                 onPress: addPressEnabled ? (() => triggerWall_addTrigger(this, group)) : undefined

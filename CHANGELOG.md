@@ -17,6 +17,10 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- **derpTriggerWall toggled-off trigger using wrong paint state**: Toggled-off triggers now correctly use `_DIS` paint variants (`button._DIS`/`t_textSmall._DIS`) instead of `_OFF`, matching the intended disabled visual appearance. New `triggerVisuallyDisabled` gate (`triggerDisabled || item.trig.active !== true`) drives body/slot/label paint selection.
+
+- **derpTriggerWall ICONBUTTON add trigger icon too small**: The "add trigger" icon button in trigger groups now follows the canonical ICONBUTTON pattern (`height: "fill"`, `objectAlign: ["left", "middle"]`, no padding), fixing undersized icon rendering. Measurement code also updated to match.
+
 - **derpLoraStack trigger selector DIS state regression**: Toggling Fuse QKV no longer incorrectly re-enables the trigger FILEBROWSER when there are no triggers available. The value-hydration fast-path now includes the same `triggerArrayCache` length check as the initial layout definition.
 
 
