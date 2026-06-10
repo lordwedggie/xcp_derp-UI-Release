@@ -10,6 +10,11 @@ All notable changes to this project will be documented in this file.
 - **Theme `Category` system**: New top-level `Category` theme property (Light/Neutral/Dark/Other) stored first in serialized JSON; legacy `_category` normalized at load time. `sortThemeTopLevelKeys()` extracted to `themeDataUtils.js` with Category-first ordering. `dropdownCategory` FILEBROWSER added to themeManagerV2 `themeManagementRegion` for category selection, wired with full onChange/sync/dirty-state handling.
 
 
+### Changed
+
+- **Tooltip palette migration to _defaultTheme**: Legacy `_system/_toolTip.json` palette retired. Tooltip text and background paint now resolves through the host node's category-aware string palette context (`_system/_defaultTheme.json` or category-specific variants `_DK_`/`_LT_`/`_NE_`), eliminating the separate tooltip palette file. `isRetiredPaletteName()` detects legacy `_toolTip` references and redirects them to `Derp_Default_v01`. New `getTooltipPaletteContext()` in `basta.js` derives tooltip palette from the host node's `_derpStringPalette`. `findInlinePaletteEntry()` added to `widgetsUtils.js` for inline palette entry resolution before fallback file lookups. FRAMEWORK-Basta.md and FRAMEWORK-ThemePalette.md updated.
+
+
 ### Fixed
 
 - **derpLoraStack trigger selector DIS state regression**: Toggling Fuse QKV no longer incorrectly re-enables the trigger FILEBROWSER when there are no triggers available. The value-hydration fast-path now includes the same `triggerArrayCache` length check as the initial layout definition.
@@ -37,6 +42,11 @@ All notable changes to this project will be documented in this file.
 - **Docked vertical stack auto-height is now opt-out**: When docking top/bottom, `lockDeckNodeAxes()` sets `autoHeight = false` to allow free manual height adjustment, but nodes can now opt out via `properties.deckForceAutoHeight = true` to keep automatic height after docking. (Due to failure to implement stack-node-stack docking. New idea is to use stack containers, but that's a lot of work so... we'll just allow manual placement for now.)
 - **Palette effects are now opt-in per-toggle**: Palette entries no longer auto-hydrate missing `shadow`/`stroke`/`glow` effect keys with defaults. The Palette Manager's effect toggles now create default entries only when explicitly enabled; disabling a toggle omits that effect on save. `_defaultTheme.json` no longer carries auto-generated defaults.
 - **derpImageDeck toggleAutoFit now locks the node at its current size**: Toggling auto-fit off now snapshots the current dimensions into `nodeSize`, clears the pinned anchor, and blocks `resizeNodeToImageAspect` from snapping to image dimensions. The deck stays put until you toggle auto-fit back on — no more phantom snapping after you've deliberately set a size.
+
+
+### Changed
+
+- **Tooltip palette migration to _defaultTheme**: Legacy `_system/_toolTip.json` palette retired. Tooltip text and background paint now resolves through the host node's category-aware string palette context (`_system/_defaultTheme.json` or category-specific variants `_DK_`/`_LT_`/`_NE_`), eliminating the separate tooltip palette file. `isRetiredPaletteName()` detects legacy `_toolTip` references and redirects them to `Derp_Default_v01`. New `getTooltipPaletteContext()` in `basta.js` derives tooltip palette from the host node's `_derpStringPalette`. `findInlinePaletteEntry()` added to `widgetsUtils.js` for inline palette entry resolution before fallback file lookups. FRAMEWORK-Basta.md and FRAMEWORK-ThemePalette.md updated.
 
 
 ### Fixed
@@ -87,6 +97,11 @@ All notable changes to this project will be documented in this file.
 ### Changed
 - **bastaPalette FILEBROWSER now sorts entries by name instead of ID**: Palette entries in the key dropdown are now alphabetically sorted by name, falling back to ID for ties.
 
+### Changed
+
+- **Tooltip palette migration to _defaultTheme**: Legacy `_system/_toolTip.json` palette retired. Tooltip text and background paint now resolves through the host node's category-aware string palette context (`_system/_defaultTheme.json` or category-specific variants `_DK_`/`_LT_`/`_NE_`), eliminating the separate tooltip palette file. `isRetiredPaletteName()` detects legacy `_toolTip` references and redirects them to `Derp_Default_v01`. New `getTooltipPaletteContext()` in `basta.js` derives tooltip palette from the host node's `_derpStringPalette`. `findInlinePaletteEntry()` added to `widgetsUtils.js` for inline palette entry resolution before fallback file lookups. FRAMEWORK-Basta.md and FRAMEWORK-ThemePalette.md updated.
+
+
 ### Fixed
 - **Fixed Image widget's border not matching actual image's height (always a little bit taller).**
 - **Clear buttons on all loader nodes now use `_OFF` state instead of `_ON`**: They looked like active toggles instead of neutral clickable buttons. Now they sit quietly until hovered.
@@ -120,11 +135,21 @@ All notable changes to this project will be documented in this file.
 - `resolveWidgetEnv` now auto-parses display text for color keys and returns `colorSegments` + `hasColorKeys`.
 - Cleaned up dead `widget_Dropdown` remnants from `derpLoraStack.js`.
 
+### Changed
+
+- **Tooltip palette migration to _defaultTheme**: Legacy `_system/_toolTip.json` palette retired. Tooltip text and background paint now resolves through the host node's category-aware string palette context (`_system/_defaultTheme.json` or category-specific variants `_DK_`/`_LT_`/`_NE_`), eliminating the separate tooltip palette file. `isRetiredPaletteName()` detects legacy `_toolTip` references and redirects them to `Derp_Default_v01`. New `getTooltipPaletteContext()` in `basta.js` derives tooltip palette from the host node's `_derpStringPalette`. `findInlinePaletteEntry()` added to `widgetsUtils.js` for inline palette entry resolution before fallback file lookups. FRAMEWORK-Basta.md and FRAMEWORK-ThemePalette.md updated.
+
+
 ### Fixed
 - **NODE 2.0 right-click context submenu is broken**: Added (fake) derp context menus so now paletteExtender and bypassExtender are both working again in NODE 2.0.
 - **Docked stack overlay bug (one whole day of pain)**: Rare edge case where vertically and horizontally docked nodes would completely overlap — two nodes sitting at the exact same position like one sad ghost. Root cause: `normalizeSharedEdgePair` in the dock engine was using only the two seed nodes to calculate `totalHeight`, ignoring non-seed members in multi-column dock groups. Fixed by taking the max height across ALL column members.
 
 ## [1.0.2] - 2026-05-24
+
+### Changed
+
+- **Tooltip palette migration to _defaultTheme**: Legacy `_system/_toolTip.json` palette retired. Tooltip text and background paint now resolves through the host node's category-aware string palette context (`_system/_defaultTheme.json` or category-specific variants `_DK_`/`_LT_`/`_NE_`), eliminating the separate tooltip palette file. `isRetiredPaletteName()` detects legacy `_toolTip` references and redirects them to `Derp_Default_v01`. New `getTooltipPaletteContext()` in `basta.js` derives tooltip palette from the host node's `_derpStringPalette`. `findInlinePaletteEntry()` added to `widgetsUtils.js` for inline palette entry resolution before fallback file lookups. FRAMEWORK-Basta.md and FRAMEWORK-ThemePalette.md updated.
+
 
 ### Fixed
 - `__init__.py` now safely handles the absence of `derpThemeManagerV2` via try/except, preventing import crashes when the module is excluded from release builds.
@@ -146,6 +171,11 @@ All notable changes to this project will be documented in this file.
 ### Changed
 - Removed unused prompt books and their assets; added new bundled themes (Derp Dark HD, Galactica Dark, Menace, Mono Neutral, NeonBlue Dark).
 - `cnr_id` references cleaned up (removed fork-base Flux-Continuum references).
+
+### Changed
+
+- **Tooltip palette migration to _defaultTheme**: Legacy `_system/_toolTip.json` palette retired. Tooltip text and background paint now resolves through the host node's category-aware string palette context (`_system/_defaultTheme.json` or category-specific variants `_DK_`/`_LT_`/`_NE_`), eliminating the separate tooltip palette file. `isRetiredPaletteName()` detects legacy `_toolTip` references and redirects them to `Derp_Default_v01`. New `getTooltipPaletteContext()` in `basta.js` derives tooltip palette from the host node's `_derpStringPalette`. `findInlinePaletteEntry()` added to `widgetsUtils.js` for inline palette entry resolution before fallback file lookups. FRAMEWORK-Basta.md and FRAMEWORK-ThemePalette.md updated.
+
 
 ### Fixed
 - **Docking**: Vertical docked-stack width sync bug corrected; page-refresh no longer disrupts vertical stack auto-height reflow.
