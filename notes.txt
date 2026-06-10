@@ -18,7 +18,7 @@ A ComfyUI custom nodes plugin — adds utility, UI, and workflow nodes.
 Parent env: D:\xcpDerpNodes\ComfyUI-Easy-CU130_Developer\ (ComfyUI + many custom nodes)
 
 ---
-Active workspace: E:\Stable_Diffusion\ComfyUI-Easy-CU130_Developer\ComfyUI\custom_nodes\xcp_derp-UI\ — main dev repo (branch: daily-development, remote: github). Key modules: derpControldeck, derpSeedV2, derpSignalOut, derpStringV3, derpTemplate, derpThemeManagerV2, xcpDerpLoraLoader. JS: controldeck/fatha/herbina/motha panels.
+Active workspace: E:\Stable_Diffusion\ComfyUI-Easy-CU130_Developer\ComfyUI\custom_nodes\xcp_derp-UI\ — main dev repo (branch: daily-development, remote: github). Key modules: derpControldeck, derpSeedV2, derpSignalOut, derpStringV3, derpTemplate, derpThemeManagerV2, xcpDerpLoraLoader. JS: derps/fatha/herbina/motha panels.
 
 ---
 ## xcpDerpNodes Working Rules (2026-05-15) — 4 Rules:

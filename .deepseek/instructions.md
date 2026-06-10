@@ -16,7 +16,7 @@
 
 **Key dirs:**
 - `python/` — backend nodes
-- `js/controldeck/` — loader/UI node frontends
+- `js/derps/` — loader/UI node frontends
 - `js/fatha/` — docking engine
 - `js/herbina/` — UI framework
 - `js/motha/` — theme/palette engine

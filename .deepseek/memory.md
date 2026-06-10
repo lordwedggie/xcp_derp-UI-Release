@@ -6,7 +6,7 @@ When the user opens a new session with a greeting such as "Hi", "Hello", "Sessio
    - `js/herbina/` — UI framework (masterPainter, masterPainterHTML, masterWidgets, masterAnimator, widgets)
    - `js/motha/` — theme/palette engine
    - `js/fatha/` — docking engine, basta framework, layout engine
-   - `js/controldeck/` — node frontends (derpLoraStack, derpImageDeck, etc.)
+   - `js/derps/` — node frontends (derpLoraStack, derpImageDeck, etc.)
    - `python/` — backend nodes
    - `locales/` — i18n files (en-US, zh-CN, ru-RU)
    - `pyproject.toml`, `package.json`, `__init__.py` — project metadata

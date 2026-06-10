@@ -3,12 +3,12 @@
 ## Overview
 Controldeck contains the JS widget implementations for every derp node type. Each node registers via `fatha()` or `uncle()` and provides a `refreshNodeLayoutMap()` method that declaratively defines its UI via the layout map system.
 
-**Directory:** `js/controldeck/`
-**Core engines:** `js/controldeck/core/` (files suffixed `_core.js`)
+**Directory:** `js/derps/`
+**Core engines:** `js/derps/core/` (files suffixed `_core.js`)
 **Last reviewed:** 2026-06-04
 
 ## Signal Out (Wireless Router) — Special
-The signal router lives at the top level rather than in controldeck/:
+The signal router lives at the top level rather than in derps/:
 | File | Role |
 |------|------|
 | `js/derpSignalOut.js` | Layout maps for signal router UI (515 lines) |
@@ -28,7 +28,7 @@ The signal router lives at the top level rather than in controldeck/:
 - `formatDerpRouterSignalLabel()` — format signal label `[id] name [TYPE]`
 
 ## Concatenate (String Utility) — Special
-The string concatenate node lives at the top level rather than in `controldeck/`:
+The string concatenate node lives at the top level rather than in `derps/`:
 | File | Role |
 |------|------|
 | `js/derpConcatenate.js` | Fatha-compliant string signal display/concatenate UI |

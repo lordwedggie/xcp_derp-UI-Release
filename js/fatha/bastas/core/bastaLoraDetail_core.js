@@ -10,8 +10,8 @@ const IMAGE_NAV_ALPHA_SPEED = 0.15;
 import { showBastaMessage } from "../bastaMessage.js";
 import { showBastaFileHandler } from "../bastaFileHandler.js";
 import { resolvePaintData, measureTextHeight } from "../../../herbina/utils/widgetsUtils.js";
-import { initLoraImageHandlers, calculatePreviewAspectRatio, refreshLoraImageList } from "../../../controldeck/helpers/loraImages.js";
-import { getLoraDetailTitle, isLoraNoTriggerRequired } from "../../../controldeck/helpers/loraComponents.js";
+import { initLoraImageHandlers, calculatePreviewAspectRatio, refreshLoraImageList } from "../../../derps/controldeck/helpers/loraImages.js";
+import { getLoraDetailTitle, isLoraNoTriggerRequired } from "../../../derps/controldeck/helpers/loraComponents.js";
 
 function tLocale(key, fallback = key) {
     if (!key || typeof key !== "string" || !key.startsWith("$")) return key;

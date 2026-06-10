@@ -14,7 +14,7 @@ toolTip: tLocale("$fatha_layout.tooltips.undock_node", "Disconnect this node fro
 
 ## Reference Implementation
 
-Follow `derpLatent` (in the controldeck) as the pattern for tooltip localization.
+Follow `derpLatent` (in the derps) as the pattern for tooltip localization.
 
 ## Rules
 

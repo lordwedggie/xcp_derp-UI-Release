@@ -11,10 +11,10 @@ import { showBastaFileHandler } from "./bastaFileHandler.js";
 import { getLoraDetailId, handleBastaLoraDetail, cleanTriggerText,
     openCivitAI, openCivArchive, getLoraTriggerEditorProps, renameLoraBundle,
     getLoraNotesEditorPropsWrapped, getLoraTriggerDropdownProps } from "./core/bastaLoraDetail_core.js";
-import { manageLoraTrigger, getRatingColor, getLoraRatingDropdownProps, getLoraLoaderProps, processTriggerData, isLoraNoTriggerRequired, setLoraNoTriggerRequired } from "../../controldeck/helpers/loraComponents.js";
+import { manageLoraTrigger, getRatingColor, getLoraRatingDropdownProps, getLoraLoaderProps, processTriggerData, isLoraNoTriggerRequired, setLoraNoTriggerRequired } from "../../derps/controldeck/helpers/loraComponents.js";
 import { colorPulse2, parseColor, animateAlpha } from "../../herbina/masterAnimator.js";
 import { resolvePaintData, measureTextHeight } from "../../herbina/utils/widgetsUtils.js";
-import { calculatePreviewDisplayHeight, switchLoraImage, setLoraCover, calculatePreviewAspectRatio, deleteLoraDetailImage } from "../../controldeck/helpers/loraImages.js";
+import { calculatePreviewDisplayHeight, switchLoraImage, setLoraCover, calculatePreviewAspectRatio, deleteLoraDetailImage } from "../../derps/controldeck/helpers/loraImages.js";
 
 function tLocale(key, fallback = key) {
     if (!key || typeof key !== "string" || !key.startsWith("$")) return key;

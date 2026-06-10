@@ -30,7 +30,7 @@ xcp_derp-UI is a ComfyUI custom node pack (v0.7.6) that replaces ComfyUI's defau
 ### Python nodes
 - Each node module in `python/` exports `NODE_CLASS_MAPPINGS` and `NODE_DISPLAY_NAME_MAPPINGS` dicts.
 - New nodes must be imported and merged in `__init__.py`.
-- JS counterpart files in `js/controldeck/` share the same name stem (e.g., `derpSeedV2.py` ? `derpSeedV2.js`).
+- JS counterpart files in `js/derps/` share the same name stem (e.g., `derpSeedV2.py` ? `derpSeedV2.js`).
 - Core logic split into `*_core.js` files when the main file is a thin ComfyUI glue layer.
 
 ### JavaScript frontend
@@ -55,7 +55,7 @@ xcp_derp-UI is a ComfyUI custom node pack (v0.7.6) that replaces ComfyUI's defau
 
 ## Coding Guidelines
 
-0. **TOP PRIORITY � Report changed files.** At the very bottom of every message, always report the files you have changed during the turn with full paths highlighted as clickable inline code (e.g., ` js/controldeck/derpSeedV2.js `). Group them under a **Files Changed** header.
+0. **TOP PRIORITY � Report changed files.** At the very bottom of every message, always report the files you have changed during the turn with full paths highlighted as clickable inline code (e.g., ` js/derps/derpSeedV2.js `). Group them under a **Files Changed** header.
 
 1. **Review FRAMEWORK docs.** Before making changes, check derp_docs/FRAMEWORK-*.md for the relevant subsystem (Fatha, Herbina, Basta, Motha, Backend, Docking, Nodes, ThemePalette). Understand the existing patterns and conventions before coding.
 
@@ -380,7 +380,7 @@ egionOffset for visual padding expansion. Three-tier paint resolution: (1) expli
 
 ### Node-specific lessons (2026-06-09)
 - **Derp Concatenate signal selection:** use in-node `FILEBROWSER` with `mode: "signal"`, not the header Basta wireless selector; signal entries should become a dynamic array-driven list.
-- **Diffusion Loader structure:** `derpDiffusionLoader.js` lives in `js/controldeck/`; core logic in `js/controldeck/core/derpDiffusionLoader_core.js`; backend source covers both `diffusion_models` and `unet`.
+- **Diffusion Loader structure:** `derpDiffusionLoader.js` lives in `js/derps/`; core logic in `js/derps/core/derpDiffusionLoader_core.js`; backend source covers both `diffusion_models` and `unet`.
 - **SeedV2 fixed-mode hashing:** inject virtual wireless state affecting execution into `derpSeedV2_core.js` prompt-state hash, including model deck active model and bypass state.
 - **LoRA distortion clue:** fixed SeedV2 mode can trigger persistent render-state pollution affecting both joint and cross attention; changing seed alone may not recover output.
 - **ThemeManager font weight:** font weight support may drop legacy italic/both semantics; include font weight in change detection and JSON persistence, and prefer actual font weight detection when available.

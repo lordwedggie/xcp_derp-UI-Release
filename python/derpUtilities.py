@@ -7,7 +7,7 @@ class derpSkunk:
 
     RETURN_TYPES = ()
     FUNCTION = "do_nothing"
-    CATEGORY = "ðŸ”§ derpNodes/utilities"
+    CATEGORY = "🔞 derpNodes/Utilities"
 
     def do_nothing(self):
         return ()
