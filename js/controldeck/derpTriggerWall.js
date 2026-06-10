@@ -589,7 +589,7 @@ app.registerExtension({
                         } else {
                             measureCacheMisses += 1;
                             tw = Math.ceil(this.layout.measure({
-                                type: this.UI_TYPES.COMPOSITE_TRIGGER, themeKey: "panel, button, t_textsmall",
+                                type: this.UI_TYPES.COMPOSITE_TRIGGER, themeKey: "button, panel, t_textsmall",
                                 text: item.trig.label || tLocale("$derp_trigger_wall.trigger.placeholder", "Trigger Test"), width: "auto", height: "auto",
                                 padding: [triggerPadW, triggerPadH, triggerPadW, triggerPadH], margin: [0, 0], spacing: [sW, 0],
                                 showWeight: this.properties.showWeight, weight: trigWeight
@@ -646,7 +646,7 @@ app.registerExtension({
                                     : ((isModalActive || triggerActive) ? "_ON" : "_OFF");
                                 const triggerItemKey = rowAnchorPrefix === "triggerRow" ? `triggerItem_${gIdx}_${item.idx}` : `${rowAnchorPrefix}Item_${gIdx}_${item.idx}`;
                                 return [triggerItemKey, {
-                                    type: this.UI_TYPES.COMPOSITE_TRIGGER, themeKey: "panel, button, t_textsmall",
+                                    type: this.UI_TYPES.COMPOSITE_TRIGGER, themeKey: "button, panel, t_textsmall",
                                     text: item.trig.label || tLocale("$derp_trigger_wall.trigger.placeholder", "Trigger Test"), mouseOver: false,
                                     toolTip: tLocale("$derp_trigger_wall.tooltips.trigger", "Left click to toggle. Shift+click to toggle all triggers in the group. Right click to open detail panel"),
                                     width: "auto", height: "auto", padding: [triggerPadW, triggerPadH, triggerPadW, triggerPadH], margin: [0, 0], spacing: [sW, 0],
