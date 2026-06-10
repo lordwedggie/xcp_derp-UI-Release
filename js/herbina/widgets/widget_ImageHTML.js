@@ -10,7 +10,8 @@ const NORMAL_STROKE_WEIGHT = 1;
 const SELECTION_STROKE_WEIGHT = 2;
 const DEFAULT_IMAGE_AREA_STROKE_COLOR = "rgba(0,0,0,0.3)";
 const DEFAULT_IMAGE_AREA_FILL_COLOR = "rgba(0,0,0,0.5)";
-const BYPASS_BRIGHTNESS = 0.75; // THE DARKNESS FIX: Adjusts image brightness when bypassed
+const BYPASS_BRIGHTNESS = 0.75;
+const PLACEHOLDER_FONT_SIZE = 6; // THE DARKNESS FIX: Adjusts image brightness when bypassed
 
 // THE RESIZE TARGETS: Matches constants in loraImages.js to maintain quality vs performance balance
 const PREVIEW_LONG_SIDE_TARGET = 1024;
@@ -85,7 +86,7 @@ export function syncImageHTML(ctx, node, app, config, overlayPass = false) {
 
     const drawPlaceholderText = (text) => {
         const textPaint = resolvePlaceholderTextPaint();
-        const fontSize = Number(config.placeholderFontSize ?? textPaint?.fontSize ?? 10);
+        const fontSize = Number(config.placeholderFontSize ?? PLACEHOLDER_FONT_SIZE);
         const fontFamily = textPaint?.font || "Arial";
         const fontWeight = config.fontWeight || textPaint?.fontWeight || "normal";
         const textColor = textPaint?.textColor || textPaint?.fill || "rgba(255,255,255,0.4)";
