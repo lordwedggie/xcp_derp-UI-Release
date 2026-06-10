@@ -6,6 +6,7 @@ import { app } from "../../../scripts/app.js";
 import { showBastaColorDesigner } from "../fatha/bastas/bastaColorDesigner.js";
 import { UI_TYPES } from "../fatha/core/masterLayoutTypes.js";
 import { playKaChing } from "../herbina/masterSoundEffects.js"; // THE FIX: Sound effects for success
+import { sortThemeTopLevelKeys } from "./helpers/themeDataUtils.js";
 import { pushThemeUpdate, updateMainEditRegion, bindKeyMainEvents } from "./helpers/themeManager_keyHandler.js";
 import { updateEffectRegions, bindEffectEvents } from "./helpers/themeManager_effectHandler.js";
 import {
@@ -17,7 +18,33 @@ import {
 } from "./helpers/themeManager_themeHandler.js";
 import { getSystemPaletteDisplayName } from "./helpers/themeManager_paletteUtils.js";
 
-const THEME_META_KEYS = new Set(["_category", "_layout", "_palette"]);
+export const DEFAULT_THEME_CATEGORY = "Other";
+export const THEME_CATEGORY_OPTIONS = ["Dark", "Light", "Colorful", "Other"];
+
+const THEME_META_KEYS = new Set(["Category", "_category", "_layout", "_palette"]);
+
+export function normalizeThemeCategory(themeObj) {
+    const rawCategory = themeObj?.Category ?? themeObj?._category;
+    const category = String(rawCategory || "").trim();
+    return category || DEFAULT_THEME_CATEGORY;
+}
+
+export function syncThemeCategory(node, category) {
+    const nextCategory = String(category || "").trim() || DEFAULT_THEME_CATEGORY;
+    if (node?.properties) node.properties.themeCategory = nextCategory;
+    if (node?.themeToEdit) {
+        node.themeToEdit.Category = nextCategory;
+        delete node.themeToEdit._category;
+    }
+
+    const cfg = window.xcpDerpThemeConfig;
+    const themeObj = cfg?.themes?.[node?._selectedThemeName];
+    if (themeObj) {
+        themeObj.Category = nextCategory;
+        delete themeObj._category;
+    }
+    return nextCategory;
+}
 
 const getThemeManagerSystemTheme = (node, cfg) => {
     const availableThemes = Object.keys(cfg?.themes || {});
@@ -102,24 +129,8 @@ export const safePersist = (cfg, targetTheme = null) => {
         // Sort top-level keys: meta (_) first, non-text, text (t_), then optional (#) keys,
         // with #t_ optional text keys at the very bottom. "#" prefix means "optional" —
         // a theme is not required to have these keys to function properly.
-        const sortedTheme = {};
-        const metaKeys = [], nonTextKeys = [], textKeys = [], hashKeys = [], hashTextKeys = [];
-        Object.keys(themeObj).forEach(k => {
-            if (k.startsWith("_")) metaKeys.push(k);
-            else if (k.startsWith("#t_")) hashTextKeys.push(k);
-            else if (k.startsWith("#")) hashKeys.push(k);
-            else if (k.startsWith("t_")) textKeys.push(k);
-            else nonTextKeys.push(k);
-        });
-        metaKeys.sort((a, b) => a.localeCompare(b));
-        nonTextKeys.sort((a, b) => a.localeCompare(b));
-        textKeys.sort((a, b) => a.localeCompare(b));
-        hashKeys.sort((a, b) => a.localeCompare(b));
-        hashTextKeys.sort((a, b) => a.localeCompare(b));
-        [...metaKeys, ...nonTextKeys, ...textKeys, ...hashKeys, ...hashTextKeys].forEach(k => {
-            sortedTheme[k] = themeObj[k];
-        });
-        cfg.themes[themeName] = sortedTheme;
+        syncThemeCategory({ _selectedThemeName: themeName, themeToEdit: themeObj, properties: {} }, normalizeThemeCategory(themeObj));
+        cfg.themes[themeName] = sortThemeTopLevelKeys(themeObj);
     });
 
     const alphabetizedThemes = {};
@@ -159,6 +170,7 @@ export function initThemeManager(node) {
         node._dirtyKeyNames = new Set();
 
         if (!node.themeToEdit._layout) node.themeToEdit._layout = [4, 2, 2, 2, 2, 4, 2, 4];
+        syncThemeCategory(node, normalizeThemeCategory(node.themeToEdit));
         node.properties.systemPaletteName = node.themeToEdit._palette || "";
 
         const availableKeys = Object.keys(node.themeToEdit).filter(k => !THEME_META_KEYS.has(k));
@@ -176,7 +188,8 @@ export function updateThemeLayout(node) {
     const val = node._selectedKeyName;
     const keyData = node.themeToEdit?.[val] || {};
     const layoutData = node.themeToEdit?._layout || [];
-    const dataHash = `${node._selectedThemeName}_${val}_${JSON.stringify(keyData)}_${JSON.stringify(layoutData)}`;
+    const categoryData = normalizeThemeCategory(node.themeToEdit);
+    const dataHash = `${node._selectedThemeName}_${val}_${JSON.stringify(keyData)}_${JSON.stringify(layoutData)}_${categoryData}`;
 
     if (node._lastUISyncHash === dataHash) return;
     node._lastUISyncHash = dataHash;
@@ -205,6 +218,16 @@ export function updateThemeLayout(node) {
         checkSync("editorSpacing", 2, 3);
         checkSync("editorOffset", 4, 5);
         checkSync("editorPadding", 6, 7);
+    }
+
+    const tReg = node.layoutMap.themeManagementRegion;
+    if (tReg?.dropdownCategory) {
+        const category = normalizeThemeCategory(node.themeToEdit);
+        if (tReg.dropdownCategory.value !== category || tReg.dropdownCategory.text !== category) {
+            tReg.dropdownCategory.value = category;
+            tReg.dropdownCategory.text = category;
+            uiNeedsRefresh = true;
+        }
     }
 
     if (!val) return;
@@ -304,6 +327,7 @@ export function bindThemeEvents(node) {
                 node.requestDerpSync();
             };
         }
+
     }
 
     // 1. Static Theme Management Events
@@ -311,6 +335,26 @@ export function bindThemeEvents(node) {
     // THE FIX: Wrap remaining root buttons in safeClick to prevent double-fire bypasses
     tReg.btnThemeDelete.onClick = safeClick(() => handleThemeDeleteAction(node, updateThemeLayout));
     tReg.dropdownTheme.onChange = (val) => handleThemeDropdownChange(node, val, updateThemeLayout);
+    if (tReg.dropdownCategory) {
+        tReg.dropdownCategory.onChange = (v) => {
+            const category = syncThemeCategory(node, v);
+            tReg.dropdownCategory.value = category;
+            tReg.dropdownCategory.text = category;
+
+            const cfg = window.xcpDerpThemeConfig;
+            if (cfg?.themes && node._selectedThemeName) {
+                if (cfg.touchTheme) cfg.touchTheme(node._selectedThemeName);
+                if (cfg.markDirty) cfg.markDirty();
+            }
+
+            const baselines = cfg?._allBaselines?.[node._selectedThemeName] || {};
+            node._isThemeDirty = JSON.stringify(category) !== baselines.Category;
+            if (tReg.btnThemeSave) tReg.btnThemeSave.pulse = node._isThemeDirty;
+            node._layoutMapHash = null;
+            if (node.refreshNodeLayoutMap) node.refreshNodeLayoutMap();
+            node.requestDerpSync();
+        };
+    }
     tReg.btnThemeRename.onClick = safeClick(() => handleThemeRenameAction(node, updateThemeLayout));
     tReg.btnThemeCopy.onClick = safeClick(() => handleThemeCopyAction(node, updateThemeLayout));
     tReg.btnThemeSave.onClick = safeClick(() => handleThemeSaveAction(node, updateThemeLayout));

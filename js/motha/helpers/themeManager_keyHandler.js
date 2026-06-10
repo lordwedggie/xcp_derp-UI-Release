@@ -12,7 +12,7 @@ import { playKaChing } from "../../herbina/masterSoundEffects.js";
 import { generateKeyHash } from "./themeDataUtils.js";
 import { safeClick, safePersist, playSuccessSound } from "../themeManagerV2_core.js";
 
-const THEME_META_KEYS = new Set(["_category", "_layout", "_palette"]);
+const THEME_META_KEYS = new Set(["Category", "_category", "_layout", "_palette"]);
 const FONT_WEIGHT_OPTIONS = ["100", "200", "300", "400", "500", "600", "700", "800", "900"];
 
 function normalizeFontWeight(weight) {

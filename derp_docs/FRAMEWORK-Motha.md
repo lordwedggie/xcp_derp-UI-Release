@@ -45,7 +45,7 @@ Themes have three-tier key resolution:
     activeTheme: "Template_Standard_v02",
     themes: {
         "ThemeName": {
-            _category: "...",
+            Category: "Light",
             _layout: {...},
             _palette: {...},
             body: { _OFF: [...], _ON: [...], stroke: [...], shadow: [...], glow: [...] },
@@ -92,9 +92,9 @@ Each theme key has:
 - `safePersist(cfg, targetTheme)` — persist theme config
 - `safeClick(fn)` — 300ms debounce wrapper
 - `playSuccessSound()` — sound feedback on theme operations
-- `THEME_META_KEYS` — Set of `["_category", "_layout", "_palette"]`
+- `THEME_META_KEYS` — includes top-level `Category` plus internal `_layout` / `_palette` metadata
+- `Category` is saved as the first top-level key in each theme JSON file. Old themes without `Category`, or legacy `_category`, load as `"Other"` unless a category value is present.
 
 ## Maintenance Notes
 - Any user-visible theme manager text should use locale keys rather than permanent hard-coded strings.
 - When changing palette dropdown behavior, check `themeManagerV2.js`, `themeManager_paletteUtils.js`, `widget_FileBrowser.js`, and FileBrowser helper drawing together.
-- Keep private-module release exclusions in mind before public release work.

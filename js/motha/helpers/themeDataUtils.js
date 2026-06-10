@@ -83,6 +83,9 @@ export function prepareThemeForPersistence(themes, defaultThemes) {
         if (defaultThemes && defaultThemes[themeName]) continue;
 
         const themeClone = JSON.parse(JSON.stringify(themeObj));
+        const category = String(themeClone.Category || themeClone._category || "Other").trim() || "Other";
+        delete themeClone._category;
+        themeClone.Category = category;
         for (const key in themeClone) {
             const kObj = themeClone[key];
             if (!kObj || typeof kObj !== 'object') continue;
@@ -120,9 +123,35 @@ export function prepareThemeForPersistence(themes, defaultThemes) {
 
             delete kObj._baseAlpha;
         }
-        customThemes[themeName] = themeClone;
+        customThemes[themeName] = sortThemeTopLevelKeys(themeClone);
     }
     return customThemes;
+}
+
+export function sortThemeTopLevelKeys(themeObj) {
+    const sortedTheme = {};
+    if (themeObj.Category !== undefined) sortedTheme.Category = themeObj.Category;
+
+    const metaKeys = [], nonTextKeys = [], textKeys = [], hashKeys = [], hashTextKeys = [];
+    Object.keys(themeObj).forEach(k => {
+        if (k === "Category") return;
+        if (k.startsWith("_")) metaKeys.push(k);
+        else if (k.startsWith("#t_")) hashTextKeys.push(k);
+        else if (k.startsWith("#")) hashKeys.push(k);
+        else if (k.startsWith("t_")) textKeys.push(k);
+        else nonTextKeys.push(k);
+    });
+
+    metaKeys.sort((a, b) => a.localeCompare(b));
+    nonTextKeys.sort((a, b) => a.localeCompare(b));
+    textKeys.sort((a, b) => a.localeCompare(b));
+    hashKeys.sort((a, b) => a.localeCompare(b));
+    hashTextKeys.sort((a, b) => a.localeCompare(b));
+
+    [...metaKeys, ...nonTextKeys, ...textKeys, ...hashKeys, ...hashTextKeys].forEach(k => {
+        sortedTheme[k] = themeObj[k];
+    });
+    return sortedTheme;
 }
 
 /**

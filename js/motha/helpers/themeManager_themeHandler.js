@@ -6,10 +6,10 @@ import { app } from "../../../../scripts/app.js";
 import { showBastaFileHandler } from "../../fatha/bastas/bastaFileHandler.js";
 import { showBastaSystemMessage } from "../../fatha/bastas/bastaSystemMessage.js";
 import { showBastaColorDesigner } from "../../fatha/bastas/bastaColorDesigner.js";
-import { safeClick, safePersist, playSuccessSound } from "../themeManagerV2_core.js";
+import { safeClick, safePersist, playSuccessSound, normalizeThemeCategory, syncThemeCategory } from "../themeManagerV2_core.js";
 import { getSystemPaletteDisplayName } from "./themeManager_paletteUtils.js";
 
-const THEME_META_KEYS = new Set(["_category", "_layout", "_palette"]);
+const THEME_META_KEYS = new Set(["Category", "_category", "_layout", "_palette"]);
 
 export const handleThemeDeleteAction = (node, updateThemeLayoutFn) => {
     const currentTheme = node._selectedThemeName;
@@ -54,6 +54,7 @@ export const handleThemeDropdownChange = (node, val, updateThemeLayoutFn) => {
     if (source) {
         node.themeToEdit = JSON.parse(JSON.stringify(source));
         if (!node.themeToEdit._layout) node.themeToEdit._layout = [4, 2, 2, 2, 2, 4, 2, 4];
+        syncThemeCategory(node, normalizeThemeCategory(node.themeToEdit));
         node.properties.systemPaletteName = node.themeToEdit._palette || "";
 
         // Re-capture baseline for the newly-selected theme
@@ -67,6 +68,9 @@ export const handleThemeDropdownChange = (node, val, updateThemeLayoutFn) => {
             node.layoutMap.themeLayoutRegion.dropdownPalette.text = node.properties.systemPaletteName
                 ? getSystemPaletteDisplayName(node.properties.systemPaletteName)
                 : "None";
+        }
+        if (node.layoutMap?.themeLayoutRegion?.dropdownCategory) {
+            node.layoutMap.themeLayoutRegion.dropdownCategory.value = node.properties.themeCategory || "Other";
         }
 
         const availableKeys = Object.keys(node.themeToEdit).filter(k => !THEME_META_KEYS.has(k));

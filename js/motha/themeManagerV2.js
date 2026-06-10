@@ -24,7 +24,9 @@ import { activeBastas } from "../fatha/basta.js";
 import {
     initThemeManager,
     updateThemeLayout,
-    bindThemeEvents
+    bindThemeEvents,
+    normalizeThemeCategory,
+    syncThemeCategory
 } from "./themeManagerV2_core.js";
 import { handleThemeDropdownChange } from "./helpers/themeManager_themeHandler.js";
 import { getSystemPaletteDisplayName, toSystemPaletteDropdownItem } from "./helpers/themeManager_paletteUtils.js";
@@ -131,7 +133,7 @@ app.registerExtension({
             const cfg = window.xcpDerpThemeConfig;
 
             // Check for unsaved key changes (pulse save buttons + star prefix on dirty keys)
-            const THEME_META_KEYS = new Set(["_category", "_layout", "_palette"]);
+            const THEME_META_KEYS = new Set(["Category", "_category", "_layout", "_palette"]);
             let isSelectedKeyDirty = false;
             let isThemeDirty = false;
             const dirtyKeys = new Set();
@@ -141,6 +143,7 @@ app.registerExtension({
                 if (hasBaselineData) {
                 for (const key of Object.keys(this.themeToEdit)) {
                     if (THEME_META_KEYS.has(key)) continue;
+                    if (!this.themeToEdit[key] || typeof this.themeToEdit[key] !== "object") continue;
                     const currentHash = generateKeyHash(this.themeToEdit[key]);
                     const baseHash = baselines[key];
                     if (baseHash !== undefined && currentHash !== baseHash) {
@@ -148,7 +151,7 @@ app.registerExtension({
                         if (key === this._selectedKeyName) { isSelectedKeyDirty = true; isThemeDirty = true; }
                     }
                 }
-                // Meta keys (_layout, _palette) use JSON.stringify — not theme key structure
+                // Meta keys use JSON.stringify — not theme key structure
                 for (const meta of THEME_META_KEYS) {
                     if (this.themeToEdit[meta] !== undefined) {
                         if (baselines[meta] !== undefined && JSON.stringify(this.themeToEdit[meta]) !== baselines[meta]) {
@@ -163,7 +166,8 @@ app.registerExtension({
             this._isThemeDirty = isThemeDirty || isSelectedKeyDirty;
             this._dirtyKeyNames = dirtyKeys;
 
-            const layoutHash = `${this._selectedThemeName}_${this._selectedKeyName}_${this._cachedFonts?.length || 0}_${this._systemPaletteList?.length || 0}_${this._systemPaletteListLoaded ? 1 : 0}_${this.properties.systemPaletteName || ""}_${isPaletteOpen}_${window.xcpDerpThemeConfig?.activeTheme}`;
+            const selectedCategory = normalizeThemeCategory(this.themeToEdit);
+            const layoutHash = `${this._selectedThemeName}_${this._selectedKeyName}_${this._cachedFonts?.length || 0}_${this._systemPaletteList?.length || 0}_${this._systemPaletteListLoaded ? 1 : 0}_${this.properties.systemPaletteName || ""}_${selectedCategory}_${isPaletteOpen}_${window.xcpDerpThemeConfig?.activeTheme}`;
 
             if (this._layoutMapHash === layoutHash && this.layoutMap) return;
             const mapChanged = this._layoutMapHash !== layoutHash;
@@ -182,7 +186,7 @@ app.registerExtension({
             // THE REFRESH FIX: Ensure items list is never empty during the initial boot sequence
             const themeList = Object.keys(window.xcpDerpThemeConfig?.themes || {});
             const keyList = Object.keys(this.themeToEdit || {})
-                .filter(k => !k.startsWith("_"))
+                .filter(k => !k.startsWith("_") && k !== "Category")
                 .sort((a, b) => {
                     const rank = (k) => {
                         if (k.startsWith("#t_")) return 3;
@@ -238,13 +242,14 @@ app.registerExtension({
                     },
                     dropdownCategory: {
                         type: UI_TYPES.FILEBROWSER,
-                        icon: "dropdown", measureText: "Neutral", indicator: true, text: "Other",
+                        icon: "dropdown", measureText: "Neutral", indicator: true, text: selectedCategory,
                         toolTip: "Determines palette auto-matching options",
                         themeKey: "dialog, t_textNormal", canvasShield: true,
-                        width: "auto", height: "auto", padding: [pW, pH], 
+                        width: "auto", height: "auto", padding: [pW, pH],
                         mode: "file",
                         rootName: "categories",
                         items: ["Light", "Neutral", "Dark", "Other"],
+                        value: selectedCategory,
                         spacing: [sW, 0],
                     },
                     btnThemeDelete: {

@@ -4,13 +4,14 @@
  * LOCATION: core/themeConfig.js
  */
 
-import { prepareThemeForPersistence, enforceThemeLocks, generateKeyHash } from "../helpers/themeDataUtils.js";
+import { prepareThemeForPersistence, enforceThemeLocks, generateKeyHash, sortThemeTopLevelKeys } from "../helpers/themeDataUtils.js";
 
 // --- CONSTANTS ---
 export const DEFAULT_THEME_KEY = "bg";
 export const UNLOCKED_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square"><rect x="5" y="11" width="14" height="10" rx="1"></rect><path d="M8 11V7a4 4 0 017-3.3"></path></svg>`;
 
 export const FALLBACK_THEME = {
+    "Category": "Other",
     "_layout": [4, 2, 2, 2, 2, 4, 2, 4],
     "canvas": {
         "_ON": [56, 56, 56, 1], "_OFF": [61, 61, 61, 1], "_DIS": [15, 15, 15, 1],
@@ -123,6 +124,14 @@ export const FALLBACK_THEME = {
     "t_textSystem": { "font": "DengXian", "fontSize": 10, "_ON": [255, 255, 255, 1], "_OFF": [180, 180, 180, 0.6], "_DIS": [100, 100, 100, 0.2] }
 };
 
+function normalizeThemeForRuntime(themeObj) {
+    if (!themeObj || typeof themeObj !== "object") return themeObj;
+    const category = String(themeObj.Category || themeObj._category || "Other").trim() || "Other";
+    const normalized = { ...themeObj, Category: category };
+    delete normalized._category;
+    return sortThemeTopLevelKeys(normalized);
+}
+
 // --- API WRAPPER ---
 export const api = {
     /** Fetches the theme configuration from the server. */
@@ -143,7 +152,7 @@ export const api = {
                     if (tr.ok) {
                         const tData = await tr.json();
                         if (tData.data) {
-                            themesObj[tName] = tData.data;
+                            themesObj[tName] = normalizeThemeForRuntime(tData.data);
                             themeSources[tName] = usingFallback ? "fallback" : "primary";
                         }
                     }
@@ -219,7 +228,7 @@ export function initThemeConfig() {
             const defaultPath = "_Templates/DerpTheme_Default";
             if (!this.themes[defaultPath]) {
                 console.warn(`%c[xcpDerp] System Default Template not found on disk at: ${defaultPath}.json. Seeding memory from internal fallback.`, "color: #ffa500; font-weight: bold;");
-                this.themes[defaultPath] = JSON.parse(JSON.stringify(FALLBACK_THEME));
+                this.themes[defaultPath] = normalizeThemeForRuntime(JSON.parse(JSON.stringify(FALLBACK_THEME)));
                 this.themeSources[defaultPath] = "hardcoded";
             }
 
@@ -252,9 +261,10 @@ export function initThemeConfig() {
 
             for (const key in theme) {
                 const kData = theme[key];
-                if (kData && typeof kData === 'object') {
-                    // Meta keys (_category, _layout, _palette) use JSON.stringify — not theme key structure
-                    const isMeta = key === '_category' || key === '_layout' || key === '_palette';
+                if (kData !== undefined && kData !== null) {
+                    // Meta keys use JSON.stringify — not theme key structure
+                    const isMeta = key === 'Category' || key === '_category' || key === '_layout' || key === '_palette';
+                    if (!isMeta && typeof kData !== 'object') continue;
                     newBaselines[key] = isMeta ? JSON.stringify(kData) : generateKeyHash(kData);
                 }
             }

@@ -365,6 +365,20 @@ egionOffset for visual padding expansion. Three-tier paint resolution: (1) expli
 - **Force `derpSignalOut` refresh for one-shot title changes.** Its 200ms throttle can swallow immediate title-change notifications unless a force-refresh path is used.
 - **Signal-source rename warnings use `showBastaSystemMessage`.** Use warning mode and accent text with default registered source names.
 
+
+### Theme category system (2026-06-10)
+- **`Category` is a top-level theme property** stored as the first key in serialized theme JSON files. Legacy `_category` is normalized to `Category` at load time via `normalizeThemeForRuntime()`.
+- **`THEME_META_KEYS`** in both `themeManagerV2.js` and `themeManager_themeHandler.js` must include `"Category"` alongside `"_category"`, `"_layout"`, `"_palette"`. Meta keys are excluded from key-list filtering and use `JSON.stringify` for dirty-detection.
+- **`sortThemeTopLevelKeys()`** in `themeDataUtils.js` controls persisted key ordering. `Category` always comes first, then `_` meta keys, then body/text/hash keys.
+- **When adding a FILEBROWSER dropdown to themeManagerV2**, ensure three-way sync:
+  1. `value` and `text` set dynamically from `normalizeThemeCategory(node.themeToEdit)` in `refreshNodeLayoutMap()`.
+  2. `onChange` wired in `bindThemeEvents()` calling `syncThemeCategory()`, updating save-button pulse, and marking dirty.
+  3. `updateThemeLayout()` checks for value/text drift and refreshes the UI.
+- **Include Category in the layoutHash** so toggling category rebuilds the layout map.
+
+### LayoutMap region placement precision (2026-06-10)
+- **When the user says "add X to region Y", add it INSIDE region Y**, not in a new standalone region. Misplacing a widget into its own region breaks the anchor chain and changes layout flow.
+- **Read the target region's full braces scope** before inserting. Match the indentation and trailing comma style of sibling widgets exactly.
 ### Node-specific lessons (2026-06-09)
 - **Derp Concatenate signal selection:** use in-node `FILEBROWSER` with `mode: "signal"`, not the header Basta wireless selector; signal entries should become a dynamic array-driven list.
 - **Diffusion Loader structure:** `derpDiffusionLoader.js` lives in `js/controldeck/`; core logic in `js/controldeck/core/derpDiffusionLoader_core.js`; backend source covers both `diffusion_models` and `unet`.
