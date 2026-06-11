@@ -22,7 +22,7 @@ import {
     handleDerpCollapseImpl,
     handleHorizontalDeckTitleToggleImpl,
 } from "./dockResize.js";
-import { masterDockEngine, getDeckMembers, getDeckCornerOverride, getNodeOnDeckEdge, isLinearDeckGroup, normalizeDockedLayout, setDeckNodePos, syncDeckNodeSize } from "./masterDockEngine.js";
+import { masterDockEngine, getDeckMembers, getDeckCornerOverride, getNodeOnDeckEdge, isLinearDeckGroup, normalizeDockedLayout, setDeckNodePos, syncDeckNodeSize, isDeckPressureHub, getDeckPressureHubForNode, applyDeckPressureLayout } from "./masterDockEngine.js";
 import { getDockGroupAxisFromMembers, getDockNodeHeight, getDockNodeMinWidth, getDockNodeWidth, getSharedDockMinWidth, getSharedDockWidth, shouldPreserveDockHeight, shouldPreserveDockWidth } from "./dockDimensions.js";
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
 import {
@@ -75,6 +75,7 @@ let derpDefaultTitleRegistryPromise = null;
 const deckFrameCache = new Map();
 const deckNodeFrameCache = new Map();
 let deckCacheFrame = null;
+const deckPressureFrameCache = new Map();
 
 function normalizeDerpLocaleKey(key) {
     return String(key || "").replace(/^\$/, "");
@@ -395,6 +396,7 @@ function getDeckFrameState(node) {
     if (deckCacheFrame !== frame) {
         deckFrameCache.clear();
         deckNodeFrameCache.clear();
+        deckPressureFrameCache.clear();
         deckCacheFrame = frame;
     }
     const nodeFrameKey = `${frame}:${node.id}`;
@@ -851,6 +853,20 @@ export function syncHorizontalDeckHeight(node, targetHeight = 0) {
 export function normalizeDerpDockedLayout(node) {
     const state = getDeckFrameState(node);
     const graph = app.graph || node?.graph || null;
+    const pressureHub = isDeckPressureHub(node) ? node : getDeckPressureHubForNode(node, graph);
+    if (pressureHub) {
+        const frame = Number(app.canvas?.frame ?? app.canvas?.drawCount) || 0;
+        const members = getDeckMembers(pressureHub, graph);
+        const signature = getDeckGeometrySignature(members, pressureHub.id, "deck-pressure");
+        const cacheKey = `${frame}:${pressureHub.id}`;
+        const cached = deckPressureFrameCache.get(cacheKey);
+        if (cached?.signature === signature) return [];
+        const moved = applyDeckPressureLayout(pressureHub, graph, getDerpVars(pressureHub).SNAP);
+        const nextSignature = getDeckGeometrySignature(members, pressureHub.id, "deck-pressure");
+        deckPressureFrameCache.set(cacheKey, { signature: nextSignature });
+        if (deckPressureFrameCache.size > 64) deckPressureFrameCache.clear();
+        return moved;
+    }
     if (state?.preserveWidth === true) {
         const snap = getDerpVars(node).SNAP;
         const sharedWidth = Math.max(

@@ -197,6 +197,7 @@ Docs must stay synced with framework behavior. Stale docs are treated as bugs.
 - Basta overlays are not graph nodes; do not apply graph-node size rules blindly to them.
 - Vertical docking free-height mode uses `autoHeight = false` unless `properties.deckForceAutoHeight = true`.
 - Horizontal dock maintenance must be gated by geometry signatures/indexes; do not normalize all deck members every frame.
+- Deck Pressure is ImageDeck-owned in V1. Pressure attaches must let `applyDeckPressureLayout()` own branch reflow; avoid generic `normalizeDockPair()` / `forceDockResizeRefresh()` on hub seams because they can move the anchored hub.
 
 ### Node-Specific Notes
 

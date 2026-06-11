@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Deck Pressure V1 for derpImageDeck**: `derpImageDeck` can now act as a central Deck hub with one docked branch per edge. Alt-drag supports attaching horizontal branches to top/bottom and vertical branches to left/right, with Deck Pressure keeping branches in graph space, anchoring the ImageDeck hub, aligning top/bottom branches to hub width, and auto-collapsing side-branch siblings only when needed before growing the hub frame.
 - **New node: derpSkunk** — utility/test node for theme file testing and skunkworks prototyping. Virtual fatha shell with layout map exercising toggles and icon buttons.
 - **LoRA "no trigger required" toggle**: New `toggleNoTrigger` TOGGLE_V2 in bastaLoraDetail `triggerControlRow`. When ON for a LoRA with no trigger files, the trigger selector FILEBROWSER and derpLoraStack dropdown both display "LoRA requires no trigger" instead of "None"/"No triggers found". State persisted per-LoRA-entry in `stackData[i][7]` via `isLoraNoTriggerRequired`/`setLoraNoTriggerRequired` helpers in `loraComponents.js`. FILEBROWSER state hash expanded to include display/label/text for cache invalidation. New locale keys added (EN/ZH). FRAMEWORK-Nodes.md updated with stackData slot documentation.
 

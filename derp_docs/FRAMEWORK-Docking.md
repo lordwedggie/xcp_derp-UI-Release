@@ -3,7 +3,7 @@
 ## Overview
 The docking system allows derp nodes to be dragged into horizontal/vertical stacks where they share edges, normalize sizes, and resize together as a group. It's implemented entirely within the Fatha framework, bypassing LiteGraph's native node positioning.
 
-**Last reviewed:** 2026-06-08
+**Last reviewed:** 2026-06-11
 
 ## Key Files
 
@@ -104,6 +104,20 @@ When ComfyUI Node 2.0/Vue mode moves a default group containing docked Derp stac
 - Each node keeps its own height (no height normalization)
 - `allowWidth = false` during resize
 - Member height defaults to free/manual resize through temporary `autoHeight = false` unless the node explicitly forces auto-height on
+
+
+### Deck Pressure Hub
+- V1 is limited to `derpImageDeck` nodes (`_isDerpImageDeckNode` / `xcpDerpImageDeck`).
+- Alt-drag a node or existing docked stack near an ImageDeck edge to attach it as a Deck Pressure branch.
+- A hub can own one linear branch per edge: `left`, `right`, `top`, and `bottom`.
+- Branches remain normal graph-space docked nodes; there is no nested container, viewport, clipping, or custom serialization.
+- Side branches (`left`/`right`) are treated as vertical pressure branches and target the full Deck frame height: top branch + ImageDeck hub + bottom branch. Top/bottom branches align to the ImageDeck width and are not auto-collapsed by pressure in V1.
+- When a branch overflows, Deck Pressure keeps the active/hovered/pressed or just-toggled member expanded, collapses non-active siblings first, and grows the hub frame only when collapsed minimum sizes still cannot fit.
+- Side-branch pressure compares expanded minimum requirements before collapsing, so multiple nodes can stay expanded whenever the branch can fit them by resizing.
+- Dock finalization treats the ImageDeck hub position as anchored; normal pair normalization may move attached branches, but must not move the hub itself.
+- ImageDeck-owned pressure attaches skip generic `normalizeDockPair()` / `forceDockResizeRefresh()` because those normal stack helpers can reinterpret the new hub seam as a resizable shared edge and move the hub.
+- Ordinary mixed-axis docking remains rejected outside ImageDeck-owned Deck Pressure branches.
+- ImageDeck and outer Deck-frame corner resize handles route to the hub; attached branch seams must not steal the hub corners.
 
 ## Known Pitfalls
 

@@ -18,7 +18,7 @@
  */
 import { app } from "../../../../scripts/app.js";
 import { renderHitboxDebug } from "../helpers/debugPainter.js";
-import { getDeckMembers, getNodeOnDeckEdge, isLinearDeckGroup } from "./masterDockEngine.js";
+import { getDeckMembers, getDeckPressureBranchSideForNode, getDeckPressureHubForNode, getNodeOnDeckEdge, isDeckPressureHub, isLinearDeckGroup } from "./masterDockEngine.js";
 import { clearEntityTooltip } from "./fathaHandler.js";
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
 import { MASTER_Z, promoteMasterZ } from "./masterZ.js";
@@ -128,6 +128,7 @@ export function createDerpShield(node) {
     let lastClickTime = 0; // THE FIX: Track manual double clicks
     let activeResizeHandle = null;
     let activeResizePointerId = null;
+    let activeResizeNode = node;
 
     // --- HELPERS ---
     const getLocalCoords = (e) => {
@@ -175,8 +176,13 @@ export function createDerpShield(node) {
         activeResizeHandle = null;
         activeResizePointerId = null;
         isResizing = false;
-        node._isDerpResizing = false;
-        node._dockResizeSession = null;
+        activeResizeNode._isDerpResizing = false;
+        activeResizeNode._dockResizeSession = null;
+        if (activeResizeNode !== node) {
+            node._isDerpResizing = false;
+            node._dockResizeSession = null;
+        }
+        activeResizeNode = node;
         if (holdTimer) clearTimeout(holdTimer);
         pendingNodeHoldDrag = false;
         setVisualActive(false);
@@ -412,10 +418,10 @@ export function createDerpShield(node) {
 
         // MODE 1: RESIZING (Delegate to Node)
         if (isResizing) {
-            node.handleShieldInteraction("resize", {
+            activeResizeNode.handleShieldInteraction("resize", {
                 dx,
                 dy,
-                resizeAnchor: node._resizeAnchor || "bottom-right"
+                resizeAnchor: activeResizeNode._resizeAnchor || "bottom-right"
             });
             return;
         }
@@ -574,8 +580,18 @@ export function createDerpShield(node) {
         }
         app.canvas.canvas.focus(); // THE FOCUS FIX: Ensure keyboard events reach the canvas
         isResizing = true;
-        node._resizeAnchor = anchor;
-        node._isDerpResizing = true; // THE FIX: Pause Fatha's auto-enforcer during drag
+        const graph = app.graph || node.graph || null;
+        const pressureHub = graph ? getDeckPressureHubForNode(node, graph) : null;
+        const branchSide = pressureHub && pressureHub.id !== node.id ? getDeckPressureBranchSideForNode(pressureHub, graph, node) : null;
+        const routeToPressureHub = pressureHub && pressureHub.id !== node.id && (
+            (branchSide === "top" && (anchor === "top-left" || anchor === "top-right")) ||
+            (branchSide === "bottom" && (anchor === "bottom-left" || anchor === "bottom-right")) ||
+            (branchSide === "left" && (anchor === "top-left" || anchor === "bottom-left")) ||
+            (branchSide === "right" && (anchor === "top-right" || anchor === "bottom-right"))
+        );
+        activeResizeNode = routeToPressureHub ? pressureHub : node;
+        activeResizeNode._resizeAnchor = anchor;
+        activeResizeNode._isDerpResizing = true; // THE FIX: Pause Fatha's auto-enforcer during drag
         startMouseX = e.clientX;
         startMouseY = e.clientY; // THE FIX: Capture Y for vertical resizing
 
@@ -584,17 +600,17 @@ export function createDerpShield(node) {
         app.canvas.last_mouse = [e.clientX - rect.left, e.clientY - rect.top];
 
         // Notify node to cache start state with proper coordinates to pass the safety guard
-        node.handleShieldInteraction("dragStart", {
+        activeResizeNode.handleShieldInteraction("dragStart", {
             x: e.clientX - rect.left,
             y: e.clientY - rect.top,
             localX: localPos.x,
             localY: localPos.y,
             originalEvent: e
         });
-        promoteMasterZ(node, app.graph || node.graph || null);
+        promoteMasterZ(activeResizeNode, app.graph || activeResizeNode.graph || null);
 
         // THE DYNAMIC CURSOR FIX: Determine the global drag cursor based on auto-resize states
-        const vars = node.getDerpVars ? node.getDerpVars(node) : { autoWidth: false, autoHeight: false };
+        const vars = activeResizeNode.getDerpVars ? activeResizeNode.getDerpVars(activeResizeNode) : { autoWidth: false, autoHeight: false };
         const canW = !vars.autoWidth;
         const canH = !vars.autoHeight;
         const isLeftOrRightCorner = anchor === "top-left" || anchor === "top-right" || anchor === "bottom-left" || anchor === "bottom-right";
@@ -998,7 +1014,8 @@ export function syncDerpShield(node) {
         const isBottomBoundary = !!isVerticalDockStack && !nodeBelow;
         const allowTopResizeCorners = !isVerticalDockStack || isTopBoundary;
         const allowBottomResizeCorners = !isVerticalDockStack || isBottomBoundary;
-        node.interactionShield._resizeHandle._resizeAnchorOverride = (!isVerticalDockStack && canResizeSharedRightW) ? "right" : null;
+        const isPressureHub = isDeckPressureHub(node);
+        node.interactionShield._resizeHandle._resizeAnchorOverride = (!isPressureHub && !isVerticalDockStack && canResizeSharedRightW) ? "right" : null;
         handleStyle.width = `${bottomRightWidth}px`;
         handleStyle.height = `${bottomCornerSize}px`;
         handleStyle.cursor = (canUseRightW && canH) ? "nwse-resize" : (canUseRightW ? "ew-resize" : "ns-resize");
@@ -1008,7 +1025,7 @@ export function syncDerpShield(node) {
         handleStyle.pointerEvents = (node.resizable && allowBottomResizeCorners) ? "auto" : "none";
         handleStyle.right = `-${padR * scale}px`;
 
-        if (!isVerticalDockStack && allowBottomResizeCorners && canResizeSharedRightW && canUseRightW) {
+        if (!isPressureHub && !isVerticalDockStack && allowBottomResizeCorners && canResizeSharedRightW && canUseRightW) {
             handleStyle.width = `${sharedEdgeWidth}px`; handleStyle.height = `${visualH * scale}px`; handleStyle.cursor = "ew-resize"; handleStyle.display = "block"; handleStyle.pointerEvents = "auto";
         }
         if (isVerticalDockStack && hasInternalBottomResizeEdge && canH) {
@@ -1031,7 +1048,7 @@ export function syncDerpShield(node) {
 
         if (node.interactionShield._resizeHandleLeft) {
             const leftStyle = node.interactionShield._resizeHandleLeft.style;
-            node.interactionShield._resizeHandleLeft._resizeAnchorOverride = (!isVerticalDockStack && canResizeSharedLeftW) ? "left" : null;
+            node.interactionShield._resizeHandleLeft._resizeAnchorOverride = (!isPressureHub && !isVerticalDockStack && canResizeSharedLeftW) ? "left" : null;
             leftStyle.width = `${bottomLeftWidth}px`;
             leftStyle.height = `${bottomCornerSize}px`;
             leftStyle.cursor = (canUseLeftW && canH) ? "nesw-resize" : (canUseLeftW ? "ew-resize" : "ns-resize");

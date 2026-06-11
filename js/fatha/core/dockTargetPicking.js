@@ -77,7 +77,8 @@ export function resolveDockTarget({
         const dist = chosen?.distance ?? Infinity;
         if (!side || !isFiniteNumber(dist) || dist > radius) return;
 
-        const attachLeader = getDeckAttachLeaderForSide(node, side, graph);
+        const hoverHub = utils.getDeckPressureHubForNode?.(node, graph) || node;
+        const attachLeader = getDeckAttachLeaderForSide(hoverHub, side, graph);
         if (!attachLeader) return;
 
         const hoverRect = nodeRect;
@@ -100,10 +101,11 @@ export function resolveDockTarget({
             hoverEdgeLine: getRectEdgeLine(side, hoverRect),
         };
 
-        const canDock = canDeckNodeToLeader(dragNode, attachLeader, graph, side);
+        const canDock = canDeckNodeToLeader(dragNode, hoverHub, graph, side);
         dockDebugLog("candidate", {
             dragNodeId: dragNode.id,
             hoverNodeId: node.id,
+            hubNodeId: hoverHub.id,
             attachLeaderId: attachLeader.id,
             side,
             chosenDistance: dist,
@@ -126,7 +128,7 @@ export function resolveDockTarget({
         }
 
         if (dist < bestDistance) {
-            bestNode = attachLeader;
+            bestNode = hoverHub;
             bestDistance = dist;
             bestEdge = edge;
             bestHoverNodeId = node.id;

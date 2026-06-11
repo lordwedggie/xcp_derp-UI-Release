@@ -1,7 +1,7 @@
 import { app } from "../../../../scripts/app.js";
 import { syncDerpShield } from "./fathaDOMshield.js";
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
-import { isNodeDocked, setDeckNodePos } from "./masterDockEngine.js";
+import { setDeckNodePos } from "./masterDockEngine.js";
 
 const DOCK_TARGET_RADIUS = 14;
 const DOCK_GHOST_THICKNESS = 10;
@@ -27,11 +27,11 @@ export function updateDockDrag(entity, deckEngine, data, scale) {
     deckEngine.syncDraggedDeck(dragRoot, SNAP, { dx: deltaX, dy: deltaY }).forEach((member) => {
         syncDerpShield(member);
     });
-    if (data.originalEvent?.altKey && !isNodeDocked(entity, entity.graph || app.graph || null)) {
+    if (data.originalEvent?.altKey) {
         entity._deckDragAltActive = true;
         const lockedSide = entity._deckDragSideLock?.side || null;
         const lockedHoverNodeId = entity._deckDragSideLock?.hoverNodeId ?? null;
-        let target = deckEngine.resolveDeckTarget(entity, {
+        let target = deckEngine.resolveDeckTarget(dragRoot, {
             radius: DOCK_TARGET_RADIUS,
             ghostThickness: DOCK_GHOST_THICKNESS,
             lockedSide,
@@ -42,7 +42,7 @@ export function updateDockDrag(entity, deckEngine, data, scale) {
         // so users can switch between horizontal/vertical edges in one drag.
         if (lockedSide && (!target || target.valid === false)) {
             entity._deckDragSideLock = null;
-            target = deckEngine.resolveDeckTarget(entity, {
+            target = deckEngine.resolveDeckTarget(dragRoot, {
                 radius: DOCK_TARGET_RADIUS,
                 ghostThickness: DOCK_GHOST_THICKNESS,
                 lockedSide: null,
@@ -79,7 +79,8 @@ export function endDockDrag(entity, deckEngine, data) {
     }
     if (shouldFinalizeAltDock) {
         const { SNAP } = entity.getDerpVars(entity);
-        const targetInfo = deckEngine.resolveDeckTarget(entity, {
+        const dragRoot = deckEngine.getActiveRoot?.() || deckEngine.getRoot(entity) || entity;
+        const targetInfo = deckEngine.resolveDeckTarget(dragRoot, {
             radius: DOCK_TARGET_RADIUS,
             ghostThickness: DOCK_GHOST_THICKNESS,
             lockedSide: entity._deckDragSideLock?.side || null,
@@ -87,15 +88,15 @@ export function endDockDrag(entity, deckEngine, data) {
         });
         if (targetInfo?.targetNode) {
             const dockTarget = targetInfo.targetNode;
-            const didDock = deckEngine.finalizeDeckTarget(entity, targetInfo, SNAP);
-            if (typeof entity.syncUncleSlots === "function") entity.syncUncleSlots();
+            const didDock = deckEngine.finalizeDeckTarget(dragRoot, targetInfo, SNAP);
+            if (typeof dragRoot.syncUncleSlots === "function") dragRoot.syncUncleSlots();
             if (typeof dockTarget?.syncUncleSlots === "function") dockTarget.syncUncleSlots();
 
             // Ensure dock-state-dependent widgets (e.g., btnDeck) update immediately on both nodes.
             if (didDock) {
-                if (typeof entity.requestDerpSync === "function") entity.requestDerpSync();
+                if (typeof dragRoot.requestDerpSync === "function") dragRoot.requestDerpSync();
                 if (typeof dockTarget?.requestDerpSync === "function") dockTarget.requestDerpSync();
-                if (typeof entity.setDirtyCanvas === "function") entity.setDirtyCanvas(true, true);
+                if (typeof dragRoot.setDirtyCanvas === "function") dragRoot.setDirtyCanvas(true, true);
                 if (typeof dockTarget?.setDirtyCanvas === "function") dockTarget.setDirtyCanvas(true, true);
                 if (window.DERP_GLOBAL_SETTINGS?.playSound !== false && SOUND_INDEX.docked) {
                     SOUND_INDEX.docked();

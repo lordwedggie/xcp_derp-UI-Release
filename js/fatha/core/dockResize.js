@@ -382,6 +382,7 @@ export function handleDerpComputeSizeImpl(entity, out, minWidth = 100) {
 }
 
 export function handleDerpCollapseImpl(entity, force, deps = {}) {
+    entity._deckPressureActiveUntil = (performance.now?.() || Date.now()) + 1200;
     const { requestSyncFallback, settleDerpSizeBeforeDraw, resolveHorizontalDeckSharedHeight, syncHorizontalDeckHeight, closeSysPanel } = deps;
     const nextState = force !== undefined ? force : !entity.properties.contentCollapsed;
     const graph = app.graph || entity.graph || null;

@@ -1,7 +1,7 @@
 import { sysPanel } from "../helpers/fathaSysPanel.js";
 import { applyDockResizeResult, canResizeHorizontalStackWidth, syncDockResizePair } from "./dockResize.js";
 import { getDockGroupAxisFromMembers, getDockNodeMinHeight, getDockNodeMinWidth, resolveDockResizeAxes } from "./dockDimensions.js";
-import { getDeckMembers, setDeckNodePos } from "./masterDockEngine.js";
+import { getDeckMembers, isDeckPressureHub, setDeckNodePos } from "./masterDockEngine.js";
 import { dockDebug, snapshotDockNode } from "./dockDebugHelpers.js";
 import { setDerpNodeSizeCompat } from "./fathaNode2Compat.js";
 
@@ -10,7 +10,7 @@ export function handleNodeResize(entity, data, scale) {
     const resizeAnchor = data.resizeAnchor || "bottom-right";
     const isPureVerticalSharedEdgeResize = resizeAnchor === "top" || resizeAnchor === "bottom";
     const graph = entity.graph || globalThis?.app?.graph || null;
-    const axis = graph ? getDockGroupAxisFromMembers(getDeckMembers(entity, graph)) : null;
+    const axis = graph && !isDeckPressureHub(entity) ? getDockGroupAxisFromMembers(getDeckMembers(entity, graph)) : null;
     const resizeAxes = resolveDockResizeAxes(axis, { autoWidth, autoHeight });
     const horizontalStackResizeSide = resizeAnchor === "left" || resizeAnchor === "top-left" || resizeAnchor === "bottom-left"
         ? "left"
@@ -47,8 +47,9 @@ export function handleNodeResize(entity, data, scale) {
     });
     if (!resizeAxes.allowWidth && !resizeAxes.allowHeight) return;
 
+    const isPressureHubResize = isDeckPressureHub(entity);
     const minW = getDockNodeMinWidth(entity, 0, SNAP);
-    const minH = getDockNodeMinHeight(entity, 0, SNAP);
+    const minH = isPressureHubResize ? SNAP * 8 : getDockNodeMinHeight(entity, 0, SNAP);
 
     const deltaX = data.dx / scale;
     const deltaY = data.dy / scale;
@@ -76,7 +77,9 @@ export function handleNodeResize(entity, data, scale) {
     const rawH = entity._startSize[1] + (deltaY * anchorMode.hSign);
     const newH = allowHeightResize ? Math.max(minH, Math.round(rawH / SNAP) * SNAP) : entity.size[1];
 
-    const dockResizeResult = syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH, SNAP);
+    const dockResizeResult = isPressureHubResize
+        ? { handledWidth: false, handledHeight: false, handledAll: false, appliedWidth: null, appliedHeight: null, counterparts: [] }
+        : syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH, SNAP);
     dockDebug("handle-node-resize-after-dock-pair", {
         entity: snapshotDockNode(entity),
         resizeAnchor,
