@@ -103,6 +103,7 @@ widgets/
 - `UI_TYPES.EDITOR` is a hybrid widget: Canvas draws asleep visuals and the DOM element handles hit testing, focus, selection, and editing.
 - For `canvasShield` editors, asleep background and text must be rendered by Canvas, not by the DOM overlay. DOM-rendered asleep boxes/text drift relative to canvas controls under zoom because CSS transforms and Canvas compositing use different subpixel paths.
 - While asleep, keep the DOM editor present for interaction but transparent; while awake/editing, let the DOM editor show text/background so native selection and keyboard input work.
+- Body-level editor DOM must use the host node's `_masterZHtml` unless the editor config explicitly supplies `zIndex`; never preserve stale inline z-index across graph-order changes.
 - Do not fix zoom-dependent EDITOR drift with per-zoom height, baseline, or translation nudges. If an asleep editor visual drifts, move that visual back into the Canvas path.
 - Keep vertical alignment math host-independent. System panels, Fatha nodes, ThemeManager fields, and numeric editors should use the same `labelAlign` calculation unless a concrete renderer bug requires a shared fix.
 - PromptBook image embeds use `richImageContent: true`; this makes `EDITOR` sync through `innerText` so the PromptBook image handler can preserve real `<img>` nodes instead of being overwritten by `textContent`.

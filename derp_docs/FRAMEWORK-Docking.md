@@ -51,6 +51,11 @@ After normalizing, triggers a layout recompute for the leader and all members. T
 
 ## Size Normalization
 
+### Automatic horizontal edge width compensation
+When a left-most or right-most member in a horizontal stack changes width from runtime layout changes, the stack first tries to keep its total width stable. Growth borrows shrinkable width from members on the opposite side down to their measured minimums; shrinkage gives the freed width to those opposite members. If there is not enough spare room, the stack is allowed to grow.
+### Theme-driven vertical width growth
+When a member of a vertical dock stack changes theme, its measured content floor can grow while the stack is already width-locked. Runtime dock sizing preserves the current shared width only as a floor, not as a ceiling, and vertical normalization runs after layout so all stack members adopt the new widest measured width.
+
 ### fitSizesToTotal (masterDockEngine.js)
 Distributes total available space among members while respecting minimum sizes.
 

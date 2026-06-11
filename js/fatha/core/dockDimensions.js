@@ -113,7 +113,7 @@ export function resolveRuntimeDockSize(node, axis, measured, vars = {}) {
     const liveH = Number(node?.size?.[1]) || 0;
 
     const width = shouldPreserveDockWidth(axis)
-        ? (storedW || liveW || engineFloorW)
+        ? Math.max(storedW || liveW || 0, engineFloorW)
         : ((autoWidth || (isMinState && collapseMinimal)) ? engineFloorW : Math.max(storedW, engineFloorW));
 
     const height = shouldPreserveDockHeight(axis)

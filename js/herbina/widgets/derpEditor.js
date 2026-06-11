@@ -879,13 +879,6 @@ export function syncDerpEditor(context, node, app, config) {
         let baseZ = masterZ;
         if (safeConfig.zIndex !== undefined) {
             baseZ = parseInt(safeConfig.zIndex);
-        } else if (el.style.zIndex) {
-            const currentZ = parseInt(el.style.zIndex);
-            if (!isNaN(currentZ) && currentZ !== el._lastAwakeZ) {
-                baseZ = currentZ;
-            } else if (el._baseZ) {
-                baseZ = el._baseZ;
-            }
         }
         el._baseZ = baseZ;
 

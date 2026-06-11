@@ -22,8 +22,8 @@ import {
     handleDerpCollapseImpl,
     handleHorizontalDeckTitleToggleImpl,
 } from "./dockResize.js";
-import { masterDockEngine, getDeckMembers, getDeckCornerOverride, getNodeOnDeckEdge, isLinearDeckGroup, normalizeDockedLayout, setDeckNodePos } from "./masterDockEngine.js";
-import { getDockGroupAxisFromMembers, shouldPreserveDockHeight, shouldPreserveDockWidth } from "./dockDimensions.js";
+import { masterDockEngine, getDeckMembers, getDeckCornerOverride, getNodeOnDeckEdge, isLinearDeckGroup, normalizeDockedLayout, setDeckNodePos, syncDeckNodeSize } from "./masterDockEngine.js";
+import { getDockGroupAxisFromMembers, getDockNodeHeight, getDockNodeMinWidth, getDockNodeWidth, getSharedDockMinWidth, getSharedDockWidth, shouldPreserveDockHeight, shouldPreserveDockWidth } from "./dockDimensions.js";
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
 import {
     getNodeHeaderPaletteFingerprint,
@@ -267,6 +267,84 @@ function restoreHorizontalDeckPositionAnchor(anchor) {
     return Math.max(Math.abs(offsetX), Math.abs(offsetY));
 }
 
+function getHorizontalDeckMembersByX(node, graph) {
+    if (!graph || !node || !isLinearDeckGroup(node, graph, "horizontal")) return [];
+    return getDeckMembers(node, graph).slice().sort((a, b) => {
+        const ax = Number(a?.pos?.[0]) || 0;
+        const bx = Number(b?.pos?.[0]) || 0;
+        if (ax !== bx) return ax - bx;
+        return (Number(a?.id) || 0) - (Number(b?.id) || 0);
+    });
+}
+
+function distributeHorizontalWidthDelta(members, delta, snap) {
+    let remaining = Math.abs(Number(delta) || 0);
+    if (remaining < 0.5 || !members.length) return true;
+
+    if (delta > 0) {
+        while (remaining > 0.5) {
+            const shrinkable = members
+                .map((member) => ({
+                    member,
+                    width: getDockNodeWidth(member),
+                    minWidth: getDockNodeMinWidth(member, 0, snap),
+                }))
+                .filter((entry) => entry.width > entry.minWidth + 0.5);
+            if (!shrinkable.length) return false;
+            const share = remaining / shrinkable.length;
+            let consumed = 0;
+            shrinkable.forEach((entry) => {
+                const shrink = Math.min(share, entry.width - entry.minWidth);
+                syncDeckNodeSize(entry.member, entry.width - shrink, getDockNodeHeight(entry.member), { silent: true });
+                consumed += shrink;
+            });
+            if (consumed <= 0.5) return false;
+            remaining -= consumed;
+        }
+        return true;
+    }
+
+    const share = remaining / members.length;
+    members.forEach((member) => {
+        syncDeckNodeSize(member, getDockNodeWidth(member) + share, getDockNodeHeight(member), { silent: true });
+    });
+    return true;
+}
+
+export function balanceHorizontalDeckWidthChange(node, previousWidth = 0) {
+    const graph = app.graph || node?.graph || null;
+    const members = getHorizontalDeckMembersByX(node, graph);
+    if (members.length <= 1) return false;
+
+    const nodeIndex = members.findIndex((member) => member.id === node.id);
+    if (nodeIndex !== 0 && nodeIndex !== members.length - 1) return false;
+
+    const currentWidth = getDockNodeWidth(node);
+    const delta = currentWidth - (Number(previousWidth) || 0);
+    if (!Number.isFinite(delta) || Math.abs(delta) < 0.5) return false;
+
+    const snap = getDerpVars(node).SNAP;
+    const oppositeMembers = nodeIndex === members.length - 1
+        ? members.slice(0, nodeIndex).reverse()
+        : members.slice(nodeIndex + 1);
+    if (!distributeHorizontalWidthDelta(oppositeMembers, delta, snap)) return false;
+
+    const anchorX = nodeIndex === members.length - 1
+        ? Math.min(...members.map((member) => Number(member?.pos?.[0]) || 0))
+        : Math.max(...members.map((member) => (Number(member?.pos?.[0]) || 0) + getDockNodeWidth(member)));
+    let cursorX = nodeIndex === members.length - 1
+        ? anchorX
+        : anchorX - members.reduce((sum, member) => sum + getDockNodeWidth(member), 0);
+
+    members.forEach((member) => {
+        setDeckNodePos(member, cursorX, Number(member.pos?.[1]) || 0);
+        cursorX += getDockNodeWidth(member);
+        if (typeof member.syncUncleSlots === "function") member.syncUncleSlots();
+        if (typeof member.setDirtyCanvas === "function") member.setDirtyCanvas(true, true);
+        syncDerpShield(member);
+    });
+    return true;
+}
 function getNodeGeometry(node) {
     return {
         x: Number(node?.pos?.[0]) || 0,
@@ -774,18 +852,32 @@ export function normalizeDerpDockedLayout(node) {
     const state = getDeckFrameState(node);
     const graph = app.graph || node?.graph || null;
     if (state?.preserveWidth === true) {
-        const signature = getDeckGeometrySignature(state.members, 0, "vertical");
-        if (state.skipState?.normalizeSignature === signature || (isComfyVueNodesMode() && areDockedEdgesAligned(state.members, graph))) {
+        const snap = getDerpVars(node).SNAP;
+        const sharedWidth = Math.max(
+            getSharedDockWidth(state.members, 0),
+            getSharedDockMinWidth(state.members, 0, snap)
+        );
+        const signature = getDeckGeometrySignature(state.members, sharedWidth, "vertical");
+        const widthAligned = sharedWidth > 0 && state.members.every((member) => Number(member?.size?.[0]) === sharedWidth);
+        if ((state.skipState?.normalizeSignature === signature || (isComfyVueNodesMode() && areDockedEdgesAligned(state.members, graph))) && widthAligned) {
+            state.didNormalize = true;
+            state.normalizedWidth = Math.max(Number(state.normalizedWidth) || 0, sharedWidth);
             if (state.skipState) state.skipState.normalizeSignature = signature;
             return [];
         }
+        if (state.didNormalize && sharedWidth <= (Number(state.normalizedWidth) || 0) && widthAligned) {
+            return [];
+        }
         state.didNormalize = true;
+        state.normalizedWidth = Math.max(Number(state.normalizedWidth) || 0, sharedWidth);
         const positionAnchor = isComfyVueNodesMode()
             ? getPinnedVerticalDeckAnchor(node, graph)
             : null;
-        const moved = normalizeDockedLayout(node, graph, getDerpVars(node).SNAP);
+        const moved = normalizeDockedLayout(node, graph, snap);
         if (positionAnchor) restorePinnedVerticalDeckAnchor(positionAnchor);
-        if (state.skipState) state.skipState.normalizeSignature = signature;
+        if (state.skipState && sharedWidth > 0 && state.members.every((member) => Number(member?.size?.[0]) === sharedWidth)) {
+            state.skipState.normalizeSignature = getDeckGeometrySignature(state.members, sharedWidth, "vertical");
+        }
         moved.forEach((member) => {
             if (typeof member.syncUncleSlots === "function") member.syncUncleSlots();
             if (typeof member.setDirtyCanvas === "function") member.setDirtyCanvas(true, true);

@@ -59,6 +59,10 @@ Every frame:
 | `core/masterLayoutTypes.js` | `UI_TYPES` enum + `COMPONENT_BLUEPRINTS` registry. Maps type strings to Herbina widget creators/syncers. |
 | `core/masterZ.js` | Shared z-index constants and promotion helpers for shields, overlays, and debug layers. |
 
+### Z-Index Contract
+- Derp node DOM layers are interleaved with graph order: a node's HTML layer sits one step above its own shield and below visually higher node shields.
+- Body-level HTML widgets must follow `_masterZHtml` unless they explicitly request a local `zIndex`; stale inline z-index values must not override graph-order promotion.
+
 ### 5. Helpers
 | File | Role |
 |------|------|

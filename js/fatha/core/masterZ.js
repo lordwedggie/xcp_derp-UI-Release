@@ -97,7 +97,7 @@ function getDeckMembersLocal(rootNode, graph) {
 export function getMasterZIndex(node, graph = getGraph(node), offset = MASTER_Z.nodeShieldBase) {
     const nodes = graph?._nodes || [];
     const idx = nodes.indexOf(node);
-    return offset + (idx < 0 ? 0 : idx);
+    return offset + (idx < 0 ? 0 : idx * 2);
 }
 
 export function getMasterZPromotionSet(node, graph = getGraph(node)) {
@@ -127,8 +127,8 @@ export function syncMasterZ(graph = app?.graph || null) {
     const nodes = graph?._nodes || [];
     nodes.forEach((node, idx) => {
         if (!isDerpNode(node)) return;
-        const shieldZ = MASTER_Z.nodeShieldBase + idx;
-        const htmlZ = MASTER_Z.nodeHtmlBase + idx;
+        const shieldZ = MASTER_Z.nodeShieldBase + (idx * 2);
+        const htmlZ = shieldZ + 1;
         node.baseZIndex = String(shieldZ);
         node._masterZShield = shieldZ;
         node._masterZHtml = htmlZ;

@@ -6,7 +6,7 @@
 import { app } from "../../../scripts/app.js";
 import { createDerpShield, syncDerpShield, removeDerpShield } from "./core/fathaDOMshield.js";
 import { masterLayoutEngine } from "./core/masterLayoutEngine.js";
-import { handleShieldInteraction, handleDrawCTX, handleThemeUpdate, handleInitDerpGlobalListener, getDerpVars, handleDerpRequestSync, handleDerpComputeSize, handleDerpCollapse, animateDerpSize, drawDeckPreviewGlobal, shouldPreserveHorizontalDeckHeight, syncHorizontalDeckHeight, resolveDerpRuntimeSize, resolveHorizontalDeckSharedHeight, normalizeDerpDockedLayout, syncDerpLocalizedDefaultTitle } from "./core/fathaHandler.js";
+import { handleShieldInteraction, handleDrawCTX, handleThemeUpdate, handleInitDerpGlobalListener, getDerpVars, handleDerpRequestSync, handleDerpComputeSize, handleDerpCollapse, animateDerpSize, drawDeckPreviewGlobal, shouldPreserveHorizontalDeckHeight, shouldPreserveVerticalDeckWidth, balanceHorizontalDeckWidthChange, syncHorizontalDeckHeight, resolveDerpRuntimeSize, resolveHorizontalDeckSharedHeight, normalizeDerpDockedLayout, syncDerpLocalizedDefaultTitle } from "./core/fathaHandler.js";
 export { getDerpVars };
 import { drawDerpSysPanelGlobal, isHostActive, closeDerpSysPanel, sysPanel } from "./helpers/fathaSysPanel.js";
 import { drawBastaLayer } from "./basta.js";
@@ -671,7 +671,9 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
         // secondary axis respond immediately (e.g. width shrink causing auto-height growth).
         const liveTargetW = this._isDerpResizing && !autoWidth ? this.size[0] : targetW;
         const liveTargetH = this._isDerpResizing && !autoHeight ? this.size[1] : targetH;
+        const preAnimateW = Number(this.size?.[0]) || 0;
         animateDerpSize(this, liveTargetW, liveTargetH, useAnim);
+        balanceHorizontalDeckWidthChange(this, preAnimateW);
 
         const bounds = { x: 0, y: 0, w: this.size[0], h: this.size[1] };
 
@@ -689,12 +691,12 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
             }
             if (Number(postLayoutHeight) > 0) syncHorizontalDeckHeight(this, postLayoutHeight);
             normalizeDerpDockedLayout(this);
-        } else if (isComfyVueNodesMode()) {
+        } else if (shouldPreserveVerticalDeckWidth(this) || isComfyVueNodesMode()) {
             normalizeDerpDockedLayout(this);
         }
 
         if (this.properties.nodeSize && !isMinState) {
-            if (autoWidth) this.properties.nodeSize[0] = targetW;
+            if (autoWidth && !shouldPreserveVerticalDeckWidth(this)) this.properties.nodeSize[0] = targetW;
             if (autoHeight) this.properties.nodeSize[1] = preserveHorizontalDeckHeight
                 ? (Number(this.size?.[1]) || targetH)
                 : targetH;
