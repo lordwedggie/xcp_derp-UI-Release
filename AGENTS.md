@@ -113,6 +113,17 @@ Docs must stay synced with framework behavior. Stale docs are treated as bugs.
 
 ---
 
+## Agent Skills
+
+Reusable task workflows live in `.agents/skills/` as `SKILL.md` files. Each skill is loaded on-demand when the task matches its description, never on every session.
+
+- **commit-push** — stages changes, writes conventional commits, pushes to `github/daily-development`. Does not update CHANGELOG.
+- **release-bump** — bumps version in `pyproject.toml` + `package.json`, verifies CHANGELOG entries exist, pushes to `github` and `release` remotes. Does not edit CHANGELOG.
+
+To add a skill, create `.agents/skills/<name>/SKILL.md` with YAML frontmatter (`name`, `description`) and a workflow body. Keep skills project-scoped so all agents share them.
+
+---
+
 ## Lessons Learned
 
 ### Project Memory and Communication
@@ -198,6 +209,9 @@ Docs must stay synced with framework behavior. Stale docs are treated as bugs.
 - Vertical docking free-height mode uses `autoHeight = false` unless `properties.deckForceAutoHeight = true`.
 - Horizontal dock maintenance must be gated by geometry signatures/indexes; do not normalize all deck members every frame.
 - Deck Pressure is ImageDeck-owned in V1. Pressure attaches must let `applyDeckPressureLayout()` own branch reflow; avoid generic `normalizeDockPair()` / `forceDockResizeRefresh()` on hub seams because they can move the anchored hub.
+- Deck Pressure branches live inside a mixed-axis hub group. Shared-edge resize code must query the branch members/axis, not the full deck group axis, or branch stacks look non-resizable.
+- Horizontal Deck-branch resize position normalization must use the branch member list, not `getDeckMembers()`, or dragging an internal vertical seam can move the entire Deck group sideways.
+- ImageDeck lower-left hub resize must clamp against top/bottom branch minimum width and preserve the right edge when pressure layout enforces that minimum, or repeated drags can ratchet the whole Deck rightward.
 
 ### Node-Specific Notes
 
