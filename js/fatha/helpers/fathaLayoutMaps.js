@@ -643,14 +643,13 @@ export function getPanelBaseMap(hostNode, app, sysState) {
     return {
         sysHeaderRegion: {
             width: "full", height: "auto", dir: "row",
-            margin: [mW, mH, mW + sW, 0], 
+            margin: [mW, mH, mW, 0], 
             lblTheme: {
                 type: UI_TYPES.TEXT, mouseOver: false,
                 themeKey: "t_textSystem",
                 text: "$fatha_layout.theme",
                 width: "auto", height: "auto",
                 objectAlign: ["left", "middle"],
-                padding: [pW, pH],
                 spacing: [sW, sH],
             },
             dropdownThemes: {
@@ -728,13 +727,19 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                     }
                 }
             },
+        },
+        regionWarp: {
+            anchor: { target: "sysHeaderRegion", axis: "y"},
+            dir: "row",
+            width: "full", height: "auto",
+            margin: [mW, mH, mW, 0],
             btnWarp: {
                 type: UI_TYPES.BUTTON,
                 themeKey: "button, t_textSystem",
                 toolTip: tLocale("$fatha_layout.tooltips.add_warp_point", "Assign a Warp Point hotkey to this node so the canvas can center on it"),
                 text: "$fatha_layout.add_warp_point",
                 labelAlign: ["center", "middle"],
-                width: "auto", height: "fill",
+                width: "auto", height: "auto",
                 spacing: [sW, 0],
                 padding: [pW, pH],
                 hidden: showWarpRegion,
@@ -767,18 +772,12 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                     else if (typeof hostNode.setDirtyCanvas === "function") hostNode.setDirtyCanvas(true, true);
                 },
             },
-        },
-        regionWarp: {
-            hidden: !showWarpRegion,
-            anchor: { target: "sysHeaderRegion", axis: "y"},
-            dir: "row",            
-            width: "full", height: "auto",
-            margin: [mW, mH, mW + sW, 0], 
             lblShortcut: {
                 type: UI_TYPES.TEXT,
                 themeKey: "t_textSystem",
+                state: showWarpRegion ? "OFF" : "DIS",
                 text: "$fatha_layout.warp_shortcut",
-                width: "auto", height: "auto",
+                width: "auto", height: "fill",
                 objectAlign: ["left", "middle"],
                 padding: [pW, pH],
                 spacing: [sW, 0],
@@ -789,10 +788,13 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                 icon: "radio",
                 label: "$fatha_layout.ctrl",
                 value: isCtrlOn,
+                state: showWarpRegion ? "OFF" : "DIS",
+                disabled: !showWarpRegion,
                 width: "auto", height: "auto",
                 padding: [pW, pH],
                 spacing: [sW, 0],
                 onPress: () => {
+                    if (!showWarpRegion) return;
                     hostNode.properties.warpShortcutCtrl = hostNode.properties.warpShortcutCtrl !== true;
                     const base = String(hostNode.properties.warpShortcutBase || currentBaseKey || "1").toLowerCase();
                     hostNode.properties.warpShortcut = buildWarpShortcutCombo(hostNode.properties.warpShortcutCtrl === true, base);
@@ -805,6 +807,8 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                 icon: "dropdown",
                 themeKey: "dialog, t_textSystem",
                 canvasShield: true,
+                state: showWarpRegion ? "OFF" : "DIS",
+                disabled: !showWarpRegion,
                 items: availableShortcutItems,
                 value: selectedShortcut,
                 width: "auto", height: "auto",
@@ -813,6 +817,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                 rootName: "shortcut",
                 spacing: [sW, 0],
                 onChange: (val) => {
+                    if (!showWarpRegion) return;
                     const nextCombo = String(val ?? "").trim();
                     const parsed = parseWarpShortcutCombo(nextCombo);
                     hostNode.properties.warpShortcut = nextCombo;
@@ -824,6 +829,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
             lblZoom: {
                 type: UI_TYPES.TEXT,
                 themeKey: "t_textSystem",
+                state: showWarpRegion ? "OFF" : "DIS",
                 text: "$fatha_layout.zoom",
                 width: "auto", height: "auto",
                 objectAlign: ["left", "middle"],
@@ -833,13 +839,16 @@ export function getPanelBaseMap(hostNode, app, sysState) {
             editorZoom: {
                 type: UI_TYPES.EDITOR,
                 themeKey: "dialog, t_textSystem",
+                state: showWarpRegion ? "OFF" : "DIS",
+                disabled: !showWarpRegion,
                 text: String(Number(hostNode.properties?._warpZoom || DEFAULT_WARP_SHORTCUT_ZOOM).toFixed(2)),
-                width: "auto", height: "auto",
+                width: "auto", height: "fill",
                 labelAlign: ["center", "middle"],
                 padding: [pW, pH],
                 spacing: [sW, 0],
                 measureText: "1.00",
                 onBlur: (v) => {
+                    if (!showWarpRegion) return;
                     const z = Math.max(1.0, Math.min(3.0, parseFloat(v) || DEFAULT_WARP_SHORTCUT_ZOOM));
                     hostNode.properties._warpZoom = z;
                     if (typeof hostNode.requestDerpSync === "function") hostNode.requestDerpSync();
@@ -848,8 +857,8 @@ export function getPanelBaseMap(hostNode, app, sysState) {
             },
         },
         sysDefaultControlsRegion: {
-            anchor: { target: showWarpRegion ? "regionWarp" : "sysHeaderRegion", axis: "y" },
-            dir: "row", margin: [mW, sH, mW + sW, mH],             
+            anchor: { target: "regionWarp", axis: "y" },
+            dir: "row", margin: [mW, sH, mW, mH],             
             width: "full", height: "auto",
             btnAutoWidth: {
                 type: UI_TYPES.TOGGLE_V2,
@@ -861,7 +870,6 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                 objectAlign: ["left", "top"], labelAlign: ["left", "middle"],
                 label: "$system.auto_width",
                 width: "auto", height: "fill",
-                padding: [pW, pH],
                 onPress: () => {
                     if (isDocked) return;
                     hostNode.properties.autoWidth = (hostNode.properties.autoWidth !== false) ? false : true;

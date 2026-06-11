@@ -199,9 +199,18 @@ function getFileBrowserMode(config) {
     return "browser";
 }
 
+function isFileBrowserDisabled(config) {
+    const state = String(config?.state || "").trim().toUpperCase();
+    return config?.disabled === true || state === "DIS" || state === "_DIS";
+}
+
 function syncActiveFilePickerConfig(node, config) {
     if (!activeFilePicker) return;
     if (activeFilePicker.node !== node || activeFilePicker.key !== config?.key) return;
+    if (isFileBrowserDisabled(config)) {
+        closeFilePicker();
+        return;
+    }
     activeFilePicker.config = config;
     activeFilePicker.callbacks = getFileBrowserCallbacks(config);
     const theme = resolvePickerTheme(config, node);
@@ -482,6 +491,7 @@ function loadPreviewImageForRow(state, row) {
 }
 
 function openFilePicker(config, node) {
+    if (isFileBrowserDisabled(config)) return;
     if (activeFilePicker && (activeFilePicker.node !== node || activeFilePicker.key !== config.key)) {
         closeFilePicker();
     }
@@ -1170,13 +1180,20 @@ export function syncFileBrowser(context, node, app, config, overlayPass = false)
     const safeConfig = config;
     syncActiveFilePickerConfig(node, safeConfig);
     const liveReg = node.layout?.regions?.[safeConfig.key];
+    if (liveReg) liveReg._fileBrowserConfig = safeConfig;
+    const isDisabled = isFileBrowserDisabled(safeConfig);
 
-    const togglePicker = (event) => {
+    const togglePicker = (event, currentConfig = safeConfig) => {
         if (event?.stopPropagation) event.stopPropagation();
-        if (activeFilePicker && activeFilePicker.node === node && activeFilePicker.key === safeConfig.key) {
+        if (isFileBrowserDisabled(currentConfig)) {
+            if (activeFilePicker && activeFilePicker.node === node && activeFilePicker.key === currentConfig.key) closeFilePicker();
+            markNodeDirty(node, 16);
+            return true;
+        }
+        if (activeFilePicker && activeFilePicker.node === node && activeFilePicker.key === currentConfig.key) {
             closeFilePicker();
         } else {
-            openFilePicker(safeConfig, node);
+            openFilePicker(currentConfig, node);
         }
         markNodeDirty(node, 16);
         return true;
@@ -1185,29 +1202,34 @@ export function syncFileBrowser(context, node, app, config, overlayPass = false)
     if (liveReg && !liveReg._fileBrowserOnPressWrapped) {
         const originalOnPress = liveReg.onPress;
         liveReg.onPress = (event, interactionData) => {
+            const currentConfig = liveReg._fileBrowserConfig || safeConfig;
+            if (isFileBrowserDisabled(currentConfig)) {
+                if (event?.stopPropagation) event.stopPropagation();
+                return true;
+            }
             if (typeof originalOnPress === "function") originalOnPress(event, interactionData);
-            if (activeFilePicker && activeFilePicker.node === node && activeFilePicker.key === safeConfig.key) {
+            if (activeFilePicker && activeFilePicker.node === node && activeFilePicker.key === currentConfig.key) {
                 const point = getEventClientPoint(event, interactionData);
                 if (point && isPointInRect(point.clientX, point.clientY, activeFilePicker.panelScreenRect)) {
                     return true;
                 }
             }
-            return togglePicker(event, interactionData);
+            return togglePicker(event, currentConfig);
         };
         liveReg._fileBrowserOnPressWrapped = true;
     }
 
     const { x, y, w, h } = safeConfig.geometry;
     const useAnim = true;
-    const isPressed = node._pressedRegionKey === safeConfig.key;
-    const isHovered = safeConfig.mouseOver !== false && node._hoveredRegionKey === safeConfig.key;
+    const isPressed = !isDisabled && node._pressedRegionKey === safeConfig.key;
+    const isHovered = !isDisabled && safeConfig.mouseOver !== false && node._hoveredRegionKey === safeConfig.key;
     const isAwake = !!(activeFilePicker && activeFilePicker.node === node && activeFilePicker.key === safeConfig.key);
 
     if (isAwake) return;
 
     const itemsHash = getFileBrowserItemsFingerprint(safeConfig.items || []);
     const displayHash = `${safeConfig.display || ""}_${safeConfig.text || ""}_${safeConfig.label || ""}`;
-    const stateHash = `${isPressed}_${isHovered}_${node.mode}_${window._xcpDerpSession}_${safeConfig.value}_${displayHash}_${itemsHash}_${isAwake}`;
+    const stateHash = `${isPressed}_${isHovered}_${safeConfig.state || ""}_${isDisabled ? 1 : 0}_${node.mode}_${window._xcpDerpSession}_${safeConfig.value}_${displayHash}_${itemsHash}_${isAwake}`;
 
     const cache = node._fileBrowserCache || (node._fileBrowserCache = {});
     const itemCache = cache[safeConfig.key] || (cache[safeConfig.key] = {});

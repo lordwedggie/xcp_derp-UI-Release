@@ -161,7 +161,7 @@ app.registerExtension({
             this.sysLayoutMap = {
                 sysCustomRegion: {
                     anchor: { target: "sysDefaultControlsRegion", axis: "y"},
-                    dir: "row", width: "full", height: "auto", margin: [mW * 2, mH, mW + sH, mH],
+                    dir: "row", width: "full", height: "auto", margin: [mW, mH, mW, mH],
                     historyCountLabel: {
                         type: UI_TYPES.TEXT, text: "History Logs:", themeKey: "t_textsystem", mouseOver: false,
                         width: "auto", height: "auto", 
@@ -170,7 +170,7 @@ app.registerExtension({
                         type: UI_TYPES.EDITOR, themeKey: "dialog, t_textsystem",
                         canvasShield: true,
                         paddings: [pW, pH],
-                        width: 20, height: "auto", 
+                        measureText: "999", width: "auto", height: "fill", 
                         objectAlign: ["left", "middle"], labelAlign: ["center", "middle"], 
                         value: this.properties.seedHistoryLimit || 5,
                         spacing: [mW, 0],
@@ -183,7 +183,7 @@ app.registerExtension({
                     digitValue: {
                         type: UI_TYPES.EDITOR, themeKey: "dialog, t_textsystem",
                         measureText: "999", paddings: [pW, pH],
-                        width: 20, height: "auto", objectAlign: ["left", "middle"], labelAlign: ["center", "middle"], spacing: [sW, 0],
+                        width: "auto", height: "fill", objectAlign: ["left", "middle"], labelAlign: ["center", "middle"], spacing: [sW, 0],
                         value: this.properties.seedDigits || 15,
                         text: (this.properties.seedDigits || 15).toString(),
                         spacing: [sW, 0],

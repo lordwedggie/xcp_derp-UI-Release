@@ -54,7 +54,7 @@ export function syncDerpToggle(ctx, node, app, config) {
 
     // 3. Resolve Dual Theme Data
     const isBypassed = node.mode === 4 || node.mode === 2 || node._derpSpoofedBypass;
-    const stateSuffix = isBypassed ? "_DIS" : (isToggledOn ? "_ON" : "_OFF");
+    const stateSuffix = (isBypassed || activeState === "DIS") ? "_DIS" : (isToggledOn ? "_ON" : "_OFF");
 
     let finalLabelPaint = envLabelPaint || envBodyPaint;
     if (config.textThemeKey) {
@@ -116,7 +116,7 @@ export function syncDerpToggle(ctx, node, app, config) {
 
     // 6. Resolve Text & Glyph
     const labelText = t(visibleDisplayText || content?.text || "");
-    const isActive = (config.value !== undefined) ? !!config.value : (state === "ON");
+    const isActive = activeState !== "DIS" && ((config.value !== undefined) ? !!config.value : (state === "ON"));
     const glyphPair = TOGGLE_GLYPHS[config.icon] || TOGGLE_GLYPHS["check"];
     const currentGlyph = isActive ? glyphPair[1] : glyphPair[0];
 
