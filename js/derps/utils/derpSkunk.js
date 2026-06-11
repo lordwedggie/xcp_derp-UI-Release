@@ -291,7 +291,7 @@ app.registerExtension({
                     spring: { width: "full", height: 0 },
                     toggleBtnState: {
                         type: UI_TYPES.TOGGLE_V2,
-                        themeKey: "button, t_textsystem",
+                        themeKey: "dialog, button, t_textsystem",
                         text: "Show DIS state",
                         value: this.properties.toggleBtnState === true,
                         isTextOnly: true,
@@ -829,7 +829,7 @@ app.registerExtension({
                     spring: { width: "full", height: 0 },
                     toggleIconDIS: {
                         type: UI_TYPES.TOGGLE_V2,
-                        themeKey: "button, t_textsystem",
+                        themeKey: "panel, button, t_textsystem",
                         text: "Show DIS state",
                         value: this.properties.toggleIconState === true,
                         isTextOnly: true,

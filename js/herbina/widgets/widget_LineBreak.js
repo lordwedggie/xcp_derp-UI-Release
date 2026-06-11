@@ -7,8 +7,8 @@ import { masterPainter } from "../masterPainter.js";
 import { resolveWidgetEnv } from "../utils/widgetsUtils.js";
 import { toRGBA } from "../utils/colorMath.js";
 
-const lineTop = [0, 0, 0, 0.2];
-const lineBottom = [255, 255, 255, 0.05];
+const lineTop = [0, 0, 0, 0.25];
+const lineBottom = [255, 255, 255, 0.03];
 
 /**
  * Factory for the LineBreak widget.
