@@ -76,6 +76,7 @@ const deckFrameCache = new Map();
 const deckNodeFrameCache = new Map();
 let deckCacheFrame = null;
 const deckPressureFrameCache = new Map();
+const deckPressureStableCache = new Map();
 
 function normalizeDerpLocaleKey(key) {
     return String(key || "").replace(/^\$/, "");
@@ -212,6 +213,19 @@ function getDeckGeometrySignature(members = [], value = 0, axis = "horizontal") 
         .join("|") + `|${axis === "vertical" ? "w" : "h"}:${Math.round(Number(value) || 0)}`;
 }
 
+function isDeckPressureStable(members = []) {
+    const now = performance.now?.() || Date.now();
+    return Array.isArray(members) && members.every((member) => !(
+        member?._forceSync ||
+        member?._layoutDirty ||
+        member?._isDerpResizing ||
+        member?._isDragging ||
+        member?._isDeckDragging ||
+        Number(member?._derpAwakeFrames || 0) > 0 ||
+        Number(member?._deckPressureActiveUntil || 0) > now
+    ));
+}
+
 function getDeckSkipState(state) {
     if (!state?.members?.length) return null;
     const rootId = state.members
@@ -321,6 +335,14 @@ export function balanceHorizontalDeckWidthChange(node, previousWidth = 0) {
     if (nodeIndex !== 0 && nodeIndex !== members.length - 1) return false;
 
     const currentWidth = getDockNodeWidth(node);
+    const lastObservedWidth = Number(node._horizontalDeckWidthBalanceObserved) || 0;
+    node._horizontalDeckWidthBalanceObserved = currentWidth;
+    if (node._horizontalDeckWidthBalanceReady !== true) {
+        if (lastObservedWidth > 0 && Math.abs(lastObservedWidth - currentWidth) < 0.5) {
+            node._horizontalDeckWidthBalanceReady = true;
+        }
+        return false;
+    }
     const delta = currentWidth - (Number(previousWidth) || 0);
     if (!Number.isFinite(delta) || Math.abs(delta) < 0.5) return false;
 
@@ -396,7 +418,6 @@ function getDeckFrameState(node) {
     if (deckCacheFrame !== frame) {
         deckFrameCache.clear();
         deckNodeFrameCache.clear();
-        deckPressureFrameCache.clear();
         deckCacheFrame = frame;
     }
     const nodeFrameKey = `${frame}:${node.id}`;
@@ -861,10 +882,16 @@ export function normalizeDerpDockedLayout(node) {
         const cacheKey = `${frame}:${pressureHub.id}`;
         const cached = deckPressureFrameCache.get(cacheKey);
         if (cached?.signature === signature) return [];
+        const stableCacheKey = String(pressureHub.id);
+        const stable = isDeckPressureStable(members);
+        if (stable && deckPressureStableCache.get(stableCacheKey)?.signature === signature) return [];
         const moved = applyDeckPressureLayout(pressureHub, graph, getDerpVars(pressureHub).SNAP);
         const nextSignature = getDeckGeometrySignature(members, pressureHub.id, "deck-pressure");
         deckPressureFrameCache.set(cacheKey, { signature: nextSignature });
+        if (stable) deckPressureStableCache.set(stableCacheKey, { signature: nextSignature });
+        else deckPressureStableCache.delete(stableCacheKey);
         if (deckPressureFrameCache.size > 64) deckPressureFrameCache.clear();
+        if (deckPressureStableCache.size > 64) deckPressureStableCache.clear();
         return moved;
     }
     if (state?.preserveWidth === true) {
