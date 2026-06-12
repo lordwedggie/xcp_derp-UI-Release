@@ -176,7 +176,7 @@ export const handleThemeDropdownChange = (node, val, updateThemeLayoutFn) => {
         }
 
         const availableKeys = Object.keys(node.themeToEdit).filter(k => !THEME_META_KEYS.has(k));
-        node._selectedKeyName = availableKeys[0] || "";
+        node._selectedKeyName = availableKeys.includes("canvas") ? "canvas" : (availableKeys[0] || "");
         if (node.layoutMap?.keyManagementRegion?.dropdownKey) {
             node.layoutMap.keyManagementRegion.dropdownKey.items = availableKeys.map(k => mapThemeKeyPickerItem(k, node._dirtyKeyNames));
             node.layoutMap.keyManagementRegion.dropdownKey.value = node._selectedKeyName;
