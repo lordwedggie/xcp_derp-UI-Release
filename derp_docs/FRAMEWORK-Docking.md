@@ -53,6 +53,7 @@ After normalizing, triggers a layout recompute for the leader and all members. T
 
 ### Automatic horizontal edge width compensation
 When a left-most or right-most member in a horizontal stack changes width from runtime layout changes, the stack first tries to keep its total width stable. Growth borrows shrinkable width from members on the opposite side down to their measured minimums; shrinkage gives the freed width to those opposite members. If there is not enough spare room, the stack is allowed to grow.
+The first observed width for an edge member after load/dock is treated as the baseline and is not rebalanced; this prevents autoWidth hydration from being counted as a real width delta on every page refresh.
 ### Theme-driven vertical width growth
 When a member of a vertical dock stack changes theme, its measured content floor can grow while the stack is already width-locked. Runtime dock sizing preserves the current shared width only as a floor, not as a ceiling, and vertical normalization runs after layout so all stack members adopt the new widest measured width.
 
@@ -116,6 +117,18 @@ When ComfyUI Node 2.0/Vue mode moves a default group containing docked Derp stac
 - Side-branch pressure compares expanded minimum requirements before collapsing, so multiple nodes can stay expanded whenever the branch can fit them by resizing.
 - Dock finalization treats the ImageDeck hub position as anchored; normal pair normalization may move attached branches, but must not move the hub itself.
 - ImageDeck-owned pressure attaches skip generic `normalizeDockPair()` / `forceDockResizeRefresh()` because those normal stack helpers can reinterpret the new hub seam as a resizable shared edge and move the hub.
+- Shared-edge resizing inside a Deck branch must resolve the branch's linear member list (`getDeckPressureBranchMembers`) instead of using whole-group `isLinearDeckGroup()`, because the full ImageDeck-owned group is intentionally mixed-axis.
+- Horizontal shared-edge resize must also normalize positions against that branch-only member list; using `getDeckMembers()` here will march the whole mixed Deck group sideways.
+- Lower-left hub resize must clamp to top/bottom branch minimum widths and preserve the right edge if pressure layout grows the hub back to minimum width.
+- Idle Deck Pressure maintenance should skip across frames using a stable geometry signature. Only rerun pressure layout when a member is dirty, resizing, dragging, awake, inside `_deckPressureActiveUntil`, or when geometry changes.
+- Deck Pressure branch order is derived from deck-edge topology rather than live x/y sorting, so temporary overlap during shared-edge resize cannot swap branch members.
+- Side-branch pressure measures collapsed minimums by temporarily recomputing the collapsed layout; collapsed members stay at that minimum and only expanded members receive spare Deck-frame height.
+- Side branches always keep one expanded filler member; if all branch members are collapsed, Deck Pressure re-expands the active member before fitting the branch to the Deck frame.
+- Pressure min-span measurement is cached per node by axis, collapsed state, snap, width, and layout hash; current height is deliberately excluded because pressure layout changes it during fitting.
+- Active filler selection ignores hover-only state; it prefers the current interaction window, pressed nodes, selected expanded nodes, then any already-expanded side-branch member before falling back to branch order.
+- Collapsed pressure height uses the recomputed collapsed virtual layout only; hidden expanded `layoutMap` regions and their `minHeight` values are ignored for collapsed side-branch sizing.
+- Collapsed pressure height falls back to the compact collapsed header height (`DEFAULT_DECK_SNAP * 2`) rather than the generic 40px node fallback.
+- Pressure layout keeps the ImageDeck hub position anchored during collapse/un-collapse passes; only active hub resize may move it to preserve the dragged edge.
 - Ordinary mixed-axis docking remains rejected outside ImageDeck-owned Deck Pressure branches.
 - ImageDeck and outer Deck-frame corner resize handles route to the hub; attached branch seams must not steal the hub corners.
 

@@ -1,16 +1,41 @@
 import { sysPanel } from "../helpers/fathaSysPanel.js";
 import { applyDockResizeResult, canResizeHorizontalStackWidth, syncDockResizePair } from "./dockResize.js";
 import { getDockGroupAxisFromMembers, getDockNodeMinHeight, getDockNodeMinWidth, resolveDockResizeAxes } from "./dockDimensions.js";
-import { getDeckMembers, isDeckPressureHub, setDeckNodePos } from "./masterDockEngine.js";
+import { getDeckMembers, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureHubForNode, isDeckPressureHub, setDeckNodePos } from "./masterDockEngine.js";
 import { dockDebug, snapshotDockNode } from "./dockDebugHelpers.js";
 import { setDerpNodeSizeCompat } from "./fathaNode2Compat.js";
+
+function getPressureBranchAxis(side) {
+    if (side === "left" || side === "right") return "vertical";
+    if (side === "top" || side === "bottom") return "horizontal";
+    return null;
+}
+
+function getResizeAxis(entity, graph) {
+    if (!graph || !entity || isDeckPressureHub(entity)) return null;
+    const pressureHub = getDeckPressureHubForNode(entity, graph);
+    const branchSide = pressureHub && pressureHub.id !== entity.id ? getDeckPressureBranchSideForNode(pressureHub, graph, entity) : null;
+    const branchAxis = getPressureBranchAxis(branchSide);
+    if (branchAxis && getDeckPressureBranchMembers(pressureHub, graph, branchSide).length > 1) return branchAxis;
+    return getDockGroupAxisFromMembers(getDeckMembers(entity, graph));
+}
+
+function getPressureHubMinWidth(entity, graph, snap, fallbackMinWidth) {
+    if (!isDeckPressureHub(entity) || !graph) return fallbackMinWidth;
+    const branchMinWidth = ["top", "bottom"].reduce((maxWidth, side) => {
+        const members = getDeckPressureBranchMembers(entity, graph, side);
+        const minWidth = members.reduce((sum, member) => sum + getDockNodeMinWidth(member, 0, snap), 0);
+        return Math.max(maxWidth, minWidth);
+    }, 0);
+    return Math.max(fallbackMinWidth, branchMinWidth);
+}
 
 export function handleNodeResize(entity, data, scale) {
     const { SNAP, autoWidth, autoHeight } = entity.getDerpVars ? entity.getDerpVars(entity) : getDerpVars(entity);
     const resizeAnchor = data.resizeAnchor || "bottom-right";
     const isPureVerticalSharedEdgeResize = resizeAnchor === "top" || resizeAnchor === "bottom";
     const graph = entity.graph || globalThis?.app?.graph || null;
-    const axis = graph && !isDeckPressureHub(entity) ? getDockGroupAxisFromMembers(getDeckMembers(entity, graph)) : null;
+    const axis = getResizeAxis(entity, graph);
     const resizeAxes = resolveDockResizeAxes(axis, { autoWidth, autoHeight });
     const horizontalStackResizeSide = resizeAnchor === "left" || resizeAnchor === "top-left" || resizeAnchor === "bottom-left"
         ? "left"
@@ -48,7 +73,7 @@ export function handleNodeResize(entity, data, scale) {
     if (!resizeAxes.allowWidth && !resizeAxes.allowHeight) return;
 
     const isPressureHubResize = isDeckPressureHub(entity);
-    const minW = getDockNodeMinWidth(entity, 0, SNAP);
+    const minW = getPressureHubMinWidth(entity, graph, SNAP, getDockNodeMinWidth(entity, 0, SNAP));
     const minH = isPressureHubResize ? SNAP * 8 : getDockNodeMinHeight(entity, 0, SNAP);
 
     const deltaX = data.dx / scale;

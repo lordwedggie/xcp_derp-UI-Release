@@ -18,7 +18,7 @@
  */
 import { app } from "../../../../scripts/app.js";
 import { renderHitboxDebug } from "../helpers/debugPainter.js";
-import { getDeckMembers, getDeckPressureBranchSideForNode, getDeckPressureHubForNode, getNodeOnDeckEdge, isDeckPressureHub, isLinearDeckGroup } from "./masterDockEngine.js";
+import { getDeckMembers, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureHubForNode, getNodeOnDeckEdge, isDeckPressureHub, isLinearDeckGroup } from "./masterDockEngine.js";
 import { clearEntityTooltip } from "./fathaHandler.js";
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
 import { MASTER_Z, promoteMasterZ } from "./masterZ.js";
@@ -858,9 +858,24 @@ export function createDerpShield(node) {
     node.interactionShield = shield;
 }
 
+function getPressureBranchAxis(side) {
+    if (side === "left" || side === "right") return "vertical";
+    if (side === "top" || side === "bottom") return "horizontal";
+    return null;
+}
+
+function getLinearResizeMembers(node, graph, axis) {
+    if (!graph || !node) return [];
+    const pressureHub = getDeckPressureHubForNode(node, graph);
+    const branchSide = pressureHub && pressureHub.id !== node.id ? getDeckPressureBranchSideForNode(pressureHub, graph, node) : null;
+    if (getPressureBranchAxis(branchSide) === axis) return getDeckPressureBranchMembers(pressureHub, graph, branchSide);
+    return isLinearDeckGroup(node, graph, axis) ? getDeckMembers(node, graph) : [];
+}
+
 function getHorizontalDeckMembersByX(node, graph) {
-    if (!graph || !node || !isLinearDeckGroup(node, graph, "horizontal")) return false;
-    return getDeckMembers(node, graph).slice().sort((a, b) => {
+    const members = getLinearResizeMembers(node, graph, "horizontal");
+    if (members.length === 0) return [];
+    return members.slice().sort((a, b) => {
         const ax = Number(a?.pos?.[0]) || 0;
         const bx = Number(b?.pos?.[0]) || 0;
         if (ax !== bx) return ax - bx;
@@ -878,9 +893,10 @@ function canResizeHorizontalStackWidth(node, graph, side) {
 }
 
 function canResizeHorizontalSharedEdge(node, graph, side) {
-    if (!graph || !node || !isLinearDeckGroup(node, graph, "horizontal")) return false;
+    if (!graph || !node || getLinearResizeMembers(node, graph, "horizontal").length <= 1) return false;
     const neighbor = getNodeOnDeckEdge(node, graph, side);
     if (!neighbor) return false;
+    if (!getLinearResizeMembers(node, graph, "horizontal").some((member) => member.id === neighbor.id)) return false;
     return node.properties?.autoWidth === false && neighbor.properties?.autoWidth === false;
 }
 
@@ -994,8 +1010,8 @@ export function syncDerpShield(node) {
         const hasSharedBottomEdge = edges.bottom !== null && edges.bottom !== undefined;
         const sharedEdgeWidth = Math.max(10, Number(vars.mW || 0) * scale);
         const graph = app.graph || node.graph || null;
-        const isVerticalDockStack = !!(graph && isLinearDeckGroup(node, graph, "vertical"));
-        const isHorizontalDockStack = !!(graph && isLinearDeckGroup(node, graph, "horizontal"));
+        const isVerticalDockStack = getLinearResizeMembers(node, graph, "vertical").length > 1;
+        const isHorizontalDockStack = getLinearResizeMembers(node, graph, "horizontal").length > 1;
         const canResizeStackLeftW = isHorizontalDockStack && canResizeHorizontalStackWidth(node, graph, "left");
         const canResizeStackRightW = isHorizontalDockStack && canResizeHorizontalStackWidth(node, graph, "right");
         const canResizeStackW = canResizeStackLeftW || canResizeStackRightW;
