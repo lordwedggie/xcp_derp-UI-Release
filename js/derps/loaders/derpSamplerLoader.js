@@ -188,7 +188,6 @@ app.registerExtension({
                     pulseStates: true,
                     pulseFromState: "_ON",
                     pulseToState: "_DIS",
-                    spacing: [0, sH],
                     ignoreNodeBoundsClamp: true,
                     corners: sourceRow?.corners,
                     regionOffset: [0, 0],
@@ -217,13 +216,13 @@ app.registerExtension({
 
             this.layoutMap = {
                 sysContentRegion: {
-                    anchor: { target: "headerRegion", axis: "y" },
+                    anchor: { target: "headerRegion", axis: "y", },
                     width: "full", height: "auto", dir: "col",
                     margin: [mW, mH, mW, mH],
                     regionSamplerDeck: {
                         width: "full", height: "auto", dir: "col", spacing: [0, sH],
                         hidden: deck.length === 0,
-                        margin: [0, 0, 0, mH],
+                        margin: [0, mH, 0, mH],
                         ...deckRegions
                     },
                     regionSamplerLoader: {
