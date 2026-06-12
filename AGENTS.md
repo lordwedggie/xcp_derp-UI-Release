@@ -212,6 +212,16 @@ To add a skill, create `.agents/skills/<name>/SKILL.md` with YAML frontmatter (`
 - Deck Pressure branches live inside a mixed-axis hub group. Shared-edge resize code must query the branch members/axis, not the full deck group axis, or branch stacks look non-resizable.
 - Horizontal Deck-branch resize position normalization must use the branch member list, not `getDeckMembers()`, or dragging an internal vertical seam can move the entire Deck group sideways.
 - ImageDeck lower-left hub resize must clamp against top/bottom branch minimum width and preserve the right edge when pressure layout enforces that minimum, or repeated drags can ratchet the whole Deck rightward.
+- Deck Pressure idle optimization should use a stable geometry signature cache; do not rerun pressure reflow every frame when all members are idle and unchanged.
+- Deck Pressure branch member order must follow deck topology, not live x/y sorting; shared-edge resize can temporarily overlap positions and would otherwise swap nodes.
+- Horizontal stack width compensation must ignore the first observed edge-member width after load/dock; first-pass autoWidth settling is baseline hydration, not a runtime delta to rebalance.
+- Deck Pressure collapsed side-branch heights must be measured from a recomputed collapsed layout, not stale expanded layout caches; collapsed members must never receive spare frame height.
+- Deck Pressure side branches must keep at least one member expanded as the filler; if every member is collapsed, uncollapse the active member before distributing spare height.
+- Deck Pressure min-span measurement is hot-path code; cache per node by axis/collapsed state/snap/width/layout hash, not current height, because pressure reflow changes height continuously.
+- Deck Pressure filler selection must not use hover alone; prefer the active timeout, pressed node, selected expanded node, then already-expanded member. Hover-only promotion can uncollapse nodes just by moving the mouse.
+- Deck Pressure collapsed height must use the recomputed collapsed virtual layout (`layout.contentMinHeight`/`totalHeight`) and must not include raw hidden `layoutMap` minHeight from expanded custom content.
+- Deck Pressure collapsed height fallback is the compact collapsed header (`DEFAULT_DECK_SNAP * 2`, currently 20px), not the generic node fallback of 40px.
+- Deck Pressure layout must preserve the hub node position during collapse/un-collapse pressure passes unless the hub is actively being resized.
 
 ### Node-Specific Notes
 
@@ -224,6 +234,8 @@ To add a skill, create `.agents/skills/<name>/SKILL.md` with YAML frontmatter (`
 - SeedV2 fixed-mode hashing must include virtual wireless state that affects execution.
 
 ### Debugging
+
+- User wants turn-completion voice notifications when practical. Use `tools/codex_turn_complete_piper.ps1` as the final tool call before the final response (Piper TTS, male voice `en_US-ryan-high`). Acceptable address terms include Sir, Dude, Bruce, Lord Wedggie, My Lord, and your Lordship.
 
 - For layout anomalies, inspect `masterLayoutEngine` and `widget_Region` before patching symptoms.
 - When asking the user to enable debug logs, provide exact console commands in the same response.
