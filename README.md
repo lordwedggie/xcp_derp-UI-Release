@@ -1,6 +1,6 @@
 A custom node pack for derp-themed utilities that looks at standard UI frameworks and says "nah, we're good." By completely bypassing Comfy's default UI, these nodes are blissfully immune to breaking frontend updates (so far...). It's built for speed, maintaining 60fps as long as you keep those default nodes out of the viewport. Toss out the spaghetti monster with wireless inputs/outputs, swap custom themes in real-time when the mood strikes, and grab full control of your canvas with node docking and sticky dragging that'll make you wonder why you ever suffered through default group methods. Highly unbothered, highly optimized, and just a little bit... weird.
 
-[▶ Watch demo](https://github.com/lordwedggie/xcpDerpNodes/raw/daily-development/derp_docs/_assets/videos/test.mp4)
+[▶ Watch demo](https://github.com/lordwedggie/xcpDerpNodes/blob/daily-development/derp_docs/_assets/videos/test.mp4)
 
 ---
 
