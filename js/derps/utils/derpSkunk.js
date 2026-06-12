@@ -85,6 +85,14 @@ function buildSkunkLayoutHash(node, vars) {
     const toggleEditorState = node?.properties?.toggleEditorState === true ? 1 : 0;
     const toggleSliderState = node?.properties?.toggleSliderState === true ? 1 : 0;
     const toggleToggleState = node?.properties?.toggleToggleState === true ? 1 : 0;
+    const toggleMultilineState = node?.properties?.toggleMultilineEditorState === true ? 1 : 0;
+    const multilineTextKey = node?.properties?.multilineEditorTextKey || "t_textNormal";
+    const sc = node?.properties?._skunkSliderConfig || {};
+    const scFH = Number(sc.fillbarHeight ?? 1.0).toFixed(2);
+    const scRK = (sc.roundKnob !== false) ? 1 : 0;
+    const scKW = Number(sc.knobWidthScale ?? 1.0).toFixed(2);
+    const scKH = Number(sc.knobHeightOffset ?? 0).toFixed(2);
+    const scKR = Number(sc.knobRadiusOffset ?? 0).toFixed(2);
     const bs = node?.properties?._skunkBtnStates || {};
     const btnHash = `${bs.btnBig ? 1 : 0}_${bs.btnNormal ? 1 : 0}_${bs.btnSmall ? 1 : 0}_${bs.btnSystem ? 1 : 0}`;
     const is = node?.properties?._skunkIconStates || {};
@@ -93,7 +101,7 @@ function buildSkunkLayoutHash(node, vars) {
     const sliderHash = SKUNK_SLIDER_KEYS.map(k => clampSkunkSliderValue(sv[k]).toFixed(SKUNK_SLIDER_DECIMALS)).join('_');
     const blr = node?.properties?._skunkSliderBtnLR || {};
     const btnLRHash = SKUNK_SLIDER_KEYS.map(k => blr[k] === true ? 1 : 0).join('_');
-    return `${width}_${mW}_${mH}_${oY}_${toggleBtnState}_${toggleIconState}_${toggleEditorState}_${toggleSliderState}_${toggleToggleState}_${btnHash}_${iconHash}_${sliderHash}_${btnLRHash}`;
+    return `${width}_${mW}_${mH}_${oY}_${toggleBtnState}_${toggleIconState}_${toggleEditorState}_${toggleSliderState}_${toggleToggleState}_${toggleMultilineState}_${multilineTextKey}_${btnHash}_${iconHash}_${sliderHash}_${btnLRHash}_${scFH}_${scRK}_${scKW}_${scKH}_${scKR}`;
 }
 
 app.registerExtension({
@@ -148,18 +156,27 @@ app.registerExtension({
             const toggleEditorState = this.properties.toggleEditorState === true;
             const toggleSliderState = this.properties.toggleSliderState === true;
             const toggleToggleState = this.properties.toggleToggleState === true;
+            const toggleMultilineEditorState = this.properties.toggleMultilineEditorState === true;
+            const multilineTextKey = this.properties.multilineEditorTextKey || "t_textNormal";
+            const roundKnobEnabled = (this.properties._skunkSliderConfig?.roundKnob !== false);
             const btnStates = this.properties._skunkBtnStates || {};
             const btnOn = (key) => toggleBtnState ? false : (btnStates[key] === true);
             const iconStates = this.properties._skunkIconStates || {};
             const iconOn = (key) => toggleIconState ? false : (iconStates[key] === true);
             const sliderValues = ensureSkunkSliderValues(this);
             const sliderBtnLR = ensureSkunkSliderBtnLRStates(this);
+            const sliderCfg = this.properties._skunkSliderConfig || {};
             const sliderConfig = (key) => ({
                 value: sliderValues[key],
                 min: SKUNK_SLIDER_MIN,
                 max: SKUNK_SLIDER_MAX,
                 step: SKUNK_SLIDER_STEP,
                 btnLR: sliderBtnLR[key] === true,
+                fillbarHeight: sliderCfg.fillbarHeight ?? 1.0,
+                roundKnob: sliderCfg.roundKnob !== false,
+                knobWidthScale: sliderCfg.knobWidthScale ?? 1.0,
+                knobHeightOffset: sliderCfg.knobHeightOffset ?? 0,
+                knobRadiusOffset: sliderCfg.knobRadiusOffset ?? 0,
                 onChange: (value) => setSkunkSliderValue(this, key, value),
                 onPress: (event, data) => setSkunkSliderValueFromPointer(this, key, data),
                 onDragStart: (event, data) => setSkunkSliderValueFromPointer(this, key, data),
@@ -956,6 +973,114 @@ app.registerExtension({
                         },
                     },
                 },
+                regionSliderOptions: {
+                    dir: "row", width: "full", height: "auto", spacing: [0, sW],
+                    padding: [pW, pH],
+                    lblSliderHeight: {
+                        type: UI_TYPES.TEXT, mouseOver: false,
+                        themeKey: "t_textsystem",
+                        labelAlign: ["left", "middle"],
+                        text: "Slider Height:",
+                        width: "auto", spacing: [sW, 0],
+                    },
+                    editorFillbarHeight: {
+                        type: UI_TYPES.EDITOR, canvasShield: true,
+                        themeKey: "dialog, t_textSystem", labelAlign: ["center", "middle"],
+                        text: String(this.properties._skunkSliderConfig?.fillbarHeight ?? 1.0), measureText: "9.99",
+                        width: "auto", height: "auto", padding: [pW, pH], spacing: [sW, 0],
+                        onBlur: (v) => {
+                            const raw = parseFloat(v);
+                            const s = { ...(this.properties._skunkSliderConfig || {}), fillbarHeight: Number.isFinite(raw) ? Math.max(0.2, Math.min(1.0, raw)) : 1.0 };
+                            this.properties._skunkSliderConfig = s;
+                            this._layoutMapHash = null;
+                            this.refreshNodeLayoutMap();
+                            this.requestDerpSync();
+                        }
+                    },
+                    toggleRoundKnob: {
+                        type: UI_TYPES.TOGGLE_V2, themeKey: "dialog, button, t_textSystem",
+                        isTextOnly: true, mouseOver: false,
+                        label: "Round Knob",
+                        width: "auto", height: "auto", padding: [pW, pH], spacing: [sW, 0],
+                        value: this.properties._skunkSliderConfig?.roundKnob !== false,
+                        onPress: () => {
+                            const s = { ...(this.properties._skunkSliderConfig || {}), roundKnob: !(this.properties._skunkSliderConfig?.roundKnob !== false) };
+                            this.properties._skunkSliderConfig = s;
+                            this._layoutMapHash = null;
+                            this.refreshNodeLayoutMap();
+                            this.requestDerpSync();
+                        }
+                    },
+                    lblKnobWidth: {
+                        type: UI_TYPES.TEXT, mouseOver: false,
+                        hidden: roundKnobEnabled,
+                        themeKey: "t_textsystem",
+                        labelAlign: ["left", "middle"],
+                        text: "Knob Width:",
+                        width: "auto", spacing: [sW, 0],
+                    },
+                    editorKnobWidthScale: {
+                        type: UI_TYPES.EDITOR, canvasShield: true,
+                        hidden: roundKnobEnabled,
+                        themeKey: "dialog, t_textSystem", labelAlign: ["center", "middle"],
+                        text: String(this.properties._skunkSliderConfig?.knobWidthScale ?? 1.0), measureText: "9.99",
+                        width: "auto", height: "auto", padding: [pW, pH], spacing: [sW, 0],
+                        onBlur: (v) => {
+                            const raw = parseFloat(v);
+                            const s = { ...(this.properties._skunkSliderConfig || {}), knobWidthScale: Number.isFinite(raw) ? Math.max(0.2, Math.min(2.0, raw)) : 1.0 };
+                            this.properties._skunkSliderConfig = s;
+                            this._layoutMapHash = null;
+                            this.refreshNodeLayoutMap();
+                            this.requestDerpSync();
+                        }
+                    },
+                    lblKnobHeight: {
+                        type: UI_TYPES.TEXT, mouseOver: false,
+                        hidden: roundKnobEnabled,
+                        themeKey: "t_textsystem",
+                        labelAlign: ["left", "middle"],
+                        text: "Knob Height:",
+                        width: "auto", spacing: [sW, 0],
+                    },
+                    editorKnobHeightOffset: {
+                        type: UI_TYPES.EDITOR, canvasShield: true,
+                        hidden: roundKnobEnabled,
+                        themeKey: "dialog, t_textSystem", labelAlign: ["center", "middle"],
+                        text: String(this.properties._skunkSliderConfig?.knobHeightOffset ?? 0), measureText: "9.99",
+                        width: "auto", height: "auto", padding: [pW, pH], spacing: [sW, 0],
+                        onBlur: (v) => {
+                            const raw = parseFloat(v);
+                            const s = { ...(this.properties._skunkSliderConfig || {}), knobHeightOffset: Number.isFinite(raw) ? Math.max(-5, Math.min(5, raw)) : 0 };
+                            this.properties._skunkSliderConfig = s;
+                            this._layoutMapHash = null;
+                            this.refreshNodeLayoutMap();
+                            this.requestDerpSync();
+                        }
+                    },
+                    lblKnobRadius: {
+                        type: UI_TYPES.TEXT, mouseOver: false,
+                        hidden: !roundKnobEnabled,
+                        themeKey: "t_textsystem",
+                        labelAlign: ["left", "middle"],
+                        text: "Knob radius:",
+                        width: "auto", spacing: [sW, 0],
+                    },
+                    editorKnobRadiusOffset: {
+                        type: UI_TYPES.EDITOR, canvasShield: true,
+                        hidden: !roundKnobEnabled,
+                        themeKey: "dialog, t_textSystem", labelAlign: ["center", "middle"],
+                        text: String(this.properties._skunkSliderConfig?.knobRadiusOffset ?? 0), measureText: "9.99",
+                        width: "auto", height: "auto", padding: [pW, pH], spacing: [sW, 0],
+                        onBlur: (v) => {
+                            const raw = parseFloat(v);
+                            const s = { ...(this.properties._skunkSliderConfig || {}), knobRadiusOffset: Number.isFinite(raw) ? Math.max(-3, Math.min(3, raw)) : 0 };
+                            this.properties._skunkSliderConfig = s;
+                            this._layoutMapHash = null;
+                            this.refreshNodeLayoutMap();
+                            this.requestDerpSync();
+                        }
+                    },
+                },
                 lineBreak4: {
                     type: UI_TYPES.LINEBREAK,
                     width: "full", height: 1,
@@ -981,6 +1106,67 @@ app.registerExtension({
                             this._layoutMapHash = null;
                             this.refreshNodeLayoutMap();
                             this.requestDerpSync();
+                        },
+                    },
+                },
+                lineBreak5: {
+                    type: UI_TYPES.LINEBREAK,
+                    width: "full", height: 1,
+                },
+                regionMultilineEditor: {
+                    dir: "col", width: "full", height: "auto",
+                    margin: [mW, mH],
+                    spacing: [sW, 0],
+                    editorMultiline: {
+                        type: UI_TYPES.EDITOR,
+                        themeKey: `dialog, ${multilineTextKey}`,
+                        canvasShield: true,
+                        multiline: true,
+                        minHeight: 80,
+                        text: 'Welcome to the Derp Skunk Works \u2014 where widgets roam free and layout engines bend to your will. This multiline editor region demonstrates how EDITOR widgets handle paragraph-length content with proper text wrapping, scroll support, and canvas-shielded editing.\n\nSecond paragraph with more text to demonstrate wrapping behavior and vertical expansion. The Skunk Works tests every widget, every layout direction, every theme key in one node.',
+                        value: 'Welcome to the Derp Skunk Works \u2014 where widgets roam free and layout engines bend to your will. This multiline editor region demonstrates how EDITOR widgets handle paragraph-length content with proper text wrapping, scroll support, and canvas-shielded editing.\n\nSecond paragraph with more text to demonstrate wrapping behavior and vertical expansion. The Skunk Works tests every widget, every layout direction, every theme key in one node.',
+                        mouseOver: false,
+                        width: "full", height: "auto",
+                        padding: [pW, pH],
+                        state: toggleMultilineEditorState ? "DIS" : "OFF",
+                    },
+                    rowMultilineControls: {
+                        dir: "row", width: "full", height: "auto",
+                        margin: [0, mH], spacing: [sW, 0],
+                        filebrowserMultilineTextKey: {
+                            type: UI_TYPES.FILEBROWSER,
+                            themeKey: "panel, t_textsystem",
+                            canvasShield: true,
+                            indicator: true,
+                            displayMode: "cutoff",
+                            spacing: [sW, 0],
+                            padding: [pW, pH],
+                            width: 100, height: "auto",
+                            mode: "file",
+                            items: ["t_textNormal", "t_textSmall", "t_textSystem", "t_textBIG"],
+                            value: multilineTextKey,
+                            onChange: (val) => {
+                                this.properties.multilineEditorTextKey = val;
+                                this._layoutMapHash = null;
+                                this.refreshNodeLayoutMap();
+                                this.requestDerpSync();
+                            },
+                        },
+                        spring: { width: "full", height: 0 },
+                        toggleMultilineEditorDIS: {
+                            type: UI_TYPES.TOGGLE_V2,
+                            themeKey: "button, t_textsystem",
+                            text: "Show DIS state",
+                            value: this.properties.toggleMultilineEditorState === true,
+                            isTextOnly: true,
+                            width: "auto", height: "auto",
+                            onPress: (e, data) => {
+                                const v = !(this.properties.toggleMultilineEditorState === true);
+                                this.properties.toggleMultilineEditorState = v;
+                                this._layoutMapHash = null;
+                                this.refreshNodeLayoutMap();
+                                this.requestDerpSync();
+                            },
                         },
                     },
                 },
