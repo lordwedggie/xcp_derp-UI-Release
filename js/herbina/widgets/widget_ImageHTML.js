@@ -11,7 +11,7 @@ const SELECTION_STROKE_WEIGHT = 2;
 const DEFAULT_IMAGE_AREA_STROKE_COLOR = "rgba(0,0,0,0.3)";
 const DEFAULT_IMAGE_AREA_FILL_COLOR = "rgba(0,0,0,0.5)";
 const BYPASS_BRIGHTNESS = 0.75;
-const PLACEHOLDER_FONT_SIZE = 6; // THE DARKNESS FIX: Adjusts image brightness when bypassed
+const PLACEHOLDER_FONT_SIZE = 8; // THE DARKNESS FIX: Adjusts image brightness when bypassed
 
 // THE RESIZE TARGETS: Matches constants in loraImages.js to maintain quality vs performance balance
 const PREVIEW_LONG_SIDE_TARGET = 1024;

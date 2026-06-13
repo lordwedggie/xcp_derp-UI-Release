@@ -808,6 +808,7 @@ app.registerExtension({
                         minHeight: 60,
                         padding: [0, 0], 
                         themeKey: imageUrl ? "panel, t_textNormal" : "panel, t_textBig",
+                        placeholderFontSize: 12,
                         imageUrl,
                         previousImageUrl: prevImageUrl,
                         transitionAlpha: fadeAlpha,
