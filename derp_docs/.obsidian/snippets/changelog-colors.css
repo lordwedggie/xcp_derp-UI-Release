@@ -1,0 +1,4 @@
+/* derp changelog section colors */
+h3[data-heading="Added"]   { color: #4CAF50 !important; }
+h3[data-heading="Changed"] { color: #2196F3 !important; }
+h3[data-heading="Fixed"]   { color: #F44336 !important; }
