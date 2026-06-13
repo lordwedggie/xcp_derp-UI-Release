@@ -40,12 +40,13 @@ export function syncDerpToggleV2(ctx, node, app, config) {
     const dotSuffix = suffix === "_DIS" ? "_DIS" : (isActive ? "_ON" : "_OFF");
     const textSuffix = suffix === "_DIS" ? "_DIS" : (isActive ? "_ON" : "_OFF");
 
-    let slotPaintRaw = resolvePaintData(node, keySlot, slotSuffix);
-    let dotPaintRaw = resolvePaintData(node, keyDot, dotSuffix);
-    let textPaintRaw = resolvePaintData(node, keyText, textSuffix);
+    // Optional # theme key overrides (theme author can override each element independently)
+    let slotPaintRaw  = resolvePaintData(node, "#toggle_slot", slotSuffix)   || resolvePaintData(node, keySlot, slotSuffix);
+    let knobPaintRaw  = resolvePaintData(node, "#toggle_knob", dotSuffix)   || resolvePaintData(node, keyDot, dotSuffix);
+    let textPaintRaw  = resolvePaintData(node, "#t_toggle_text", textSuffix) || resolvePaintData(node, keyText, textSuffix);
 
     const slotPaint = animatePaintData(node, `_tgl2_slot_${config.key}`, slotPaintRaw, useAnim, TOGGLE_COLOR_SPEED);
-    const dotPaint = animatePaintData(node, `_tgl2_dot_${config.key}`, dotPaintRaw, useAnim, TOGGLE_COLOR_SPEED);
+    const knobPaint = animatePaintData(node, `_tgl2_knob_${config.key}`, knobPaintRaw, useAnim, TOGGLE_COLOR_SPEED);
     const textPaint = animatePaintData(node, `_tgl2_text_${config.key}`, textPaintRaw, useAnim, TOGGLE_COLOR_SPEED);
 
     let finalLabelPaint = textPaint || labelPaint;
@@ -66,8 +67,11 @@ export function syncDerpToggleV2(ctx, node, app, config) {
     if (alpha <= 0) return;
     ctx.save();
     if (alpha < 1) ctx.globalAlpha *= alpha;
+    // Optional # theme key override for toggle body
+    const bodyOverride = resolvePaintData(node, "#toggle_body", suffix);
+    const finalBodyPaint = bodyOverride || bodyPaint;
     if (!isTextOnly) {
-        masterPainter(ctx, { posX: x, posY: y, width: w, height: h, color: colors.fill, paintData: { ...bodyPaint, ...colors } });
+        masterPainter(ctx, { posX: x, posY: y, width: w, height: h, color: colors.fill, paintData: { ...finalBodyPaint, ...colors } });
     }
 
     const styleRaw = config.style || "default";
@@ -116,12 +120,12 @@ export function syncDerpToggleV2(ctx, node, app, config) {
         const kR = (tH * 0.8) / 2;
         const kX = indicatorX + kR + (tH * 0.1) + (tW - tH) * node[animKey];
         const kY = tY + tH / 2;
-        const dotColor = dotPaint?.fill || fallbackColor;
+        const dotColor = knobPaint?.fill || fallbackColor;
 
         masterPainter(ctx, {
             posX: kX - kR, posY: kY - kR, width: kR * 2, height: kR * 2,
             color: dotColor,
-            paintData: { ...(dotPaint || {}), corners: [kR, kR, kR, kR] }
+            paintData: { ...(knobPaint || {}), corners: [kR, kR, kR, kR] }
         });
 
         // 3. Draw Label
@@ -185,12 +189,12 @@ export function syncDerpToggleV2(ctx, node, app, config) {
         const dotW = tW * 0.5;
         const kX = indicatorX + (tW - dotW) * node[animKey];
         const kY = tY;
-        const dotColor = dotPaint?.fill || fallbackColor;
+        const dotColor = knobPaint?.fill || fallbackColor;
 
         masterPainter(ctx, {
             posX: kX, posY: kY, width: dotW, height: dotH,
             color: dotColor,
-            paintData: { ...(dotPaint || {}), corners: slotPaint?.corners || [0, 0, 0, 0] }
+            paintData: { ...(knobPaint || {}), corners: slotPaint?.corners || [0, 0, 0, 0] }
         });
 
         // 3. Draw Label

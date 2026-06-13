@@ -46,6 +46,45 @@ function setStyleIfChanged(el, key, value) {
     if (el && el.style[key] !== value) el.style[key] = value;
 }
 
+function toDerpEditorCssPx(value) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return "0px";
+    return `${Math.round(num * 1000) / 1000}px`;
+}
+
+function getDerpEditorCanvasScreenRect(ctx, canvasRect, x, y, w, h) {
+    if (!ctx?.getTransform || !ctx.canvas || !(w > 0) || !(h > 0)) return null;
+    const rect = canvasRect?.width ? canvasRect : ctx.canvas.getBoundingClientRect?.();
+    if (!rect) return null;
+
+    const matrix = ctx.getTransform();
+    const cssScaleX = ctx.canvas.width ? rect.width / ctx.canvas.width : 1;
+    const cssScaleY = ctx.canvas.height ? rect.height / ctx.canvas.height : 1;
+    const points = [
+        matrix.transformPoint(new DOMPoint(x, y)),
+        matrix.transformPoint(new DOMPoint(x + w, y)),
+        matrix.transformPoint(new DOMPoint(x + w, y + h)),
+        matrix.transformPoint(new DOMPoint(x, y + h))
+    ];
+    const xs = points.map(p => rect.left + (p.x * cssScaleX));
+    const ys = points.map(p => rect.top + (p.y * cssScaleY));
+    const left = Math.min(...xs);
+    const top = Math.min(...ys);
+    const width = Math.max(...xs) - left;
+    const height = Math.max(...ys) - top;
+    if (!(width > 0) || !(height > 0)) return null;
+    return {
+        left, top, width, height,
+        scaleX: width / w,
+        scaleY: height / h
+    };
+}
+
+function getDerpEditorHtmlScale(el) {
+    const scale = Number(el?._derpEditorHtmlScale);
+    return Number.isFinite(scale) && scale > 0 ? scale : 1;
+}
+
 function getDerpEditorDomValue(el) {
     return el?._config?.richImageContent ? el.innerText : el.value;
 }
@@ -250,7 +289,7 @@ export function createDerpEditorHTML(callbacks = {}) {
 
         if (el._isMultiline && el._nodeRef && el._config) {
             const scroll = el._nodeRef._derpScrollOffsets?.[el._config.key] || 0;
-            el.scrollTop = scroll;
+            el.scrollTop = scroll * getDerpEditorHtmlScale(el);
         }
 
         const config = el._config || {};
@@ -346,7 +385,7 @@ export function syncDerpEditor(context, node, app, config) {
         // 1. Sync native HTML scrolling
         el.addEventListener("scroll", () => {
             if (!el._isMultiline) return;
-            node._derpScrollOffsets[safeConfig.key] = el.scrollTop;
+            node._derpScrollOffsets[safeConfig.key] = el.scrollTop / getDerpEditorHtmlScale(el);
             node._derpAwakeFrames = 5;
             if (node.requestDerpSync) node.requestDerpSync();
             else node.setDirtyCanvas(true);
@@ -459,28 +498,38 @@ export function syncDerpEditor(context, node, app, config) {
 
                 const ds = app?.canvas?.ds || { scale: 1, offset: [0,0] };
                 const canvasRect = app?.canvas?.canvas?.getBoundingClientRect() || { left: 0, top: 0 };
-                const physL = Math.round(canvasRect.left + (node.pos[0] + ds.offset[0] + x) * ds.scale);
-                const physT = Math.round(canvasRect.top + (node.pos[1] + ds.offset[1] + y) * ds.scale);
                 const pressWrapper = safeConfig.prefixGlyph ? ensureDerpEditorWrapper(el) : null;
                 const pressPositionEl = pressWrapper || el;
+                const pressUsesShieldHost = isCanvas && !useCanvasShield && node.interactionShield;
+                const pressUsesPhysicalBox = pressUsesShieldHost || (isCanvas && requestedCanvasShield);
+                const pressCanvasScreenRect = (!pressUsesShieldHost && isCanvas && requestedCanvasShield) ? el._derpEditorCanvasScreenRect : null;
+                const pressHtmlScale = pressCanvasScreenRect
+                    ? Math.max(pressCanvasScreenRect.scaleY || pressCanvasScreenRect.scaleX || ds.scale || 1, 0.0001)
+                    : (pressUsesPhysicalBox ? Math.max(ds.scale || 1, 0.0001) : 1);
+                const pressCssWidth = pressCanvasScreenRect ? pressCanvasScreenRect.width : (w * pressHtmlScale);
+                const pressCssHeight = pressCanvasScreenRect ? pressCanvasScreenRect.height : (h * pressHtmlScale);
+                const physL = pressCanvasScreenRect ? pressCanvasScreenRect.left : Math.round(canvasRect.left + (node.pos[0] + ds.offset[0] + x) * ds.scale);
+                const physT = pressCanvasScreenRect ? pressCanvasScreenRect.top : Math.round(canvasRect.top + (node.pos[1] + ds.offset[1] + y) * ds.scale);
 
-                if (!useCanvasShield && node.interactionShield) {
+                el._derpEditorHtmlScale = pressHtmlScale;
+
+                if (pressUsesShieldHost) {
                     if (pressPositionEl.parentNode !== node.interactionShield) node.interactionShield.appendChild(pressPositionEl);
                     pressPositionEl.style.position = "absolute";
                     pressPositionEl.style.left = `${x * ds.scale}px`;
                     pressPositionEl.style.top = `${y * ds.scale}px`;
                 } else {
                     pressPositionEl.style.position = "fixed";
-                    pressPositionEl.style.left = `${physL}px`;
-                    pressPositionEl.style.top = `${physT}px`;
+                    pressPositionEl.style.left = toDerpEditorCssPx(physL);
+                    pressPositionEl.style.top = toDerpEditorCssPx(physT);
                 }
-                el.style.width = `${w}px`;
-                el.style.height = `${h}px`;
+                el.style.width = toDerpEditorCssPx(pressCssWidth);
+                el.style.height = toDerpEditorCssPx(pressCssHeight);
                 pressPositionEl.style.transformOrigin = "0 0";
-                pressPositionEl.style.transform = `scale(${ds.scale})`;
+                pressPositionEl.style.transform = pressUsesPhysicalBox ? "none" : `scale(${ds.scale})`;
                 if (pressWrapper) {
-                    pressWrapper.style.width = `${w}px`;
-                    pressWrapper.style.height = `${h}px`;
+                    pressWrapper.style.width = toDerpEditorCssPx(pressCssWidth);
+                    pressWrapper.style.height = toDerpEditorCssPx(pressCssHeight);
                     el.style.left = "0";
                     el.style.top = "0";
                     el.style.transform = "none";
@@ -740,8 +789,26 @@ export function syncDerpEditor(context, node, app, config) {
     // --- 2. CANVAS RENDERING PASS ---
     if (isCanvas) {
         const ctx = context;
+        const screenRect = getDerpEditorCanvasScreenRect(ctx, rect, x, y, w, h);
+        if (screenRect) el._derpEditorCanvasScreenRect = screenRect;
+        if (requestedCanvasShield && isAwake) {
+            if (sysAlpha > 0) {
+                const themeKeys = String(safeConfig.themeKey || "").split(",").filter(k => k.trim().length > 0);
+                const shouldDrawBg = themeKeys.length > 1 || !!safeConfig.btnColor;
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, Math.min(1, sysAlpha));
+                if (shouldDrawBg && bodyPaint && !skipBg) {
+                    masterPainter(ctx, {
+                        width: w, height: h, posX: x, posY: y,
+                        paintData: safeConfig.corners ? { ...bodyPaint, corners: safeConfig.corners } : bodyPaint,
+                        color: animatedFillColor
+                    });
+                }
+                ctx.restore();
+            }
+        }
 
-        // THE FIX: Strict Hybrid Gating. Canvas ONLY draws when the widget is asleep.
+        // Canvas owns asleep visuals and the active canvasShield background.
         if (!isAwake) {
             if (sysAlpha <= 0) return;
             // THE SINGLE-KEY FIX: If only one key is present (text theme), skip the background container.
@@ -850,17 +917,22 @@ export function syncDerpEditor(context, node, app, config) {
 
     if (!coords) return; // coords was resolved at the top of syncDerpEditor
 
-    // Canvas owns asleep editor visuals. DOM remains as the hit/focus surface and
-    // switches back to visible text/background only while editing.
+    // Canvas-shield editors use the canvas transform as the placement source.
+    // The DOM remains as the hit/focus/text surface.
     if (!prefixGlyphText && el._derpEditorWrapper) removeDerpEditorWrapper(el);
     const editorWrapper = prefixGlyphText ? ensureDerpEditorWrapper(el) : null;
     const editorPositionEl = editorWrapper || el;
     const useShieldHost = isCanvas && !useCanvasShield && node.interactionShield;
-    const htmlScale = useShieldHost ? Math.max(ds.scale || 1, 0.0001) : 1;
-    const editorCssWidth = useShieldHost ? (w * htmlScale) : w;
-    const editorCssHeight = useShieldHost ? (h * htmlScale) : h;
-    const physL = useShieldHost ? x * ds.scale : Math.round(rect.left + (node.pos[0] + ds.offset[0] + x) * ds.scale);
-    const physT = useShieldHost ? y * ds.scale : Math.round(rect.top + (node.pos[1] + ds.offset[1] + y) * ds.scale);
+    const usePhysicalHtmlBox = useShieldHost || (isCanvas && requestedCanvasShield);
+    const canvasScreenRect = (!useShieldHost && isCanvas && requestedCanvasShield) ? el._derpEditorCanvasScreenRect : null;
+    const htmlScale = canvasScreenRect
+        ? Math.max(canvasScreenRect.scaleY || canvasScreenRect.scaleX || ds.scale || 1, 0.0001)
+        : (usePhysicalHtmlBox ? Math.max(ds.scale || 1, 0.0001) : 1);
+    const editorCssWidth = canvasScreenRect ? canvasScreenRect.width : (w * htmlScale);
+    const editorCssHeight = canvasScreenRect ? canvasScreenRect.height : (h * htmlScale);
+    const physL = useShieldHost ? x * ds.scale : (canvasScreenRect ? canvasScreenRect.left : Math.round(rect.left + (node.pos[0] + ds.offset[0] + x) * ds.scale));
+    const physT = useShieldHost ? y * ds.scale : (canvasScreenRect ? canvasScreenRect.top : Math.round(rect.top + (node.pos[1] + ds.offset[1] + y) * ds.scale));
+    el._derpEditorHtmlScale = htmlScale;
 
     if (useShieldHost && editorPositionEl.parentNode !== node.interactionShield) {
         node.interactionShield.appendChild(editorPositionEl);
@@ -871,8 +943,8 @@ export function syncDerpEditor(context, node, app, config) {
     if (el._lastGeoKey !== geoKey) {
         el._lastGeoKey = geoKey;
         setStyleIfChanged(editorPositionEl, "position", useShieldHost ? "absolute" : "fixed");
-        setStyleIfChanged(editorPositionEl, "left", `${physL}px`);
-        setStyleIfChanged(editorPositionEl, "top", `${physT}px`);
+        setStyleIfChanged(editorPositionEl, "left", toDerpEditorCssPx(physL));
+        setStyleIfChanged(editorPositionEl, "top", toDerpEditorCssPx(physT));
 
         const shouldExpand = safeConfig.inputExpand === true;
 
@@ -903,7 +975,7 @@ export function syncDerpEditor(context, node, app, config) {
         }
 
         setStyleIfChanged(editorPositionEl, "transformOrigin", "0 0");
-        setStyleIfChanged(editorPositionEl, "transform", useShieldHost ? "none" : `scale(${ds.scale})`);
+        setStyleIfChanged(editorPositionEl, "transform", usePhysicalHtmlBox ? "none" : `scale(${ds.scale})`);
     }
 
     const scaledFS = fontSize;
@@ -912,12 +984,15 @@ export function syncDerpEditor(context, node, app, config) {
     const cssLineHeight = uiLineHeight * htmlScale;
 
     const isSingleLineMiddle = !isMultiline && alignY === "middle";
-    const useSingleLineFlex = isSingleLineMiddle && !prefixGlyphText && alignX === "left";
-    const finalPadY = isSingleLineMiddle ? 0 : Math.max(0, baseRelativeStartY);
+    const useCanvasShieldTextLayout = isCanvas && requestedCanvasShield;
+    const useSingleLineFlex = !useCanvasShieldTextLayout && isSingleLineMiddle && !prefixGlyphText && alignX === "left";
+    const useSingleLineFullLineBox = isSingleLineMiddle && !useSingleLineFlex;
+    const finalPadY = (useSingleLineFlex || useSingleLineFullLineBox) ? 0 : Math.max(0, baseRelativeStartY);
     const htmlPadTop = finalPadY * htmlScale;
     const htmlPadX = textPadX * htmlScale;
     const htmlPadRight = htmlPadX + (cutoffRightPad * htmlScale);
-    const syncKey = `${ds.scale}-${effectiveState}-${rawIc}-${rawBg}_${prefixGlyphText}_${prefixGlyphScale}_${prefixGlyphMargin}_${prefixGlyphSpacing}-${valToSync}-${finalPadY}-${htmlPadTop}-${htmlPadX}-${htmlPadRight}-${scaledFS}-${fontWeight}-${isMultiline}-${isAwake}-${safeConfig.btnColor}`;
+    const htmlLayoutMode = useSingleLineFlex ? "flex" : (useSingleLineFullLineBox ? "singleLineBox" : "block");
+    const syncKey = `${ds.scale}-${effectiveState}-${rawIc}-${rawBg}_${prefixGlyphText}_${prefixGlyphScale}_${prefixGlyphMargin}_${prefixGlyphSpacing}-${valToSync}-${finalPadY}-${htmlPadTop}-${htmlPadX}-${htmlPadRight}-${scaledFS}-${fontWeight}-${isMultiline}-${isAwake}-${safeConfig.btnColor}-${htmlLayoutMode}`;
 
     if (el._lastSyncKey !== syncKey) {
         el._lastSyncKey = syncKey;
@@ -935,7 +1010,7 @@ export function syncDerpEditor(context, node, app, config) {
             paintData.glow = labelPaint.glow;
         }
 
-        applyHTMLTheme(el, paintData, 1);
+        applyHTMLTheme(el, paintData, htmlScale);
 
         // THE THEME SYNC FIX: Explicitly bind the resolved layout font metrics to the element
         el.style.fontFamily = font;
@@ -950,10 +1025,10 @@ export function syncDerpEditor(context, node, app, config) {
         el.style.outline = "none";
         el.style.boxSizing = "border-box";
         el.style.margin = "0";
-        el.style.padding = isSingleLineMiddle
+        el.style.padding = (useSingleLineFlex || useSingleLineFullLineBox)
             ? `0px ${htmlPadRight}px 0px ${htmlPadX}px`
             : `${htmlPadTop}px ${htmlPadRight}px 0px ${htmlPadX}px`;
-        el.style.lineHeight = useSingleLineFlex ? `${cssLineHeight}px` : (isSingleLineMiddle ? `${editorCssHeight}px` : `${cssLineHeight}px`);
+        el.style.lineHeight = useSingleLineFullLineBox ? `${editorCssHeight}px` : `${cssLineHeight}px`;
         el.style.overflowX = "hidden";
         el.style.overflowY = isMultiline ? "auto" : "hidden";
         el.style.resize = "none";
@@ -971,11 +1046,15 @@ export function syncDerpEditor(context, node, app, config) {
 
     // THE FAST-PATH FIX: Apply animated colors inline without expensive theme re-application
     if (el.style.color !== animatedTextColor) el.style.color = animatedTextColor;
+    const canvasOwnsEditorBackground = isCanvas && requestedCanvasShield && bodyPaint && !skipBg;
     const canvasOwnsAsleepVisuals = isCanvas && requestedCanvasShield && !isAwake;
-    if (canvasOwnsAsleepVisuals && bodyPaint && !skipBg) {
+    if (canvasOwnsEditorBackground) {
         el.style.backgroundColor = "transparent";
         el.style.border = "none";
         el.style.boxShadow = "none";
+        el.style.filter = "none";
+        el.style.clipPath = "none";
+        el.style.webkitClipPath = "none";
         el.style.outline = "none";
     } else if (bodyPaint && !skipBg) {
         if (el.style.backgroundColor !== animatedFillColor) el.style.backgroundColor = animatedFillColor;
@@ -1047,7 +1126,8 @@ export function syncDerpEditor(context, node, app, config) {
 
     // THE SCROLL FIX: Only force the HTML element to match the node's scroll state
     // when NOT awake to avoid fighting the user's manual scrolling.
-    if (isMultiline && !isAwake && Math.abs(el.scrollTop - currentScroll) > 1) {
-        el.scrollTop = currentScroll;
+    if (isMultiline && !isAwake) {
+        const targetScrollTop = currentScroll * htmlScale;
+        if (Math.abs(el.scrollTop - targetScrollTop) > 1) el.scrollTop = targetScrollTop;
     }
 }

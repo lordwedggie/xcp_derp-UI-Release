@@ -22,6 +22,8 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **TOGGLE_V2 optional `#` theme keys**: Theme authors can now override individual toggle elements via `#toggle_body` (outer background), `#toggle_slot` (track), `#toggle_knob` (sliding knob, renamed from `dot` for consistency with derpSlider), and `#t_toggle_text` (label). Each key resolves independently with `_ON`/`_OFF`/`_DIS` state suffixes and falls back to the existing 3-key theme system. Internal variable `dotPaint` renamed to `knobPaint`.
+
 - **IMAGE_HTML placeholder font size**: Default `PLACEHOLDER_FONT_SIZE` increased from 6px to 8px. `derpImageDeck` now passes `placeholderFontSize: 12` for its "No Image" display, overriding the default. Callers can set `placeholderFontSize` in widget config to customize per-instance.
 
 - **JS source tree reorganization**: js/controldeck renamed to js/derps and split into category subfolders:
@@ -38,6 +40,7 @@ All notable changes to this project will be documented in this file.
 - **Key picker dirty markers**: `dropdownKey` items in ThemeManagerV2 now display `* ` prefix for dirty keys via `mapThemeKeyPickerItem()`, using object-based `{value, display}` items.
 
 ### Fixed
+- **derpEditor canvas zoom drift regression**: Active `canvasShield` editors now anchor their HTML editing surface from the canvas draw transform instead of recomputing screen position from `node.pos + ds.offset`. The themed editing background rect is canvas-owned, and the DOM editor uses the captured canvas screen rect with physical CSS dimensions, fixing the upward drift seen when zooming out on the ComfyUI canvas.
 - **Deck Pressure branch shared-edge resize**: Horizontal and vertical branch stacks docked to `derpImageDeck` now keep their internal shared-edge resize handles and resize propagation. Resize logic resolves the linear Deck branch instead of treating the whole ImageDeck-owned mixed group as a non-resizable stack.
 - **Deck lower-left min-width clamp**: Resizing the ImageDeck hub from its lower-left corner now clamps against top/bottom Deck branch minimum widths and preserves the right edge when pressure grows the hub back to its minimum, preventing repeated rightward frame drift.
 - **Deck Pressure idle FPS regression**: Deck Pressure layout now uses a stable geometry signature cache across idle frames, skipping repeated branch reflow when no member is dirty, resizing, dragging, awake, or in an active pressure window.

@@ -102,11 +102,23 @@ widgets/
 ## EDITOR Rendering Protocol
 - `UI_TYPES.EDITOR` is a hybrid widget: Canvas draws asleep visuals and the DOM element handles hit testing, focus, selection, and editing.
 - For `canvasShield` editors, asleep background and text must be rendered by Canvas, not by the DOM overlay. DOM-rendered asleep boxes/text drift relative to canvas controls under zoom because CSS transforms and Canvas compositing use different subpixel paths.
-- While asleep, keep the DOM editor present for interaction but transparent; while awake/editing, let the DOM editor show text/background so native selection and keyboard input work.
+- For active/focused `canvasShield` editors, the themed background rect is still Canvas-owned. Keep the DOM editor present for native selection and keyboard input, but keep its theme background/border/shadow transparent so the edit box matches the Canvas renderer.
+- Active/focused `canvasShield` editor DOM must be positioned from the Canvas draw transform. Capture the screen rect from `ctx.getTransform()` plus the canvas bounding rect and reuse that rect for DOM `left`, `top`, `width`, and `height`; do not independently recompute placement from `node.pos + ds.offset`, which can diverge under zoom and make the editor drift upward.
+- Canvas-shield HTML editors should use physical CSS pixel dimensions with `transform: none`; text metrics, padding, and multiline scroll sync scale through the captured HTML scale.
 - Body-level editor DOM must use the host node's `_masterZHtml` unless the editor config explicitly supplies `zIndex`; never preserve stale inline z-index across graph-order changes.
 - Do not fix zoom-dependent EDITOR drift with per-zoom height, baseline, or translation nudges. If an asleep editor visual drifts, move that visual back into the Canvas path.
 - Keep vertical alignment math host-independent. System panels, Fatha nodes, ThemeManager fields, and numeric editors should use the same `labelAlign` calculation unless a concrete renderer bug requires a shared fix.
 - PromptBook image embeds use `richImageContent: true`; this makes `EDITOR` sync through `innerText` so the PromptBook image handler can preserve real `<img>` nodes instead of being overwritten by `textContent`.
+
+## TOGGLE_V2 Optional `#` Theme Keys
+- Theme authors can override individual toggle visual elements via `#`-prefixed theme keys in palette JSON. The `#` key takes priority over the 3-key themeKey system and falls back gracefully.
+- Supported `#` keys with `_ON`/`_OFF`/`_DIS` state resolution:
+  - `#toggle_body` — outer background (falls back to `bodyPaint` from themeKey)
+  - `#toggle_slot` — track/slot (falls back to `keySlot`, 3-key parts[0])
+  - `#toggle_knob` — sliding knob (falls back to `keyDot`, 3-key parts[1]; renamed from `dot` for consistency with Slider's `#slider_knob`)
+  - `#t_toggle_text` — label text (falls back to `keyText`, 3-key parts[2])
+- Each element resolves independently via `resolvePaintData(node, "#key", suffix)` before falling back to the standard key, and animates through `animatePaintData` with the same `TOGGLE_COLOR_SPEED`.
+- Internal variable `dotPaint` renamed to `knobPaint` for consistency.
 
 ## Text Wrapping
 - `textLabel` Canvas wrapping and layout height measurement use `wrapTextToLines()` from `widgetsUtils.js`; keep these paths in sync so rendered line count matches measured auto-height.
