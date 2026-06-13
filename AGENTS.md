@@ -85,8 +85,10 @@ Docs must stay synced with framework behavior. Stale docs are treated as bugs.
 
 ### CHANGELOG
 
+- **Authoritative copies live in `derp_docs/`**: `README.md` and `CHANGELOG.md` are maintained under `derp_docs/`. The root copies are publication-only mirrors. When copying from `derp_docs/` to root (e.g., during release), update all relative links so they remain valid from the new location.
 - Keep each version, including `[Unreleased]`, to at most `### Added`, `### Changed`, and `### Fixed`.
 - Do not create duplicate section headers. Merge new entries into existing sections.
+- Keep sections clean: no double blank lines, no broken Unicode characters (verify `→` arrows, `fatha`/`basta` paths are not corrupted to FF/BS control chars).
 
 ### i18n
 
