@@ -125,6 +125,7 @@ When ComfyUI Node 2.0/Vue mode moves a default group containing docked Derp stac
 - Dock finalization treats the ImageDeck hub position as anchored; normal pair normalization may move attached branches, but must not move the hub itself.
 - ImageDeck-owned pressure attaches skip generic `normalizeDockPair()` / `forceDockResizeRefresh()` because those normal stack helpers can reinterpret the new hub seam as a resizable shared edge and move the hub.
 - Shared-edge resizing inside a Deck branch must resolve the branch's linear member list (`getDeckPressureBranchMembers`) instead of using whole-group `isLinearDeckGroup()`, because the full ImageDeck-owned group is intentionally mixed-axis.
+- Pure top/bottom shared-edge resizing in a side branch is handled as an ordered vertical seam before generic node resize, so dragging one member cannot move it behind its neighbor.
 - Horizontal shared-edge resize must also normalize positions against that branch-only member list; using `getDeckMembers()` here will march the whole mixed Deck group sideways.
 - Lower-left hub resize must clamp to top/bottom branch minimum widths and preserve the right edge if pressure layout grows the hub back to minimum width.
 - Idle Deck Pressure maintenance should skip across frames using a stable geometry signature. Only rerun pressure layout when a member is dirty, resizing, dragging, awake, inside `_deckPressureActiveUntil`, or when geometry changes.
