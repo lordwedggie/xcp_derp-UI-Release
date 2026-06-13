@@ -29,6 +29,37 @@ Use byte-level replacement — PowerShell `[IO.File]::ReadAllBytes` / `WriteAllB
 - Arrows use `→` (U+2192), not `->`, `→`, or `?`.
 - Paths: `fatha` and `basta` should render correctly — verify after any file move or encoding change.
 
+## CHANGELOG Section Colors
+
+Use inline HTML `<span>` — NO CSS snippets. Apply per-section colors via regex split:
+
+| Section | Hex | Preview |
+|---------|-----|---------|
+| Added | `#80ffc0` | teal |
+| Changed | `#80aaff` | blue |
+| Fixed | `#ffc680` | orange |
+| Removed | `#ff8080` | red |
+
+**Headers:** `### <span style="color: #XXXXXX">SectionName</span>`
+**Bold entries:** `- <span style="color:#XXXXXX"><strong>Title</strong></span>: description`
+
+**To color all sections at once** (PowerShell):
+```powershell
+$c = [System.IO.File]::ReadAllText("derp_docs/CHANGELOG.md")
+$sections = [regex]::Split($c, '(?=^### )', 'Multiline')
+$out = @()
+foreach ($s in $sections) {
+    if ($s -match 'Added</span>')      { $s = $s -replace 'color: ?#?\w+', 'color: #80ffc0' }
+    elseif ($s -match 'Changed</span>') { $s = $s -replace 'color: ?#?\w+', 'color: #80aaff' }
+    elseif ($s -match 'Fixed</span>')   { $s = $s -replace 'color: ?#?\w+', 'color: #ffc680' }
+    elseif ($s -match '^### Removed$')  { $s = $s -replace '^### Removed$', '### <span style="color: #ff8080">Removed</span>'; $s = [regex]::Replace($s, '(?m)^(- )\*\*(.+?)\*\*', '$1<span style="color:#ff8080"><strong>$2</strong></span>') }
+    $out += $s
+}
+[System.IO.File]::WriteAllText("derp_docs/CHANGELOG.md", ($out -join ''))
+```
+
+**New entries** should be written directly with `<span>` + `<strong>` format from the start. Do NOT use plain `**text**` and color it later — write colored from the beginning.
+
 ## Sync to Root (for release)
 
 When publishing a release:
