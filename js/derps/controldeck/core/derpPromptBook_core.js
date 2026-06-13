@@ -4,6 +4,7 @@
  */
 import { setupPromptBookImageSupport, stripImageBase64FromContent } from "../helpers/derpPromptBook_imageHandler.js";
 import { showBastaFileHandler } from "../../../fatha/bastas/bastaFileHandler.js";
+import { UI_TYPES } from "../../../fatha/core/masterLayoutTypes.js";
 import { showBastaMessage } from "../../../fatha/bastas/bastaMessage.js";
 import { showBastaSystemMessage } from "../../../fatha/bastas/bastaSystemMessage.js";
 import { playKaChing, playKaboom } from "../../../herbina/masterSoundEffects.js";
@@ -555,19 +556,67 @@ export function handlePageChange(node, action) {
 export function handlePageAdd(node) {
     if (document.activeElement) document.activeElement.blur();
     const book = node.properties.derpBook || [];
-    book.push({ title: tLocale("$derp_prompt_book.page.untitled_title", "untitled"), content: "", images: [] });
-    node.properties.currentPageIndex = book.length - 1;
+    const currentIdx = node.properties.currentPageIndex || 0;
+    node._pbInsertAfter = true;
 
-    node.properties.prompt = "";
-    const w = node.widgets?.find(x => x.name === "prompt");
-    if (w) w.value = "";
+    showBastaFileHandler(node, "derpPromptBook", "btnPageAdd", {
+        title: tLocale("$derp_prompt_book.dialogs.add_page.title", "Add Page"),
+        message: tLocale("$derp_prompt_book.dialogs.add_page.message", "Enter a name for the new page:"),
+        confirm: tLocale("$derp_prompt_book.dialogs.add_page.confirm", "Add Page"),
+        mode: "new",
+        initialSize: [280, 180],
+        properties: {
+            showOptions: false,
+            layoutMapOverride: (basta, vars) => {
+                const { oY, pW, pH } = vars;
+                return {
+                    contentRegion: {
+                        optionRow: {
+                            anchor: { target: "editorRegion", axis: "y", offset: oY },
+                            dir: "row", width: "full", height: "auto",
+                            padding: [pW, pH],
+                            toggleInsertAfter: {
+                                type: UI_TYPES.TOGGLE_V2,
+                                themeKey: "button, t_textSystem",
+                                text: tLocale("$derp_prompt_book.dialogs.add_page.insert_after", "Insert after current page"),
+                                value: node._pbInsertAfter !== false,
+                                isTextOnly: true,
+                                width: "auto", height: "auto",
+                                padding: [pW, pH],
+                                onPress: () => {
+                                    node._pbInsertAfter = !node._pbInsertAfter;
+                                    basta.requestDerpSync();
+                                },
+                            },
+                        },
+                    },
+                };
+            },
+        },
+        onConfirm: (newName) => {
+            const pageName = newName || tLocale("$derp_prompt_book.page.untitled_title", "untitled");
+            const newPage = { title: pageName, content: "", images: [] };
+            if (node._pbInsertAfter !== false) {
+                book.splice(currentIdx + 1, 0, newPage);
+                node.properties.currentPageIndex = currentIdx + 1;
+            } else {
+                book.push(newPage);
+                node.properties.currentPageIndex = book.length - 1;
+            }
+            delete node._pbInsertAfter;
 
-    if (node.syncDerpOutputs) node.syncDerpOutputs();
+            node.properties.prompt = "";
+            const w = node.widgets?.find(x => x.name === "prompt");
+            if (w) w.value = "";
 
-    const graph = node.graph || app?.graph;
-    if (graph?.change) graph.change();
+            if (node.syncDerpOutputs) node.syncDerpOutputs();
 
-    if (node.refreshNodeLayoutMap) node.refreshNodeLayoutMap();
+            const graph = node.graph || app?.graph;
+            if (graph?.change) graph.change();
+
+            if (node.refreshNodeLayoutMap) node.refreshNodeLayoutMap();
+        }
+    });
 }
 
 export function handlePageRename(node) {

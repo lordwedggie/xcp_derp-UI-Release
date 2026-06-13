@@ -288,6 +288,7 @@ function suppressConcatNativeWidgets(node) {
     node.widgets.forEach((widget) => {
         widget.last_y = -5000;
         widget.hidden = true;
+        widget.computeSize = () => [0, -4];
         if (widget.element?.style) {
             widget.element.style.display = "none";
             widget.element.style.pointerEvents = "none";
@@ -325,8 +326,8 @@ app.registerExtension({
         };
 
         nodeType.prototype.refreshNodeLayoutMap = function() {
-            if (this.flags?.collapsed || this.size[0] <= 0) return;
             suppressConcatNativeWidgets(this);
+            if (this.flags?.collapsed || this.properties?.contentCollapsed === true || this.size[0] <= 0) return;
             normalizeConcatSignalSelections(this);
             const vars = this.getDerpVars(this);
             const { mW, mH, sW, sH, oY, pW, pH, t_textNormal_size, t_textSmall_size } = vars;
@@ -815,9 +816,9 @@ app.registerExtension({
         const onDrawForeground = nodeType.prototype.onDrawForeground;
         nodeType.prototype.onDrawForeground = function(ctx) {
             if (onDrawForeground) onDrawForeground.apply(this, arguments);
-            if (this.flags?.collapsed) return;
 
             suppressConcatNativeWidgets(this);
+            if (this.flags?.collapsed || this.properties?.contentCollapsed === true) return;
 
             normalizeConcatSignalSelections(this);
             const signalStates = getConcatSignalStates(this);

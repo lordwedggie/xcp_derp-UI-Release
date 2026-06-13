@@ -207,6 +207,13 @@ To add a skill, create `.agents/skills/<name>/SKILL.md` with YAML frontmatter (`
 - For real graph nodes in Vue mode, use size setters or `setDerpNodeSizeCompat(node, w, h)` rather than mutating `node.size[0]` / `node.size[1]` directly.
 - Basta overlays are not graph nodes; do not apply graph-node size rules blindly to them.
 - Vertical docking free-height mode uses `autoHeight = false` unless `properties.deckForceAutoHeight = true`.
+- Ordinary vertical stack boundary resize must not stretch a collapsed boundary header; route boundary growth into the nearest expanded member and keep collapsed headers compact.
+- Vertical stack resize sessions must snapshot collapsed members at compact minimum height, not stale live `nodeSize`, before distributing growth to expanded members.
+- Expanded filler members changed by collapsed boundary resize must stay marked as actively resizing until pointer-up, or draw-time auto sizing can fight live shrink drags.
+- Collapsed vertical stack boundary corners should only trigger height growth for clear vertical drags; horizontal drags should stay width-only.
+- Normal collapsed node height is the compact collapsed header (`SNAP * 2`); do not derive it from width-dependent layout measurements unless `useCollapsedTotalHeight` is explicitly set.
+- Vertical stack reflow should run once over topology-ordered members (`collectDeckLineOrdered`) and preserve the pinned member anchor; recursive neighbor snapping can leave gaps or jump the top member after collapse changes.
+- Deck Pressure layout should only dirty/sync members whose size or position actually changed; marking every branch member dirty can cause idle FPS drops.
 - Horizontal dock maintenance must be gated by geometry signatures/indexes; do not normalize all deck members every frame.
 - Deck Pressure is ImageDeck-owned in V1. Pressure attaches must let `applyDeckPressureLayout()` own branch reflow; avoid generic `normalizeDockPair()` / `forceDockResizeRefresh()` on hub seams because they can move the anchored hub.
 - Deck Pressure branches live inside a mixed-axis hub group. Shared-edge resize code must query the branch members/axis, not the full deck group axis, or branch stacks look non-resizable.
@@ -222,6 +229,7 @@ To add a skill, create `.agents/skills/<name>/SKILL.md` with YAML frontmatter (`
 - Deck Pressure collapsed height must use the recomputed collapsed virtual layout (`layout.contentMinHeight`/`totalHeight`) and must not include raw hidden `layoutMap` minHeight from expanded custom content.
 - Deck Pressure collapsed height fallback is the compact collapsed header (`DEFAULT_DECK_SNAP * 2`, currently 20px), not the generic node fallback of 40px.
 - Deck Pressure layout must preserve the hub node position during collapse/un-collapse pressure passes unless the hub is actively being resized.
+- Nodes inside Deck Pressure branches should skip generic `reflowChildren()` during collapse/un-collapse size changes; Deck Pressure layout must be the single source of branch positions to avoid one-frame flicker.
 
 ### Node-Specific Notes
 

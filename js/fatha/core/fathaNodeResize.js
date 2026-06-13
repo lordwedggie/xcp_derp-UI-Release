@@ -1,7 +1,7 @@
 import { sysPanel } from "../helpers/fathaSysPanel.js";
 import { applyDockResizeResult, canResizeHorizontalStackWidth, syncDockResizePair } from "./dockResize.js";
 import { getDockGroupAxisFromMembers, getDockNodeMinHeight, getDockNodeMinWidth, resolveDockResizeAxes } from "./dockDimensions.js";
-import { getDeckMembers, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureHubForNode, isDeckPressureHub, setDeckNodePos } from "./masterDockEngine.js";
+import { getDeckMembers, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureHubForNode, getNodeOnDeckEdge, isDeckPressureHub, setDeckNodePos } from "./masterDockEngine.js";
 import { dockDebug, snapshotDockNode } from "./dockDebugHelpers.js";
 import { setDerpNodeSizeCompat } from "./fathaNode2Compat.js";
 
@@ -57,7 +57,10 @@ export function handleNodeResize(entity, data, scale) {
     if (collapsedInVertical) {
         const isCorner = data.resizeAnchor === "top-left" || data.resizeAnchor === "top-right" ||
                          data.resizeAnchor === "bottom-left" || data.resizeAnchor === "bottom-right";
-        if (isCorner) resizeAxes.allowHeight = false;
+        const isTopBoundaryResize = !getNodeOnDeckEdge(entity, graph, "top") && (data.resizeAnchor === "top-left" || data.resizeAnchor === "top-right");
+        const isBottomBoundaryResize = !getNodeOnDeckEdge(entity, graph, "bottom") && (data.resizeAnchor === "bottom-left" || data.resizeAnchor === "bottom-right");
+        const isVerticalIntent = Math.abs(Number(data.dy) || 0) > Math.abs(Number(data.dx) || 0) + 2;
+        if (isCorner && (!isVerticalIntent || (!isTopBoundaryResize && !isBottomBoundaryResize))) resizeAxes.allowHeight = false;
     }
 
     dockDebug("handle-node-resize-start", {
@@ -94,17 +97,30 @@ export function handleNodeResize(entity, data, scale) {
     const allowHeightResize = resizeAxes.allowHeight;
     
 
-    const rawW = entity._startSize[0] + (deltaX * anchorMode.wSign);
+    const startW = Number(entity._startSize?.[0]) || Number(entity.size?.[0]) || 0;
+    const startH = collapsedInVertical
+        ? getDockNodeMinHeight(entity, 0, SNAP)
+        : (Number(entity._startSize?.[1]) || Number(entity.size?.[1]) || 0);
+    const rawW = startW + (deltaX * anchorMode.wSign);
     const newW = allowWidthResize
         ? (allowHorizontalStackWidthResize ? Math.round(rawW / SNAP) * SNAP : Math.max(minW, Math.round(rawW / SNAP) * SNAP))
         : entity.size[0];
 
-    const rawH = entity._startSize[1] + (deltaY * anchorMode.hSign);
-    const newH = allowHeightResize ? Math.max(minH, Math.round(rawH / SNAP) * SNAP) : entity.size[1];
+    const rawH = startH + (deltaY * anchorMode.hSign);
+    const isCollapsedVerticalBoundaryHeightResize = collapsedInVertical && allowHeightResize;
+    const newH = allowHeightResize
+        ? (isCollapsedVerticalBoundaryHeightResize ? Math.round(rawH / SNAP) * SNAP : Math.max(minH, Math.round(rawH / SNAP) * SNAP))
+        : (collapsedInVertical ? getDockNodeMinHeight(entity, 0, SNAP) : entity.size[1]);
 
-    const dockResizeResult = isPressureHubResize
-        ? { handledWidth: false, handledHeight: false, handledAll: false, appliedWidth: null, appliedHeight: null, counterparts: [] }
-        : syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH, SNAP);
+    let dockResizeResult;
+    entity._dockResizeAllowHeight = allowHeightResize;
+    try {
+        dockResizeResult = isPressureHubResize
+            ? { handledWidth: false, handledHeight: false, handledAll: false, appliedWidth: null, appliedHeight: null, counterparts: [] }
+            : syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH, SNAP);
+    } finally {
+        delete entity._dockResizeAllowHeight;
+    }
     dockDebug("handle-node-resize-after-dock-pair", {
         entity: snapshotDockNode(entity),
         resizeAnchor,

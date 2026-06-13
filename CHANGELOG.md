@@ -36,6 +36,9 @@ All notable changes to this project will be documented in this file.
 - **Key picker dirty markers**: `dropdownKey` items in ThemeManagerV2 now display `* ` prefix for dirty keys via `mapThemeKeyPickerItem()`, using object-based `{value, display}` items.
 
 ### Fixed
+- **Deck Pressure branch shared-edge resize**: Horizontal and vertical branch stacks docked to `derpImageDeck` now keep their internal shared-edge resize handles and resize propagation. Resize logic resolves the linear Deck branch instead of treating the whole ImageDeck-owned mixed group as a non-resizable stack.
+- **Deck lower-left min-width clamp**: Resizing the ImageDeck hub from its lower-left corner now clamps against top/bottom Deck branch minimum widths and preserves the right edge when pressure grows the hub back to its minimum, preventing repeated rightward frame drift.
+- **Deck Pressure idle FPS regression**: Deck Pressure layout now uses a stable geometry signature cache across idle frames, skipping repeated branch reflow when no member is dirty, resizing, dragging, awake, or in an active pressure window.
 
 - **derpTriggerWall toggled-off trigger using wrong paint state**: Toggled-off triggers now correctly use `_DIS` paint variants (`button._DIS`/`t_textSmall._DIS`) instead of `_OFF`, matching the intended disabled visual appearance. New `triggerVisuallyDisabled` gate (`triggerDisabled || item.trig.active !== true`) drives body/slot/label paint selection.
 

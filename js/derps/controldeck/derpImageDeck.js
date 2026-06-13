@@ -475,7 +475,7 @@ app.registerExtension({
             const displayName = `${baseName}${extension}`;
             const customFolder = normalizeImageDeckFolderPath(this.properties.imageDeckCustomFolder || "");
             if (!customFolder) return displayName;
-            const folderPath = `${customFolder.replace(/\\/g, "/")}/`;
+            const folderPath = `${customFolder.replace(/\//g, "\\")}\\`;
             return `{{t_text_highlight::${folderPath}}}${displayName}`;
         };
 

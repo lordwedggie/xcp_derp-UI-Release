@@ -105,6 +105,13 @@ When ComfyUI Node 2.0/Vue mode moves a default group containing docked Derp stac
 - Each node keeps its own height (no height normalization)
 - `allowWidth = false` during resize
 - Member height defaults to free/manual resize through temporary `autoHeight = false` unless the node explicitly forces auto-height on
+- If the outer top/bottom member is collapsed, boundary resize keeps that collapsed header at compact height and applies the added height to the nearest expanded member inside the stack
+- Collapsed boundary resize sessions must snapshot collapsed members at their compact minimum height, not stale live `nodeSize`, so top/bottom boundary drags cannot reintroduce phantom gaps.
+- Expanded filler members changed by collapsed boundary resize stay marked as actively resizing until pointer-up, so draw-time auto sizing cannot fight live shrink drags.
+- Collapsed boundary corner handles require clear vertical drag intent before changing stack height; left/right movement remains width-only
+- Normal collapsed node height is the fixed compact header (`SNAP * 2`) and does not grow from width-dependent layout measurements; only nodes that set `useCollapsedTotalHeight` opt into measured collapsed height
+- Reflow after vertical-stack height changes runs over one topology-ordered column and preserves the pinned member anchor; recursive neighbor snapping is avoided because it can leave gaps when collapsed heights change.
+- Deck Pressure layout only dirties members whose size or position actually changed; unchanged branch members must not be marked dirty during idle pressure passes.
 
 
 ### Deck Pressure Hub
@@ -129,6 +136,7 @@ When ComfyUI Node 2.0/Vue mode moves a default group containing docked Derp stac
 - Collapsed pressure height uses the recomputed collapsed virtual layout only; hidden expanded `layoutMap` regions and their `minHeight` values are ignored for collapsed side-branch sizing.
 - Collapsed pressure height falls back to the compact collapsed header height (`DEFAULT_DECK_SNAP * 2`) rather than the generic 40px node fallback.
 - Pressure layout keeps the ImageDeck hub position anchored during collapse/un-collapse passes; only active hub resize may move it to preserve the dragged edge.
+- Collapse/un-collapse size changes for Deck Pressure branch members skip generic `reflowChildren()` so branch positions are written only by Deck Pressure layout, preventing one-frame bottom-node flicker.
 - Ordinary mixed-axis docking remains rejected outside ImageDeck-owned Deck Pressure branches.
 - ImageDeck and outer Deck-frame corner resize handles route to the hub; attached branch seams must not steal the hub corners.
 

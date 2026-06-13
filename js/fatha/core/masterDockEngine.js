@@ -421,23 +421,33 @@ function fitSizesToTotal(nodes, axis = "width", targetTotal = 0, snap = DEFAULT_
 
 function applyColumnLayout(nodes, x, y, width, heights) {
     let cursorY = y;
+    const changed = [];
     nodes.forEach((node, index) => {
         const resolvedH = heights[index] || getNodeAxisSize(node, "height");
-        syncDeckNodeSize(node, width, resolvedH, { silent: true });
-        setDeckNodePos(node, x, cursorY);
-        if (typeof node.syncUncleSlots === "function") node.syncUncleSlots();
+        const sizeChanged = syncDeckNodeSize(node, width, resolvedH, { silent: true });
+        const posChanged = setDeckNodePos(node, x, cursorY);
+        if (sizeChanged || posChanged) {
+            if (typeof node.syncUncleSlots === "function") node.syncUncleSlots();
+            changed.push(node);
+        }
         cursorY += resolvedH;
     });
+    return changed;
 }
 
 function applyRowLayout(nodes, x, y, widths, height) {
     let cursorX = x;
+    const changed = [];
     nodes.forEach((node, index) => {
-        syncDeckNodeSize(node, widths[index], height, { silent: true });
-        setDeckNodePos(node, cursorX, y);
-        if (typeof node.syncUncleSlots === "function") node.syncUncleSlots();
+        const sizeChanged = syncDeckNodeSize(node, widths[index], height, { silent: true });
+        const posChanged = setDeckNodePos(node, cursorX, y);
+        if (sizeChanged || posChanged) {
+            if (typeof node.syncUncleSlots === "function") node.syncUncleSlots();
+            changed.push(node);
+        }
         cursorX += widths[index];
     });
+    return changed;
 }
 
 function getFirstPositiveAxisSize(nodes = [], axis = "width", fallback = 0) {
@@ -1590,6 +1600,21 @@ function reflowDockedNeighbors(node, graph, snap, moved = [], seen = new Set(), 
 }
 
 export function reflowDockedChildren(node, graph, snap = DEFAULT_DECK_SNAP) {
+    if (node && graph && isLinearDeckGroup(node, graph, "vertical")) {
+        const ordered = collectDeckLineOrdered(node, graph, "top", "bottom");
+        const column = ordered.length > 0 ? ordered : sortDeckNodesByAxis(collectDeckLine(node, graph, "top", "bottom"), "y");
+        if (column.length > 1) {
+            const heights = column.map((member) => getNodeAxisSize(member, "height"));
+            const width = Math.max(
+                getSharedDockWidth(column, getNodeAxisSize(node, "width")),
+                getSharedDockMinWidth(column, getNodeAxisSize(node, "width"), snap)
+            );
+            const anchorIndex = Math.max(0, column.findIndex((member) => member?.properties?.pinActive === true));
+            const anchorY = Number(column[anchorIndex]?.pos?.[1]) || 0;
+            const topY = anchorY - heights.slice(0, anchorIndex).reduce((sum, value) => sum + value, 0);
+            return applyColumnLayout(column, getFirstFinitePosition(column, 0), topY, width, heights);
+        }
+    }
     return reflowDockedNeighbors(node, graph, snap);
 }
 
@@ -1689,13 +1714,9 @@ function getDeckPressureRequiredSpan(members, axis, snap, forcedCollapsedIds = n
 
 function ensureDeckPressureFillerMember(members) {
     if (!Array.isArray(members) || members.length === 0) return false;
+    if (members.some((member) => member?.properties?.contentCollapsed !== true)) return false;
     const filler = getDeckPressureActiveMember(members) || members[members.length - 1];
-    let changed = setDeckPressureCollapsed(filler, false);
-    members.forEach((member) => {
-        if (member?.id === filler?.id) return;
-        changed = setDeckPressureCollapsed(member, true) || changed;
-    });
-    return changed;
+    return setDeckPressureCollapsed(filler, false);
 }
 
 function applyDeckPressureCollapse(members, targetSpan, axis, snap) {
@@ -1815,14 +1836,12 @@ export function applyDeckPressureLayout(hub, graph, snap = DEFAULT_DECK_SNAP) {
             const width = Math.max(...members.map((member) => getNodeSizeValue(member, 0)), ...members.map((member) => getNodeMinWidth(member, snap)), 0);
             const heights = fitDeckPressureSideHeights(members, frameHeight, snap);
             const x = side === "left" ? hubRect.x - width : hubRect.x + hubRect.w;
-            applyColumnLayout(members, x, frameY, width, heights);
-            changed.push(...members);
+            changed.push(...applyColumnLayout(members, x, frameY, width, heights));
         } else {
             const height = side === "top" ? topHeight : bottomHeight;
             const widths = fitSizesToTotal(members, "width", hubRect.w, snap);
             const y = side === "top" ? hubRect.y - height : hubRect.y + hubRect.h;
-            applyRowLayout(members, hubRect.x, y, widths, height);
-            changed.push(...members);
+            changed.push(...applyRowLayout(members, hubRect.x, y, widths, height));
         }
     });
 

@@ -165,6 +165,17 @@ export function createDerpShield(node) {
         }
     };
 
+    const clearDockResizeActiveMembers = (resizeNode) => {
+        const activeMembers = resizeNode?._dockResizeActiveMembers;
+        if (activeMembers instanceof Set) {
+            activeMembers.forEach((member) => {
+                if (member && member !== resizeNode) member._isDerpResizing = false;
+            });
+            activeMembers.clear();
+        }
+        if (resizeNode) resizeNode._dockResizeActiveMembers = null;
+    };
+
     const cleanup = () => {
         window.removeEventListener("pointermove", onWindowPointerMove);
         window.removeEventListener("pointerup", onWindowPointerUp);
@@ -176,9 +187,11 @@ export function createDerpShield(node) {
         activeResizeHandle = null;
         activeResizePointerId = null;
         isResizing = false;
+        clearDockResizeActiveMembers(activeResizeNode);
         activeResizeNode._isDerpResizing = false;
         activeResizeNode._dockResizeSession = null;
         if (activeResizeNode !== node) {
+            clearDockResizeActiveMembers(node);
             node._isDerpResizing = false;
             node._dockResizeSession = null;
         }
@@ -540,6 +553,7 @@ export function createDerpShield(node) {
 
         longPressed = false;
         isResizing = false;
+        clearDockResizeActiveMembers(node);
         node._isDerpResizing = false;
         node._dockResizeSession = null;
 

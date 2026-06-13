@@ -14,6 +14,16 @@ function snapRound(value, snap = DEFAULT_SNAP) {
     return Math.round((Number(value) || 0) / unit) * unit;
 }
 
+function getCollapsedDockHeight(node, snap = DEFAULT_SNAP, measured = {}) {
+    const unit = isFiniteNumber(snap) && snap > 0 ? snap : DEFAULT_SNAP;
+    if (node?.properties?.useCollapsedTotalHeight === true) {
+        const contentMinH = Number(measured.contentMinHeight ?? node?.layout?.contentMinHeight) || 0;
+        const totalH = Number(measured.totalHeight ?? node?.layout?.totalHeight) || 0;
+        return Math.max(contentMinH, totalH) || (unit * 2);
+    }
+    return unit * 2;
+}
+
 export function getDockNodeWidth(node) {
     return Number(node?.size?.[0] ?? node?.properties?.nodeSize?.[0]) || 0;
 }
@@ -31,6 +41,10 @@ export function getDockNodeMinWidth(node, fallback = 0, snap = DEFAULT_SNAP) {
 }
 
 export function getDockNodeMinHeight(node, fallback = 0, snap = DEFAULT_SNAP) {
+    if (node?.properties?.contentCollapsed) {
+        return Math.max(Number(fallback) || 0, getCollapsedDockHeight(node, snap));
+    }
+
     let explicitMinH = 0;
     if (node?.layoutMap) {
         Object.values(node.layoutMap).forEach((reg) => {
@@ -39,7 +53,7 @@ export function getDockNodeMinHeight(node, fallback = 0, snap = DEFAULT_SNAP) {
     }
     const contentMinH = Number(node?.layout?.contentMinHeight) || Number(node?.layout?.totalHeight) || 40;
     const raw = Math.max(Number(fallback) || 0, explicitMinH, contentMinH);
-    return node?.properties?.contentCollapsed ? raw : snapCeil(raw, snap);
+    return snapCeil(raw, snap);
 }
 
 export function getDockGroupAxisFromMembers(members = []) {
@@ -104,7 +118,9 @@ export function resolveRuntimeDockSize(node, axis, measured, vars = {}) {
     const engineFloorW = snapCeil(contentReqW, snap);
     const contentMinH = Number(measured?.contentMinHeight) || 0;
     const totalH = Number(measured?.totalHeight) || 0;
-    const rawH = isMinState ? (Math.max(contentMinH, totalH) || 40) : (contentMinH || totalH || 40);
+    const rawH = isMinState
+        ? getCollapsedDockHeight(node, snap, { contentMinHeight: contentMinH, totalHeight: totalH })
+        : (contentMinH || totalH || 40);
     const engineFloorH = isMinState ? rawH : snapCeil(rawH, snap);
 
     const storedW = Number(node?.properties?.nodeSize?.[0]) || 0;
