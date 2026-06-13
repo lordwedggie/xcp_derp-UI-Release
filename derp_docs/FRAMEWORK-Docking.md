@@ -129,6 +129,7 @@ When ComfyUI Node 2.0/Vue mode moves a default group containing docked Derp stac
 - Horizontal shared-edge resize must also normalize positions against that branch-only member list; using `getDeckMembers()` here will march the whole mixed Deck group sideways.
 - Lower-left hub resize must clamp to top/bottom branch minimum widths and preserve the right edge if pressure layout grows the hub back to minimum width.
 - Idle Deck Pressure maintenance should skip across frames using a stable geometry signature. Only rerun pressure layout when a member is dirty, resizing, dragging, awake, inside `_deckPressureActiveUntil`, or when geometry changes.
+- ImageDeck auto-fit height changes from newly loaded images must call Deck Pressure layout immediately so attached branches resize with the hub in the same load callback.
 - Deck Pressure branch order is derived from deck-edge topology rather than live x/y sorting, so temporary overlap during shared-edge resize cannot swap branch members.
 - Side-branch pressure measures collapsed minimums by temporarily recomputing the collapsed layout; collapsed members stay at that minimum and only expanded members receive spare Deck-frame height.
 - Side branches always keep one expanded filler member; if all branch members are collapsed, Deck Pressure re-expands the active member before fitting the branch to the Deck frame.
@@ -140,6 +141,7 @@ When ComfyUI Node 2.0/Vue mode moves a default group containing docked Derp stac
 - Collapse/un-collapse size changes for Deck Pressure branch members skip generic `reflowChildren()` so branch positions are written only by Deck Pressure layout, preventing one-frame bottom-node flicker.
 - Ordinary mixed-axis docking remains rejected outside ImageDeck-owned Deck Pressure branches.
 - ImageDeck and outer Deck-frame corner resize handles route to the hub; attached branch seams must not steal the hub corners.
+- Deck Pressure corner resize handles belong to the outer frame bounds of the hub plus all branches; branch-member corners may resize the frame only when they are actual frame corners, while internal branch seam handles remain available.
 
 ## Known Pitfalls
 

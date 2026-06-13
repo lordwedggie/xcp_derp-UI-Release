@@ -4,7 +4,7 @@
  */
 import { animateAlpha } from "../../../herbina/masterAnimator.js";
 import { getPinnedVerticalDeckAnchor, restorePinnedVerticalDeckAnchor } from "../../../fatha/core/dockResize.js";
-import { setDeckNodePos } from "../../../fatha/core/masterDockEngine.js";
+import { applyDeckPressureLayout, isDeckPressureHub, setDeckNodePos } from "../../../fatha/core/masterDockEngine.js";
 import { setDerpNodeSizeCompat } from "../../../fatha/core/fathaNode2Compat.js";
 
 // Crossfade alpha interpolation speed.
@@ -200,6 +200,11 @@ function resizeNodeToImageAspect(node, img, options = {}) {
     node._preCollapseHeight = nextNodeH;
     if (!preserveTop) restoreImageDeckPinnedAnchor(pinnedAnchor);
     node._imageDeckPinnedAnchor = preserveTop ? null : pinnedAnchor;
+    if (isDeckPressureHub(node)) {
+        const graph = window.app?.graph || node.graph || null;
+        node._deckPressureActiveUntil = (performance.now?.() || Date.now()) + 1200;
+        applyDeckPressureLayout(node, graph, SNAP);
+    }
     if (typeof node.syncUncleSlots === "function") node.syncUncleSlots();
     if (typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, true);
 }

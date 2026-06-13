@@ -95,6 +95,30 @@ function setDerpEditorDomValue(el, value) {
     else el.value = value;
 }
 
+function setDerpEditorCaretFromPoint(el, clientX, clientY) {
+    if (!el || clientX === null || clientY === null) return false;
+
+    let range = null;
+    if (document.caretRangeFromPoint) {
+        range = document.caretRangeFromPoint(clientX, clientY);
+    } else if (document.caretPositionFromPoint) {
+        const pos = document.caretPositionFromPoint(clientX, clientY);
+        if (pos) {
+            range = document.createRange();
+            range.setStart(pos.offsetNode, pos.offset);
+            range.collapse(true);
+        }
+    }
+
+    if (!range || !el.contains(range.commonAncestorContainer)) return false;
+
+    const sel = window.getSelection();
+    if (!sel) return false;
+    sel.removeAllRanges();
+    sel.addRange(range);
+    return true;
+}
+
 function ensureDerpEditorWrapper(el) {
     if (!el) return null;
     if (el._derpEditorWrapper?.isConnected) return el._derpEditorWrapper;
@@ -540,19 +564,16 @@ export function syncDerpEditor(context, node, app, config) {
                 el.style.opacity = "1";
                 el.style.pointerEvents = "auto";
 
-                // THE PERFECTION FIX: Hide the caret immediately to prevent the 1-frame flash at start of text
                 const entryMode = safeConfig.entryMode || (isMultiline ? "precise" : "selectAll");
-                if (entryMode === "precise") el.style.caretColor = "transparent";
 
                 // Force layout recalculation so the browser registers pointer-events: auto
                 void el.offsetHeight;
 
-                // THE MATH FIX: Reconstruct physical screen coordinates PRECISELY using Fatha's local coordinates.
+                // Reconstruct physical screen coordinates from Fatha's local pointer data.
                 const cx = (e && e.clientX !== undefined) ? e.clientX : (data && data.localX !== undefined ? canvasRect.left + (node.pos[0] + ds.offset[0] + data.localX) * ds.scale : null);
                 const cy = (e && e.clientY !== undefined) ? e.clientY : (data && data.localY !== undefined ? canvasRect.top + (node.pos[1] + ds.offset[1] + data.localY) * ds.scale : null);
 
-                // Synchronous focus works now because the element is always 'display: block'
-                el.focus();
+                el.focus({ preventScroll: true });
 
                 // Some node layouts update focus back to the canvas later in the same
                 // pointer cycle. Restore editor focus after that cycle so the first
@@ -563,31 +584,7 @@ export function syncDerpEditor(context, node, app, config) {
                 }, 0);
 
                 if (entryMode === "precise" && cx !== null && cy !== null) {
-                    // THE HIT-TEST FIX: 30ms timeout ensures the browser's hit-test tree registers the new
-                    // 'pointer-events: auto' state, allowing caretRangeFromPoint to successfully hit the text.
-                    setTimeout(() => {
-                        let range = null;
-                        if (document.caretRangeFromPoint) {
-                            range = document.caretRangeFromPoint(cx, cy);
-                        } else if (document.caretPositionFromPoint) {
-                            const pos = document.caretPositionFromPoint(cx, cy);
-                            if (pos) {
-                                range = document.createRange();
-                                range.setStart(pos.offsetNode, pos.offset);
-                                range.collapse(true);
-                            }
-                        }
-
-                        if (range) {
-                            const sel = window.getSelection();
-                            if (sel) {
-                                sel.removeAllRanges();
-                                sel.addRange(range);
-                            }
-                        }
-                        // Restore caret visibility now that it has been moved to the correct precise coordinate
-                        el.style.caretColor = "auto";
-                    }, 30);
+                    setDerpEditorCaretFromPoint(el, cx, cy);
                 }
 
                 node._derpAwakeFrames = 10;
@@ -791,7 +788,7 @@ export function syncDerpEditor(context, node, app, config) {
         const ctx = context;
         const screenRect = getDerpEditorCanvasScreenRect(ctx, rect, x, y, w, h);
         if (screenRect) el._derpEditorCanvasScreenRect = screenRect;
-        const drawCanvasShieldText = requestedCanvasShield && (!isAwake || (isAwake && isMultiline));
+        const drawCanvasShieldText = requestedCanvasShield && !isAwake;
         if (requestedCanvasShield && isAwake && !drawCanvasShieldText) {
             if (sysAlpha > 0) {
                 const themeKeys = String(safeConfig.themeKey || "").split(",").filter(k => k.trim().length > 0);
@@ -995,9 +992,8 @@ export function syncDerpEditor(context, node, app, config) {
     const htmlPadX = textPadX * htmlScale;
     const htmlPadRight = htmlPadX + (cutoffRightPad * htmlScale);
     const htmlLayoutMode = useSingleLineFlex ? "flex" : (useSingleLineFullLineBox ? "singleLineBox" : "block");
-    const canvasOwnsEditorText = isCanvas && requestedCanvasShield && isAwake && isMultiline && labelPaint;
-    const domTextColor = canvasOwnsEditorText ? "transparent" : animatedTextColor;
-    const syncKey = `${ds.scale}-${effectiveState}-${rawIc}-${rawBg}_${prefixGlyphText}_${prefixGlyphScale}_${prefixGlyphMargin}_${prefixGlyphSpacing}-${valToSync}-${finalPadY}-${htmlPadTop}-${htmlPadX}-${htmlPadRight}-${scaledFS}-${fontWeight}-${isMultiline}-${isAwake}-${safeConfig.btnColor}-${htmlLayoutMode}`;
+    const domTextColor = animatedTextColor;
+    const syncKey = `${ds.scale}-${effectiveState}-${rawIc}-${rawBg}_${prefixGlyphText}_${prefixGlyphScale}_${prefixGlyphMargin}_${prefixGlyphSpacing}-${valToSync}-${finalPadY}-${htmlPadTop}-${htmlPadX}-${htmlPadRight}-${scaledFS}-${font}-${fontWeight}-${isMultiline}-${isAwake}-${safeConfig.btnColor}-${htmlLayoutMode}`;
 
     if (el._lastSyncKey !== syncKey) {
         el._lastSyncKey = syncKey;
@@ -1017,10 +1013,12 @@ export function syncDerpEditor(context, node, app, config) {
 
         applyHTMLTheme(el, paintData, htmlScale);
 
-        // THE THEME SYNC FIX: Explicitly bind the resolved layout font metrics to the element
+        // Bind resolved layout font metrics so DOM text stays aligned with canvas text.
         el.style.fontFamily = font;
         el.style.fontSize = `${cssFontSize}px`;
         el.style.fontWeight = fontWeight;
+        el.style.fontOpticalSizing = "none";
+        el.style.fontVariationSettings = isMultiline ? `"opsz" ${fontSize}` : "normal";
 
         el.style.textAlign = textAnchor ? textAnchor.align : alignX;
         el.style.display = useSingleLineFlex ? "flex" : "block";
@@ -1039,11 +1037,15 @@ export function syncDerpEditor(context, node, app, config) {
         el.style.resize = "none";
 
         el.style.whiteSpace = isMultiline ? "pre-wrap" : "nowrap";
-        el.style.wordBreak = isMultiline ? "break-word" : "normal";
+        el.style.wordBreak = "normal";
+        el.style.overflowWrap = isMultiline ? "anywhere" : "normal";
+        el.style.lineBreak = isMultiline ? "strict" : "auto";
+        el.style.hyphens = "none";
 
-        // THE BLURRINESS FIX: Revert to standard text rendering to prevent sub-pixel smudging on small fonts
+        // Canvas text uses unkerned glyph advances; keep the visible editable DOM in the same metric family.
         el.style.fontKerning = "none";
         el.style.fontVariantLigatures = "none";
+        el.style.letterSpacing = "0px";
         el.style.textRendering = "auto";
         el.style.webkitFontSmoothing = "auto";
         el.style.mozOsxFontSmoothing = "auto";
@@ -1051,10 +1053,7 @@ export function syncDerpEditor(context, node, app, config) {
 
     // THE FAST-PATH FIX: Apply animated colors inline without expensive theme re-application
     if (el.style.color !== domTextColor) el.style.color = domTextColor;
-    if (canvasOwnsEditorText) {
-        el.style.textShadow = "none";
-        el.style.caretColor = animatedTextColor;
-    } else if (el.style.caretColor !== "auto") {
+    if (el.style.caretColor !== "auto") {
         el.style.caretColor = "auto";
     }
     const canvasOwnsEditorBackground = isCanvas && requestedCanvasShield && bodyPaint && !skipBg;

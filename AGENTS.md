@@ -164,6 +164,8 @@ To add a skill, create `.agents/skills/<name>/SKILL.md` with YAML frontmatter (`
 - Canvas-hosted editors should generally set `canvasShield: true`.
 - If first click selects text but typing fails until a second click, fix shared `derpEditor` activation/focus behavior instead of adding per-node hacks.
 - Canvas-shield asleep editor visuals belong on canvas; DOM should act as hit/focus/editing surface.
+- Active canvas-shield editors must keep DOM text visible; do not hide editable DOM text behind a canvas-rendered duplicate because caret, selection, IME, and CJK hit-testing depend on the real DOM text metrics.
+- For Inter or other variable fonts, editor DOM/canvas parity requires disabling automatic optical sizing and pinning `opsz` to the unscaled layout font size.
 - Do not solve zoom drift with per-zoom nudges.
 - Title editing uses the in-place header editor; do not add Basta wrappers for node title editing.
 
