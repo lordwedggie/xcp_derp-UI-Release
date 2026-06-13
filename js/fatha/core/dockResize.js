@@ -26,15 +26,16 @@ import {
     shouldPreserveDockHeight,
     shouldPreserveDockWidth,
 } from "./dockDimensions.js";
-import { dockDebug, snapshotDockNode } from "./dockDebugHelpers.js";
+import { dockDebug, isDockDebugEnabled, snapshotDockNode } from "./dockDebugHelpers.js";
 import { getVirtualNodeLayoutMap } from "../helpers/fathaLayoutMaps.js";
 import { setDerpNodeSizeCompat } from "./fathaNode2Compat.js";
 
-globalThis.DERP_DOCK_RESIZE_DEBUG = true;
-globalThis.DERP_DOCK_RESIZE_CONSOLE = false;
-globalThis.DERP_DOCK_RESIZE_LOGS = globalThis.DERP_DOCK_RESIZE_LOGS || [];
+globalThis.DERP_DOCK_RESIZE_DEBUG = globalThis.DERP_DOCK_RESIZE_DEBUG === true;
+globalThis.DERP_DOCK_RESIZE_CONSOLE = globalThis.DERP_DOCK_RESIZE_CONSOLE === true;
+if (globalThis.DERP_DOCK_RESIZE_DEBUG) globalThis.DERP_DOCK_RESIZE_LOGS = globalThis.DERP_DOCK_RESIZE_LOGS || [];
 
 function snapshotDockMembers(node, graph) {
+    if (!isDockDebugEnabled()) return [];
     return graph && node ? getDeckMembers(node, graph).map(snapshotDockNode) : [];
 }
 
@@ -247,7 +248,7 @@ export function settleDerpSizeBeforeDrawImpl(entity, options = {}, deps = {}) {
         ? currentH
         : (forceAutoHeight || autoHeight || isMinState) ? engineFloorH : Math.max(entity.properties.nodeSize?.[1] || 0, engineFloorH);
 
-    dockDebug("settle-before-draw", {
+    dockDebug("settle-before-draw", () => ({
         node: snapshotDockNode(entity),
         options,
         measured: {
@@ -259,7 +260,7 @@ export function settleDerpSizeBeforeDrawImpl(entity, options = {}, deps = {}) {
             preserveCurrentHeight,
         },
         target: { width: targetW, height: targetH },
-    });
+    }));
 
     animateDerpSize(entity, targetW, targetH, false, {
         suppressRequestSync: options?.suppressRequestSync === true,
@@ -284,7 +285,7 @@ export function animateDerpSizeImpl(node, targetW, targetH, useAnim, options = {
             ? (allowCollapseShift ? getPinnedVerticalDeckAnchor(node, graph) : getPinnedVerticalDeckPositionAnchor(node, graph))
             : null;
         const shouldAnchorAfterReflow = !!deckAnchor && !allowCollapseShift;
-        dockDebug("animate-size-before", {
+        dockDebug("animate-size-before", () => ({
             node: snapshotDockNode(node),
             target: { width: targetW, height: targetH },
             deltaH,
@@ -293,7 +294,7 @@ export function animateDerpSizeImpl(node, targetW, targetH, useAnim, options = {
             allowCollapseShift,
             hasDeckAnchor: !!deckAnchor,
             shouldAnchorAfterReflow,
-        });
+        }));
         setDerpNodeSizeCompat(node, targetW, targetH);
         if (node.properties) node.properties.nodeSize = [targetW, targetH];
         const shiftDirection = allowCollapseShift ? resolveCollapseShiftDirection(node, graph) : 0;
@@ -311,11 +312,11 @@ export function animateDerpSizeImpl(node, targetW, targetH, useAnim, options = {
 
         if (graph && shouldReflow) {
             const moved = getDockResizeEngine()?.reflowChildren?.(node) || [];
-            dockDebug("animate-size-reflow", {
+            dockDebug("animate-size-reflow", () => ({
                 node: snapshotDockNode(node),
                 moved: moved.map(snapshotDockNode),
                 shouldAnchorAfterReflow,
-            });
+            }));
             if (shouldAnchorAfterReflow) {
                 restorePinnedVerticalDeckPositionAnchor(deckAnchor);
             }
@@ -324,10 +325,10 @@ export function animateDerpSizeImpl(node, targetW, targetH, useAnim, options = {
                 if (typeof child.setDirtyCanvas === "function") child.setDirtyCanvas(true, true);
             });
         }
-        dockDebug("animate-size-after", {
+        dockDebug("animate-size-after", () => ({
             node: snapshotDockNode(node),
             graphMembers: graph ? getDeckMembers(node, graph).map(snapshotDockNode) : [],
-        });
+        }));
         if (options?.suppressRequestSync !== true) {
             if (node.requestDerpSync) node.requestDerpSync();
             else if (typeof requestSyncFallback === "function") requestSyncFallback(node);
@@ -855,14 +856,14 @@ function applyHorizontalStackWidthResize(entity, resizeAnchor, requestedEntityWi
     result.handledWidth = true;
     result.handledAll = true;
     result.appliedWidth = nextWidths.get(entity.id) || getDockNodeWidth(entity);
-    dockDebug("resize-horizontal-stack-width", {
+    dockDebug("resize-horizontal-stack-width", () => ({
         entity: snapshotDockNode(entity),
         resizeAnchor,
         requested: { requestedEntityWidth, requestedDelta, requestedTotalWidth },
         fixedWidth,
         targetManualTotal,
         members: members.map(snapshotDockNode),
-    });
+    }));
     return true;
 }
 
@@ -890,12 +891,12 @@ export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH,
     const verticalResizeMembers = getLinearResizeMembers(entity, graph, "vertical");
     if (verticalResizeMembers.length > 1) {
         result.pinnedAnchor = getPinnedVerticalDeckPositionAnchor(entity, graph);
-        dockDebug("resize-vertical-before", {
+        dockDebug("resize-vertical-before", () => ({
             entity: snapshotDockNode(entity),
             resizeAnchor,
             requested: { newW, newH, minW, minH, snap },
             members: verticalResizeMembers.map(snapshotDockNode),
-        });
+        }));
         const dockSize = resolveDockResizeDimensions("vertical", verticalResizeMembers, { width: newW }, { minWidth: minW, height: getDockNodeHeight(entity) }, snap);
         const snappedWidth = dockSize.width;
         verticalResizeMembers.forEach((node) => {
@@ -906,11 +907,11 @@ export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH,
         });
         result.handledWidth = true;
         result.appliedWidth = snappedWidth;
-        dockDebug("resize-vertical-after", {
+        dockDebug("resize-vertical-after", () => ({
             entity: snapshotDockNode(entity),
             appliedWidth: snappedWidth,
             members: verticalResizeMembers.map(snapshotDockNode),
-        });
+        }));
     }
 
     const isLeftHandle = resizeAnchor === "left" || resizeAnchor === "top-left" || resizeAnchor === "bottom-left";
@@ -921,12 +922,12 @@ export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH,
 
     const horizontalResizeMembers = getLinearResizeMembers(entity, graph, "horizontal");
     if (horizontalResizeMembers.length > 1 && requestsHeightResize) {
-        dockDebug("resize-horizontal-before", {
+        dockDebug("resize-horizontal-before", () => ({
             entity: snapshotDockNode(entity),
             resizeAnchor,
             requested: { newW, newH, minW, minH, snap },
             members: horizontalResizeMembers.map(snapshotDockNode),
-        });
+        }));
         const dockSize = resolveDockResizeDimensions("horizontal", horizontalResizeMembers, { height: newH }, { minHeight: minH, width: getDockNodeWidth(entity) }, snap);
         const snappedHeight = dockSize.height;
         horizontalResizeMembers.forEach((node) => {
@@ -937,11 +938,11 @@ export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH,
         });
         result.handledHeight = true;
         result.appliedHeight = snappedHeight;
-        dockDebug("resize-horizontal-after", {
+        dockDebug("resize-horizontal-after", () => ({
             entity: snapshotDockNode(entity),
             appliedHeight: snappedHeight,
             members: horizontalResizeMembers.map(snapshotDockNode),
-        });
+        }));
     }
 
     if ((isLeftHandle || isRightHandle) && applyHorizontalStackWidthResize(entity, resizeAnchor, newW, minW, snap, result, addCounterpart, graph)) {
@@ -1142,7 +1143,7 @@ export function applyDockResizeResult(entity, dockResizeResult) {
     }
 
     if (dockResizeResult.handledWidth || dockResizeResult.handledHeight) {
-        dockDebug("apply-resize-result", {
+        dockDebug("apply-resize-result", () => ({
             entity: snapshotDockNode(entity),
             result: {
                 handledWidth: dockResizeResult.handledWidth,
@@ -1153,7 +1154,7 @@ export function applyDockResizeResult(entity, dockResizeResult) {
             },
             counterparts: dockResizeResult.counterparts.map(snapshotDockNode),
             members: snapshotDockMembers(entity, app.graph || entity.graph || null),
-        });
+        }));
         entity._dockResizeSession = null;
     }
 

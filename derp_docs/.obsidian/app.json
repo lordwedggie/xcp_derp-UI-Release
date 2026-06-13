@@ -1,5 +1,6 @@
 {
-  "attachmentFolderPath": "_assets",
+  "attachmentFolderPath": "_inbox",
   "showInlineTitle": false,
-  "useMarkdownLinks": true
+  "useMarkdownLinks": true,
+  "newFileLocation": "folder"
 }

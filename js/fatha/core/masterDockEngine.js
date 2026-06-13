@@ -3,7 +3,7 @@
  * PATH: ./js/fatha/core/masterDockEngine.js
  */
 
-import { dockDebug, snapshotDockNode } from "./dockDebugHelpers.js";
+import { dockDebug, isDockDebugEnabled, snapshotDockNode } from "./dockDebugHelpers.js";
 import { resolveDockTarget } from "./dockTargetPicking.js";
 import { syncDerpShield } from "./fathaDOMshield.js";
 import { handleNodeResize } from "./fathaNodeResize.js";
@@ -23,6 +23,7 @@ function dockDebugLog(label, payload = {}) {
 }
 
 function snapshotDockMembers(node, graph) {
+    if (!isDockDebugEnabled()) return [];
     return graph && node ? getDeckMembers(node, graph).map(snapshotDockNode) : [];
 }
 
@@ -211,7 +212,7 @@ function getOppositeDeckSide(side) {
 
 function getDeckNodeById(graph, nodeId) {
     if (nodeId === null || nodeId === undefined) return null;
-    return getDeckNodes(graph).find((candidate) => candidate.id === nodeId) || null;
+    return getDeckGraphIndex(graph)?.byId.get(nodeId) || null;
 }
 
 export function getDeckAttachLeaderForSide(leader, side, graph) {
@@ -298,14 +299,30 @@ function collectDeckLineOrdered(node, graph, negativeSide, positiveSide) {
 export function getDeckPressureHubForNode(node, graph) {
     if (!node || !graph) return null;
     if (isDeckPressureHub(node)) return node;
-    const parent = getDeckNodeById(graph, node.properties?.deckParentId);
+    const index = getDeckGraphIndex(graph);
+    const parent = index?.byId.get(node.properties?.deckParentId) || null;
     if (isDeckPressureHub(parent)) return parent;
-    for (const candidate of getDeckNodes(graph)) {
-        if (!isDeckPressureHub(candidate)) continue;
-        if (["left", "right", "top", "bottom"].some((side) => getDeckPressureBranchMembers(candidate, graph, side).some((member) => member.id === node.id))) {
-            return candidate;
-        }
+
+    const visited = new Set();
+    const queue = [node];
+    while (queue.length > 0) {
+        const current = queue.shift();
+        if (!current || visited.has(current.id)) continue;
+        visited.add(current.id);
+
+        const currentParent = index?.byId.get(current.properties?.deckParentId) || null;
+        if (isDeckPressureHub(currentParent)) return currentParent;
+
+        const edges = current.properties?.deckEdges || {};
+        ["left", "right", "top", "bottom"].forEach((side) => {
+            const neighbor = index?.byId.get(edges[side]) || null;
+            if (neighbor && !visited.has(neighbor.id)) queue.push(neighbor);
+        });
+        (index?.reverseEdges.get(current.id) || []).forEach(({ node: neighbor }) => {
+            if (neighbor && !visited.has(neighbor.id)) queue.push(neighbor);
+        });
     }
+
     return null;
 }
 
@@ -1048,12 +1065,12 @@ export function syncDeckNodeSize(node, width, height, options = {}) {
     const prevH = getNodeSizeValue(node, 1);
     const changed = prevW !== nextW || prevH !== nextH;
 
-    dockDebug("sync-node-size", {
+    dockDebug("sync-node-size", () => ({
         before: snapshotDockNode(node),
         requested: { width: nextW, height: nextH },
         previous: { width: prevW, height: prevH },
         changed,
-    });
+    }));
     setDerpNodeSizeCompat(node, nextW, nextH);
     if (!node.properties) node.properties = {};
     node.properties.nodeSize = [nextW, nextH];

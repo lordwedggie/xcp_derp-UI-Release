@@ -4,10 +4,15 @@
  * Used by dockResize, fathaHandler, fathaNodeResize, masterDockEngine.
  */
 
+export function isDockDebugEnabled() {
+    return globalThis?.DERP_DOCK_RESIZE_DEBUG === true;
+}
+
 export function dockDebug(label, payload = {}) {
-    if (!globalThis?.DERP_DOCK_RESIZE_DEBUG) return;
+    if (!isDockDebugEnabled()) return;
+    const resolvedPayload = typeof payload === "function" ? payload() : payload;
     globalThis.DERP_DOCK_RESIZE_LOGS = globalThis.DERP_DOCK_RESIZE_LOGS || [];
-    const entry = { label, payload, time: Date.now() };
+    const entry = { label, payload: resolvedPayload, time: Date.now() };
     globalThis.DERP_DOCK_RESIZE_LOGS.push(entry);
     if (globalThis.DERP_DOCK_RESIZE_LOGS.length > 500) globalThis.DERP_DOCK_RESIZE_LOGS.shift();
 }

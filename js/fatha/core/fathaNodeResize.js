@@ -63,7 +63,7 @@ export function handleNodeResize(entity, data, scale) {
         if (isCorner && (!isVerticalIntent || (!isTopBoundaryResize && !isBottomBoundaryResize))) resizeAxes.allowHeight = false;
     }
 
-    dockDebug("handle-node-resize-start", {
+    dockDebug("handle-node-resize-start", () => ({
         entity: snapshotDockNode(entity),
         data,
         scale,
@@ -72,7 +72,7 @@ export function handleNodeResize(entity, data, scale) {
         vars: { SNAP, autoWidth, autoHeight },
         startPos: entity._startPos,
         startSize: entity._startSize,
-    });
+    }));
     if (!resizeAxes.allowWidth && !resizeAxes.allowHeight) return;
 
     const isPressureHubResize = isDeckPressureHub(entity);
@@ -121,7 +121,7 @@ export function handleNodeResize(entity, data, scale) {
     } finally {
         delete entity._dockResizeAllowHeight;
     }
-    dockDebug("handle-node-resize-after-dock-pair", {
+    dockDebug("handle-node-resize-after-dock-pair", () => ({
         entity: snapshotDockNode(entity),
         resizeAnchor,
         computed: { rawW, newW, rawH, newH, minW, minH },
@@ -133,7 +133,7 @@ export function handleNodeResize(entity, data, scale) {
             appliedHeight: dockResizeResult.appliedHeight,
             counterparts: dockResizeResult.counterparts.map(snapshotDockNode),
         },
-    });
+    }));
     if (dockResizeResult.handledAll) {
         applyDockResizeResult(entity, dockResizeResult);
         return;
@@ -164,13 +164,13 @@ export function handleNodeResize(entity, data, scale) {
     }
     if (entity.properties) entity.properties.nodeSize = [appliedW, appliedH];
 
-    dockDebug("handle-node-resize-after-apply-size", {
+    dockDebug("handle-node-resize-after-apply-size", () => ({
         entity: snapshotDockNode(entity),
         applied: { width: appliedW, height: appliedH },
         allowWidthResize,
         allowHeightResize,
         anchorMode,
-    });
+    }));
 
     const dockApplyResult = applyDockResizeResult(entity, dockResizeResult);
     if (dockApplyResult.handledAll) return;
