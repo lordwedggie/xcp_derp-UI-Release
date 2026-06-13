@@ -22,6 +22,8 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **IMAGE_HTML placeholder font size**: Default `PLACEHOLDER_FONT_SIZE` increased from 6px to 8px. `derpImageDeck` now passes `placeholderFontSize: 12` for its "No Image" display, overriding the default. Callers can set `placeholderFontSize` in widget config to customize per-instance.
+
 - **JS source tree reorganization**: js/controldeck renamed to js/derps and split into category subfolders:
   - loaders/ � 6 loader nodes (Clip, Diffusion, Model, Sampler, Scheduler, VAE) with their _core files
   - controldeck/ � 9 ControlDeck nodes (ImageDeck, Latent, LoraStack, PromptBook, SeedV2, Slider, Swatch, Toggle, TriggerWall) with core/ and helpers/
