@@ -21,9 +21,9 @@ All notable changes to this project will be documented in this file.
 - **TOGGLE_V2 optional `#` theme keys**: Theme authors can now override individual toggle elements via `#toggle_body` (outer background), `#toggle_slot` (track), `#toggle_knob` (sliding knob, renamed from `dot` for consistency with derpSlider), and `#t_toggle_text` (label). Each key resolves independently with `_ON`/`_OFF`/`_DIS` state suffixes and falls back to the existing 3-key theme system. Internal variable `dotPaint` renamed to `knobPaint`.
 - **IMAGE_HTML placeholder font size**: Default `PLACEHOLDER_FONT_SIZE` increased from 6px to 8px. `derpImageDeck` now passes `placeholderFontSize: 12` for its "No Image" display, overriding the default. Callers can set `placeholderFontSize` in widget config to customize per-instance.
 - **JS source tree reorganization**: js/controldeck renamed to js/derps and split into category subfolders:
-  - loaders/ � 6 loader nodes (Clip, Diffusion, Model, Sampler, Scheduler, VAE) with their _core files
-  - controldeck/ � 9 ControlDeck nodes (ImageDeck, Latent, LoraStack, PromptBook, SeedV2, Slider, Swatch, Toggle, TriggerWall) with core/ and helpers/
-  - utils/ � 2 utility nodes (derpConcatenate, derpSkunk)
+  - loaders/ → 6 loader nodes (Clip, Diffusion, Model, Sampler, Scheduler, VAE) with their _core files
+  - controldeck/ → 9 ControlDeck nodes (ImageDeck, Latent, LoraStack, PromptBook, SeedV2, Slider, Swatch, Toggle, TriggerWall) with core/ and helpers/
+  - utils/ → 2 utility nodes (derpConcatenate, derpSkunk)
   - All relative import paths (scripts/app.js, fatha/, herbina/) updated across 30+ files. External references in bbastaLoraDetail.js and bbastaLoraDetail_core.js corrected.
   - derpSkunk Python category casing fixed (utilities → Utilities) to match derpConcatenate.
 - **Tooltip palette migration to _defaultTheme**: Legacy `_system/_toolTip.json` palette retired. Tooltip text and background paint now resolves through the host node's category-aware string palette context (`_system/_defaultTheme.json` or category-specific variants `_DK_`/`_LT_`/`_NE_`), eliminating the separate tooltip palette file. `isRetiredPaletteName()` detects legacy `_toolTip` references and redirects them to `Derp_Default_v01`. New `getTooltipPaletteContext()` in `basta.js` derives tooltip palette from the host node's `_derpStringPalette`. `findInlinePaletteEntry()` added to `widgetsUtils.js` for inline palette entry resolution before fallback file lookups. FRAMEWORK-Basta.md and FRAMEWORK-ThemePalette.md updated.
@@ -51,9 +51,9 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 - **JS source tree reorganization**: js/controldeck renamed to js/derps and split into category subfolders:
-  - loaders/ � 6 loader nodes (Clip, Diffusion, Model, Sampler, Scheduler, VAE) with their _core files
-  - controldeck/ � 9 ControlDeck nodes (ImageDeck, Latent, LoraStack, PromptBook, SeedV2, Slider, Swatch, Toggle, TriggerWall) with core/ and helpers/
-  - utils/ � 2 utility nodes (derpConcatenate, derpSkunk)
+  - loaders/ → 6 loader nodes (Clip, Diffusion, Model, Sampler, Scheduler, VAE) with their _core files
+  - controldeck/ → 9 ControlDeck nodes (ImageDeck, Latent, LoraStack, PromptBook, SeedV2, Slider, Swatch, Toggle, TriggerWall) with core/ and helpers/
+  - utils/ → 2 utility nodes (derpConcatenate, derpSkunk)
   - All relative import paths (scripts/app.js, fatha/, herbina/) updated across 30+ files. External references in bbastaLoraDetail.js and bbastaLoraDetail_core.js corrected.
   - derpSkunk Python category casing fixed (utilities → Utilities) to match derpConcatenate.
 - **derpImageDeck system panel**: Option row margins tightened, `lblInfo` hidden.
@@ -70,9 +70,9 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 - **JS source tree reorganization**: js/controldeck renamed to js/derps and split into category subfolders:
-  - loaders/ � 6 loader nodes (Clip, Diffusion, Model, Sampler, Scheduler, VAE) with their _core files
-  - controldeck/ � 9 ControlDeck nodes (ImageDeck, Latent, LoraStack, PromptBook, SeedV2, Slider, Swatch, Toggle, TriggerWall) with core/ and helpers/
-  - utils/ � 2 utility nodes (derpConcatenate, derpSkunk)
+  - loaders/ → 6 loader nodes (Clip, Diffusion, Model, Sampler, Scheduler, VAE) with their _core files
+  - controldeck/ → 9 ControlDeck nodes (ImageDeck, Latent, LoraStack, PromptBook, SeedV2, Slider, Swatch, Toggle, TriggerWall) with core/ and helpers/
+  - utils/ → 2 utility nodes (derpConcatenate, derpSkunk)
   - All relative import paths (scripts/app.js, fatha/, herbina/) updated across 30+ files. External references in bbastaLoraDetail.js and bbastaLoraDetail_core.js corrected.
   - derpSkunk Python category casing fixed (utilities → Utilities) to match derpConcatenate.
 
@@ -115,9 +115,9 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 - **JS source tree reorganization**: js/controldeck renamed to js/derps and split into category subfolders:
-  - loaders/ � 6 loader nodes (Clip, Diffusion, Model, Sampler, Scheduler, VAE) with their _core files
-  - controldeck/ � 9 ControlDeck nodes (ImageDeck, Latent, LoraStack, PromptBook, SeedV2, Slider, Swatch, Toggle, TriggerWall) with core/ and helpers/
-  - utils/ � 2 utility nodes (derpConcatenate, derpSkunk)
+  - loaders/ → 6 loader nodes (Clip, Diffusion, Model, Sampler, Scheduler, VAE) with their _core files
+  - controldeck/ → 9 ControlDeck nodes (ImageDeck, Latent, LoraStack, PromptBook, SeedV2, Slider, Swatch, Toggle, TriggerWall) with core/ and helpers/
+  - utils/ → 2 utility nodes (derpConcatenate, derpSkunk)
   - All relative import paths (scripts/app.js, fatha/, herbina/) updated across 30+ files. External references in bbastaLoraDetail.js and bbastaLoraDetail_core.js corrected.
   - derpSkunk Python category casing fixed (utilities → Utilities) to match derpConcatenate.
 - **derpImageDeck system panel**: Option row margins tightened, `lblInfo` hidden.
@@ -129,18 +129,18 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 - **JS source tree reorganization**: js/controldeck renamed to js/derps and split into category subfolders:
-  - loaders/ � 6 loader nodes (Clip, Diffusion, Model, Sampler, Scheduler, VAE) with their _core files
-  - controldeck/ � 9 ControlDeck nodes (ImageDeck, Latent, LoraStack, PromptBook, SeedV2, Slider, Swatch, Toggle, TriggerWall) with core/ and helpers/
-  - utils/ � 2 utility nodes (derpConcatenate, derpSkunk)
+  - loaders/ → 6 loader nodes (Clip, Diffusion, Model, Sampler, Scheduler, VAE) with their _core files
+  - controldeck/ → 9 ControlDeck nodes (ImageDeck, Latent, LoraStack, PromptBook, SeedV2, Slider, Swatch, Toggle, TriggerWall) with core/ and helpers/
+  - utils/ → 2 utility nodes (derpConcatenate, derpSkunk)
   - All relative import paths (scripts/app.js, fatha/, herbina/) updated across 30+ files. External references in bbastaLoraDetail.js and bbastaLoraDetail_core.js corrected.
   - derpSkunk Python category casing fixed (utilities → Utilities) to match derpConcatenate.
 - **bastaPalette FILEBROWSER now sorts entries by name instead of ID**: Palette entries in the key dropdown are now alphabetically sorted by name, falling back to ID for ties.
 
 ### Changed
 - **JS source tree reorganization**: js/controldeck renamed to js/derps and split into category subfolders:
-  - loaders/ � 6 loader nodes (Clip, Diffusion, Model, Sampler, Scheduler, VAE) with their _core files
-  - controldeck/ � 9 ControlDeck nodes (ImageDeck, Latent, LoraStack, PromptBook, SeedV2, Slider, Swatch, Toggle, TriggerWall) with core/ and helpers/
-  - utils/ � 2 utility nodes (derpConcatenate, derpSkunk)
+  - loaders/ → 6 loader nodes (Clip, Diffusion, Model, Sampler, Scheduler, VAE) with their _core files
+  - controldeck/ → 9 ControlDeck nodes (ImageDeck, Latent, LoraStack, PromptBook, SeedV2, Slider, Swatch, Toggle, TriggerWall) with core/ and helpers/
+  - utils/ → 2 utility nodes (derpConcatenate, derpSkunk)
   - All relative import paths (scripts/app.js, fatha/, herbina/) updated across 30+ files. External references in bbastaLoraDetail.js and bbastaLoraDetail_core.js corrected.
   - derpSkunk Python category casing fixed (utilities → Utilities) to match derpConcatenate.
 
@@ -162,9 +162,9 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 - **JS source tree reorganization**: js/controldeck renamed to js/derps and split into category subfolders:
-  - loaders/ � 6 loader nodes (Clip, Diffusion, Model, Sampler, Scheduler, VAE) with their _core files
-  - controldeck/ � 9 ControlDeck nodes (ImageDeck, Latent, LoraStack, PromptBook, SeedV2, Slider, Swatch, Toggle, TriggerWall) with core/ and helpers/
-  - utils/ � 2 utility nodes (derpConcatenate, derpSkunk)
+  - loaders/ → 6 loader nodes (Clip, Diffusion, Model, Sampler, Scheduler, VAE) with their _core files
+  - controldeck/ → 9 ControlDeck nodes (ImageDeck, Latent, LoraStack, PromptBook, SeedV2, Slider, Swatch, Toggle, TriggerWall) with core/ and helpers/
+  - utils/ → 2 utility nodes (derpConcatenate, derpSkunk)
   - All relative import paths (scripts/app.js, fatha/, herbina/) updated across 30+ files. External references in bbastaLoraDetail.js and bbastaLoraDetail_core.js corrected.
   - derpSkunk Python category casing fixed (utilities → Utilities) to match derpConcatenate.
 - **derpImageDeck system panel**: Option row margins tightened, `lblInfo` hidden.
@@ -181,9 +181,9 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 - **JS source tree reorganization**: js/controldeck renamed to js/derps and split into category subfolders:
-  - loaders/ � 6 loader nodes (Clip, Diffusion, Model, Sampler, Scheduler, VAE) with their _core files
-  - controldeck/ � 9 ControlDeck nodes (ImageDeck, Latent, LoraStack, PromptBook, SeedV2, Slider, Swatch, Toggle, TriggerWall) with core/ and helpers/
-  - utils/ � 2 utility nodes (derpConcatenate, derpSkunk)
+  - loaders/ → 6 loader nodes (Clip, Diffusion, Model, Sampler, Scheduler, VAE) with their _core files
+  - controldeck/ → 9 ControlDeck nodes (ImageDeck, Latent, LoraStack, PromptBook, SeedV2, Slider, Swatch, Toggle, TriggerWall) with core/ and helpers/
+  - utils/ → 2 utility nodes (derpConcatenate, derpSkunk)
   - All relative import paths (scripts/app.js, fatha/, herbina/) updated across 30+ files. External references in bbastaLoraDetail.js and bbastaLoraDetail_core.js corrected.
   - derpSkunk Python category casing fixed (utilities → Utilities) to match derpConcatenate.
 - `masterPainterText` upgraded with optional `segments` parameter for per-segment colored Canvas rendering.
@@ -192,9 +192,9 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 - **JS source tree reorganization**: js/controldeck renamed to js/derps and split into category subfolders:
-  - loaders/ � 6 loader nodes (Clip, Diffusion, Model, Sampler, Scheduler, VAE) with their _core files
-  - controldeck/ � 9 ControlDeck nodes (ImageDeck, Latent, LoraStack, PromptBook, SeedV2, Slider, Swatch, Toggle, TriggerWall) with core/ and helpers/
-  - utils/ � 2 utility nodes (derpConcatenate, derpSkunk)
+  - loaders/ → 6 loader nodes (Clip, Diffusion, Model, Sampler, Scheduler, VAE) with their _core files
+  - controldeck/ → 9 ControlDeck nodes (ImageDeck, Latent, LoraStack, PromptBook, SeedV2, Slider, Swatch, Toggle, TriggerWall) with core/ and helpers/
+  - utils/ → 2 utility nodes (derpConcatenate, derpSkunk)
   - All relative import paths (scripts/app.js, fatha/, herbina/) updated across 30+ files. External references in bbastaLoraDetail.js and bbastaLoraDetail_core.js corrected.
   - derpSkunk Python category casing fixed (utilities → Utilities) to match derpConcatenate.
 
@@ -208,9 +208,9 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 - **JS source tree reorganization**: js/controldeck renamed to js/derps and split into category subfolders:
-  - loaders/ � 6 loader nodes (Clip, Diffusion, Model, Sampler, Scheduler, VAE) with their _core files
-  - controldeck/ � 9 ControlDeck nodes (ImageDeck, Latent, LoraStack, PromptBook, SeedV2, Slider, Swatch, Toggle, TriggerWall) with core/ and helpers/
-  - utils/ � 2 utility nodes (derpConcatenate, derpSkunk)
+  - loaders/ → 6 loader nodes (Clip, Diffusion, Model, Sampler, Scheduler, VAE) with their _core files
+  - controldeck/ → 9 ControlDeck nodes (ImageDeck, Latent, LoraStack, PromptBook, SeedV2, Slider, Swatch, Toggle, TriggerWall) with core/ and helpers/
+  - utils/ → 2 utility nodes (derpConcatenate, derpSkunk)
   - All relative import paths (scripts/app.js, fatha/, herbina/) updated across 30+ files. External references in bbastaLoraDetail.js and bbastaLoraDetail_core.js corrected.
   - derpSkunk Python category casing fixed (utilities → Utilities) to match derpConcatenate.
 
@@ -228,9 +228,9 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 - **JS source tree reorganization**: js/controldeck renamed to js/derps and split into category subfolders:
-  - loaders/ � 6 loader nodes (Clip, Diffusion, Model, Sampler, Scheduler, VAE) with their _core files
-  - controldeck/ � 9 ControlDeck nodes (ImageDeck, Latent, LoraStack, PromptBook, SeedV2, Slider, Swatch, Toggle, TriggerWall) with core/ and helpers/
-  - utils/ � 2 utility nodes (derpConcatenate, derpSkunk)
+  - loaders/ → 6 loader nodes (Clip, Diffusion, Model, Sampler, Scheduler, VAE) with their _core files
+  - controldeck/ → 9 ControlDeck nodes (ImageDeck, Latent, LoraStack, PromptBook, SeedV2, Slider, Swatch, Toggle, TriggerWall) with core/ and helpers/
+  - utils/ → 2 utility nodes (derpConcatenate, derpSkunk)
   - All relative import paths (scripts/app.js, fatha/, herbina/) updated across 30+ files. External references in bbastaLoraDetail.js and bbastaLoraDetail_core.js corrected.
   - derpSkunk Python category casing fixed (utilities → Utilities) to match derpConcatenate.
 - **derpImageDeck system panel**: Option row margins tightened, `lblInfo` hidden.
@@ -240,9 +240,9 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 - **JS source tree reorganization**: js/controldeck renamed to js/derps and split into category subfolders:
-  - loaders/ � 6 loader nodes (Clip, Diffusion, Model, Sampler, Scheduler, VAE) with their _core files
-  - controldeck/ � 9 ControlDeck nodes (ImageDeck, Latent, LoraStack, PromptBook, SeedV2, Slider, Swatch, Toggle, TriggerWall) with core/ and helpers/
-  - utils/ � 2 utility nodes (derpConcatenate, derpSkunk)
+  - loaders/ → 6 loader nodes (Clip, Diffusion, Model, Sampler, Scheduler, VAE) with their _core files
+  - controldeck/ → 9 ControlDeck nodes (ImageDeck, Latent, LoraStack, PromptBook, SeedV2, Slider, Swatch, Toggle, TriggerWall) with core/ and helpers/
+  - utils/ → 2 utility nodes (derpConcatenate, derpSkunk)
   - All relative import paths (scripts/app.js, fatha/, herbina/) updated across 30+ files. External references in bbastaLoraDetail.js and bbastaLoraDetail_core.js corrected.
   - derpSkunk Python category casing fixed (utilities → Utilities) to match derpConcatenate.
 - Removed unused prompt books and their assets; added new bundled themes (Derp Dark HD, Galactica Dark, Menace, Mono Neutral, NeonBlue Dark).
@@ -250,9 +250,9 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 - **JS source tree reorganization**: js/controldeck renamed to js/derps and split into category subfolders:
-  - loaders/ � 6 loader nodes (Clip, Diffusion, Model, Sampler, Scheduler, VAE) with their _core files
-  - controldeck/ � 9 ControlDeck nodes (ImageDeck, Latent, LoraStack, PromptBook, SeedV2, Slider, Swatch, Toggle, TriggerWall) with core/ and helpers/
-  - utils/ � 2 utility nodes (derpConcatenate, derpSkunk)
+  - loaders/ → 6 loader nodes (Clip, Diffusion, Model, Sampler, Scheduler, VAE) with their _core files
+  - controldeck/ → 9 ControlDeck nodes (ImageDeck, Latent, LoraStack, PromptBook, SeedV2, Slider, Swatch, Toggle, TriggerWall) with core/ and helpers/
+  - utils/ → 2 utility nodes (derpConcatenate, derpSkunk)
   - All relative import paths (scripts/app.js, fatha/, herbina/) updated across 30+ files. External references in bbastaLoraDetail.js and bbastaLoraDetail_core.js corrected.
   - derpSkunk Python category casing fixed (utilities → Utilities) to match derpConcatenate.
 
