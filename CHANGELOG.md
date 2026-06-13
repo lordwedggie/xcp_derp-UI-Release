@@ -24,7 +24,7 @@ All notable changes to this project will be documented in this file.
   - loaders/ � 6 loader nodes (Clip, Diffusion, Model, Sampler, Scheduler, VAE) with their _core files
   - controldeck/ � 9 ControlDeck nodes (ImageDeck, Latent, LoraStack, PromptBook, SeedV2, Slider, Swatch, Toggle, TriggerWall) with core/ and helpers/
   - utils/ � 2 utility nodes (derpConcatenate, derpSkunk)
-  - All relative import paths (scripts/app.js, atha/, herbina/) updated across 30+ files. External references in bastaLoraDetail.js and bastaLoraDetail_core.js corrected.
+  - All relative import paths (scripts/app.js, fatha/, herbina/) updated across 30+ files. External references in bbastaLoraDetail.js and bbastaLoraDetail_core.js corrected.
   - derpSkunk Python category casing fixed (utilities → Utilities) to match derpConcatenate.
 - **Tooltip palette migration to _defaultTheme**: Legacy `_system/_toolTip.json` palette retired. Tooltip text and background paint now resolves through the host node's category-aware string palette context (`_system/_defaultTheme.json` or category-specific variants `_DK_`/`_LT_`/`_NE_`), eliminating the separate tooltip palette file. `isRetiredPaletteName()` detects legacy `_toolTip` references and redirects them to `Derp_Default_v01`. New `getTooltipPaletteContext()` in `basta.js` derives tooltip palette from the host node's `_derpStringPalette`. `findInlinePaletteEntry()` added to `widgetsUtils.js` for inline palette entry resolution before fallback file lookups. FRAMEWORK-Basta.md and FRAMEWORK-ThemePalette.md updated.
 - **btnIcon glyph refresh**: Removed unused `anchor` and `warpto` entries from ICON_MAP. Restored `fallback: "⏹"` (BLACK SQUARE FOR STOP) for icon fallback resolution (used by derpSeedV2 stop button).
@@ -54,7 +54,7 @@ All notable changes to this project will be documented in this file.
   - loaders/ � 6 loader nodes (Clip, Diffusion, Model, Sampler, Scheduler, VAE) with their _core files
   - controldeck/ � 9 ControlDeck nodes (ImageDeck, Latent, LoraStack, PromptBook, SeedV2, Slider, Swatch, Toggle, TriggerWall) with core/ and helpers/
   - utils/ � 2 utility nodes (derpConcatenate, derpSkunk)
-  - All relative import paths (scripts/app.js, atha/, herbina/) updated across 30+ files. External references in bastaLoraDetail.js and bastaLoraDetail_core.js corrected.
+  - All relative import paths (scripts/app.js, fatha/, herbina/) updated across 30+ files. External references in bbastaLoraDetail.js and bbastaLoraDetail_core.js corrected.
   - derpSkunk Python category casing fixed (utilities → Utilities) to match derpConcatenate.
 - **derpImageDeck system panel**: Option row margins tightened, `lblInfo` hidden.
 - **Framework color-key string palette support**: Fatha/Uncle nodes now attach a per-node string palette context for color-key text, defaulting to `_system/_defaultTheme.json`; `derpSignalOut` face labels now use `t_text_warning` (signal names), `t_text_accent` (node IDs), `t_text_highlight` (signal types), and `t_text_error` (orphaned signals) segments. Orphaned signal rows and the signal picker both use color-key labels. LoRA trigger dropdown items use `t_text_highlight` for trigger names.
@@ -73,7 +73,7 @@ All notable changes to this project will be documented in this file.
   - loaders/ � 6 loader nodes (Clip, Diffusion, Model, Sampler, Scheduler, VAE) with their _core files
   - controldeck/ � 9 ControlDeck nodes (ImageDeck, Latent, LoraStack, PromptBook, SeedV2, Slider, Swatch, Toggle, TriggerWall) with core/ and helpers/
   - utils/ � 2 utility nodes (derpConcatenate, derpSkunk)
-  - All relative import paths (scripts/app.js, atha/, herbina/) updated across 30+ files. External references in bastaLoraDetail.js and bastaLoraDetail_core.js corrected.
+  - All relative import paths (scripts/app.js, fatha/, herbina/) updated across 30+ files. External references in bbastaLoraDetail.js and bbastaLoraDetail_core.js corrected.
   - derpSkunk Python category casing fixed (utilities → Utilities) to match derpConcatenate.
 
 - **Tooltip palette migration to _defaultTheme**: Legacy `_system/_toolTip.json` palette retired. Tooltip text and background paint now resolves through the host node's category-aware string palette context (`_system/_defaultTheme.json` or category-specific variants `_DK_`/`_LT_`/`_NE_`), eliminating the separate tooltip palette file. `isRetiredPaletteName()` detects legacy `_toolTip` references and redirects them to `Derp_Default_v01`. New `getTooltipPaletteContext()` in `basta.js` derives tooltip palette from the host node's `_derpStringPalette`. `findInlinePaletteEntry()` added to `widgetsUtils.js` for inline palette entry resolution before fallback file lookups. FRAMEWORK-Basta.md and FRAMEWORK-ThemePalette.md updated.
@@ -118,7 +118,7 @@ All notable changes to this project will be documented in this file.
   - loaders/ � 6 loader nodes (Clip, Diffusion, Model, Sampler, Scheduler, VAE) with their _core files
   - controldeck/ � 9 ControlDeck nodes (ImageDeck, Latent, LoraStack, PromptBook, SeedV2, Slider, Swatch, Toggle, TriggerWall) with core/ and helpers/
   - utils/ � 2 utility nodes (derpConcatenate, derpSkunk)
-  - All relative import paths (scripts/app.js, atha/, herbina/) updated across 30+ files. External references in bastaLoraDetail.js and bastaLoraDetail_core.js corrected.
+  - All relative import paths (scripts/app.js, fatha/, herbina/) updated across 30+ files. External references in bbastaLoraDetail.js and bbastaLoraDetail_core.js corrected.
   - derpSkunk Python category casing fixed (utilities → Utilities) to match derpConcatenate.
 - **derpImageDeck system panel**: Option row margins tightened, `lblInfo` hidden.
 - **Added ZIT samplers profile for derpSamplerLoader**
@@ -132,7 +132,7 @@ All notable changes to this project will be documented in this file.
   - loaders/ � 6 loader nodes (Clip, Diffusion, Model, Sampler, Scheduler, VAE) with their _core files
   - controldeck/ � 9 ControlDeck nodes (ImageDeck, Latent, LoraStack, PromptBook, SeedV2, Slider, Swatch, Toggle, TriggerWall) with core/ and helpers/
   - utils/ � 2 utility nodes (derpConcatenate, derpSkunk)
-  - All relative import paths (scripts/app.js, atha/, herbina/) updated across 30+ files. External references in bastaLoraDetail.js and bastaLoraDetail_core.js corrected.
+  - All relative import paths (scripts/app.js, fatha/, herbina/) updated across 30+ files. External references in bbastaLoraDetail.js and bbastaLoraDetail_core.js corrected.
   - derpSkunk Python category casing fixed (utilities → Utilities) to match derpConcatenate.
 - **bastaPalette FILEBROWSER now sorts entries by name instead of ID**: Palette entries in the key dropdown are now alphabetically sorted by name, falling back to ID for ties.
 
@@ -141,7 +141,7 @@ All notable changes to this project will be documented in this file.
   - loaders/ � 6 loader nodes (Clip, Diffusion, Model, Sampler, Scheduler, VAE) with their _core files
   - controldeck/ � 9 ControlDeck nodes (ImageDeck, Latent, LoraStack, PromptBook, SeedV2, Slider, Swatch, Toggle, TriggerWall) with core/ and helpers/
   - utils/ � 2 utility nodes (derpConcatenate, derpSkunk)
-  - All relative import paths (scripts/app.js, atha/, herbina/) updated across 30+ files. External references in bastaLoraDetail.js and bastaLoraDetail_core.js corrected.
+  - All relative import paths (scripts/app.js, fatha/, herbina/) updated across 30+ files. External references in bbastaLoraDetail.js and bbastaLoraDetail_core.js corrected.
   - derpSkunk Python category casing fixed (utilities → Utilities) to match derpConcatenate.
 
 - **Tooltip palette migration to _defaultTheme**: Legacy `_system/_toolTip.json` palette retired. Tooltip text and background paint now resolves through the host node's category-aware string palette context (`_system/_defaultTheme.json` or category-specific variants `_DK_`/`_LT_`/`_NE_`), eliminating the separate tooltip palette file. `isRetiredPaletteName()` detects legacy `_toolTip` references and redirects them to `Derp_Default_v01`. New `getTooltipPaletteContext()` in `basta.js` derives tooltip palette from the host node's `_derpStringPalette`. `findInlinePaletteEntry()` added to `widgetsUtils.js` for inline palette entry resolution before fallback file lookups. FRAMEWORK-Basta.md and FRAMEWORK-ThemePalette.md updated.
@@ -165,7 +165,7 @@ All notable changes to this project will be documented in this file.
   - loaders/ � 6 loader nodes (Clip, Diffusion, Model, Sampler, Scheduler, VAE) with their _core files
   - controldeck/ � 9 ControlDeck nodes (ImageDeck, Latent, LoraStack, PromptBook, SeedV2, Slider, Swatch, Toggle, TriggerWall) with core/ and helpers/
   - utils/ � 2 utility nodes (derpConcatenate, derpSkunk)
-  - All relative import paths (scripts/app.js, atha/, herbina/) updated across 30+ files. External references in bastaLoraDetail.js and bastaLoraDetail_core.js corrected.
+  - All relative import paths (scripts/app.js, fatha/, herbina/) updated across 30+ files. External references in bbastaLoraDetail.js and bbastaLoraDetail_core.js corrected.
   - derpSkunk Python category casing fixed (utilities → Utilities) to match derpConcatenate.
 - **derpImageDeck system panel**: Option row margins tightened, `lblInfo` hidden.
 - **Canvas Color Palettes**: ComfyUI's Color Palette system, now with easier loading — just pick a profile and go. Two default profiles included. No more spelunking through nested menus just to change the damn grid color.
@@ -184,7 +184,7 @@ All notable changes to this project will be documented in this file.
   - loaders/ � 6 loader nodes (Clip, Diffusion, Model, Sampler, Scheduler, VAE) with their _core files
   - controldeck/ � 9 ControlDeck nodes (ImageDeck, Latent, LoraStack, PromptBook, SeedV2, Slider, Swatch, Toggle, TriggerWall) with core/ and helpers/
   - utils/ � 2 utility nodes (derpConcatenate, derpSkunk)
-  - All relative import paths (scripts/app.js, atha/, herbina/) updated across 30+ files. External references in bastaLoraDetail.js and bastaLoraDetail_core.js corrected.
+  - All relative import paths (scripts/app.js, fatha/, herbina/) updated across 30+ files. External references in bbastaLoraDetail.js and bbastaLoraDetail_core.js corrected.
   - derpSkunk Python category casing fixed (utilities → Utilities) to match derpConcatenate.
 - `masterPainterText` upgraded with optional `segments` parameter for per-segment colored Canvas rendering.
 - `resolveWidgetEnv` now auto-parses display text for color keys and returns `colorSegments` + `hasColorKeys`.
@@ -195,7 +195,7 @@ All notable changes to this project will be documented in this file.
   - loaders/ � 6 loader nodes (Clip, Diffusion, Model, Sampler, Scheduler, VAE) with their _core files
   - controldeck/ � 9 ControlDeck nodes (ImageDeck, Latent, LoraStack, PromptBook, SeedV2, Slider, Swatch, Toggle, TriggerWall) with core/ and helpers/
   - utils/ � 2 utility nodes (derpConcatenate, derpSkunk)
-  - All relative import paths (scripts/app.js, atha/, herbina/) updated across 30+ files. External references in bastaLoraDetail.js and bastaLoraDetail_core.js corrected.
+  - All relative import paths (scripts/app.js, fatha/, herbina/) updated across 30+ files. External references in bbastaLoraDetail.js and bbastaLoraDetail_core.js corrected.
   - derpSkunk Python category casing fixed (utilities → Utilities) to match derpConcatenate.
 
 - **Tooltip palette migration to _defaultTheme**: Legacy `_system/_toolTip.json` palette retired. Tooltip text and background paint now resolves through the host node's category-aware string palette context (`_system/_defaultTheme.json` or category-specific variants `_DK_`/`_LT_`/`_NE_`), eliminating the separate tooltip palette file. `isRetiredPaletteName()` detects legacy `_toolTip` references and redirects them to `Derp_Default_v01`. New `getTooltipPaletteContext()` in `basta.js` derives tooltip palette from the host node's `_derpStringPalette`. `findInlinePaletteEntry()` added to `widgetsUtils.js` for inline palette entry resolution before fallback file lookups. FRAMEWORK-Basta.md and FRAMEWORK-ThemePalette.md updated.
@@ -211,7 +211,7 @@ All notable changes to this project will be documented in this file.
   - loaders/ � 6 loader nodes (Clip, Diffusion, Model, Sampler, Scheduler, VAE) with their _core files
   - controldeck/ � 9 ControlDeck nodes (ImageDeck, Latent, LoraStack, PromptBook, SeedV2, Slider, Swatch, Toggle, TriggerWall) with core/ and helpers/
   - utils/ � 2 utility nodes (derpConcatenate, derpSkunk)
-  - All relative import paths (scripts/app.js, atha/, herbina/) updated across 30+ files. External references in bastaLoraDetail.js and bastaLoraDetail_core.js corrected.
+  - All relative import paths (scripts/app.js, fatha/, herbina/) updated across 30+ files. External references in bbastaLoraDetail.js and bbastaLoraDetail_core.js corrected.
   - derpSkunk Python category casing fixed (utilities → Utilities) to match derpConcatenate.
 
 - **Tooltip palette migration to _defaultTheme**: Legacy `_system/_toolTip.json` palette retired. Tooltip text and background paint now resolves through the host node's category-aware string palette context (`_system/_defaultTheme.json` or category-specific variants `_DK_`/`_LT_`/`_NE_`), eliminating the separate tooltip palette file. `isRetiredPaletteName()` detects legacy `_toolTip` references and redirects them to `Derp_Default_v01`. New `getTooltipPaletteContext()` in `basta.js` derives tooltip palette from the host node's `_derpStringPalette`. `findInlinePaletteEntry()` added to `widgetsUtils.js` for inline palette entry resolution before fallback file lookups. FRAMEWORK-Basta.md and FRAMEWORK-ThemePalette.md updated.
@@ -231,7 +231,7 @@ All notable changes to this project will be documented in this file.
   - loaders/ � 6 loader nodes (Clip, Diffusion, Model, Sampler, Scheduler, VAE) with their _core files
   - controldeck/ � 9 ControlDeck nodes (ImageDeck, Latent, LoraStack, PromptBook, SeedV2, Slider, Swatch, Toggle, TriggerWall) with core/ and helpers/
   - utils/ � 2 utility nodes (derpConcatenate, derpSkunk)
-  - All relative import paths (scripts/app.js, atha/, herbina/) updated across 30+ files. External references in bastaLoraDetail.js and bastaLoraDetail_core.js corrected.
+  - All relative import paths (scripts/app.js, fatha/, herbina/) updated across 30+ files. External references in bbastaLoraDetail.js and bbastaLoraDetail_core.js corrected.
   - derpSkunk Python category casing fixed (utilities → Utilities) to match derpConcatenate.
 - **derpImageDeck system panel**: Option row margins tightened, `lblInfo` hidden.
 - **i18n**: Full UI translations for English, Chinese, and Russian across all widgets, system messages, and confirmation dialogs.
@@ -243,7 +243,7 @@ All notable changes to this project will be documented in this file.
   - loaders/ � 6 loader nodes (Clip, Diffusion, Model, Sampler, Scheduler, VAE) with their _core files
   - controldeck/ � 9 ControlDeck nodes (ImageDeck, Latent, LoraStack, PromptBook, SeedV2, Slider, Swatch, Toggle, TriggerWall) with core/ and helpers/
   - utils/ � 2 utility nodes (derpConcatenate, derpSkunk)
-  - All relative import paths (scripts/app.js, atha/, herbina/) updated across 30+ files. External references in bastaLoraDetail.js and bastaLoraDetail_core.js corrected.
+  - All relative import paths (scripts/app.js, fatha/, herbina/) updated across 30+ files. External references in bbastaLoraDetail.js and bbastaLoraDetail_core.js corrected.
   - derpSkunk Python category casing fixed (utilities → Utilities) to match derpConcatenate.
 - Removed unused prompt books and their assets; added new bundled themes (Derp Dark HD, Galactica Dark, Menace, Mono Neutral, NeonBlue Dark).
 - `cnr_id` references cleaned up (removed fork-base Flux-Continuum references).
@@ -253,7 +253,7 @@ All notable changes to this project will be documented in this file.
   - loaders/ � 6 loader nodes (Clip, Diffusion, Model, Sampler, Scheduler, VAE) with their _core files
   - controldeck/ � 9 ControlDeck nodes (ImageDeck, Latent, LoraStack, PromptBook, SeedV2, Slider, Swatch, Toggle, TriggerWall) with core/ and helpers/
   - utils/ � 2 utility nodes (derpConcatenate, derpSkunk)
-  - All relative import paths (scripts/app.js, atha/, herbina/) updated across 30+ files. External references in bastaLoraDetail.js and bastaLoraDetail_core.js corrected.
+  - All relative import paths (scripts/app.js, fatha/, herbina/) updated across 30+ files. External references in bbastaLoraDetail.js and bbastaLoraDetail_core.js corrected.
   - derpSkunk Python category casing fixed (utilities → Utilities) to match derpConcatenate.
 
 - **Tooltip palette migration to _defaultTheme**: Legacy `_system/_toolTip.json` palette retired. Tooltip text and background paint now resolves through the host node's category-aware string palette context (`_system/_defaultTheme.json` or category-specific variants `_DK_`/`_LT_`/`_NE_`), eliminating the separate tooltip palette file. `isRetiredPaletteName()` detects legacy `_toolTip` references and redirects them to `Derp_Default_v01`. New `getTooltipPaletteContext()` in `basta.js` derives tooltip palette from the host node's `_derpStringPalette`. `findInlinePaletteEntry()` added to `widgetsUtils.js` for inline palette entry resolution before fallback file lookups. FRAMEWORK-Basta.md and FRAMEWORK-ThemePalette.md updated.
