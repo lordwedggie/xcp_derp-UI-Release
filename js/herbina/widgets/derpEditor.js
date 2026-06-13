@@ -791,7 +791,8 @@ export function syncDerpEditor(context, node, app, config) {
         const ctx = context;
         const screenRect = getDerpEditorCanvasScreenRect(ctx, rect, x, y, w, h);
         if (screenRect) el._derpEditorCanvasScreenRect = screenRect;
-        if (requestedCanvasShield && isAwake) {
+        const drawCanvasShieldText = requestedCanvasShield && (!isAwake || (isAwake && isMultiline));
+        if (requestedCanvasShield && isAwake && !drawCanvasShieldText) {
             if (sysAlpha > 0) {
                 const themeKeys = String(safeConfig.themeKey || "").split(",").filter(k => k.trim().length > 0);
                 const shouldDrawBg = themeKeys.length > 1 || !!safeConfig.btnColor;
@@ -809,102 +810,104 @@ export function syncDerpEditor(context, node, app, config) {
         }
 
         // Canvas owns asleep visuals and the active canvasShield background.
-        if (!isAwake) {
-            if (sysAlpha <= 0) return;
-            // THE SINGLE-KEY FIX: If only one key is present (text theme), skip the background container.
-            const themeKeys = String(safeConfig.themeKey || "").split(",").filter(k => k.trim().length > 0);
-            const shouldDrawBg = themeKeys.length > 1 || !!safeConfig.btnColor;
-
-            ctx.save();
-            ctx.globalAlpha = Math.max(0, Math.min(1, sysAlpha));
-
-            if (shouldDrawBg && bodyPaint && !skipBg) {
-                masterPainter(ctx, {
-                    width: w, height: h, posX: x, posY: y,
-                    paintData: safeConfig.corners ? { ...bodyPaint, corners: safeConfig.corners } : bodyPaint,
-                    color: animatedFillColor // THE FIX: Apply animated color
-                });
-            }
-
-            if (labelPaint && requestedCanvasShield) {
-                // THE FIX: Use pre-resolved alignments from the environment instead of calling utility
-                const canvasAlignMap = alignments.canvas;
-
-                // THE EXACT PARITY FIX: Synchronize Canvas X/Y perfectly with HTML CSS scale
-                const physicalTopRaw = rect.top + (node.pos[1] + ds.offset[1] + y) * ds.scale;
-                const physicalLeftRaw = rect.left + (node.pos[0] + ds.offset[0] + x) * ds.scale;
-                const physT_floor = Math.round(physicalTopRaw);
-                const physL_floor = Math.round(physicalLeftRaw);
-
-                // Back-calculate local origin from the floored physical origin
-                const localTop = ((physT_floor - rect.top) / ds.scale) - (node.pos[1] + ds.offset[1]);
-                const localLeft = ((physL_floor - rect.left) / ds.scale) - (node.pos[0] + ds.offset[0]);
-
-                const uiLineHeight = getDerpTextLineHeight(fontSize);
-                const finalPadY = Math.max(0, baseRelativeStartY);
-
-                // Use pure local coordinates just like the CSS Box Padding
-                let textX = localLeft + textPadX;
-                if (alignX === "center") textX = localLeft + (w / 2);
-                else if (alignX === "right") textX = localLeft + w - padX;
+        if (drawCanvasShieldText) {
+            if (sysAlpha <= 0 && !isAwake) return;
+            if (sysAlpha > 0) {
+                // THE SINGLE-KEY FIX: If only one key is present (text theme), skip the background container.
+                const themeKeys = String(safeConfig.themeKey || "").split(",").filter(k => k.trim().length > 0);
+                const shouldDrawBg = themeKeys.length > 1 || !!safeConfig.btnColor;
 
                 ctx.save();
-                ctx.beginPath();
-                ctx.rect(x, y, Math.max(0, w - cutoffRightPad), h);
-                ctx.clip(); // Horizontal and Vertical Cutoff Fix
+                ctx.globalAlpha = Math.max(0, Math.min(1, sysAlpha));
 
-                let currentY = localTop + finalPadY - currentScroll;
-                lines.forEach((item) => {
-                    if (typeof item === 'string') {
-                        const lineY = currentY + (uiLineHeight / 2) + (props.fontOffset || 0);
+                if (shouldDrawBg && bodyPaint && !skipBg) {
+                    masterPainter(ctx, {
+                        width: w, height: h, posX: x, posY: y,
+                        paintData: safeConfig.corners ? { ...bodyPaint, corners: safeConfig.corners } : bodyPaint,
+                        color: animatedFillColor // THE FIX: Apply animated color
+                    });
+                }
 
-                        if (lineY + (uiLineHeight / 2) >= y - verticalBleedBuffer && lineY - (uiLineHeight / 2) <= y + h + verticalBleedBuffer) {
-                            masterPainterText(ctx, {
-                                text: item,
-                                x: textX, y: lineY,
-                                align: canvasAlignMap[alignX] || "left",
-                                baseline: "middle",
-                                paintData: {...labelPaint, font, fontSize, fontWeight, fill: textColor},
-                                segments: hasColorKeys ? colorSegments : null
-                            });
-                        }
-                        currentY += uiLineHeight;
-                    } else if (item.type === 'img') {
-                        // THE FIX: Interleave image drawing based on their logical paragraph order.
-                        if (!node._derpImgCache) node._derpImgCache = {};
-                        const imgSrc = resolveDerpEditorImageSrc(item.src);
+                if (labelPaint && requestedCanvasShield) {
+                    // THE FIX: Use pre-resolved alignments from the environment instead of calling utility
+                    const canvasAlignMap = alignments.canvas;
 
-                        if (!node._derpImgCache[imgSrc]) {
-                            const img = new Image();
-                            img.src = imgSrc;
-                            img.onload = () => { node.setDirtyCanvas(true); };
-                            node._derpImgCache[imgSrc] = img;
-                        }
+                    // THE EXACT PARITY FIX: Synchronize Canvas X/Y perfectly with HTML CSS scale
+                    const physicalTopRaw = rect.top + (node.pos[1] + ds.offset[1] + y) * ds.scale;
+                    const physicalLeftRaw = rect.left + (node.pos[0] + ds.offset[0] + x) * ds.scale;
+                    const physT_floor = Math.round(physicalTopRaw);
+                    const physL_floor = Math.round(physicalLeftRaw);
 
-                        const imgObj = node._derpImgCache[imgSrc];
-                        if (imgObj && imgObj.complete && imgObj.naturalWidth > 0) {
-                            const aspect = imgObj.naturalHeight / imgObj.naturalWidth;
-                            const drawW = w - (padX * 2);
-                            const drawH = drawW * aspect;
+                    // Back-calculate local origin from the floored physical origin
+                    const localTop = ((physT_floor - rect.top) / ds.scale) - (node.pos[1] + ds.offset[1]);
+                    const localLeft = ((physL_floor - rect.left) / ds.scale) - (node.pos[0] + ds.offset[0]);
 
-                            if (currentY + drawH > y && currentY < y + h) {
-                                if (isEditorBypassed) {
-                                    ctx.save();
-                                    ctx.filter = `grayscale(100%) brightness(${BYPASS_BRIGHTNESS})`;
-                                    ctx.drawImage(imgObj, localLeft + padX, currentY, drawW, drawH);
-                                    ctx.restore();
-                                } else {
-                                    ctx.drawImage(imgObj, localLeft + padX, currentY, drawW, drawH);
-                                }
+                    const uiLineHeight = getDerpTextLineHeight(fontSize);
+                    const finalPadY = Math.max(0, baseRelativeStartY);
+
+                    // Use pure local coordinates just like the CSS Box Padding
+                    let textX = localLeft + textPadX;
+                    if (alignX === "center") textX = localLeft + (w / 2);
+                    else if (alignX === "right") textX = localLeft + w - padX;
+
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.rect(x, y, Math.max(0, w - cutoffRightPad), h);
+                    ctx.clip(); // Horizontal and Vertical Cutoff Fix
+
+                    let currentY = localTop + finalPadY - currentScroll;
+                    lines.forEach((item) => {
+                        if (typeof item === 'string') {
+                            const lineY = currentY + (uiLineHeight / 2) + (props.fontOffset || 0);
+
+                            if (lineY + (uiLineHeight / 2) >= y - verticalBleedBuffer && lineY - (uiLineHeight / 2) <= y + h + verticalBleedBuffer) {
+                                masterPainterText(ctx, {
+                                    text: item,
+                                    x: textX, y: lineY,
+                                    align: canvasAlignMap[alignX] || "left",
+                                    baseline: "middle",
+                                    paintData: {...labelPaint, font, fontSize, fontWeight, fill: textColor},
+                                    segments: hasColorKeys ? colorSegments : null
+                                });
                             }
-                            currentY += drawH + 10;
+                            currentY += uiLineHeight;
+                        } else if (item.type === 'img') {
+                            // THE FIX: Interleave image drawing based on their logical paragraph order.
+                            if (!node._derpImgCache) node._derpImgCache = {};
+                            const imgSrc = resolveDerpEditorImageSrc(item.src);
+
+                            if (!node._derpImgCache[imgSrc]) {
+                                const img = new Image();
+                                img.src = imgSrc;
+                                img.onload = () => { node.setDirtyCanvas(true); };
+                                node._derpImgCache[imgSrc] = img;
+                            }
+
+                            const imgObj = node._derpImgCache[imgSrc];
+                            if (imgObj && imgObj.complete && imgObj.naturalWidth > 0) {
+                                const aspect = imgObj.naturalHeight / imgObj.naturalWidth;
+                                const drawW = w - (padX * 2);
+                                const drawH = drawW * aspect;
+
+                                if (currentY + drawH > y && currentY < y + h) {
+                                    if (isEditorBypassed) {
+                                        ctx.save();
+                                        ctx.filter = `grayscale(100%) brightness(${BYPASS_BRIGHTNESS})`;
+                                        ctx.drawImage(imgObj, localLeft + padX, currentY, drawW, drawH);
+                                        ctx.restore();
+                                    } else {
+                                        ctx.drawImage(imgObj, localLeft + padX, currentY, drawW, drawH);
+                                    }
+                                }
+                                currentY += drawH + 10;
+                            }
                         }
-                    }
-                });
+                    });
+                    ctx.restore();
+                }
+
                 ctx.restore();
             }
-
-            ctx.restore();
         }
     }
 
@@ -992,6 +995,8 @@ export function syncDerpEditor(context, node, app, config) {
     const htmlPadX = textPadX * htmlScale;
     const htmlPadRight = htmlPadX + (cutoffRightPad * htmlScale);
     const htmlLayoutMode = useSingleLineFlex ? "flex" : (useSingleLineFullLineBox ? "singleLineBox" : "block");
+    const canvasOwnsEditorText = isCanvas && requestedCanvasShield && isAwake && isMultiline && labelPaint;
+    const domTextColor = canvasOwnsEditorText ? "transparent" : animatedTextColor;
     const syncKey = `${ds.scale}-${effectiveState}-${rawIc}-${rawBg}_${prefixGlyphText}_${prefixGlyphScale}_${prefixGlyphMargin}_${prefixGlyphSpacing}-${valToSync}-${finalPadY}-${htmlPadTop}-${htmlPadX}-${htmlPadRight}-${scaledFS}-${fontWeight}-${isMultiline}-${isAwake}-${safeConfig.btnColor}-${htmlLayoutMode}`;
 
     if (el._lastSyncKey !== syncKey) {
@@ -1002,7 +1007,7 @@ export function syncDerpEditor(context, node, app, config) {
         paintData.fontSize = fontSize;
         paintData.fontWeight = fontWeight;
         // Use animated colors for the base theme application to prevent color flickering on sync
-        paintData.textColor = animatedTextColor;
+        paintData.textColor = domTextColor;
         paintData.fill = animatedFillColor;
 
         if (labelPaint) {
@@ -1045,7 +1050,13 @@ export function syncDerpEditor(context, node, app, config) {
     }
 
     // THE FAST-PATH FIX: Apply animated colors inline without expensive theme re-application
-    if (el.style.color !== animatedTextColor) el.style.color = animatedTextColor;
+    if (el.style.color !== domTextColor) el.style.color = domTextColor;
+    if (canvasOwnsEditorText) {
+        el.style.textShadow = "none";
+        el.style.caretColor = animatedTextColor;
+    } else if (el.style.caretColor !== "auto") {
+        el.style.caretColor = "auto";
+    }
     const canvasOwnsEditorBackground = isCanvas && requestedCanvasShield && bodyPaint && !skipBg;
     const canvasOwnsAsleepVisuals = isCanvas && requestedCanvasShield && !isAwake;
     if (canvasOwnsEditorBackground) {

@@ -1,9 +1,9 @@
 /* derp CHANGELOG section colors */
-h3[data-heading="Added"]   { color: #4CAF50 !important; }
-h3[data-heading="Changed"] { color: #2196F3 !important; }
-h3[data-heading="Fixed"]   { color: #F44336 !important; }
+h3#added   { color: #4CAF50 !important; }
+h3#changed { color: #2196F3 !important; }
+h3#fixed   { color: #F44336 !important; }
 
 /* Entry bold headings inherit section color (dimmer) */
-h3[data-heading="Added"]   ~ ul strong { color: #66BB6A !important; }
-h3[data-heading="Changed"] ~ ul strong { color: #42A5F5 !important; }
-h3[data-heading="Fixed"]   ~ ul strong { color: #EF5350 !important; }
+h3#added   ~ ul strong { color: #66BB6A !important; }
+h3#changed ~ ul strong { color: #42A5F5 !important; }
+h3#fixed   ~ ul strong { color: #EF5350 !important; }

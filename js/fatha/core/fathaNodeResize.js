@@ -1,7 +1,7 @@
 import { sysPanel } from "../helpers/fathaSysPanel.js";
 import { applyDockResizeResult, canResizeHorizontalStackWidth, syncDockResizePair } from "./dockResize.js";
 import { getDockGroupAxisFromMembers, getDockNodeMinHeight, getDockNodeMinWidth, resolveDockResizeAxes } from "./dockDimensions.js";
-import { getDeckMembers, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureHubForNode, getNodeOnDeckEdge, isDeckPressureHub, setDeckNodePos } from "./masterDockEngine.js";
+import { applyDeckPressureLayout, getDeckMembers, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureHubForNode, getNodeOnDeckEdge, isDeckPressureHub, setDeckNodePos } from "./masterDockEngine.js";
 import { dockDebug, snapshotDockNode } from "./dockDebugHelpers.js";
 import { setDerpNodeSizeCompat } from "./fathaNode2Compat.js";
 
@@ -163,6 +163,11 @@ export function handleNodeResize(entity, data, scale) {
         if (entity.layout) entity.layout._lastCacheKey = "";
     }
     if (entity.properties) entity.properties.nodeSize = [appliedW, appliedH];
+
+    if (isPressureHubResize && graph) {
+        entity._deckPressureActiveUntil = (performance.now?.() || Date.now()) + 1200;
+        applyDeckPressureLayout(entity, graph, SNAP);
+    }
 
     dockDebug("handle-node-resize-after-apply-size", () => ({
         entity: snapshotDockNode(entity),

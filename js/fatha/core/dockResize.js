@@ -8,6 +8,7 @@ import {
     getDeckPressureBranchSideForNode,
     getDeckPressureHubForNode,
     getNodeOnDeckEdge,
+    applyDeckPressureLayout,
     isLinearDeckGroup,
     isNodeDocked,
     syncDeckNodeSize,
@@ -391,6 +392,13 @@ export function handleDerpCollapseImpl(entity, force, deps = {}) {
     const { requestSyncFallback, settleDerpSizeBeforeDraw, resolveHorizontalDeckSharedHeight, syncHorizontalDeckHeight, closeSysPanel } = deps;
     const nextState = force !== undefined ? force : !entity.properties.contentCollapsed;
     const graph = app.graph || entity.graph || null;
+    const pressureHub = graph ? getDeckPressureHubForNode(entity, graph) : null;
+    const pressureBranchSide = pressureHub && pressureHub.id !== entity.id ? getDeckPressureBranchSideForNode(pressureHub, graph, entity) : null;
+    const isPressureSideBranch = pressureBranchSide === "left" || pressureBranchSide === "right";
+    if (isPressureSideBranch) {
+        if (nextState === true) entity._deckPressureSkipFillerUntil = (performance.now?.() || Date.now()) + 1200;
+        else delete entity._deckPressureSkipFillerUntil;
+    }
     const isHorizontalDeckGroup = !!(graph && isLinearDeckGroup(entity, graph, "horizontal"));
     const syncedCollapseEnabled = window.DERP_GLOBAL_SETTINGS?.syncedCollapse ?? true;
     const collapseTargets = (syncedCollapseEnabled && isHorizontalDeckGroup)
@@ -469,6 +477,11 @@ export function handleDerpCollapseImpl(entity, force, deps = {}) {
         if (sharedHeight > 0) {
             syncHorizontalDeckHeight(entity, sharedHeight);
         }
+    }
+
+    if (pressureHub) {
+        const snap = Number(deps.getDerpVars?.(pressureHub)?.SNAP) || 10;
+        applyDeckPressureLayout(pressureHub, graph, snap);
     }
 
     if (app.graph && app.graph.change) app.graph.change();
@@ -629,6 +642,14 @@ function getVerticalResizeTargetMinHeight(node, snap) {
     return Math.min(currentMin, Math.ceil(Math.max(compactFloor, snap * 4) / snap) * snap);
 }
 
+function rememberExpandedDeckHeight(node, height) {
+    if (!node?.properties || node.properties.contentCollapsed === true) return;
+    const nextHeight = Number(height) || 0;
+    if (nextHeight <= 0) return;
+    node.properties._savedExpandedHeight = nextHeight;
+    node._preCollapseHeight = Math.max(Number(node._preCollapseHeight || 0), nextHeight);
+}
+
 
 function getNormalizedVerticalResizeStartPositions(members, startHeights) {
     const positions = {};
@@ -720,6 +741,7 @@ function applyCollapsedVerticalBoundaryResize(entity, resizeAnchor, requestedEnt
             const height = startHeight + (index === targetIndex ? delta : 0);
             if (index <= targetIndex) setDeckNodePos(member, Number(startPos[0]) || 0, (Number(startPos[1]) || 0) - delta);
             syncDeckNodeSize(member, getDockNodeWidth(member), height);
+            rememberExpandedDeckHeight(member, height);
             if (typeof member.syncUncleSlots === "function") member.syncUncleSlots();
             addCounterpart(member);
         });
@@ -730,6 +752,7 @@ function applyCollapsedVerticalBoundaryResize(entity, resizeAnchor, requestedEnt
             const height = startHeight + (index === targetIndex ? delta : 0);
             if (index > targetIndex) setDeckNodePos(member, Number(startPos[0]) || 0, (Number(startPos[1]) || 0) + delta);
             syncDeckNodeSize(member, getDockNodeWidth(member), height);
+            rememberExpandedDeckHeight(member, height);
             if (typeof member.syncUncleSlots === "function") member.syncUncleSlots();
             addCounterpart(member);
         });
@@ -1116,6 +1139,8 @@ export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH,
 
         syncDeckNodeSize(topNode, getDockNodeWidth(topNode), adjustedTopH);
         syncDeckNodeSize(bottomNode, getDockNodeWidth(bottomNode), adjustedBottomH);
+        rememberExpandedDeckHeight(topNode, adjustedTopH);
+        rememberExpandedDeckHeight(bottomNode, adjustedBottomH);
         setDeckNodePos(bottomNode, Number(bottomNode.pos?.[0]) || 0, (Number(topNode.pos?.[1]) || 0) + adjustedTopH);
         if (typeof topNode.syncUncleSlots === "function") topNode.syncUncleSlots();
         if (typeof bottomNode.syncUncleSlots === "function") bottomNode.syncUncleSlots();

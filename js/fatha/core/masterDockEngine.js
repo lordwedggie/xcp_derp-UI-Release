@@ -999,6 +999,34 @@ function refreshDeckStateWidgets(nodes = []) {
     });
 }
 
+function captureDeckPressureHubUndockSize(node) {
+    if (!isDeckPressureHub(node)) return null;
+    const width = getNodeSizeValue(node, 0);
+    const height = getNodeSizeValue(node, 1);
+    if (!(width > 0 && height > 0)) return null;
+    return { node, width, height };
+}
+
+function restoreDeckPressureHubUndockSize(snapshot) {
+    const node = snapshot?.node;
+    if (!node?.properties) return false;
+    node.properties.autoHeight = false;
+    syncDeckNodeSize(node, snapshot.width, snapshot.height, { silent: true });
+    if (node.properties.contentCollapsed !== true) {
+        node.properties._savedExpandedHeight = snapshot.height;
+        node._preCollapseHeight = snapshot.height;
+    }
+    if (node.layout) node.layout._lastCacheKey = "";
+    node._forceSync = true;
+    node._layoutDirty = true;
+    if (typeof node.refreshNodeLayoutMap === "function") node.refreshNodeLayoutMap();
+    if (typeof node.requestDerpSync === "function") node.requestDerpSync();
+    else if (typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, true);
+    if (typeof node.syncUncleSlots === "function") node.syncUncleSlots();
+    syncDerpShield(node);
+    return true;
+}
+
 export function undeckNode(node, graph = null) {
     const props = ensureDeckProps(node);
     if (!props) return false;
@@ -1034,6 +1062,7 @@ export function undockNodeEdges(node, graph = null) {
     if (!node || !activeGraph) return false;
 
     let changed = false;
+    const preserveHubSize = captureDeckPressureHubUndockSize(node);
     const affectedMembers = getDeckMembers(node, activeGraph);
     const directNeighbors = getDirectDeckNeighbors(node, activeGraph);
 
@@ -1050,6 +1079,7 @@ export function undockNodeEdges(node, graph = null) {
 
     if (changed) {
         refreshDeckStateWidgets(affectedMembers.length > 0 ? affectedMembers : [node, ...directNeighbors]);
+        restoreDeckPressureHubUndockSize(preserveHubSize);
     }
 
     return changed;
@@ -1661,12 +1691,27 @@ export function normalizeDockedLayout(node, graph, snap = DEFAULT_DECK_SNAP) {
 
 function getDeckPressureActiveMember(members = []) {
     const now = performance.now?.() || Date.now();
+    const fillerCandidates = members.filter((member) => Number(member?._deckPressureSkipFillerUntil || 0) <= now);
+    const candidates = fillerCandidates.length > 0 ? fillerCandidates : members;
+    return getDeckPressureFreshActiveMember(candidates, now)
+        || candidates.find((member) => member?._pressedRegionKey)
+        || candidates.find((member) => member?.selected && member?.properties?.contentCollapsed !== true)
+        || candidates.find((member) => member?.properties?.contentCollapsed !== true)
+        || candidates[0]
+        || null;
+}
+
+function getDeckPressureFreshActiveMember(members = [], now = performance.now?.() || Date.now()) {
     return members.find((member) => Number(member?._deckPressureActiveUntil || 0) > now)
         || members.find((member) => member?._pressedRegionKey)
-        || members.find((member) => member?.selected && member?.properties?.contentCollapsed !== true)
-        || members.find((member) => member?.properties?.contentCollapsed !== true)
-        || members[0]
         || null;
+}
+
+function getDeckPressurePreferredExpandedHeight(member, minimum = 0) {
+    const saved = Number(member?.properties?._savedExpandedHeight || 0);
+    const previous = Number(member?._preCollapseHeight || 0);
+    const live = getNodeSizeValue(member, 1);
+    return Math.max(Number(minimum) || 0, saved, previous, live);
 }
 
 function setDeckPressureCollapsed(node, collapsed) {
@@ -1699,11 +1744,14 @@ function getDeckPressureMinSpanForState(node, axis, snap, collapsed) {
         if (typeof node.refreshNodeLayoutMap === "function") node.refreshNodeLayoutMap();
         if (node.layout && typeof node.layout.compute === "function") {
             node.layout._lastCacheKey = "";
+            const measureHeight = collapsed
+                ? Math.max((Number(snap) || DEFAULT_DECK_SNAP) * 2, 1)
+                : Math.max(getNodeSizeValue(node, 1), 1);
             node.layout.compute({
                 x: 0,
                 y: 0,
                 w: Math.max(getNodeSizeValue(node, 0), getNodeMinWidth(node, snap)),
-                h: Math.max(getNodeSizeValue(node, 1), 1),
+                h: measureHeight,
             }, getVirtualNodeLayoutMap(node), {
                 textTheme: node._t_textSmallPaintData || node._t_textNormalPaintData,
                 useAnim: false,
@@ -1787,7 +1835,22 @@ function fitDeckPressureSideHeights(members, targetHeight, snap) {
     let extra = resolvedTarget - minTotal;
     if (extra <= 0) return sizes;
 
-    const recipients = expandedIndexes;
+    const freshActive = getDeckPressureFreshActiveMember(members);
+    const freshActiveIndex = expandedIndexes.find((index) => members[index]?.id === freshActive?.id);
+    if (freshActiveIndex >= 0) {
+        const preferredHeight = quantizeSize(getDeckPressurePreferredExpandedHeight(members[freshActiveIndex], mins[freshActiveIndex]), unit);
+        const preferredExtra = Math.max(0, preferredHeight - mins[freshActiveIndex]);
+        const activeExtra = Math.min(extra, preferredExtra > 0 ? preferredExtra : extra);
+        sizes[freshActiveIndex] += activeExtra;
+        extra -= activeExtra;
+        if (extra <= 0.5) return sizes;
+    }
+
+    const recipients = expandedIndexes.filter((index) => index !== freshActiveIndex);
+    if (recipients.length === 0) {
+        if (freshActiveIndex >= 0) sizes[freshActiveIndex] += extra;
+        return sizes;
+    }
     const currentExtras = recipients.map((index) => Math.max(0, getNodeSizeValue(members[index], 1) - mins[index]));
     const currentExtraTotal = currentExtras.reduce((sum, value) => sum + value, 0);
 
@@ -1868,6 +1931,7 @@ export function applyDeckPressureLayout(hub, graph, snap = DEFAULT_DECK_SNAP) {
     }
 
     changed.forEach((node) => {
+        if (node?.properties?.contentCollapsed !== true) delete node._deckPressureSkipFillerUntil;
         if (typeof node.syncUncleSlots === "function") node.syncUncleSlots();
         if (typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, true);
         syncDerpShield(node);
