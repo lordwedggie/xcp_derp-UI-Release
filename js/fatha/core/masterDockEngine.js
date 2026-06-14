@@ -18,6 +18,12 @@ let deckGraphIndexFrame = null;
 let deckGraphIndexGraph = null;
 let deckGraphIndex = null;
 
+function invalidateDeckGraphIndex() {
+    deckGraphIndexFrame = null;
+    deckGraphIndexGraph = null;
+    deckGraphIndex = null;
+}
+
 function dockDebugLog(label, payload = {}) {
     dockDebug(`target:${label}`, payload);
 }
@@ -553,7 +559,10 @@ export function normalizeDockPair(a, b, side, graph, snap = DEFAULT_DECK_SNAP) {
 function setPeerDeckNeighbor(node, side, neighborId = null) {
     const props = ensureDeckProps(node);
     if (!props?.deckEdges || !Object.prototype.hasOwnProperty.call(props.deckEdges, side)) return false;
-    props.deckEdges[side] = neighborId ?? null;
+    const nextId = neighborId ?? null;
+    if (props.deckEdges[side] === nextId) return false;
+    props.deckEdges[side] = nextId;
+    invalidateDeckGraphIndex();
     return true;
 }
 
@@ -1078,7 +1087,9 @@ export function undockNodeEdges(node, graph = null) {
     });
 
     if (changed) {
+        restoreDeckPressureHubUndockSize(preserveHubSize);
         refreshDeckStateWidgets(affectedMembers.length > 0 ? affectedMembers : [node, ...directNeighbors]);
+        // Reassert after widget refresh; refresh can rebuild ImageDeck layout from auto-size state.
         restoreDeckPressureHubUndockSize(preserveHubSize);
     }
 

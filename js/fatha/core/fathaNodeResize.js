@@ -101,9 +101,11 @@ export function handleNodeResize(entity, data, scale) {
     const startH = collapsedInVertical
         ? getDockNodeMinHeight(entity, 0, SNAP)
         : (Number(entity._startSize?.[1]) || Number(entity.size?.[1]) || 0);
-    const rawW = startW + (deltaX * anchorMode.wSign);
+    const rawDeltaW = deltaX * anchorMode.wSign;
+    const snappedStackDeltaW = Math.round(rawDeltaW / SNAP) * SNAP;
+    const rawW = startW + rawDeltaW;
     const newW = allowWidthResize
-        ? (allowHorizontalStackWidthResize ? Math.round(rawW / SNAP) * SNAP : Math.max(minW, Math.round(rawW / SNAP) * SNAP))
+        ? (allowHorizontalStackWidthResize ? startW + snappedStackDeltaW : Math.max(minW, Math.round(rawW / SNAP) * SNAP))
         : entity.size[0];
 
     const rawH = startH + (deltaY * anchorMode.hSign);
@@ -114,12 +116,14 @@ export function handleNodeResize(entity, data, scale) {
 
     let dockResizeResult;
     entity._dockResizeAllowHeight = allowHeightResize;
+    if (allowHorizontalStackWidthResize) entity._dockResizeRequestedDeltaW = snappedStackDeltaW;
     try {
         dockResizeResult = isPressureHubResize
             ? { handledWidth: false, handledHeight: false, handledAll: false, appliedWidth: null, appliedHeight: null, counterparts: [] }
             : syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH, SNAP);
     } finally {
         delete entity._dockResizeAllowHeight;
+        delete entity._dockResizeRequestedDeltaW;
     }
     dockDebug("handle-node-resize-after-dock-pair", () => ({
         entity: snapshotDockNode(entity),

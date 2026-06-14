@@ -273,8 +273,9 @@ export function uncle(nodeType, nodeData, minWidth = 100) {
 
         // During live resize, preserve the manually dragged axis but still let the auto-managed
         // secondary axis respond immediately (e.g. width shrink causing auto-height growth).
-        const liveTargetW = this._isDerpResizing && !autoWidth ? this.size[0] : targetW;
-        const liveTargetH = this._isDerpResizing && !autoHeight ? this.size[1] : targetH;
+        const lockHorizontalDeckResize = this._horizontalDeckWidthResizeLock === true;
+        const liveTargetW = (this._isDerpResizing && !autoWidth) || lockHorizontalDeckResize ? this.size[0] : targetW;
+        const liveTargetH = (this._isDerpResizing && !autoHeight) || lockHorizontalDeckResize ? this.size[1] : targetH;
         const preAnimateW = Number(this.size?.[0]) || 0;
         animateDerpSize(this, liveTargetW, liveTargetH, useAnim);
         balanceHorizontalDeckWidthChange(this, preAnimateW);
@@ -289,12 +290,14 @@ export function uncle(nodeType, nodeData, minWidth = 100) {
         }, needsLayoutCompute);
 
         if (preserveHorizontalDeckHeight) {
-            const postLayoutHeight = resolveHorizontalDeckSharedHeight(this);
-            if (Number(postLayoutHeight) > 0 && this.size[1] !== postLayoutHeight) {
-                animateDerpSize(this, this.size[0], postLayoutHeight, useAnim);
+            if (!lockHorizontalDeckResize) {
+                const postLayoutHeight = resolveHorizontalDeckSharedHeight(this);
+                if (Number(postLayoutHeight) > 0 && this.size[1] !== postLayoutHeight) {
+                    animateDerpSize(this, this.size[0], postLayoutHeight, useAnim);
+                }
+                if (Number(postLayoutHeight) > 0) syncHorizontalDeckHeight(this, postLayoutHeight);
+                normalizeDerpDockedLayout(this);
             }
-            if (Number(postLayoutHeight) > 0) syncHorizontalDeckHeight(this, postLayoutHeight);
-            normalizeDerpDockedLayout(this);
         } else if (shouldPreserveVerticalDeckWidth(this) || (typeof LiteGraph !== "undefined" && LiteGraph.vueNodesMode)) {
             normalizeDerpDockedLayout(this);
         }

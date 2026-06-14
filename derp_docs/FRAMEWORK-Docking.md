@@ -54,6 +54,7 @@ After normalizing, triggers a layout recompute for the leader and all members. T
 ### Automatic horizontal edge width compensation
 When a left-most or right-most member in a horizontal stack changes width from runtime layout changes, the stack first tries to keep its total width stable. Growth borrows shrinkable width from members on the opposite side down to their measured minimums; shrinkage gives the freed width to those opposite members. If there is not enough spare room, the stack is allowed to grow.
 The first observed width for an edge member after load/dock is treated as the baseline and is not rebalanced; this prevents autoWidth hydration from being counted as a real width delta on every page refresh.
+During direct outer-edge stack resizing, the resize delta comes from the snapped pointer movement rather than the measured width of the grabbed edge node. This keeps stacks with auto-width edge members, such as SeedV2/Toggle, moving in single `SNAP` increments and prevents post-drag auto-width balancing from adding a second step.
 ### Theme-driven vertical width growth
 When a member of a vertical dock stack changes theme, its measured content floor can grow while the stack is already width-locked. Runtime dock sizing preserves the current shared width only as a floor, not as a ceiling, and vertical normalization runs after layout so all stack members adopt the new widest measured width.
 

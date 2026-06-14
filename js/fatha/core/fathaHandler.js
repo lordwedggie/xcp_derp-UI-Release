@@ -349,15 +349,29 @@ function distributeHorizontalWidthDelta(members, delta, snap) {
     return true;
 }
 
+function hasActiveHorizontalResize(members = []) {
+    return members.some((member) =>
+        member?._isDerpResizing === true
+        || member?._horizontalDeckWidthResizeLock === true
+        || !!member?._dockResizeSession
+        || (member?._dockResizeActiveMembers instanceof Set && member._dockResizeActiveMembers.size > 0)
+    );
+}
+
 export function balanceHorizontalDeckWidthChange(node, previousWidth = 0) {
     const graph = app.graph || node?.graph || null;
     const members = getHorizontalDeckMembersByX(node, graph);
     if (members.length <= 1) return false;
 
+    const currentWidth = getDockNodeWidth(node);
+    if (hasActiveHorizontalResize(members)) {
+        node._horizontalDeckWidthBalanceObserved = currentWidth;
+        return false;
+    }
+
     const nodeIndex = members.findIndex((member) => member.id === node.id);
     if (nodeIndex !== 0 && nodeIndex !== members.length - 1) return false;
 
-    const currentWidth = getDockNodeWidth(node);
     const lastObservedWidth = Number(node._horizontalDeckWidthBalanceObserved) || 0;
     node._horizontalDeckWidthBalanceObserved = currentWidth;
     if (node._horizontalDeckWidthBalanceReady !== true) {

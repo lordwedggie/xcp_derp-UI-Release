@@ -229,11 +229,16 @@ export function createDerpShield(node) {
         const activeMembers = resizeNode?._dockResizeActiveMembers;
         if (activeMembers instanceof Set) {
             activeMembers.forEach((member) => {
-                if (member && member !== resizeNode) member._isDerpResizing = false;
+                if (!member) return;
+                if (member !== resizeNode) member._isDerpResizing = false;
+                member._horizontalDeckWidthResizeLock = false;
             });
             activeMembers.clear();
         }
-        if (resizeNode) resizeNode._dockResizeActiveMembers = null;
+        if (resizeNode) {
+            resizeNode._horizontalDeckWidthResizeLock = false;
+            resizeNode._dockResizeActiveMembers = null;
+        }
     };
 
     const cleanup = () => {

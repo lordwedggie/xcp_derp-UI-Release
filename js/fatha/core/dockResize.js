@@ -631,14 +631,17 @@ function normalizeVerticalMemberPositions(anchorNode, graph) {
     });
 }
 
-function markDockResizeActiveMembers(entity, members = [], pressureActiveNode = entity) {
+function markDockResizeActiveMembers(entity, members = [], pressureActiveNode = entity, options = {}) {
     if (!entity || !Array.isArray(members) || members.length === 0) return;
     if (!(entity._dockResizeActiveMembers instanceof Set)) entity._dockResizeActiveMembers = new Set();
+    const markResizing = options.markResizing !== false;
+    const horizontalWidthLock = options.horizontalWidthLock === true;
     const activeUntil = (performance.now?.() || Date.now()) + 1200;
     if (pressureActiveNode) pressureActiveNode._deckPressureActiveUntil = activeUntil;
     members.forEach((member) => {
         if (!member) return;
-        member._isDerpResizing = true;
+        if (markResizing) member._isDerpResizing = true;
+        if (horizontalWidthLock) member._horizontalDeckWidthResizeLock = true;
         if (member !== entity) entity._dockResizeActiveMembers.add(member);
     });
 }
@@ -919,32 +922,35 @@ function snapResizeValue(value, snap) {
     return Math.round((Number(value) || 0) / unit) * unit;
 }
 
-function reconcileManualWidthsToTarget(nextWidths, manualMembers, targetManualTotal, minW, snap) {
+function reconcileManualWidthsToTarget(nextWidths, manualMembers, originalWidths, targetManualTotal, minW, snap) {
     const unit = Math.max(1, Number(snap) || 10);
     const mins = new Map(manualMembers.map((member) => [member.id, getDockNodeMinWidth(member, minW, snap)]));
     const minTotal = manualMembers.reduce((sum, member) => sum + (mins.get(member.id) || 0), 0);
-    const targetTotal = Math.max(minTotal, snapResizeValue(targetManualTotal, unit));
+    const targetTotal = Math.max(minTotal, Number(targetManualTotal) || 0);
 
     manualMembers.forEach((member) => {
         const minWidth = mins.get(member.id) || 0;
-        const snapped = Math.max(minWidth, snapResizeValue(nextWidths.get(member.id) || 0, unit));
-        nextWidths.set(member.id, snapped);
+        nextWidths.set(member.id, Math.max(minWidth, originalWidths.get(member.id) || 0));
     });
 
     let currentTotal = manualMembers.reduce((sum, member) => sum + (nextWidths.get(member.id) || 0), 0);
     let diff = targetTotal - currentTotal;
-    const shrinkOrder = manualMembers
-        .slice()
-        .sort((a, b) => ((nextWidths.get(b.id) || 0) - (mins.get(b.id) || 0)) - ((nextWidths.get(a.id) || 0) - (mins.get(a.id) || 0)));
+    let growIndex = 0;
 
     while (Math.abs(diff) >= unit - 0.5) {
-        const order = diff > 0 ? manualMembers : shrinkOrder;
+        const order = diff > 0
+            ? manualMembers
+            : manualMembers
+                .slice()
+                .sort((a, b) => ((nextWidths.get(b.id) || 0) - (mins.get(b.id) || 0)) - ((nextWidths.get(a.id) || 0) - (mins.get(a.id) || 0)));
         let adjusted = false;
-        for (const member of order) {
+        for (let i = 0; i < order.length; i += 1) {
+            const member = diff > 0 ? order[(growIndex + i) % order.length] : order[i];
             const current = nextWidths.get(member.id) || 0;
             if (diff > 0) {
                 nextWidths.set(member.id, current + unit);
                 diff -= unit;
+                growIndex += i + 1;
                 adjusted = true;
             } else {
                 const minWidth = mins.get(member.id) || 0;
@@ -973,6 +979,8 @@ function applyHorizontalStackWidthResize(entity, resizeAnchor, requestedEntityWi
     const isOuterBoundaryResize = isLeftHandle ? entityIndex === 0 : entityIndex === members.length - 1;
     if (!isOuterBoundaryResize) return false;
 
+    markDockResizeActiveMembers(entity, members, entity, { markResizing: false, horizontalWidthLock: true });
+
     const currentSession = entity._dockResizeSession;
     const sessionMatches = currentSession
         && currentSession.side === (isLeftHandle ? "stack-left" : "stack-right")
@@ -990,7 +998,10 @@ function applyHorizontalStackWidthResize(entity, resizeAnchor, requestedEntityWi
     const originalWidths = new Map(members.map((member) => [member.id, Number(session.stackStartWidths?.[member.id]) || getDockNodeWidth(member)]));
     const originalTotalWidth = members.reduce((sum, member) => sum + (originalWidths.get(member.id) || 0), 0);
     const entityStartWidth = originalWidths.get(entity.id) || getDockNodeWidth(entity);
-    const requestedDelta = Number(requestedEntityWidth) - entityStartWidth;
+    const explicitDelta = Number(entity._dockResizeRequestedDeltaW);
+    const requestedDelta = Number.isFinite(explicitDelta)
+        ? explicitDelta
+        : Number(requestedEntityWidth) - entityStartWidth;
     if (!Number.isFinite(requestedDelta) || Math.abs(requestedDelta) < 0.5) return false;
     const snappedRequestedDelta = snapResizeValue(requestedDelta, snap);
     if (Math.abs(snappedRequestedDelta) < 0.5) return false;
@@ -1013,49 +1024,20 @@ function applyHorizontalStackWidthResize(entity, resizeAnchor, requestedEntityWi
     const targetManualTotal = Math.max(manualMinTotal, originalManualTotal + snappedRequestedDelta);
     const nextWidths = new Map(originalWidths);
 
-    if (targetManualTotal >= originalManualTotal) {
-        const growDelta = targetManualTotal - originalManualTotal;
-        const growBase = manualMembers.reduce((sum, member) => sum + Math.max(0, (originalWidths.get(member.id) || 0) - getDockNodeMinWidth(member, minW, snap)), 0) || manualMembers.length;
-        manualMembers.forEach((member) => {
-            const current = originalWidths.get(member.id) || 0;
-            const minWidth = getDockNodeMinWidth(member, minW, snap);
-            const weight = growBase === manualMembers.length ? 1 : Math.max(0, current - minWidth);
-            nextWidths.set(member.id, current + (growDelta * (weight / growBase)));
-        });
-    } else {
-        let remainingShrink = originalManualTotal - targetManualTotal;
-        const shrinkable = manualMembers.map((member) => ({
-            member,
-            width: originalWidths.get(member.id) || 0,
-            minWidth: getDockNodeMinWidth(member, minW, snap),
-        }));
-        while (remainingShrink > 0.5) {
-            const active = shrinkable.filter((entry) => entry.width > entry.minWidth + 0.5);
-            if (active.length === 0) break;
-            const share = remainingShrink / active.length;
-            let consumed = 0;
-            active.forEach((entry) => {
-                const shrink = Math.min(share, entry.width - entry.minWidth);
-                entry.width -= shrink;
-                consumed += shrink;
-            });
-            if (consumed <= 0.5) break;
-            remainingShrink -= consumed;
-        }
-        shrinkable.forEach((entry) => nextWidths.set(entry.member.id, entry.width));
-    }
-
     members.forEach((member) => {
         if (member?.properties?.autoWidth === false) return;
-        nextWidths.set(member.id, originalWidths.get(member.id) || getDockNodeWidth(member));
+        const fixedAutoWidth = originalWidths.get(member.id) || getDockNodeWidth(member);
+        nextWidths.set(member.id, fixedAutoWidth);
+        member._horizontalDeckWidthBalanceObserved = fixedAutoWidth;
+        member._horizontalDeckWidthBalanceReady = true;
     });
-    const manualTotal = reconcileManualWidthsToTarget(nextWidths, manualMembers, targetManualTotal, minW, snap);
+    const manualTotal = reconcileManualWidthsToTarget(nextWidths, manualMembers, originalWidths, targetManualTotal, minW, snap);
     const totalWidth = fixedWidth + manualTotal;
 
     let cursorX = isLeftHandle ? anchorX - totalWidth : anchorX;
     members.forEach((member) => {
         const width = nextWidths.get(member.id) || getDockNodeWidth(member);
-        syncDeckNodeSize(member, width, getDockNodeHeight(member));
+        syncDeckNodeSize(member, width, getDockNodeHeight(member), { silent: true });
         setDeckNodePos(member, cursorX, Number(member.pos?.[1]) || 0);
         cursorX += width;
         if (typeof member.syncUncleSlots === "function") member.syncUncleSlots();
