@@ -165,7 +165,7 @@ async def load_file(request):
         target_path, used_fallback = resolve_category_file_path(category, target_dir, file_name)
         if not target_path or not os.path.exists(target_path):
             return attach_fallback_header(web.json_response({"error": "File not found"}, status=404), used_fallback=used_fallback)
-        with open(target_path, "r", encoding="utf-8") as f:
+        with open(target_path, "r", encoding="utf-8-sig") as f:
             data = json.load(f)
         if category == "derpPromptBook":
             raw_book_name = os.path.splitext(os.path.basename(file_name))[0]

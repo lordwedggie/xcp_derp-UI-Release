@@ -405,6 +405,11 @@ app.registerExtension({
 
         nodeType.prototype.onDerpSysPanelOpen = function(panel) {
             this._derpPanel = panel;
+            this._sysProfileActive = true;
+            this._sysProfileFile = "derpLatent";
+            this._sysProfileFolder = "nodeSettings";
+            delete this._sysProfileCache;
+            delete this._sysProfileData;
             if (panel.showProfiles) {
                 panel.showProfiles("derpLatent", "nodeSettings");
             }

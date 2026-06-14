@@ -581,6 +581,9 @@ function getLinearResizeMembers(node, graph, axis) {
 function getHorizontalDeckMembersByX(node, graph) {
     const members = getLinearResizeMembers(node, graph, "horizontal");
     if (members.length === 0) return [];
+    const pressureHub = getDeckPressureHubForNode(node, graph);
+    const branchSide = pressureHub && pressureHub.id !== node.id ? getDeckPressureBranchSideForNode(pressureHub, graph, node) : null;
+    if (getPressureBranchAxis(branchSide) === "horizontal") return members;
     return members.slice().sort((a, b) => {
         const ax = Number(a?.pos?.[0]) || 0;
         const bx = Number(b?.pos?.[0]) || 0;
@@ -911,6 +914,53 @@ export function canResizeHorizontalStackWidth(node, graph = app.graph || node?.g
     return nodeIndex === 0 || nodeIndex === members.length - 1;
 }
 
+function snapResizeValue(value, snap) {
+    const unit = Math.max(1, Number(snap) || 10);
+    return Math.round((Number(value) || 0) / unit) * unit;
+}
+
+function reconcileManualWidthsToTarget(nextWidths, manualMembers, targetManualTotal, minW, snap) {
+    const unit = Math.max(1, Number(snap) || 10);
+    const mins = new Map(manualMembers.map((member) => [member.id, getDockNodeMinWidth(member, minW, snap)]));
+    const minTotal = manualMembers.reduce((sum, member) => sum + (mins.get(member.id) || 0), 0);
+    const targetTotal = Math.max(minTotal, snapResizeValue(targetManualTotal, unit));
+
+    manualMembers.forEach((member) => {
+        const minWidth = mins.get(member.id) || 0;
+        const snapped = Math.max(minWidth, snapResizeValue(nextWidths.get(member.id) || 0, unit));
+        nextWidths.set(member.id, snapped);
+    });
+
+    let currentTotal = manualMembers.reduce((sum, member) => sum + (nextWidths.get(member.id) || 0), 0);
+    let diff = targetTotal - currentTotal;
+    const shrinkOrder = manualMembers
+        .slice()
+        .sort((a, b) => ((nextWidths.get(b.id) || 0) - (mins.get(b.id) || 0)) - ((nextWidths.get(a.id) || 0) - (mins.get(a.id) || 0)));
+
+    while (Math.abs(diff) >= unit - 0.5) {
+        const order = diff > 0 ? manualMembers : shrinkOrder;
+        let adjusted = false;
+        for (const member of order) {
+            const current = nextWidths.get(member.id) || 0;
+            if (diff > 0) {
+                nextWidths.set(member.id, current + unit);
+                diff -= unit;
+                adjusted = true;
+            } else {
+                const minWidth = mins.get(member.id) || 0;
+                if (current - unit < minWidth - 0.5) continue;
+                nextWidths.set(member.id, current - unit);
+                diff += unit;
+                adjusted = true;
+            }
+            if (Math.abs(diff) < unit - 0.5) break;
+        }
+        if (!adjusted) break;
+    }
+
+    return manualMembers.reduce((sum, member) => sum + (nextWidths.get(member.id) || 0), 0);
+}
+
 function applyHorizontalStackWidthResize(entity, resizeAnchor, requestedEntityWidth, minW, snap, result, addCounterpart, graph) {
     const members = getHorizontalDeckMembersByX(entity, graph);
     if (members.length <= 1) return false;
@@ -942,6 +992,8 @@ function applyHorizontalStackWidthResize(entity, resizeAnchor, requestedEntityWi
     const entityStartWidth = originalWidths.get(entity.id) || getDockNodeWidth(entity);
     const requestedDelta = Number(requestedEntityWidth) - entityStartWidth;
     if (!Number.isFinite(requestedDelta) || Math.abs(requestedDelta) < 0.5) return false;
+    const snappedRequestedDelta = snapResizeValue(requestedDelta, snap);
+    if (Math.abs(snappedRequestedDelta) < 0.5) return false;
 
     const anchorX = isLeftHandle
         ? members.reduce((max, member) => {
@@ -955,10 +1007,10 @@ function applyHorizontalStackWidthResize(entity, resizeAnchor, requestedEntityWi
     const fixedWidth = members
         .filter((member) => member?.properties?.autoWidth !== false)
         .reduce((sum, member) => sum + (originalWidths.get(member.id) || 0), 0);
-    const requestedTotalWidth = Math.max(0, originalTotalWidth + requestedDelta);
     const manualMinTotal = manualMembers.reduce((sum, member) => sum + getDockNodeMinWidth(member, minW, snap), 0);
-    const targetManualTotal = Math.max(manualMinTotal, requestedTotalWidth - fixedWidth);
     const originalManualTotal = manualMembers.reduce((sum, member) => sum + (originalWidths.get(member.id) || 0), 0);
+    const requestedTotalWidth = Math.max(0, originalTotalWidth + snappedRequestedDelta);
+    const targetManualTotal = Math.max(manualMinTotal, originalManualTotal + snappedRequestedDelta);
     const nextWidths = new Map(originalWidths);
 
     if (targetManualTotal >= originalManualTotal) {
@@ -993,16 +1045,12 @@ function applyHorizontalStackWidthResize(entity, resizeAnchor, requestedEntityWi
         shrinkable.forEach((entry) => nextWidths.set(entry.member.id, entry.width));
     }
 
-    let totalWidth = 0;
     members.forEach((member) => {
-        const isManualWidth = member?.properties?.autoWidth === false;
-        const minWidth = isManualWidth ? getDockNodeMinWidth(member, minW, snap) : 0;
-        const snapped = isManualWidth
-            ? Math.max(minWidth, Math.round((nextWidths.get(member.id) || 0) / snap) * snap)
-            : (originalWidths.get(member.id) || getDockNodeWidth(member));
-        nextWidths.set(member.id, snapped);
-        totalWidth += snapped;
+        if (member?.properties?.autoWidth === false) return;
+        nextWidths.set(member.id, originalWidths.get(member.id) || getDockNodeWidth(member));
     });
+    const manualTotal = reconcileManualWidthsToTarget(nextWidths, manualMembers, targetManualTotal, minW, snap);
+    const totalWidth = fixedWidth + manualTotal;
 
     let cursorX = isLeftHandle ? anchorX - totalWidth : anchorX;
     members.forEach((member) => {
@@ -1020,7 +1068,7 @@ function applyHorizontalStackWidthResize(entity, resizeAnchor, requestedEntityWi
     dockDebug("resize-horizontal-stack-width", () => ({
         entity: snapshotDockNode(entity),
         resizeAnchor,
-        requested: { requestedEntityWidth, requestedDelta, requestedTotalWidth },
+        requested: { requestedEntityWidth, requestedDelta, snappedRequestedDelta, requestedTotalWidth },
         fixedWidth,
         targetManualTotal,
         members: members.map(snapshotDockNode),

@@ -22,7 +22,7 @@ import {
     handleDerpCollapseImpl,
     handleHorizontalDeckTitleToggleImpl,
 } from "./dockResize.js";
-import { masterDockEngine, getDeckMembers, getDeckCornerOverride, getNodeOnDeckEdge, isLinearDeckGroup, normalizeDockedLayout, setDeckNodePos, syncDeckNodeSize, isDeckPressureHub, getDeckPressureHubForNode, applyDeckPressureLayout } from "./masterDockEngine.js";
+import { masterDockEngine, getDeckMembers, getDeckCornerOverride, getNodeOnDeckEdge, isLinearDeckGroup, normalizeDockedLayout, setDeckNodePos, syncDeckNodeSize, isDeckPressureHub, getDeckPressureHubForNode, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, applyDeckPressureLayout } from "./masterDockEngine.js";
 import { getDockGroupAxisFromMembers, getDockNodeHeight, getDockNodeMinWidth, getDockNodeWidth, getSharedDockMinWidth, getSharedDockWidth, shouldPreserveDockHeight, shouldPreserveDockWidth } from "./dockDimensions.js";
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
 import {
@@ -282,9 +282,27 @@ function restoreHorizontalDeckPositionAnchor(anchor) {
     return Math.max(Math.abs(offsetX), Math.abs(offsetY));
 }
 
+function getPressureBranchAxis(side) {
+    if (side === "left" || side === "right") return "vertical";
+    if (side === "top" || side === "bottom") return "horizontal";
+    return null;
+}
+
+function getLinearDeckMembers(node, graph, axis) {
+    if (!graph || !node) return [];
+    const pressureHub = getDeckPressureHubForNode(node, graph);
+    const branchSide = pressureHub && pressureHub.id !== node.id ? getDeckPressureBranchSideForNode(pressureHub, graph, node) : null;
+    if (getPressureBranchAxis(branchSide) === axis) return getDeckPressureBranchMembers(pressureHub, graph, branchSide);
+    return isLinearDeckGroup(node, graph, axis) ? getDeckMembers(node, graph) : [];
+}
+
 function getHorizontalDeckMembersByX(node, graph) {
-    if (!graph || !node || !isLinearDeckGroup(node, graph, "horizontal")) return [];
-    return getDeckMembers(node, graph).slice().sort((a, b) => {
+    const members = getLinearDeckMembers(node, graph, "horizontal");
+    if (members.length === 0) return [];
+    const pressureHub = getDeckPressureHubForNode(node, graph);
+    const branchSide = pressureHub && pressureHub.id !== node.id ? getDeckPressureBranchSideForNode(pressureHub, graph, node) : null;
+    if (getPressureBranchAxis(branchSide) === "horizontal") return members;
+    return members.slice().sort((a, b) => {
         const ax = Number(a?.pos?.[0]) || 0;
         const bx = Number(b?.pos?.[0]) || 0;
         if (ax !== bx) return ax - bx;
@@ -293,11 +311,12 @@ function getHorizontalDeckMembersByX(node, graph) {
 }
 
 function distributeHorizontalWidthDelta(members, delta, snap) {
-    let remaining = Math.abs(Number(delta) || 0);
+    const unit = Math.max(1, Number(snap) || 10);
+    let remaining = Math.round(Math.abs(Number(delta) || 0) / unit) * unit;
     if (remaining < 0.5 || !members.length) return true;
 
     if (delta > 0) {
-        while (remaining > 0.5) {
+        while (remaining >= unit - 0.5) {
             const shrinkable = members
                 .map((member) => ({
                     member,
@@ -306,10 +325,11 @@ function distributeHorizontalWidthDelta(members, delta, snap) {
                 }))
                 .filter((entry) => entry.width > entry.minWidth + 0.5);
             if (!shrinkable.length) return false;
-            const share = remaining / shrinkable.length;
             let consumed = 0;
             shrinkable.forEach((entry) => {
-                const shrink = Math.min(share, entry.width - entry.minWidth);
+                if (remaining - consumed < unit - 0.5) return;
+                const shrink = Math.min(unit, Math.floor((entry.width - entry.minWidth) / unit) * unit);
+                if (shrink < unit - 0.5) return;
                 syncDeckNodeSize(entry.member, entry.width - shrink, getDockNodeHeight(entry.member), { silent: true });
                 consumed += shrink;
             });
@@ -319,10 +339,13 @@ function distributeHorizontalWidthDelta(members, delta, snap) {
         return true;
     }
 
-    const share = remaining / members.length;
-    members.forEach((member) => {
-        syncDeckNodeSize(member, getDockNodeWidth(member) + share, getDockNodeHeight(member), { silent: true });
-    });
+    let index = 0;
+    while (remaining >= unit - 0.5) {
+        const member = members[index % members.length];
+        syncDeckNodeSize(member, getDockNodeWidth(member) + unit, getDockNodeHeight(member), { silent: true });
+        remaining -= unit;
+        index += 1;
+    }
     return true;
 }
 

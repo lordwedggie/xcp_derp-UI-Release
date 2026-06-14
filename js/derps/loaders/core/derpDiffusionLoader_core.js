@@ -2,6 +2,9 @@ import { showBastaMessage } from "../../../fatha/bastas/bastaMessage.js";
 import { showBastaSystemMessage } from "../../../fatha/bastas/bastaSystemMessage.js";
 import { playMicrowaveDing } from "../../../herbina/masterSoundEffects.js";
 import { transmitDerpSignal } from "../../../fatha/core/masterSignalEngine.js";
+import { app } from "../../../../../scripts/app.js";
+
+let derpDiffusionLoaderPromptHookInstalled = false;
 
 function pushDiffusionSignalToRegistry(node, signalId, nodeName, portLabel, signalType, payload) {
     if (!window.xcpDerpSignals) window.xcpDerpSignals = {};
@@ -26,6 +29,22 @@ function tLocale(key, fallback = key) {
         if (target === undefined) return fallback;
     }
     return target;
+}
+
+function installDerpDiffusionLoaderPromptHook() {
+    if (derpDiffusionLoaderPromptHookInstalled || !app?.graphToPrompt) return;
+    derpDiffusionLoaderPromptHookInstalled = true;
+
+    const originalGraphToPrompt = app.graphToPrompt;
+    app.graphToPrompt = function() {
+        if (app?.graph?._nodes) {
+            app.graph._nodes.forEach((node) => {
+                if (!node || node._isDerpDiffusionLoaderNode !== true) return;
+                node._hasClearedVRAMSinceQueuePrompt = false;
+            });
+        }
+        return originalGraphToPrompt.apply(this, arguments);
+    };
 }
 
 async function unloadPreviousModelFromVRAM(node, previousModel, nextModel) {
@@ -64,6 +83,7 @@ function syncDerpDiffusionLoaderLocaleLabels(node) {
 
 export function initDerpDiffusionLoaderCore(nodeType) {
     const proto = nodeType.prototype;
+    installDerpDiffusionLoaderPromptHook();
 
     function normalizeDeck(deck) {
         if (!Array.isArray(deck) || deck.length === 0) return [];
@@ -92,6 +112,14 @@ export function initDerpDiffusionLoaderCore(nodeType) {
         node._sysProfileFile = "derpDiffusionLoader";
         node._sysProfileFolder = "nodeSettings";
         syncDerpDiffusionLoaderLocaleLabels(node);
+    }
+
+    function syncDiffusionUnloadBaseline(node, force = false) {
+        const activeDiffusionName = (node?.properties?.diffusionDeck || []).find(m => m.active)?.name || null;
+        if (!activeDiffusionName) return;
+        if (force || typeof node._lastBroadcastModelName !== "string" || !node._lastBroadcastModelName) {
+            node._lastBroadcastModelName = activeDiffusionName;
+        }
     }
 
     function queueRelinkMessages(node, items, prefixKey, fallback) {
@@ -148,6 +176,7 @@ export function initDerpDiffusionLoaderCore(nodeType) {
         this.properties.diffusionDeck = normalizeDeck(this.properties.diffusionDeck);
 
         if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
+        syncDiffusionUnloadBaseline(this);
         if (!suppressSignal && this.broadcastWirelessSignal) this.broadcastWirelessSignal();
 
         if (showNotification || missingDiffusions.length) {
@@ -209,6 +238,9 @@ export function initDerpDiffusionLoaderCore(nodeType) {
 
         const runTransmit = () => {
             this._lastBroadcastModelName = diffusionName;
+            if (this._pendingModelSwitchTarget === diffusionName) {
+                this._pendingModelSwitchTarget = null;
+            }
 
             if (diffusionName && this.widgets) {
                 const diffusionWidget = this.widgets.find(w => w.name === "diffusion_name" || w.name === "model_name" || w.name === "unet_name");
@@ -309,6 +341,7 @@ export function initDerpDiffusionLoaderCore(nodeType) {
         this.properties.autoHeight = true;
         this.properties.nodeSize = [320, 180];
         this.size = [320, 180];
+        syncDiffusionUnloadBaseline(this, true);
         if (!this._restoreDiffusionDeckPending && this.syncDerpOutputs) this.syncDerpOutputs();
         this.refreshNodeLayoutMap();
         this.refreshDerpTemplateSysMap();
@@ -342,6 +375,7 @@ export function initDerpDiffusionLoaderCore(nodeType) {
                     this.properties.diffusionDeck = normalizeDeck(restored);
                 }
             }
+            syncDiffusionUnloadBaseline(this, true);
             this._restoreDiffusionDeckPending = false;
             if (this.syncDerpOutputs) this.syncDerpOutputs();
             if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();

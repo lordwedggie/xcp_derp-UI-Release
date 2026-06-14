@@ -289,6 +289,12 @@ app.registerExtension({
                         value: themeWeightRootValue,
                         spacing: [sW, 0],
                     },
+                    btnSaveWeight: {
+                        type: UI_TYPES.ICONBUTTON, themeKey: "button, t_textNormal", noHover: false,
+                        state: "OFF", icon: "save", width: "match", height: "fill", objectAlign: ["left", "middle"],
+                        spacing: [sW, 0],
+                        toolTip: "Save theme weight file",
+                    },
                     btnThemeDelete: {
                         type: UI_TYPES.ICONBUTTON, themeKey: "button, t_textNormal", noHover: false,
                         state: "OFF", icon: "trash", width: "match", height: "fill", objectAlign: ["left", "middle"],

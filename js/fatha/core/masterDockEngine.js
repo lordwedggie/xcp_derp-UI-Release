@@ -1816,6 +1816,59 @@ function getDeckPressureBranchMinSpan(members, axis, snap) {
     return members.reduce((sum, member) => sum + getDeckPressureMinSpanForState(member, axis, snap, true), 0);
 }
 
+function getDeckPressureRowFixedWidth(member, snap) {
+    const unit = Math.max(1, snap);
+    const minWidth = quantizeSize(getDeckPressureMinSpanForState(member, "horizontal", snap, member?.properties?.contentCollapsed === true), unit);
+    if (member?.properties?.autoWidth === false) return minWidth;
+    return Math.max(minWidth, quantizeSize(getNodeSizeValue(member, 0), unit));
+}
+
+function getDeckPressureRowMinSpan(members, snap) {
+    if (!Array.isArray(members) || members.length === 0) return 0;
+    return members.reduce((sum, member) => sum + getDeckPressureRowFixedWidth(member, snap), 0);
+}
+
+function fitDeckPressureRowWidths(members, targetWidth, snap) {
+    if (!Array.isArray(members) || members.length === 0) return [];
+
+    const manualMembers = members.filter((member) => member?.properties?.autoWidth === false);
+    if (manualMembers.length === 0) return fitSizesToTotal(members, "width", targetWidth, snap);
+
+    const unit = Math.max(1, snap);
+    const widths = new Map();
+    const manualMins = new Map(manualMembers.map((member) => [member.id, quantizeSize(getNodeMinWidth(member, snap), unit)]));
+    const fixedTotal = members.reduce((sum, member) => {
+        if (member?.properties?.autoWidth === false) return sum;
+        const width = getDeckPressureRowFixedWidth(member, snap);
+        widths.set(member.id, width);
+        return sum + width;
+    }, 0);
+    const manualMinTotal = manualMembers.reduce((sum, member) => sum + (manualMins.get(member.id) || 0), 0);
+    const resolvedTarget = Math.max(quantizeSize(targetWidth, unit), fixedTotal + manualMinTotal);
+    const targetManualTotal = resolvedTarget - fixedTotal;
+    const currentManualTotal = manualMembers.reduce((sum, member) => sum + Math.max(0, quantizeSize(getNodeSizeValue(member, 0), unit) - (manualMins.get(member.id) || 0)), 0);
+    let assigned = 0;
+
+    manualMembers.forEach((member, index) => {
+        const minWidth = manualMins.get(member.id) || 0;
+        if (index === manualMembers.length - 1) {
+            widths.set(member.id, targetManualTotal - assigned);
+            return;
+        }
+
+        const extraTotal = Math.max(0, targetManualTotal - manualMinTotal);
+        const currentExtra = Math.max(0, quantizeSize(getNodeSizeValue(member, 0), unit) - minWidth);
+        const weight = currentManualTotal > 0 ? currentExtra / currentManualTotal : 1 / manualMembers.length;
+        const remainingMin = manualMembers.slice(index + 1).reduce((sum, later) => sum + (manualMins.get(later.id) || 0), 0);
+        const remainingTarget = targetManualTotal - assigned - remainingMin;
+        const nextWidth = Math.min(minWidth + Math.max(0, remainingTarget), Math.max(minWidth, quantizeSize(minWidth + (extraTotal * weight), unit)));
+        widths.set(member.id, nextWidth);
+        assigned += nextWidth;
+    });
+
+    return members.map((member) => widths.get(member.id) || quantizeSize(getNodeSizeValue(member, 0), unit));
+}
+
 function fitDeckPressureSideHeights(members, targetHeight, snap) {
     if (!Array.isArray(members) || members.length === 0) return [];
     const unit = Math.max(1, snap);
@@ -1894,7 +1947,7 @@ export function applyDeckPressureLayout(hub, graph, snap = DEFAULT_DECK_SNAP) {
         .map((branch) => getDeckPressureBranchMinSpan(branch.members, "vertical", snap)), 0);
     const topBottomMinWidth = Math.max(...branches
         .filter((branch) => branch.side === "top" || branch.side === "bottom")
-        .map((branch) => getDeckPressureBranchMinSpan(branch.members, "horizontal", snap)), 0);
+        .map((branch) => getDeckPressureRowMinSpan(branch.members, snap)), 0);
     const centerWidth = Math.max(hubRect.w, topBottomMinWidth);
     const centerHeight = Math.max(hubRect.h, sideMinHeight - topHeight - bottomHeight);
     if (centerWidth > hubRect.w + 0.5 || centerHeight > hubRect.h + 0.5) {
@@ -1921,7 +1974,7 @@ export function applyDeckPressureLayout(hub, graph, snap = DEFAULT_DECK_SNAP) {
             changed.push(...applyColumnLayout(members, x, frameY, width, heights));
         } else {
             const height = side === "top" ? topHeight : bottomHeight;
-            const widths = fitSizesToTotal(members, "width", hubRect.w, snap);
+            const widths = fitDeckPressureRowWidths(members, hubRect.w, snap);
             const y = side === "top" ? hubRect.y - height : hubRect.y + hubRect.h;
             changed.push(...applyRowLayout(members, hubRect.x, y, widths, height));
         }

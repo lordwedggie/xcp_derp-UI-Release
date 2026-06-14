@@ -297,6 +297,7 @@ export const handleThemeSaveWeightAction = (node) => {
     const themeName = node._selectedThemeName || node.properties?.selectedThemeName || "ThemeWeight";
     const themeObj = node.themeToEdit;
     if (!themeObj) return;
+    const weightList = Array.isArray(node._themeWeightList) ? node._themeWeightList.filter(isThemeWeightPath) : null;
 
     showBastaFileHandler(node, "themes", "btnSaveWeight", {
         title: "Save Theme Weight",
@@ -304,6 +305,7 @@ export const handleThemeSaveWeightAction = (node) => {
         message: "Save layout, corners, and fonts?",
         originalName: `${THEME_WEIGHT_PREFIX}${themeName}`,
         initialSize: [300, 120],
+        fileList: weightList,
         properties: {
             filePicker: {
                 displayText: "Replace existing weight",
@@ -325,6 +327,13 @@ export const handleThemeSaveWeightAction = (node) => {
                     body: JSON.stringify({ name: targetName, data: weightData })
                 });
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                if (Array.isArray(node._themeWeightList) && !node._themeWeightList.includes(targetName)) {
+                    node._themeWeightList = [...node._themeWeightList, targetName]
+                        .filter(isThemeWeightPath)
+                        .sort((a, b) => String(a).localeCompare(String(b)));
+                    node._layoutMapHash = null;
+                    if (typeof node.refreshNodeLayoutMap === "function") node.refreshNodeLayoutMap();
+                }
                 showBastaSystemMessage(node, "Theme Weight Saved: ", 2000, { fade: true, grow: true }, "btnSaveWeight", "success", null, targetName);
             } catch (err) {
                 showBastaSystemMessage(node, "Weight Save Failed", 3000, { fade: true, grow: true }, "btnSaveWeight", "error", null, "");

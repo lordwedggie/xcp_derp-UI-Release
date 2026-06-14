@@ -128,7 +128,7 @@ async def load_settings_redirect(request):
         target_path = resolve_case_insensitive_path(target_dir, name)
         if not os.path.exists(target_path):
             return web.json_response({"error": "File not found"}, status=404)
-        with open(target_path, "r", encoding="utf-8") as f:
+        with open(target_path, "r", encoding="utf-8-sig") as f:
             data = json.load(f)
         return web.json_response({"data": data})
     except Exception as e:
