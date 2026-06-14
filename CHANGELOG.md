@@ -4,7 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### <span style="color: #80ffc0">Added</span>
+- <span style="color: #80ffc0"><strong>Live palette editing preview</strong></span>: `bastaPalette` color changes now refresh active derpNode visuals immediately while editing, matching the live-update behavior used by theme-key edits without requiring a reload or panel close.
+- <span style="color: #80ffc0"><strong>Collapsed header ON-state colors</strong></span>: Collapsed node header backgrounds now resolve the canvas-rendered header paint through `_ON`, using attached header palette `main._ON` first and falling back to theme `header._ON`.
+- <span style="color: #80ffc0"><strong>Palette Manager unsaved-change confirmation</strong></span>: Closing `bastaPalette` through either the header close button or footer Done button now checks the palette hash/dirty state and opens a `bastaFileHandler` discard confirmation before dropping unsaved palette edits.
+
 ### <span style="color: #ffc680">Fixed</span>
+- <span style="color: #ffc680"><strong>Collapsed title text ON fallback</strong></span>: Collapsed node titles now render the title editor in `ON` state, falling back to theme `t_textBig._ON` when no palette/color-key text color is available.
 - <span style="color: #ffc680"><strong>derpEditor multiline editing parity</strong></span>: Active multiline `canvasShield` editors now keep the DOM text visible for native caret, IME, and CJK hit-testing while Canvas owns only the background and asleep visuals. Precise click placement now sets the caret synchronously inside the editor instead of using a delayed range update, and Inter/variable-font editing parity disables automatic optical sizing with `opsz` pinned to the layout font size.
 - <span style="color: #ffc680"><strong>Vertical dock resize member positioning</strong></span>: Vertical resize now normalizes all member positions sequentially after height changes via `normalizeVerticalMemberPositions`, preventing gaps and position drift. Active member tracking (`markDockResizeActiveMembers`, 1200ms timeout) prevents Deck Pressure from fighting live resize drags by skipping `fitDeckPressureSideHeights` reflow when members are mid-resize. Side-branch vertical shared-edge resize processes as an ordered seam before generic node resize, keeping members in their correct topological order. Counterpart tracking expanded from two nodes to full vertical member lists.
 

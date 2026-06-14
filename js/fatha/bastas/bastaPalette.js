@@ -104,6 +104,12 @@ function markPaletteDirty(basta, options = {}) {
     refreshPaletteLayout(basta, options);
 }
 
+function hasUnsavedPaletteChanges(basta) {
+    if (!basta?.properties?.activePaletteName) return false;
+    const currentHash = getPaletteHash(basta._availablePalettes, basta.properties.includeEffectKeys);
+    return !!basta._paletteDirty || (!!basta._lastFileHash && basta._lastFileHash !== currentHash);
+}
+
 function syncActivePalettePreview(basta) {
     const activeName = normalizePaletteName(basta?.properties?.activePaletteName || "");
     if (!activeName) return false;
@@ -266,7 +272,7 @@ export function showBastaPalette(host, targetRegion = null) {
                     value: basta.properties.includeEffectKeys || false, isTextOnly: true, mouseOver: false,
                     onPress: () => {
                         basta.properties.includeEffectKeys = !basta.properties.includeEffectKeys;
-                        refreshPaletteLayout(basta);
+                        markPaletteDirty(basta);
                     }
                 },
                 mainRegion: {
@@ -786,6 +792,30 @@ export function showBastaPalette(host, targetRegion = null) {
     };
 
     const bastaInstance = spawnBasta(id, config);
+    if (!bastaInstance._paletteCloseGuarded) {
+        const closePalette = bastaInstance.close;
+        bastaInstance.close = function(reason = "implicit") {
+            if ((reason === "headerButton" || reason === "footerButton") && hasUnsavedPaletteChanges(this)) {
+                if (this._allowUnsavedPaletteClose) {
+                    this._allowUnsavedPaletteClose = false;
+                    return closePalette.call(this, reason);
+                }
+                showBastaFileHandler(this, "none", reason === "headerButton" ? "btnClose" : "btnOk", {
+                    title: "Discard palette changes?",
+                    message: "Palette has unsaved changes. Close without saving?",
+                    confirm: "Discard",
+                    mode: "delete",
+                    onConfirm: async () => {
+                        this._allowUnsavedPaletteClose = true;
+                        this.close(reason);
+                    }
+                });
+                return false;
+            }
+            return closePalette.call(this, reason);
+        };
+        bastaInstance._paletteCloseGuarded = true;
+    }
 
     // THE SUCCESS FEEDBACK: Handle UI updates and messaging after a successful file rename
     bastaInstance.onRenameSuccess = (newName) => {

@@ -401,6 +401,7 @@ export const getVirtualNodeLayoutMap = (node) => {
                 titleLabel: {
                     type: UI_TYPES.EDITOR, skipBackground: true, mouseOver: false,
                     themeKey: "dialog, t_textBig",
+                    state: p.contentCollapsed ? "ON" : undefined,
                     width: "full", height: "auto", padding: [pW, 0],
                     hitTest: isTitleTextHit, deferAsleepDomHitTest: true,
                     

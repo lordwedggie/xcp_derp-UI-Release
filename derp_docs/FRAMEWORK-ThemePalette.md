@@ -196,6 +196,10 @@ This is how different node types can get different header colors from the same p
 
 **Header palette naming convention:** Entry names are `header_<NodeType>` (e.g., `header_DerpSeedV2`, `header_DerpLoraStack`). The `findHeaderPaletteEntry()` function also checks aliases — if the node type is `DerpSeedV2Node`, it also tries `header_derpSeedV2`.
 
+**Collapsed header state:** The node header background is drawn by `fathaHandler.js`'s canvas base renderer, not by the layout-map `headerMain` region. Expanded headers use `_OFF` by default, selected headers use `_ON`, bypassed headers use `_DIS`, and collapsed headers also use `_ON`. If a node has an attached header palette, the palette entry's `main._ON` overrides the theme `header._ON`; otherwise the renderer falls back to the theme `header._ON`. Theme and palette authors should treat `header._ON` / `header_<NodeType>.entries.main._ON` as the collapsed-header color.
+
+**Collapsed title text state:** The node title editor (`dialog, t_textBig`) also receives state `ON` while collapsed. If no string palette or color-key override resolves for the title text, the label paint falls back to the active theme's `t_textBig._ON`. Theme authors should set `t_textBig._ON` for collapsed node title text contrast.
+
 ### Stage 3: Theme Manager System Palette (`themeManagerV2.js` / `themeManagerV2_core.js`)
 
 The theme manager node has a system palette dropdown that sets `themeToEdit._palette` and `node.properties.systemPaletteName`. This is stored on the edited theme and later copied into `window.xcpDerpThemeConfig.themes[name]._palette` when the binding path or save path runs:
@@ -258,7 +262,8 @@ Color-key markup is display-only. Framework text measurement paths strip `{{key:
 4. Existing effect keys set their visibility toggles; missing effect keys stay omitted unless the user enables their toggle
 5. User edits colors via `bastaColorDesigner.js` → writes directly to `basta._availablePalettes`
 6. `markPaletteColorEdited()` fires → `schedulePalettePreviewRedraw()` updates all nodes using that palette in real-time
-7. User clicks Save → `fetch(/xcp/save/palettes, {method: "POST", body: ...})` persists to disk
+7. Dirty state is tracked by `_paletteDirty` plus a `getPaletteHash()` baseline (`_lastFileHash`). If the user closes Palette Manager from the header close button or footer Done button while dirty, the panel opens a `bastaFileHandler` discard confirmation before closing.
+8. User clicks Save → `fetch(/xcp/save/palettes, {method: "POST", body: ...})` persists to disk
 
 ### When palette is saved (propagation):
 

@@ -87,6 +87,7 @@ A "hybrid" framework combining Fatha's modern engine with legacy node compatibil
 ## Key Patterns
 - **Ghost Slots:** Heist caches inputs/outputs as `_xcpTrueInputs`/`_xcpTrueOutputs`, sets real arrays to `[]` during draw
 - **Passive Whole Wall Cache:** OffscreenCanvas cache for TriggerWall/LoraStack panel backgrounds — avoids redraw when only cursor position changes
+- **Collapsed Header Paint:** `handleDrawCTX()` in `core/fathaHandler.js` owns the canvas-drawn node header background. Collapsed headers resolve the header paint state as `_ON`, so attached header palettes use `main._ON` and theme-only nodes use `header._ON`.
 - **Force Sync:** `node._forceSync = true` triggers full layout recompute next frame
 - **Layout Dirty:** `node._layoutDirty = true` triggers layout recompute
 - **Awake Frames:** `node._derpAwakeFrames` countdown for post-interaction animation frames

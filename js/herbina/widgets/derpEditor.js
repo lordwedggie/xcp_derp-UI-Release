@@ -441,7 +441,7 @@ export function syncDerpEditor(context, node, app, config) {
     // THE OPTIMIZATION FIX: Move skipBg initialization above the stateHash to prevent ReferenceError.
     const skipBg = safeConfig.skipBackground || false;
     const hashScale = app?.canvas?.ds?.scale || 1;
-    const stateHash = `${isAwake}_${isHovered}_${node.mode}_${window._xcpDerpSession}_${valStr}_${safeConfig.text ?? ""}_${currentScroll}_${w}_${h}_${skipBg}_${safeConfig.labelAlign}_${safeConfig.padding}_${safeConfig.themeKey}_${safeConfig.fontSize}_${safeConfig.fontWeight}_${safeConfig.numberOnly}_${safeConfig.labelColor ?? ""}_${safeConfig.btnColor ?? ""}_${hashScale}`;
+    const stateHash = `${isAwake}_${isHovered}_${node.mode}_${window._xcpDerpSession}_${valStr}_${safeConfig.text ?? ""}_${currentScroll}_${w}_${h}_${skipBg}_${safeConfig.labelAlign}_${safeConfig.padding}_${safeConfig.themeKey}_${safeConfig.state ?? ""}_${safeConfig.fontSize}_${safeConfig.fontWeight}_${safeConfig.numberOnly}_${safeConfig.labelColor ?? ""}_${safeConfig.btnColor ?? ""}_${hashScale}`;
     const needsFullSync = node._shouldSync || el._lastStateHash !== stateHash || (el._isAnimating && (window.xcpDerpSettings?.useAnimations !== false));
 
     if (!needsFullSync && el._lastProps) {
