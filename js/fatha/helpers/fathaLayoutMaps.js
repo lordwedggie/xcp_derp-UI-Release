@@ -375,7 +375,8 @@ export const getVirtualNodeLayoutMap = (node) => {
             spacing: [0, sH],
             headerMain: {
                 dir: "row", width: "full", height: p.contentCollapsed ? COLLAPSED_HEADER_HEIGHT : "auto",
-                btnColor: headerPaletteFill,
+                btnColor: p.contentCollapsed
+                    ? (resolvePaintData(node, "header", "_ON")?.fill || headerPaletteFill) : headerPaletteFill,
                 margin: [2, p.contentCollapsed ? COLLAPSED_HEADER_VERTICAL_MARGIN : 2, 2, p.contentCollapsed ? COLLAPSED_HEADER_VERTICAL_MARGIN : 0],
                 padding: [headerSideInsetBoost.left, 0, headerSideInsetBoost.right, 0],
                 btnCollapse: {
@@ -401,6 +402,7 @@ export const getVirtualNodeLayoutMap = (node) => {
                 titleLabel: {
                     type: UI_TYPES.EDITOR, skipBackground: true, mouseOver: false,
                     themeKey: "dialog, t_textBig",
+                    state: p.contentCollapsed ? "ON" : undefined,
                     width: "full", height: "auto", padding: [pW, 0],
                     hitTest: isTitleTextHit, deferAsleepDomHitTest: true,
                     
