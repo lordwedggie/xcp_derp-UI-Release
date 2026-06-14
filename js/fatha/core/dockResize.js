@@ -708,7 +708,7 @@ function rememberExpandedDeckHeight(node, height) {
     const nextHeight = Number(height) || 0;
     if (nextHeight <= 0) return;
     node.properties._savedExpandedHeight = nextHeight;
-    node._preCollapseHeight = Math.max(Number(node._preCollapseHeight || 0), nextHeight);
+    node._preCollapseHeight = nextHeight;
 }
 
 function applyVerticalStackSharedEdgeResize(entity, resizeAnchor, requestedEntityHeight, snap, result, addCounterpart, graph) {

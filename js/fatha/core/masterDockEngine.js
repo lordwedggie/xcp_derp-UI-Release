@@ -1720,9 +1720,10 @@ function getDeckPressureFreshActiveMember(members = [], now = performance.now?.(
 
 function getDeckPressurePreferredExpandedHeight(member, minimum = 0) {
     const saved = Number(member?.properties?._savedExpandedHeight || 0);
+    if (saved > 0) return Math.max(Number(minimum) || 0, saved);
     const previous = Number(member?._preCollapseHeight || 0);
     const live = getNodeSizeValue(member, 1);
-    return Math.max(Number(minimum) || 0, saved, previous, live);
+    return Math.max(Number(minimum) || 0, previous, live);
 }
 
 function setDeckPressureCollapsed(node, collapsed) {
@@ -1903,10 +1904,11 @@ function fitDeckPressureSideHeights(members, targetHeight, snap) {
 
     const freshActive = getDeckPressureFreshActiveMember(members);
     const freshActiveIndex = expandedIndexes.find((index) => members[index]?.id === freshActive?.id);
+    const hasFreshActiveSavedHeight = freshActiveIndex >= 0 && Number(members[freshActiveIndex]?.properties?._savedExpandedHeight || 0) > 0;
     if (freshActiveIndex >= 0) {
         const preferredHeight = quantizeSize(getDeckPressurePreferredExpandedHeight(members[freshActiveIndex], mins[freshActiveIndex]), unit);
         const preferredExtra = Math.max(0, preferredHeight - mins[freshActiveIndex]);
-        const activeExtra = Math.min(extra, preferredExtra > 0 ? preferredExtra : extra);
+        const activeExtra = Math.min(extra, hasFreshActiveSavedHeight ? preferredExtra : (preferredExtra > 0 ? preferredExtra : extra));
         sizes[freshActiveIndex] += activeExtra;
         extra -= activeExtra;
         if (extra <= 0.5) return sizes;

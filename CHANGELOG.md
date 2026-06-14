@@ -8,9 +8,6 @@ All notable changes to this project will be documented in this file.
 - <span style="color: #ffc680"><strong>derpEditor multiline editing parity</strong></span>: Active multiline `canvasShield` editors now keep the DOM text visible for native caret, IME, and CJK hit-testing while Canvas owns only the background and asleep visuals. Precise click placement now sets the caret synchronously inside the editor instead of using a delayed range update, and Inter/variable-font editing parity disables automatic optical sizing with `opsz` pinned to the layout font size.
 - <span style="color: #ffc680"><strong>Vertical dock resize member positioning</strong></span>: Vertical resize now normalizes all member positions sequentially after height changes via `normalizeVerticalMemberPositions`, preventing gaps and position drift. Active member tracking (`markDockResizeActiveMembers`, 1200ms timeout) prevents Deck Pressure from fighting live resize drags by skipping `fitDeckPressureSideHeights` reflow when members are mid-resize. Side-branch vertical shared-edge resize processes as an ordered seam before generic node resize, keeping members in their correct topological order. Counterpart tracking expanded from two nodes to full vertical member lists.
 
-### <span style="color: #80aaff">Changed</span>
-- <span style="color: #80aaff"><strong>Collapsed header uses `header._ON` theme colors</strong></span>: When a node is collapsed, the header background now resolves `header._ON` fill for its background instead of the palette-derived `headerPaletteFill`. The title label also uses `t_textBig._ON` for its text color, making collapsed nodes pop visually against the canvas.
-
 ## [0.7.8] - 2026-06-14
 
 ### <span style="color: #80ffc0">Added</span>

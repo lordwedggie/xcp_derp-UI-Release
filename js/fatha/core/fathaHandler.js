@@ -1448,7 +1448,7 @@ export function handleDrawCTX(entity, ctx, overlayPass = false) {
 
         const renderBaseBackground = (targetCtx, options = {}) => {
             const bodyPaint = options.bodyPaint || paintOFF;
-            const headerPaletteState = options.headerPaletteState || (isBypassed ? "_DIS" : isSelected ? "_ON" : "_OFF");
+            const headerPaletteState = options.headerPaletteState || (isBypassed ? "_DIS" : (isCollapsed || isSelected) ? "_ON" : "_OFF");
             const headerEffectPaint = options.headerEffectPaint || bodyPaint;
 
             if (header && bodyPaint && paintON) {
@@ -1490,7 +1490,7 @@ export function handleDrawCTX(entity, ctx, overlayPass = false) {
             // --- SELECTION PULSE ---
             if (paintOFF) {
                 if (header && paintON) {
-                    renderBaseBackground(ctx, { bodyPaint: paintOFF, headerPaletteState: "_OFF", headerEffectPaint: paintOFF });
+                    renderBaseBackground(ctx, { bodyPaint: paintOFF, headerPaletteState: isCollapsed ? "_ON" : "_OFF", headerEffectPaint: paintOFF });
                 } else if (useStaticBgCache) {
                     const bw = Math.max(1, Math.round(entity.size[0]));
                     const bh = Math.max(1, Math.round(entity.size[1]));

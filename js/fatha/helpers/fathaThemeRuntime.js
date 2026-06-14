@@ -360,7 +360,7 @@ export function handleThemeUpdateImpl(node, config, deps = {}) {
     node._prevDerpState = null;
     node._forceSync = true;
 
-    if (window.xcpActiveBastas) {
+    if (deps.preserveBastas !== true && window.xcpActiveBastas) {
         window.xcpActiveBastas.forEach(basta => {
             if (basta.hostNode === node) basta.close();
         });

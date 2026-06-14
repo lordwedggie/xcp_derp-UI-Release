@@ -9,7 +9,7 @@ import { UI_TYPES } from "../core/masterLayoutTypes.js";
 import { showBastaColorDesigner } from "./bastaColorDesigner.js";
 import { showBastaSystemMessage } from "./bastaSystemMessage.js";
 import { showBastaFileHandler } from "./bastaFileHandler.js";
-import { resolvePaintData } from "../../herbina/utils/widgetsUtils.js";
+import { handleThemeUpdateImpl } from "../helpers/fathaThemeRuntime.js";
 
 // THE DEFAULT EFFECT KEYS: Fallback values if the loaded JSON is missing effect data
 const DEFAULT_SHADOW = { _ON: [0, 0, 0, 0.5], _OFF: [0, 0, 0, 0.5], _DIS: [0, 0, 0, 0.5] };
@@ -119,7 +119,28 @@ function syncActivePalettePreview(basta) {
         window.xcpActivePalette.palettes = basta._availablePalettes || [];
         window.xcpActivePaletteName = activeName;
     }
+    if (!window.xcpStringPaletteCache || typeof window.xcpStringPaletteCache !== "object") window.xcpStringPaletteCache = {};
+    window.xcpStringPaletteCache[activeName] = window.xcpPaletteCache[activeName];
     return true;
+}
+
+function paletteNameMatches(a, b) {
+    return normalizePaletteName(a || "").toLowerCase() === normalizePaletteName(b || "").toLowerCase();
+}
+
+function refreshNodePalettePreview(node) {
+    if (!node) return;
+    if (window.xcpDerpThemeConfig) {
+        handleThemeUpdateImpl(node, window.xcpDerpThemeConfig, { preserveBastas: true });
+    } else {
+        if (node._derpBgCache) node._derpBgCache.key = "";
+        if (node._compDataCache) node._compDataCache = {};
+        if (node.layout) node.layout._lastCacheKey = "";
+        node._prevDerpState = null;
+        node._forceSync = true;
+    }
+    if (typeof node.requestDerpSync === "function") node.requestDerpSync();
+    else if (typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, false);
 }
 
 function schedulePalettePreviewRedraw(basta) {
@@ -131,12 +152,20 @@ function schedulePalettePreviewRedraw(basta) {
         if (basta.isClosing) return;
 
         const nodes = window.app?.graph?._nodes || [];
+        const activeName = normalizePaletteName(basta.properties.activePaletteName || "");
         nodes.forEach(node => {
             if (!node?.isFathaNode && !node?.isUncleNode) return;
-            if (normalizePaletteName(node._headerPaletteName || "") !== normalizePaletteName(basta.properties.activePaletteName || "")) return;
-            if (node._derpBgCache) node._derpBgCache.key = "";
-            if (node._compDataCache) node._compDataCache = {};
-            if (typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, false);
+            const usesNodePalette = paletteNameMatches(node._headerPaletteName, activeName);
+            const usesStringPalette = paletteNameMatches(node._derpStringPalette?.path, activeName)
+                || paletteNameMatches(node.properties?._derpStringPalette?.path, activeName);
+            const usesActivePalette = paletteNameMatches(window.xcpActivePaletteName, activeName);
+            if (!usesNodePalette && !usesStringPalette && !usesActivePalette) return;
+            if (usesStringPalette) {
+                node._derpStringPaletteData = window.xcpPaletteCache?.[activeName];
+                if (node._derpStringPalette) node._derpStringPalette.data = node._derpStringPaletteData;
+                if (node.properties?._derpStringPalette) node.properties._derpStringPalette.data = node._derpStringPaletteData;
+            }
+            refreshNodePalettePreview(node);
         });
 
         if (window.app?.canvas) window.app.canvas.setDirty(true, false);
