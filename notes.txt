@@ -1,5 +1,23 @@
 
 ---
+## PowerShell Wrappers (profile)
+# Run `codewhale derp` to see all wrapper commands.
+# Key ones:
+#   codewhale qwen       -> Qwen3.6-35B-A3B IQ4_NL (local)
+#   codewhale qwenS      -> Qwen3.6-35B-A3B IQ3_M (local, smaller)
+#   codewhale huihui     -> Huihui Claude-Opus-abliterated (local)
+#   codewhale runAPI          -> GPT-5.4 (cloud, runapi.co)
+#   codewhale runAPI gpt5.5   -> GPT-5.5
+#   codewhale runAPI gpt5.4mini -> GPT-5.4-mini
+#   codewhale           -> DeepSeek V4 Pro (default)
+#
+# Windows Terminal position memory:
+#   wt --pos save   -> snap current WT window position
+#   wt              -> open WT at saved position
+#   wt --pos reset  -> clear saved position
+# Profile: C:\Users\xuchuang\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1
+
+---
 ## xcpDerpNodes by lordwedggie
 
 A ComfyUI custom nodes plugin — adds utility, UI, and workflow nodes.
