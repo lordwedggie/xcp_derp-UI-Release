@@ -1583,12 +1583,15 @@ export function handleDrawCTX(entity, ctx, overlayPass = false) {
         const header = entity.layout?.regions?.headerRegion;
         const isCollapsed = !!entity.properties?.contentCollapsed;
         const backgroundPaintKey = entity.properties?.bastaBackgroundKey || "canvas";
+        const isOptionalBgKey = backgroundPaintKey.startsWith("#");
+        const bgOffSuffix = isBypassed ? "_DIS" : (isOptionalBgKey ? "_DIS" : "");
+        const bgOnSuffix  = isBypassed ? "_DIS" : (isOptionalBgKey ? "_DIS" : "_ON");
         const backgroundPalette = getTooltipHostPalette(entity);
         const skipNodePaletteInjection = entity.properties?.tooltipExpand === true && !!backgroundPalette;
         const canvasPaletteStateOFF = isBypassed ? "_DIS" : "_OFF";
         const canvasPaletteStateON = isBypassed ? "_DIS" : "_ON";
-        const basePaintOFF = resolvePaintData(entity, backgroundPaintKey, isBypassed ? "_DIS" : "", null, backgroundPalette) || resolvePaintData(entity, "canvas", isBypassed ? "_DIS" : "", null, backgroundPalette);
-        const basePaintON = resolvePaintData(entity, backgroundPaintKey, isBypassed ? "_DIS" : "_ON", null, backgroundPalette) || resolvePaintData(entity, "canvas", isBypassed ? "_DIS" : "_ON", null, backgroundPalette);
+        const basePaintOFF = resolvePaintData(entity, backgroundPaintKey, bgOffSuffix, null, backgroundPalette) || resolvePaintData(entity, "canvas", isBypassed ? "_DIS" : "", null, backgroundPalette);
+        const basePaintON = resolvePaintData(entity, backgroundPaintKey, bgOnSuffix, null, backgroundPalette) || resolvePaintData(entity, "canvas", isBypassed ? "_DIS" : "_ON", null, backgroundPalette);
         const paintOFF = skipNodePaletteInjection ? basePaintOFF : applyNodeCanvasPalette(entity, basePaintOFF, canvasPaletteStateOFF, basePaintOFF, getPaletteCache);
         const paintON = skipNodePaletteInjection ? basePaintON : applyNodeCanvasPalette(entity, basePaintON, canvasPaletteStateON, basePaintON, getPaletteCache);
         // Zero bottom corners for search-tab-style bastas

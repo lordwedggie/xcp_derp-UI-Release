@@ -80,6 +80,28 @@ Nested `imageHTML` regions can have `clipChildren: true`. The clip chain walks p
 - Bastas support the same interaction types as Fatha nodes (press, hover, drag, etc.)
 - `isHostActive(nodeId)` checks if any Basta is hosted by a given node
 
+## Background Key Resolution
+
+Basta body backgrounds are painted by `fathaHandler.js` using `entity.properties.bastaBackgroundKey`.
+
+### Standard resolution
+If `bastaBackgroundKey` is a normal theme key (e.g. `"canvas"`, `"systemBackground"`), the background resolves through the standard `resolvePaintData` cascade: `_OFF` for normal state, `_ON` for selected/hovered, `_DIS` for bypassed.
+
+### Optional `#` keys
+If `bastaBackgroundKey` starts with `#` (e.g. `"#picker"`), the key is treated as **optional** — the theme is not required to define it. Resolution uses `_DIS` state for both OFF and ON suffixes (bypassed state is unchanged). When the optional key is absent from the theme, `resolvePaintData` returns `null` and the engine falls back to the `canvas` key.
+
+```js
+// fathaHandler.js
+const isOptionalBgKey = backgroundPaintKey.startsWith("#");
+const bgOffSuffix = isBypassed ? "_DIS" : (isOptionalBgKey ? "_DIS" : "");
+const bgOnSuffix  = isBypassed ? "_DIS" : (isOptionalBgKey ? "_DIS" : "_ON");
+```
+
+| `bastaBackgroundKey` | Theme has key | Theme lacks key |
+|---|---|---|
+| `"#picker"` | Renders with `_DIS` colors | Falls back to `canvas` |
+| `"canvas"` | Renders normally (`_OFF`/`_ON`) | (canvas is always present) |
+
 ## Maintenance Notes
 - Avoid creating one-off overlay systems when a Basta panel can use existing layout maps and shield routing.
 - `bastaFileHandler` save/rename flows can accept a `filePicker` property to render an optional file-mode `FILEBROWSER` above the name editor. Selecting a file updates `pendingName`, allowing callers such as Theme Weight save to overwrite an existing managed file without custom dialog code.
