@@ -15,6 +15,8 @@ These files must never appear in the release remote:
 - `js/motha/themeManagerV2_core.js`
 - `python/derpThemeManagerV2.py`
 - `.deepseek/`
+- `derp_docs/_development/`
+- `derp_docs/.obsidian/`
 
 ## Workflow
 

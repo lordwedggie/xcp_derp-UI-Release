@@ -368,7 +368,9 @@ function resolvePickerTheme(config, node) {
     const textKey = parts.length >= 3 ? (parts[2] || "t_textsystem") : (parts[1] || parts[0] || "t_textsystem");
     const resolvedPickerKey = pickerKey || bodyKey;
     const hashPickerPaint = resolveOptionalThemePaint(node, "#picker", "_OFF");
-    const highlightPaint = resolveOptionalThemePaint(node, "#picker_highlight", "_ON")
+    const highlightPaint = resolveOptionalThemePaint(node, "#picker_highlight")
+        || resolveOptionalThemePaint(node, "#picker_highlight", "_ON")
+        || resolveOptionalThemePaint(node, "#picker_hightlight")
         || resolveOptionalThemePaint(node, "#picker_hightlight", "_ON");
     const rawListPaint = hashPickerPaint || resolvePaintData(node, resolvedPickerKey, "_OFF") || resolvePaintData(node, bodyKey, "_OFF") || node._panelPaintData_OFF;
     const listPaint = (config.searchTab && rawListPaint?.corners?.length >= 4)

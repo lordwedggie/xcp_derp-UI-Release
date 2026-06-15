@@ -1,0 +1,7 @@
+# Private files — excluded from release remote via export-ignore
+js/motha/themeManagerV2.js export-ignore
+js/motha/themeManagerV2_core.js export-ignore
+python/derpThemeManagerV2.py export-ignore
+.deepseek/ export-ignore
+derp_docs/_development/ export-ignore
+derp_docs/.obsidian/ export-ignore

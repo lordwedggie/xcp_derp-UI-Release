@@ -99,6 +99,8 @@ widgets/
 - Keep pure data/state helpers in `helpers/fileBrowserHelpers.js`.
 - Keep drawing-only helper work in `helpers/fileBrowserDraw.js`.
 - Keep preview/pending state work in `helpers/fileBrowserPreview.js`.
+- The open picker panel uses the optional `#picker` theme key when present.
+- The hovered picker row band uses the optional `#picker_highlight` theme key as an exact lookup, resolving default/`_OFF` first and `_ON` as fallback; active pickers refresh when the theme cache key changes during live theme edits.
 - For signal selection UIs, prefer `FILEBROWSER` with `mode: "signal"` instead of custom ad-hoc picker panels.
 
 

@@ -95,8 +95,9 @@ Keys prefixed with `#` are optional overrides for specific widget rendering path
 
 | Key | Overrides |
 |-----|-----------|
-| `#picker` | FILEBROWSER picker rect color. When present, the file browser's selection rectangle uses this key's fill instead of the widget's `themeKey`. |
-| `#picker_hightlight` | FILEBROWSER highlight box color. When present, the hover/keyboard-highlight box uses this key's fill instead of the widget's `themeKey`. |
+| `#picker` | FILEBROWSER picker panel/background rect color. When present, the open picker uses this key's `_OFF` fill instead of the widget's `themeKey`. |
+| `#picker_highlight` | FILEBROWSER hovered picker row highlight rectangle. When present, the hover band resolves this key's default/`_OFF` fill first, with `_ON` as a legacy fallback. |
+| `#picker_hightlight` | Legacy typo fallback for `#picker_highlight`. Accepted for old themes, but new themes should use the corrected `#picker_highlight` key. |
 | `#slider_background` | SLIDER background track. When present, the slider track uses this key instead of the widget background key from `themeKey`. |
 | `#slider_fillbar` | SLIDER filled value bar. When present, the filled bar uses this key instead of the normal slider fill fallback. |
 | `#slider_knob` | SLIDER knob marker. When present, knob-style sliders use this key for rectangular or round knob rendering, including supported effects. |
