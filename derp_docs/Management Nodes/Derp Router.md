@@ -32,3 +32,7 @@ The central nervous system of your derp-powered workflow. Routes wireless signal
 <span style="color: #80aaff"><strong>Hide Link Slots</strong></span>: When enabled, link slots are only visible when the node is selected. Keeps your canvas from looking like a cyberpunk circuit board.
 
 <span style="color: #80aaff"><strong>Sort Signals By</strong></span>: Sort the signal list by Name, Type, or ID. Because everyone has a different opinion on how lists should be organized.
+
+---
+
+[? Back to Index](../INDEX.md)

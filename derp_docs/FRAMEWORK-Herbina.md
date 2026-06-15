@@ -29,6 +29,7 @@ Herbina is the UI toolkit layer. All visual widgets — buttons, sliders, toggle
 | `syncDerpToggle` | `widgets/widget_Toggle.js` | Boolean toggle |
 | `syncDerpToggleV2` | `widgets/widget_ToggleV2.js` | V2 toggle |
 | `syncImageHTML` | `widgets/widget_ImageHTML.js` | HTML image display |
+| `createMarkdownHTML`, `syncMarkdownHTML` | `widgets/widget_MarkdownHTML.js` | Sanitized Markdown HTML display |
 | `createDerpRegion`, `syncDerpRegion` | `widgets/widget_Region.js` | Container region |
 | `syncDerpTrigger`, `syncDerpCompositeTrigger` | `widgets/widget_Trigger.js` | Trigger button |
 
@@ -85,6 +86,7 @@ widgets/
 ├── widget_Region.js    — Container region
 ├── widget_Trigger.js   — Trigger button
 ├── widget_ImageHTML.js — HTML image display
+├── widget_MarkdownHTML.js — Sanitized Markdown HTML display
 └── helpers/
     ├── dropdown_lib.js         — Shared dropdown/picker helper utilities
     ├── fileBrowserHelpers.js   — FileBrowser state/data helpers
@@ -98,6 +100,15 @@ widgets/
 - Keep drawing-only helper work in `helpers/fileBrowserDraw.js`.
 - Keep preview/pending state work in `helpers/fileBrowserPreview.js`.
 - For signal selection UIs, prefer `FILEBROWSER` with `mode: "signal"` instead of custom ad-hoc picker panels.
+
+
+## Markdown HTML Notes
+- `UI_TYPES.MARKDOWN_HTML` is an HTML widget backed by `widget_MarkdownHTML.js`.
+- It renders a conservative Markdown subset plus sanitized safe HTML tags. Raw scripts, event handlers, unsafe URL schemes, arbitrary inline styles, and non-explicit remote URLs are stripped.
+- Obsidian-style embeds (`![[clip.mp4]]`), Markdown image embeds (`![](clip.mp4)`), plain local video paths, and safe raw `<video>` tags whose target is a video extension render as native `<video controls playsinline preload="metadata">`.
+- Normal image extensions render as images; plain Markdown links to `.md` files are intercepted by the node's `onNavigate` callback instead of leaving ComfyUI.
+- Relative media URLs resolve through `/xcp/markdown_media` using the selected Markdown file path as context. Video playback uses that route directly as the browser `src`; do not reintroduce blob/base64 media wrappers unless the route behavior changes.
+- Do not use `MARKDOWN_HTML` as a general arbitrary-file HTML renderer; local media access is expected to stay constrained by the backend Markdown route roots and extension whitelist.
 
 ## EDITOR Rendering Protocol
 - `UI_TYPES.EDITOR` is a hybrid widget: Canvas draws asleep visuals and the DOM element handles hit testing, focus, selection, and editing.

@@ -239,6 +239,21 @@
     "concatenated_suffix": "[Concatenated]",
     "empty_signal": "Incoming signal is an {{t_text_error::empty string...}}"
   },
+  "derp_notes": {
+    "title": "Derp Notes",
+    "empty": "Select a Markdown file.",
+    "loading": "Loading...",
+    "load_failed": "Failed to load note.",
+    "browser": {
+      "root": "Notes"
+    },
+    "system": {
+      "properties": "Derp Notes properties:"
+    },
+    "tooltips": {
+      "refresh": "Refresh the Markdown file list and reload the selected note"
+    }
+  },
   "derp_image_deck": {
     "title": "Derp Image Deck",
     "prefix": {

@@ -26,3 +26,7 @@ Outputs a seed value for your workflow. Click the number to randomize it, type a
 ---
 
 <span style="color: #ffc680"><strong>⚠ Warning:</strong> This node is built on the Uncle framework, not Fatha. As a result it has layout quirks that cannot be fixed without a full rewrite. It runs fine, but it'll occasionally do something weird with spacing or alignment and you'll just have to live with it. A Fatha-based replacement is planned... eventually... when I find the time and the will to stare at seed logic for three days straight.</span>
+
+---
+
+[? Back to Index](../INDEX.md)

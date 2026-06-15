@@ -27,6 +27,8 @@ import {
     syncDerpTrigger,
     syncDerpCompositeTrigger,
     syncImageHTML,
+    createMarkdownHTML,
+    syncMarkdownHTML,
     createDerpRegion,
     syncDerpRegion
 } from "../../herbina/masterWidgets.js";
@@ -51,6 +53,7 @@ export const UI_TYPES = {
     FILEBROWSER: "fileBrowser",
     IMAGE_HTML: "imageHTML",
     IMAGE_CANVAS: "imageCanvas",
+    MARKDOWN_HTML: "markdownHTML",
     TOGGLE: "derpToggle",
     TOGGLE_V2: "derpToggleV2",
     COMPOSITE_TRIGGER: "compositeTrigger",
@@ -162,6 +165,13 @@ export const COMPONENT_BLUEPRINTS = {
         isHtml: false,
         isHybrid: true,
         sync: (ctx, node, app, config, overlayPass) => syncImageHTML(ctx, node, app, config, overlayPass)
+    },
+    [UI_TYPES.MARKDOWN_HTML]: {
+        themeKey: "panel, t_textNormal",
+        width: "full", height: "auto",
+        isHtml: true,
+        create: () => createMarkdownHTML(),
+        sync: syncMarkdownHTML
     },
     [UI_TYPES.SLIDER]: {
         themeKey: "slider, t_textsmall",

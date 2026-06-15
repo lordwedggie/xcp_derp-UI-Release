@@ -120,10 +120,11 @@ export function syncDerpTrigger(ctx, node, app, config) {
     if (sysAlpha <= 0) return;
 
     const isDragging = node._dragTrig && node._dragTrig.key === config.key;
+    const themeCacheKey = node._currentThemeCacheKey || node._currentThemeName || "";
     const quickCanUseBitmapCache = triggerWallNode && !triggerWallCacheSuspended && !isDragging && sysAlpha === 1 && !node._forceSync;
     const quickBitmapKey = quickCanUseBitmapCache ? [
         config.key,
-        node._currentThemeName || "",
+        themeCacheKey,
         config.themeKey || config.textThemeKey || "",
         config.suffix || "",
         config.state || "",
@@ -207,6 +208,7 @@ export function syncDerpTrigger(ctx, node, app, config) {
     const canReuseStatic = triggerWallNode && !triggerWallCacheSuspended && !isDragging && sysAlpha === 1 && effectiveUseAnim === false;
     const staticKey = canReuseStatic ? [
         config.key,
+        themeCacheKey,
         config.themeKey || config.textThemeKey || "",
         triggerSuffix,
         isActive ? 1 : 0,

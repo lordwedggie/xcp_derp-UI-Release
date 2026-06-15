@@ -171,7 +171,7 @@ function getHeaderInsetLayoutHash(node, insetBoost) {
     const { cornerOverride, isSelected } = resolveHeaderInsetLayoutState(node);
 
     return [
-        node._currentThemeName || "",
+        node._currentThemeCacheKey || node._currentThemeName || "",
         node.properties?.contentCollapsed ? 1 : 0,
         isSelected ? 1 : 0,
         cornerOverride ? cornerOverride.map(v => (v ?? "n")).join("_") : "nocorners",

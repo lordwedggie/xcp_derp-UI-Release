@@ -21,7 +21,7 @@ These files must never appear in the release remote:
 1. **Sync docs to root**: Copy authoritative copies from `derp_docs/` to project root, fixing relative links for the new location.
    - `derp_docs/README.md` → root `README.md`
    - `derp_docs/CHANGELOG.md` → root `CHANGELOG.md`
-   - Fix links: relative paths like `derp_docs/...` → strip `derp_docs/` prefix (since root copies are one level up). Image/video links in `_assets/` → update to `derp_docs/_assets/`.
+   - Fix links: the authoritative copies in `derp_docs/` use paths WITHOUT the `derp_docs/` prefix (e.g. `ControlDeck Nodes/Derp Latent.md`). When copying to root, ADD `derp_docs/` prefix so links resolve correctly from root (e.g. `derp_docs/ControlDeck Nodes/Derp Latent.md`). Similarly, `_assets/` → `derp_docs/_assets/`.
    - Verify the root copies look correct (no broken links, no `../` references that shouldn't exist).
 2. Read current version from `pyproject.toml` (`[project] version = "X.Y.Z"`) and `package.json` (`"version": "X.Y.Z"`). Confirm they match.
 3. Ask the user what the new version should be (or infer from context if they already told you, e.g. "release 0.8.0").

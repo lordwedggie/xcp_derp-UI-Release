@@ -297,20 +297,22 @@ export function refreshActiveFilePickerState(state, config, deps = {}) {
         ensurePickerSelectionVisible = () => {},
         getFileBrowserGlyphs = () => [],
     } = deps;
+    const theme = resolvePickerTheme(config, state.node);
     const nextItemsHash = getFileBrowserItemsFingerprint(config.items || []);
-    const nextRowHeight = measureTextHeight("Hgyj", 0, state.rowPaintOFF) + ((config.padding?.[1] || 2) * 2);
-    if (state.itemsHash === nextItemsHash && state.config.value === config.value && state.rowHeight === nextRowHeight) {
+    const nextRowHeight = measureTextHeight("Hgyj", 0, theme.rowPaintOFF) + ((config.padding?.[1] || 2) * 2);
+    const nextThemeCacheKey = theme.themeCacheKey || "";
+    if (state.itemsHash === nextItemsHash && state.config.value === config.value && state.rowHeight === nextRowHeight && state.themeCacheKey === nextThemeCacheKey) {
         return false;
     }
 
     state.config = config;
     state.callbacks = getFileBrowserCallbacks(config);
-    const theme = resolvePickerTheme(config, state.node);
     state.listPaint = theme.listPaint;
     state.rowPaintOFF = theme.rowPaintOFF;
     state.rowPaintON = theme.rowPaintON;
     state.rowTextON = theme.rowTextON;
-    state.rowHeight = measureTextHeight("Hgyj", 0, theme.rowPaintOFF) + ((config.padding?.[1] || 2) * 2);
+    state.themeCacheKey = nextThemeCacheKey;
+    state.rowHeight = nextRowHeight;
     state.glyphs = getFileBrowserGlyphs(config?.icon);
     state.itemsHash = nextItemsHash;
     rebuildFilePickerRows(state);

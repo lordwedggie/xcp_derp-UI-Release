@@ -239,6 +239,21 @@
     "concatenated_suffix": "[已拼接]",
     "empty_signal": "传入信号是一个{{t_text_error::空字符串...}}"
   },
+  "derp_notes": {
+    "title": "\u8001\u767b\u7b14\u8bb0",
+    "empty": "\u8bf7\u9009\u62e9 Markdown \u6587\u4ef6\u3002",
+    "loading": "\u52a0\u8f7d\u4e2d...",
+    "load_failed": "\u52a0\u8f7d\u7b14\u8bb0\u5931\u8d25\u3002",
+    "browser": {
+      "root": "\u7b14\u8bb0"
+    },
+    "system": {
+      "properties": "\u8001\u767b\u7b14\u8bb0\u5c5e\u6027\uff1a"
+    },
+    "tooltips": {
+      "refresh": "\u5237\u65b0 Markdown \u6587\u4ef6\u5217\u8868\u5e76\u91cd\u65b0\u52a0\u8f7d\u5f53\u524d\u7b14\u8bb0"
+    }
+  },
   "derp_image_deck": {
     "title": "老登图片牌组",
     "prefix": {

@@ -32,3 +32,7 @@
 <span style="color: #80aaff"><strong>隐藏连接槽</strong></span>：开启后连接槽仅在节点被选中时显示，保持画布整洁。
 
 <span style="color: #80aaff"><strong>排序方式</strong></span>：按名称、类型或 ID 排序信号列表。
+
+---
+
+[? Back to Index](../INDEX.md)

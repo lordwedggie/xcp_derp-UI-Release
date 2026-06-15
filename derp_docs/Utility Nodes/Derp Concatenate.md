@@ -31,3 +31,8 @@ You don't plug wires into this thing. It listens to the wireless signal registry
 | Port | Direction | Type | Description |
 |------|-----------|------|-------------|
 | Output | Out | STRING | The concatenated result of all selected signals |
+
+
+---
+
+[? Back to Index](../INDEX.md)

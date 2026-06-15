@@ -218,6 +218,7 @@ function syncActiveFilePickerConfig(node, config) {
     activeFilePicker.rowPaintOFF = theme.rowPaintOFF;
     activeFilePicker.rowPaintON = theme.rowPaintON;
     activeFilePicker.rowTextON = theme.rowTextON;
+    activeFilePicker.themeCacheKey = theme.themeCacheKey;
     activeFilePicker.rowHeight = measureTextHeight("Hgyj", 0, theme.rowPaintOFF) + ((config.padding?.[1] || 2) * 2);
     activeFilePicker.glyphs = getFileBrowserGlyphs(config?.icon);
     activeFilePicker.itemsHash = getFileBrowserItemsFingerprint(config.items || []);
@@ -366,7 +367,9 @@ function resolvePickerTheme(config, node) {
     const pickerKey = parts.length >= 3 ? parts[1] : null;
     const textKey = parts.length >= 3 ? (parts[2] || "t_textsystem") : (parts[1] || parts[0] || "t_textsystem");
     const resolvedPickerKey = pickerKey || bodyKey;
-    const hashPickerPaint = resolvePaintData(node, "#picker", "_OFF");
+    const hashPickerPaint = resolveOptionalThemePaint(node, "#picker", "_OFF");
+    const highlightPaint = resolveOptionalThemePaint(node, "#picker_highlight", "_ON")
+        || resolveOptionalThemePaint(node, "#picker_hightlight", "_ON");
     const rawListPaint = hashPickerPaint || resolvePaintData(node, resolvedPickerKey, "_OFF") || resolvePaintData(node, bodyKey, "_OFF") || node._panelPaintData_OFF;
     const listPaint = (config.searchTab && rawListPaint?.corners?.length >= 4)
         ? { ...rawListPaint, corners: [0, 0, rawListPaint.corners[2], rawListPaint.corners[3]] }
@@ -375,8 +378,24 @@ function resolvePickerTheme(config, node) {
         listPaint,
         rowPaintOFF: resolvePaintData(node, textKey, "_OFF") || node._t_textnormalPaintData_OFF,
         rowTextON: resolvePaintData(node, textKey, "_ON") || resolvePaintData(node, textKey, "_OFF") || node._t_textnormalPaintData_OFF,
-        rowPaintON: resolvePaintData(node, "#picker_highlight", "_ON") || resolvePaintData(node, bodyKey, "_ON") || node._t_textnormalPaintData_ON,
+        rowPaintON: highlightPaint || resolvePaintData(node, bodyKey, "_ON") || node._t_textnormalPaintData_ON,
+        themeCacheKey: node?._currentThemeCacheKey || node?._currentThemeName || "",
     };
+}
+
+function resolveOptionalThemePaint(node, key, suffix = "") {
+    if (!node || !key) return null;
+    const targetFull = `_${key}PaintData${suffix}`.toLowerCase();
+    const targetBase = `_${key}PaintData`.toLowerCase();
+    const findPaint = (owner) => {
+        if (!owner) return null;
+        const keys = Object.keys(owner);
+        const match = keys.find((item) => item.toLowerCase() === targetFull)
+            || keys.find((item) => item.toLowerCase() === targetBase);
+        return match ? owner[match] : null;
+    };
+    const paint = findPaint(node) || findPaint(node.hostNode);
+    return paint ? { ...paint } : null;
 }
 
 function inheritPickerCorners(primaryPaint, fallbackPaint) {
@@ -528,6 +547,7 @@ function openFilePicker(config, node) {
         rowPaintOFF: theme.rowPaintOFF,
         rowPaintON: theme.rowPaintON,
         rowTextON: theme.rowTextON,
+        themeCacheKey: theme.themeCacheKey,
         rowHeight,
         visibleLimit: node.properties?.dropdownVisibleLimit || 20,
         currentDir,
@@ -1227,9 +1247,10 @@ export function syncFileBrowser(context, node, app, config, overlayPass = false)
 
     if (isAwake) return;
 
+    const themeCacheKey = node._currentThemeCacheKey || node._currentThemeName || "";
     const itemsHash = getFileBrowserItemsFingerprint(safeConfig.items || []);
     const displayHash = `${safeConfig.display || ""}_${safeConfig.text || ""}_${safeConfig.label || ""}`;
-    const stateHash = `${isPressed}_${isHovered}_${safeConfig.state || ""}_${isDisabled ? 1 : 0}_${node.mode}_${window._xcpDerpSession}_${safeConfig.value}_${displayHash}_${itemsHash}_${isAwake}`;
+    const stateHash = `${isPressed}_${isHovered}_${safeConfig.state || ""}_${isDisabled ? 1 : 0}_${node.mode}_${window._xcpDerpSession}_${safeConfig.value}_${displayHash}_${itemsHash}_${isAwake}_${themeCacheKey}`;
 
     const cache = node._fileBrowserCache || (node._fileBrowserCache = {});
     const itemCache = cache[safeConfig.key] || (cache[safeConfig.key] = {});
@@ -1272,12 +1293,14 @@ export function syncFileBrowser(context, node, app, config, overlayPass = false)
 
     const ctx = context;
     const dsScale = app?.canvas?.ds?.scale || 1;
+    const resolvedBodyPaint = safeConfig.corners !== undefined && bodyPaint
+        ? { ...bodyPaint, corners: safeConfig.corners } : bodyPaint;
     masterPainter(ctx, {
             width: w,
             height: h,
             posX: snapToScreenGrid(x, dsScale),
             posY: snapToScreenGrid(y, dsScale),
-            paintData: bodyPaint,
+            paintData: resolvedBodyPaint,
             color: animatedFillColor
         });
 

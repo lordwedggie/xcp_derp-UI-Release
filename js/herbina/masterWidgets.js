@@ -25,6 +25,7 @@ export { createFileBrowser, syncFileBrowser, drawActiveFilePickerGlobal } from "
 export { syncDerpToggle } from "./widgets/widget_Toggle.js";
 export { syncDerpToggleV2 } from "./widgets/widget_ToggleV2.js";
 export { syncImageHTML } from "./widgets/widget_ImageHTML.js";
+export { createMarkdownHTML, syncMarkdownHTML } from "./widgets/widget_MarkdownHTML.js";
 export { createDerpRegion, syncDerpRegion } from "./widgets/widget_Region.js";
 export { syncDerpTrigger, syncDerpCompositeTrigger } from "./widgets/widget_Trigger.js";
 

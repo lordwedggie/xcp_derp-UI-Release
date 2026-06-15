@@ -339,7 +339,7 @@ export class masterLayoutEngine {
             this.owner._shouldSync = true;
         }
 
-        const structureHash = `${hSlot}_${drawHeader}_${dMode}_${this.owner?._currentThemeName}_${this.owner?.titleLabel}_${mapHash}`;
+        const structureHash = `${hSlot}_${drawHeader}_${dMode}_${this.owner?._currentThemeCacheKey || this.owner?._currentThemeName}_${this.owner?.titleLabel}_${mapHash}`;
         const cacheKey = `${bounds.x},${bounds.y},${bounds.w},${bounds.h}_${currentH}_${structureHash}`;
 
         if (this._lastCacheKey === cacheKey && Object.keys(this.computedRegions).length > 0 && !isForced) {

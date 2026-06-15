@@ -15,6 +15,7 @@ from .xcp_file_categories import get_category_dir
 from .xcp_file_common import resolve_case_insensitive_path
 from .xcp_file_image_routes import register_routes as register_image_routes
 from .xcp_file_json_routes import register_routes as register_json_routes
+from .xcp_file_markdown_routes import register_routes as register_markdown_routes
 from .xcp_file_prompt_book_routes import register_routes as register_prompt_book_routes
 from .xcp_version_check import register_routes as register_version_check_routes
 from .xcp_loraStack import (
@@ -62,6 +63,7 @@ register_json_routes(safe_get, safe_post)
 register_image_routes(safe_get, safe_post)
 register_prompt_book_routes(safe_get, safe_post)
 register_asset_routes(safe_get, safe_post)
+register_markdown_routes(safe_get, safe_post)
 register_version_check_routes(safe_get, safe_post)
 
 

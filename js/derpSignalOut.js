@@ -51,6 +51,15 @@ function handleSignalOutEntryPress(node) {
     return true;
 }
 
+function finishSignalOutRowDrag(node) {
+    const fromIdx = node?._dragTrig?.index;
+    const toIdx = node?._dropPreviewIdx;
+    endStackDrag(node, "_derpSignalOutDragProxy");
+    if (fromIdx !== undefined && toIdx !== undefined && fromIdx !== toIdx && node.reorderDerpOutputs) {
+        node.reorderDerpOutputs(fromIdx, toIdx);
+    }
+}
+
 if (!window._xcp_derpSignalOut_Layout_Loaded) {
     window._xcp_derpSignalOut_Layout_Loaded = true;
     try {
@@ -215,7 +224,8 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                 anchor: { target: "lblContent", axis: "y"}, 
                                 dir: "row", width: "full", height: 0, margin: [0, sH],
                                 hidden: activeOuts.length === 0,
-                                outSlotIdx: -1 // THE TAG FIX: Recognize base anchor as a slot container
+                                outSlotIdx: -1, // THE TAG FIX: Recognize base anchor as a slot container
+                                onDragEnd: () => finishSignalOutRowDrag(this),
                             },
                             ...outputItems.reduce((acc, item, displayIdx) => {
                                 const { sig, idx } = item;
@@ -235,16 +245,12 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                                 const isPickupOriginRow = !!(hasDragPickup && !hasDropPreview && dragIndex === idx && !item.isPreviewGhost);
                                 const shouldGhostHideChildren = isHiddenGhost;
                                 const rowAlpha = (isHiddenGhost || isPickupOriginRow) ? 0 : 1.0;
-                                const beginOutputRowDrag = (e, data) => startStackDrag(this, data, idx, rowKey, { holdOnly: true });
-                                const updateOutputRowDrag = (e, data) => { updateStackDrag(this, data, "outputsRegion_display_", activeOuts.length); this.refreshNodeLayoutMap(); };
-                                const endOutputRowDrag = () => {
-                                    const fromIdx = this._dragTrig?.index;
-                                    const toIdx = this._dropPreviewIdx;
-                                    endStackDrag(this, "_derpSignalOutDragProxy");
-                                    if (fromIdx !== undefined && toIdx !== undefined && fromIdx !== toIdx && this.reorderDerpOutputs) {
-                                        this.reorderDerpOutputs(fromIdx, toIdx);
-                                    }
+                                const beginOutputRowDrag = (e, data) => {
+                                    startStackDrag(this, data, idx, rowKey, { holdOnly: true });
+                                    this._dragEndRegionKey = "outputsRegion";
                                 };
+                                const updateOutputRowDrag = (e, data) => { updateStackDrag(this, data, "outputsRegion_display_", activeOuts.length); this.refreshNodeLayoutMap(); };
+                                const endOutputRowDrag = () => finishSignalOutRowDrag(this);
 
                                 acc[rowKey] = {
                                     anchor: { target: prev, axis: "y", offset: displayIdx === 0 ? 0 : sH },

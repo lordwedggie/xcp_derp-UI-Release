@@ -18,6 +18,7 @@ NODE_CLASS_MAPPINGS.update(TEMPLATE_NODES)       # from derpTemplate
 NODE_CLASS_MAPPINGS.update(SIGNAL_OUT_NODES)     # from derpSignalOut
 NODE_CLASS_MAPPINGS.update(CONTROLDECK_NODES)    # from derpControldeck
 NODE_CLASS_MAPPINGS.update(CONCATENATE_NODES)    # from derpConcatenate
+NODE_CLASS_MAPPINGS.update(UTILITIES_NODES)      # from derpUtilities
 ```
 
 Conditional imports:
@@ -36,6 +37,7 @@ Hard-registered nodes: `DerpImageDeckNode`, `DerpToggleNode` (always in root map
 | `python/derpTemplate.py` | Template node |
 | `python/derpThemeManagerV2.py` | PRIVATE — Theme manager Python node |
 | `python/derpConcatenate.py` | String concatenate utility node |
+| `python/derpUtilities.py` | Utility virtual shells such as `derpSkunk` and `derpNotes` |
 | `python/signalDictionaryDefault.py` | Signal fallback dictionary |
 
 ## File Server (`xcp_file_server.py`, 184 lines)
@@ -47,6 +49,7 @@ HTTP route wiring for the entire backend API. Uses `safe_post()` / `safe_get()` 
 | `xcp_file_asset_routes.py` | Bundled asset serving |
 | `xcp_file_image_routes.py` | Image serving/upload |
 | `xcp_file_json_routes.py` | JSON data endpoints |
+| `xcp_file_markdown_routes.py` | Markdown note list/load plus restricted local media serving |
 | `xcp_file_prompt_book_routes.py` | Prompt book CRUD |
 | `xcp_version_check.py` | Version/check endpoints |
 | `xcp_file_common.py` | `resolve_case_insensitive_path()` utility |
@@ -90,6 +93,12 @@ Syncs default assets from extension's `user/derpNodes/` to ComfyUI's user direct
 - Sync folders are discovered dynamically from directories under `user/derpNodes/`
 - System-managed folders/files (prefixed with `_`) get special handling
 - Called at startup via `sync_bundled_assets()` in `__init__.__init__.py`
+
+## Markdown Routes (`xcp_file_markdown_routes.py`)
+- `/xcp/list_markdown` lists `.md` / `.markdown` files from the configured derpNotes and `derp_docs` roots.
+- `/xcp/load_markdown` returns UTF-8 Markdown content plus its root-relative path so frontend widgets can resolve adjacent media.
+- `/xcp/markdown_media` serves whitelisted Markdown-adjacent media files directly with their guessed MIME type and no attachment/download header, allowing native browser playback for local video embeds.
+- Markdown media resolution must reject traversal and unsupported extensions; it is not a general filesystem route.
 
 ## Signal System (Python)
 - `DERP_LIVE_REGISTRY` — global dict mapping `node_id → value` for wireless signals

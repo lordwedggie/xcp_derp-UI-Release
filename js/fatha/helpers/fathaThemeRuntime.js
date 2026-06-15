@@ -282,6 +282,7 @@ export function handleThemeUpdateImpl(node, config, deps = {}) {
         ? (node.properties?.selectedSystemTheme || node.properties?.selectedTheme || config.activeTheme || "Template_Standard_v02")
         : (node.properties?.selectedTheme || node.properties?.selectedThemeName || node._selectedThemeName || config.activeTheme || "Template_Standard_v02");
     const resolvedThemeKey = findCaseInsensitiveKey(config.themes, themeName) || themeName;
+    let effectiveThemeKey = resolvedThemeKey;
     let theme = config.themes[resolvedThemeKey];
     const defaultTheme = "_Templates/DerpTheme_Default";
 
@@ -300,6 +301,7 @@ export function handleThemeUpdateImpl(node, config, deps = {}) {
                     resolvedDefaultTheme
                 );
                 theme = fallbackTheme;
+                effectiveThemeKey = resolvedDefaultTheme;
                 if (node.properties?.selectedTheme !== undefined) node.properties.selectedTheme = resolvedDefaultTheme;
                 if (isThemeManagerV2) {
                     if (node.properties?.selectedSystemTheme !== undefined) node.properties.selectedSystemTheme = resolvedDefaultTheme;
@@ -324,6 +326,12 @@ export function handleThemeUpdateImpl(node, config, deps = {}) {
             if (node.properties?.selectedThemeName !== undefined) node.properties.selectedThemeName = resolvedThemeKey;
             if (node._selectedThemeName !== undefined) node._selectedThemeName = resolvedThemeKey;
         }
+        const themeRevision = typeof config.getThemeRevision === "function"
+            ? config.getThemeRevision(effectiveThemeKey)
+            : (config._revision || 0);
+        node._currentThemeName = effectiveThemeKey;
+        node._currentThemeRevision = themeRevision;
+        node._currentThemeCacheKey = `${effectiveThemeKey}:${themeRevision}`;
         const effectiveTheme = applyThemeWeightOverlay(theme, node._themeWeightOverlay);
         Object.entries(effectiveTheme).forEach(([key, val]) => {
             if (key.startsWith("_") || typeof val !== "object" || Array.isArray(val)) return;

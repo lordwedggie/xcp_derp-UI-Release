@@ -1,4 +1,4 @@
-# derpNodes — Node Implementations
+# derpNodes â€” Node Implementations
 
 ## Overview
 derpNodes contains the JS widget implementations for every derp node type, organized into category subfolders under `js/derps/`. Each node registers via `fatha()` or `uncle()` and provides a `refreshNodeLayoutMap()` method that declaratively defines its UI via the layout map system.
@@ -57,13 +57,13 @@ Current UI pattern:
 | JS File | Core File | Node(s) |
 |---------|-----------|---------|
 | `derpImageDeck.js` | `core/derpImageDeck_core.js` | Image deck/gallery |
-| `derpLatent.js` | — | Latent image node |
+| `derpLatent.js` | â€” | Latent image node |
 | `derpLoraStack.js` | `core/derpLoraStack_core.js` | LoRA stack manager |
 | `derpPromptBook.js` | `core/derpPromptBook_core.js` | Prompt book/browser |
 | `derpSeedV2.js` | `core/derpSeedV2_core.js` | Seed control node |
 | `derpSlider.js` | `core/derpSlider_core.js` | Generic slider node |
-| `derpSwatch.js` | — | Palette swatch drag/drop utility |
-| `derpToggle.js` | — | Boolean toggle node |
+| `derpSwatch.js` | â€” | Palette swatch drag/drop utility |
+| `derpToggle.js` | â€” | Boolean toggle node |
 | `derpTriggerWall.js` | `core/derpTriggerWall_core.js` | Trigger wall (grid of triggers) |
 
 ### ControlDeck Helpers (`controldeck/helpers/`)
@@ -76,8 +76,21 @@ Current UI pattern:
 ### Utilities (`utils/`)
 | JS File | Core File | Node(s) |
 |---------|-----------|---------|
-| `derpConcatenate.js` | — | String concatenate/signal display |
-| `derpSkunk.js` | — | Skunkworks prototyping/test node |
+| `derpConcatenate.js` | â€” | String concatenate/signal display |
+| `derpNotes.js` | â€” | Markdown notes viewer |
+| `derpSkunk.js` | â€” | Skunkworks prototyping/test node |
+
+
+## Notes Utility
+
+`derpNotes` lives in `js/derps/utils/derpNotes.js` with a pure virtual backend shell in `python/derpUtilities.py`.
+
+Current behavior:
+- Uses an in-node `FILEBROWSER` to list Markdown files from `/xcp/list_markdown`.
+- Loads selected files through `/xcp/load_markdown`.
+- Displays content through `UI_TYPES.MARKDOWN_HTML`, including sanitized Markdown HTML, Obsidian-style media embeds, Markdown image embeds, and safe raw `<video>` tags.
+- Local video embeds play through native browser controls using `/xcp/markdown_media` as the direct media source.
+- Markdown/media roots are restricted by backend routes; this node is not a general filesystem browser.
 
 ## Layout Map Pattern
 Every node defines its UI through `refreshNodeLayoutMap()` which builds a declarative tree:

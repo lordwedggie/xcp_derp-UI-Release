@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### <span style="color: #80ffc0">Added</span>
+- <span style="color: #80ffc0"><strong>derpNotes Markdown viewer</strong></span>: Added initial `derpNotes` utility node with a Fatha frontend, Markdown file picker, sanitized `MARKDOWN_HTML` renderer, local Markdown list/load routes, document-link navigation, and direct `/xcp/markdown_media` serving for embedded local images/videos. Obsidian-style video embeds and Markdown video image embeds now render as native browser `<video>` controls.
 - <span style="color: #80ffc0"><strong>Live palette editing preview</strong></span>: `bastaPalette` color changes now refresh active derpNode visuals immediately while editing, matching the live-update behavior used by theme-key edits without requiring a reload or panel close.
 - <span style="color: #80ffc0"><strong>Collapsed header ON-state colors</strong></span>: Collapsed node header backgrounds now resolve the canvas-rendered header paint through `_ON`, using attached header palette `main._ON` first and falling back to theme `header._ON`.
 - <span style="color: #80ffc0"><strong>Palette Manager unsaved-change confirmation</strong></span>: Closing `bastaPalette` through either the header close button or footer Done button now checks the palette hash/dirty state and opens a `bastaFileHandler` discard confirmation before dropping unsaved palette edits.
@@ -17,6 +18,7 @@ All notable changes to this project will be documented in this file.
 ## [0.7.8] - 2026-06-14
 
 ### <span style="color: #80ffc0">Added</span>
+
 - <span style="color: #80ffc0"><strong>Deck Pressure V1 for derpImageDeck</strong></span>: `derpImageDeck` can now act as a central Deck hub with one docked branch per edge. Alt-drag supports attaching horizontal branches to top/bottom and vertical branches to left/right, with Deck Pressure keeping branches in graph space, anchoring the ImageDeck hub, aligning top/bottom branches to hub width, and auto-collapsing side-branch siblings only when needed before growing the hub frame.
 - <span style="color: #80ffc0"><strong>New node: derpSkunk</strong></span> — utility/test node for theme file testing and skunkworks prototyping. Virtual fatha shell with layout map exercising toggles and icon buttons.
 - <span style="color: #80ffc0"><strong>LoRA "no trigger required" toggle</strong></span>: New `toggleNoTrigger` TOGGLE_V2 in bastaLoraDetail `triggerControlRow`. When ON for a LoRA with no trigger files, the trigger selector FILEBROWSER and derpLoraStack dropdown both display "LoRA requires no trigger" instead of "None"/"No triggers found". State persisted per-LoRA-entry in `stackData[i][7]` via `isLoraNoTriggerRequired`/`setLoraNoTriggerRequired` helpers in `loraComponents.js`. FILEBROWSER state hash expanded to include display/label/text for cache invalidation. New locale keys added (EN/ZH). FRAMEWORK-Nodes.md updated with stackData slot documentation.
@@ -60,6 +62,7 @@ All notable changes to this project will be documented in this file.
 ## [0.7.7] - 2026-06-10
 
 ### <span style="color: #80ffc0">Added</span>
+
 - <span style="color: #80ffc0"><strong>ICONBUTTON `iconColorKey` parameter</strong></span>: New `iconColorKey` config property for icon buttons that accepts a palette/theme string color key (e.g., `"t_text_accent"`, `"t_text_error"`). Resolves the key through the full `{{}}` token pipeline (`parseColorKeyText` → `resolveColorKey`) with proper state suffix, effects (shadow/glow), and cache hash integration. Both HTML and canvas rendering paths supported.
 - <span style="color: #80ffc0"><strong>derpEditor color-key text support</strong></span>: Editor DOM now renders `{{keyName}}` color-key markup when not in editing mode, preserving palette-colored text display. `syncDerpEditorDomContent` uses `colorSegmentsToHTML` with per-segment text shadows. Raw/visible value tracking added for proper focus/blur transitions without losing markup.
 - <span style="color: #80ffc0"><strong>derpSeedV2 color-key highlighting</strong></span>: Active seed value uses `formatSeedHistoryDisplayText` wrapping in `{{t_text_highlight}}` tokens for the editor widget. `btnSeedControl` mode text uses `{{t_text_warning}}` color key. Execute button (▶) uses `iconColorKey: "t_text_accent"`. Stop button (⏹) uses `iconColorKey: "t_text_error"`.
@@ -126,6 +129,7 @@ All notable changes to this project will be documented in this file.
 ## [0.7.5] - 2026-06-06
 
 ### <span style="color: #80ffc0">Added</span>
+
 - <span style="color: #80ffc0"><strong>ICONBUTTON `iconColorKey` parameter</strong></span>: New `iconColorKey` config property for icon buttons that accepts a palette/theme string color key (e.g., `"t_text_accent"`, `"t_text_error"`). Resolves the key through the full `{{}}` token pipeline (`parseColorKeyText` → `resolveColorKey`) with proper state suffix, effects (shadow/glow), and cache hash integration. Both HTML and canvas rendering paths supported.
 - <span style="color: #80ffc0"><strong>derpEditor color-key text support</strong></span>: Editor DOM now renders `{{keyName}}` color-key markup when not in editing mode, preserving palette-colored text display. `syncDerpEditorDomContent` uses `colorSegmentsToHTML` with per-segment text shadows. Raw/visible value tracking added for proper focus/blur transitions without losing markup.
 - <span style="color: #80ffc0"><strong>derpSeedV2 color-key highlighting</strong></span>: Active seed value uses `formatSeedHistoryDisplayText` wrapping in `{{t_text_highlight}}` tokens for the editor widget. `btnSeedControl` mode text uses `{{t_text_warning}}` color key. Execute button (▶) uses `iconColorKey: "t_text_accent"`. Stop button (⏹) uses `iconColorKey: "t_text_error"`.
@@ -173,6 +177,7 @@ All notable changes to this project will be documented in this file.
 ## [0.7.4] - 2026-06-05
 
 ### <span style="color: #80ffc0">Added</span>
+
 - <span style="color: #80ffc0"><strong>ICONBUTTON `iconColorKey` parameter</strong></span>: New `iconColorKey` config property for icon buttons that accepts a palette/theme string color key (e.g., `"t_text_accent"`, `"t_text_error"`). Resolves the key through the full `{{}}` token pipeline (`parseColorKeyText` → `resolveColorKey`) with proper state suffix, effects (shadow/glow), and cache hash integration. Both HTML and canvas rendering paths supported.
 - <span style="color: #80ffc0"><strong>derpEditor color-key text support</strong></span>: Editor DOM now renders `{{keyName}}` color-key markup when not in editing mode, preserving palette-colored text display. `syncDerpEditorDomContent` uses `colorSegmentsToHTML` with per-segment text shadows. Raw/visible value tracking added for proper focus/blur transitions without losing markup.
 - <span style="color: #80ffc0"><strong>derpSeedV2 color-key highlighting</strong></span>: Active seed value uses `formatSeedHistoryDisplayText` wrapping in `{{t_text_highlight}}` tokens for the editor widget. `btnSeedControl` mode text uses `{{t_text_warning}}` color key. Execute button (▶) uses `iconColorKey: "t_text_accent"`. Stop button (⏹) uses `iconColorKey: "t_text_error"`.
@@ -239,6 +244,7 @@ All notable changes to this project will be documented in this file.
 ## [1.0.1] - 2026-05-24
 
 ### <span style="color: #80ffc0">Added</span>
+
 - <span style="color: #80ffc0"><strong>ICONBUTTON `iconColorKey` parameter</strong></span>: New `iconColorKey` config property for icon buttons that accepts a palette/theme string color key (e.g., `"t_text_accent"`, `"t_text_error"`). Resolves the key through the full `{{}}` token pipeline (`parseColorKeyText` → `resolveColorKey`) with proper state suffix, effects (shadow/glow), and cache hash integration. Both HTML and canvas rendering paths supported.
 - <span style="color: #80ffc0"><strong>derpEditor color-key text support</strong></span>: Editor DOM now renders `{{keyName}}` color-key markup when not in editing mode, preserving palette-colored text display. `syncDerpEditorDomContent` uses `colorSegmentsToHTML` with per-segment text shadows. Raw/visible value tracking added for proper focus/blur transitions without losing markup.
 - <span style="color: #80ffc0"><strong>derpSeedV2 color-key highlighting</strong></span>: Active seed value uses `formatSeedHistoryDisplayText` wrapping in `{{t_text_highlight}}` tokens for the editor widget. `btnSeedControl` mode text uses `{{t_text_warning}}` color key. Execute button (▶) uses `iconColorKey: "t_text_accent"`. Stop button (⏹) uses `iconColorKey: "t_text_error"`.

@@ -26,3 +26,7 @@
 ---
 
 <span style="color: #ffc680"><strong>⚠ 注意：</strong>此节点使用 Uncle 框架而非 Fatha，存在一些无法通过补丁修复的布局问题，不影响正常运行。计划未来用 Fatha 重写。</span>
+
+---
+
+[? Back to Index](../INDEX.md)

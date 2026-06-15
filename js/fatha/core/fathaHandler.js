@@ -1495,7 +1495,7 @@ export function handleDrawCTX(entity, ctx, overlayPass = false) {
                     const bw = Math.max(1, Math.round(entity.size[0]));
                     const bh = Math.max(1, Math.round(entity.size[1]));
                     const cache = getOrCreateBgCache(entity, bw, bh);
-                    const cacheKey = `pulse|${bw}|${bh}|${isBypassed}|${entity.mode}|${entity._currentThemeName || ""}|${backgroundPaintKey}|${getPaintFingerprint(paintOFF)}`;
+                    const cacheKey = `pulse|${bw}|${bh}|${isBypassed}|${entity.mode}|${entity._currentThemeCacheKey || entity._currentThemeName || ""}|${backgroundPaintKey}|${getPaintFingerprint(paintOFF)}`;
                     if (cache) {
                         const pad = cache.pad || 0;
                         const ratio = cache.ratio || 1;
@@ -1542,7 +1542,7 @@ export function handleDrawCTX(entity, ctx, overlayPass = false) {
                     isBypassed,
                     isCollapsed,
                     entity.mode,
-                    entity._currentThemeName || "",
+                    entity._currentThemeCacheKey || entity._currentThemeName || "",
                     isSelected ? "selected" : "normal",
                     header ? `${header.y}_${header.h}_${header.margin?.join?.("_") || ""}` : "noheader",
                     getNodeHeaderPaletteFingerprint(entity, getPaletteCache),
