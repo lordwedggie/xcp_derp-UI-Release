@@ -58,6 +58,7 @@ const DERP_SETTING_DEFAULTS = {
     syncedCollapse: true,
     verticalPinnedCollapseUpward: true,
     verticalDeckExpandCount: "auto_fit",
+    deckArrangement: "automatic",
     perfOverlayHotkey: "Alt+Shift+P",
     systemBypassSoundIndex: 0,
     systemCollapseSoundIndex: 0,
@@ -79,6 +80,7 @@ const DERP_SETTING_DEFAULT_IDS = {
     "Derp.SyncedCollapse": DERP_SETTING_DEFAULTS.syncedCollapse,
     "Derp.VerticalPinnedCollapseUpward": DERP_SETTING_DEFAULTS.verticalPinnedCollapseUpward,
     "Derp.VerticalDeckExpandCount": DERP_SETTING_DEFAULTS.verticalDeckExpandCount,
+    "Derp.DeckArrangement": DERP_SETTING_DEFAULTS.deckArrangement,
     "Derp.PerfOverlayHotkey": DERP_SETTING_DEFAULTS.perfOverlayHotkey,
     "Derp.SystemBypassSoundIndex": DERP_SETTING_DEFAULTS.systemBypassSoundIndex,
     "Derp.SystemCollapseSoundIndex": DERP_SETTING_DEFAULTS.systemCollapseSoundIndex,
@@ -540,6 +542,29 @@ app.registerExtension({
             }
         });
 
+        app.ui.settings.addSetting({
+            id: "Derp.DeckArrangement",
+            name: "Deck arrangement",
+            category: DERP_GROUPS.docking("Deck arrangement"),
+            sortOrder: DERP_GROUP_SORT_ORDER.docking,
+            type: "combo",
+            options: [
+                { value: "automatic", text: "Automatic" },
+                { value: "vertical_sandwich", text: "Vertical Sandwich" },
+                { value: "horizontal_sandwich", text: "Horizontal Sandwich" }
+            ],
+            default: "automatic",
+            onChange: (v) => {
+                const value = String(v || "automatic").trim();
+                window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
+                window.DERP_GLOBAL_SETTINGS.deckArrangement = ["automatic", "vertical_sandwich", "horizontal_sandwich"].includes(value)
+                    ? value
+                    : "automatic";
+                syncDerpGlobalSettingsAlias();
+                if (app.canvas) app.canvas.setDirty(true, true);
+            }
+        });
+
         registerHotkeySetting({
             id: "Derp.PerfOverlayHotkey",
             name: "Perf Overlay Hotkey",
@@ -686,6 +711,7 @@ app.registerExtension({
             syncedCollapse: normalizeBooleanSetting(getStoredSettingValue("Derp.SyncedCollapse", DERP_SETTING_DEFAULTS.syncedCollapse), DERP_SETTING_DEFAULTS.syncedCollapse),
             verticalPinnedCollapseUpward: normalizeBooleanSetting(getStoredSettingValue("Derp.VerticalPinnedCollapseUpward", DERP_SETTING_DEFAULTS.verticalPinnedCollapseUpward), DERP_SETTING_DEFAULTS.verticalPinnedCollapseUpward),
             verticalDeckExpandCount: String(getStoredSettingValue("Derp.VerticalDeckExpandCount", DERP_SETTING_DEFAULTS.verticalDeckExpandCount) || DERP_SETTING_DEFAULTS.verticalDeckExpandCount),
+            deckArrangement: String(getStoredSettingValue("Derp.DeckArrangement", DERP_SETTING_DEFAULTS.deckArrangement) || DERP_SETTING_DEFAULTS.deckArrangement),
             perfOverlayHotkey: normalizeHotkeyString(getStoredSettingValue("Derp.PerfOverlayHotkey", DERP_SETTING_DEFAULTS.perfOverlayHotkey), DERP_SETTING_DEFAULTS.perfOverlayHotkey),
             systemBypassSoundIndex: normalizeVariantIndex(getStoredSettingValue("Derp.SystemBypassSoundIndex", DERP_SETTING_DEFAULTS.systemBypassSoundIndex), DERP_SETTING_DEFAULTS.systemBypassSoundIndex),
             systemCollapseSoundIndex: normalizeVariantIndex(getStoredSettingValue("Derp.SystemCollapseSoundIndex", DERP_SETTING_DEFAULTS.systemCollapseSoundIndex), DERP_SETTING_DEFAULTS.systemCollapseSoundIndex),

@@ -1,7 +1,7 @@
 import { sysPanel } from "../helpers/fathaSysPanel.js";
 import { applyDockResizeResult, canResizeHorizontalStackWidth, syncDockResizePair } from "./dockResize.js";
 import { getDockGroupAxisFromMembers, getDockNodeMinHeight, getDockNodeMinWidth, resolveDockResizeAxes } from "./dockDimensions.js";
-import { applyDeckPressureLayout, getDeckMembers, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureHubForNode, getNodeOnDeckEdge, isDeckPressureHub, setDeckNodePos } from "./masterDockEngine.js";
+import { applyDeckPressureLayout, getDeckMembers, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureHubForNode, getDeckPressureHubMinWidth, getNodeOnDeckEdge, isDeckPressureHub, setDeckNodePos } from "./masterDockEngine.js";
 import { dockDebug, snapshotDockNode } from "./dockDebugHelpers.js";
 import { setDerpNodeSizeCompat } from "./fathaNode2Compat.js";
 
@@ -18,16 +18,6 @@ function getResizeAxis(entity, graph) {
     const branchAxis = getPressureBranchAxis(branchSide);
     if (branchAxis && getDeckPressureBranchMembers(pressureHub, graph, branchSide).length > 1) return branchAxis;
     return getDockGroupAxisFromMembers(getDeckMembers(entity, graph));
-}
-
-function getPressureHubMinWidth(entity, graph, snap, fallbackMinWidth) {
-    if (!isDeckPressureHub(entity) || !graph) return fallbackMinWidth;
-    const branchMinWidth = ["top", "bottom"].reduce((maxWidth, side) => {
-        const members = getDeckPressureBranchMembers(entity, graph, side);
-        const minWidth = members.reduce((sum, member) => sum + getDockNodeMinWidth(member, 0, snap), 0);
-        return Math.max(maxWidth, minWidth);
-    }, 0);
-    return Math.max(fallbackMinWidth, branchMinWidth);
 }
 
 export function handleNodeResize(entity, data, scale) {
@@ -76,7 +66,7 @@ export function handleNodeResize(entity, data, scale) {
     if (!resizeAxes.allowWidth && !resizeAxes.allowHeight) return;
 
     const isPressureHubResize = isDeckPressureHub(entity);
-    const minW = getPressureHubMinWidth(entity, graph, SNAP, getDockNodeMinWidth(entity, 0, SNAP));
+    const minW = getDeckPressureHubMinWidth(entity, graph, SNAP, getDockNodeMinWidth(entity, 0, SNAP));
     const minH = isPressureHubResize ? SNAP * 8 : getDockNodeMinHeight(entity, 0, SNAP);
 
     const deltaX = data.dx / scale;

@@ -181,9 +181,9 @@ export function shouldPreserveHorizontalDeckHeight(node, graph = app.graph || no
 }
 
 export function syncHorizontalDeckHeight(node, graph = app.graph || node?.graph || null, targetHeight = 0) {
-    if (!graph || !node || !isLinearDeckGroup(node, graph, "horizontal")) return false;
+    if (!graph || !node) return false;
 
-    const members = getDeckMembers(node, graph);
+    const members = getLinearResizeMembers(node, graph, "horizontal");
     if (!Array.isArray(members) || members.length <= 1) return false;
 
     const explicitTargetHeight = Number(targetHeight) || 0;
@@ -360,7 +360,7 @@ export function resolveHorizontalDeckSharedHeightImpl(node, deps = {}) {
     const graph = app.graph || node?.graph || null;
     if (!graph || !node || typeof getDerpVars !== "function") return 0;
 
-    const members = getDeckMembers(node, graph);
+    const members = getLinearResizeMembers(node, graph, "horizontal");
     if (!Array.isArray(members) || members.length === 0) return 0;
 
     return members.reduce((maxHeight, member) => {
@@ -407,10 +407,13 @@ export function handleDerpCollapseImpl(entity, force, deps = {}) {
         if (nextState === true) entity._deckPressureSkipFillerUntil = (performance.now?.() || Date.now()) + 1200;
         else delete entity._deckPressureSkipFillerUntil;
     }
-    const isHorizontalDeckGroup = !!(graph && isLinearDeckGroup(entity, graph, "horizontal"));
     const syncedCollapseEnabled = window.DERP_GLOBAL_SETTINGS?.syncedCollapse ?? true;
-    const collapseTargets = (syncedCollapseEnabled && isHorizontalDeckGroup)
-        ? getDeckMembers(entity, graph)
+    const horizontalCollapseTargets = syncedCollapseEnabled
+        ? getLinearResizeMembers(entity, graph, "horizontal")
+        : [];
+    const isHorizontalDeckGroup = horizontalCollapseTargets.length > 1;
+    const collapseTargets = isHorizontalDeckGroup
+        ? horizontalCollapseTargets
         : [entity];
     const orderedCollapseTargets = (syncedCollapseEnabled && isHorizontalDeckGroup && nextState === false)
         ? [...collapseTargets].sort((a, b) => {
@@ -498,14 +501,13 @@ export function handleDerpCollapseImpl(entity, force, deps = {}) {
 export function handleHorizontalDeckTitleToggleImpl(entity, deps = {}) {
     const { requestSyncFallback, settleDerpSizeBeforeDraw, resolveHorizontalDeckSharedHeight, syncHorizontalDeckHeight } = deps;
     const graph = app.graph || entity?.graph || null;
-    if (!graph || !entity || !isLinearDeckGroup(entity, graph, "horizontal")) {
+    if (!graph || !entity) {
         if (entity?.requestDerpSync) entity.requestDerpSync();
         else if (entity && typeof requestSyncFallback === "function") requestSyncFallback(entity);
         return;
     }
-
-    const members = getDeckMembers(entity, graph);
-    if (!Array.isArray(members) || members.length <= 1) {
+    const members = getLinearResizeMembers(entity, graph, "horizontal");
+    if (members.length <= 1) {
         if (entity?.requestDerpSync) entity.requestDerpSync();
         else if (entity && typeof requestSyncFallback === "function") requestSyncFallback(entity);
         return;

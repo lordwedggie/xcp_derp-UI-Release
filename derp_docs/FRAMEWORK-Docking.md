@@ -120,7 +120,11 @@ When ComfyUI Node 2.0/Vue mode moves a default group containing docked Derp stac
 - Alt-drag a node or existing docked stack near an ImageDeck edge to attach it as a Deck Pressure branch.
 - A hub can own one linear branch per edge: `left`, `right`, `top`, and `bottom`.
 - Branches remain normal graph-space docked nodes; there is no nested container, viewport, clipping, or custom serialization.
-- Side branches (`left`/`right`) are treated as vertical pressure branches and target the full Deck frame height: top branch + ImageDeck hub + bottom branch. Top/bottom branches align to the ImageDeck width and are not auto-collapsed by pressure in V1.
+- `Derp.DeckArrangement` controls how an empty ImageDeck resolves new Deck Pressure branches. Values are `automatic`, `vertical_sandwich`, and `horizontal_sandwich`.
+- Each hub persists its resolved arrangement in `properties.deckArrangement` when the first branch attaches. Existing hubs without this property behave as `vertical_sandwich`, and changing the global setting later does not rearrange hubs that already have members.
+- `automatic` resolves from the first attached branch: top/bottom first creates a `vertical_sandwich`; left/right first creates a `horizontal_sandwich`.
+- `vertical_sandwich` is the original layout: side branches (`left`/`right`) target the full Deck frame height including top branch + ImageDeck hub + bottom branch, while top/bottom branches align to the ImageDeck hub width.
+- `horizontal_sandwich` makes side branches target the ImageDeck hub height only, while top/bottom branches span the full Deck frame width including left branch + ImageDeck hub + right branch.
 - When a branch overflows, Deck Pressure keeps the active/hovered/pressed or just-toggled member expanded, collapses non-active siblings first, and grows the hub frame only when collapsed minimum sizes still cannot fit.
 - Side-branch pressure compares expanded minimum requirements before collapsing, so multiple nodes can stay expanded whenever the branch can fit them by resizing.
 - Dock finalization treats the ImageDeck hub position as anchored; normal pair normalization may move attached branches, but must not move the hub itself.
@@ -128,6 +132,7 @@ When ComfyUI Node 2.0/Vue mode moves a default group containing docked Derp stac
 - Shared-edge resizing inside a Deck branch must resolve the branch's linear member list (`getDeckPressureBranchMembers`) instead of using whole-group `isLinearDeckGroup()`, because the full ImageDeck-owned group is intentionally mixed-axis.
 - Pure top/bottom shared-edge resizing in a side branch is handled as an ordered vertical seam before generic node resize, so dragging one member cannot move it behind its neighbor.
 - Horizontal shared-edge resize must also normalize positions against that branch-only member list; using `getDeckMembers()` here will march the whole mixed Deck group sideways.
+- Horizontal collapse/uncollapse sync and shared-height normalization for Deck Pressure top/bottom branches must also resolve the branch-only horizontal member list. The full ImageDeck pressure group is mixed-axis and is not a valid horizontal stack for this purpose.
 - Lower-left hub resize must clamp to top/bottom branch minimum widths and preserve the right edge if pressure layout grows the hub back to minimum width.
 - Idle Deck Pressure maintenance should skip across frames using a stable geometry signature. Only rerun pressure layout when a member is dirty, resizing, dragging, awake, inside `_deckPressureActiveUntil`, or when geometry changes.
 - ImageDeck auto-fit height changes from newly loaded images must call Deck Pressure layout immediately so attached branches resize with the hub in the same load callback.
