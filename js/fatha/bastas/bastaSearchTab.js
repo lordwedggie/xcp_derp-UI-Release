@@ -88,7 +88,7 @@ export function showBastaSearchTab(host, targetRegion = null, params = {}) {
                     },
                     editorSearch: {
                         type: UI_TYPES.EDITOR,
-                        themeKey: "t_textSmall",
+                        themeKey: "dialog, t_textSmall",
                         labelAlign: ["left", "top"],
                         width: "full",
                         height: initialHeight,
@@ -100,7 +100,7 @@ export function showBastaSearchTab(host, targetRegion = null, params = {}) {
                         canvasShield: false,
                         mouseOver: false,
                         switchOnEditing: true,
-                        skipBackground: true,
+                        skipBackground: false,
                         onKeyDown: (event, value) => {
                             if (event?.key !== "Enter") return;
                             event.preventDefault();
