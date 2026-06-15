@@ -38,7 +38,8 @@ Every frame:
 9. **Collapse anim:** lerp target height
 10. **Footer sync:** anchor footer to bottom
 11. **Render:** `handleDrawCTX(this, ctx)` — paints all regions
-12. **Passive Whole Wall Cache:** for TriggerWall/LoraStack, cache full panel as OffscreenCanvas; reuse if no structural/hover change
+12. **Deck resize optimization:** Deck Pressure branch members can short-circuit full rendering during active ImageDeck frame resize, drawing either a ghost outline or cached bitmap preview
+13. **Passive Whole Wall Cache:** for TriggerWall/LoraStack, cache full panel as OffscreenCanvas; reuse if no structural/hover change
 
 ### 4. Core Engines
 | File | Role |
@@ -87,6 +88,7 @@ A "hybrid" framework combining Fatha's modern engine with legacy node compatibil
 ## Key Patterns
 - **Ghost Slots:** Heist caches inputs/outputs as `_xcpTrueInputs`/`_xcpTrueOutputs`, sets real arrays to `[]` during draw
 - **Passive Whole Wall Cache:** OffscreenCanvas cache for TriggerWall/LoraStack panel backgrounds — avoids redraw when only cursor position changes
+- **Deck Resize Optimization:** `Derp.DeckResizeOptimization` can render Deck Pressure branch members as `Ghost Layout` outlines or `Whole-Wall Cache` snapshots while the ImageDeck hub is actively resizing. The hub keeps full rendering, branch DOM widgets are hidden during the gesture, and members force a normal redraw on release.
 - **Collapsed Header Paint:** `handleDrawCTX()` in `core/fathaHandler.js` owns the canvas-drawn node header background. Collapsed headers resolve the header paint state as `_ON`, so attached header palettes use `main._ON` and theme-only nodes use `header._ON`.
 - **Force Sync:** `node._forceSync = true` triggers full layout recompute next frame
 - **Layout Dirty:** `node._layoutDirty = true` triggers layout recompute

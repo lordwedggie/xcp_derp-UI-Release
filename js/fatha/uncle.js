@@ -6,7 +6,7 @@
 import { app } from "../../../../scripts/app.js";
 import { createDerpShield, syncDerpShield, removeDerpShield } from "./core/fathaDOMshield.js";
 import { masterLayoutEngine } from "./core/masterLayoutEngine.js";
-import { handleShieldInteraction, handleDrawCTX, handleThemeUpdate, handleInitDerpGlobalListener, getDerpVars, handleDerpRequestSync, handleDerpComputeSize, handleDerpCollapse, animateDerpSize, drawDeckPreviewGlobal, shouldPreserveHorizontalDeckHeight, shouldPreserveVerticalDeckWidth, balanceHorizontalDeckWidthChange, syncHorizontalDeckHeight, resolveDerpRuntimeSize, resolveHorizontalDeckSharedHeight, normalizeDerpDockedLayout, syncDerpLocalizedDefaultTitle } from "./core/fathaHandler.js";
+import { handleShieldInteraction, handleDrawCTX, handleThemeUpdate, handleInitDerpGlobalListener, getDerpVars, handleDerpRequestSync, handleDerpComputeSize, handleDerpCollapse, animateDerpSize, drawDeckPreviewGlobal, shouldPreserveHorizontalDeckHeight, shouldPreserveVerticalDeckWidth, balanceHorizontalDeckWidthChange, syncHorizontalDeckHeight, resolveDerpRuntimeSize, resolveHorizontalDeckSharedHeight, normalizeDerpDockedLayout, syncDerpLocalizedDefaultTitle, drawDeckResizeOptimizedNode } from "./core/fathaHandler.js";
 export { getDerpVars };
 import { suppressDefaultWidgets, syncUncleSlots, lerpUnclePadding, drawUncleSlots } from "./helpers/uncleSlotHelper.js";
 import { drawDerpSysPanelGlobal, isHostActive, closeDerpSysPanel, sysPanel } from "./helpers/fathaSysPanel.js";
@@ -176,6 +176,10 @@ export function uncle(nodeType, nodeData, minWidth = 100) {
             if (this.interactionShield) this.interactionShield.style.display = "none";
             this.syncUncleSlots(); // THE FIX: Keep slots pinned while collapsed
             if (this.drawUncleSlots) this.drawUncleSlots(ctx); // THE DRAW FIX: Render manual slots directly in node-space
+            return;
+        }
+        if (drawDeckResizeOptimizedNode(this, ctx)) {
+            recordUncleOverlayPerf(this, performance.now() - uncleDrawStart);
             return;
         }
         if (!this.layout) this.layout = new masterLayoutEngine(this);

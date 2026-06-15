@@ -59,6 +59,7 @@ const DERP_SETTING_DEFAULTS = {
     verticalPinnedCollapseUpward: true,
     verticalDeckExpandCount: "auto_fit",
     deckArrangement: "automatic",
+    deckResizeOptimization: "whole_wall_cache",
     perfOverlayHotkey: "Alt+Shift+P",
     systemBypassSoundIndex: 0,
     systemCollapseSoundIndex: 0,
@@ -81,6 +82,7 @@ const DERP_SETTING_DEFAULT_IDS = {
     "Derp.VerticalPinnedCollapseUpward": DERP_SETTING_DEFAULTS.verticalPinnedCollapseUpward,
     "Derp.VerticalDeckExpandCount": DERP_SETTING_DEFAULTS.verticalDeckExpandCount,
     "Derp.DeckArrangement": DERP_SETTING_DEFAULTS.deckArrangement,
+    "Derp.DeckResizeOptimization": DERP_SETTING_DEFAULTS.deckResizeOptimization,
     "Derp.PerfOverlayHotkey": DERP_SETTING_DEFAULTS.perfOverlayHotkey,
     "Derp.SystemBypassSoundIndex": DERP_SETTING_DEFAULTS.systemBypassSoundIndex,
     "Derp.SystemCollapseSoundIndex": DERP_SETTING_DEFAULTS.systemCollapseSoundIndex,
@@ -565,6 +567,29 @@ app.registerExtension({
             }
         });
 
+        app.ui.settings.addSetting({
+            id: "Derp.DeckResizeOptimization",
+            name: "Deck resize optimization",
+            category: DERP_GROUPS.docking("Deck resize optimization"),
+            sortOrder: DERP_GROUP_SORT_ORDER.docking,
+            type: "combo",
+            options: [
+                { value: "none", text: "None" },
+                { value: "ghost_layout", text: "Ghost Layout" },
+                { value: "whole_wall_cache", text: "Whole-Wall Cache" }
+            ],
+            default: "whole_wall_cache",
+            onChange: (v) => {
+                const value = String(v || "whole_wall_cache").trim();
+                window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
+                window.DERP_GLOBAL_SETTINGS.deckResizeOptimization = ["none", "ghost_layout", "whole_wall_cache"].includes(value)
+                    ? value
+                    : "whole_wall_cache";
+                syncDerpGlobalSettingsAlias();
+                if (app.canvas) app.canvas.setDirty(true, true);
+            }
+        });
+
         registerHotkeySetting({
             id: "Derp.PerfOverlayHotkey",
             name: "Perf Overlay Hotkey",
@@ -712,6 +737,7 @@ app.registerExtension({
             verticalPinnedCollapseUpward: normalizeBooleanSetting(getStoredSettingValue("Derp.VerticalPinnedCollapseUpward", DERP_SETTING_DEFAULTS.verticalPinnedCollapseUpward), DERP_SETTING_DEFAULTS.verticalPinnedCollapseUpward),
             verticalDeckExpandCount: String(getStoredSettingValue("Derp.VerticalDeckExpandCount", DERP_SETTING_DEFAULTS.verticalDeckExpandCount) || DERP_SETTING_DEFAULTS.verticalDeckExpandCount),
             deckArrangement: String(getStoredSettingValue("Derp.DeckArrangement", DERP_SETTING_DEFAULTS.deckArrangement) || DERP_SETTING_DEFAULTS.deckArrangement),
+            deckResizeOptimization: String(getStoredSettingValue("Derp.DeckResizeOptimization", DERP_SETTING_DEFAULTS.deckResizeOptimization) || DERP_SETTING_DEFAULTS.deckResizeOptimization),
             perfOverlayHotkey: normalizeHotkeyString(getStoredSettingValue("Derp.PerfOverlayHotkey", DERP_SETTING_DEFAULTS.perfOverlayHotkey), DERP_SETTING_DEFAULTS.perfOverlayHotkey),
             systemBypassSoundIndex: normalizeVariantIndex(getStoredSettingValue("Derp.SystemBypassSoundIndex", DERP_SETTING_DEFAULTS.systemBypassSoundIndex), DERP_SETTING_DEFAULTS.systemBypassSoundIndex),
             systemCollapseSoundIndex: normalizeVariantIndex(getStoredSettingValue("Derp.SystemCollapseSoundIndex", DERP_SETTING_DEFAULTS.systemCollapseSoundIndex), DERP_SETTING_DEFAULTS.systemCollapseSoundIndex),

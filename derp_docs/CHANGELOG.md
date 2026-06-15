@@ -11,6 +11,9 @@ All notable changes to this project will be documented in this file.
 - <span style="color: #80ffc0"><strong>Collapsed header ON-state colors</strong></span>: Collapsed node header backgrounds now resolve the canvas-rendered header paint through `_ON`, using attached header palette `main._ON` first and falling back to theme `header._ON`.
 - <span style="color: #80ffc0"><strong>Palette Manager unsaved-change confirmation</strong></span>: Closing `bastaPalette` through either the header close button or footer Done button now checks the palette hash/dirty state and opens a `bastaFileHandler` discard confirmation before dropping unsaved palette edits.
 
+### <span style="color: #80aaff">Changed</span>
+- <span style="color:#80aaff"><strong>Deck resize optimization modes</strong></span>: Added `Derp.DeckResizeOptimization` under Docking and Decking with `None`, `Ghost Layout`, and `Whole-Wall Cache` modes. Active ImageDeck Deck Pressure resize can now render attached branch nodes as lightweight outlines or cached snapshots while the hub stays live, restoring full branch layouts on release for smoother resizing.
+
 ### <span style="color: #ffc680">Fixed</span>
 - <span style="color: #ffc680"><strong>FileBrowser picker highlight theme key</strong></span>: The open picker hover-row highlight now resolves `#picker_highlight` as an exact optional theme key, using the default/`_OFF` paint first with `_ON` fallback, and refreshes active pickers when live theme edits change the resolved paint.
 - <span style="color: #ffc680"><strong>Collapsed title text ON fallback</strong></span>: Collapsed node titles now render the title editor in `ON` state, falling back to theme `t_textBig._ON` when no palette/color-key text color is available.

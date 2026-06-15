@@ -20,6 +20,29 @@ function getResizeAxis(entity, graph) {
     return getDockGroupAxisFromMembers(getDeckMembers(entity, graph));
 }
 
+function getResizeSessionPressureMinWidth(entity, graph, snap, fallbackMinWidth) {
+    if (!isDeckPressureHub(entity)) return fallbackMinWidth;
+    const members = getDeckMembers(entity, graph);
+    const signature = [
+        snap,
+        fallbackMinWidth,
+        entity.properties?.deckArrangement || "",
+        ...members.map((member) => [
+            member?.id,
+            member?.properties?.contentCollapsed === true ? 1 : 0,
+            Math.round(Number(member?.size?.[0] ?? member?.properties?.nodeSize?.[0]) || 0),
+            Math.round(Number(member?.size?.[1] ?? member?.properties?.nodeSize?.[1]) || 0),
+            member?._layoutMapHash || "",
+        ].join(":")),
+    ].join("|");
+    if (entity._deckResizeMinWidthCache?.signature === signature) {
+        return entity._deckResizeMinWidthCache.value;
+    }
+    const value = getDeckPressureHubMinWidth(entity, graph, snap, fallbackMinWidth);
+    entity._deckResizeMinWidthCache = { signature, value };
+    return value;
+}
+
 export function handleNodeResize(entity, data, scale) {
     const { SNAP, autoWidth, autoHeight } = entity.getDerpVars ? entity.getDerpVars(entity) : getDerpVars(entity);
     const resizeAnchor = data.resizeAnchor || "bottom-right";
@@ -66,7 +89,10 @@ export function handleNodeResize(entity, data, scale) {
     if (!resizeAxes.allowWidth && !resizeAxes.allowHeight) return;
 
     const isPressureHubResize = isDeckPressureHub(entity);
-    const minW = getDeckPressureHubMinWidth(entity, graph, SNAP, getDockNodeMinWidth(entity, 0, SNAP));
+    const fallbackMinW = getDockNodeMinWidth(entity, 0, SNAP);
+    const minW = isPressureHubResize
+        ? getResizeSessionPressureMinWidth(entity, graph, SNAP, fallbackMinW)
+        : fallbackMinW;
     const minH = isPressureHubResize ? SNAP * 8 : getDockNodeMinHeight(entity, 0, SNAP);
 
     const deltaX = data.dx / scale;

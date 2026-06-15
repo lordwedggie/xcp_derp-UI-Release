@@ -50,6 +50,10 @@ const TOOLTIP_DELAY_MS = 650;
 const TOOLTIP_DURATION_MS = 0; // 0 = infinite, stays until mouse moves
 const TOOLTIP_MOVE_THRESHOLD = 5;
 const DERP_BACKGROUND_SETTING_ID = "Derp.BackgroundImage";
+const DECK_RESIZE_OPT_NONE = "none";
+const DECK_RESIZE_OPT_GHOST = "ghost_layout";
+const DECK_RESIZE_OPT_CACHE = "whole_wall_cache";
+const DECK_RESIZE_OPT_MODES = new Set([DECK_RESIZE_OPT_NONE, DECK_RESIZE_OPT_GHOST, DECK_RESIZE_OPT_CACHE]);
 const DERP_DEFAULT_TITLE_LOCALE_KEYS = [
     "fatha_layout.title_default",
     "derp_latent.title",
@@ -280,6 +284,171 @@ function restoreHorizontalDeckPositionAnchor(anchor) {
         setDeckNodePos(member, (Number(member.pos?.[0]) || 0) + offsetX, (Number(member.pos?.[1]) || 0) + offsetY);
     });
     return Math.max(Math.abs(offsetX), Math.abs(offsetY));
+}
+
+function getDeckResizeOptimizationMode() {
+    const raw = String(window.DERP_GLOBAL_SETTINGS?.deckResizeOptimization || DECK_RESIZE_OPT_CACHE).trim();
+    return DECK_RESIZE_OPT_MODES.has(raw) ? raw : DECK_RESIZE_OPT_CACHE;
+}
+
+function setDeckResizeDomHidden(node, hidden) {
+    if (!node?._derpDomElements) return;
+    if (node._deckResizeDomHidden === hidden) return;
+    Object.values(node._derpDomElements).forEach((el) => {
+        if (!el?.style) return;
+        if (hidden) {
+            if (el._deckResizePrevVisibility === undefined) el._deckResizePrevVisibility = el.style.visibility || "";
+            el.style.visibility = "hidden";
+        } else if (el._deckResizePrevVisibility !== undefined) {
+            el.style.visibility = el._deckResizePrevVisibility;
+            delete el._deckResizePrevVisibility;
+        } else {
+            el.style.visibility = "";
+        }
+    });
+    node._deckResizeDomHidden = hidden;
+    if (!hidden) delete node._deckResizeDomHidden;
+}
+
+function createDeckResizeCanvas(width, height) {
+    const safeW = Math.max(1, Math.round(Number(width) || 1));
+    const safeH = Math.max(1, Math.round(Number(height) || 1));
+    if (typeof OffscreenCanvas !== "undefined") return new OffscreenCanvas(safeW, safeH);
+    if (typeof document !== "undefined" && typeof document.createElement === "function") {
+        const canvas = document.createElement("canvas");
+        canvas.width = safeW;
+        canvas.height = safeH;
+        return canvas;
+    }
+    return null;
+}
+
+function captureDeckResizeSnapshot(node) {
+    const canvas = app.canvas?.canvas;
+    const ds = app.canvas?.ds;
+    if (!node || !canvas || !ds) return null;
+    const rect = canvas.getBoundingClientRect?.();
+    const ratioX = rect?.width ? canvas.width / rect.width : 1;
+    const ratioY = rect?.height ? canvas.height / rect.height : 1;
+    const scale = Number(ds.scale) || 1;
+    const x = (Number(node.pos?.[0]) + Number(ds.offset?.[0] || 0)) * scale * ratioX;
+    const y = (Number(node.pos?.[1]) + Number(ds.offset?.[1] || 0)) * scale * ratioY;
+    const w = Math.max(1, Number(node.size?.[0] || 1) * scale * ratioX);
+    const h = Math.max(1, Number(node.size?.[1] || 1) * scale * ratioY);
+    const sx = Math.max(0, Math.floor(x));
+    const sy = Math.max(0, Math.floor(y));
+    const right = Math.min(canvas.width, Math.ceil(x + w));
+    const bottom = Math.min(canvas.height, Math.ceil(y + h));
+    const sw = right - sx;
+    const sh = bottom - sy;
+    if (sw <= 0 || sh <= 0) return null;
+    const snapshot = createDeckResizeCanvas(sw, sh);
+    const targetCtx = snapshot?.getContext?.("2d");
+    if (!snapshot || !targetCtx) return null;
+    try {
+        targetCtx.drawImage(canvas, sx, sy, sw, sh, 0, 0, sw, sh);
+    } catch (_) {
+        return null;
+    }
+    return {
+        canvas: snapshot,
+        width: sw,
+        height: sh,
+        nodeWidth: Math.max(1, Number(node.size?.[0] || 1)),
+        nodeHeight: Math.max(1, Number(node.size?.[1] || 1)),
+    };
+}
+
+function getDeckResizeHubMembers(hub, graph) {
+    if (!isDeckPressureHub(hub) || !graph) return [];
+    return getDeckMembers(hub, graph).filter((member) => member && member.id !== hub.id);
+}
+
+export function beginDeckResizeOptimization(hub, graph = app.graph || hub?.graph || null) {
+    const mode = getDeckResizeOptimizationMode();
+    if (mode === DECK_RESIZE_OPT_NONE || !isDeckPressureHub(hub) || !graph) return;
+    const members = getDeckResizeHubMembers(hub, graph);
+    if (!members.length) return;
+    hub._deckResizeOptimizationMode = mode;
+    hub._deckResizeOptimizationMembers = members;
+    members.forEach((member) => {
+        member._deckResizeOptimizationHubId = hub.id;
+        member._deckResizeOptimizationMode = mode;
+        member._deckResizeSnapshot = mode === DECK_RESIZE_OPT_CACHE ? captureDeckResizeSnapshot(member) : null;
+        setDeckResizeDomHidden(member, true);
+    });
+}
+
+export function endDeckResizeOptimization(hub) {
+    const members = Array.isArray(hub?._deckResizeOptimizationMembers) ? hub._deckResizeOptimizationMembers : [];
+    members.forEach((member) => {
+        if (!member) return;
+        setDeckResizeDomHidden(member, false);
+        delete member._deckResizeOptimizationHubId;
+        delete member._deckResizeOptimizationMode;
+        delete member._deckResizeSnapshot;
+        member._forceSync = true;
+        member._layoutDirty = true;
+        if (typeof member.setDirtyCanvas === "function") member.setDirtyCanvas(true, true);
+        syncDerpShield(member);
+    });
+    if (hub) {
+        delete hub._deckResizeOptimizationMode;
+        delete hub._deckResizeOptimizationMembers;
+    }
+}
+
+function getActiveDeckResizeModeForNode(node) {
+    const activeMode = node?._deckResizeOptimizationMode;
+    if (!DECK_RESIZE_OPT_MODES.has(activeMode) || activeMode === DECK_RESIZE_OPT_NONE) return null;
+    if (getDeckResizeOptimizationMode() === DECK_RESIZE_OPT_NONE) return null;
+    const graph = app.graph || node.graph || null;
+    const hub = getDeckPressureHubForNode(node, graph);
+    if (!hub || hub.id === node.id || hub.id !== node._deckResizeOptimizationHubId || hub._isDerpResizing !== true) return null;
+    return activeMode === DECK_RESIZE_OPT_CACHE || activeMode === DECK_RESIZE_OPT_GHOST ? activeMode : null;
+}
+
+function drawDeckResizeGhost(node, ctx) {
+    const w = Math.max(1, Number(node?.size?.[0] || 1));
+    const h = Math.max(1, Number(node?.size?.[1] || 1));
+    ctx.save();
+    ctx.globalAlpha = 0.28;
+    ctx.fillStyle = node?._bodyPaintData?.fill || "rgba(80, 120, 160, 0.22)";
+    ctx.fillRect(0, 0, w, h);
+    ctx.restore();
+    ctx.save();
+    ctx.lineWidth = 1;
+    ctx.setLineDash([8, 5]);
+    ctx.strokeStyle = node?._headerPaintData_ON?.fill || node?._headerPaintData?.fill || "rgba(230, 240, 255, 0.85)";
+    ctx.strokeRect(0.5, 0.5, Math.max(1, w - 1), Math.max(1, h - 1));
+    ctx.restore();
+}
+
+export function drawDeckResizeOptimizedNode(node, ctx) {
+    const mode = getActiveDeckResizeModeForNode(node);
+    if (!mode || !ctx) {
+        if (node?._deckResizeOptimizationMode) setDeckResizeDomHidden(node, false);
+        return false;
+    }
+    setDeckResizeDomHidden(node, true);
+    const snapshot = mode === DECK_RESIZE_OPT_CACHE ? node._deckResizeSnapshot : null;
+    if (snapshot?.canvas && snapshot.width > 0 && snapshot.height > 0) {
+        ctx.drawImage(
+            snapshot.canvas,
+            0,
+            0,
+            snapshot.width,
+            snapshot.height,
+            0,
+            0,
+            Math.max(1, Number(node.size?.[0] || snapshot.nodeWidth || 1)),
+            Math.max(1, Number(node.size?.[1] || snapshot.nodeHeight || 1))
+        );
+    } else {
+        drawDeckResizeGhost(node, ctx);
+    }
+    if (node._forceSync) node._forceSync = false;
+    return true;
 }
 
 function getPressureBranchAxis(side) {

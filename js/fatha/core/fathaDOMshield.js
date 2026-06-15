@@ -19,7 +19,7 @@
 import { app } from "../../../../scripts/app.js";
 import { renderHitboxDebug } from "../helpers/debugPainter.js";
 import { getDeckMembers, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureHubForNode, getNodeOnDeckEdge, isDeckPressureHub, isLinearDeckGroup } from "./masterDockEngine.js";
-import { clearEntityTooltip } from "./fathaHandler.js";
+import { beginDeckResizeOptimization, clearEntityTooltip, endDeckResizeOptimization } from "./fathaHandler.js";
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
 import { MASTER_Z, promoteMasterZ } from "./masterZ.js";
 import { isComfyVueNodesMode } from "./fathaNode2Compat.js";
@@ -252,6 +252,7 @@ export function createDerpShield(node) {
         activeResizeHandle = null;
         activeResizePointerId = null;
         isResizing = false;
+        endDeckResizeOptimization(activeResizeNode);
         clearDockResizeActiveMembers(activeResizeNode);
         activeResizeNode._isDerpResizing = false;
         activeResizeNode._dockResizeSession = null;
@@ -686,6 +687,7 @@ export function createDerpShield(node) {
             localY: localPos.y,
             originalEvent: e
         });
+        if (isDeckPressureHub(activeResizeNode)) beginDeckResizeOptimization(activeResizeNode, graph);
         promoteMasterZ(activeResizeNode, app.graph || activeResizeNode.graph || null);
 
         // THE DYNAMIC CURSOR FIX: Determine the global drag cursor based on auto-resize states

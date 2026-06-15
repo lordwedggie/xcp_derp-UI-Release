@@ -478,15 +478,17 @@ function fitSizesToTotal(nodes, axis = "width", targetTotal = 0, snap = DEFAULT_
     return sizes;
 }
 
-function applyColumnLayout(nodes, x, y, width, heights) {
+function applyColumnLayout(nodes, x, y, width, heights, options = {}) {
     let cursorY = y;
     const changed = [];
+    const deferDirty = options?.deferDirty === true;
+    const deferSync = options?.deferSync === true;
     nodes.forEach((node, index) => {
         const resolvedH = heights[index] || getNodeAxisSize(node, "height");
-        const sizeChanged = syncDeckNodeSize(node, width, resolvedH, { silent: true });
+        const sizeChanged = syncDeckNodeSize(node, width, resolvedH, { silent: true, deferDirty, deferSync });
         const posChanged = setDeckNodePos(node, x, cursorY);
         if (sizeChanged || posChanged) {
-            if (typeof node.syncUncleSlots === "function") node.syncUncleSlots();
+            if (!deferSync && typeof node.syncUncleSlots === "function") node.syncUncleSlots();
             changed.push(node);
         }
         cursorY += resolvedH;
@@ -494,14 +496,16 @@ function applyColumnLayout(nodes, x, y, width, heights) {
     return changed;
 }
 
-function applyRowLayout(nodes, x, y, widths, height) {
+function applyRowLayout(nodes, x, y, widths, height, options = {}) {
     let cursorX = x;
     const changed = [];
+    const deferDirty = options?.deferDirty === true;
+    const deferSync = options?.deferSync === true;
     nodes.forEach((node, index) => {
-        const sizeChanged = syncDeckNodeSize(node, widths[index], height, { silent: true });
+        const sizeChanged = syncDeckNodeSize(node, widths[index], height, { silent: true, deferDirty, deferSync });
         const posChanged = setDeckNodePos(node, cursorX, y);
         if (sizeChanged || posChanged) {
-            if (typeof node.syncUncleSlots === "function") node.syncUncleSlots();
+            if (!deferSync && typeof node.syncUncleSlots === "function") node.syncUncleSlots();
             changed.push(node);
         }
         cursorX += widths[index];
@@ -1137,6 +1141,8 @@ export function syncDeckNodeSize(node, width, height, options = {}) {
     const nextW = Number(width) || 0;
     const nextH = Number(height) || 0;
     const silent = options?.silent === true;
+    const deferDirty = options?.deferDirty === true;
+    const deferSync = options?.deferSync === true;
 
     const prevW = getNodeSizeValue(node, 0);
     const prevH = getNodeSizeValue(node, 1);
@@ -1156,10 +1162,10 @@ export function syncDeckNodeSize(node, width, height, options = {}) {
     if (node.layout) node.layout._lastCacheKey = "";
     node._forceSync = true;
     node._layoutDirty = true;
-    if (typeof node.syncUncleSlots === "function") node.syncUncleSlots();
+    if (!deferSync && typeof node.syncUncleSlots === "function") node.syncUncleSlots();
     if (!silent && typeof node.refreshNodeLayoutMap === "function") node.refreshNodeLayoutMap();
     if (!silent && typeof node.requestDerpSync === "function") node.requestDerpSync();
-    else if (typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, true);
+    else if (!deferDirty && typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, true);
     return true;
 }
 
@@ -2002,7 +2008,11 @@ function fitDeckPressureSideHeights(members, targetHeight, snap) {
 }
 export function applyDeckPressureLayout(hub, graph, snap = DEFAULT_DECK_SNAP) {
     if (!isDeckPressureHub(hub) || !graph) return [];
-    const changed = [];
+    const changed = new Set();
+    const markChanged = (nodes) => {
+        if (Array.isArray(nodes)) nodes.forEach((node) => { if (node) changed.add(node); });
+        else if (nodes) changed.add(nodes);
+    };
     const hubRect = getNodeRect(hub);
     const hubAnchor = { x: hubRect.x, y: hubRect.y };
     const branches = ["left", "right", "top", "bottom"]
@@ -2024,8 +2034,8 @@ export function applyDeckPressureLayout(hub, graph, snap = DEFAULT_DECK_SNAP) {
         : hubRect.h + topHeight + bottomHeight;
     branches.forEach(({ side, members }) => {
         if (side !== "left" && side !== "right") return;
-        if (ensureDeckPressureFillerMember(members)) changed.push(...members);
-        if (applyDeckPressureCollapse(members, sideCollapseTargetHeight, "vertical", snap)) changed.push(...members);
+        if (ensureDeckPressureFillerMember(members)) markChanged(members);
+        if (applyDeckPressureCollapse(members, sideCollapseTargetHeight, "vertical", snap)) markChanged(members);
     });
 
     const sideMinHeight = Math.max(...branches
@@ -2043,10 +2053,10 @@ export function applyDeckPressureLayout(hub, graph, snap = DEFAULT_DECK_SNAP) {
     if (centerWidth > hubRect.w + 0.5 || centerHeight > hubRect.h + 0.5) {
         const preserveRightEdge = hub._isDerpResizing === true && (hub._resizeAnchor === "left" || hub._resizeAnchor === "top-left" || hub._resizeAnchor === "bottom-left");
         const rightEdge = hubRect.x + hubRect.w;
-        if (syncDeckNodeSize(hub, centerWidth, centerHeight, { silent: true })) changed.push(hub);
+        if (syncDeckNodeSize(hub, centerWidth, centerHeight, { silent: true, deferDirty: true, deferSync: true })) markChanged(hub);
         if (preserveRightEdge && centerWidth > hubRect.w + 0.5) {
             setDeckNodePos(hub, rightEdge - centerWidth, hubRect.y);
-            changed.push(hub);
+            markChanged(hub);
             hubRect.x = rightEdge - centerWidth;
         }
         hubRect.w = centerWidth;
@@ -2065,18 +2075,18 @@ export function applyDeckPressureLayout(hub, graph, snap = DEFAULT_DECK_SNAP) {
             const width = side === "left" ? leftWidth : rightWidth;
             const heights = fitDeckPressureSideHeights(members, frameHeight, snap);
             const x = side === "left" ? frameX : hubRect.x + hubRect.w;
-            changed.push(...applyColumnLayout(members, x, frameY, width, heights));
+            markChanged(applyColumnLayout(members, x, frameY, width, heights, { deferDirty: true, deferSync: true }));
         } else {
             const height = side === "top" ? topHeight : bottomHeight;
             const widths = fitDeckPressureRowWidths(members, frameWidth, snap);
             const y = side === "top" ? hubRect.y - height : hubRect.y + hubRect.h;
-            changed.push(...applyRowLayout(members, frameX, y, widths, height));
+            markChanged(applyRowLayout(members, frameX, y, widths, height, { deferDirty: true, deferSync: true }));
         }
     });
 
     if (hub._isDerpResizing !== true && ((Number(hub.pos?.[0]) || 0) !== hubAnchor.x || (Number(hub.pos?.[1]) || 0) !== hubAnchor.y)) {
         setDeckNodePos(hub, hubAnchor.x, hubAnchor.y);
-        changed.push(hub);
+        markChanged(hub);
     }
 
     changed.forEach((node) => {
@@ -2085,7 +2095,7 @@ export function applyDeckPressureLayout(hub, graph, snap = DEFAULT_DECK_SNAP) {
         if (typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, true);
         syncDerpShield(node);
     });
-    return [...new Set(changed)];
+    return [...changed];
 }
 export function drawDeckGhost(ctx, ghost, options = {}) {
     if (!ctx || !ghost) return;

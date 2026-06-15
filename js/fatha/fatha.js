@@ -6,7 +6,7 @@
 import { app } from "../../../scripts/app.js";
 import { createDerpShield, syncDerpShield, removeDerpShield } from "./core/fathaDOMshield.js";
 import { masterLayoutEngine } from "./core/masterLayoutEngine.js";
-import { handleShieldInteraction, handleDrawCTX, handleThemeUpdate, handleInitDerpGlobalListener, getDerpVars, handleDerpRequestSync, handleDerpComputeSize, handleDerpCollapse, animateDerpSize, drawDeckPreviewGlobal, shouldPreserveHorizontalDeckHeight, shouldPreserveVerticalDeckWidth, balanceHorizontalDeckWidthChange, syncHorizontalDeckHeight, resolveDerpRuntimeSize, resolveHorizontalDeckSharedHeight, normalizeDerpDockedLayout, syncDerpLocalizedDefaultTitle } from "./core/fathaHandler.js";
+import { handleShieldInteraction, handleDrawCTX, handleThemeUpdate, handleInitDerpGlobalListener, getDerpVars, handleDerpRequestSync, handleDerpComputeSize, handleDerpCollapse, animateDerpSize, drawDeckPreviewGlobal, shouldPreserveHorizontalDeckHeight, shouldPreserveVerticalDeckWidth, balanceHorizontalDeckWidthChange, syncHorizontalDeckHeight, resolveDerpRuntimeSize, resolveHorizontalDeckSharedHeight, normalizeDerpDockedLayout, syncDerpLocalizedDefaultTitle, drawDeckResizeOptimizedNode } from "./core/fathaHandler.js";
 export { getDerpVars };
 import { drawDerpSysPanelGlobal, isHostActive, closeDerpSysPanel, sysPanel } from "./helpers/fathaSysPanel.js";
 import { drawBastaLayer } from "./basta.js";
@@ -585,6 +585,7 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
             if (this.interactionShield) this.interactionShield.style.display = "none";
             return;
         }
+        if (drawDeckResizeOptimizedNode(this, ctx)) return;
         if (!this.layout) this.layout = new masterLayoutEngine(this);
         // THE COMP-DATA CACHE: Pre-allocate geometry objects to prevent per-frame garbage collection
         if (!this._compDataCache) this._compDataCache = {};

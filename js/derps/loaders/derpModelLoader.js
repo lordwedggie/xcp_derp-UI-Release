@@ -237,11 +237,13 @@ app.registerExtension({
                     },
                     regionModelLoader: {
                         dir: "row", width: "full", height: "auto", 
+                        spacing: [0, 0],
                         margin: [0, mH, 0, 0],
                         btnClear: {
                             type: this.UI_TYPES.BUTTON,
                             text: "Clear",
-                            width: "auto", height: "fill", padding: [pW, pH], spacing: [sW, 0],
+                            corners: [3, 0, 0, 3],
+                            width: "auto", height: "fill", padding: [pW, pH],
                             labelAlign: ["center", "middle"],
                             state: deck.length > 0 ? "OFF" : "DIS",
                             pulseStates: true,
@@ -266,6 +268,7 @@ app.registerExtension({
                         },
                         browserModels: {
                             type: this.UI_TYPES.FILEBROWSER, searchTab: true,
+                            corners: [0, 0, 0, 0],
                             items: (this._modelList || []).filter(name => !deck.some(m => m.name === name)),
                             mode: "file", rootName: tLocale("$derp_model_loader.browser.root_name", "models"), fileType: "model", mouseOver: false,
                             value: tLocale("$derp_model_loader.browser.select", "Select Model..."),
@@ -273,7 +276,7 @@ app.registerExtension({
                             fontSize: t_textNormal_size,
                             themeKey: "dialog, t_textNormal", canvasShield: true,
                             searchThemeKey: "panel, t_textSystem",
-                            spacing: [sW, 0], padding: [pW, pH],
+                            padding: [pW, pH],
                             onChange: (v) => {
                                 if (!this.properties.modelDeck) this.properties.modelDeck = [];
                                 this.properties.modelDeck.forEach(m => m.active = false);
@@ -291,7 +294,8 @@ app.registerExtension({
                         btnRefreshModels: {
                             type: this.UI_TYPES.ICONBUTTON,
                             icon: "refresh",
-                            width: "match", height: "fill", objectAlign: ["left", "middle"], spacing: [sW, 0],
+                            corners: [0, 3, 3, 0],
+                            width: "match", height: "fill", objectAlign: ["left", "middle"],
                             themeKey: "button, t_textNormal",
                             onPress: () => {
                                 window._xcpDerpSession = Date.now();

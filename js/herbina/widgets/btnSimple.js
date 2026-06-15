@@ -137,6 +137,9 @@ export function syncBtnSimple(ctx, node, config) {
 
     // THE CENTRALIZED ALPHA & ANIMATION FIX: Delegate all effect fading and interpolation to the utility layer
     const animatedPaint = compileAnimatedPaint(paintData, config, sysAlpha, { fill: fillColor, textColor: iconColor });
+    if (config.corners !== undefined && animatedPaint) {
+        animatedPaint.corners = config.corners;
+    }
 
     if (sysAlpha < 1) {
         ctx.save();
