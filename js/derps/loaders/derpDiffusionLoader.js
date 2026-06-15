@@ -241,13 +241,14 @@ app.registerExtension({
                         ...diffusionRegions
                     },
                     regionDiffusionLoader: {
-                        dir: "row", width: "full", height: "auto", spacing: [sW, 0],
+                        dir: "row", width: "full", height: "auto", spacing: [0, 0],
                         hidden: this.properties.settingActive === false,
                         margin: [0, mH, 0, 0],
                         btnClearDiffusions: {
                             type: this.UI_TYPES.BUTTON,
                             text: "Clear",
-                            width: "auto", height: "fill", padding: [pW, pH], spacing: [sW, 0],
+                            corners: [3, 0, 0, 3],
+                            width: "auto", height: "fill", padding: [pW, pH],
                             labelAlign: ["center", "middle"],
                             state: diffusionDeck.length > 0 ? "OFF" : "DIS",
                             pulseStates: true,
@@ -271,14 +272,16 @@ app.registerExtension({
                             }
                         },
                         browserDiffusions: {
-                            type: this.UI_TYPES.FILEBROWSER,
+                            type: this.UI_TYPES.FILEBROWSER, searchTab: true,
+                            corners: [0, 0, 0, 0],
                             items: diffusionList.filter(name => !diffusionDeck.some(m => m.name === name)),
                             mode: "file", rootName: tLocale("$derp_diffusion_loader.browser.diffusion_root_name", "diffusion_models + unet"), fileType: "model", mouseOver: false,
                             value: tLocale("$derp_diffusion_loader.browser.select_diffusion", "Select Diffusion..."),
                             width: "full", height: "auto",
                             fontSize: t_textNormal_size,
                             themeKey: "dialog, t_textNormal", canvasShield: true,
-                            spacing: [sW, 0], padding: [pW, pH],
+                            searchThemeKey: "panel, t_textSystem",
+                            padding: [pW, pH],
                             onChange: (v) => {
                                 this.properties.diffusionDeck = this.properties.diffusionDeck || [];
                                 this.properties.diffusionDeck.forEach(m => m.active = false);
@@ -293,7 +296,8 @@ app.registerExtension({
                         btnRefreshDiffusions: {
                             type: this.UI_TYPES.ICONBUTTON,
                             icon: "refresh",
-                            width: "match", height: "fill", objectAlign: ["left", "middle"], spacing: [sW, 0],
+                            corners: [0, 3, 3, 0],
+                            width: "match", height: "fill", objectAlign: ["left", "middle"],
                             themeKey: "button, t_textNormal",
                             onPress: () => {
                                 window._xcpDerpSession = Date.now();

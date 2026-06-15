@@ -315,6 +315,11 @@
       "refresh": "Refresh"
     },
     "dialogs": {
+      "clear_deck": {
+        "title": "Clear LoRA Stack",
+        "message": "Clear the LoRA stack?",
+        "confirm": "Clear"
+      },
       "remove_lora": {
         "title": "Remove LoRA",
         "message_prefix": "Remove",

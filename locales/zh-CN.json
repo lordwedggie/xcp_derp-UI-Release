@@ -315,6 +315,11 @@
       "refresh": "刷新"
     },
     "dialogs": {
+      "clear_deck": {
+        "title": "清除 LoRA 堆栈",
+        "message": "清除 LoRA 堆栈？",
+        "confirm": "清除"
+      },
       "remove_lora": {
         "title": "移除 LoRA",
         "message_prefix": "移除",

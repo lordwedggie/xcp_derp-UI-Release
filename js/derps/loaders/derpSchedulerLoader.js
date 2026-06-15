@@ -225,12 +225,13 @@ app.registerExtension({
                         ...deckRegions
                     },
                     regionSchedulerLoader: {
-                        dir: "row", width: "full", height: "auto", spacing: [sW, 0],
+                        dir: "row", width: "full", height: "auto", spacing: [0, 0],
                         margin: [0, mH, 0, 0],
                         btnClear: {
                             type: this.UI_TYPES.BUTTON,
                             text: "Clear",
-                            width: "auto", height: "fill", padding: [pW, pH], spacing: [sW, 0],
+                            corners: [3, 0, 0, 3],
+                            width: "auto", height: "fill", padding: [pW, pH],
                             labelAlign: ["center", "middle"],
                             state: deck.length > 0 ? "OFF" : "DIS",
                             pulseStates: true,
@@ -254,16 +255,17 @@ app.registerExtension({
                             }
                         },
                         browserSchedulers: {
-                            type: this.UI_TYPES.FILEBROWSER,
+                            type: this.UI_TYPES.FILEBROWSER, searchTab: true,
+                            corners: [0, 0, 0, 0],
                             icon: "dropdown",
                             items: schedulerList.filter(name => !deck.some(m => m.name === name)),
                             mode: "file", rootName: tLocale("$derp_scheduler_loader.browser.root_name", "schedulers"), fileType: "scheduler", mouseOver: false,
                             value: tLocale("$derp_scheduler_loader.browser.select", "Select Scheduler..."),
                             width: "full", height: "auto",
                             fontSize: t_textNormal_size,
-                            themeKey: "dialog, t_textNormal",
-                            canvasShield: true,
-                            spacing: [sW, 0], padding: [pW, pH],
+                            themeKey: "dialog, t_textNormal", canvasShield: true,
+                            searchThemeKey: "panel, t_textSystem",
+                            padding: [pW, pH],
                             onChange: (v) => {
                                 if (!v || v === tLocale("$derp_scheduler_loader.browser.select", "Select Scheduler...")) return;
                                 if (!this.properties.schedulerDeck) this.properties.schedulerDeck = [];
@@ -283,7 +285,8 @@ app.registerExtension({
                         btnRefreshSchedulers: {
                             type: this.UI_TYPES.ICONBUTTON,
                             icon: "refresh",
-                            width: "match", height: "fill", objectAlign: ["left", "middle"], spacing: [sW, 0],
+                            corners: [0, 3, 3, 0],
+                            width: "match", height: "fill", objectAlign: ["left", "middle"],
                             themeKey: "button, t_textNormal",
                             onPress: () => {
                                 window._xcpDerpSession = Date.now();

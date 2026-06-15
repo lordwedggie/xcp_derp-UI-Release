@@ -718,10 +718,39 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                     offset: sH
                                 },
                                 hidden: !hasRequiredSignals,
-                                dir: "row", width: "full", height: "auto", spacing: [sW, 0],
+                                dir: "row", width: "full", height: "auto", spacing: [0, 0],
                                 margin: [0, mH, 0, mH],
+                                btnClear: {
+                                    type: this.UI_TYPES.BUTTON,
+                                    text: "Clear",
+                                    corners: [3, 0, 0, 3],
+                                    width: "auto", height: "fill", padding: [pW, pH],
+                                    labelAlign: ["center", "middle"],
+                                    state: stack.length > 0 ? "OFF" : "DIS",
+                                    pulseStates: true,
+                                    themeKey: "button, t_textSmall",
+                                    onPress: () => {
+                                        showBastaFileHandler(this, "none", "btnClear", {
+                                            title: tLocale("$derp_lora_stack.dialogs.clear_deck.title", "Clear LoRA Stack"),
+                                            message: tLocale("$derp_lora_stack.dialogs.clear_deck.message", "Clear the LoRA stack?"),
+                                            confirm: tLocale("$derp_lora_stack.dialogs.clear_deck.confirm", "Clear"),
+                                            mode: "delete",
+                                            playSound: "delete",
+                                            properties: { bastaMovalbe: false },
+                                            onConfirm: () => {
+                                                const bId = "basta_lora_detail_global_unique_id";
+                                                if (window.xcpActiveBastas?.has(bId)) window.xcpActiveBastas.get(bId).close();
+                                                this.properties.stackData = [];
+                                                if (this.syncDerpOutputs) this.syncDerpOutputs();
+                                                this.refreshNodeLayoutMap();
+                                                if (this.syncLoraStackStructureHeight) this.syncLoraStackStructureHeight();
+                                            }
+                                        });
+                                    }
+                                },
                                 loraSelector: {
                                     type: this.UI_TYPES.FILEBROWSER, items: this._loraList || [],
+                                    corners: [0, 0, 0, 0],
                                     mode: "file", mouseOver: false, searchTab: true,
                                     rootName: "loras", skipBackground: true,
                                     previewList: this._loraPreviewList,
@@ -729,7 +758,9 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                     ratingsPalette: this._ratingsPalette, // THE PALETTE PASS: Color the icons in the browser
                                     fileType: "lora",
                                     value: tLocale("$derp_lora_stack.browser.add", "Add Lora to Stack..."), width: "full", height: "auto",
-                                    themeKey: "dialog, t_textNormal", canvasShield: true, spacing: [sW, 0], padding: [pW, pH],
+                                    themeKey: "dialog, t_textNormal", canvasShield: true,
+                                    searchThemeKey: "panel, t_textSystem",
+                                    padding: [pW, pH],
                                     onChange: (val) => {
                                         if (!this.properties.stackData) this.properties.stackData = [];
                                         const sliderDefault = parseFloat(this.properties.sliderDefault);
@@ -747,7 +778,8 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                 btnRefresh: {
                                     type: this.UI_TYPES.ICONBUTTON,
                                     icon: "refresh",
-                                    width: "match", height: "fill", objectAlign: ["left", "middle"], spacing: [sW, 0],
+                                    corners: [0, 3, 3, 0],
+                                    width: "match", height: "fill", objectAlign: ["left", "middle"],
                                     themeKey: "button, t_textNormal",
                                     onPress: () => {
                                         const bId = "basta_lora_detail_global_unique_id";

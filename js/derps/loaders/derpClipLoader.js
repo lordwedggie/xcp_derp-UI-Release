@@ -216,13 +216,14 @@ app.registerExtension({
                         ...deckRegions
                     },
                     regionClipLoader: {
-                        dir: "row", width: "full", height: "auto", spacing: [sW, 0],
+                        dir: "row", width: "full", height: "auto", spacing: [0, 0],
                         hidden: this.properties.settingActive === false,
                         margin: [0, mH, 0, 0],
                         btnClearClips: {
                             type: this.UI_TYPES.BUTTON,
                             text: "Clear",
-                            width: "auto", height: "fill", padding: [pW, pH], spacing: [sW, 0],
+                            corners: [3, 0, 0, 3],
+                            width: "auto", height: "fill", padding: [pW, pH],
                             labelAlign: ["center", "middle"],
                             state: clipDeck.length > 0 ? "OFF" : "DIS",
                             pulseStates: true,
@@ -246,14 +247,16 @@ app.registerExtension({
                             }
                         },
                         browserClips: {
-                            type: this.UI_TYPES.FILEBROWSER,
+                            type: this.UI_TYPES.FILEBROWSER, searchTab: true,
+                            corners: [0, 0, 0, 0],
                             items: clipList.filter(name => !clipDeck.some(m => m.name === name)),
                             mode: "file", rootName: tLocale("$derp_clip_loader.browser.root_name", "text_encoders"), fileType: "model", mouseOver: false,
                             value: tLocale("$derp_clip_loader.browser.select", "Select CLIP..."),
                             width: "full", height: "auto",
                             fontSize: t_textNormal_size,
                             themeKey: "dialog, t_textNormal", canvasShield: true,
-                            spacing: [sW, 0], padding: [pW, pH],
+                            searchThemeKey: "panel, t_textSystem",
+                            padding: [pW, pH],
                             onChange: (v) => {
                                 this.properties.clipDeck = this.properties.clipDeck || [];
                                 this.properties.clipDeck.forEach(m => m.active = false);
@@ -268,7 +271,8 @@ app.registerExtension({
                         btnRefreshClips: {
                             type: this.UI_TYPES.ICONBUTTON,
                             icon: "refresh",
-                            width: "match", height: "fill", objectAlign: ["left", "middle"], spacing: [sW, 0],
+                            corners: [0, 3, 3, 0],
+                            width: "match", height: "fill", objectAlign: ["left", "middle"],
                             themeKey: "button, t_textNormal",
                             onPress: () => {
                                 window._xcpDerpSession = Date.now();

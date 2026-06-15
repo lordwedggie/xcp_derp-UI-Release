@@ -234,12 +234,13 @@ app.registerExtension({
                         ...deckRegions
                     },
                     regionVaeLoader: {
-                        dir: "row", width: "full", height: "auto", spacing: [sW, 0],
+                        dir: "row", width: "full", height: "auto", spacing: [0, 0],
                         margin: [0, mH, 0, 0],
                         btnClear: {
                             type: this.UI_TYPES.BUTTON,
                             text: "Clear",
-                            width: "auto", height: "fill", padding: [pW, pH], spacing: [sW, 0],
+                            corners: [3, 0, 0, 3],
+                            width: "auto", height: "fill", padding: [pW, pH],
                             labelAlign: ["center", "middle"],
                             state: deck.length > 0 ? "OFF" : "DIS",
                             pulseStates: true,
@@ -264,13 +265,15 @@ app.registerExtension({
                         },
                         browserVaes: {
                             type: this.UI_TYPES.FILEBROWSER, searchTab: true,
+                            corners: [0, 0, 0, 0],
                             items: (this._vaeList || []).filter(name => !deck.some(m => m.name === name)),
                             mode: "file", rootName: this.properties.extractFromModel ? "models" : "vaes", fileType: "vae", mouseOver: false,
                             value: tLocale("$derp_vae_loader.browser.select", "Select Vae..."),
                             width: "full", height: "auto",
                             fontSize: t_textNormal_size,
                             themeKey: "dialog, t_textNormal", canvasShield: true,
-                            spacing: [sW, 0], padding: [pW, pH],
+                            searchThemeKey: "panel, t_textSystem",
+                            padding: [pW, pH],
                             onChange: (v) => {
                                 if (!this.properties.vaeDeck) this.properties.vaeDeck = [];
                                 this.properties.vaeDeck.forEach(m => m.active = false);
@@ -291,7 +294,8 @@ app.registerExtension({
                         btnRefreshVaes: {
                             type: this.UI_TYPES.ICONBUTTON,
                             icon: "refresh",
-                            width: "match", height: "fill", objectAlign: ["left", "middle"], spacing: [sW, 0],
+                            corners: [0, 3, 3, 0],
+                            width: "match", height: "fill", objectAlign: ["left", "middle"],
                             themeKey: "button, t_textNormal",
                             onPress: () => {
                                 window._xcpDerpSession = Date.now();

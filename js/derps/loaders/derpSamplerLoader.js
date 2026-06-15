@@ -226,12 +226,13 @@ app.registerExtension({
                         ...deckRegions
                     },
                     regionSamplerLoader: {
-                        dir: "row", width: "full", height: "auto", spacing: [sW, 0],
+                        dir: "row", width: "full", height: "auto", spacing: [0, 0],
                         margin: [0, mH, 0, 0],
                         btnClear: {
                             type: this.UI_TYPES.BUTTON,
                             text: "Clear",
-                            width: "auto", height: "fill", padding: [pW, pH], spacing: [sW, 0],
+                            corners: [3, 0, 0, 3],
+                            width: "auto", height: "fill", padding: [pW, pH],
                             labelAlign: ["center", "middle"],
                             state: deck.length > 0 ? "OFF" : "DIS",
                             pulseStates: true,
@@ -257,6 +258,7 @@ app.registerExtension({
                         browserSamplers: {
                             type: this.UI_TYPES.FILEBROWSER, searchTab: true,
                             icon: "dropdown",
+                            corners: [0, 0, 0, 0],
                             items: samplerList.filter(name => !deck.some(m => m.name === name)),
                             mode: "file", rootName: tLocale("$derp_sampler_loader.browser.root_name", "samplers"), fileType: "sampler", mouseOver: false,
                             value: tLocale("$derp_sampler_loader.browser.select", "Select Sampler..."),
@@ -264,7 +266,7 @@ app.registerExtension({
                             fontSize: t_textNormal_size,
                             themeKey: "dialog, t_textNormal", canvasShield: true,
                             searchThemeKey: "panel, t_textSystem",
-                            spacing: [sW, 0], padding: [pW, pH],
+                            padding: [pW, pH],
                             onChange: (v) => {
                                 if (!v || v === tLocale("$derp_sampler_loader.browser.select", "Select Sampler...")) return;
                                 if (!this.properties.samplerDeck) this.properties.samplerDeck = [];
@@ -284,7 +286,8 @@ app.registerExtension({
                         btnRefreshSamplers: {
                             type: this.UI_TYPES.ICONBUTTON,
                             icon: "refresh",
-                            width: "match", height: "fill", objectAlign: ["left", "middle"], spacing: [sW, 0],
+                            corners: [0, 3, 3, 0],
+                            width: "match", height: "fill", objectAlign: ["left", "middle"],
                             themeKey: "button, t_textNormal",
                             onPress: () => {
                                 window._xcpDerpSession = Date.now();
