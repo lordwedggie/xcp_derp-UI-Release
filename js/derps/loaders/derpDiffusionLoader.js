@@ -240,6 +240,12 @@ app.registerExtension({
                         margin: [0, 0, 0, mH],
                         ...diffusionRegions
                     },
+                    diffusionDeckBreak: {
+                        type: this.UI_TYPES.LINEBREAK,
+                        margin: [-mW, 0],
+                        width: "full", height: 1,
+                        hidden: diffusionDeck.length === 0,
+                    },
                     regionDiffusionLoader: {
                         dir: "row", width: "full", height: "auto", spacing: [0, 0],
                         hidden: this.properties.settingActive === false,

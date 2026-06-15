@@ -225,6 +225,12 @@ app.registerExtension({
                         margin: [0, mH, 0, mH],
                         ...deckRegions
                     },
+                    samplerDeckBreak: {
+                        type: this.UI_TYPES.LINEBREAK,
+                        margin: [-mW, 0],
+                        width: "full", height: 1,
+                        hidden: deck.length === 0,
+                    },
                     regionSamplerLoader: {
                         dir: "row", width: "full", height: "auto", spacing: [0, 0],
                         margin: [0, mH, 0, 0],
