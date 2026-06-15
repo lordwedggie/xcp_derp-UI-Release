@@ -34,6 +34,7 @@ const DERP_GROUPS = {
     ui: (leaf) => makeDerpCategory("User Interface", leaf),
     docking: (leaf) => makeDerpCategory("Docking and Decking", leaf),
     sound: (leaf) => makeDerpCategory("Sound", leaf),
+    optimization: (leaf) => makeDerpCategory("Optimization", leaf),
     debugging: (leaf) => makeDerpCategory("Debugging", leaf),
     hotkeys: (leaf) => makeDerpCategory("Hotkeys", leaf)
 };
@@ -42,6 +43,7 @@ const DERP_GROUP_SORT_ORDER = {
     ui: 350,
     docking: 300,
     sound: 200,
+    optimization: 175,
     debugging: 150,
     hotkeys: 100,
 };
@@ -60,6 +62,8 @@ const DERP_SETTING_DEFAULTS = {
     verticalDeckExpandCount: "auto_fit",
     deckArrangement: "automatic",
     deckResizeOptimization: "whole_wall_cache",
+    loraStackWholeWallCacheGate: "3",
+    triggerWallWholeWallCacheGate: "10",
     perfOverlayHotkey: "Alt+Shift+P",
     systemBypassSoundIndex: 0,
     systemCollapseSoundIndex: 0,
@@ -83,6 +87,8 @@ const DERP_SETTING_DEFAULT_IDS = {
     "Derp.VerticalDeckExpandCount": DERP_SETTING_DEFAULTS.verticalDeckExpandCount,
     "Derp.DeckArrangement": DERP_SETTING_DEFAULTS.deckArrangement,
     "Derp.DeckResizeOptimization": DERP_SETTING_DEFAULTS.deckResizeOptimization,
+    "Derp.LoraStackWholeWallCacheGate": DERP_SETTING_DEFAULTS.loraStackWholeWallCacheGate,
+    "Derp.TriggerWallWholeWallCacheGate": DERP_SETTING_DEFAULTS.triggerWallWholeWallCacheGate,
     "Derp.PerfOverlayHotkey": DERP_SETTING_DEFAULTS.perfOverlayHotkey,
     "Derp.SystemBypassSoundIndex": DERP_SETTING_DEFAULTS.systemBypassSoundIndex,
     "Derp.SystemCollapseSoundIndex": DERP_SETTING_DEFAULTS.systemCollapseSoundIndex,
@@ -649,6 +655,51 @@ app.registerExtension({
         });
 
         app.ui.settings.addSetting({
+            id: "Derp.LoraStackWholeWallCacheGate",
+            name: "Derp LoRA Stack Whole-Wall Cache Gate",
+            category: DERP_GROUPS.optimization("Derp LoRA Stack Whole-Wall Cache Gate"),
+            sortOrder: DERP_GROUP_SORT_ORDER.optimization,
+            type: "combo",
+            options: [
+                { value: "none", text: "None" },
+                { value: "3", text: "3" },
+                { value: "5", text: "5" },
+                { value: "8", text: "8" }
+            ],
+            default: "3",
+            onChange: (v) => {
+                const value = String(v || "3").trim().toLowerCase();
+                window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
+                window.DERP_GLOBAL_SETTINGS.loraStackWholeWallCacheGate = ["none", "3", "5", "8"].includes(value) ? value : "3";
+                syncDerpGlobalSettingsAlias();
+                if (app.canvas) app.canvas.setDirty(true, true);
+            }
+        });
+
+        app.ui.settings.addSetting({
+            id: "Derp.TriggerWallWholeWallCacheGate",
+            name: "Derp Trigger Wall Whole-Wall Cache Gate",
+            category: DERP_GROUPS.optimization("Derp Trigger Wall Whole-Wall Cache Gate"),
+            sortOrder: DERP_GROUP_SORT_ORDER.optimization,
+            type: "combo",
+            options: [
+                { value: "none", text: "None" },
+                { value: "10", text: "10" },
+                { value: "15", text: "15" },
+                { value: "20", text: "20" },
+                { value: "30", text: "30" }
+            ],
+            default: "10",
+            onChange: (v) => {
+                const value = String(v || "10").trim().toLowerCase();
+                window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
+                window.DERP_GLOBAL_SETTINGS.triggerWallWholeWallCacheGate = ["none", "10", "15", "20", "30"].includes(value) ? value : "10";
+                syncDerpGlobalSettingsAlias();
+                if (app.canvas) app.canvas.setDirty(true, true);
+            }
+        });
+
+        app.ui.settings.addSetting({
             id: "Derp.PerfOverlayFontSize",
             name: "Perf Overlay: Font Size",
             category: DERP_GROUPS.debugging("Perf Overlay Font Size"),
@@ -738,6 +789,8 @@ app.registerExtension({
             verticalDeckExpandCount: String(getStoredSettingValue("Derp.VerticalDeckExpandCount", DERP_SETTING_DEFAULTS.verticalDeckExpandCount) || DERP_SETTING_DEFAULTS.verticalDeckExpandCount),
             deckArrangement: String(getStoredSettingValue("Derp.DeckArrangement", DERP_SETTING_DEFAULTS.deckArrangement) || DERP_SETTING_DEFAULTS.deckArrangement),
             deckResizeOptimization: String(getStoredSettingValue("Derp.DeckResizeOptimization", DERP_SETTING_DEFAULTS.deckResizeOptimization) || DERP_SETTING_DEFAULTS.deckResizeOptimization),
+            loraStackWholeWallCacheGate: String(getStoredSettingValue("Derp.LoraStackWholeWallCacheGate", DERP_SETTING_DEFAULTS.loraStackWholeWallCacheGate) || DERP_SETTING_DEFAULTS.loraStackWholeWallCacheGate).toLowerCase(),
+            triggerWallWholeWallCacheGate: String(getStoredSettingValue("Derp.TriggerWallWholeWallCacheGate", DERP_SETTING_DEFAULTS.triggerWallWholeWallCacheGate) || DERP_SETTING_DEFAULTS.triggerWallWholeWallCacheGate).toLowerCase(),
             perfOverlayHotkey: normalizeHotkeyString(getStoredSettingValue("Derp.PerfOverlayHotkey", DERP_SETTING_DEFAULTS.perfOverlayHotkey), DERP_SETTING_DEFAULTS.perfOverlayHotkey),
             systemBypassSoundIndex: normalizeVariantIndex(getStoredSettingValue("Derp.SystemBypassSoundIndex", DERP_SETTING_DEFAULTS.systemBypassSoundIndex), DERP_SETTING_DEFAULTS.systemBypassSoundIndex),
             systemCollapseSoundIndex: normalizeVariantIndex(getStoredSettingValue("Derp.SystemCollapseSoundIndex", DERP_SETTING_DEFAULTS.systemCollapseSoundIndex), DERP_SETTING_DEFAULTS.systemCollapseSoundIndex),

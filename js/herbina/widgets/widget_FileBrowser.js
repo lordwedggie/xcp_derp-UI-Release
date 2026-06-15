@@ -250,6 +250,12 @@ function markNodeDirty(node, awakeFrames = 12) {
     if (typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, true);
 }
 
+function markPickerDirty(node) {
+    if (!node) return;
+    if (typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, true);
+    if (window.app?.canvas?.setDirty) window.app.canvas.setDirty(true, true);
+}
+
 function clamp01(value) {
     return Math.max(0, Math.min(1, value));
 }
@@ -354,7 +360,7 @@ function syncPickerSearchScroll(state, forceInstant = false) {
     const nextOffset = lerpTo(state.scrollOffset || 0, target, 0.28, true);
     state.scrollOffset = nextOffset.value;
     clampPickerScroll(state);
-    if (nextOffset.isAnimating) markNodeDirty(state.node, 8);
+    if (nextOffset.isAnimating) markPickerDirty(state.node);
     return nextOffset.isAnimating;
 }
 
@@ -423,7 +429,7 @@ function closeFilePicker() {
     activeFilePicker = null;
     window.__xcpHasActiveFileBrowser = false;
     removeFilePickerEventShield();
-    markNodeDirty(node, 8);
+    markPickerDirty(node);
 }
 
 function forceFileBrowserResync(node, config) {
@@ -440,6 +446,9 @@ function forceFileBrowserResync(node, config) {
 function computePickerPrefixSlotWidth(state, ctx, labelPaint) {
     if (!state || !ctx) return 0;
     const fontSize = state.rowPaintOFF?.fontSize || labelPaint?.fontSize || 10;
+    const fontKey = `${fontSize}|${labelPaint?.fontWeight || "normal"}|${labelPaint?.font || "Arial"}`;
+    const measureCache = state._pickerMeasureCache || (state._pickerMeasureCache = {});
+    if (measureCache.prefixKey === fontKey) return measureCache.prefixSlotWidth || 0;
     const fallback = fontSize * DROPDOWN_PICKER_GLYPH_LABEL_GAP_SCALE;
     const rows = [
         ...(state.headerRows || []),
@@ -457,6 +466,8 @@ function computePickerPrefixSlotWidth(state, ctx, labelPaint) {
         ctx.restore();
         if (measured > maxWidth) maxWidth = measured;
     }
+    measureCache.prefixKey = fontKey;
+    measureCache.prefixSlotWidth = maxWidth;
     return maxWidth;
 }
 
@@ -481,6 +492,9 @@ function computeLabelPartColumnWidths(state, ctx, labelPaint) {
     const fontSize = state.rowPaintOFF?.fontSize || labelPaint?.fontSize || 10;
     const fontWeight = labelPaint?.fontWeight || "normal";
     const font = labelPaint?.font || "Arial";
+    const fontKey = `${fontSize}|${fontWeight}|${font}`;
+    const measureCache = state._pickerMeasureCache || (state._pickerMeasureCache = {});
+    if (measureCache.columnKey === fontKey) return measureCache.labelPartColumnWidths || {};
     const widths = {};
 
     ctx.save();
@@ -495,20 +509,24 @@ function computeLabelPartColumnWidths(state, ctx, labelPaint) {
     }
     ctx.restore();
 
+    measureCache.columnKey = fontKey;
+    measureCache.labelPartColumnWidths = widths;
     return widths;
 }
 
 function rebuildFilePickerRows(state) {
-    return rebuildFilePickerRowsHelper(state, {
+    const result = rebuildFilePickerRowsHelper(state, {
         getFileBrowserMode,
         isDropdownFileBrowser,
         getFileRowPrefix,
         getFileBrowserGlyphScale,
     });
+    state._pickerMeasureCache = null;
+    return result;
 }
 
 function loadPreviewImageForRow(state, row) {
-    return loadPreviewImageForRowHelper(state, row, { markNodeDirty });
+    return loadPreviewImageForRowHelper(state, row, { markNodeDirty: markPickerDirty });
 }
 
 function openFilePicker(config, node) {
@@ -614,7 +632,7 @@ function openFilePicker(config, node) {
                 syncPickerSearchScroll(activeFilePicker, false);
                 activeFilePicker.viewportFollowFrames = 4;
                 activeFilePicker.lastViewportWarpHash = "";
-                markNodeDirty(node, 12);
+                markPickerDirty(node);
             },
             onEnter: () => {
                 if (!activeFilePicker || activeFilePicker.node !== node || activeFilePicker.key !== config.key) return;
@@ -651,7 +669,7 @@ function openFilePicker(config, node) {
             }
         }, 50);
     }
-    markNodeDirty(node, 24);
+    markPickerDirty(node);
 }
 
 function consumeEvent(event) {
@@ -736,7 +754,7 @@ function handlePickerRowAction(row) {
         if (getFileBrowserMode(state.config) === "folder" && state.callbacks.onChange) state.callbacks.onChange(state.currentDir || "/");
         state.viewportFollowFrames = 8;
         state.lastViewportWarpHash = "";
-        markNodeDirty(state.node, 16);
+        markPickerDirty(state.node);
         return;
     }
 
@@ -770,7 +788,7 @@ function handleBreadcrumbRowAction(path) {
     if (getFileBrowserMode(state.config) === "folder" && state.callbacks.onChange) state.callbacks.onChange(state.currentDir || "/");
     state.viewportFollowFrames = 8;
     state.lastViewportWarpHash = "";
-    markNodeDirty(state.node, 16);
+    markPickerDirty(state.node);
 }
 
 function findPickerHit(clientX, clientY) {
@@ -845,7 +863,7 @@ function scrollPickerToTrackPosition(clientY) {
     const targetTop = clamp01((clientY - trackRect.top - (thumbHeight * 0.5)) / thumbTravel);
     state.scrollOffset = targetTop * metrics.maxScroll;
     clampPickerScroll(state);
-    markNodeDirty(state.node, 8);
+    markPickerDirty(state.node);
 }
 
 function ensureFilePickerListeners() {
@@ -915,7 +933,7 @@ function ensureFilePickerListeners() {
                 const deltaRatio = (event.clientY - state.dragScrollbarStartY) / trackTravel;
                 state.scrollOffset = state.dragScrollbarStartOffset + (deltaRatio * metrics.maxScroll);
                 clampPickerScroll(state);
-                markNodeDirty(state.node, 8);
+                markPickerDirty(state.node);
             }
             return;
         }
@@ -931,7 +949,7 @@ function ensureFilePickerListeners() {
         if (activeFilePicker.hoverRowId !== nextHoverId) {
             activeFilePicker.hoverRowId = nextHoverId;
             loadPreviewImageForRow(activeFilePicker, row);
-            markNodeDirty(activeFilePicker.node, 8);
+            markPickerDirty(activeFilePicker.node);
         }
     }, true);
 
@@ -942,7 +960,7 @@ function ensureFilePickerListeners() {
         const scale = activeFilePicker.node?.graph?.canvas?.ds?.scale || window.app?.canvas?.ds?.scale || 1;
         activeFilePicker.scrollOffset += event.deltaY / Math.max(scale, 0.001);
         clampPickerScroll(activeFilePicker);
-        markNodeDirty(activeFilePicker.node, 8);
+        markPickerDirty(activeFilePicker.node);
     }, { capture: true, passive: false });
 
     window.addEventListener("keydown", (event) => {
@@ -1171,7 +1189,7 @@ function drawActiveFilePicker(ctx, node, app, config, scale) {
     ctx.restore();
 
     if (shouldKeepPickerAwake(state, targetHeight, { isPreviewImagePending })) {
-        markNodeDirty(node, 4);
+        markPickerDirty(node);
     }
 }
 
@@ -1209,7 +1227,7 @@ export function syncFileBrowser(context, node, app, config, overlayPass = false)
         if (event?.stopPropagation) event.stopPropagation();
         if (isFileBrowserDisabled(currentConfig)) {
             if (activeFilePicker && activeFilePicker.node === node && activeFilePicker.key === currentConfig.key) closeFilePicker();
-            markNodeDirty(node, 16);
+            markPickerDirty(node);
             return true;
         }
         if (activeFilePicker && activeFilePicker.node === node && activeFilePicker.key === currentConfig.key) {
@@ -1217,7 +1235,7 @@ export function syncFileBrowser(context, node, app, config, overlayPass = false)
         } else {
             openFilePicker(currentConfig, node);
         }
-        markNodeDirty(node, 16);
+        markPickerDirty(node);
         return true;
     };
 

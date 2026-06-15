@@ -235,6 +235,12 @@ app.registerExtension({
                         margin: [0, 0, 0, mH],
                         ...deckRegions
                     },
+                    modelDeckBreak: {
+                        type: this.UI_TYPES.LINEBREAK,
+                        margin: [-mW, 0],
+                        width: "full", height: 1,
+                        hidden: deck.length === 0,
+                    },
                     regionModelLoader: {
                         dir: "row", width: "full", height: "auto", 
                         spacing: [0, 0],

@@ -20,6 +20,10 @@ import { isComfyVueNodesMode, scheduleNativeVueNodeShellSuppression, shouldMutat
 
 const FATHA_OVERLAY_WINDOW_MS = 4000;
 const FATHA_VIEWPORT_CULL_MARGIN_PX = 160;
+const PASSIVE_WHOLE_WALL_CACHE_MAX_SCALE = 2;
+const PASSIVE_WHOLE_WALL_CACHE_SCALE_STEP = 0.25;
+const LORA_STACK_WHOLE_WALL_CACHE_MIN_ITEMS = 3;
+const TRIGGER_WALL_WHOLE_WALL_CACHE_MIN_ITEMS = 10;
 
 function getFathaNodeScreenRect(node, canvasDS, canvasEl) {
     if (!node || !canvasDS || !canvasEl) return null;
@@ -133,14 +137,93 @@ function suspendPassiveWholeWallCache(node, durationMs = 220) {
     );
 }
 
+function getPassiveWholeWallCacheScale(canvasScale = 1) {
+    const dpr = typeof window !== "undefined" ? Number(window.devicePixelRatio || 1) : 1;
+    const desiredScale = (dpr || 1) * Math.max(1, Number(canvasScale) || 1);
+    // Quantize zoom-aware passive caches so they stay sharp when zoomed in, while
+    // tiny DragAndScale jitter does not invalidate large LoRA/Trigger/ImageDeck caches.
+    const bucketScale = Math.ceil(desiredScale / PASSIVE_WHOLE_WALL_CACHE_SCALE_STEP) * PASSIVE_WHOLE_WALL_CACHE_SCALE_STEP;
+    return Math.max(1, Math.min(PASSIVE_WHOLE_WALL_CACHE_MAX_SCALE, bucketScale));
+}
+
+function getFathaVisibleLocalRect(node) {
+    const canvas = app?.canvas?.canvas;
+    const canvasDS = app?.canvas?.ds;
+    const rect = canvas?.getBoundingClientRect?.();
+    const scale = Number(canvasDS?.scale) || 1;
+    if (!node || !rect || !(scale > 0)) return null;
+
+    const offsetX = Number(canvasDS?.offset?.[0]) || 0;
+    const offsetY = Number(canvasDS?.offset?.[1]) || 0;
+    return {
+        x: -offsetX - (Number(node.pos?.[0]) || 0),
+        y: -offsetY - (Number(node.pos?.[1]) || 0),
+        w: rect.width / scale,
+        h: rect.height / scale,
+    };
+}
+
+function drawPassiveWholeWallCache(node, ctx, cacheCanvas, cacheReg, fallbackScale = 1) {
+    if (!cacheCanvas || !cacheReg) return false;
+
+    const regX = Math.round(cacheReg.x || 0);
+    const regY = Math.round(cacheReg.y || 0);
+    const regW = Math.max(1, Math.round(cacheReg.w || node?.size?.[0] || 1));
+    const regH = Math.max(1, Math.round(cacheReg.h || node?.size?.[1] || 1));
+    const visible = getFathaVisibleLocalRect(node);
+    if (!visible) {
+        ctx.drawImage(cacheCanvas, regX, regY, regW, regH);
+        return true;
+    }
+
+    const margin = 2;
+    const drawX = Math.max(regX, Math.floor(visible.x) - margin);
+    const drawY = Math.max(regY, Math.floor(visible.y) - margin);
+    const drawRight = Math.min(regX + regW, Math.ceil(visible.x + visible.w) + margin);
+    const drawBottom = Math.min(regY + regH, Math.ceil(visible.y + visible.h) + margin);
+    const destW = drawRight - drawX;
+    const destH = drawBottom - drawY;
+    if (!(destW > 0) || !(destH > 0)) return true;
+
+    const cacheScale = Math.max(1, Number(fallbackScale) || (cacheCanvas.width / regW) || 1);
+    const sourceX = Math.max(0, Math.round((drawX - regX) * cacheScale));
+    const sourceY = Math.max(0, Math.round((drawY - regY) * cacheScale));
+    const sourceW = Math.max(1, Math.min(cacheCanvas.width - sourceX, Math.round(destW * cacheScale)));
+    const sourceH = Math.max(1, Math.min(cacheCanvas.height - sourceY, Math.round(destH * cacheScale)));
+
+    ctx.drawImage(cacheCanvas, sourceX, sourceY, sourceW, sourceH, drawX, drawY, sourceW / cacheScale, sourceH / cacheScale);
+    return true;
+}
+
+function getWholeWallCacheGateValue(settingValue, fallbackValue) {
+    const raw = String(settingValue ?? fallbackValue).trim().toLowerCase();
+    if (raw === "none") return null;
+    const value = Number(raw);
+    return Number.isFinite(value) ? Math.max(0, Math.floor(value)) : fallbackValue;
+}
+
 function buildPassiveWholeWallCacheState(node, passiveCacheScale) {
     const typeName = String(node?.type || "").toLowerCase();
     if (typeName.includes("triggerwall")) {
         const cacheReg = node.layout?.regions?.panelBackground;
+        const triggerWallCacheGate = getWholeWallCacheGateValue(
+            window.DERP_GLOBAL_SETTINGS?.triggerWallWholeWallCacheGate,
+            TRIGGER_WALL_WHOLE_WALL_CACHE_MIN_ITEMS
+        );
+        const triggerGroups = Array.isArray(node._triggerGroupData)
+            ? node._triggerGroupData
+            : (Array.isArray(node.properties?.triggerGroups) ? node.properties.triggerGroups : []);
+        const triggerCount = triggerGroups.reduce((count, group) => {
+            if (group?.hidden) return count;
+            const triggers = Array.isArray(group?.triggers) ? group.triggers : [];
+            return count + triggers.reduce((groupCount, trigger) => groupCount + (trigger?.hidden ? 0 : 1), 0);
+        }, 0);
         const suspendUntil = Number(node._triggerWallCacheSuspendUntil || 0);
         const hasOpenPicker = !!(window.__xcpHasActiveDropdown || window.__xcpHasActiveFileBrowser);
         const canUse = !!(
             cacheReg &&
+            triggerWallCacheGate !== null &&
+            triggerCount >= triggerWallCacheGate &&
             !node._forceSync &&
             !node._layoutDirty &&
             performance.now() >= suspendUntil &&
@@ -170,6 +253,11 @@ function buildPassiveWholeWallCacheState(node, passiveCacheScale) {
 
     if (typeName.includes("derplorastack")) {
         const cacheReg = node.layout?.regions?.panelBackground;
+        const loraStackCacheGate = getWholeWallCacheGateValue(
+            window.DERP_GLOBAL_SETTINGS?.loraStackWholeWallCacheGate,
+            LORA_STACK_WHOLE_WALL_CACHE_MIN_ITEMS
+        );
+        const stackCount = Array.isArray(node.properties?.stackData) ? node.properties.stackData.length : 0;
         const detailBastaId = "basta_lora_detail_global_unique_id";
         const isDetailOpen = !!(window.xcpActiveBastas?.get(detailBastaId)?.hostNode === node);
         const suspendUntil = Number(node._passiveWholeWallCacheSuspendUntil || 0);
@@ -184,6 +272,8 @@ function buildPassiveWholeWallCacheState(node, passiveCacheScale) {
             activeRegionType === UI_TYPES.EDITOR;
         const canUse = !!(
             cacheReg &&
+            loraStackCacheGate !== null &&
+            stackCount > loraStackCacheGate &&
             !node._forceSync &&
             !node._layoutDirty &&
             !(Number(node._pendingImageLoads || 0) > 0) &&
@@ -732,7 +822,7 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
             }
             return null;
         };
-        const passiveCacheScale = Math.max(1, Math.min(4, (typeof window !== "undefined" ? (window.devicePixelRatio || 1) : 1) * Math.max(1, curS || 1)));
+        const passiveCacheScale = getPassiveWholeWallCacheScale(curS);
         const hasStructuralOrInteractionSync = !this._prevDerpState || hasLayoutChanged ||
             this._prevDerpState.hoveredKey !== this._hoveredRegionKey;
         const passiveWholeWall = isPassiveWholeWallCacheNode(this)
@@ -745,13 +835,7 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
         const passiveWholeWallCache = passiveWholeWall.cacheSlot ? this[passiveWholeWall.cacheSlot] : null;
 
         if (canUsePassiveWholeWallCache && passiveWholeWallCache?.key === passiveWholeWall.key && passiveWholeWallCache?.canvas) {
-            ctx.drawImage(
-                passiveWholeWallCache.canvas,
-                Math.round(passiveWholeWall.cacheReg.x || 0),
-                Math.round(passiveWholeWall.cacheReg.y || 0),
-                Math.max(1, Math.round(passiveWholeWall.cacheReg.w || this.size?.[0] || 1)),
-                Math.max(1, Math.round(passiveWholeWall.cacheReg.h || this.size?.[1] || 1))
-            );
+            drawPassiveWholeWallCache(this, ctx, passiveWholeWallCache.canvas, passiveWholeWall.cacheReg, passiveWholeWallCache.scale || passiveCacheScale);
             ensurePassiveCacheInteractionBindings(this, app);
             syncDerpShield(this);
             if (this._shouldSync) {
@@ -851,14 +935,9 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
                 this[passiveWholeWall.cacheSlot] = {
                     key: passiveWholeWall.key,
                     canvas: cacheCanvas,
+                    scale: passiveCacheScale,
                 };
-                ctx.drawImage(
-                    cacheCanvas,
-                    Math.round(passiveWholeWall.cacheReg.x || 0),
-                    Math.round(passiveWholeWall.cacheReg.y || 0),
-                    Math.max(1, Math.round(passiveWholeWall.cacheReg.w || this.size?.[0] || 1)),
-                    Math.max(1, Math.round(passiveWholeWall.cacheReg.h || this.size?.[1] || 1))
-                );
+                drawPassiveWholeWallCache(this, ctx, cacheCanvas, passiveWholeWall.cacheReg, passiveCacheScale);
             }
 
             if (this._derpDomElements) {

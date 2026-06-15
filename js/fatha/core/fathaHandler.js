@@ -629,12 +629,21 @@ function getDeckFrameState(node) {
     const nodeFrameKey = `${frame}:${node.id}`;
     if (deckNodeFrameCache.has(nodeFrameKey)) return deckNodeFrameCache.get(nodeFrameKey);
 
-    const members = getDeckMembers(node, graph);
+    let members = getDeckMembers(node, graph);
     if (!Array.isArray(members) || members.length <= 1) {
         deckNodeFrameCache.set(nodeFrameKey, null);
         return null;
     }
-    const axis = getDockGroupAxisFromMembers(members);
+    let axis = getDockGroupAxisFromMembers(members);
+    const horizontalMembers = getLinearDeckMembers(node, graph, "horizontal");
+    const verticalMembers = getLinearDeckMembers(node, graph, "vertical");
+    if (horizontalMembers.length > 1) {
+        members = horizontalMembers;
+        axis = "horizontal";
+    } else if (verticalMembers.length > 1) {
+        members = verticalMembers;
+        axis = "vertical";
+    }
     const preserveHeight = shouldPreserveDockHeight(axis);
     const preserveWidth = shouldPreserveDockWidth(axis);
     const cacheKey = getDeckFrameKey(node, members);
@@ -1042,32 +1051,35 @@ export function resolveDerpRuntimeSize(node, measured, vars = {}) {
 
 export function resolveHorizontalDeckSharedHeight(node) {
     const state = getDeckFrameState(node);
-    if (state?.preserveHeight === true && Number(state.sharedHeight) > 0) return state.sharedHeight;
-    return resolveHorizontalDeckSharedHeightImpl(node, { getDerpVars });
+    const resolvedHeight = resolveHorizontalDeckSharedHeightImpl(node, { getDerpVars });
+    if (state?.preserveHeight === true && Number(resolvedHeight) > 0) {
+        state.sharedHeight = resolvedHeight;
+    }
+    return resolvedHeight;
 }
 
 export function syncHorizontalDeckHeight(node, targetHeight = 0) {
     const state = getDeckFrameState(node);
     if (state?.preserveHeight === true) {
         const nextHeight = Number(targetHeight) || 0;
-        if (nextHeight > 0) state.sharedHeight = Math.max(Number(state.sharedHeight) || 0, nextHeight);
+        if (nextHeight > 0) state.sharedHeight = nextHeight;
         const signature = getDeckGeometrySignature(state.members, nextHeight, "horizontal");
         if (nextHeight > 0 && isComfyVueNodesMode() && areDockedEdgesAligned(state.members, app.graph || node?.graph || null) && isDeckHeightAligned(state.members, nextHeight)) {
             state.didSync = true;
-            state.syncedHeight = Math.max(Number(state.syncedHeight) || 0, nextHeight);
+            state.syncedHeight = nextHeight;
             if (state.skipState) state.skipState.syncSignature = signature;
             return false;
         }
         if (nextHeight > 0 && state.skipState?.syncSignature === signature && isDeckHeightAligned(state.members, nextHeight)) {
             state.didSync = true;
-            state.syncedHeight = Math.max(Number(state.syncedHeight) || 0, nextHeight);
+            state.syncedHeight = nextHeight;
             return false;
         }
-        if (state.didSync && nextHeight <= (Number(state.syncedHeight) || 0)) {
+        if (state.didSync && Math.abs(nextHeight - (Number(state.syncedHeight) || 0)) < 0.5) {
             return false;
         }
         state.didSync = true;
-        state.syncedHeight = Math.max(Number(state.syncedHeight) || 0, nextHeight);
+        state.syncedHeight = nextHeight;
     }
     const graph = app.graph || node?.graph || null;
     const changed = syncHorizontalDeckHeightForGraph(node, graph, targetHeight);
@@ -1140,15 +1152,15 @@ export function normalizeDerpDockedLayout(node) {
         const signature = getDeckGeometrySignature(state.members, sharedHeight, "horizontal");
         if (state.skipState?.normalizeSignature === signature || (isComfyVueNodesMode() && areDockedEdgesAligned(state.members, graph))) {
             state.didNormalize = true;
-            state.normalizedHeight = Math.max(Number(state.normalizedHeight) || 0, sharedHeight);
+            state.normalizedHeight = sharedHeight;
             if (state.skipState) state.skipState.normalizeSignature = signature;
             return [];
         }
-        if (state.didNormalize && sharedHeight <= (Number(state.normalizedHeight) || 0)) {
+        if (state.didNormalize && Math.abs(sharedHeight - (Number(state.normalizedHeight) || 0)) < 0.5) {
             return [];
         }
         state.didNormalize = true;
-        state.normalizedHeight = Math.max(Number(state.normalizedHeight) || 0, sharedHeight);
+        state.normalizedHeight = sharedHeight;
     }
     if (state?.axis !== "horizontal" || !graph) return [];
     const positionAnchor = isComfyVueNodesMode()

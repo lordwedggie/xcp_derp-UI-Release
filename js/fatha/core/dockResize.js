@@ -172,11 +172,15 @@ export function restorePinnedVerticalDeckPositionAnchor(anchor) {
 
 export function shouldPreserveVerticalDeckWidth(node, graph = app.graph || node?.graph || null) {
     if (!graph || !node) return false;
+    const members = getLinearResizeMembers(node, graph, "vertical");
+    if (members.length > 1) return true;
     return shouldPreserveDockWidth(getDockGroupAxisFromMembers(getDeckMembers(node, graph)));
 }
 
 export function shouldPreserveHorizontalDeckHeight(node, graph = app.graph || node?.graph || null) {
     if (!graph || !node) return false;
+    const members = getLinearResizeMembers(node, graph, "horizontal");
+    if (members.length > 1) return true;
     return shouldPreserveDockHeight(getDockGroupAxisFromMembers(getDeckMembers(node, graph)));
 }
 
