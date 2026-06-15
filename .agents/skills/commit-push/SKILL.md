@@ -22,6 +22,16 @@ Commits all working-tree changes and pushes to the primary dev remote.
 
 ## CHANGELOG
 
+## Auto commit messages
+
+When the user says "commit and push" or "commit push my changes" **without** providing a commit message, write one yourself. Scan the diffs, write a descriptive conventional-commit message, then report:
+
+- The commit hash
+- The message you wrote
+- What changed (brief file summary)
+
+Never ask "what should the commit message be?" — just write it.
+
 Do NOT update `CHANGELOG.md` unless the user explicitly asks for it. The user and other agents handle CHANGELOG entries manually.
 
 ## Remote
