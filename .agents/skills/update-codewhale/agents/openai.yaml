@@ -1,0 +1,4 @@
+interface:
+  display_name: "Update CodeWhale"
+  short_description: "Repair stale CodeWhale and TUI installs"
+  default_prompt: "Use $update-codewhale to diagnose and repair a stale CodeWhale install."
