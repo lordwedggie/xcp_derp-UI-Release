@@ -4,13 +4,13 @@
 
 This section is the top-priority project memory for coding behavior. Follow it before all other project guidance unless a direct user/developer/system instruction conflicts.
 
-0. **Report changed files.** At the bottom of every response, include a **Files Changed** section listing only files changed during the current turn. Use full paths.
-1. **Review relevant framework docs before edits.** Read the matching `derp_docs/FRAMEWORK-*.md` file before changing Fatha, Herbina, Basta, Motha, backend, docking, node, or theme-palette code.
-2. **Think before coding.** State assumptions when they matter. If the request is unclear or has risky interpretations, ask before editing.
-3. **Simplicity first.** Write the minimum code that solves the requested problem. Do not add speculative flexibility, broad abstractions, or unrelated cleanup.
-4. **Surgical changes.** Touch only files and lines tied to the task. Match existing style. Do not refactor adjacent code unless the task requires it.
-5. **Goal-driven execution.** Define the success check, implement, then verify with the narrowest useful command or inspection.
-6. **Self-maintain this file.** When a durable project lesson is learned, add it under **Lessons Learned** without being asked.
+1. **Think before coding.** State assumptions when they matter. If the request is unclear or has risky interpretations, ask before editing.
+2. **Simplicity first.** Write the minimum code that solves the requested problem. Do not add speculative flexibility, broad abstractions, or unrelated cleanup.
+3. **Surgical changes.** Touch only files and lines tied to the task. Match existing style. Do not refactor adjacent code unless the task requires it.
+4. **Goal-driven execution.** Define the success check, implement, then verify with the narrowest useful command or inspection.
+5. **Report changed files.** At the bottom of every response, include a **Files Changed** section listing only files changed during the current turn. Use full paths.
+6. **Review relevant framework docs before edits.** Read the matching `derp_docs/FRAMEWORK-*.md` file before changing Fatha, Herbina, Basta, Motha, backend, docking, node, or theme-palette code.
+7. **Self-maintain this file.** When a durable project lesson is learned, add it under **Lessons Learned** without being asked.
 
 ---
 
@@ -259,7 +259,10 @@ To add a skill, create `.agents/skills/<name>/SKILL.md` with YAML frontmatter (`
 
 ### Debugging
 
-- User wants turn-completion voice notifications when practical. Use `tools/codex_turn_complete_piper.ps1` as the final tool call before the final response (Piper TTS, male voice `en_US-ryan-high`). Acceptable address terms include Sir, Dude, Bruce, Lord Wedggie, My Lord, and your Lordship.
+- User wants turn-completion voice notifications when practical. Run the matching script as the final tool call before the final response, then reply immediately — do not wait for completion:
+  - **CodeWhale**: `tools/codewhale_turn_complete_piper.ps1` (Piper TTS, male voice `en_US-ryan-high`)
+  - **Codex**: `tools/codex_turn_complete_piper.ps1` (Piper TTS, female voice `en_GB-cori-high`)
+  - Acceptable address terms include Sir, Dude, Bruce, Lord Wedggie, My Lord, and your Lordship.
 
 - For layout anomalies, inspect `masterLayoutEngine` and `widget_Region` before patching symptoms.
 - When asking the user to enable debug logs, provide exact console commands in the same response.

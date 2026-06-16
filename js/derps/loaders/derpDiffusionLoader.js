@@ -244,7 +244,7 @@ app.registerExtension({
                         type: this.UI_TYPES.LINEBREAK,
                         margin: [-mW, 0],
                         width: "full", height: 1,
-                        hidden: diffusionDeck.length === 0,
+                        hidden: diffusionDeck.length === 0 || this.properties.settingActive === false,
                     },
                     regionDiffusionLoader: {
                         dir: "row", width: "full", height: "auto", spacing: [0, 0],
