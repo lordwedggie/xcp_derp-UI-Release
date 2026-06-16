@@ -121,6 +121,7 @@ Reusable task workflows live in `.agents/skills/` as `SKILL.md` files. Each skil
 
 - **commit-push** — stages changes, writes conventional commits, pushes to `github/daily-development`. Does not update CHANGELOG.
 - **release-bump** — bumps version in `pyproject.toml` + `package.json`, verifies CHANGELOG entries exist, pushes to `github` and `release` remotes. Does not edit CHANGELOG.
+- **video-editor** — automates video editing with FFmpeg: trim, cut, concatenate, text overlays, intro/outro cards, speed ramps, and MP4 rendering for tutorial videos.
 
 To add a skill, create `.agents/skills/<name>/SKILL.md` with YAML frontmatter (`name`, `description`) and a workflow body. Keep skills project-scoped so all agents share them.
 
