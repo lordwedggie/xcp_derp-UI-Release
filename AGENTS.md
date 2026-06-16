@@ -246,6 +246,7 @@ To add a skill, create `.agents/skills/<name>/SKILL.md` with YAML frontmatter (`
 - Horizontal stacks attached to Deck Pressure left/right sides must grow their own row height; attach sizing and pressure layout must never shrink or pressure-grow the ImageDeck hub height for that branch.
 - Pressed non-drag widget regions must absorb pointer movement; otherwise a small click twitch can fall through to `updateDockDrag()` and move a deck root using a child node's press-start position.
 - Deck target picking for dragged linear stacks must use the stack bounding rect, not only the drag root's node rect, so side/top/bottom attach detection follows the moving stack's outer edge.
+- Shared-edge DOM hitboxes and resize handlers must use the same seam eligibility helpers; duplicated seam predicates between `fathaDOMshield.js` and `dockResize.js` can show a handle that the resize path later rejects, or hide a seam that would resize correctly.
 
 ### Node-Specific Notes
 

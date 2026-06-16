@@ -12,6 +12,7 @@ The docking system allows derp nodes to be dragged into horizontal/vertical stac
 | `core/masterDockEngine.js` | Master orchestrator (1610+ lines). Dock pair management, deck group tracking, size normalization, member registration, attach/detach, floating state. |
 | `core/dockDimensions.js` | Dimension calculations for dock attach/detach. Computes shared heights/widths for dock groups. |
 | `core/dockResize.js` | Resize handling for docked stacks. Propagates resize from one member to all. `handleNodeResize`, `syncDockResizePair`. |
+| `core/dockResizeSharedEdges.js` | Shared horizontal seam eligibility and same-row neighbor detection used by both resize handling and DOM shield hitboxes. |
 | `core/dockDrag.js` | Drag logic for initiating and completing a dock action. |
 | `core/dockTargetPicking.js` | Edge detection — which edge of which node are we being dragged near? |
 | `core/dockDebugHelpers.js` | Debug logging utilities for docking state. |
@@ -144,8 +145,8 @@ When ComfyUI Node 2.0/Vue mode moves a default group containing docked Derp stac
 - Shared-edge resizing inside a Deck branch must resolve the branch's linear member list (`getDeckPressureBranchMembers`) and actual branch axis (`getDeckPressureBranchAxis`) instead of using whole-group `isLinearDeckGroup()` or side-implied orientation, because the full ImageDeck-owned group is intentionally mixed-axis.
 - Side-branch width resizing is exposed on the shared vertical seam between the `derpImageDeck` hub and a left/right branch. The resize changes the branch width and compensates the hub width while preserving the outer Deck frame bounds.
 - In every Deck Pressure arrangement, hub-facing seams for left/right side branches resize the side stack and compensate the ImageDeck hub width inside the existing Deck frame; they must not grow or shrink the whole Deck frame.
-- When a left/right Deck Pressure branch is horizontal, the hub-facing seam is hub/deck width resize only; it must not expose the horizontal stack's outer-edge width resize.
-- The shield hitbox for a left/right horizontal Deck Pressure branch must still expose the hub-facing mid-edge strip and route it to the ImageDeck hub resize; otherwise the branch shield can cover the hub seam so only top/bottom portions feel draggable.
+- When a left/right Deck Pressure branch is horizontal, the hub-facing seam is a Deck Pressure side-width split: it redistributes side-branch and hub width inside the existing frame, and must not expose the horizontal stack's ordinary outer-edge width resize.
+- The shield hitbox for a left/right horizontal Deck Pressure branch must still expose the hub-facing mid-edge strip and route it to Deck Pressure side-width resizing; otherwise the branch shield can cover the hub seam so only top/bottom portions feel draggable.
 - Left/right horizontal Deck Pressure branches grow their own row height to fit the Deck side band or their own minimum; they must not shrink or pressure-grow the ImageDeck hub height during attach.
 - When a left/right horizontal Deck Pressure branch is undecked, its member widths are preserved as explicit manual widths so restored auto-width cannot grow the stack after the detach refresh.
 - In `horizontal_sandwich`, preserved frame bounds still span top/bottom rows, but side branches use the hub's vertical band for their `y` and height so top branches do not pull side stacks upward.

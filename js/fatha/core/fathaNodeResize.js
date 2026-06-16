@@ -1,5 +1,6 @@
 import { sysPanel } from "../helpers/fathaSysPanel.js";
-import { applyDockResizeResult, canResizeHorizontalSharedEdgeWidth, canResizeHorizontalStackWidth, syncDockResizePair } from "./dockResize.js";
+import { applyDockResizeResult, syncDockResizePair } from "./dockResize.js";
+import { canResizeHorizontalSharedEdgeWidth, canResizeHorizontalStackWidth } from "./dockResizeSharedEdges.js";
 import { getDockGroupAxisFromMembers, getDockNodeMinHeight, getDockNodeMinWidth, resolveDockResizeAxes } from "./dockDimensions.js";
 import { applyDeckPressureLayout, getDeckMembers, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureBranchAxis, getDeckPressureHubForNode, getDeckPressureHubMinWidth, getNodeOnDeckEdge, isDeckPressureHub, setDeckNodePos } from "./masterDockEngine.js";
 import { dockDebug, snapshotDockNode } from "./dockDebugHelpers.js";

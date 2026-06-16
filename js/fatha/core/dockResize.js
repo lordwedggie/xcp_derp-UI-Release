@@ -31,6 +31,7 @@ import {
     shouldPreserveDockHeight,
     shouldPreserveDockWidth,
 } from "./dockDimensions.js";
+import { canResizeHorizontalMemberWidth, canResizeHorizontalSeamPair, canResizeHorizontalSharedEdgeWidth, canResizeHorizontalStackWidth, getHorizontalDeckMembersByX, getHorizontalSameRowNeighbor } from "./dockResizeSharedEdges.js";
 import { dockDebug, isDockDebugEnabled, snapshotDockNode } from "./dockDebugHelpers.js";
 import { getVirtualNodeLayoutMap } from "../helpers/fathaLayoutMaps.js";
 import { setDerpNodeSizeCompat } from "./fathaNode2Compat.js";
@@ -593,20 +594,6 @@ function getLinearResizeMembers(node, graph, axis) {
     return isLinearDeckGroup(node, graph, axis) ? getDeckMembers(node, graph) : [];
 }
 
-function getHorizontalDeckMembersByX(node, graph) {
-    const members = getLinearResizeMembers(node, graph, "horizontal");
-    if (members.length === 0) return [];
-    const pressureHub = getDeckPressureHubForNode(node, graph);
-    const branchSide = pressureHub && pressureHub.id !== node.id ? getDeckPressureBranchSideForNode(pressureHub, graph, node) : null;
-    if (getDeckPressureBranchAxis(pressureHub, graph, branchSide) === "horizontal") return members;
-    return members.slice().sort((a, b) => {
-        const ax = Number(a?.pos?.[0]) || 0;
-        const bx = Number(b?.pos?.[0]) || 0;
-        if (ax !== bx) return ax - bx;
-        return (Number(a?.id) || 0) - (Number(b?.id) || 0);
-    });
-}
-
 function getVerticalDeckMembersByY(node, graph) {
     const members = getLinearResizeMembers(node, graph, "vertical");
     if (members.length === 0) return [];
@@ -938,95 +925,6 @@ function applyCollapsedVerticalBoundaryResize(entity, resizeAnchor, requestedEnt
     result.handledAll = true;
     result.appliedHeight = currentHeight;
     return true;
-}
-
-export function canResizeHorizontalStackWidth(node, graph = app.graph || node?.graph || null, side = null) {
-    if (side && isDeckPressureSideHorizontalHubEdge(node, graph, side)) return false;
-    const members = getHorizontalDeckMembersByX(node, graph);
-    if (members.length <= 1 || !members.some((member) => canResizeHorizontalMemberWidth(member, graph))) return false;
-    const nodeIndex = members.findIndex((member) => member.id === node.id);
-    if (side === "left") return nodeIndex === 0;
-    if (side === "right") return nodeIndex === members.length - 1;
-    return nodeIndex === 0 || nodeIndex === members.length - 1;
-}
-
-function canResizeHorizontalMemberWidth(node, graph) {
-    if (node?.properties?.autoWidth === false) return true;
-    return isDeckPressureSideHorizontalBranchMember(node, graph);
-}
-
-function isDirectHorizontalNodeSeam(leftNode, rightNode, graph) {
-    if (!leftNode || !rightNode || !graph) return false;
-    if (isDeckPressureHub(leftNode) || isDeckPressureHub(rightNode)) return false;
-    return getNodeOnDeckEdge(leftNode, graph, "right")?.id === rightNode.id
-        || getNodeOnDeckEdge(rightNode, graph, "left")?.id === leftNode.id;
-}
-
-function areSameRowAdjacentHorizontalMembers(leftNode, rightNode, graph) {
-    if (!leftNode || !rightNode || !graph) return false;
-    if (isDeckPressureHub(leftNode) || isDeckPressureHub(rightNode)) return false;
-    const hub = getDeckPressureHubForNode(leftNode, graph);
-    if (!hub || hub.id === leftNode.id || getDeckPressureHubForNode(rightNode, graph)?.id !== hub.id) return false;
-    const lx = Number(leftNode.pos?.[0]) || 0;
-    const ly = Number(leftNode.pos?.[1]) || 0;
-    const lw = getDockNodeWidth(leftNode);
-    const lh = getDockNodeHeight(leftNode);
-    const rx = Number(rightNode.pos?.[0]) || 0;
-    const ry = Number(rightNode.pos?.[1]) || 0;
-    const rw = getDockNodeWidth(rightNode);
-    const rh = getDockNodeHeight(rightNode);
-    const overlapY = Math.min(ly + lh, ry + rh) - Math.max(ly, ry);
-    if (overlapY < Math.max(1, Math.min(lh, rh) * 0.5)) return false;
-    return Math.abs((lx + lw) - rx) <= 4 || Math.abs((rx + rw) - lx) <= 4;
-}
-
-function getHorizontalSameRowNeighbor(node, graph, side) {
-    if (!node || !graph || (side !== "left" && side !== "right")) return null;
-    const hub = getDeckPressureHubForNode(node, graph);
-    const direct = getNodeOnDeckEdge(node, graph, side);
-    if (!hub || hub.id === node.id) return direct && !isDeckPressureHub(direct) ? direct : null;
-    const x = Number(node.pos?.[0]) || 0;
-    const y = Number(node.pos?.[1]) || 0;
-    const w = getDockNodeWidth(node);
-    const h = getDockNodeHeight(node);
-    const edgeX = side === "left" ? x : x + w;
-    const members = getDeckMembers(node, graph).filter((member) => member && member.id !== node.id && !isDeckPressureHub(member));
-    let best = null;
-    let bestGap = Infinity;
-    members.forEach((member) => {
-        if (getDeckPressureHubForNode(member, graph)?.id !== hub.id) return;
-        const mx = Number(member.pos?.[0]) || 0;
-        const my = Number(member.pos?.[1]) || 0;
-        const mw = getDockNodeWidth(member);
-        const mh = getDockNodeHeight(member);
-        const overlapY = Math.min(y + h, my + mh) - Math.max(y, my);
-        if (overlapY < Math.max(1, Math.min(h, mh) * 0.5)) return;
-        const memberEdgeX = side === "left" ? mx + mw : mx;
-        const directional = side === "left" ? memberEdgeX <= edgeX + 2 : memberEdgeX >= edgeX - 2;
-        if (!directional) return;
-        const gap = Math.abs(memberEdgeX - edgeX);
-        if (gap > 4 || gap >= bestGap) return;
-        best = member;
-        bestGap = gap;
-    });
-    return best;
-}
-
-function canResizeHorizontalSeamPair(leftNode, rightNode, graph) {
-    if (canResizeHorizontalMemberWidth(leftNode, graph) && canResizeHorizontalMemberWidth(rightNode, graph)) return true;
-    return isDirectHorizontalNodeSeam(leftNode, rightNode, graph)
-        || areSameRowAdjacentHorizontalMembers(leftNode, rightNode, graph);
-}
-
-export function canResizeHorizontalSharedEdgeWidth(node, graph = app.graph || node?.graph || null, side = null) {
-    if (side !== "left" && side !== "right") return false;
-    if (!graph || !node) return false;
-    const neighbor = getHorizontalSameRowNeighbor(node, graph, side);
-    if (!neighbor) return false;
-    if (isDeckPressureHub(neighbor)) return false;
-    return side === "left"
-        ? canResizeHorizontalSeamPair(neighbor, node, graph)
-        : canResizeHorizontalSeamPair(node, neighbor, graph);
 }
 
 function snapResizeValue(value, snap) {
