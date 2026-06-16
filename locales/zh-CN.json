@@ -31,6 +31,7 @@
     "tooltips": {
       "collapse_node": "折叠或展开该节点",
       "undock_node": "将该节点从停靠堆栈中断开",
+      "undeck_deck": "断开该 Deck 上的所有堆栈",
       "pin_anchor": "将该节点固定为停靠堆栈的锚点，这样堆栈折叠时它不会移动",
       "advanced_settings": "切换节点面板上的高级设置",
       "configure_wireless": "配置该节点接收的无线信号，类似默认 ComfyUI 中设置输入链接",

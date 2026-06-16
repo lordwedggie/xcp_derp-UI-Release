@@ -20,6 +20,14 @@ function getResizeAxis(entity, graph) {
     return getDockGroupAxisFromMembers(getDeckMembers(entity, graph));
 }
 
+function isDeckPressureSideWidthResize(entity, graph, resizeAnchor) {
+    if (resizeAnchor !== "left" && resizeAnchor !== "right") return false;
+    const pressureHub = getDeckPressureHubForNode(entity, graph);
+    if (!pressureHub || pressureHub.id === entity?.id) return false;
+    const branchSide = getDeckPressureBranchSideForNode(pressureHub, graph, entity);
+    return (branchSide === "left" && resizeAnchor === "right") || (branchSide === "right" && resizeAnchor === "left");
+}
+
 function getResizeSessionPressureMinWidth(entity, graph, snap, fallbackMinWidth) {
     if (!isDeckPressureHub(entity)) return fallbackMinWidth;
     const members = getDeckMembers(entity, graph);
@@ -57,9 +65,11 @@ export function handleNodeResize(entity, data, scale) {
         && axis === "horizontal"
         && !resizeAxes.allowWidth
         && canResizeHorizontalStackWidth(entity, graph, horizontalStackResizeSide);
-    if (allowHorizontalStackWidthResize) {
+    const allowDeckPressureSideWidthResize = !resizeAxes.allowWidth && isDeckPressureSideWidthResize(entity, graph, resizeAnchor);
+    if (allowHorizontalStackWidthResize || allowDeckPressureSideWidthResize) {
         resizeAxes.allowWidth = true;
     }
+    if (allowDeckPressureSideWidthResize) resizeAxes.allowHeight = false;
     if (isPureVerticalSharedEdgeResize) {
         resizeAxes.allowWidth = false;
         resizeAxes.allowHeight = !autoHeight;

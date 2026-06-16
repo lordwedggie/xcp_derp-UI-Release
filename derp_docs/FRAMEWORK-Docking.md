@@ -35,6 +35,7 @@ drag starts → target detection → attach → normalizeDockPair → forceDockR
 
 ### 1. Target Detection (`dockTargetPicking.js`)
 Detects proximity of dragged node to edges of potential dock targets. Returns target node + edge.
+When the dragged item is already a docked stack, target detection excludes every member of that moving stack. This prevents Alt-attach previews from targeting another member of the same stack and drawing a second ghost over the moving stack itself.
 
 ### 2. Attach (`masterDockEngine.js`)
 - Registers the new member in the dock group
@@ -124,6 +125,9 @@ When ComfyUI Node 2.0/Vue mode moves a default group containing docked Derp stac
 - Alt-drag a node or existing docked stack near an ImageDeck edge to attach it as a Deck Pressure branch.
 - A hub can own one linear branch per edge: `left`, `right`, `top`, and `bottom`.
 - Branches remain normal graph-space docked nodes; there is no nested container, viewport, clipping, or custom serialization.
+- Deck Pressure hubs expose their own header deck control only while branches are attached. Ordinary stack undock buttons are hidden on nodes that are themselves inside a Deck Pressure group, so stack controls do not double as deck controls.
+- The hub deck control detaches every Deck Pressure branch from the hub while leaving ordinary stacks inside those branches intact.
+- Deck Pressure attach ghosts and highlighted edge lines use the composed Deck frame, including already-attached branches, so left/right previews span the whole Deck height and top/bottom previews span the whole Deck width.
 - `Derp.DeckArrangement` controls how an empty ImageDeck resolves new Deck Pressure branches. Values are `automatic`, `vertical_sandwich`, and `horizontal_sandwich`.
 - Each hub persists its resolved arrangement in `properties.deckArrangement` when the first branch attaches. Existing hubs without this property behave as `vertical_sandwich`, and changing the global setting later does not rearrange hubs that already have members.
 - `automatic` resolves from the first attached branch: top/bottom first creates a `vertical_sandwich`; left/right first creates a `horizontal_sandwich`.
@@ -134,6 +138,8 @@ When ComfyUI Node 2.0/Vue mode moves a default group containing docked Derp stac
 - Dock finalization treats the ImageDeck hub position as anchored; normal pair normalization may move attached branches, but must not move the hub itself.
 - ImageDeck-owned pressure attaches skip generic `normalizeDockPair()` / `forceDockResizeRefresh()` because those normal stack helpers can reinterpret the new hub seam as a resizable shared edge and move the hub.
 - Shared-edge resizing inside a Deck branch must resolve the branch's linear member list (`getDeckPressureBranchMembers`) instead of using whole-group `isLinearDeckGroup()`, because the full ImageDeck-owned group is intentionally mixed-axis.
+- Side-branch width resizing is exposed on the shared vertical seam between the `derpImageDeck` hub and a left/right branch. The resize changes the branch width and compensates the hub width while preserving the outer Deck frame bounds.
+- In `horizontal_sandwich`, preserved frame bounds still span top/bottom rows, but side branches use the hub's vertical band for their `y` and height so top branches do not pull side stacks upward.
 - Pure top/bottom shared-edge resizing in a side branch is handled as an ordered vertical seam before generic node resize, so dragging one member cannot move it behind its neighbor.
 - Horizontal shared-edge resize must also normalize positions against that branch-only member list; using `getDeckMembers()` here will march the whole mixed Deck group sideways.
 - Horizontal collapse/uncollapse sync and shared-height normalization for Deck Pressure top/bottom branches must also resolve the branch-only horizontal member list. The full ImageDeck pressure group is mixed-axis and is not a valid horizontal stack for this purpose.
@@ -154,6 +160,8 @@ When ComfyUI Node 2.0/Vue mode moves a default group containing docked Derp stac
 - Ordinary mixed-axis docking remains rejected outside ImageDeck-owned Deck Pressure branches.
 - ImageDeck and outer Deck-frame corner resize handles route to the hub; attached branch seams must not steal the hub corners.
 - Deck Pressure corner resize handles belong to the outer frame bounds of the hub plus all branches; branch-member corners may resize the frame only when they are actual frame corners, while internal branch seam handles remain available.
+- Deck Pressure visual corner overrides are separate from resize-hit detection and use the composed Deck frame. When a hub has attached branches, `getDeckCornerOverride()` compares each hub/branch member corner against the whole-frame bounds. Only corners that coincide with the Deck frame's four outer corners keep the node theme corner radius; all internal hub/branch/member seam corners are forced to zero.
+- Ordinary linear stack visual corner overrides remain local occupied-edge based, so this composed-frame rule must stay gated to ImageDeck-owned Deck Pressure groups with attached branches.
 
 ## Known Pitfalls
 

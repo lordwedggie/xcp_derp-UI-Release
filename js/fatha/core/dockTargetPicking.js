@@ -18,10 +18,12 @@ export function resolveDockTarget({
         isClosedDeckTarget,
         isWithinDeckSearchRadius,
         getDeckNodes,
+        getDeckMembers,
         getDeckSideDistance,
         getDeckGhostRect,
         getRectEdgeLine,
         getDeckAttachLeaderForSide,
+        isDeckPressureHub,
         canDeckNodeToLeader,
         dockDebugLog,
     } = utils;
@@ -36,11 +38,18 @@ export function resolveDockTarget({
     const coarseRadius = Math.max(radius + 8, radius);
     const lockedSide = options.lockedSide || null;
     const lockedHoverNodeId = options.lockedHoverNodeId ?? null;
+    const draggedMemberIds = new Set((getDeckMembers?.(dragNode, graph) || [dragNode])
+        .map((node) => node?.id)
+        .filter((id) => id !== null && id !== undefined));
     const candidates = getDeckNodes(graph).filter((node) => {
-        if (node.id === dragNode.id) return false;
+        if (draggedMemberIds.has(node.id)) return false;
         if (!isClosedDeckTarget(node)) return false;
         if (lockedHoverNodeId !== null && lockedHoverNodeId !== undefined && node.id !== lockedHoverNodeId) return false;
-        if (!isWithinDeckSearchRadius(dragRect, getNodeRect(node), coarseRadius)) return false;
+        const hoverHub = utils.getDeckPressureHubForNode?.(node, graph) || node;
+        const searchRect = isDeckPressureHub?.(hoverHub) && utils.getDeckPressureFrameRect
+            ? utils.getDeckPressureFrameRect(hoverHub, graph)
+            : getNodeRect(node);
+        if (!isWithinDeckSearchRadius(dragRect, searchRect, coarseRadius)) return false;
         return true;
     });
     dockDebugLog("findDeckTarget:candidates", {
@@ -63,7 +72,11 @@ export function resolveDockTarget({
     let bestHoverNodeId = null;
 
     candidates.forEach((node) => {
-        const nodeRect = getNodeRect(node);
+        const hoverHub = utils.getDeckPressureHubForNode?.(node, graph) || node;
+        const pressureFrameRect = isDeckPressureHub?.(hoverHub) && utils.getDeckPressureFrameRect
+            ? utils.getDeckPressureFrameRect(hoverHub, graph)
+            : null;
+        const nodeRect = pressureFrameRect || getNodeRect(node);
         const sideDistances = ["left", "right", "top", "bottom"].map((sideKey) => ({
             side: sideKey,
             distance: getDeckSideDistance(dragRect, nodeRect, sideKey),
@@ -77,12 +90,12 @@ export function resolveDockTarget({
         const dist = chosen?.distance ?? Infinity;
         if (!side || !isFiniteNumber(dist) || dist > radius) return;
 
-        const hoverHub = utils.getDeckPressureHubForNode?.(node, graph) || node;
         const attachLeader = getDeckAttachLeaderForSide(hoverHub, side, graph);
         if (!attachLeader) return;
 
-        const hoverRect = nodeRect;
-        const attachRect = getNodeRect(attachLeader);
+        const hoverRect = pressureFrameRect || nodeRect;
+        const attachRect = pressureFrameRect || getNodeRect(attachLeader);
+        const usePressureFrameSpan = !!pressureFrameRect;
         const edge = {
             side,
             distance: dist,
@@ -91,12 +104,14 @@ export function resolveDockTarget({
                 dragRect,
                 attachRect,
                 isFiniteNumber(options.ghostThickness) ? options.ghostThickness : DEFAULT_DECK_GHOST_THICKNESS,
+                { matchTargetSpan: usePressureFrameSpan },
             ),
             hoverGhost: getDeckGhostRect(
                 side,
                 dragRect,
                 hoverRect,
                 isFiniteNumber(options.ghostThickness) ? options.ghostThickness : DEFAULT_DECK_GHOST_THICKNESS,
+                { matchTargetSpan: usePressureFrameSpan },
             ),
             hoverEdgeLine: getRectEdgeLine(side, hoverRect),
         };

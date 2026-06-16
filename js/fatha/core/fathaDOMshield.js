@@ -86,6 +86,35 @@ function isDeckPressureFrameCorner(node, graph, anchor) {
     return false;
 }
 
+function isDeckPressureHubSeamSideEdge(node, graph, side) {
+    if (side !== "left" && side !== "right") return false;
+    const pressureHub = graph ? getDeckPressureHubForNode(node, graph) : null;
+    if (!pressureHub) return false;
+    if (pressureHub.id === node?.id) return getDeckPressureBranchMembers(pressureHub, graph, side).length > 0;
+    const branchSide = getDeckPressureBranchSideForNode(pressureHub, graph, node);
+    if ((branchSide === "left" && side !== "right") || (branchSide === "right" && side !== "left")) return false;
+    const x = Number(node?.pos?.[0]) || 0;
+    const w = Number(node?.size?.[0] ?? node?.properties?.nodeSize?.[0]) || 0;
+    const edgeX = side === "left" ? x : x + w;
+    const hubX = Number(pressureHub.pos?.[0]) || 0;
+    const hubW = Number(pressureHub.size?.[0] ?? pressureHub.properties?.nodeSize?.[0]) || 0;
+    const targetX = branchSide === "left" ? hubX : hubX + hubW;
+    const tolerance = 1;
+    return Math.abs(edgeX - targetX) <= tolerance;
+}
+
+function getDeckPressureHubSeamResizeTarget(node, graph, anchor) {
+    if (!isDeckPressureHub(node) || (anchor !== "left" && anchor !== "right")) return null;
+    const branchSide = anchor;
+    const branchMembers = getDeckPressureBranchMembers(node, graph, branchSide);
+    const target = branchMembers[0] || null;
+    if (!target) return null;
+    return {
+        node: target,
+        anchor: branchSide === "left" ? "right" : "left",
+    };
+}
+
 export function createDerpShield(node) {
     if (node.interactionShield) return;
 
@@ -191,7 +220,7 @@ export function createDerpShield(node) {
     let activeResizeNode = node;
 
     // --- HELPERS ---
-    const getLocalCoords = (e) => {
+    const getLocalCoords = (e, targetNode = node) => {
         const rect = app.canvas.canvas.getBoundingClientRect();
         const ds = app.canvas.ds;
         const canvasX = (e.clientX - rect.left) / ds.scale - ds.offset[0];
@@ -200,8 +229,8 @@ export function createDerpShield(node) {
         // THE FIX: Do not apply artificial offsets to the mouse pointer.
         // Fatha's GrandFathaLayoutEngine natively handles negative coordinates for the bleed area.
         return {
-            x: canvasX - node.pos[0],
-            y: canvasY - node.pos[1]
+            x: canvasX - (Number(targetNode?.pos?.[0]) || 0),
+            y: canvasY - (Number(targetNode?.pos?.[1]) || 0),
         };
     };
 
@@ -669,8 +698,9 @@ export function createDerpShield(node) {
         isResizing = true;
         const pressureHub = graph ? getDeckPressureHubForNode(node, graph) : null;
         const routeToPressureHub = pressureHub && pressureHub.id !== node.id && pressureFrameCorner;
-        activeResizeNode = routeToPressureHub ? pressureHub : node;
-        activeResizeNode._resizeAnchor = anchor;
+        const hubSeamResize = getDeckPressureHubSeamResizeTarget(node, graph, anchor);
+        activeResizeNode = hubSeamResize?.node || (routeToPressureHub ? pressureHub : node);
+        activeResizeNode._resizeAnchor = hubSeamResize?.anchor || anchor;
         activeResizeNode._isDerpResizing = true; // THE FIX: Pause Fatha's auto-enforcer during drag
         startMouseX = e.clientX;
         startMouseY = e.clientY; // THE FIX: Capture Y for vertical resizing
@@ -680,11 +710,12 @@ export function createDerpShield(node) {
         app.canvas.last_mouse = [e.clientX - rect.left, e.clientY - rect.top];
 
         // Notify node to cache start state with proper coordinates to pass the safety guard
+        const resizeLocalPos = activeResizeNode === node ? localPos : getLocalCoords(e, activeResizeNode);
         activeResizeNode.handleShieldInteraction("dragStart", {
             x: e.clientX - rect.left,
             y: e.clientY - rect.top,
-            localX: localPos.x,
-            localY: localPos.y,
+            localX: resizeLocalPos.x,
+            localY: resizeLocalPos.y,
             originalEvent: e
         });
         if (isDeckPressureHub(activeResizeNode)) beginDeckResizeOptimization(activeResizeNode, graph);
@@ -694,12 +725,13 @@ export function createDerpShield(node) {
         const vars = activeResizeNode.getDerpVars ? activeResizeNode.getDerpVars(activeResizeNode) : { autoWidth: false, autoHeight: false };
         const canW = !vars.autoWidth;
         const canH = !vars.autoHeight;
-        const isLeftOrRightCorner = anchor === "top-left" || anchor === "top-right" || anchor === "bottom-left" || anchor === "bottom-right";
+        const activeAnchor = activeResizeNode._resizeAnchor || anchor;
+        const isLeftOrRightCorner = activeAnchor === "top-left" || activeAnchor === "top-right" || activeAnchor === "bottom-left" || activeAnchor === "bottom-right";
         let dragCursor = "default";
-        if (anchor === "top" || anchor === "bottom") {
+        if (activeAnchor === "top" || activeAnchor === "bottom") {
             dragCursor = canH ? "ns-resize" : "default";
         } else if (canW && canH && isLeftOrRightCorner) {
-            dragCursor = (anchor === "top-left" || anchor === "bottom-right") ? "nwse-resize" : "nesw-resize";
+            dragCursor = (activeAnchor === "top-left" || activeAnchor === "bottom-right") ? "nwse-resize" : "nesw-resize";
         } else if (canW) dragCursor = "ew-resize";
         else if (canH) dragCursor = "ns-resize";
 
@@ -1093,13 +1125,15 @@ export function syncDerpShield(node) {
         const graph = app.graph || node.graph || null;
         const isVerticalDockStack = getLinearResizeMembers(node, graph, "vertical").length > 1;
         const isHorizontalDockStack = getLinearResizeMembers(node, graph, "horizontal").length > 1;
+        const canResizePressureSeamLeftW = isDeckPressureHubSeamSideEdge(node, graph, "left") && canW;
+        const canResizePressureSeamRightW = isDeckPressureHubSeamSideEdge(node, graph, "right") && canW;
         const canResizeStackLeftW = isHorizontalDockStack && canResizeHorizontalStackWidth(node, graph, "left");
         const canResizeStackRightW = isHorizontalDockStack && canResizeHorizontalStackWidth(node, graph, "right");
-        const canResizeStackW = canResizeStackLeftW || canResizeStackRightW;
+        const canResizeStackW = canResizeStackLeftW || canResizeStackRightW || canResizePressureSeamLeftW || canResizePressureSeamRightW;
         const canResizeSharedLeftW = hasSharedLeftEdge && canResizeHorizontalSharedEdge(node, graph, "left");
         const canResizeSharedRightW = hasSharedRightEdge && canResizeHorizontalSharedEdge(node, graph, "right");
-        const canUseLeftW = canW || canResizeStackLeftW;
-        const canUseRightW = canW || canResizeStackRightW;
+        const canUseLeftW = canW || canResizeStackLeftW || canResizePressureSeamLeftW;
+        const canUseRightW = canW || canResizeStackRightW || canResizePressureSeamRightW;
         const isCollapsed = node.properties?.contentCollapsed === true;
         const nodeAbove = isVerticalDockStack ? getNodeOnDeckEdge(node, graph, "top") : null;
         const nodeBelow = isVerticalDockStack ? getNodeOnDeckEdge(node, graph, "bottom") : null;
@@ -1119,7 +1153,7 @@ export function syncDerpShield(node) {
         const allowFrameCornerTopRight = !isPressureMember || isDeckPressureFrameCorner(node, graph, "top-right");
         const allowFrameCornerBottomLeft = !isPressureMember || isDeckPressureFrameCorner(node, graph, "bottom-left");
         const allowFrameCornerBottomRight = !isPressureMember || isDeckPressureFrameCorner(node, graph, "bottom-right");
-        node.interactionShield._resizeHandle._resizeAnchorOverride = (!isPressureHub && !isVerticalDockStack && canResizeSharedRightW) ? "right" : null;
+        node.interactionShield._resizeHandle._resizeAnchorOverride = ((!isPressureHub && !isVerticalDockStack && canResizeSharedRightW) || canResizePressureSeamRightW) ? "right" : null;
         handleStyle.width = `${bottomRightWidth}px`;
         handleStyle.height = `${bottomCornerSize}px`;
         handleStyle.cursor = (canUseRightW && canH) ? "nwse-resize" : (canUseRightW ? "ew-resize" : "ns-resize");
@@ -1130,7 +1164,7 @@ export function syncDerpShield(node) {
         handleStyle.right = `-${padR * scale}px`;
         handleStyle.bottom = "0px";
 
-        if (!isPressureHub && !isVerticalDockStack && allowBottomResizeCorners && canResizeSharedRightW && canUseRightW) {
+        if (allowBottomResizeCorners && ((canResizeSharedRightW && !isVerticalDockStack && !isPressureHub) || canResizePressureSeamRightW) && canUseRightW) {
             handleStyle.width = `${sharedEdgeWidth}px`; handleStyle.height = `${isPressureMember ? pressureSharedEdgeHeight : visualH * scale}px`; handleStyle.cursor = "ew-resize"; handleStyle.display = "block"; handleStyle.pointerEvents = "auto";
             handleStyle.bottom = isPressureMember ? `${bottomCornerSize}px` : "0px";
         }
@@ -1156,7 +1190,7 @@ export function syncDerpShield(node) {
 
         if (node.interactionShield._resizeHandleLeft) {
             const leftStyle = node.interactionShield._resizeHandleLeft.style;
-            node.interactionShield._resizeHandleLeft._resizeAnchorOverride = (!isPressureHub && !isVerticalDockStack && canResizeSharedLeftW) ? "left" : null;
+            node.interactionShield._resizeHandleLeft._resizeAnchorOverride = ((!isPressureHub && !isVerticalDockStack && canResizeSharedLeftW) || canResizePressureSeamLeftW) ? "left" : null;
             leftStyle.width = `${bottomLeftWidth}px`;
             leftStyle.height = `${bottomCornerSize}px`;
             leftStyle.cursor = (canUseLeftW && canH) ? "nesw-resize" : (canUseLeftW ? "ew-resize" : "ns-resize");
@@ -1165,7 +1199,7 @@ export function syncDerpShield(node) {
             leftStyle.left = `-${padL * scale}px`;
             leftStyle.bottom = "0px";
 
-            if (!isVerticalDockStack && allowBottomResizeCorners && canResizeSharedLeftW && canUseLeftW) {
+            if (allowBottomResizeCorners && ((canResizeSharedLeftW && !isVerticalDockStack && !isPressureHub) || canResizePressureSeamLeftW) && canUseLeftW) {
                 leftStyle.width = `${sharedEdgeWidth}px`; leftStyle.height = `${isPressureMember ? pressureSharedEdgeHeight : visualH * scale}px`; leftStyle.cursor = "ew-resize"; leftStyle.display = "block"; leftStyle.pointerEvents = "auto";
                 leftStyle.bottom = isPressureMember ? `${bottomCornerSize}px` : "0px";
             }

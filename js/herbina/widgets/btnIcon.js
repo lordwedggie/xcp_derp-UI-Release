@@ -43,7 +43,7 @@ import {
 const ICON_MAP = {
     add: "＋",
     subtract: "－",
-    deck: "⊢",
+    deck: "▦",
     undeck: "⊣",
     dockleft: "⊣",
     dockright: "⊢",

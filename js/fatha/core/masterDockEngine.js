@@ -128,18 +128,19 @@ export function getNodeRect(node) {
     };
 }
 
-function getDeckGhostRect(side, drag, target, ghostThickness) {
+function getDeckGhostRect(side, drag, target, ghostThickness, options = {}) {
+    const matchTargetSpan = options?.matchTargetSpan === true;
     if (side === "left") {
-        return { x: target.x - drag.w, y: target.y, w: drag.w, h: drag.h };
+        return { x: target.x - drag.w, y: target.y, w: drag.w, h: matchTargetSpan ? target.h : drag.h };
     }
     if (side === "right") {
-        return { x: target.x + target.w, y: target.y, w: drag.w, h: drag.h };
+        return { x: target.x + target.w, y: target.y, w: drag.w, h: matchTargetSpan ? target.h : drag.h };
     }
     if (side === "top") {
-        return { x: target.x, y: target.y - drag.h, w: drag.w, h: drag.h };
+        return { x: target.x, y: target.y - drag.h, w: matchTargetSpan ? target.w : drag.w, h: drag.h };
     }
     if (side === "bottom") {
-        return { x: target.x, y: target.y + target.h, w: drag.w, h: drag.h };
+        return { x: target.x, y: target.y + target.h, w: matchTargetSpan ? target.w : drag.w, h: drag.h };
     }
     return { x: target.x, y: target.y, w: Math.max(drag.w, ghostThickness), h: Math.max(drag.h, ghostThickness) };
 }
@@ -349,6 +350,30 @@ export function getDeckPressureBranchSideForNode(hub, graph, node) {
     return ["left", "right", "top", "bottom"].find((side) => getDeckPressureBranchMembers(hub, graph, side).some((member) => member.id === node.id)) || null;
 }
 
+export function getDeckPressureFrameRect(hub, graph) {
+    if (!isDeckPressureHub(hub) || !graph) return getNodeRect(hub);
+    const members = [hub, ...["left", "right", "top", "bottom"].flatMap((side) => getDeckPressureBranchMembers(hub, graph, side))]
+        .filter(Boolean);
+    if (members.length === 0) return getNodeRect(hub);
+
+    let left = Infinity;
+    let top = Infinity;
+    let right = -Infinity;
+    let bottom = -Infinity;
+    members.forEach((member) => {
+        const rect = getNodeRect(member);
+        left = Math.min(left, rect.x);
+        top = Math.min(top, rect.y);
+        right = Math.max(right, rect.x + rect.w);
+        bottom = Math.max(bottom, rect.y + rect.h);
+    });
+
+    if (!isFiniteNumber(left) || !isFiniteNumber(top) || !isFiniteNumber(right) || !isFiniteNumber(bottom)) {
+        return getNodeRect(hub);
+    }
+    return { x: left, y: top, w: Math.max(0, right - left), h: Math.max(0, bottom - top) };
+}
+
 function getDeckPressureHubBranchAxis(side) {
     if (side === "left" || side === "right") return "vertical";
     if (side === "top" || side === "bottom") return "horizontal";
@@ -362,7 +387,7 @@ function normalizeDeckArrangement(value, fallback = DECK_ARRANGEMENT_VERTICAL) {
     return fallback;
 }
 
-function hasDeckPressureBranches(hub, graph) {
+export function hasDeckPressureBranches(hub, graph) {
     if (!isDeckPressureHub(hub) || !graph) return false;
     return ["left", "right", "top", "bottom"].some((side) => getDeckPressureBranchMembers(hub, graph, side).length > 0);
 }
@@ -708,6 +733,24 @@ export function getNodeOnDeckEdge(node, graph, side) {
 
 export function getDeckCornerOverride(node, graph) {
     if (!node || !graph) return null;
+
+    const pressureHub = getDeckPressureHubForNode(node, graph);
+    if (pressureHub && hasDeckPressureBranches(pressureHub, graph)) {
+        const frame = getDeckPressureFrameRect(pressureHub, graph);
+        const rect = getNodeRect(node);
+        const tolerance = 0.5;
+        const same = (a, b) => Math.abs(a - b) <= tolerance;
+        const onLeft = same(rect.x, frame.x);
+        const onTop = same(rect.y, frame.y);
+        const onRight = same(rect.x + rect.w, frame.x + frame.w);
+        const onBottom = same(rect.y + rect.h, frame.y + frame.h);
+        return [
+            onLeft && onTop ? null : 0,
+            onRight && onTop ? null : 0,
+            onRight && onBottom ? null : 0,
+            onLeft && onBottom ? null : 0,
+        ];
+    }
 
     const occupied = getOccupiedDeckEdges(node, graph);
     if (occupied.size === 0) return null;
@@ -1131,6 +1174,38 @@ export function undockNodeEdges(node, graph = null) {
         refreshDeckStateWidgets(affectedMembers.length > 0 ? affectedMembers : [node, ...directNeighbors]);
         // Reassert after widget refresh; refresh can rebuild ImageDeck layout from auto-size state.
         restoreDeckPressureHubUndockSize(preserveHubSize);
+    }
+
+    return changed;
+}
+
+export function undeckDeckPressureBranches(hub, graph = null) {
+    const activeGraph = graph || hub?.graph || null;
+    if (!isDeckPressureHub(hub) || !activeGraph) return false;
+
+    const branchMembers = ["left", "right", "top", "bottom"]
+        .flatMap((side) => getDeckPressureBranchMembers(hub, activeGraph, side));
+    const affected = new Map([[hub.id, hub], ...branchMembers.map((node) => [node.id, node])]);
+
+    let changed = false;
+    ["left", "right", "top", "bottom"].forEach((side) => {
+        const branchRoot = getPeerDeckNeighbor(hub, activeGraph, side);
+        if (!branchRoot) return;
+        const branchProps = ensureDeckProps(branchRoot);
+        changed = disconnectPeerDeckEdge(hub, activeGraph, side) || changed;
+        if (branchProps.deckParentId === hub.id) {
+            branchProps.deckParentId = null;
+            branchProps.deckDockSide = null;
+            branchProps.pinActive = false;
+            changed = true;
+        }
+        if (!isNodeDocked(branchRoot, activeGraph)) {
+            restoreDeckNodeAxes(branchRoot);
+        }
+    });
+
+    if (changed) {
+        refreshDeckStateWidgets([...affected.values()]);
     }
 
     return changed;
@@ -1646,6 +1721,7 @@ export function findDeckTarget(dragNode, graph, options = {}) {
             isClosedDeckTarget,
             isWithinDeckSearchRadius,
             getDeckNodes,
+            getDeckMembers,
             getDeckSideDistance,
             getPeerDeckNeighbor,
             getNodeMinHeight,
@@ -1654,6 +1730,8 @@ export function findDeckTarget(dragNode, graph, options = {}) {
             getRectEdgeLine,
             getDeckAttachLeaderForSide,
             getDeckPressureHubForNode,
+            getDeckPressureFrameRect,
+            isDeckPressureHub,
             canDeckNodeToLeader,
             dockDebugLog,
         },
@@ -2015,6 +2093,7 @@ export function applyDeckPressureLayout(hub, graph, snap = DEFAULT_DECK_SNAP) {
     };
     const hubRect = getNodeRect(hub);
     const hubAnchor = { x: hubRect.x, y: hubRect.y };
+    const preserveFrameBounds = hub._deckPressurePreserveFrameBounds || null;
     const branches = ["left", "right", "top", "bottom"]
         .map((side) => ({ side, members: getDeckPressureBranchMembers(hub, graph, side) }))
         .filter((branch) => branch.members.length > 0);
@@ -2063,19 +2142,42 @@ export function applyDeckPressureLayout(hub, graph, snap = DEFAULT_DECK_SNAP) {
         hubRect.h = centerHeight;
     }
 
-    const frameX = arrangement === DECK_ARRANGEMENT_HORIZONTAL ? hubRect.x - leftWidth : hubRect.x;
-    const frameWidth = arrangement === DECK_ARRANGEMENT_HORIZONTAL ? leftWidth + hubRect.w + rightWidth : hubRect.w;
-    const frameY = arrangement === DECK_ARRANGEMENT_HORIZONTAL ? hubRect.y : hubRect.y - topHeight;
-    const frameHeight = arrangement === DECK_ARRANGEMENT_HORIZONTAL
+    const frameX = preserveFrameBounds
+        ? Number(preserveFrameBounds.left)
+        : (arrangement === DECK_ARRANGEMENT_HORIZONTAL ? hubRect.x - leftWidth : hubRect.x);
+    const frameWidth = preserveFrameBounds
+        ? Math.max(0, Number(preserveFrameBounds.right) - Number(preserveFrameBounds.left))
+        : (arrangement === DECK_ARRANGEMENT_HORIZONTAL ? leftWidth + hubRect.w + rightWidth : hubRect.w);
+    const frameY = preserveFrameBounds
+        ? Number(preserveFrameBounds.top)
+        : (arrangement === DECK_ARRANGEMENT_HORIZONTAL ? hubRect.y : hubRect.y - topHeight);
+    const frameHeight = preserveFrameBounds
+        ? Math.max(0, Number(preserveFrameBounds.bottom) - Number(preserveFrameBounds.top))
+        : (arrangement === DECK_ARRANGEMENT_HORIZONTAL
         ? hubRect.h
-        : topHeight + hubRect.h + bottomHeight;
+        : topHeight + hubRect.h + bottomHeight);
+    if (preserveFrameBounds && arrangement === DECK_ARRANGEMENT_HORIZONTAL) {
+        const nextHubX = frameX + leftWidth;
+        const nextHubW = Math.max(0, frameWidth - leftWidth - rightWidth);
+        if ((Number(hub.pos?.[0]) || 0) !== nextHubX) {
+            setDeckNodePos(hub, nextHubX, Number(hub.pos?.[1]) || 0);
+            markChanged(hub);
+            hubRect.x = nextHubX;
+        }
+        if (Math.abs(getNodeSizeValue(hub, 0) - nextHubW) > 0.5 && syncDeckNodeSize(hub, nextHubW, hubRect.h, { silent: true, deferDirty: true, deferSync: true })) {
+            markChanged(hub);
+            hubRect.w = nextHubW;
+        }
+    }
+    const sideFrameY = arrangement === DECK_ARRANGEMENT_HORIZONTAL ? hubRect.y : frameY;
+    const sideFrameHeight = arrangement === DECK_ARRANGEMENT_HORIZONTAL ? hubRect.h : frameHeight;
 
     branches.forEach(({ side, members }) => {
         if (side === "left" || side === "right") {
             const width = side === "left" ? leftWidth : rightWidth;
-            const heights = fitDeckPressureSideHeights(members, frameHeight, snap);
+            const heights = fitDeckPressureSideHeights(members, sideFrameHeight, snap);
             const x = side === "left" ? frameX : hubRect.x + hubRect.w;
-            markChanged(applyColumnLayout(members, x, frameY, width, heights, { deferDirty: true, deferSync: true }));
+            markChanged(applyColumnLayout(members, x, sideFrameY, width, heights, { deferDirty: true, deferSync: true }));
         } else {
             const height = side === "top" ? topHeight : bottomHeight;
             const widths = fitDeckPressureRowWidths(members, frameWidth, snap);
@@ -2084,7 +2186,7 @@ export function applyDeckPressureLayout(hub, graph, snap = DEFAULT_DECK_SNAP) {
         }
     });
 
-    if (hub._isDerpResizing !== true && ((Number(hub.pos?.[0]) || 0) !== hubAnchor.x || (Number(hub.pos?.[1]) || 0) !== hubAnchor.y)) {
+    if (!preserveFrameBounds && hub._isDerpResizing !== true && ((Number(hub.pos?.[0]) || 0) !== hubAnchor.x || (Number(hub.pos?.[1]) || 0) !== hubAnchor.y)) {
         setDeckNodePos(hub, hubAnchor.x, hubAnchor.y);
         markChanged(hub);
     }

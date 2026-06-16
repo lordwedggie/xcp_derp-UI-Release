@@ -625,6 +625,23 @@ function getVerticalDeckMembersByY(node, graph) {
     });
 }
 
+function getDockFrameBounds(members = []) {
+    const bounds = (Array.isArray(members) ? members : []).reduce((acc, member) => {
+        if (!member) return acc;
+        const x = Number(member.pos?.[0]) || 0;
+        const y = Number(member.pos?.[1]) || 0;
+        const w = getDockNodeWidth(member);
+        const h = getDockNodeHeight(member);
+        return {
+            left: Math.min(acc.left, x),
+            top: Math.min(acc.top, y),
+            right: Math.max(acc.right, x + w),
+            bottom: Math.max(acc.bottom, y + h),
+        };
+    }, { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity });
+    return Number.isFinite(bounds.left) ? bounds : null;
+}
+
 function normalizeVerticalMemberPositions(anchorNode, graph) {
     const members = getVerticalDeckMembersByY(anchorNode, graph);
     if (members.length <= 1) return;
@@ -1064,6 +1081,82 @@ function applyHorizontalStackWidthResize(entity, resizeAnchor, requestedEntityWi
     return true;
 }
 
+function applyDeckPressureSideWidthResize(entity, resizeAnchor, requestedEntityWidth, minW, snap, result, addCounterpart, graph) {
+    if (resizeAnchor !== "left" && resizeAnchor !== "right") return false;
+    const pressureHub = getDeckPressureHubForNode(entity, graph);
+    if (!pressureHub || pressureHub.id === entity.id) return false;
+    const branchSide = getDeckPressureBranchSideForNode(pressureHub, graph, entity);
+    if ((branchSide === "left" && resizeAnchor !== "right") || (branchSide === "right" && resizeAnchor !== "left")) return false;
+
+    const branchMembers = getDeckPressureBranchMembers(pressureHub, graph, branchSide);
+    if (!branchMembers.length) return false;
+
+    const allMembers = [pressureHub, ...getDeckMembers(pressureHub, graph)].filter(Boolean);
+    const frameBefore = getDockFrameBounds(allMembers);
+    if (!frameBefore) return false;
+
+    const currentSession = entity._dockResizeSession;
+    const sessionMatches = currentSession
+        && currentSession.side === `deck-pressure-${branchSide}-seam`
+        && currentSession.entityId === entity.id
+        && currentSession.hubId === pressureHub.id;
+    if (!sessionMatches) {
+        entity._dockResizeSession = {
+            side: `deck-pressure-${branchSide}-seam`,
+            entityId: entity.id,
+            hubId: pressureHub.id,
+            frameBounds: frameBefore,
+            hubStartX: Number(pressureHub.pos?.[0]) || 0,
+            hubStartW: getDockNodeWidth(pressureHub),
+            branchStartWidth: Math.max(...branchMembers.map((member) => getDockNodeWidth(member)), 0),
+        };
+    }
+    const session = entity._dockResizeSession;
+    const preservedFrame = session.frameBounds || frameBefore;
+    const hubStartX = Number(session.hubStartX) || Number(pressureHub.pos?.[0]) || 0;
+    const hubStartW = Number(session.hubStartW) || getDockNodeWidth(pressureHub);
+    const branchStartWidth = Number(session.branchStartWidth) || Math.max(...branchMembers.map((member) => getDockNodeWidth(member)), 0);
+    const branchMinWidth = Math.max(...branchMembers.map((member) => getDockNodeMinWidth(member, minW, snap)), 0);
+    const hubMinWidth = getDockNodeMinWidth(pressureHub, minW, snap);
+    const maxBranchWidth = Math.max(branchMinWidth, branchStartWidth + hubStartW - hubMinWidth);
+    const explicitDelta = Number(entity._dockResizeRequestedDeltaW);
+    const requestedDelta = Number.isFinite(explicitDelta) ? explicitDelta : (Number(requestedEntityWidth) - branchStartWidth);
+    const nextBranchWidth = Math.min(maxBranchWidth, Math.max(branchMinWidth, branchStartWidth + requestedDelta));
+    const delta = nextBranchWidth - branchStartWidth;
+    if (Math.abs(delta) < 0.5) {
+        result.handledWidth = true;
+        result.handledAll = true;
+        result.appliedWidth = branchStartWidth;
+        branchMembers.forEach(addCounterpart);
+        addCounterpart(pressureHub);
+        return true;
+    }
+
+    branchMembers.forEach((member) => {
+        syncDeckNodeSize(member, nextBranchWidth, getDockNodeHeight(member), { silent: true });
+        if (typeof member.syncUncleSlots === "function") member.syncUncleSlots();
+        addCounterpart(member);
+    });
+
+    const nextHubWidth = Math.max(hubMinWidth, hubStartW - delta);
+    const nextHubX = branchSide === "left" ? hubStartX + delta : hubStartX;
+    syncDeckNodeSize(pressureHub, nextHubWidth, getDockNodeHeight(pressureHub), { silent: true });
+    setDeckNodePos(pressureHub, nextHubX, Number(pressureHub.pos?.[1]) || 0);
+    addCounterpart(pressureHub);
+
+    pressureHub._deckPressurePreserveFrameBounds = preservedFrame;
+    try {
+        applyDeckPressureLayout(pressureHub, graph, snap);
+    } finally {
+        delete pressureHub._deckPressurePreserveFrameBounds;
+    }
+
+    result.handledWidth = true;
+    result.handledAll = true;
+    result.appliedWidth = nextBranchWidth;
+    return true;
+}
+
 export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH, snap = 10) {
     const graph = app.graph || entity.graph || null;
     if (!graph) return { handledWidth: false, handledHeight: false, handledAll: false, appliedWidth: null, appliedHeight: null, counterparts: [] };
@@ -1084,6 +1177,15 @@ export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH,
         counterpartIds.add(node.id);
         result.counterparts.push(node);
     };
+
+    const isLeftHandle = resizeAnchor === "left" || resizeAnchor === "top-left" || resizeAnchor === "bottom-left";
+    const isRightHandle = resizeAnchor === "right" || resizeAnchor === "top-right" || resizeAnchor === "bottom-right";
+    const isTopHandle = resizeAnchor === "top" || resizeAnchor === "top-left" || resizeAnchor === "top-right";
+    const isBottomHandle = resizeAnchor === "bottom" || resizeAnchor === "bottom-left" || resizeAnchor === "bottom-right";
+
+    if ((isLeftHandle || isRightHandle) && applyDeckPressureSideWidthResize(entity, resizeAnchor, newW, minW, snap, result, addCounterpart, graph)) {
+        return result;
+    }
 
     const verticalResizeMembers = getLinearResizeMembers(entity, graph, "vertical");
     if (verticalResizeMembers.length > 1) {
@@ -1111,10 +1213,6 @@ export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH,
         }));
     }
 
-    const isLeftHandle = resizeAnchor === "left" || resizeAnchor === "top-left" || resizeAnchor === "bottom-left";
-    const isRightHandle = resizeAnchor === "right" || resizeAnchor === "top-right" || resizeAnchor === "bottom-right";
-    const isTopHandle = resizeAnchor === "top" || resizeAnchor === "top-left" || resizeAnchor === "top-right";
-    const isBottomHandle = resizeAnchor === "bottom" || resizeAnchor === "bottom-left" || resizeAnchor === "bottom-right";
     const requestsHeightResize = allowHeightIntent && (isTopHandle || isBottomHandle) && newH !== getVerticalResizeStartHeight(entity, snap);
 
     const horizontalResizeMembers = getLinearResizeMembers(entity, graph, "horizontal");

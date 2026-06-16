@@ -31,6 +31,7 @@
     "tooltips": {
       "collapse_node": "Collapse or un-collapse the node",
       "undock_node": "Disconnect this node from its docked stack",
+      "undeck_deck": "Disconnect all stacks from this deck",
       "pin_anchor": "Pin this node as the docked stack anchor so it stays in place when the stack collapses",
       "advanced_settings": "Toggles advanced settings on the Node's Deck",
       "configure_wireless": "Configure wireless signals received by this node, similar to setting up input links in default ComfyUI",

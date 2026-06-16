@@ -9,7 +9,7 @@ import { showBastaFileHandler, getHandlerId } from "../bastas/bastaFileHandler.j
 import { showBastaMessage } from "../bastas/bastaMessage.js";
 import { playKaChing, playKaboom } from "../../herbina/masterSoundEffects.js";
 import { resolvePaintData, measureTextWidth } from "../../herbina/utils/widgetsUtils.js";
-import { isNodeDocked, undockNodeEdges, isLinearDeckGroup, getDeckMembers } from "../core/masterDockEngine.js";
+import { isNodeDocked, undockNodeEdges, isLinearDeckGroup, getDeckMembers, getDeckParent, getDeckPressureHubForNode, hasDeckPressureBranches, isDeckPressureHub, undeckDeckPressureBranches } from "../core/masterDockEngine.js";
 import { clearBypassSignalDebouncers, transmitBypassedDerpSignals } from "../core/masterSignalEngine.js";
 import { ensureNodeVisibleInViewport } from "../core/fathaWarp.js";
 import { warpToPoint } from "../core/fathaWarp.js";
@@ -209,6 +209,16 @@ function isHorizontalDockedGroup(node) {
     return isLinearDeckGroup(node, graph, "horizontal");
 }
 
+function isNodeInDeckPressure(node) {
+    const graph = node?.graph || window.app?.graph || null;
+    if (!node || !graph) return false;
+    const parent = getDeckParent(node, graph);
+    if (isDeckPressureHub(parent)) return true;
+    const hub = getDeckPressureHubForNode(node, graph);
+    if (hub && hub.id !== node.id) return true;
+    return isDeckPressureHub(node) && hasDeckPressureBranches(node, graph);
+}
+
 function setVerticalStackPin(node) {
     const graph = node?.graph || window.app?.graph || null;
     if (!node || !graph) return;
@@ -325,6 +335,8 @@ export const getVirtualNodeLayoutMap = (node) => {
 
     const isVerticalDocked = isVerticalDockedGroup(node);
     const isHorizontalDocked = isHorizontalDockedGroup(node);
+    const isDeckPressureControlVisible = isDeckPressureHub(node) && hasDeckPressureBranches(node, node.graph || null);
+    const hideStackUndock = isNodeInDeckPressure(node);
     const suppressHiddenHeaderDockGap = p.drawHeader === false && isHorizontalDocked && !p.contentCollapsed;
     const footerGapHeight = Number.isFinite(Number(p.footerGapHeight))
         ? Number(p.footerGapHeight)
@@ -432,7 +444,7 @@ export const getVirtualNodeLayoutMap = (node) => {
                 },
                 btnDeck: {
                     type: UI_TYPES.ICONBUTTON,
-                    hidden: !isNodeDocked(node, node.graph || null),
+                    hidden: hideStackUndock || !isNodeDocked(node, node.graph || null),
                     themeKey: "buttonNode, t_textSystem",
                     objectAlign: ["left", "middle"],
                     toolTip: tLocale("$fatha_layout.tooltips.undock_node", "Disconnect this node from its docked stack"),
@@ -441,6 +453,21 @@ export const getVirtualNodeLayoutMap = (node) => {
                     ...HEADER_ICON_SIZE, spacing: [sW, 0],
                     onPress: () => {
                         if (undockNodeEdges(node, node.graph || null)) {
+                            node.requestDerpSync();
+                        }
+                    }
+                },
+                btnDeckPressure: {
+                    type: UI_TYPES.ICONBUTTON,
+                    hidden: !isDeckPressureControlVisible,
+                    themeKey: "buttonNode, t_textSystem",
+                    objectAlign: ["left", "middle"],
+                    toolTip: tLocale("$fatha_layout.tooltips.undeck_deck", "Disconnect all stacks from this deck"),
+                    icon: "deck",
+                    playSound: "undocked",
+                    ...HEADER_ICON_SIZE, spacing: [sW, 0],
+                    onPress: () => {
+                        if (undeckDeckPressureBranches(node, node.graph || null)) {
                             node.requestDerpSync();
                         }
                     }
