@@ -79,7 +79,7 @@ export function compileAnimatedPaint(paintData, config, sysAlpha = 1, animColors
         textColor: animColors?.fill ? toRGBAAlpha(animColors.fill, sysAlpha) : paintData.textColor,
         shadow: applyFade(cShadow, animColors?.shadow),
         glow: applyFade(cGlow, animColors?.glow),
-        border: applyFade(cBorder, animColors?.stroke)
+        border: applyFade(cBorder, animColors?.border || animColors?.stroke)
     };
 }
 
@@ -225,6 +225,64 @@ function findInlinePaletteEntry(palette, entryName) {
     if (!Array.isArray(palettes) || !entryName) return null;
     const target = String(entryName).toLowerCase();
     return palettes.find(item => String(item?.name || "").toLowerCase() === target) || null;
+}
+
+function normalizeAttachedPaletteName(value) {
+    const name = String(value || "").trim();
+    return name && name.toLowerCase() !== "none" ? name : "";
+}
+
+function paletteEntryColorToCss(value) {
+    if (!value) return null;
+    if (Array.isArray(value)) return `rgba(${Math.round(value[0])}, ${Math.round(value[1])}, ${Math.round(value[2])}, ${value[3] ?? 1})`;
+    return typeof value === "string" ? value : null;
+}
+
+function resolvePaletteEntryStateColor(entry, key, stateSuffix = "_OFF") {
+    const keyData = entry?.entries?.[key] || entry?.[key];
+    if (!keyData) return null;
+    const suffix = String(stateSuffix || "_OFF");
+    return paletteEntryColorToCss(keyData[suffix] ?? keyData._OFF);
+}
+
+function applyPaintEffectColor(paintData, targetKey, color) {
+    if (!color) return paintData?.[targetKey];
+    const current = paintData?.[targetKey];
+    if (current && typeof current === "object") return { ...current, color };
+    const defaults = {
+        shadow: { color, blur: 8, offsetX: 0, offsetY: 2 },
+        border: { color, width: 1, placement: 0 },
+        glow: { color, blur: 10, offsetX: 0, offsetY: 0 }
+    };
+    return defaults[targetKey] || { color };
+}
+
+function mergePaletteEntryPaint(paintData, entry, stateSuffix = "_OFF", effectsEnabled = false) {
+    if (!paintData || !entry) return paintData;
+    const next = { ...paintData };
+    const fill = resolvePaletteEntryStateColor(entry, "main", stateSuffix);
+    if (fill) {
+        next.fill = fill;
+        next.bgColor = fill;
+        next.backgroundColor = fill;
+    }
+    if (effectsEnabled) {
+        const shadow = resolvePaletteEntryStateColor(entry, "shadow", stateSuffix);
+        const stroke = resolvePaletteEntryStateColor(entry, "stroke", stateSuffix);
+        const glow = resolvePaletteEntryStateColor(entry, "glow", stateSuffix);
+        if (shadow) next.shadow = applyPaintEffectColor(next, "shadow", shadow);
+        if (stroke) next.border = applyPaintEffectColor(next, "border", stroke);
+        if (glow) next.glow = applyPaintEffectColor(next, "glow", glow);
+    }
+    return next;
+}
+
+export function resolveAttachedPalettePaint(node, entryName, stateSuffix = "_OFF", paintData = null) {
+    if (!node || !entryName) return paintData;
+    const paletteName = normalizeAttachedPaletteName(node._headerPaletteName || node.hostNode?._headerPaletteName || "");
+    const paletteData = paletteName ? window.xcpPaletteCache?.[paletteName] : null;
+    const attachedEntry = findInlinePaletteEntry(paletteData, entryName);
+    return attachedEntry ? mergePaletteEntryPaint(paintData, attachedEntry, stateSuffix, paletteData?.effects === true) : paintData;
 }
 
 function resolveColorKey(node, keyName, stateSuffix = "_OFF", palette = null) {

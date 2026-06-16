@@ -35,6 +35,7 @@ import {
     getWidgetCallbacks,
     getAlignmentMaps,
     resolvePaletteEntry,
+    resolveAttachedPalettePaint,
     colorSegmentsToHTML,
     parseColorKeyText,
     compileAnimatedPaint
@@ -116,6 +117,36 @@ function getBtnIconColorKeyStatus(node, config) {
     if (!keyName) return "";
     const palettePath = config.stringPalette?.path || node?._derpStringPalette?.path || node?.hostNode?._derpStringPalette?.path || node?.properties?._derpStringPalette?.path || node?.hostNode?.properties?._derpStringPalette?.path;
     return palettePath ? `${keyName}:${!!resolvePaletteEntry(node, palettePath, keyName)}` : keyName;
+}
+
+function getBtnIconPaletteEntryName(config = {}) {
+    const iconName = String(config.icon || "fallback").trim().toLowerCase();
+    return iconName ? `_ICONBTN_${iconName}` : "";
+}
+
+function getBtnIconPaletteStatus(node, config) {
+    const entryName = getBtnIconPaletteEntryName(config);
+    if (!entryName) return "";
+    const paletteName = node?._headerPaletteName || node?.hostNode?._headerPaletteName || "";
+    const probe = { __xcpProbe: true };
+    const paint = resolveAttachedPalettePaint(node, entryName, "_OFF", probe);
+    return `${paletteName}:${entryName}:${paint !== probe}:${paint?.fill || ""}:${paint?.border?.color || ""}:${paint?.glow?.color || ""}`;
+}
+
+function resolveBtnIconBackgroundPaint(node, config, stateSuffix, fallbackPaint) {
+    return resolveAttachedPalettePaint(node, getBtnIconPaletteEntryName(config), stateSuffix, fallbackPaint);
+}
+
+function getBtnIconFill(paintData) {
+    return paintData?.fill || paintData?.bgColor || paintData?.backgroundColor;
+}
+
+function getBtnIconEffectTargets(paintData) {
+    return {
+        shadow: paintData?.shadow?.color || null,
+        border: paintData?.border?.color || null,
+        glow: paintData?.glow?.color || null
+    };
 }
 
 /**
@@ -216,7 +247,8 @@ export function syncBtnIconHTML(el, node, app, config) {
     // bypass mode, or global session has changed.
     const palStatus = config.palette ? !!resolvePaletteEntry(node, config.palette.path, config.palette.entry || config.key) : false;
     const iconColorKeyStatus = getBtnIconColorKeyStatus(node, config);
-    const stateHash = `${activeState}_${isPressed}_${isHovered}_${node.mode}_${window._xcpDerpSession}_${config.iconIndex || 0}_${config.icon}_${config.btnColor || ""}_${config.iconColorKey || ""}_${iconColorKeyStatus}_${palStatus}_${config.alpha ?? 1}`;
+    const iconPaletteStatus = getBtnIconPaletteStatus(node, config);
+    const stateHash = `${activeState}_${isPressed}_${isHovered}_${node.mode}_${window._xcpDerpSession}_${config.iconIndex || 0}_${config.icon}_${config.btnColor || ""}_${config.iconColorKey || ""}_${iconColorKeyStatus}_${iconPaletteStatus}_${palStatus}_${config.alpha ?? 1}`;
     const needsFullSync = node._shouldSync || el._lastStateHash !== stateHash || (el._isAnimating && (node.properties?.useAnimations !== false));
 
     if (!needsFullSync && el._lastProps) {
@@ -266,20 +298,20 @@ export function syncBtnIconHTML(el, node, app, config) {
     // THE FIX: HTML Centralized Animation Implementation
     // THE FIX: HTML Centralized Animation Implementation
     if (bodyPaint && labelPaint) {
-        const getFill = (bp) => bp?.fill || bp?.bgColor || bp?.backgroundColor;
-        let rawBg = config.btnColor || getFill(bodyPaint) || "transparent";
+        bodyPaint = resolveBtnIconBackgroundPaint(node, config, `_${activeState}`, bodyPaint);
+        let rawBg = config.btnColor || getBtnIconFill(bodyPaint) || "transparent";
 
         // This prevents background overrides (like "transparent") from making the icon text invisible.
         let rawIc = labelPaint?.textColor || labelPaint?.fill || bodyPaint?.textColor || "red";
 
         if (config.pulse) {
-            const bodyOn = resolvePaintData(node, props.bodyKey, "_ON");
-            const bodyOff = resolvePaintData(node, props.bodyKey, "_OFF");
+            const bodyOn = resolveBtnIconBackgroundPaint(node, config, "_ON", resolvePaintData(node, props.bodyKey, "_ON"));
+            const bodyOff = resolveBtnIconBackgroundPaint(node, config, "_OFF", resolvePaintData(node, props.bodyKey, "_OFF"));
             const lblOn = resolvePaintData(node, props.labelKey, "_ON");
             const lblOff = resolvePaintData(node, props.labelKey, "_OFF");
 
-            const cBgOn = parseColor(bodyOn?.fill) || [255, 0, 0, 1];
-            const cBgOff = parseColor(bodyOff?.fill) || [100, 100, 100, 1];
+            const cBgOn = parseColor(getBtnIconFill(bodyOn)) || [255, 0, 0, 1];
+            const cBgOff = parseColor(getBtnIconFill(bodyOff)) || [100, 100, 100, 1];
             const cIcOn = parseColor(bodyOn?.textColor || lblOn?.textColor || lblOn?.fill) || [255, 255, 255, 1];
             const cIcOff = parseColor(bodyOff?.textColor || lblOff?.textColor || lblOff?.fill) || [150, 150, 150, 1];
 
@@ -298,7 +330,7 @@ export function syncBtnIconHTML(el, node, app, config) {
         const prefix = config.isSysPanel ? "_sys_" : "";
         const animKey = `_btnIcon_html_anim${prefix}_${config.key}`;
 
-        const { fillColor, iconColor, isAnimating } = animateWidgetColors(node, animKey, rawBg, rawIc, alpha, useAnim);
+        const { fillColor, iconColor, shadowColor, borderColor, glowColor, isAnimating } = animateWidgetColors(node, animKey, rawBg, rawIc, alpha, useAnim, { effects: getBtnIconEffectTargets(bodyPaint) });
         el._isAnimating = isAnimating;
         const iconColorSegments = resolveBtnIconColorSegments(node, config, `_${activeState}`, iconColor, glyph);
 
@@ -308,6 +340,12 @@ export function syncBtnIconHTML(el, node, app, config) {
 
         el.style.opacity = alpha;
         const animatedPaint = compileAnimatedPaint(bodyPaint, config, alpha, { fill: fillColor, textColor: iconColor, corners: config.corners });
+        animatedPaint.fill = fillColor;
+        animatedPaint.bgColor = fillColor;
+        animatedPaint.backgroundColor = fillColor;
+        if (shadowColor && animatedPaint.shadow) animatedPaint.shadow = { ...animatedPaint.shadow, color: shadowColor };
+        if (borderColor && animatedPaint.border) animatedPaint.border = { ...animatedPaint.border, color: borderColor };
+        if (glowColor && animatedPaint.glow) animatedPaint.glow = { ...animatedPaint.glow, color: glowColor };
 
         // 1. Apply theme FIRST so it doesn't overwrite our custom font math below
         applyHTMLTheme(el, animatedPaint, coords.scale);
@@ -379,7 +417,8 @@ export function syncBtnIcon(ctx, node, config) {
     // THE PALETTE HASH FIX: Include palette load status so the cache busts when the async fetch completes.
     const palStatus = config.palette ? !!resolvePaletteEntry(node, config.palette.path, config.palette.entry || config.key) : false;
     const iconColorKeyStatus = getBtnIconColorKeyStatus(node, config);
-    const stateHash = `${activeState}_${isPressed}_${isHovered}_${node.mode}_${window._xcpDerpSession}_${config.iconIndex || 0}_${config.icon}_${config.btnColor || ""}_${config.iconColorKey || ""}_${iconColorKeyStatus}_${palStatus}_${config.alpha ?? 1}`;
+    const iconPaletteStatus = getBtnIconPaletteStatus(node, config);
+    const stateHash = `${activeState}_${isPressed}_${isHovered}_${node.mode}_${window._xcpDerpSession}_${config.iconIndex || 0}_${config.icon}_${config.btnColor || ""}_${config.iconColorKey || ""}_${iconColorKeyStatus}_${iconPaletteStatus}_${palStatus}_${config.alpha ?? 1}`;
     const cache = node._btnCache || (node._btnCache = {});
     const itemCache = cache[config.key] || (cache[config.key] = {});
 
@@ -403,18 +442,18 @@ export function syncBtnIcon(ctx, node, config) {
         w *= (1 - shrink); h *= (1 - shrink);
     }
 
-    const getFill = (bp) => bp?.fill || bp?.bgColor || bp?.backgroundColor;
-    let rawBg = config.btnColor || getFill(bodyPaint) || "transparent";
+    bodyPaint = resolveBtnIconBackgroundPaint(node, config, `_${state}`, bodyPaint);
+    let rawBg = config.btnColor || getBtnIconFill(bodyPaint) || "transparent";
     let rawIc = labelPaint?.textColor || labelPaint?.fill || bodyPaint?.textColor || "red";
 
     if (config.pulse) {
-        const bodyOn = resolvePaintData(node, props.bodyKey, "_ON");
-        const bodyOff = resolvePaintData(node, props.bodyKey, "_OFF");
+        const bodyOn = resolveBtnIconBackgroundPaint(node, config, "_ON", resolvePaintData(node, props.bodyKey, "_ON"));
+        const bodyOff = resolveBtnIconBackgroundPaint(node, config, "_OFF", resolvePaintData(node, props.bodyKey, "_OFF"));
         const lblOn = resolvePaintData(node, props.labelKey, "_ON");
         const lblOff = resolvePaintData(node, props.labelKey, "_OFF");
 
-        const cBgOn = parseColor(bodyOn?.fill) || [255, 0, 0, 1];
-        const cBgOff = parseColor(bodyOff?.fill) || [100, 100, 100, 1];
+        const cBgOn = parseColor(getBtnIconFill(bodyOn)) || [255, 0, 0, 1];
+        const cBgOff = parseColor(getBtnIconFill(bodyOff)) || [100, 100, 100, 1];
         const cIcOn = parseColor(bodyOn?.textColor || lblOn?.textColor || lblOn?.fill) || [255, 255, 255, 1];
         const cIcOff = parseColor(bodyOff?.textColor || lblOff?.textColor || lblOff?.fill) || [150, 150, 150, 1];
 
@@ -431,13 +470,19 @@ export function syncBtnIcon(ctx, node, config) {
     const prefix = config.isSysPanel ? "_sys_" : "";
     const animKey = `_btnIcon_anim${prefix}_${config.key}`;
 
-    const { fillColor, iconColor, isAnimating } = animateWidgetColors(node, animKey, rawBg, rawIc, alpha, useAnim);
+    const { fillColor, iconColor, shadowColor, borderColor, glowColor, isAnimating } = animateWidgetColors(node, animKey, rawBg, rawIc, alpha, useAnim, { effects: getBtnIconEffectTargets(bodyPaint) });
 
     if (useAnim && (isAnimating || pressAmt > 0)) {
         if (node._derpAwakeFrames !== undefined) node._derpAwakeFrames = 2;
     }
 
     const animatedPaint = compileAnimatedPaint(bodyPaint, config, alpha, { fill: fillColor, textColor: iconColor, corners: config.corners });
+    animatedPaint.fill = fillColor;
+    animatedPaint.bgColor = fillColor;
+    animatedPaint.backgroundColor = fillColor;
+    if (shadowColor && animatedPaint.shadow) animatedPaint.shadow = { ...animatedPaint.shadow, color: shadowColor };
+    if (borderColor && animatedPaint.border) animatedPaint.border = { ...animatedPaint.border, color: borderColor };
+    if (glowColor && animatedPaint.glow) animatedPaint.glow = { ...animatedPaint.glow, color: glowColor };
     if (config.corners !== undefined) {
         animatedPaint.corners = config.corners;
     }

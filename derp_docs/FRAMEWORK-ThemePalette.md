@@ -102,8 +102,11 @@ Keys prefixed with `#` are optional overrides for specific widget rendering path
 | `#slider_fillbar` | SLIDER filled value bar. When present, the filled bar uses this key instead of the normal slider fill fallback. |
 | `#slider_knob` | SLIDER knob marker. When present, knob-style sliders use this key for rectangular or round knob rendering, including supported effects. |
 | `#slider_btnLR` | SLIDER left/right step buttons. When present, `btnLR` buttons use this key instead of the slider's normal button/body fallback. |
+| `_ICONBTN_<icon>` | ICONBUTTON background override from the theme-attached palette file. `<icon>` matches the `btnIcon.js` `ICON_MAP` key, such as `_ICONBTN_add` for `icon: "add"` or `_ICONBTN_wireless` for `icon: "wireless"`. |
 
 These are full theme keys with `_ON`/`_OFF`/`_DIS` fills and optional effects (corners, shadow, stroke, glow). They are **not** referenced by layout maps directly — widgets detect them at paint time. Slider round knobs use a local circle painter so fill, shadow, stroke, and glow remain available even though the shape is not drawn by `masterPainter()`.
+
+`_ICONBTN_<icon>` entries live in the palette document attached to the active theme via `_palette`, not in the layout map and not in the global active palette fallback. `btnIcon.js` checks the icon key from the `ICON_MAP` lookup and, when a matching entry is present in `node._headerPaletteName`, replaces only the icon button background rect paint (`main`, plus `shadow`/`stroke`/`glow` when the palette has `effects: true`). The override participates in normal hover, press, pulse, and effect color animation paths. The glyph color, font, geometry, recoil, and layout sizing continue to come from the widget's normal `themeKey` and icon color paths.
 
 ### Compound Key Format
 

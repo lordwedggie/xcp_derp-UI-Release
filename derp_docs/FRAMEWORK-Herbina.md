@@ -156,6 +156,7 @@ Rules:
 - Never add `padding: [pW, pH]` — shrinks icon
 - `spacing: [sW, 0]` for horizontal gap between adjacent buttons
 - `themeKey: "button, t_textNormal"` — standard
+- Theme-attached palette entries named `_ICONBTN_<icon>` override only the background rect paint for matching icons, including hover/press/pulse animation colors. Example: `_ICONBTN_add` applies to `icon: "add"` and keeps glyph color/geometry on the normal theme path.
 
 ## Z-Index
 `getNextZIndex()` starts at 10001, increments per widget. Used for stacking order in the DOM shield overlay.

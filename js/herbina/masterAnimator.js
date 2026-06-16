@@ -165,17 +165,35 @@ export function parseColor(c) {
  * Replaces redundant 20-line loops across btnSimple, btnIcon, derpEditor, and derpDropdown.
  */
 export function animateWidgetColors(node, animKey, targetBg, targetIc, sysAlpha = 1, useAnim = true, speed = 0.45) {
+    const options = (speed && typeof speed === "object") ? speed : null;
+    const targetEffects = options?.effects || null;
+    speed = options ? (options.speed ?? 0.45) : speed;
+    const parseEffectColor = (name) => parseColor(targetEffects?.[name]) || [0, 0, 0, 0];
     // THE OPTIMIZATION FIX: Use cached parsed arrays to avoid redundant regex parsing every frame.
     if (!node[animKey]) {
         const tBgArr = parseColor(targetBg) || [100, 100, 100, 1];
         const tIcArr = parseColor(targetIc) || [255, 60, 60, 1];
+        const tShadowArr = parseEffectColor("shadow");
+        const tBorderArr = parseEffectColor("border");
+        const tGlowArr = parseEffectColor("glow");
         node[animKey] = {
             bg: [...tBgArr], ic: [...tIcArr],
+            shadow: [...tShadowArr],
+            border: [...tBorderArr],
+            glow: [...tGlowArr],
             lastBg: targetBg, lastIc: targetIc,
-            tBgArr, tIcArr
+            lastShadow: targetEffects?.shadow || "", lastBorder: targetEffects?.border || "", lastGlow: targetEffects?.glow || "",
+            tBgArr, tIcArr,
+            tShadowArr, tBorderArr, tGlowArr
         };
     }
     const cur = node[animKey];
+    cur.shadow = cur.shadow || [0, 0, 0, 0];
+    cur.border = cur.border || [0, 0, 0, 0];
+    cur.glow = cur.glow || [0, 0, 0, 0];
+    cur.tShadowArr = cur.tShadowArr || [0, 0, 0, 0];
+    cur.tBorderArr = cur.tBorderArr || [0, 0, 0, 0];
+    cur.tGlowArr = cur.tGlowArr || [0, 0, 0, 0];
 
     if (cur.lastBg !== targetBg) {
         cur.lastBg = targetBg;
@@ -184,6 +202,18 @@ export function animateWidgetColors(node, animKey, targetBg, targetIc, sysAlpha 
     if (cur.lastIc !== targetIc) {
         cur.lastIc = targetIc;
         cur.tIcArr = parseColor(targetIc) || [255, 60, 60, 1];
+    }
+    if (cur.lastShadow !== (targetEffects?.shadow || "")) {
+        cur.lastShadow = targetEffects?.shadow || "";
+        cur.tShadowArr = parseEffectColor("shadow");
+    }
+    if (cur.lastBorder !== (targetEffects?.border || "")) {
+        cur.lastBorder = targetEffects?.border || "";
+        cur.tBorderArr = parseEffectColor("border");
+    }
+    if (cur.lastGlow !== (targetEffects?.glow || "")) {
+        cur.lastGlow = targetEffects?.glow || "";
+        cur.tGlowArr = parseEffectColor("glow");
     }
     const tBgArr = cur.tBgArr;
     const tIcArr = cur.tIcArr;
@@ -196,6 +226,15 @@ export function animateWidgetColors(node, animKey, targetBg, targetIc, sysAlpha 
         cur.bg[i] = bgRes.value;
         cur.ic[i] = icRes.value;
         if (bgRes.isAnimating || icRes.isAnimating) isAnimating = true;
+        if (targetEffects) {
+            const shadowRes = lerpFn(cur.shadow[i], cur.tShadowArr[i], speed, useAnim);
+            const borderRes = lerpFn(cur.border[i], cur.tBorderArr[i], speed, useAnim);
+            const glowRes = lerpFn(cur.glow[i], cur.tGlowArr[i], speed, useAnim);
+            cur.shadow[i] = shadowRes.value;
+            cur.border[i] = borderRes.value;
+            cur.glow[i] = glowRes.value;
+            if (shadowRes.isAnimating || borderRes.isAnimating || glowRes.isAnimating) isAnimating = true;
+        }
     }
 
     if (isAnimating && useAnim) {
@@ -224,6 +263,9 @@ export function animateWidgetColors(node, animKey, targetBg, targetIc, sysAlpha 
     return {
         fillColor: `rgba(${Math.round(cur.bg[0])}, ${Math.round(cur.bg[1])}, ${Math.round(cur.bg[2])}, ${finalBgAlpha})`,
         iconColor: `rgba(${Math.round(cur.ic[0])}, ${Math.round(cur.ic[1])}, ${Math.round(cur.ic[2])}, ${finalIcAlpha})`,
+        shadowColor: targetEffects ? `rgba(${Math.round(cur.shadow[0])}, ${Math.round(cur.shadow[1])}, ${Math.round(cur.shadow[2])}, ${Math.max(0, Math.min(1, cur.shadow[3] * sysAlpha))})` : null,
+        borderColor: targetEffects ? `rgba(${Math.round(cur.border[0])}, ${Math.round(cur.border[1])}, ${Math.round(cur.border[2])}, ${Math.max(0, Math.min(1, cur.border[3] * sysAlpha))})` : null,
+        glowColor: targetEffects ? `rgba(${Math.round(cur.glow[0])}, ${Math.round(cur.glow[1])}, ${Math.round(cur.glow[2])}, ${Math.max(0, Math.min(1, cur.glow[3] * sysAlpha))})` : null,
         isAnimating
     };
 }
