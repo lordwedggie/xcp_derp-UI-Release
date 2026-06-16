@@ -457,7 +457,7 @@
     "title": "老登扩散加载器",
     "browser": {
       "diffusion_root_name": "diffusion_models + unet",
-      "select_diffusion": "选择扩散模型...",
+      "select_diffusion": "选择扩散模型",
       "refresh": "刷新"
     },
     "system": {

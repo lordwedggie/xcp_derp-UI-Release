@@ -1177,7 +1177,9 @@ function applyDeckPressureSideWidthResize(entity, resizeAnchor, requestedEntityW
     if (!pressureHub || pressureHub.id === entity.id) return false;
     const branchSide = getDeckPressureBranchSideForNode(pressureHub, graph, entity);
     if (branchSide !== "left" && branchSide !== "right") return false;
-    if (getDeckPressureBranchAxis(pressureHub, graph, branchSide) !== "vertical") return false;
+    const branchAxis = getDeckPressureBranchAxis(pressureHub, graph, branchSide);
+    if (branchAxis !== "vertical" && branchAxis !== "horizontal") return false;
+    if (getNodeOnDeckEdge(entity, graph, resizeAnchor)?.id !== pressureHub.id) return false;
     if ((branchSide === "left" && resizeAnchor !== "right") || (branchSide === "right" && resizeAnchor !== "left")) return false;
 
     const branchMembers = getDeckPressureBranchMembers(pressureHub, graph, branchSide);
@@ -1200,15 +1202,24 @@ function applyDeckPressureSideWidthResize(entity, resizeAnchor, requestedEntityW
             frameBounds: frameBefore,
             hubStartX: Number(pressureHub.pos?.[0]) || 0,
             hubStartW: getDockNodeWidth(pressureHub),
-            branchStartWidth: Math.max(...branchMembers.map((member) => getDockNodeWidth(member)), 0),
+            branchStartWidth: branchAxis === "horizontal"
+                ? branchMembers.reduce((sum, member) => sum + getDockNodeWidth(member), 0)
+                : Math.max(...branchMembers.map((member) => getDockNodeWidth(member)), 0),
+            branchStartWidths: Object.fromEntries(branchMembers.map((member) => [member.id, getDockNodeWidth(member)])),
+            branchAxis,
         };
     }
     const session = entity._dockResizeSession;
     const preservedFrame = session.frameBounds || frameBefore;
     const hubStartX = Number(session.hubStartX) || Number(pressureHub.pos?.[0]) || 0;
     const hubStartW = Number(session.hubStartW) || getDockNodeWidth(pressureHub);
-    const branchStartWidth = Number(session.branchStartWidth) || Math.max(...branchMembers.map((member) => getDockNodeWidth(member)), 0);
-    const branchMinWidth = Math.max(...branchMembers.map((member) => getDockNodeMinWidth(member, minW, snap)), 0);
+    const startWidths = session.branchStartWidths || Object.fromEntries(branchMembers.map((member) => [member.id, getDockNodeWidth(member)]));
+    const branchStartWidth = Number(session.branchStartWidth) || (branchAxis === "horizontal"
+        ? branchMembers.reduce((sum, member) => sum + (Number(startWidths[member.id]) || getDockNodeWidth(member)), 0)
+        : Math.max(...branchMembers.map((member) => Number(startWidths[member.id]) || getDockNodeWidth(member)), 0));
+    const branchMinWidth = branchAxis === "horizontal"
+        ? branchMembers.reduce((sum, member) => sum + getDockNodeMinWidth(member, minW, snap), 0)
+        : Math.max(...branchMembers.map((member) => getDockNodeMinWidth(member, minW, snap)), 0);
     const hubMinWidth = getDockNodeMinWidth(pressureHub, minW, snap);
     const maxBranchWidth = Math.max(branchMinWidth, branchStartWidth + hubStartW - hubMinWidth);
     const explicitDelta = Number(entity._dockResizeRequestedDeltaW);
@@ -1224,11 +1235,49 @@ function applyDeckPressureSideWidthResize(entity, resizeAnchor, requestedEntityW
         return true;
     }
 
-    branchMembers.forEach((member) => {
-        syncDeckNodeSize(member, nextBranchWidth, getDockNodeHeight(member), { silent: true });
-        if (typeof member.syncUncleSlots === "function") member.syncUncleSlots();
-        addCounterpart(member);
-    });
+    if (branchAxis === "horizontal") {
+        const minWidths = new Map(branchMembers.map((member) => [member.id, getDockNodeMinWidth(member, minW, snap)]));
+        const nextWidths = new Map(branchMembers.map((member) => [
+            member.id,
+            Math.max(minWidths.get(member.id) || 0, Number(startWidths[member.id]) || getDockNodeWidth(member)),
+        ]));
+        const minTotal = branchMembers.reduce((sum, member) => sum + (minWidths.get(member.id) || 0), 0);
+        const spareTarget = Math.max(0, nextBranchWidth - minTotal);
+        const startSpareTotal = branchMembers.reduce((sum, member) => {
+            const startWidth = Number(startWidths[member.id]) || getDockNodeWidth(member);
+            return sum + Math.max(0, startWidth - (minWidths.get(member.id) || 0));
+        }, 0);
+        let assigned = 0;
+        branchMembers.forEach((member, index) => {
+            const minWidth = minWidths.get(member.id) || 0;
+            const startWidth = Number(startWidths[member.id]) || getDockNodeWidth(member);
+            const startSpare = Math.max(0, startWidth - minWidth);
+            const isLast = index === branchMembers.length - 1;
+            const spare = isLast ? Math.max(0, spareTarget - assigned) : snapResizeValue(spareTarget * (startSpareTotal > 0 ? startSpare / startSpareTotal : 1 / branchMembers.length), snap);
+            assigned += spare;
+            nextWidths.set(member.id, minWidth + spare);
+        });
+        branchMembers.forEach((member) => {
+            const width = nextWidths.get(member.id) || getDockNodeWidth(member);
+            if (!member.properties) member.properties = {};
+            member.properties.autoWidth = false;
+            member._horizontalDeckWidthResizeLock = true;
+            member._deckPressureSideHorizontalWidth = width;
+            member.properties._deckPressureSideHorizontalWidth = width;
+            member._horizontalDeckWidthBalanceObserved = width;
+            member._horizontalDeckWidthBalanceReady = true;
+            syncDeckNodeSize(member, width, getDockNodeHeight(member), { silent: true });
+            if (typeof member.syncUncleSlots === "function") member.syncUncleSlots();
+            addCounterpart(member);
+        });
+        markDockResizeActiveMembers(entity, branchMembers, entity, { markResizing: false });
+    } else {
+        branchMembers.forEach((member) => {
+            syncDeckNodeSize(member, nextBranchWidth, getDockNodeHeight(member), { silent: true });
+            if (typeof member.syncUncleSlots === "function") member.syncUncleSlots();
+            addCounterpart(member);
+        });
+    }
 
     const nextHubWidth = Math.max(hubMinWidth, hubStartW - delta);
     const nextHubX = branchSide === "left" ? hubStartX + delta : hubStartX;

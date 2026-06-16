@@ -1353,6 +1353,13 @@ export function syncFileBrowser(context, node, app, config, overlayPass = false)
         labelStr, node, suffix, labelPaint?.textColor || labelPaint?.fill
     );
 
+    let triggerIconFill = animatedTextColor;
+    if (safeConfig.triggerIconColorKey) {
+        const iconKeyText = `{{${safeConfig.triggerIconColorKey}:${suffix}::X}}`;
+        const { segments: iconSegs } = parseColorKeyText(iconKeyText, node, suffix, labelPaint?.textColor || labelPaint?.fill);
+        if (iconSegs?.[0]?.color) triggerIconFill = iconSegs[0].color;
+    }
+
     if (labelPaint) {
         const pX = props.padding[0];
         const iconOffset = computeTriggerIndicatorOffset(ctx, triggerGlyph, fs, labelPaint, triggerGlyphScale);
@@ -1374,7 +1381,7 @@ export function syncFileBrowser(context, node, app, config, overlayPass = false)
                 y: snapToScreenGrid(y + (h / 2), dsScale),
                 align: "left",
                 baseline: "middle",
-                paintData: { ...labelPaint, fontSize: fs * 0.8 * triggerGlyphScale, fill: animatedTextColor }
+                paintData: { ...labelPaint, fontSize: fs * 0.8 * triggerGlyphScale, fill: triggerIconFill }
             });
         }
 

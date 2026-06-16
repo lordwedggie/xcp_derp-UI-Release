@@ -20,7 +20,7 @@ function isDeckPressureSideWidthResize(entity, graph, resizeAnchor) {
     if (!pressureHub || pressureHub.id === entity?.id) return false;
     const branchSide = getDeckPressureBranchSideForNode(pressureHub, graph, entity);
     if (branchSide !== "left" && branchSide !== "right") return false;
-    if (getDeckPressureBranchAxis(pressureHub, graph, branchSide) !== "vertical") return false;
+    if (getNodeOnDeckEdge(entity, graph, resizeAnchor)?.id !== pressureHub.id) return false;
     return (branchSide === "left" && resizeAnchor === "right") || (branchSide === "right" && resizeAnchor === "left");
 }
 
@@ -64,7 +64,7 @@ export function handleNodeResize(entity, data, scale) {
     const allowHorizontalSharedEdgeWidthResize = !!horizontalStackResizeSide
         && !resizeAxes.allowWidth
         && canResizeHorizontalSharedEdgeWidth(entity, graph, horizontalStackResizeSide);
-    const allowDeckPressureSideWidthResize = !resizeAxes.allowWidth && isDeckPressureSideWidthResize(entity, graph, resizeAnchor);
+    const allowDeckPressureSideWidthResize = isDeckPressureSideWidthResize(entity, graph, resizeAnchor);
     if (allowHorizontalStackWidthResize || allowHorizontalSharedEdgeWidthResize || allowDeckPressureSideWidthResize) {
         resizeAxes.allowWidth = true;
     }
@@ -141,7 +141,7 @@ export function handleNodeResize(entity, data, scale) {
 
     let dockResizeResult;
     entity._dockResizeAllowHeight = allowHeightResize;
-    if (allowHorizontalStackWidthResize) entity._dockResizeRequestedDeltaW = snappedStackDeltaW;
+    if (allowHorizontalStackWidthResize || allowDeckPressureSideWidthResize) entity._dockResizeRequestedDeltaW = snappedStackDeltaW;
     try {
         dockResizeResult = isPressureHubResize
             ? { handledWidth: false, handledHeight: false, handledAll: false, appliedWidth: null, appliedHeight: null, counterparts: [] }

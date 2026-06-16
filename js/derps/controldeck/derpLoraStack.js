@@ -757,7 +757,8 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                     ratingsList: this._loraRatings || {}, // THE RATING PASS: Provide the node's rating cache to the browser
                                     ratingsPalette: this._ratingsPalette, // THE PALETTE PASS: Color the icons in the browser
                                     fileType: "lora",
-                                    value: tLocale("$derp_lora_stack.browser.add", "Add Lora to Stack..."), width: "full", height: "auto",
+                                    value: `{{t_text_accent::${tLocale("$derp_lora_stack.browser.add", "Add Lora to Stack...")}}}`, width: "full", height: "auto",
+                                    triggerIconColorKey: "t_text_warning",
                                     themeKey: "dialog, t_textNormal", canvasShield: true,
                                     searchThemeKey: "panel, t_textSystem",
                                     padding: [pW, pH],

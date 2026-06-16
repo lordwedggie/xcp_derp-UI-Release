@@ -457,7 +457,7 @@
     "title": "Derp Diffusion Loader",
     "browser": {
       "diffusion_root_name": "diffusion_models + unet",
-      "select_diffusion": "Select Diffusion...",
+      "select_diffusion": "Select Diffusion Model",
       "refresh": "Refresh"
     },
     "system": {

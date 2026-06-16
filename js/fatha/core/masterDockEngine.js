@@ -2466,7 +2466,7 @@ export function applyDeckPressureLayout(hub, graph, snap = DEFAULT_DECK_SNAP) {
     const centerHeight = arrangement === DECK_ARRANGEMENT_HORIZONTAL
         ? Math.max(hubRect.h, sideMinHeight)
         : Math.max(hubRect.h, sideMinHeight - topHeight - bottomHeight);
-    if (centerWidth > hubRect.w + 0.5 || centerHeight > hubRect.h + 0.5) {
+    if (!preserveFrameBounds && (centerWidth > hubRect.w + 0.5 || centerHeight > hubRect.h + 0.5)) {
         const preserveRightEdge = hub._isDerpResizing === true && (hub._resizeAnchor === "left" || hub._resizeAnchor === "top-left" || hub._resizeAnchor === "bottom-left");
         const rightEdge = hubRect.x + hubRect.w;
         if (syncDeckNodeSize(hub, centerWidth, centerHeight, { silent: true, deferDirty: true, deferSync: true })) markChanged(hub);
@@ -2493,7 +2493,7 @@ export function applyDeckPressureLayout(hub, graph, snap = DEFAULT_DECK_SNAP) {
         : (arrangement === DECK_ARRANGEMENT_HORIZONTAL
         ? hubRect.h
         : topHeight + hubRect.h + bottomHeight);
-    if (preserveFrameBounds && arrangement === DECK_ARRANGEMENT_HORIZONTAL) {
+    if (preserveFrameBounds) {
         const nextHubX = frameX + leftWidth;
         const nextHubW = Math.max(0, frameWidth - leftWidth - rightWidth);
         if ((Number(hub.pos?.[0]) || 0) !== nextHubX) {
@@ -2508,6 +2508,8 @@ export function applyDeckPressureLayout(hub, graph, snap = DEFAULT_DECK_SNAP) {
     }
     const sideFrameY = arrangement === DECK_ARRANGEMENT_HORIZONTAL ? hubRect.y : frameY;
     const sideFrameHeight = arrangement === DECK_ARRANGEMENT_HORIZONTAL ? hubRect.h : frameHeight;
+    const topBottomFrameX = arrangement === DECK_ARRANGEMENT_HORIZONTAL ? frameX : hubRect.x;
+    const topBottomFrameWidth = arrangement === DECK_ARRANGEMENT_HORIZONTAL ? frameWidth : hubRect.w;
 
     branches.forEach(({ side, members, axis }) => {
         if ((side === "left" || side === "right") && axis === "vertical") {
@@ -2523,15 +2525,15 @@ export function applyDeckPressureLayout(hub, graph, snap = DEFAULT_DECK_SNAP) {
             markChanged(applyRowLayout(members, x, sideFrameY, widths, height, { deferDirty: true, deferSync: true }));
         } else if (axis === "horizontal") {
             const height = side === "top" ? topHeight : bottomHeight;
-            const widths = fitDeckPressureRowWidths(members, frameWidth, snap);
+            const widths = fitDeckPressureRowWidths(members, topBottomFrameWidth, snap);
             const y = side === "top" ? hubRect.y - height : hubRect.y + hubRect.h;
-            markChanged(applyRowLayout(members, frameX, y, widths, height, { deferDirty: true, deferSync: true }));
+            markChanged(applyRowLayout(members, topBottomFrameX, y, widths, height, { deferDirty: true, deferSync: true }));
         } else {
             const heights = getDeckPressureColumnCurrentHeights(members, snap);
             const height = heights.reduce((sum, value) => sum + value, 0);
-            const width = Math.max(frameWidth, getDeckPressureBranchEdgeMinSpan({ side, members, axis }, snap));
+            const width = Math.max(topBottomFrameWidth, getDeckPressureBranchEdgeMinSpan({ side, members, axis }, snap));
             const y = side === "top" ? hubRect.y - height : hubRect.y + hubRect.h;
-            markChanged(applyColumnLayout(members, frameX, y, width, heights, { deferDirty: true, deferSync: true }));
+            markChanged(applyColumnLayout(members, topBottomFrameX, y, width, heights, { deferDirty: true, deferSync: true }));
         }
     });
 
