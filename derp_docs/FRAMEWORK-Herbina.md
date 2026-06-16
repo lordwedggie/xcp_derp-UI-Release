@@ -42,7 +42,7 @@ Herbina is the UI toolkit layer. All visual widgets — buttons, sliders, toggle
 ### Animation Layer
 | File | Role |
 |------|------|
-| `masterAnimator.js` | Animation engine. `animateRecoil()` — spring-like recoil for press feedback. `animateAlpha()`, `lerpTo()`. |
+| `masterAnimator.js` | Animation engine. `animateRecoil()` — spring-like recoil for press feedback. `animateAlpha()`, `lerpTo()`, and shared pulse helpers. `DEFAULT_PULSE_SPEED` matches the selected-node pulse cadence and is the default unless a caller explicitly passes another speed. |
 
 ### Sound Layer
 | File | Role |

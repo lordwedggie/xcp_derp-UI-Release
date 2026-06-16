@@ -18,7 +18,7 @@
  */
 import { app } from "../../../../scripts/app.js";
 import { renderHitboxDebug } from "../helpers/debugPainter.js";
-import { getDeckMembers, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureHubForNode, getNodeOnDeckEdge, isDeckPressureHub, isLinearDeckGroup } from "./masterDockEngine.js";
+import { getDeckMembers, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureBranchAxis, getDeckPressureHubForNode, getNodeOnDeckEdge, isDeckPressureHub, isDeckPressureSideHorizontalBranchMember, isLinearDeckGroup } from "./masterDockEngine.js";
 import { beginDeckResizeOptimization, clearEntityTooltip, endDeckResizeOptimization } from "./fathaHandler.js";
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
 import { MASTER_Z, promoteMasterZ } from "./masterZ.js";
@@ -92,6 +92,8 @@ function isDeckPressureHubSeamSideEdge(node, graph, side) {
     if (!pressureHub) return false;
     if (pressureHub.id === node?.id) return getDeckPressureBranchMembers(pressureHub, graph, side).length > 0;
     const branchSide = getDeckPressureBranchSideForNode(pressureHub, graph, node);
+    if (branchSide !== "left" && branchSide !== "right") return false;
+    if (getDeckPressureBranchAxis(pressureHub, graph, branchSide) !== "vertical") return false;
     if ((branchSide === "left" && side !== "right") || (branchSide === "right" && side !== "left")) return false;
     const x = Number(node?.pos?.[0]) || 0;
     const w = Number(node?.size?.[0] ?? node?.properties?.nodeSize?.[0]) || 0;
@@ -906,7 +908,8 @@ export function createDerpShield(node) {
         const headerRegion = node.layout?.regions?.headerRegion;
         const graph = app.graph || node.graph || null;
         const headerCollapseEnabled = window.DERP_GLOBAL_SETTINGS?.verticalDockHeaderCollapse ?? true;
-        if (headerCollapseEnabled && headerRegion && node.layout?.hitTest?.(localMouse, headerRegion)) {
+        const collapseAllowed = !isDeckPressureSideHorizontalBranchMember(node, graph);
+        if (collapseAllowed && headerCollapseEnabled && headerRegion && node.layout?.hitTest?.(localMouse, headerRegion)) {
             const wasCollapsed = !!node.properties?.contentCollapsed;
             const soundKey = wasCollapsed ? "collapseoff" : "collapseon";
             if (SOUND_INDEX?.[soundKey]) SOUND_INDEX[soundKey]();
@@ -971,17 +974,11 @@ export function createDerpShield(node) {
     node.interactionShield = shield;
 }
 
-function getPressureBranchAxis(side) {
-    if (side === "left" || side === "right") return "vertical";
-    if (side === "top" || side === "bottom") return "horizontal";
-    return null;
-}
-
 function getLinearResizeMembers(node, graph, axis) {
     if (!graph || !node) return [];
     const pressureHub = getDeckPressureHubForNode(node, graph);
     const branchSide = pressureHub && pressureHub.id !== node.id ? getDeckPressureBranchSideForNode(pressureHub, graph, node) : null;
-    if (getPressureBranchAxis(branchSide) === axis) return getDeckPressureBranchMembers(pressureHub, graph, branchSide);
+    if (getDeckPressureBranchAxis(pressureHub, graph, branchSide) === axis) return getDeckPressureBranchMembers(pressureHub, graph, branchSide);
     return isLinearDeckGroup(node, graph, axis) ? getDeckMembers(node, graph) : [];
 }
 

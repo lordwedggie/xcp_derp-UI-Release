@@ -10,6 +10,9 @@ import { handleNodeResize } from "./fathaNodeResize.js";
 import { getVirtualNodeLayoutMap } from "../helpers/fathaLayoutMaps.js";
 import { getDockNodeMinHeight, getDockNodeMinWidth, getSharedDockMinWidth, getSharedDockWidth, resolveDockAttachDimensions, resolveRuntimeDockSize } from "./dockDimensions.js";
 import { setDerpNodeSizeCompat } from "./fathaNode2Compat.js";
+import { masterPainter } from "../../herbina/masterPainter.js";
+import { DEFAULT_PULSE_SPEED, getPulsedColor, parseColor } from "../../herbina/masterAnimator.js";
+import { resolveSystemThemeFill, resolveSystemThemePaint } from "../helpers/fathaSystemTheme.js";
 
 const DEFAULT_DECK_SNAP = 10;
 const DEFAULT_DECK_RADIUS = 48;
@@ -272,6 +275,27 @@ function collectDeckLine(node, graph, negativeSide, positiveSide) {
     return out;
 }
 
+function collectDeckLineExcluding(node, graph, negativeSide, positiveSide, excludedNodeId = null) {
+    if (!node || !graph || node.id === excludedNodeId) return [];
+    const out = [];
+    const seen = new Set([excludedNodeId]);
+    const queue = [node];
+
+    while (queue.length > 0) {
+        const cur = queue.shift();
+        if (!cur || seen.has(cur.id)) continue;
+        seen.add(cur.id);
+        out.push(cur);
+
+        const negative = getNodeOnDeckEdge(cur, graph, negativeSide);
+        const positive = getNodeOnDeckEdge(cur, graph, positiveSide);
+        if (negative && !seen.has(negative.id)) queue.push(negative);
+        if (positive && !seen.has(positive.id)) queue.push(positive);
+    }
+
+    return out;
+}
+
 function sortDeckNodesByAxis(nodes, axis = "y") {
     const index = axis === "x" ? 0 : 1;
     return [...nodes].sort((a, b) => {
@@ -286,6 +310,28 @@ function sortDeckNodesByAxis(nodes, axis = "y") {
 function collectDeckLineOrdered(node, graph, negativeSide, positiveSide) {
     if (!node || !graph) return [];
     const seen = new Set();
+    const negativeNodes = [];
+    let current = getNodeOnDeckEdge(node, graph, negativeSide);
+    while (current && !seen.has(current.id)) {
+        seen.add(current.id);
+        negativeNodes.unshift(current);
+        current = getNodeOnDeckEdge(current, graph, negativeSide);
+    }
+
+    const out = [...negativeNodes];
+    current = node;
+    while (current && !seen.has(current.id)) {
+        seen.add(current.id);
+        out.push(current);
+        current = getNodeOnDeckEdge(current, graph, positiveSide);
+    }
+
+    return out;
+}
+
+function collectDeckLineOrderedExcluding(node, graph, negativeSide, positiveSide, excludedNodeId = null) {
+    if (!node || !graph || node.id === excludedNodeId) return [];
+    const seen = new Set([excludedNodeId]);
     const negativeNodes = [];
     let current = getNodeOnDeckEdge(node, graph, negativeSide);
     while (current && !seen.has(current.id)) {
@@ -340,9 +386,10 @@ export function getDeckPressureBranchMembers(hub, graph, side) {
     if (!isDeckPressureHub(hub) || !graph || !isDeckPressureBranchSide(side)) return [];
     const first = getPeerDeckNeighbor(hub, graph, side);
     if (!first) return [];
-    const axisSides = side === "left" || side === "right" ? ["top", "bottom"] : ["left", "right"];
-    const ordered = collectDeckLineOrdered(first, graph, axisSides[0], axisSides[1]);
-    return ordered.length > 0 ? ordered : sortDeckNodesByAxis(collectDeckLine(first, graph, axisSides[0], axisSides[1]), side === "left" || side === "right" ? "y" : "x");
+    const branchAxis = getDeckPressureBranchAxis(hub, graph, side);
+    const axisSides = branchAxis === "vertical" ? ["top", "bottom"] : ["left", "right"];
+    const ordered = collectDeckLineOrderedExcluding(first, graph, axisSides[0], axisSides[1], hub.id);
+    return ordered.length > 0 ? ordered : sortDeckNodesByAxis(collectDeckLineExcluding(first, graph, axisSides[0], axisSides[1], hub.id), branchAxis === "vertical" ? "y" : "x");
 }
 
 export function getDeckPressureBranchSideForNode(hub, graph, node) {
@@ -380,6 +427,61 @@ function getDeckPressureHubBranchAxis(side) {
     return null;
 }
 
+function getLinearDeckGroupAxis(node, graph) {
+    if (isLinearDeckGroup(node, graph, "vertical")) return "vertical";
+    if (isLinearDeckGroup(node, graph, "horizontal")) return "horizontal";
+    return null;
+}
+
+function getDeckPressureFollowerForSide(node, graph, side) {
+    if (!node || !graph || !isDeckPressureBranchSide(side)) return node;
+    const branchAxis = getLinearDeckGroupAxis(node, graph);
+    const attachSide = getOppositeDeckSide(side);
+    if (!branchAxis || !attachSide) return node;
+    if (branchAxis === "horizontal" && attachSide !== "left" && attachSide !== "right") return node;
+    if (branchAxis === "vertical" && attachSide !== "top" && attachSide !== "bottom") return node;
+
+    let current = node;
+    const seen = new Set();
+    while (current && !seen.has(current.id)) {
+        seen.add(current.id);
+        const next = getNodeOnDeckEdge(current, graph, attachSide);
+        if (!next) return current;
+        current = next;
+    }
+    return node;
+}
+
+function getDeckPressureDockFollower(node, leader, graph, side) {
+    return isDeckPressureHub(leader) ? getDeckPressureFollowerForSide(node, graph, side) : node;
+}
+
+export function getDeckPressureBranchAxis(hub, graph, side) {
+    if (!isDeckPressureHub(hub) || !graph || !isDeckPressureBranchSide(side)) return null;
+    const first = getPeerDeckNeighbor(hub, graph, side);
+    if (!first) return getDeckPressureHubBranchAxis(side);
+    const hasHorizontal = ["left", "right"].some((edge) => {
+        const neighbor = getNodeOnDeckEdge(first, graph, edge);
+        return neighbor && neighbor.id !== hub.id;
+    });
+    const hasVertical = ["top", "bottom"].some((edge) => {
+        const neighbor = getNodeOnDeckEdge(first, graph, edge);
+        return neighbor && neighbor.id !== hub.id;
+    });
+    if (hasHorizontal && !hasVertical) return "horizontal";
+    if (hasVertical && !hasHorizontal) return "vertical";
+    return getDeckPressureHubBranchAxis(side);
+}
+
+export function isDeckPressureSideHorizontalBranchMember(node, graph) {
+    if (!node || !graph) return false;
+    const pressureHub = getDeckPressureHubForNode(node, graph);
+    if (!pressureHub || pressureHub.id === node.id) return false;
+    const branchSide = getDeckPressureBranchSideForNode(pressureHub, graph, node);
+    if (branchSide !== "left" && branchSide !== "right") return false;
+    return getDeckPressureBranchAxis(pressureHub, graph, branchSide) === "horizontal";
+}
+
 function normalizeDeckArrangement(value, fallback = DECK_ARRANGEMENT_VERTICAL) {
     if (value === null || value === undefined) return fallback;
     const raw = String(value || "").trim();
@@ -398,14 +500,29 @@ function resolveAutomaticDeckArrangement(side) {
         : DECK_ARRANGEMENT_VERTICAL;
 }
 
+function getDeckArrangementSetting() {
+    const stored = globalThis?.app?.ui?.settings?.getSettingValue?.("Derp.DeckArrangement");
+    const globalValue = globalThis?.DERP_GLOBAL_SETTINGS?.deckArrangement;
+    return normalizeDeckArrangement(stored ?? globalValue, DECK_ARRANGEMENT_AUTOMATIC);
+}
+
 function ensureDeckPressureArrangement(hub, graph, side = null) {
     if (!isDeckPressureHub(hub)) return DECK_ARRANGEMENT_VERTICAL;
     const props = ensureDeckProps(hub);
+    const hasBranches = hasDeckPressureBranches(hub, graph);
     const saved = normalizeDeckArrangement(props.deckArrangement, null);
-    if (saved === DECK_ARRANGEMENT_VERTICAL || saved === DECK_ARRANGEMENT_HORIZONTAL) return saved;
-    if (!side || hasDeckPressureBranches(hub, graph)) return DECK_ARRANGEMENT_VERTICAL;
+    if (hasBranches) {
+        return saved === DECK_ARRANGEMENT_VERTICAL || saved === DECK_ARRANGEMENT_HORIZONTAL
+            ? saved
+            : DECK_ARRANGEMENT_VERTICAL;
+    }
 
-    const setting = normalizeDeckArrangement(globalThis?.DERP_GLOBAL_SETTINGS?.deckArrangement, DECK_ARRANGEMENT_AUTOMATIC);
+    const setting = getDeckArrangementSetting();
+    if (!side) {
+        return setting === DECK_ARRANGEMENT_HORIZONTAL
+            ? DECK_ARRANGEMENT_HORIZONTAL
+            : DECK_ARRANGEMENT_VERTICAL;
+    }
     const arrangement = setting === DECK_ARRANGEMENT_AUTOMATIC
         ? resolveAutomaticDeckArrangement(side)
         : setting;
@@ -963,7 +1080,7 @@ export function canDeckNodeToLeader(node, leader, graph, side = null) {
         return false;
     }
     if (isNodeDocked(node, graph)) {
-        const isPressureStackDock = isDeckPressureHub(leader) && isLinearDeckGroup(node, graph, getDeckPressureHubBranchAxis(side));
+        const isPressureStackDock = isDeckPressureHub(leader) && !!getLinearDeckGroupAxis(node, graph);
         if (!isPressureStackDock) {
             dockDebugLog("reject: node already docked", { nodeId: node.id, side });
             return false;
@@ -996,11 +1113,12 @@ export function canDeckNodeToLeader(node, leader, graph, side = null) {
         return false;
     }
 
-    const nodeOccupied = getOccupiedDeckEdges(node, graph);
+    const dockFollower = getDeckPressureDockFollower(node, leader, graph, side);
+    const nodeOccupied = getOccupiedDeckEdges(dockFollower, graph);
     const oppositeSide = getOppositeDeckSide(side);
     if (oppositeSide && nodeOccupied.has(oppositeSide)) {
         dockDebugLog("reject: node opposite side occupied", {
-            nodeId: node.id,
+            nodeId: dockFollower.id,
             side,
             oppositeSide,
             occupied: [...nodeOccupied],
@@ -1433,6 +1551,7 @@ function maybeResolveDeckPressureArrangement(hubCandidate, graph, side) {
 }
 export function deckNodeToLeader(node, leader, graph, side = null) {
     const attachLeader = side ? getDeckAttachLeaderForSide(leader, side, graph) : leader;
+    const dockFollower = getDeckPressureDockFollower(node, leader, graph, side);
     const hubAnchor = captureDeckPressureHubAnchor(node, leader, graph);
     dockDebug("deck-node-to-leader-start", {
         node: snapshotDockNode(node),
@@ -1444,23 +1563,23 @@ export function deckNodeToLeader(node, leader, graph, side = null) {
     if (!canDeckNodeToLeader(node, leader, graph, side)) return false;
     if (typeof node.settleBeforeDockSnap === "function") node.settleBeforeDockSnap();
     if (typeof attachLeader.settleBeforeDockSnap === "function") attachLeader.settleBeforeDockSnap();
-    lockDeckNodeAxes(node, side);
+    lockDeckNodeAxes(dockFollower, side);
     lockDeckNodeAxes(attachLeader, side);
-    matchDeckNodeSizes(node, attachLeader, side);
-    settleNodesAfterDockWidthMatch([node, attachLeader]);
-    const props = ensureDeckProps(node);
+    matchDeckNodeSizes(dockFollower, attachLeader, side);
+    settleNodesAfterDockWidthMatch([dockFollower, attachLeader]);
+    maybeResolveDeckPressureArrangement(leader, graph, side);
+    const props = ensureDeckProps(dockFollower);
     props.deckParentId = attachLeader.id;
     props.deckDockSide = side;
-    maybeResolveDeckPressureArrangement(leader, graph, side);
-    connectPeerDeckEdgeForDock(attachLeader, side, node, graph);
-    matchDeckNodeSizes(node, attachLeader, side);
-    settleNodesAfterDockWidthMatch([node, attachLeader]);
-    applyDeckEdgeSnap(node, { targetNode: attachLeader, edge: { side } }, DEFAULT_DECK_SNAP);
-    if (!hubAnchor) normalizeDockPair(attachLeader, node, side, graph, DEFAULT_DECK_SNAP);
+    connectPeerDeckEdgeForDock(attachLeader, side, dockFollower, graph);
+    matchDeckNodeSizes(dockFollower, attachLeader, side);
+    settleNodesAfterDockWidthMatch([dockFollower, attachLeader]);
+    applyDeckEdgeSnap(dockFollower, { targetNode: attachLeader, edge: { side } }, DEFAULT_DECK_SNAP);
+    if (!hubAnchor) normalizeDockPair(attachLeader, dockFollower, side, graph, DEFAULT_DECK_SNAP);
     restoreDeckPressureHubAnchor(hubAnchor);
-    normalizeVerticalStackPins(attachLeader, graph, attachLeader?.properties?.pinActive === true ? attachLeader : node);
+    normalizeVerticalStackPins(attachLeader, graph, attachLeader?.properties?.pinActive === true ? attachLeader : dockFollower);
     if (!hubAnchor) {
-        forceDockResizeRefresh(node);
+        forceDockResizeRefresh(dockFollower);
         forceDockResizeRefresh(attachLeader);
     }
     applyDeckPressureAfterDock(leader, graph, DEFAULT_DECK_SNAP);
@@ -1476,6 +1595,7 @@ export function deckNodeToLeader(node, leader, graph, side = null) {
 
 export function finalizeDeck(node, leader, graph, side = null, snap = DEFAULT_DECK_SNAP) {
     const attachLeader = side ? getDeckAttachLeaderForSide(leader, side, graph) : leader;
+    const dockFollower = getDeckPressureDockFollower(node, leader, graph, side);
     const hubAnchor = captureDeckPressureHubAnchor(node, leader, graph);
     dockDebug("finalize-deck-start", {
         node: snapshotDockNode(node),
@@ -1488,25 +1608,25 @@ export function finalizeDeck(node, leader, graph, side = null, snap = DEFAULT_DE
     if (!canDeckNodeToLeader(node, leader, graph, side)) return false;
     if (typeof node.settleBeforeDockSnap === "function") node.settleBeforeDockSnap();
     if (typeof attachLeader.settleBeforeDockSnap === "function") attachLeader.settleBeforeDockSnap();
-    lockDeckNodeAxes(node, side);
+    lockDeckNodeAxes(dockFollower, side);
     lockDeckNodeAxes(attachLeader, side);
-    matchDeckNodeSizes(node, attachLeader, side);
-    settleNodesAfterDockWidthMatch([node, attachLeader]);
+    matchDeckNodeSizes(dockFollower, attachLeader, side);
+    settleNodesAfterDockWidthMatch([dockFollower, attachLeader]);
     const targetInfo = { targetNode: attachLeader, edge: { side } };
-    applyDeckEdgeSnap(node, targetInfo, snap);
-    const props = ensureDeckProps(node);
+    applyDeckEdgeSnap(dockFollower, targetInfo, snap);
+    maybeResolveDeckPressureArrangement(leader, graph, side);
+    const props = ensureDeckProps(dockFollower);
     props.deckParentId = attachLeader.id;
     props.deckDockSide = side;
-    maybeResolveDeckPressureArrangement(leader, graph, side);
-    connectPeerDeckEdgeForDock(attachLeader, side, node, graph);
-    matchDeckNodeSizes(node, attachLeader, side);
-    settleNodesAfterDockWidthMatch([node, attachLeader]);
-    applyDeckEdgeSnap(node, { targetNode: attachLeader, edge: { side } }, snap);
-    if (!hubAnchor) normalizeDockPair(attachLeader, node, side, graph, snap);
+    connectPeerDeckEdgeForDock(attachLeader, side, dockFollower, graph);
+    matchDeckNodeSizes(dockFollower, attachLeader, side);
+    settleNodesAfterDockWidthMatch([dockFollower, attachLeader]);
+    applyDeckEdgeSnap(dockFollower, { targetNode: attachLeader, edge: { side } }, snap);
+    if (!hubAnchor) normalizeDockPair(attachLeader, dockFollower, side, graph, snap);
     restoreDeckPressureHubAnchor(hubAnchor);
-    normalizeVerticalStackPins(attachLeader, graph, attachLeader?.properties?.pinActive === true ? attachLeader : node);
+    normalizeVerticalStackPins(attachLeader, graph, attachLeader?.properties?.pinActive === true ? attachLeader : dockFollower);
     if (!hubAnchor) {
-        forceDockResizeRefresh(node);
+        forceDockResizeRefresh(dockFollower);
         forceDockResizeRefresh(attachLeader);
     }
     applyDeckPressureAfterDock(leader, graph, snap);
@@ -1575,28 +1695,29 @@ export function finalizeDeckTarget(node, targetInfo, graph, snap = DEFAULT_DECK_
     }
 
     const attachLeader = side ? getDeckAttachLeaderForSide(targetInfo.targetNode, side, graph) : targetInfo.targetNode;
+    const dockFollower = getDeckPressureDockFollower(node, targetInfo.targetNode, graph, side);
     const hubAnchor = captureDeckPressureHubAnchor(node, targetInfo.targetNode, graph);
     if (!canDeckNodeToLeader(node, targetInfo.targetNode, graph, side)) return false;
     if (typeof node.settleBeforeDockSnap === "function") node.settleBeforeDockSnap();
     if (typeof attachLeader.settleBeforeDockSnap === "function") attachLeader.settleBeforeDockSnap();
-    lockDeckNodeAxes(node, side);
+    lockDeckNodeAxes(dockFollower, side);
     lockDeckNodeAxes(attachLeader, side);
-    matchDeckNodeSizes(node, attachLeader, side);
-    settleNodesAfterDockWidthMatch([node, attachLeader]);
-    applyDeckEdgeSnap(node, { targetNode: attachLeader, edge: { side } }, snap);
-    const props = ensureDeckProps(node);
+    matchDeckNodeSizes(dockFollower, attachLeader, side);
+    settleNodesAfterDockWidthMatch([dockFollower, attachLeader]);
+    applyDeckEdgeSnap(dockFollower, { targetNode: attachLeader, edge: { side } }, snap);
+    maybeResolveDeckPressureArrangement(targetInfo.targetNode, graph, side);
+    const props = ensureDeckProps(dockFollower);
     props.deckParentId = attachLeader.id;
     props.deckDockSide = side;
-    maybeResolveDeckPressureArrangement(targetInfo.targetNode, graph, side);
-    connectPeerDeckEdgeForDock(attachLeader, side, node, graph);
-    matchDeckNodeSizes(node, attachLeader, side);
-    settleNodesAfterDockWidthMatch([node, attachLeader]);
-    applyDeckEdgeSnap(node, { targetNode: attachLeader, edge: { side } }, snap);
-    if (!hubAnchor) normalizeDockPair(attachLeader, node, side, graph, snap);
+    connectPeerDeckEdgeForDock(attachLeader, side, dockFollower, graph);
+    matchDeckNodeSizes(dockFollower, attachLeader, side);
+    settleNodesAfterDockWidthMatch([dockFollower, attachLeader]);
+    applyDeckEdgeSnap(dockFollower, { targetNode: attachLeader, edge: { side } }, snap);
+    if (!hubAnchor) normalizeDockPair(attachLeader, dockFollower, side, graph, snap);
     restoreDeckPressureHubAnchor(hubAnchor);
-    normalizeVerticalStackPins(attachLeader, graph, attachLeader?.properties?.pinActive === true ? attachLeader : node);
+    normalizeVerticalStackPins(attachLeader, graph, attachLeader?.properties?.pinActive === true ? attachLeader : dockFollower);
     if (!hubAnchor) {
-        forceDockResizeRefresh(node);
+        forceDockResizeRefresh(dockFollower);
         forceDockResizeRefresh(attachLeader);
     }
     applyDeckPressureAfterDock(targetInfo.targetNode, graph, snap);
@@ -1722,6 +1843,7 @@ export function findDeckTarget(dragNode, graph, options = {}) {
             isWithinDeckSearchRadius,
             getDeckNodes,
             getDeckMembers,
+            isLinearDeckGroup,
             getDeckSideDistance,
             getPeerDeckNeighbor,
             getNodeMinHeight,
@@ -1969,22 +2091,64 @@ function getDeckPressureRowMinSpan(members, snap) {
     return members.reduce((sum, member) => sum + getDeckPressureRowFixedWidth(member, snap), 0);
 }
 
+function getDeckPressureRowCurrentSpan(members, snap) {
+    if (!Array.isArray(members) || members.length === 0) return 0;
+    const unit = Math.max(1, snap);
+    return members.reduce((sum, member) => {
+        const minWidth = getDeckPressureRowFixedWidth(member, snap);
+        return sum + Math.max(minWidth, quantizeSize(getNodeSizeValue(member, 0), unit));
+    }, 0);
+}
+
+function getDeckPressureColumnCurrentHeights(members, snap) {
+    if (!Array.isArray(members) || members.length === 0) return [];
+    const unit = Math.max(1, snap);
+    return members.map((member) => {
+        const minHeight = quantizeSize(getDeckPressureMinSpanForState(member, "vertical", snap, member?.properties?.contentCollapsed === true), unit);
+        if (member?.properties?.contentCollapsed === true) return minHeight;
+        return Math.max(minHeight, quantizeSize(getNodeSizeValue(member, 1), unit));
+    });
+}
+
+function getDeckPressureColumnCurrentSpan(members, snap) {
+    const heights = getDeckPressureColumnCurrentHeights(members, snap);
+    if (!Array.isArray(heights)) return 0;
+    return heights.reduce((sum, height) => sum + height, 0);
+}
+
 function getDeckPressureBranchHeight(branch, snap) {
-    return branch ? Math.max(...branch.members.map((member) => getNodeSizeValue(member, 1)), ...branch.members.map((member) => getNodeMinHeight(member, snap)), 0) : 0;
+    if (!branch?.members?.length) return 0;
+    if (branch.axis === "vertical") return getDeckPressureColumnCurrentSpan(branch.members, snap);
+    return Math.max(...branch.members.map((member) => getNodeSizeValue(member, 1)), ...branch.members.map((member) => getNodeMinHeight(member, snap)), 0);
 }
 
 function getDeckPressureBranchWidth(branch, snap) {
-    return branch ? Math.max(...branch.members.map((member) => getNodeSizeValue(member, 0)), ...branch.members.map((member) => getNodeMinWidth(member, snap)), 0) : 0;
+    if (!branch?.members?.length) return 0;
+    if (branch.axis === "horizontal") return getDeckPressureRowCurrentSpan(branch.members, snap);
+    return Math.max(...branch.members.map((member) => getNodeSizeValue(member, 0)), ...branch.members.map((member) => getNodeMinWidth(member, snap)), 0);
+}
+
+function getDeckPressureBranchEdgeMinSpan(branch, snap) {
+    if (!branch?.members?.length) return 0;
+    if (branch.side === "left" || branch.side === "right") {
+        if (branch.axis === "vertical") return getDeckPressureBranchMinSpan(branch.members, "vertical", snap);
+        return Math.max(...branch.members.map((member) => getNodeMinHeight(member, snap)), 0);
+    }
+    if (branch.axis === "horizontal") return getDeckPressureRowMinSpan(branch.members, snap);
+    return Math.max(...branch.members.map((member) => getNodeMinWidth(member, snap)), 0);
 }
 
 export function getDeckPressureHubMinWidth(hub, graph, snap = DEFAULT_DECK_SNAP, fallbackMinWidth = 0) {
     if (!isDeckPressureHub(hub) || !graph) return fallbackMinWidth;
-    const topBottomMinWidth = Math.max(...["top", "bottom"].map((side) => getDeckPressureRowMinSpan(getDeckPressureBranchMembers(hub, graph, side), snap)), 0);
+    const topBottomMinWidth = Math.max(...["top", "bottom"].map((side) => {
+        const members = getDeckPressureBranchMembers(hub, graph, side);
+        return getDeckPressureBranchEdgeMinSpan({ side, members, axis: getDeckPressureBranchAxis(hub, graph, side) }, snap);
+    }), 0);
     if (ensureDeckPressureArrangement(hub, graph) !== DECK_ARRANGEMENT_HORIZONTAL) {
         return Math.max(fallbackMinWidth, topBottomMinWidth);
     }
     const sideWidth = ["left", "right"].reduce((sum, side) => {
-        const branch = { side, members: getDeckPressureBranchMembers(hub, graph, side) };
+        const branch = { side, members: getDeckPressureBranchMembers(hub, graph, side), axis: getDeckPressureBranchAxis(hub, graph, side) };
         return sum + getDeckPressureBranchWidth(branch, snap);
     }, 0);
     return Math.max(fallbackMinWidth, topBottomMinWidth - sideWidth);
@@ -2095,8 +2259,15 @@ export function applyDeckPressureLayout(hub, graph, snap = DEFAULT_DECK_SNAP) {
     const hubAnchor = { x: hubRect.x, y: hubRect.y };
     const preserveFrameBounds = hub._deckPressurePreserveFrameBounds || null;
     const branches = ["left", "right", "top", "bottom"]
-        .map((side) => ({ side, members: getDeckPressureBranchMembers(hub, graph, side) }))
+        .map((side) => ({ side, members: getDeckPressureBranchMembers(hub, graph, side), axis: getDeckPressureBranchAxis(hub, graph, side) }))
         .filter((branch) => branch.members.length > 0);
+
+    branches.forEach(({ side, members, axis }) => {
+        if ((side !== "left" && side !== "right") || axis !== "horizontal") return;
+        members.forEach((member) => {
+            if (member?.properties?.contentCollapsed === true && setDeckPressureCollapsed(member, false)) markChanged(member);
+        });
+    });
 
     const arrangement = ensureDeckPressureArrangement(hub, graph);
     const topBranch = branches.find((branch) => branch.side === "top");
@@ -2111,18 +2282,19 @@ export function applyDeckPressureLayout(hub, graph, snap = DEFAULT_DECK_SNAP) {
     const sideCollapseTargetHeight = arrangement === DECK_ARRANGEMENT_HORIZONTAL
         ? hubRect.h
         : hubRect.h + topHeight + bottomHeight;
-    branches.forEach(({ side, members }) => {
+    branches.forEach(({ side, members, axis }) => {
         if (side !== "left" && side !== "right") return;
+        if (axis !== "vertical") return;
         if (ensureDeckPressureFillerMember(members)) markChanged(members);
         if (applyDeckPressureCollapse(members, sideCollapseTargetHeight, "vertical", snap)) markChanged(members);
     });
 
     const sideMinHeight = Math.max(...branches
         .filter((branch) => branch.side === "left" || branch.side === "right")
-        .map((branch) => getDeckPressureBranchMinSpan(branch.members, "vertical", snap)), 0);
+        .map((branch) => getDeckPressureBranchEdgeMinSpan(branch, snap)), 0);
     const topBottomMinWidth = Math.max(...branches
         .filter((branch) => branch.side === "top" || branch.side === "bottom")
-        .map((branch) => getDeckPressureRowMinSpan(branch.members, snap)), 0);
+        .map((branch) => getDeckPressureBranchEdgeMinSpan(branch, snap)), 0);
     const centerWidth = arrangement === DECK_ARRANGEMENT_HORIZONTAL
         ? Math.max(hubRect.w, topBottomMinWidth - leftWidth - rightWidth)
         : Math.max(hubRect.w, topBottomMinWidth);
@@ -2172,17 +2344,29 @@ export function applyDeckPressureLayout(hub, graph, snap = DEFAULT_DECK_SNAP) {
     const sideFrameY = arrangement === DECK_ARRANGEMENT_HORIZONTAL ? hubRect.y : frameY;
     const sideFrameHeight = arrangement === DECK_ARRANGEMENT_HORIZONTAL ? hubRect.h : frameHeight;
 
-    branches.forEach(({ side, members }) => {
-        if (side === "left" || side === "right") {
+    branches.forEach(({ side, members, axis }) => {
+        if ((side === "left" || side === "right") && axis === "vertical") {
             const width = side === "left" ? leftWidth : rightWidth;
             const heights = fitDeckPressureSideHeights(members, sideFrameHeight, snap);
-            const x = side === "left" ? frameX : hubRect.x + hubRect.w;
+            const x = side === "left" ? hubRect.x - width : hubRect.x + hubRect.w;
             markChanged(applyColumnLayout(members, x, sideFrameY, width, heights, { deferDirty: true, deferSync: true }));
-        } else {
+        } else if (side === "left" || side === "right") {
+            const width = side === "left" ? leftWidth : rightWidth;
+            const height = Math.max(sideFrameHeight, getDeckPressureBranchEdgeMinSpan({ side, members, axis }, snap));
+            const widths = fitDeckPressureRowWidths(members, width, snap);
+            const x = side === "left" ? hubRect.x - width : hubRect.x + hubRect.w;
+            markChanged(applyRowLayout(members, x, sideFrameY, widths, height, { deferDirty: true, deferSync: true }));
+        } else if (axis === "horizontal") {
             const height = side === "top" ? topHeight : bottomHeight;
             const widths = fitDeckPressureRowWidths(members, frameWidth, snap);
             const y = side === "top" ? hubRect.y - height : hubRect.y + hubRect.h;
             markChanged(applyRowLayout(members, frameX, y, widths, height, { deferDirty: true, deferSync: true }));
+        } else {
+            const heights = getDeckPressureColumnCurrentHeights(members, snap);
+            const height = heights.reduce((sum, value) => sum + value, 0);
+            const width = Math.max(frameWidth, getDeckPressureBranchEdgeMinSpan({ side, members, axis }, snap));
+            const y = side === "top" ? hubRect.y - height : hubRect.y + hubRect.h;
+            markChanged(applyColumnLayout(members, frameX, y, width, heights, { deferDirty: true, deferSync: true }));
         }
     });
 
@@ -2202,23 +2386,45 @@ export function applyDeckPressureLayout(hub, graph, snap = DEFAULT_DECK_SNAP) {
 export function drawDeckGhost(ctx, ghost, options = {}) {
     if (!ctx || !ghost) return;
 
-    const fill = options.fill || "rgba(120, 200, 255, 0.18)";
-    const stroke = options.stroke || "rgba(120, 200, 255, 0.9)";
     const edgeValid = options.valid !== false;
+    const useAnim = options.useAnim !== false && window.DERP_GLOBAL_SETTINGS?.useAnimation !== false;
+    const fallbackFill = edgeValid
+        ? "rgba(120, 200, 255, 0.18)"
+        : "rgba(120, 200, 255, 0.18)";
+    const bodyPaint = edgeValid
+        ? (resolveSystemThemePaint("ghost_deck_valid", "DIS") || { fill: fallbackFill, corners: 0 })
+        : { fill: fallbackFill, corners: 0 };
+    const fill = options.fill || bodyPaint.fill || fallbackFill;
     const edgeStroke = edgeValid
-        ? (options.edgeStrokeValid || "rgba(56, 202, 90, 0.95)")
+        ? (options.edgeStrokeValid || (useAnim
+            ? getPulsedColor(
+                parseColor(resolveSystemThemeFill("ghost_deck_valid", "rgba(56, 202, 90, 0.95)", "OFF")),
+                parseColor(resolveSystemThemeFill("ghost_deck_valid", "rgba(120, 255, 150, 0.95)", "ON")),
+                options.pulseSpeed || DEFAULT_PULSE_SPEED
+            )
+            : resolveSystemThemeFill("ghost_deck_valid", "rgba(56, 202, 90, 0.95)", "OFF")))
         : (options.edgeStrokeInvalid || "rgba(255, 149, 0, 0.95)");
     const edgeLineWidth = isFiniteNumber(options.edgeLineWidth) ? options.edgeLineWidth : 4;
     const side = options.side || null;
     const targetEdgeLine = options.targetEdgeLine || null;
-    const lineWidth = isFiniteNumber(options.lineWidth) ? options.lineWidth : 2;
+
+    if (edgeValid && useAnim && !window._xcpDeckGhostPulsePending && window.app?.canvas) {
+        window._xcpDeckGhostPulsePending = true;
+        requestAnimationFrame(() => {
+            window._xcpDeckGhostPulsePending = false;
+            window.app?.canvas?.setDirty?.(true, true);
+        });
+    }
 
     ctx.save();
-    ctx.fillStyle = fill;
-    ctx.strokeStyle = stroke;
-    ctx.lineWidth = lineWidth;
-    ctx.fillRect(ghost.x, ghost.y, ghost.w, ghost.h);
-    ctx.strokeRect(ghost.x, ghost.y, ghost.w, ghost.h);
+    masterPainter(ctx, {
+        posX: ghost.x,
+        posY: ghost.y,
+        width: ghost.w,
+        height: ghost.h,
+        color: fill,
+        paintData: { ...bodyPaint, fill },
+    });
 
     if (side) {
         ctx.strokeStyle = edgeStroke;

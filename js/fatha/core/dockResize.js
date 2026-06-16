@@ -6,9 +6,11 @@ import {
     getDeckMembers,
     getDeckPressureBranchMembers,
     getDeckPressureBranchSideForNode,
+    getDeckPressureBranchAxis,
     getDeckPressureHubForNode,
     getNodeOnDeckEdge,
     applyDeckPressureLayout,
+    isDeckPressureSideHorizontalBranchMember,
     isLinearDeckGroup,
     isNodeDocked,
     syncDeckNodeSize,
@@ -404,6 +406,7 @@ export function handleDerpCollapseImpl(entity, force, deps = {}) {
     const { requestSyncFallback, settleDerpSizeBeforeDraw, resolveHorizontalDeckSharedHeight, syncHorizontalDeckHeight, closeSysPanel } = deps;
     const nextState = force !== undefined ? force : !entity.properties.contentCollapsed;
     const graph = app.graph || entity.graph || null;
+    if (nextState === true && isDeckPressureSideHorizontalBranchMember(entity, graph)) return;
     const pressureHub = graph ? getDeckPressureHubForNode(entity, graph) : null;
     const pressureBranchSide = pressureHub && pressureHub.id !== entity.id ? getDeckPressureBranchSideForNode(pressureHub, graph, entity) : null;
     const isPressureSideBranch = pressureBranchSide === "left" || pressureBranchSide === "right";
@@ -570,17 +573,11 @@ function normalizeHorizontalMemberPositions(anchorNode, graph) {
     });
 }
 
-function getPressureBranchAxis(side) {
-    if (side === "left" || side === "right") return "vertical";
-    if (side === "top" || side === "bottom") return "horizontal";
-    return null;
-}
-
 function getLinearResizeMembers(node, graph, axis) {
     if (!graph || !node) return [];
     const pressureHub = getDeckPressureHubForNode(node, graph);
     const branchSide = pressureHub && pressureHub.id !== node.id ? getDeckPressureBranchSideForNode(pressureHub, graph, node) : null;
-    if (getPressureBranchAxis(branchSide) === axis) return getDeckPressureBranchMembers(pressureHub, graph, branchSide);
+    if (getDeckPressureBranchAxis(pressureHub, graph, branchSide) === axis) return getDeckPressureBranchMembers(pressureHub, graph, branchSide);
     return isLinearDeckGroup(node, graph, axis) ? getDeckMembers(node, graph) : [];
 }
 
@@ -589,7 +586,7 @@ function getHorizontalDeckMembersByX(node, graph) {
     if (members.length === 0) return [];
     const pressureHub = getDeckPressureHubForNode(node, graph);
     const branchSide = pressureHub && pressureHub.id !== node.id ? getDeckPressureBranchSideForNode(pressureHub, graph, node) : null;
-    if (getPressureBranchAxis(branchSide) === "horizontal") return members;
+    if (getDeckPressureBranchAxis(pressureHub, graph, branchSide) === "horizontal") return members;
     return members.slice().sort((a, b) => {
         const ax = Number(a?.pos?.[0]) || 0;
         const bx = Number(b?.pos?.[0]) || 0;
@@ -1086,6 +1083,8 @@ function applyDeckPressureSideWidthResize(entity, resizeAnchor, requestedEntityW
     const pressureHub = getDeckPressureHubForNode(entity, graph);
     if (!pressureHub || pressureHub.id === entity.id) return false;
     const branchSide = getDeckPressureBranchSideForNode(pressureHub, graph, entity);
+    if (branchSide !== "left" && branchSide !== "right") return false;
+    if (getDeckPressureBranchAxis(pressureHub, graph, branchSide) !== "vertical") return false;
     if ((branchSide === "left" && resizeAnchor !== "right") || (branchSide === "right" && resizeAnchor !== "left")) return false;
 
     const branchMembers = getDeckPressureBranchMembers(pressureHub, graph, branchSide);

@@ -9,7 +9,7 @@ import { showBastaFileHandler, getHandlerId } from "../bastas/bastaFileHandler.j
 import { showBastaMessage } from "../bastas/bastaMessage.js";
 import { playKaChing, playKaboom } from "../../herbina/masterSoundEffects.js";
 import { resolvePaintData, measureTextWidth } from "../../herbina/utils/widgetsUtils.js";
-import { isNodeDocked, undockNodeEdges, isLinearDeckGroup, getDeckMembers, getDeckParent, getDeckPressureHubForNode, hasDeckPressureBranches, isDeckPressureHub, undeckDeckPressureBranches } from "../core/masterDockEngine.js";
+import { isNodeDocked, undockNodeEdges, isLinearDeckGroup, getDeckMembers, getDeckParent, getDeckPressureHubForNode, hasDeckPressureBranches, isDeckPressureHub, isDeckPressureSideHorizontalBranchMember, undeckDeckPressureBranches } from "../core/masterDockEngine.js";
 import { clearBypassSignalDebouncers, transmitBypassedDerpSignals } from "../core/masterSignalEngine.js";
 import { ensureNodeVisibleInViewport } from "../core/fathaWarp.js";
 import { warpToPoint } from "../core/fathaWarp.js";
@@ -335,6 +335,7 @@ export const getVirtualNodeLayoutMap = (node) => {
 
     const isVerticalDocked = isVerticalDockedGroup(node);
     const isHorizontalDocked = isHorizontalDockedGroup(node);
+    const collapseDisabled = isDeckPressureSideHorizontalBranchMember(node, node.graph || null);
     const isDeckPressureControlVisible = isDeckPressureHub(node) && hasDeckPressureBranches(node, node.graph || null);
     const hideStackUndock = isNodeInDeckPressure(node);
     const suppressHiddenHeaderDockGap = p.drawHeader === false && isHorizontalDocked && !p.contentCollapsed;
@@ -392,6 +393,7 @@ export const getVirtualNodeLayoutMap = (node) => {
                 padding: [headerSideInsetBoost.left, 0, headerSideInsetBoost.right, 0],
                 btnCollapse: {
                     type: UI_TYPES.ICONBUTTON,
+                    hidden: collapseDisabled,
                     themeKey: "buttonNode, t_textSystem",
                     toolTip: tLocale("$fatha_layout.tooltips.collapse_node", "Collapse or un-collapse the node"),
                     icon: collapseIcon,

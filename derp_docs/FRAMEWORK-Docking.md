@@ -36,6 +36,7 @@ drag starts → target detection → attach → normalizeDockPair → forceDockR
 ### 1. Target Detection (`dockTargetPicking.js`)
 Detects proximity of dragged node to edges of potential dock targets. Returns target node + edge.
 When the dragged item is already a docked stack, target detection excludes every member of that moving stack. This prevents Alt-attach previews from targeting another member of the same stack and drawing a second ghost over the moving stack itself.
+Linear dragged stacks use their whole stack bounds for edge-distance checks and attach ghosts, so Deck Pressure side/top/bottom detection follows the stack's outer edge instead of the drag-root node edge.
 
 ### 2. Attach (`masterDockEngine.js`)
 - Registers the new member in the dock group
@@ -125,19 +126,21 @@ When ComfyUI Node 2.0/Vue mode moves a default group containing docked Derp stac
 - Alt-drag a node or existing docked stack near an ImageDeck edge to attach it as a Deck Pressure branch.
 - A hub can own one linear branch per edge: `left`, `right`, `top`, and `bottom`.
 - Branches remain normal graph-space docked nodes; there is no nested container, viewport, clipping, or custom serialization.
+- Existing linear stacks may attach to any ImageDeck edge. Deck Pressure preserves the stack's own orientation and infers branch axis from the branch topology instead of from the hub side; single-node branches still fall back to the side's original default axis.
 - Deck Pressure hubs expose their own header deck control only while branches are attached. Ordinary stack undock buttons are hidden on nodes that are themselves inside a Deck Pressure group, so stack controls do not double as deck controls.
 - The hub deck control detaches every Deck Pressure branch from the hub while leaving ordinary stacks inside those branches intact.
-- Deck Pressure attach ghosts and highlighted edge lines use the composed Deck frame, including already-attached branches, so left/right previews span the whole Deck height and top/bottom previews span the whole Deck width.
+- Deck Pressure attach ghosts and highlighted edge lines use the composed Deck frame, including already-attached branches, so left/right previews span the whole Deck height and top/bottom previews span the whole Deck width. Valid ghost edges pulse through `masterAnimator` between `_System/_DK_System` `ghost_deck_valid._OFF` and `_ON`, using the shared selected-node default pulse speed unless overridden.
 - `Derp.DeckArrangement` controls how an empty ImageDeck resolves new Deck Pressure branches. Values are `automatic`, `vertical_sandwich`, and `horizontal_sandwich`.
-- Each hub persists its resolved arrangement in `properties.deckArrangement` when the first branch attaches. Existing hubs without this property behave as `vertical_sandwich`, and changing the global setting later does not rearrange hubs that already have members.
+- Each hub persists its resolved arrangement in `properties.deckArrangement` when the first branch attaches. Changing the global setting later does not rearrange hubs that already have members, but an empty/detached hub resolves again from the current setting on its next first attach.
 - `automatic` resolves from the first attached branch: top/bottom first creates a `vertical_sandwich`; left/right first creates a `horizontal_sandwich`.
 - `vertical_sandwich` is the original layout: side branches (`left`/`right`) target the full Deck frame height including top branch + ImageDeck hub + bottom branch, while top/bottom branches align to the ImageDeck hub width.
 - `horizontal_sandwich` makes side branches target the ImageDeck hub height only, while top/bottom branches span the full Deck frame width including left branch + ImageDeck hub + right branch.
 - When a branch overflows, Deck Pressure keeps the active/hovered/pressed or just-toggled member expanded, collapses non-active siblings first, and grows the hub frame only when collapsed minimum sizes still cannot fit.
 - Side-branch pressure compares expanded minimum requirements before collapsing, so multiple nodes can stay expanded whenever the branch can fit them by resizing.
+- Horizontal stacks attached to the left/right side of a Deck Pressure hub cannot be collapsed; pressure layout reopens any already-collapsed side-horizontal members.
 - Dock finalization treats the ImageDeck hub position as anchored; normal pair normalization may move attached branches, but must not move the hub itself.
 - ImageDeck-owned pressure attaches skip generic `normalizeDockPair()` / `forceDockResizeRefresh()` because those normal stack helpers can reinterpret the new hub seam as a resizable shared edge and move the hub.
-- Shared-edge resizing inside a Deck branch must resolve the branch's linear member list (`getDeckPressureBranchMembers`) instead of using whole-group `isLinearDeckGroup()`, because the full ImageDeck-owned group is intentionally mixed-axis.
+- Shared-edge resizing inside a Deck branch must resolve the branch's linear member list (`getDeckPressureBranchMembers`) and actual branch axis (`getDeckPressureBranchAxis`) instead of using whole-group `isLinearDeckGroup()` or side-implied orientation, because the full ImageDeck-owned group is intentionally mixed-axis.
 - Side-branch width resizing is exposed on the shared vertical seam between the `derpImageDeck` hub and a left/right branch. The resize changes the branch width and compensates the hub width while preserving the outer Deck frame bounds.
 - In `horizontal_sandwich`, preserved frame bounds still span top/bottom rows, but side branches use the hub's vertical band for their `y` and height so top branches do not pull side stacks upward.
 - Pure top/bottom shared-edge resizing in a side branch is handled as an ordered vertical seam before generic node resize, so dragging one member cannot move it behind its neighbor.
@@ -153,6 +156,7 @@ When ComfyUI Node 2.0/Vue mode moves a default group containing docked Derp stac
 - Side branches always keep one expanded filler member; if all branch members are collapsed, Deck Pressure re-expands the active member before fitting the branch to the Deck frame.
 - Pressure min-span measurement is cached per node by axis, collapsed state, snap, width, and layout hash; current height is deliberately excluded because pressure layout changes it during fitting.
 - Active filler selection ignores hover-only state; it prefers the current interaction window, pressed nodes, selected expanded nodes, then any already-expanded side-branch member before falling back to branch order.
+- Top/bottom vertical Deck Pressure branches preserve their own member heights during ImageDeck frame resize; hub height deltas must not be fit into those branch columns.
 - Collapsed pressure height uses the recomputed collapsed virtual layout only; hidden expanded `layoutMap` regions and their `minHeight` values are ignored for collapsed side-branch sizing.
 - Collapsed pressure height falls back to the compact collapsed header height (`DEFAULT_DECK_SNAP * 2`) rather than the generic 40px node fallback.
 - Pressure layout keeps the ImageDeck hub position anchored during collapse/un-collapse passes; only active hub resize may move it to preserve the dragged edge.

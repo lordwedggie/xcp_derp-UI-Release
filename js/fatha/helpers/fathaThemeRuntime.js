@@ -2,6 +2,7 @@ import { app } from "../../../../scripts/app.js";
 import { compileThemeData, invalidateCompiledThemeCache } from "../../herbina/masterPainter.js";
 import { closeDerpSysPanel, sysPanel } from "./fathaSysPanel.js";
 import { showBastaSystemMessage } from "../bastas/bastaSystemMessage.js";
+import { loadDerpSystemTheme } from "./fathaSystemTheme.js";
 
 function getSystemMessageHost(preferredNode = null, fallbackId = "xcp_system_message_host") {
     return preferredNode || app?.graph?._nodes?.find?.(node => node?.isFathaNode || node?.isUncleNode) || {
@@ -394,6 +395,7 @@ export function handleInitDerpGlobalListenerImpl(appInstance, deps = {}) {
     const configuredPalette = appInstance.ui.settings.getSettingValue("Derp.Palette") || "Derp_Default_v01";
     const initialPalette = isRetiredPaletteName(configuredPalette) ? "Derp_Default_v01" : configuredPalette;
     if (typeof loadDerpPalette === "function") loadDerpPalette(initialPalette);
+    loadDerpSystemTheme();
 
     if (typeof hydrateDerpBackgroundSetting === "function") hydrateDerpBackgroundSetting();
 

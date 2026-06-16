@@ -16,7 +16,7 @@ export function beginDockDrag(entity, deckEngine) {
 export function updateDockDrag(entity, deckEngine, data, scale) {
     const { SNAP } = entity.getDerpVars(entity);
     const dragRoot = deckEngine.getActiveRoot?.() || deckEngine.getRoot(entity) || entity;
-    const rootStartPos = entity._deckDragRootStartPos || entity._startPos || dragRoot.pos || [0, 0];
+    const rootStartPos = entity._deckDragRootStartPos || (dragRoot.id === entity.id ? entity._startPos : null) || dragRoot.pos || [0, 0];
     const deltaX = data.dx / scale;
     const deltaY = data.dy / scale;
     setDeckNodePos(

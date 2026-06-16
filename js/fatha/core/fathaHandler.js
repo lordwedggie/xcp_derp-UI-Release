@@ -22,7 +22,7 @@ import {
     handleDerpCollapseImpl,
     handleHorizontalDeckTitleToggleImpl,
 } from "./dockResize.js";
-import { masterDockEngine, getDeckMembers, getDeckCornerOverride, getNodeOnDeckEdge, isLinearDeckGroup, normalizeDockedLayout, setDeckNodePos, syncDeckNodeSize, isDeckPressureHub, getDeckPressureHubForNode, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, applyDeckPressureLayout } from "./masterDockEngine.js";
+import { masterDockEngine, getDeckMembers, getDeckCornerOverride, getNodeOnDeckEdge, isDeckPressureSideHorizontalBranchMember, isLinearDeckGroup, normalizeDockedLayout, setDeckNodePos, syncDeckNodeSize, isDeckPressureHub, getDeckPressureHubForNode, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureBranchAxis, applyDeckPressureLayout } from "./masterDockEngine.js";
 import { getDockGroupAxisFromMembers, getDockNodeHeight, getDockNodeMinWidth, getDockNodeWidth, getSharedDockMinWidth, getSharedDockWidth, shouldPreserveDockHeight, shouldPreserveDockWidth } from "./dockDimensions.js";
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
 import {
@@ -451,17 +451,11 @@ export function drawDeckResizeOptimizedNode(node, ctx) {
     return true;
 }
 
-function getPressureBranchAxis(side) {
-    if (side === "left" || side === "right") return "vertical";
-    if (side === "top" || side === "bottom") return "horizontal";
-    return null;
-}
-
 function getLinearDeckMembers(node, graph, axis) {
     if (!graph || !node) return [];
     const pressureHub = getDeckPressureHubForNode(node, graph);
     const branchSide = pressureHub && pressureHub.id !== node.id ? getDeckPressureBranchSideForNode(pressureHub, graph, node) : null;
-    if (getPressureBranchAxis(branchSide) === axis) return getDeckPressureBranchMembers(pressureHub, graph, branchSide);
+    if (getDeckPressureBranchAxis(pressureHub, graph, branchSide) === axis) return getDeckPressureBranchMembers(pressureHub, graph, branchSide);
     return isLinearDeckGroup(node, graph, axis) ? getDeckMembers(node, graph) : [];
 }
 
@@ -470,7 +464,7 @@ function getHorizontalDeckMembersByX(node, graph) {
     if (members.length === 0) return [];
     const pressureHub = getDeckPressureHubForNode(node, graph);
     const branchSide = pressureHub && pressureHub.id !== node.id ? getDeckPressureBranchSideForNode(pressureHub, graph, node) : null;
-    if (getPressureBranchAxis(branchSide) === "horizontal") return members;
+    if (getDeckPressureBranchAxis(pressureHub, graph, branchSide) === "horizontal") return members;
     return members.slice().sort((a, b) => {
         const ax = Number(a?.pos?.[0]) || 0;
         const bx = Number(b?.pos?.[0]) || 0;
@@ -1349,6 +1343,7 @@ function handleShieldDrag(entity, data, scale, deckEngine) {
             reg.onDrag(data.originalEvent, data);
             return false;
         }
+        if (!entity._deckDragRootStartPos) return true;
     }
 
     if (entity.properties?.stickyDrag === true && !entity._deckDragRootStartPos) {
@@ -1399,6 +1394,7 @@ function handleVerticalHeaderClick(entity, localMouse, data) {
     const headerCollapseEnabled = window.DERP_GLOBAL_SETTINGS?.verticalDockHeaderCollapse ?? true;
     const isVerticalDockHeaderHit = headerCollapseEnabled && header && graph && isLinearDeckGroup(entity, graph, "vertical") && entity.layout.hitTest(localMouse, header);
     if (!isVerticalDockHeaderHit) return false;
+    if (isDeckPressureSideHorizontalBranchMember(entity, graph)) return false;
 
     const shiftKey = data?.originalEvent?.shiftKey;
     if (shiftKey) {
@@ -1408,7 +1404,7 @@ function handleVerticalHeaderClick(entity, localMouse, data) {
         if (SOUND_INDEX?.[soundKey]) SOUND_INDEX[soundKey]();
         if (wasCollapsed) {
             members.forEach(member => {
-                if (member !== entity && member.properties?.contentCollapsed !== true) {
+                if (member !== entity && member.properties?.contentCollapsed !== true && !isDeckPressureSideHorizontalBranchMember(member, graph)) {
                     if (typeof member.collapse === "function") member.collapse(true);
                     else member.properties.contentCollapsed = true;
                     member.setDirtyCanvas?.(true, true);
@@ -1702,7 +1698,7 @@ export function handleDrawCTX(entity, ctx, overlayPass = false) {
                 }
             }
             if (paintON) {
-                const pulseAlpha = getPulseAlpha(0.003);
+                const pulseAlpha = getPulseAlpha();
                 ctx.save();
                 ctx.globalAlpha = pulseAlpha;
                 if (header) {

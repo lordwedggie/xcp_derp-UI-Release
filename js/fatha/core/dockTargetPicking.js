@@ -1,3 +1,25 @@
+function getLinearDragRect(dragNode, graph, getNodeRect, getDeckMembers, isLinearDeckGroup) {
+    const fallback = getNodeRect(dragNode);
+    const members = getDeckMembers?.(dragNode, graph) || [dragNode];
+    if (members.length <= 1) return fallback;
+    if (!isLinearDeckGroup?.(dragNode, graph, "horizontal") && !isLinearDeckGroup?.(dragNode, graph, "vertical")) return fallback;
+
+    let left = Infinity;
+    let top = Infinity;
+    let right = -Infinity;
+    let bottom = -Infinity;
+    members.forEach((member) => {
+        const rect = getNodeRect(member);
+        left = Math.min(left, rect.x);
+        top = Math.min(top, rect.y);
+        right = Math.max(right, rect.x + rect.w);
+        bottom = Math.max(bottom, rect.y + rect.h);
+    });
+
+    if (![left, top, right, bottom].every(Number.isFinite)) return fallback;
+    return { x: left, y: top, w: Math.max(0, right - left), h: Math.max(0, bottom - top) };
+}
+
 export function resolveDockTarget({
                                       dragNode,
                                       graph,
@@ -19,6 +41,7 @@ export function resolveDockTarget({
         isWithinDeckSearchRadius,
         getDeckNodes,
         getDeckMembers,
+        isLinearDeckGroup,
         getDeckSideDistance,
         getDeckGhostRect,
         getRectEdgeLine,
@@ -29,7 +52,7 @@ export function resolveDockTarget({
     } = utils;
 
     const radius = isFiniteNumber(options.radius) ? options.radius : DEFAULT_DECK_RADIUS;
-    const dragRect = getNodeRect(dragNode);
+    const dragRect = getLinearDragRect(dragNode, graph, getNodeRect, getDeckMembers, isLinearDeckGroup);
     dockDebugLog("findDeckTarget:start", {
         dragNodeId: dragNode.id,
         radius,

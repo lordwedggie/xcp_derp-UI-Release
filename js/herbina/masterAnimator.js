@@ -108,18 +108,19 @@ export function colorPulse2(colorA, colorB, speed) {
 }
 
 const PULSE_FRAME_BUCKET_MS = 50;
+export const DEFAULT_PULSE_SPEED = 0.003;
 const _pulseColorCache = new Map();
 
-export function getPulseMix(speed = 0.005, bucketMs = PULSE_FRAME_BUCKET_MS) {
+export function getPulseMix(speed = DEFAULT_PULSE_SPEED, bucketMs = PULSE_FRAME_BUCKET_MS) {
     const quantizedTime = Math.floor(Date.now() / bucketMs) * bucketMs;
     return (Math.sin(quantizedTime * speed) + 1) / 2;
 }
 
-export function getPulseAlpha(speed = 0.005, bucketMs = PULSE_FRAME_BUCKET_MS) {
+export function getPulseAlpha(speed = DEFAULT_PULSE_SPEED, bucketMs = PULSE_FRAME_BUCKET_MS) {
     return getPulseMix(speed, bucketMs);
 }
 
-export function getPulsedColor(colorA, colorB, speed = 0.005, bucketMs = PULSE_FRAME_BUCKET_MS) {
+export function getPulsedColor(colorA, colorB, speed = DEFAULT_PULSE_SPEED, bucketMs = PULSE_FRAME_BUCKET_MS) {
     const quantizedTime = Math.floor(Date.now() / bucketMs) * bucketMs;
     const key = `${quantizedTime}|${speed}|${bucketMs}|${colorA.join(",")}|${colorB.join(",")}`;
     const cached = _pulseColorCache.get(key);

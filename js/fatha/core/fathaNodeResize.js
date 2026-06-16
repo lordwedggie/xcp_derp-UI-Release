@@ -1,21 +1,15 @@
 import { sysPanel } from "../helpers/fathaSysPanel.js";
 import { applyDockResizeResult, canResizeHorizontalStackWidth, syncDockResizePair } from "./dockResize.js";
 import { getDockGroupAxisFromMembers, getDockNodeMinHeight, getDockNodeMinWidth, resolveDockResizeAxes } from "./dockDimensions.js";
-import { applyDeckPressureLayout, getDeckMembers, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureHubForNode, getDeckPressureHubMinWidth, getNodeOnDeckEdge, isDeckPressureHub, setDeckNodePos } from "./masterDockEngine.js";
+import { applyDeckPressureLayout, getDeckMembers, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureBranchAxis, getDeckPressureHubForNode, getDeckPressureHubMinWidth, getNodeOnDeckEdge, isDeckPressureHub, setDeckNodePos } from "./masterDockEngine.js";
 import { dockDebug, snapshotDockNode } from "./dockDebugHelpers.js";
 import { setDerpNodeSizeCompat } from "./fathaNode2Compat.js";
-
-function getPressureBranchAxis(side) {
-    if (side === "left" || side === "right") return "vertical";
-    if (side === "top" || side === "bottom") return "horizontal";
-    return null;
-}
 
 function getResizeAxis(entity, graph) {
     if (!graph || !entity || isDeckPressureHub(entity)) return null;
     const pressureHub = getDeckPressureHubForNode(entity, graph);
     const branchSide = pressureHub && pressureHub.id !== entity.id ? getDeckPressureBranchSideForNode(pressureHub, graph, entity) : null;
-    const branchAxis = getPressureBranchAxis(branchSide);
+    const branchAxis = getDeckPressureBranchAxis(pressureHub, graph, branchSide);
     if (branchAxis && getDeckPressureBranchMembers(pressureHub, graph, branchSide).length > 1) return branchAxis;
     return getDockGroupAxisFromMembers(getDeckMembers(entity, graph));
 }
@@ -25,6 +19,8 @@ function isDeckPressureSideWidthResize(entity, graph, resizeAnchor) {
     const pressureHub = getDeckPressureHubForNode(entity, graph);
     if (!pressureHub || pressureHub.id === entity?.id) return false;
     const branchSide = getDeckPressureBranchSideForNode(pressureHub, graph, entity);
+    if (branchSide !== "left" && branchSide !== "right") return false;
+    if (getDeckPressureBranchAxis(pressureHub, graph, branchSide) !== "vertical") return false;
     return (branchSide === "left" && resizeAnchor === "right") || (branchSide === "right" && resizeAnchor === "left");
 }
 
