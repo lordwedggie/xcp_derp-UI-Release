@@ -6,7 +6,7 @@
 import { app } from "../../../../scripts/app.js";
 import { createDerpShield, syncDerpShield, removeDerpShield } from "./core/fathaDOMshield.js";
 import { masterLayoutEngine } from "./core/masterLayoutEngine.js";
-import { handleShieldInteraction, handleDrawCTX, handleThemeUpdate, handleInitDerpGlobalListener, getDerpVars, handleDerpRequestSync, handleDerpComputeSize, handleDerpCollapse, animateDerpSize, drawDeckPreviewGlobal, shouldPreserveHorizontalDeckHeight, shouldPreserveVerticalDeckWidth, balanceHorizontalDeckWidthChange, syncHorizontalDeckHeight, resolveDerpRuntimeSize, resolveHorizontalDeckSharedHeight, normalizeDerpDockedLayout, syncDerpLocalizedDefaultTitle, drawDeckResizeOptimizedNode } from "./core/fathaHandler.js";
+import { handleShieldInteraction, handleDrawCTX, handleThemeUpdate, handleInitDerpGlobalListener, getDerpVars, handleDerpRequestSync, handleDerpComputeSize, handleDerpCollapse, animateDerpSize, drawDeckPreviewGlobal, shouldPreserveHorizontalDeckHeight, shouldPreserveVerticalDeckWidth, balanceHorizontalDeckWidthChange, syncHorizontalDeckHeight, resolveDerpRuntimeSize, resolveHorizontalDeckSharedHeight, normalizeDerpDockedLayout, syncDerpLocalizedDefaultTitle, drawDeckResizeOptimizedNode, shouldLockDeckPressureSideHorizontalWidth, getDeckPressureSideHorizontalLockedWidth } from "./core/fathaHandler.js";
 export { getDerpVars };
 import { suppressDefaultWidgets, syncUncleSlots, lerpUnclePadding, drawUncleSlots } from "./helpers/uncleSlotHelper.js";
 import { drawDerpSysPanelGlobal, isHostActive, closeDerpSysPanel, sysPanel } from "./helpers/fathaSysPanel.js";
@@ -277,8 +277,11 @@ export function uncle(nodeType, nodeData, minWidth = 100) {
 
         // During live resize, preserve the manually dragged axis but still let the auto-managed
         // secondary axis respond immediately (e.g. width shrink causing auto-height growth).
-        const lockHorizontalDeckResize = this._horizontalDeckWidthResizeLock === true;
-        const liveTargetW = (this._isDerpResizing && !autoWidth) || lockHorizontalDeckResize ? this.size[0] : targetW;
+        const lockHorizontalDeckResize = this._horizontalDeckWidthResizeLock === true || shouldLockDeckPressureSideHorizontalWidth(this);
+        const lockedDeckPressureSideW = getDeckPressureSideHorizontalLockedWidth(this);
+        const liveTargetW = lockedDeckPressureSideW > 0
+            ? lockedDeckPressureSideW
+            : ((this._isDerpResizing && !autoWidth) || lockHorizontalDeckResize ? this.size[0] : targetW);
         const liveTargetH = (this._isDerpResizing && !autoHeight) || lockHorizontalDeckResize ? this.size[1] : targetH;
         const preAnimateW = Number(this.size?.[0]) || 0;
         animateDerpSize(this, liveTargetW, liveTargetH, useAnim);
@@ -307,7 +310,8 @@ export function uncle(nodeType, nodeData, minWidth = 100) {
         }
 
         if (this.properties.nodeSize && !isMinState) {
-            if (autoWidth && !shouldPreserveVerticalDeckWidth(this)) this.properties.nodeSize[0] = targetW;
+            if (lockedDeckPressureSideW > 0) this.properties.nodeSize[0] = lockedDeckPressureSideW;
+            else if (autoWidth && !shouldPreserveVerticalDeckWidth(this) && !lockHorizontalDeckResize) this.properties.nodeSize[0] = targetW;
             if (autoHeight) this.properties.nodeSize[1] = preserveHorizontalDeckHeight
                 ? (Number(this.size?.[1]) || targetH)
                 : targetH;

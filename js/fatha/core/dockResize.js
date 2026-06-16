@@ -10,6 +10,7 @@ import {
     getDeckPressureHubForNode,
     getNodeOnDeckEdge,
     applyDeckPressureLayout,
+    isDeckPressureSideHorizontalHubEdge,
     isDeckPressureSideHorizontalBranchMember,
     isLinearDeckGroup,
     isNodeDocked,
@@ -174,6 +175,7 @@ export function restorePinnedVerticalDeckPositionAnchor(anchor) {
 
 export function shouldPreserveVerticalDeckWidth(node, graph = app.graph || node?.graph || null) {
     if (!graph || !node) return false;
+    if (getDeckPressureHubForNode(node, graph)?.id === node.id) return false;
     const members = getLinearResizeMembers(node, graph, "vertical");
     if (members.length > 1) return true;
     return shouldPreserveDockWidth(getDockGroupAxisFromMembers(getDeckMembers(node, graph)));
@@ -181,6 +183,7 @@ export function shouldPreserveVerticalDeckWidth(node, graph = app.graph || node?
 
 export function shouldPreserveHorizontalDeckHeight(node, graph = app.graph || node?.graph || null) {
     if (!graph || !node) return false;
+    if (getDeckPressureHubForNode(node, graph)?.id === node.id) return false;
     const members = getLinearResizeMembers(node, graph, "horizontal");
     if (members.length > 1) return true;
     return shouldPreserveDockHeight(getDockGroupAxisFromMembers(getDeckMembers(node, graph)));
@@ -357,7 +360,10 @@ export function animateDerpSizeImpl(node, targetW, targetH, useAnim, options = {
 
 export function resolveDerpRuntimeSizeImpl(node, measured, vars = {}) {
     const graph = app.graph || node?.graph || null;
-    const axis = graph && node ? getDockGroupAxisFromMembers(getDeckMembers(node, graph)) : null;
+    const pressureHub = graph && node ? getDeckPressureHubForNode(node, graph) : null;
+    const branchSide = pressureHub && pressureHub.id !== node?.id ? getDeckPressureBranchSideForNode(pressureHub, graph, node) : null;
+    const branchAxis = getDeckPressureBranchAxis(pressureHub, graph, branchSide);
+    const axis = branchAxis || (graph && node ? getDockGroupAxisFromMembers(getDeckMembers(node, graph)) : null);
     return resolveRuntimeDockSize(node, axis, measured, vars);
 }
 
@@ -576,6 +582,7 @@ function normalizeHorizontalMemberPositions(anchorNode, graph) {
 function getLinearResizeMembers(node, graph, axis) {
     if (!graph || !node) return [];
     const pressureHub = getDeckPressureHubForNode(node, graph);
+    if (pressureHub?.id === node.id) return [];
     const branchSide = pressureHub && pressureHub.id !== node.id ? getDeckPressureBranchSideForNode(pressureHub, graph, node) : null;
     if (getDeckPressureBranchAxis(pressureHub, graph, branchSide) === axis) return getDeckPressureBranchMembers(pressureHub, graph, branchSide);
     return isLinearDeckGroup(node, graph, axis) ? getDeckMembers(node, graph) : [];
@@ -929,6 +936,7 @@ function applyCollapsedVerticalBoundaryResize(entity, resizeAnchor, requestedEnt
 }
 
 export function canResizeHorizontalStackWidth(node, graph = app.graph || node?.graph || null, side = null) {
+    if (side && isDeckPressureSideHorizontalHubEdge(node, graph, side)) return false;
     const members = getHorizontalDeckMembersByX(node, graph);
     if (members.length <= 1 || !members.some((member) => member?.properties?.autoWidth === false)) return false;
     const nodeIndex = members.findIndex((member) => member.id === node.id);
@@ -995,6 +1003,7 @@ function applyHorizontalStackWidthResize(entity, resizeAnchor, requestedEntityWi
     if (manualMembers.length === 0) return false;
 
     const isLeftHandle = resizeAnchor === "left" || resizeAnchor === "top-left" || resizeAnchor === "bottom-left";
+    if (isDeckPressureSideHorizontalHubEdge(entity, graph, isLeftHandle ? "left" : "right")) return false;
     const entityIndex = members.findIndex((member) => member.id === entity.id);
     const isOuterBoundaryResize = isLeftHandle ? entityIndex === 0 : entityIndex === members.length - 1;
     if (!isOuterBoundaryResize) return false;

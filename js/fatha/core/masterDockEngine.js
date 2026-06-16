@@ -482,6 +482,22 @@ export function isDeckPressureSideHorizontalBranchMember(node, graph) {
     return getDeckPressureBranchAxis(pressureHub, graph, branchSide) === "horizontal";
 }
 
+export function isDeckPressureSideHorizontalHubEdge(node, graph, side) {
+    if (side !== "left" && side !== "right") return false;
+    if (!isDeckPressureSideHorizontalBranchMember(node, graph)) return false;
+    const pressureHub = getDeckPressureHubForNode(node, graph);
+    const branchSide = getDeckPressureBranchSideForNode(pressureHub, graph, node);
+    const hubFacingSide = branchSide === "left" ? "right" : "left";
+    if (side !== hubFacingSide) return false;
+    return getNodeOnDeckEdge(node, graph, side)?.id === pressureHub?.id;
+}
+
+function isDeckPressureHubSeam(node, neighbor, graph) {
+    if (!node || !neighbor || !graph) return false;
+    return (isDeckPressureHub(node) && getDeckPressureHubForNode(neighbor, graph)?.id === node.id)
+        || (isDeckPressureHub(neighbor) && getDeckPressureHubForNode(node, graph)?.id === neighbor.id);
+}
+
 function normalizeDeckArrangement(value, fallback = DECK_ARRANGEMENT_VERTICAL) {
     if (value === null || value === undefined) return fallback;
     const raw = String(value || "").trim();
@@ -1191,6 +1207,46 @@ function restoreDeckNodeAxes(node) {
     return true;
 }
 
+function clearDeckPressureSideHorizontalWidthLock(node) {
+    if (!node) return;
+    delete node._deckPressureSideHorizontalWidth;
+    if (node.properties) delete node.properties._deckPressureSideHorizontalWidth;
+}
+
+function captureDeckPressureSideHorizontalUndockWidths(node, graph) {
+    const hub = getDeckPressureHubForNode(node, graph);
+    const side = hub ? getDeckPressureBranchSideForNode(hub, graph, node) : null;
+    if ((side !== "left" && side !== "right") || getDeckPressureBranchAxis(hub, graph, side) !== "horizontal") return null;
+    const members = getDeckPressureBranchMembers(hub, graph, side);
+    if (members.length <= 1) return null;
+    return members.map((member) => ({
+        node: member,
+        width: getNodeSizeValue(member, 0),
+        height: getNodeSizeValue(member, 1),
+    }));
+}
+
+function restoreDeckPressureSideHorizontalUndockWidths(snapshot) {
+    if (!Array.isArray(snapshot) || snapshot.length === 0) return false;
+    let changed = false;
+    snapshot.forEach(({ node, width, height }) => {
+        if (!node || !(width > 0)) return;
+        if (!node.properties) node.properties = {};
+        node.properties.autoWidth = false;
+        node._horizontalDeckWidthResizeLock = true;
+        changed = syncDeckNodeSize(node, width, height > 0 ? height : getNodeSizeValue(node, 1), { silent: true }) || changed;
+        node._horizontalDeckWidthBalanceObserved = width;
+        node._horizontalDeckWidthBalanceReady = true;
+        if (typeof node.syncUncleSlots === "function") node.syncUncleSlots();
+        syncDerpShield(node);
+    });
+    setTimeout(() => {
+        snapshot.forEach(({ node }) => {
+            if (node) node._horizontalDeckWidthResizeLock = false;
+        });
+    }, 250);
+    return changed;
+}
 function refreshDeckStateWidgets(nodes = []) {
     const seen = new Set();
     nodes.forEach((node) => {
@@ -1254,11 +1310,13 @@ export function undeckNode(node, graph = null) {
         if (neighbor.properties.deckParentId === node.id) {
             neighbor.properties.deckParentId = null;
             neighbor.properties.deckDockSide = null;
+            clearDeckPressureSideHorizontalWidthLock(neighbor);
             legacyNeighborChanged = true;
         }
     });
     props.deckParentId = null;
     props.deckDockSide = null;
+    clearDeckPressureSideHorizontalWidthLock(node);
     props.pinActive = false;
     restoreDeckNodeAxes(node);
     if (parent && !isNodeDocked(parent, activeGraph)) {
@@ -1273,6 +1331,7 @@ export function undockNodeEdges(node, graph = null) {
 
     let changed = false;
     const preserveHubSize = captureDeckPressureHubUndockSize(node);
+    const preserveSideHorizontalWidths = captureDeckPressureSideHorizontalUndockWidths(node, activeGraph);
     const affectedMembers = getDeckMembers(node, activeGraph);
     const directNeighbors = getDirectDeckNeighbors(node, activeGraph);
 
@@ -1289,9 +1348,11 @@ export function undockNodeEdges(node, graph = null) {
 
     if (changed) {
         restoreDeckPressureHubUndockSize(preserveHubSize);
+        restoreDeckPressureSideHorizontalUndockWidths(preserveSideHorizontalWidths);
         refreshDeckStateWidgets(affectedMembers.length > 0 ? affectedMembers : [node, ...directNeighbors]);
         // Reassert after widget refresh; refresh can rebuild ImageDeck layout from auto-size state.
         restoreDeckPressureHubUndockSize(preserveHubSize);
+        restoreDeckPressureSideHorizontalUndockWidths(preserveSideHorizontalWidths);
     }
 
     return changed;
@@ -1304,6 +1365,10 @@ export function undeckDeckPressureBranches(hub, graph = null) {
     const branchMembers = ["left", "right", "top", "bottom"]
         .flatMap((side) => getDeckPressureBranchMembers(hub, activeGraph, side));
     const affected = new Map([[hub.id, hub], ...branchMembers.map((node) => [node.id, node])]);
+    const preserveSideHorizontalWidths = ["left", "right"]
+        .map((side) => getPeerDeckNeighbor(hub, activeGraph, side))
+        .map((member) => captureDeckPressureSideHorizontalUndockWidths(member, activeGraph))
+        .filter(Boolean);
 
     let changed = false;
     ["left", "right", "top", "bottom"].forEach((side) => {
@@ -1314,9 +1379,11 @@ export function undeckDeckPressureBranches(hub, graph = null) {
         if (branchProps.deckParentId === hub.id) {
             branchProps.deckParentId = null;
             branchProps.deckDockSide = null;
+            clearDeckPressureSideHorizontalWidthLock(branchRoot);
             branchProps.pinActive = false;
             changed = true;
         }
+        getDeckPressureBranchMembers(hub, activeGraph, side).forEach(clearDeckPressureSideHorizontalWidthLock);
         if (!isNodeDocked(branchRoot, activeGraph)) {
             restoreDeckNodeAxes(branchRoot);
         }
@@ -1324,6 +1391,7 @@ export function undeckDeckPressureBranches(hub, graph = null) {
 
     if (changed) {
         refreshDeckStateWidgets([...affected.values()]);
+        preserveSideHorizontalWidths.forEach(restoreDeckPressureSideHorizontalUndockWidths);
     }
 
     return changed;
@@ -1409,10 +1477,11 @@ export function matchDeckNodeSizes(node, leader, side = null) {
     const graph = node.graph || leader.graph || globalThis?.app?.graph || null;
     const members = graph ? getDeckMembers(leader, graph) : [leader];
     const next = resolveDockAttachDimensions(node, leader, side, members, DEFAULT_DECK_SNAP);
+    const keepLeaderHeight = graph && isDeckPressureHub(leader) && (side === "left" || side === "right");
     const nextW = next.nodeWidth ?? nodeRect.w;
     const nextH = next.nodeHeight ?? nodeRect.h;
     const nextLeaderW = next.leaderWidth ?? leaderRect.w;
-    const nextLeaderH = next.leaderHeight ?? leaderRect.h;
+    const nextLeaderH = keepLeaderHeight ? leaderRect.h : (next.leaderHeight ?? leaderRect.h);
 
     const shouldSettleAfterWidthMatch = side === "top" || side === "bottom";
     const silentNodeSync = shouldSettleAfterWidthMatch && typeof node.settleAfterDockWidthMatch === "function";
@@ -1544,6 +1613,62 @@ function restoreDeckPressureHubAnchor(anchor) {
     return true;
 }
 
+function captureDeckPressureHubSize(node, leader, graph) {
+    const hub = getDeckPressureHubForNode(leader, graph) || (isDeckPressureHub(leader) ? leader : null);
+    if (!hub || !node || node.id === hub.id) return null;
+    return { hub, w: getNodeSizeValue(hub, 0), h: getNodeSizeValue(hub, 1) };
+}
+
+function restoreDeckPressureHubSize(snapshot) {
+    if (!snapshot?.hub) return false;
+    const currentW = getNodeSizeValue(snapshot.hub, 0);
+    const currentH = getNodeSizeValue(snapshot.hub, 1);
+    if (currentW === snapshot.w && currentH === snapshot.h) return false;
+    return syncDeckNodeSize(snapshot.hub, snapshot.w, snapshot.h, { silent: true });
+}
+
+function captureDeckPressureHorizontalStackSnapshot(node, leader, graph, side) {
+    if (!graph || !node || !isDeckPressureHub(leader) || (side !== "left" && side !== "right")) return null;
+    if (getLinearDeckGroupAxis(node, graph) !== "horizontal") return null;
+    const dockFollower = getDeckPressureDockFollower(node, leader, graph, side);
+    const members = collectDeckLineOrdered(dockFollower, graph, "left", "right").filter((member) => member?.id !== leader.id);
+    if (!dockFollower || members.length <= 1) return null;
+    return {
+        follower: dockFollower,
+        members: members.map((member) => ({
+            node: member,
+            x: Number(member.pos?.[0]) || 0,
+            y: Number(member.pos?.[1]) || 0,
+            w: getNodeSizeValue(member, 0),
+        })),
+        followerX: Number(dockFollower.pos?.[0]) || 0,
+        followerY: Number(dockFollower.pos?.[1]) || 0,
+    };
+}
+
+function restoreDeckPressureHorizontalStackSnapshot(snapshot) {
+    if (!snapshot?.follower || !Array.isArray(snapshot.members) || snapshot.members.length === 0) return false;
+    const dx = (Number(snapshot.follower.pos?.[0]) || 0) - snapshot.followerX;
+    const dy = (Number(snapshot.follower.pos?.[1]) || 0) - snapshot.followerY;
+    let changed = false;
+    snapshot.members.forEach(({ node, x, y, w }) => {
+        if (!node) return;
+        node._horizontalDeckWidthResizeLock = true;
+        node._deckPressureSideHorizontalWidth = w;
+        if (node.properties) node.properties._deckPressureSideHorizontalWidth = w;
+        changed = syncDeckNodeSize(node, w, getNodeSizeValue(node, 1), { silent: true }) || changed;
+        changed = setDeckNodePos(node, x + dx, y + dy) || changed;
+        node._horizontalDeckWidthBalanceObserved = w;
+        node._horizontalDeckWidthBalanceReady = true;
+        if (typeof node.syncUncleSlots === "function") node.syncUncleSlots();
+    });
+    setTimeout(() => {
+        snapshot.members.forEach(({ node }) => {
+            if (node) node._horizontalDeckWidthResizeLock = false;
+        });
+    }, 250);
+    return changed;
+}
 function maybeResolveDeckPressureArrangement(hubCandidate, graph, side) {
     const hub = getDeckPressureHubForNode(hubCandidate, graph) || (isDeckPressureHub(hubCandidate) ? hubCandidate : null);
     if (!hub) return DECK_ARRANGEMENT_VERTICAL;
@@ -1553,6 +1678,8 @@ export function deckNodeToLeader(node, leader, graph, side = null) {
     const attachLeader = side ? getDeckAttachLeaderForSide(leader, side, graph) : leader;
     const dockFollower = getDeckPressureDockFollower(node, leader, graph, side);
     const hubAnchor = captureDeckPressureHubAnchor(node, leader, graph);
+    const hubSize = captureDeckPressureHubSize(node, leader, graph);
+    const stackSnapshot = captureDeckPressureHorizontalStackSnapshot(node, leader, graph, side);
     dockDebug("deck-node-to-leader-start", {
         node: snapshotDockNode(node),
         leader: snapshotDockNode(leader),
@@ -1566,6 +1693,7 @@ export function deckNodeToLeader(node, leader, graph, side = null) {
     lockDeckNodeAxes(dockFollower, side);
     lockDeckNodeAxes(attachLeader, side);
     matchDeckNodeSizes(dockFollower, attachLeader, side);
+    restoreDeckPressureHubSize(hubSize);
     settleNodesAfterDockWidthMatch([dockFollower, attachLeader]);
     maybeResolveDeckPressureArrangement(leader, graph, side);
     const props = ensureDeckProps(dockFollower);
@@ -1573,8 +1701,10 @@ export function deckNodeToLeader(node, leader, graph, side = null) {
     props.deckDockSide = side;
     connectPeerDeckEdgeForDock(attachLeader, side, dockFollower, graph);
     matchDeckNodeSizes(dockFollower, attachLeader, side);
+    restoreDeckPressureHubSize(hubSize);
     settleNodesAfterDockWidthMatch([dockFollower, attachLeader]);
     applyDeckEdgeSnap(dockFollower, { targetNode: attachLeader, edge: { side } }, DEFAULT_DECK_SNAP);
+    restoreDeckPressureHorizontalStackSnapshot(stackSnapshot);
     if (!hubAnchor) normalizeDockPair(attachLeader, dockFollower, side, graph, DEFAULT_DECK_SNAP);
     restoreDeckPressureHubAnchor(hubAnchor);
     normalizeVerticalStackPins(attachLeader, graph, attachLeader?.properties?.pinActive === true ? attachLeader : dockFollower);
@@ -1597,6 +1727,8 @@ export function finalizeDeck(node, leader, graph, side = null, snap = DEFAULT_DE
     const attachLeader = side ? getDeckAttachLeaderForSide(leader, side, graph) : leader;
     const dockFollower = getDeckPressureDockFollower(node, leader, graph, side);
     const hubAnchor = captureDeckPressureHubAnchor(node, leader, graph);
+    const hubSize = captureDeckPressureHubSize(node, leader, graph);
+    const stackSnapshot = captureDeckPressureHorizontalStackSnapshot(node, leader, graph, side);
     dockDebug("finalize-deck-start", {
         node: snapshotDockNode(node),
         leader: snapshotDockNode(leader),
@@ -1611,6 +1743,7 @@ export function finalizeDeck(node, leader, graph, side = null, snap = DEFAULT_DE
     lockDeckNodeAxes(dockFollower, side);
     lockDeckNodeAxes(attachLeader, side);
     matchDeckNodeSizes(dockFollower, attachLeader, side);
+    restoreDeckPressureHubSize(hubSize);
     settleNodesAfterDockWidthMatch([dockFollower, attachLeader]);
     const targetInfo = { targetNode: attachLeader, edge: { side } };
     applyDeckEdgeSnap(dockFollower, targetInfo, snap);
@@ -1620,8 +1753,10 @@ export function finalizeDeck(node, leader, graph, side = null, snap = DEFAULT_DE
     props.deckDockSide = side;
     connectPeerDeckEdgeForDock(attachLeader, side, dockFollower, graph);
     matchDeckNodeSizes(dockFollower, attachLeader, side);
+    restoreDeckPressureHubSize(hubSize);
     settleNodesAfterDockWidthMatch([dockFollower, attachLeader]);
     applyDeckEdgeSnap(dockFollower, { targetNode: attachLeader, edge: { side } }, snap);
+    restoreDeckPressureHorizontalStackSnapshot(stackSnapshot);
     if (!hubAnchor) normalizeDockPair(attachLeader, dockFollower, side, graph, snap);
     restoreDeckPressureHubAnchor(hubAnchor);
     normalizeVerticalStackPins(attachLeader, graph, attachLeader?.properties?.pinActive === true ? attachLeader : dockFollower);
@@ -1697,12 +1832,15 @@ export function finalizeDeckTarget(node, targetInfo, graph, snap = DEFAULT_DECK_
     const attachLeader = side ? getDeckAttachLeaderForSide(targetInfo.targetNode, side, graph) : targetInfo.targetNode;
     const dockFollower = getDeckPressureDockFollower(node, targetInfo.targetNode, graph, side);
     const hubAnchor = captureDeckPressureHubAnchor(node, targetInfo.targetNode, graph);
+    const hubSize = captureDeckPressureHubSize(node, targetInfo.targetNode, graph);
+    const stackSnapshot = captureDeckPressureHorizontalStackSnapshot(node, targetInfo.targetNode, graph, side);
     if (!canDeckNodeToLeader(node, targetInfo.targetNode, graph, side)) return false;
     if (typeof node.settleBeforeDockSnap === "function") node.settleBeforeDockSnap();
     if (typeof attachLeader.settleBeforeDockSnap === "function") attachLeader.settleBeforeDockSnap();
     lockDeckNodeAxes(dockFollower, side);
     lockDeckNodeAxes(attachLeader, side);
     matchDeckNodeSizes(dockFollower, attachLeader, side);
+    restoreDeckPressureHubSize(hubSize);
     settleNodesAfterDockWidthMatch([dockFollower, attachLeader]);
     applyDeckEdgeSnap(dockFollower, { targetNode: attachLeader, edge: { side } }, snap);
     maybeResolveDeckPressureArrangement(targetInfo.targetNode, graph, side);
@@ -1711,8 +1849,10 @@ export function finalizeDeckTarget(node, targetInfo, graph, snap = DEFAULT_DECK_
     props.deckDockSide = side;
     connectPeerDeckEdgeForDock(attachLeader, side, dockFollower, graph);
     matchDeckNodeSizes(dockFollower, attachLeader, side);
+    restoreDeckPressureHubSize(hubSize);
     settleNodesAfterDockWidthMatch([dockFollower, attachLeader]);
     applyDeckEdgeSnap(dockFollower, { targetNode: attachLeader, edge: { side } }, snap);
+    restoreDeckPressureHorizontalStackSnapshot(stackSnapshot);
     if (!hubAnchor) normalizeDockPair(attachLeader, dockFollower, side, graph, snap);
     restoreDeckPressureHubAnchor(hubAnchor);
     normalizeVerticalStackPins(attachLeader, graph, attachLeader?.properties?.pinActive === true ? attachLeader : dockFollower);
@@ -1938,6 +2078,7 @@ export function normalizeDockedLayout(node, graph, snap = DEFAULT_DECK_SNAP) {
             ["left", "right", "top", "bottom"].forEach((side) => {
                 const neighbor = getPeerDeckNeighbor(member, graph, side);
                 if (!neighbor) return;
+                if (isDeckPressureHubSeam(member, neighbor, graph)) return;
                 const edgeKey = [Math.min(member.id, neighbor.id), Math.max(member.id, neighbor.id), side === "left" || side === "right" ? "h" : "v"].join(":");
                 if (seenEdges.has(edgeKey)) return;
                 seenEdges.add(edgeKey);
@@ -2100,6 +2241,25 @@ function getDeckPressureRowCurrentSpan(members, snap) {
     }, 0);
 }
 
+function getDeckPressureSideHorizontalLockedWidth(member) {
+    const locked = Number(member?._deckPressureSideHorizontalWidth || member?.properties?._deckPressureSideHorizontalWidth);
+    return locked > 0 ? locked : getNodeSizeValue(member, 0);
+}
+
+export function getDeckPressureSideHorizontalWidthLock(node, graph) {
+    if (!isDeckPressureSideHorizontalBranchMember(node, graph)) return 0;
+    return getDeckPressureSideHorizontalLockedWidth(node);
+}
+
+function getDeckPressureRowCurrentWidths(members) {
+    if (!Array.isArray(members) || members.length === 0) return [];
+    return members.map((member) => getDeckPressureSideHorizontalLockedWidth(member));
+}
+
+function getDeckPressureRowCurrentWidthTotal(members) {
+    return getDeckPressureRowCurrentWidths(members).reduce((sum, width) => sum + width, 0);
+}
+
 function getDeckPressureColumnCurrentHeights(members, snap) {
     if (!Array.isArray(members) || members.length === 0) return [];
     const unit = Math.max(1, snap);
@@ -2124,7 +2284,11 @@ function getDeckPressureBranchHeight(branch, snap) {
 
 function getDeckPressureBranchWidth(branch, snap) {
     if (!branch?.members?.length) return 0;
-    if (branch.axis === "horizontal") return getDeckPressureRowCurrentSpan(branch.members, snap);
+    if (branch.axis === "horizontal") {
+        return (branch.side === "left" || branch.side === "right")
+            ? getDeckPressureRowCurrentWidthTotal(branch.members)
+            : getDeckPressureRowCurrentSpan(branch.members, snap);
+    }
     return Math.max(...branch.members.map((member) => getNodeSizeValue(member, 0)), ...branch.members.map((member) => getNodeMinWidth(member, snap)), 0);
 }
 
@@ -2291,6 +2455,7 @@ export function applyDeckPressureLayout(hub, graph, snap = DEFAULT_DECK_SNAP) {
 
     const sideMinHeight = Math.max(...branches
         .filter((branch) => branch.side === "left" || branch.side === "right")
+        .filter((branch) => branch.axis === "vertical")
         .map((branch) => getDeckPressureBranchEdgeMinSpan(branch, snap)), 0);
     const topBottomMinWidth = Math.max(...branches
         .filter((branch) => branch.side === "top" || branch.side === "bottom")
@@ -2353,7 +2518,7 @@ export function applyDeckPressureLayout(hub, graph, snap = DEFAULT_DECK_SNAP) {
         } else if (side === "left" || side === "right") {
             const width = side === "left" ? leftWidth : rightWidth;
             const height = Math.max(sideFrameHeight, getDeckPressureBranchEdgeMinSpan({ side, members, axis }, snap));
-            const widths = fitDeckPressureRowWidths(members, width, snap);
+            const widths = getDeckPressureRowCurrentWidths(members);
             const x = side === "left" ? hubRect.x - width : hubRect.x + hubRect.w;
             markChanged(applyRowLayout(members, x, sideFrameY, widths, height, { deferDirty: true, deferSync: true }));
         } else if (axis === "horizontal") {

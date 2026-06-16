@@ -140,8 +140,13 @@ When ComfyUI Node 2.0/Vue mode moves a default group containing docked Derp stac
 - Horizontal stacks attached to the left/right side of a Deck Pressure hub cannot be collapsed; pressure layout reopens any already-collapsed side-horizontal members.
 - Dock finalization treats the ImageDeck hub position as anchored; normal pair normalization may move attached branches, but must not move the hub itself.
 - ImageDeck-owned pressure attaches skip generic `normalizeDockPair()` / `forceDockResizeRefresh()` because those normal stack helpers can reinterpret the new hub seam as a resizable shared edge and move the hub.
+- Ordinary dock normalization and draw-time dock frame state must not treat the ImageDeck hub seam as a normal horizontal or vertical stack edge; Deck Pressure layout owns hub-to-branch sizing.
 - Shared-edge resizing inside a Deck branch must resolve the branch's linear member list (`getDeckPressureBranchMembers`) and actual branch axis (`getDeckPressureBranchAxis`) instead of using whole-group `isLinearDeckGroup()` or side-implied orientation, because the full ImageDeck-owned group is intentionally mixed-axis.
 - Side-branch width resizing is exposed on the shared vertical seam between the `derpImageDeck` hub and a left/right branch. The resize changes the branch width and compensates the hub width while preserving the outer Deck frame bounds.
+- When a left/right Deck Pressure branch is horizontal, the hub-facing seam is hub/deck width resize only; it must not expose the horizontal stack's outer-edge width resize.
+- The shield hitbox for a left/right horizontal Deck Pressure branch must still expose the hub-facing mid-edge strip and route it to the ImageDeck hub resize; otherwise the branch shield can cover the hub seam so only top/bottom portions feel draggable.
+- Left/right horizontal Deck Pressure branches grow their own row height to fit the Deck side band or their own minimum; they must not shrink or pressure-grow the ImageDeck hub height during attach.
+- When a left/right horizontal Deck Pressure branch is undecked, its member widths are preserved as explicit manual widths so restored auto-width cannot grow the stack after the detach refresh.
 - In `horizontal_sandwich`, preserved frame bounds still span top/bottom rows, but side branches use the hub's vertical band for their `y` and height so top branches do not pull side stacks upward.
 - Pure top/bottom shared-edge resizing in a side branch is handled as an ordered vertical seam before generic node resize, so dragging one member cannot move it behind its neighbor.
 - Horizontal shared-edge resize must also normalize positions against that branch-only member list; using `getDeckMembers()` here will march the whole mixed Deck group sideways.

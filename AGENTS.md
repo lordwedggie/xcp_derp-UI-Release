@@ -235,11 +235,15 @@ To add a skill, create `.agents/skills/<name>/SKILL.md` with YAML frontmatter (`
 - Deck Pressure collapsed height fallback is the compact collapsed header (`DEFAULT_DECK_SNAP * 2`, currently 20px), not the generic node fallback of 40px.
 - Deck Pressure layout must preserve the hub node position during collapse/un-collapse pressure passes unless the hub is actively being resized.
 - Nodes inside Deck Pressure branches should skip generic `reflowChildren()` during collapse/un-collapse size changes; Deck Pressure layout must be the single source of branch positions to avoid one-frame flicker.
+- Ordinary dock normalization, draw-time frame state, and resize-axis helpers must skip ImageDeck hub seams; Deck Pressure layout is the single source for hub-to-branch sizing.
 - Deck Pressure arrangement must resolve before writing the first branch member's `deckParentId` / `deckDockSide`; resolving after that makes the empty hub look like it already has branches and can freeze new decks into the legacy vertical sandwich fallback.
 - Saved Deck Pressure arrangement only locks hubs with active branches; empty/detached hubs must resolve from the current `Derp.DeckArrangement` setting on their next first attach.
 - Deck Pressure left branch X must mirror the right branch from the hub edge (`hub.x - branchWidth`), not reuse the Deck frame left; in vertical sandwich the frame left can equal hub X for top/bottom alignment and would overlay the left branch on the hub.
 - Top/bottom vertical Deck Pressure branches preserve their own member heights during ImageDeck hub resize; do not distribute hub height/frame deltas into those branch columns.
 - Horizontal stacks attached to Deck Pressure left/right sides must stay expanded; hide/guard collapse controls and reopen already-collapsed members during pressure layout.
+- For horizontal stacks attached to Deck Pressure left/right sides, the hub-facing seam is a hub/deck width resize only; do not expose the branch stack's outer-edge width resize on that connected edge.
+- For horizontal stacks attached to Deck Pressure left/right sides, the branch shield must expose the hub-facing mid-edge hitbox and route it to the ImageDeck hub resize, or the middle of the seam can be covered while only top/bottom portions respond.
+- Horizontal stacks attached to Deck Pressure left/right sides must grow their own row height; attach sizing and pressure layout must never shrink or pressure-grow the ImageDeck hub height for that branch.
 - Pressed non-drag widget regions must absorb pointer movement; otherwise a small click twitch can fall through to `updateDockDrag()` and move a deck root using a child node's press-start position.
 - Deck target picking for dragged linear stacks must use the stack bounding rect, not only the drag root's node rect, so side/top/bottom attach detection follows the moving stack's outer edge.
 

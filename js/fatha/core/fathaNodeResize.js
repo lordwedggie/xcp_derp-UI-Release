@@ -10,7 +10,7 @@ function getResizeAxis(entity, graph) {
     const pressureHub = getDeckPressureHubForNode(entity, graph);
     const branchSide = pressureHub && pressureHub.id !== entity.id ? getDeckPressureBranchSideForNode(pressureHub, graph, entity) : null;
     const branchAxis = getDeckPressureBranchAxis(pressureHub, graph, branchSide);
-    if (branchAxis && getDeckPressureBranchMembers(pressureHub, graph, branchSide).length > 1) return branchAxis;
+    if (branchAxis) return branchAxis;
     return getDockGroupAxisFromMembers(getDeckMembers(entity, graph));
 }
 

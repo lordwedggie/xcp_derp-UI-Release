@@ -22,7 +22,7 @@ import {
     handleDerpCollapseImpl,
     handleHorizontalDeckTitleToggleImpl,
 } from "./dockResize.js";
-import { masterDockEngine, getDeckMembers, getDeckCornerOverride, getNodeOnDeckEdge, isDeckPressureSideHorizontalBranchMember, isLinearDeckGroup, normalizeDockedLayout, setDeckNodePos, syncDeckNodeSize, isDeckPressureHub, getDeckPressureHubForNode, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureBranchAxis, applyDeckPressureLayout } from "./masterDockEngine.js";
+import { masterDockEngine, getDeckMembers, getDeckCornerOverride, getNodeOnDeckEdge, isDeckPressureSideHorizontalBranchMember, isLinearDeckGroup, normalizeDockedLayout, setDeckNodePos, syncDeckNodeSize, isDeckPressureHub, getDeckPressureHubForNode, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureBranchAxis, applyDeckPressureLayout, getDeckPressureSideHorizontalWidthLock } from "./masterDockEngine.js";
 import { getDockGroupAxisFromMembers, getDockNodeHeight, getDockNodeMinWidth, getDockNodeWidth, getSharedDockMinWidth, getSharedDockWidth, shouldPreserveDockHeight, shouldPreserveDockWidth } from "./dockDimensions.js";
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
 import {
@@ -454,6 +454,7 @@ export function drawDeckResizeOptimizedNode(node, ctx) {
 function getLinearDeckMembers(node, graph, axis) {
     if (!graph || !node) return [];
     const pressureHub = getDeckPressureHubForNode(node, graph);
+    if (pressureHub?.id === node.id) return [];
     const branchSide = pressureHub && pressureHub.id !== node.id ? getDeckPressureBranchSideForNode(pressureHub, graph, node) : null;
     if (getDeckPressureBranchAxis(pressureHub, graph, branchSide) === axis) return getDeckPressureBranchMembers(pressureHub, graph, branchSide);
     return isLinearDeckGroup(node, graph, axis) ? getDeckMembers(node, graph) : [];
@@ -622,6 +623,10 @@ function getDeckFrameState(node) {
     }
     const nodeFrameKey = `${frame}:${node.id}`;
     if (deckNodeFrameCache.has(nodeFrameKey)) return deckNodeFrameCache.get(nodeFrameKey);
+    if (isDeckPressureHub(node)) {
+        deckNodeFrameCache.set(nodeFrameKey, null);
+        return null;
+    }
 
     let members = getDeckMembers(node, graph);
     if (!Array.isArray(members) || members.length <= 1) {
@@ -1037,6 +1042,15 @@ export function shouldPreserveVerticalDeckWidth(node) {
 export function shouldPreserveHorizontalDeckHeight(node) {
     const state = getDeckFrameState(node);
     return state?.preserveHeight === true;
+}
+
+export function getDeckPressureSideHorizontalLockedWidth(node) {
+    const graph = app.graph || node?.graph || null;
+    return getDeckPressureSideHorizontalWidthLock(node, graph);
+}
+
+export function shouldLockDeckPressureSideHorizontalWidth(node) {
+    return getDeckPressureSideHorizontalLockedWidth(node) > 0;
 }
 
 export function resolveDerpRuntimeSize(node, measured, vars = {}) {
