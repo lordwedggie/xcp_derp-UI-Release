@@ -120,6 +120,7 @@ function getDeckPressureHubSeamResizeTarget(node, graph, anchor) {
 
 function getDeckPressureSideHorizontalHubResizeTarget(node, graph, anchor) {
     if (anchor !== "left" && anchor !== "right") return null;
+    if (getHorizontalSameRowNeighbor(node, graph, anchor)) return null;
     if (!isDeckPressureSideHorizontalHubEdge(node, graph, anchor)) return null;
     const pressureHub = getDeckPressureHubForNode(node, graph);
     const branchSide = getDeckPressureBranchSideForNode(pressureHub, graph, node);
@@ -204,11 +205,43 @@ export function createDerpShield(node) {
     `;
     shield.appendChild(resizeHandleTopRight);
 
+    const resizeHandleSharedLeft = document.createElement("div");
+    resizeHandleSharedLeft.style.cssText = `
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 10px;
+        height: 100%;
+        cursor: ew-resize;
+        z-index: 30;
+        background: transparent;
+        display: none;
+        pointer-events: none;
+    `;
+    shield.appendChild(resizeHandleSharedLeft);
+
+    const resizeHandleSharedRight = document.createElement("div");
+    resizeHandleSharedRight.style.cssText = `
+        position: absolute;
+        right: 0;
+        top: 0;
+        width: 10px;
+        height: 100%;
+        cursor: ew-resize;
+        z-index: 30;
+        background: transparent;
+        display: none;
+        pointer-events: none;
+    `;
+    shield.appendChild(resizeHandleSharedRight);
+
     // THE FIX: Store a reference so we can dynamically adjust its offsets during zoom
     shield._resizeHandle = resizeHandle;
     shield._resizeHandleLeft = resizeHandleLeft;
     shield._resizeHandleTopLeft = resizeHandleTopLeft;
     shield._resizeHandleTopRight = resizeHandleTopRight;
+    shield._resizeHandleSharedLeft = resizeHandleSharedLeft;
+    shield._resizeHandleSharedRight = resizeHandleSharedRight;
 
     if (node.type === "xcpDerpSignalOut") {
         const linkHandleLayer = document.createElement("div");
@@ -762,9 +795,28 @@ export function createDerpShield(node) {
     resizeHandleLeft.onpointerdown = (e) => startResize(e, "bottom-left");
     resizeHandleTopLeft.onpointerdown = (e) => startResize(e, "top-left");
     resizeHandleTopRight.onpointerdown = (e) => startResize(e, "top-right");
+    resizeHandleSharedLeft.onpointerdown = (e) => startResize(e, "left");
+    resizeHandleSharedRight.onpointerdown = (e) => startResize(e, "right");
+
+    const getSharedResizeAnchorAtPointer = (e) => {
+        const graph = app.graph || node.graph || null;
+        if (!graph || !node.interactionShield) return null;
+        const vars = node.getDerpVars ? node.getDerpVars(node) : { mW: 0 };
+        const rect = node.interactionShield.getBoundingClientRect();
+        const edgeWidth = Math.max(10, Number(vars.mW || 0) * (app.canvas?.ds?.scale || 1));
+        const localX = e.clientX - rect.left;
+        if (localX <= edgeWidth && canResizeHorizontalSharedEdge(node, graph, "left")) return "left";
+        if (localX >= rect.width - edgeWidth && canResizeHorizontalSharedEdge(node, graph, "right")) return "right";
+        return null;
+    };
 
     shield.onpointerdown = (e) => {
         if (e.button !== 0) return;
+        const sharedResizeAnchor = getSharedResizeAnchorAtPointer(e);
+        if (sharedResizeAnchor) {
+            startResize(e, sharedResizeAnchor);
+            return;
+        }
         e.stopPropagation(); e.preventDefault(); cleanup();
         promoteMasterZ(node, app.graph || node.graph || null);
         app.canvas.canvas.focus();
@@ -1010,19 +1062,93 @@ function getHorizontalDeckMembersByX(node, graph) {
 function canResizeHorizontalStackWidth(node, graph, side) {
     if (isDeckPressureSideHorizontalHubEdge(node, graph, side)) return false;
     const members = getHorizontalDeckMembersByX(node, graph);
-    if (members.length <= 1 || !members.some((member) => member?.properties?.autoWidth === false)) return false;
+    if (members.length <= 1 || !members.some((member) => canResizeHorizontalMemberWidth(member, graph))) return false;
     const nodeIndex = members.findIndex((member) => member.id === node.id);
     if (side === "left") return nodeIndex === 0;
     if (side === "right") return nodeIndex === members.length - 1;
     return false;
 }
 
+function canResizeHorizontalMemberWidth(node, graph) {
+    if (node?.properties?.autoWidth === false) return true;
+    return isDeckPressureSideHorizontalBranchMember(node, graph);
+}
+
+function isDirectHorizontalNodeSeam(leftNode, rightNode, graph) {
+    if (!leftNode || !rightNode || !graph) return false;
+    if (isDeckPressureHub(leftNode) || isDeckPressureHub(rightNode)) return false;
+    return getNodeOnDeckEdge(leftNode, graph, "right")?.id === rightNode.id
+        || getNodeOnDeckEdge(rightNode, graph, "left")?.id === leftNode.id;
+}
+
+function getNodeSizeValue(node, index) {
+    return Number(node?.size?.[index] ?? node?.properties?.nodeSize?.[index]) || 0;
+}
+
+function areSameRowAdjacentHorizontalMembers(leftNode, rightNode, graph) {
+    if (!leftNode || !rightNode || !graph) return false;
+    if (isDeckPressureHub(leftNode) || isDeckPressureHub(rightNode)) return false;
+    const hub = getDeckPressureHubForNode(leftNode, graph);
+    if (!hub || hub.id === leftNode.id || getDeckPressureHubForNode(rightNode, graph)?.id !== hub.id) return false;
+    const lx = Number(leftNode.pos?.[0]) || 0;
+    const ly = Number(leftNode.pos?.[1]) || 0;
+    const lw = getNodeSizeValue(leftNode, 0);
+    const lh = getNodeSizeValue(leftNode, 1);
+    const rx = Number(rightNode.pos?.[0]) || 0;
+    const ry = Number(rightNode.pos?.[1]) || 0;
+    const rw = getNodeSizeValue(rightNode, 0);
+    const rh = getNodeSizeValue(rightNode, 1);
+    const overlapY = Math.min(ly + lh, ry + rh) - Math.max(ly, ry);
+    if (overlapY < Math.max(1, Math.min(lh, rh) * 0.5)) return false;
+    return Math.abs((lx + lw) - rx) <= 4 || Math.abs((rx + rw) - lx) <= 4;
+}
+
+function getHorizontalSameRowNeighbor(node, graph, side) {
+    if (!node || !graph || (side !== "left" && side !== "right")) return null;
+    const hub = getDeckPressureHubForNode(node, graph);
+    const direct = getNodeOnDeckEdge(node, graph, side);
+    if (!hub || hub.id === node.id) return direct && !isDeckPressureHub(direct) ? direct : null;
+    const x = Number(node.pos?.[0]) || 0;
+    const y = Number(node.pos?.[1]) || 0;
+    const w = Number(node.size?.[0] ?? node.properties?.nodeSize?.[0]) || 0;
+    const h = Number(node.size?.[1] ?? node.properties?.nodeSize?.[1]) || 0;
+    const edgeX = side === "left" ? x : x + w;
+    const members = getDeckMembers(node, graph).filter((member) => member && member.id !== node.id && !isDeckPressureHub(member));
+    let best = null;
+    let bestGap = Infinity;
+    members.forEach((member) => {
+        if (getDeckPressureHubForNode(member, graph)?.id !== hub.id) return;
+        const mx = Number(member.pos?.[0]) || 0;
+        const my = Number(member.pos?.[1]) || 0;
+        const mw = Number(member.size?.[0] ?? member.properties?.nodeSize?.[0]) || 0;
+        const mh = Number(member.size?.[1] ?? member.properties?.nodeSize?.[1]) || 0;
+        const overlapY = Math.min(y + h, my + mh) - Math.max(y, my);
+        if (overlapY < Math.max(1, Math.min(h, mh) * 0.5)) return;
+        const memberEdgeX = side === "left" ? mx + mw : mx;
+        const directional = side === "left" ? memberEdgeX <= edgeX + 2 : memberEdgeX >= edgeX - 2;
+        if (!directional) return;
+        const gap = Math.abs(memberEdgeX - edgeX);
+        if (gap > 4 || gap >= bestGap) return;
+        best = member;
+        bestGap = gap;
+    });
+    return best;
+}
+
+function canResizeHorizontalSeamPair(leftNode, rightNode, graph) {
+    if (canResizeHorizontalMemberWidth(leftNode, graph) && canResizeHorizontalMemberWidth(rightNode, graph)) return true;
+    return isDirectHorizontalNodeSeam(leftNode, rightNode, graph)
+        || areSameRowAdjacentHorizontalMembers(leftNode, rightNode, graph);
+}
+
 function canResizeHorizontalSharedEdge(node, graph, side) {
-    if (!graph || !node || getLinearResizeMembers(node, graph, "horizontal").length <= 1) return false;
-    const neighbor = getNodeOnDeckEdge(node, graph, side);
+    if (!graph || !node || (side !== "left" && side !== "right")) return false;
+    const neighbor = getHorizontalSameRowNeighbor(node, graph, side);
     if (!neighbor) return false;
-    if (!getLinearResizeMembers(node, graph, "horizontal").some((member) => member.id === neighbor.id)) return false;
-    return node.properties?.autoWidth === false && neighbor.properties?.autoWidth === false;
+    if (isDeckPressureHub(neighbor)) return false;
+    return side === "left"
+        ? canResizeHorizontalSeamPair(neighbor, node, graph)
+        : canResizeHorizontalSeamPair(node, neighbor, graph);
 }
 
 function disableResizeHandles(shield) {
@@ -1031,6 +1157,8 @@ function disableResizeHandles(shield) {
         shield?._resizeHandleLeft,
         shield?._resizeHandleTopLeft,
         shield?._resizeHandleTopRight,
+        shield?._resizeHandleSharedLeft,
+        shield?._resizeHandleSharedRight,
     ].forEach((handle) => {
         if (!handle) return;
         handle.style.display = "none";
@@ -1042,6 +1170,11 @@ function disableResizeHandles(shield) {
 
 export function syncDerpShield(node) {
     if (!node.interactionShield) return;
+    if (!node.interactionShield._resizeHandleSharedLeft || !node.interactionShield._resizeHandleSharedRight) {
+        removeDerpShield(node);
+        createDerpShield(node);
+        if (!node.interactionShield) return;
+    }
     const ds = app.canvas.ds;
     const scale = ds.scale;
     const defaultBottomCornerSize = 9 * scale;
@@ -1060,8 +1193,14 @@ export function syncDerpShield(node) {
     const rect = canvasEl.getBoundingClientRect();
     const edgeState = node.properties?.deckEdges || {};
     const varsForHash = node.getDerpVars ? node.getDerpVars(node) : { autoWidth: true, autoHeight: true };
+    const graphForHash = app.graph || node.graph || null;
+    const pressureHubForHash = graphForHash ? getDeckPressureHubForNode(node, graphForHash) : null;
+    const branchSideForHash = pressureHubForHash && pressureHubForHash.id !== node.id ? getDeckPressureBranchSideForNode(pressureHubForHash, graphForHash, node) : null;
+    const branchAxisForHash = getDeckPressureBranchAxis(pressureHubForHash, graphForHash, branchSideForHash) || "n";
+    const neighborLeftForHash = getNodeOnDeckEdge(node, graphForHash, "left")?.id ?? "n";
+    const neighborRightForHash = getNodeOnDeckEdge(node, graphForHash, "right")?.id ?? "n";
     const canvasRectHash = `${rect.left.toFixed(2)},${rect.top.toFixed(2)},${rect.width.toFixed(2)},${rect.height.toFixed(2)}`;
-    const stateHash = `${node.pos[0]},${node.pos[1]}_${visualW},${visualH}_${scale}_${ds.offset[0]},${ds.offset[1]}_${node.flags?.collapsed}_${node.properties?.contentCollapsed}_${node.properties?.debugMode}_${canvasEl.clientWidth},${canvasEl.clientHeight}_${canvasRectHash}_${edgeState.left ?? "n"},${edgeState.right ?? "n"},${edgeState.top ?? "n"},${edgeState.bottom ?? "n"}_${varsForHash.autoWidth}_${varsForHash.autoHeight}`;
+    const stateHash = `${node.pos[0]},${node.pos[1]}_${visualW},${visualH}_${scale}_${ds.offset[0]},${ds.offset[1]}_${node.flags?.collapsed}_${node.properties?.contentCollapsed}_${node.properties?.debugMode}_${canvasEl.clientWidth},${canvasEl.clientHeight}_${canvasRectHash}_${edgeState.left ?? "n"},${edgeState.right ?? "n"},${edgeState.top ?? "n"},${edgeState.bottom ?? "n"}_${neighborLeftForHash},${neighborRightForHash}_${pressureHubForHash?.id ?? "n"},${branchSideForHash ?? "n"},${branchAxisForHash}_${varsForHash.autoWidth}_${varsForHash.autoHeight}`;
     if (node.interactionShield._lastStateHash === stateHash && !node._forceSync) return;
     node.interactionShield._lastStateHash = stateHash;
 
@@ -1151,10 +1290,11 @@ export function syncDerpShield(node) {
         const canResizeStackLeftW = isHorizontalDockStack && canResizeHorizontalStackWidth(node, graph, "left");
         const canResizeStackRightW = isHorizontalDockStack && canResizeHorizontalStackWidth(node, graph, "right");
         const canResizeStackW = canResizeStackLeftW || canResizeStackRightW || canResizePressureSeamLeftW || canResizePressureSeamRightW || canResizePressureHubHorizontalLeftW || canResizePressureHubHorizontalRightW;
-        const canResizeSharedLeftW = hasSharedLeftEdge && canResizeHorizontalSharedEdge(node, graph, "left");
-        const canResizeSharedRightW = hasSharedRightEdge && canResizeHorizontalSharedEdge(node, graph, "right");
-        const canUseLeftW = canW || canResizeStackLeftW || canResizePressureSeamLeftW || canResizePressureHubHorizontalLeftW;
-        const canUseRightW = canW || canResizeStackRightW || canResizePressureSeamRightW || canResizePressureHubHorizontalRightW;
+        const canResizeSharedLeftW = canResizeHorizontalSharedEdge(node, graph, "left");
+        const canResizeSharedRightW = canResizeHorizontalSharedEdge(node, graph, "right");
+        const canResizeSharedW = canResizeSharedLeftW || canResizeSharedRightW;
+        const canUseLeftW = canW || canResizeStackLeftW || canResizeSharedLeftW || canResizePressureSeamLeftW || canResizePressureHubHorizontalLeftW;
+        const canUseRightW = canW || canResizeStackRightW || canResizeSharedRightW || canResizePressureSeamRightW || canResizePressureHubHorizontalRightW;
         const isCollapsed = node.properties?.contentCollapsed === true;
         const nodeAbove = isVerticalDockStack ? getNodeOnDeckEdge(node, graph, "top") : null;
         const nodeBelow = isVerticalDockStack ? getNodeOnDeckEdge(node, graph, "bottom") : null;
@@ -1171,12 +1311,34 @@ export function syncDerpShield(node) {
         const allowFrameCornerTopRight = !isPressureMember || isDeckPressureFrameCorner(node, graph, "top-right");
         const allowFrameCornerBottomLeft = !isPressureMember || isDeckPressureFrameCorner(node, graph, "bottom-left");
         const allowFrameCornerBottomRight = !isPressureMember || isDeckPressureFrameCorner(node, graph, "bottom-right");
+        if (node.interactionShield._resizeHandleSharedLeft) {
+            const sharedLeftStyle = node.interactionShield._resizeHandleSharedLeft.style;
+            sharedLeftStyle.width = `${sharedEdgeWidth}px`;
+            sharedLeftStyle.height = `${visualH * scale}px`;
+            sharedLeftStyle.left = `-${padL * scale}px`;
+            sharedLeftStyle.top = "0px";
+            sharedLeftStyle.cursor = "ew-resize";
+            sharedLeftStyle.display = canResizeSharedLeftW ? "block" : "none";
+            sharedLeftStyle.pointerEvents = canResizeSharedLeftW ? "auto" : "none";
+            node.interactionShield._resizeHandleSharedLeft._resizeAnchorOverride = canResizeSharedLeftW ? "left" : null;
+        }
+        if (node.interactionShield._resizeHandleSharedRight) {
+            const sharedRightStyle = node.interactionShield._resizeHandleSharedRight.style;
+            sharedRightStyle.width = `${sharedEdgeWidth}px`;
+            sharedRightStyle.height = `${visualH * scale}px`;
+            sharedRightStyle.right = `-${padR * scale}px`;
+            sharedRightStyle.top = "0px";
+            sharedRightStyle.cursor = "ew-resize";
+            sharedRightStyle.display = canResizeSharedRightW ? "block" : "none";
+            sharedRightStyle.pointerEvents = canResizeSharedRightW ? "auto" : "none";
+            node.interactionShield._resizeHandleSharedRight._resizeAnchorOverride = canResizeSharedRightW ? "right" : null;
+        }
         node.interactionShield._resizeHandle._resizeAnchorOverride = ((!isPressureHub && !isVerticalDockStack && canResizeSharedRightW) || canResizePressureSeamRightW || canResizePressureHubHorizontalRightW) ? "right" : null;
         handleStyle.width = `${bottomRightWidth}px`;
         handleStyle.height = `${bottomCornerSize}px`;
         handleStyle.cursor = (canUseRightW && canH) ? "nwse-resize" : (canUseRightW ? "ew-resize" : "ns-resize");
         // THE INTERACTION GUARD: Disable handle interaction entirely if both axes are auto-managed
-        node.resizable = canResizeStackW || !(vars.autoWidth && vars.autoHeight); // THE NATIVE FIX: Kill LiteGraph's own resize logic
+        node.resizable = canResizeStackW || canResizeSharedW || !(vars.autoWidth && vars.autoHeight); // THE NATIVE FIX: Kill LiteGraph's own resize logic
         handleStyle.display = (node.resizable && allowBottomResizeCorners && allowFrameCornerBottomRight) ? "block" : "none"; // THE VISUAL FIX: Completely remove the handle
         handleStyle.pointerEvents = (node.resizable && allowBottomResizeCorners && allowFrameCornerBottomRight) ? "auto" : "none";
         handleStyle.right = `-${padR * scale}px`;

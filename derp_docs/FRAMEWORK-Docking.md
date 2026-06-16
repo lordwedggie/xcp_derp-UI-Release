@@ -150,6 +150,9 @@ When ComfyUI Node 2.0/Vue mode moves a default group containing docked Derp stac
 - In `horizontal_sandwich`, preserved frame bounds still span top/bottom rows, but side branches use the hub's vertical band for their `y` and height so top branches do not pull side stacks upward.
 - Pure top/bottom shared-edge resizing in a side branch is handled as an ordered vertical seam before generic node resize, so dragging one member cannot move it behind its neighbor.
 - Horizontal shared-edge resize must also normalize positions against that branch-only member list; using `getDeckMembers()` here will march the whole mixed Deck group sideways.
+- Internal node-to-node seams in left/right Deck Pressure horizontal branches must resolve same-row branch neighbors by geometry and hub membership, not only generic `deckEdges`; the outer hub-facing seam remains reserved for hub/frame resize.
+- Horizontal shared-edge resize in side Deck Pressure branches writes explicit manual widths back to both seam members so later pressure layout preserves the adjusted row instead of restoring auto-width sizing.
+- Internal horizontal NODE-to-NODE seams use dedicated full-height DOM shield strips so adjacent branch shields cannot cover the draggable vertical seam.
 - Horizontal collapse/uncollapse sync and shared-height normalization for Deck Pressure top/bottom branches must also resolve the branch-only horizontal member list. The full ImageDeck pressure group is mixed-axis and is not a valid horizontal stack for this purpose.
 - Lower-left hub resize must clamp to top/bottom branch minimum widths and preserve the right edge if pressure layout grows the hub back to minimum width.
 - Idle Deck Pressure maintenance should skip across frames using a stable geometry signature. Only rerun pressure layout when a member is dirty, resizing, dragging, awake, inside `_deckPressureActiveUntil`, or when geometry changes.

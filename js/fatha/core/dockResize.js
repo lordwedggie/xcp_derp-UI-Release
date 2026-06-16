@@ -10,6 +10,7 @@ import {
     getDeckPressureHubForNode,
     getNodeOnDeckEdge,
     applyDeckPressureLayout,
+    isDeckPressureHub,
     isDeckPressureSideHorizontalHubEdge,
     isDeckPressureSideHorizontalBranchMember,
     isLinearDeckGroup,
@@ -562,8 +563,12 @@ export function handleHorizontalDeckTitleToggleImpl(entity, deps = {}) {
 }
 
 function normalizeHorizontalMemberPositions(anchorNode, graph) {
-    const members = getHorizontalDeckMembersByX(anchorNode, graph)
-        .sort((a, b) => {
+    const pressureHub = getDeckPressureHubForNode(anchorNode, graph);
+    const branchSide = pressureHub && pressureHub.id !== anchorNode?.id ? getDeckPressureBranchSideForNode(pressureHub, graph, anchorNode) : null;
+    const branchMembers = branchSide ? getDeckPressureBranchMembers(pressureHub, graph, branchSide) : [];
+    const members = branchMembers.length > 1
+        ? branchMembers
+        : getHorizontalDeckMembersByX(anchorNode, graph).sort((a, b) => {
             const ax = Number(a?.pos?.[0]) || 0;
             const bx = Number(b?.pos?.[0]) || 0;
             if (ax !== bx) return ax - bx;
@@ -938,11 +943,90 @@ function applyCollapsedVerticalBoundaryResize(entity, resizeAnchor, requestedEnt
 export function canResizeHorizontalStackWidth(node, graph = app.graph || node?.graph || null, side = null) {
     if (side && isDeckPressureSideHorizontalHubEdge(node, graph, side)) return false;
     const members = getHorizontalDeckMembersByX(node, graph);
-    if (members.length <= 1 || !members.some((member) => member?.properties?.autoWidth === false)) return false;
+    if (members.length <= 1 || !members.some((member) => canResizeHorizontalMemberWidth(member, graph))) return false;
     const nodeIndex = members.findIndex((member) => member.id === node.id);
     if (side === "left") return nodeIndex === 0;
     if (side === "right") return nodeIndex === members.length - 1;
     return nodeIndex === 0 || nodeIndex === members.length - 1;
+}
+
+function canResizeHorizontalMemberWidth(node, graph) {
+    if (node?.properties?.autoWidth === false) return true;
+    return isDeckPressureSideHorizontalBranchMember(node, graph);
+}
+
+function isDirectHorizontalNodeSeam(leftNode, rightNode, graph) {
+    if (!leftNode || !rightNode || !graph) return false;
+    if (isDeckPressureHub(leftNode) || isDeckPressureHub(rightNode)) return false;
+    return getNodeOnDeckEdge(leftNode, graph, "right")?.id === rightNode.id
+        || getNodeOnDeckEdge(rightNode, graph, "left")?.id === leftNode.id;
+}
+
+function areSameRowAdjacentHorizontalMembers(leftNode, rightNode, graph) {
+    if (!leftNode || !rightNode || !graph) return false;
+    if (isDeckPressureHub(leftNode) || isDeckPressureHub(rightNode)) return false;
+    const hub = getDeckPressureHubForNode(leftNode, graph);
+    if (!hub || hub.id === leftNode.id || getDeckPressureHubForNode(rightNode, graph)?.id !== hub.id) return false;
+    const lx = Number(leftNode.pos?.[0]) || 0;
+    const ly = Number(leftNode.pos?.[1]) || 0;
+    const lw = getDockNodeWidth(leftNode);
+    const lh = getDockNodeHeight(leftNode);
+    const rx = Number(rightNode.pos?.[0]) || 0;
+    const ry = Number(rightNode.pos?.[1]) || 0;
+    const rw = getDockNodeWidth(rightNode);
+    const rh = getDockNodeHeight(rightNode);
+    const overlapY = Math.min(ly + lh, ry + rh) - Math.max(ly, ry);
+    if (overlapY < Math.max(1, Math.min(lh, rh) * 0.5)) return false;
+    return Math.abs((lx + lw) - rx) <= 4 || Math.abs((rx + rw) - lx) <= 4;
+}
+
+function getHorizontalSameRowNeighbor(node, graph, side) {
+    if (!node || !graph || (side !== "left" && side !== "right")) return null;
+    const hub = getDeckPressureHubForNode(node, graph);
+    const direct = getNodeOnDeckEdge(node, graph, side);
+    if (!hub || hub.id === node.id) return direct && !isDeckPressureHub(direct) ? direct : null;
+    const x = Number(node.pos?.[0]) || 0;
+    const y = Number(node.pos?.[1]) || 0;
+    const w = getDockNodeWidth(node);
+    const h = getDockNodeHeight(node);
+    const edgeX = side === "left" ? x : x + w;
+    const members = getDeckMembers(node, graph).filter((member) => member && member.id !== node.id && !isDeckPressureHub(member));
+    let best = null;
+    let bestGap = Infinity;
+    members.forEach((member) => {
+        if (getDeckPressureHubForNode(member, graph)?.id !== hub.id) return;
+        const mx = Number(member.pos?.[0]) || 0;
+        const my = Number(member.pos?.[1]) || 0;
+        const mw = getDockNodeWidth(member);
+        const mh = getDockNodeHeight(member);
+        const overlapY = Math.min(y + h, my + mh) - Math.max(y, my);
+        if (overlapY < Math.max(1, Math.min(h, mh) * 0.5)) return;
+        const memberEdgeX = side === "left" ? mx + mw : mx;
+        const directional = side === "left" ? memberEdgeX <= edgeX + 2 : memberEdgeX >= edgeX - 2;
+        if (!directional) return;
+        const gap = Math.abs(memberEdgeX - edgeX);
+        if (gap > 4 || gap >= bestGap) return;
+        best = member;
+        bestGap = gap;
+    });
+    return best;
+}
+
+function canResizeHorizontalSeamPair(leftNode, rightNode, graph) {
+    if (canResizeHorizontalMemberWidth(leftNode, graph) && canResizeHorizontalMemberWidth(rightNode, graph)) return true;
+    return isDirectHorizontalNodeSeam(leftNode, rightNode, graph)
+        || areSameRowAdjacentHorizontalMembers(leftNode, rightNode, graph);
+}
+
+export function canResizeHorizontalSharedEdgeWidth(node, graph = app.graph || node?.graph || null, side = null) {
+    if (side !== "left" && side !== "right") return false;
+    if (!graph || !node) return false;
+    const neighbor = getHorizontalSameRowNeighbor(node, graph, side);
+    if (!neighbor) return false;
+    if (isDeckPressureHub(neighbor)) return false;
+    return side === "left"
+        ? canResizeHorizontalSeamPair(neighbor, node, graph)
+        : canResizeHorizontalSeamPair(node, neighbor, graph);
 }
 
 function snapResizeValue(value, snap) {
@@ -999,7 +1083,7 @@ function applyHorizontalStackWidthResize(entity, resizeAnchor, requestedEntityWi
     const members = getHorizontalDeckMembersByX(entity, graph);
     if (members.length <= 1) return false;
 
-    const manualMembers = members.filter((member) => member?.properties?.autoWidth === false);
+    const manualMembers = members.filter((member) => canResizeHorizontalMemberWidth(member, graph));
     if (manualMembers.length === 0) return false;
 
     const isLeftHandle = resizeAnchor === "left" || resizeAnchor === "top-left" || resizeAnchor === "bottom-left";
@@ -1054,7 +1138,7 @@ function applyHorizontalStackWidthResize(entity, resizeAnchor, requestedEntityWi
     const nextWidths = new Map(originalWidths);
 
     members.forEach((member) => {
-        if (member?.properties?.autoWidth === false) return;
+        if (canResizeHorizontalMemberWidth(member, graph)) return;
         const fixedAutoWidth = originalWidths.get(member.id) || getDockNodeWidth(member);
         nextWidths.set(member.id, fixedAutoWidth);
         member._horizontalDeckWidthBalanceObserved = fixedAutoWidth;
@@ -1284,8 +1368,8 @@ export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH,
 
     const peerAbove = getNodeOnDeckEdge(entity, graph, "top");
     const peerBelow = getNodeOnDeckEdge(entity, graph, "bottom");
-    const peerLeft = getNodeOnDeckEdge(entity, graph, "left");
-    const peerRight = getNodeOnDeckEdge(entity, graph, "right");
+    const peerLeft = getHorizontalSameRowNeighbor(entity, graph, "left");
+    const peerRight = getHorizontalSameRowNeighbor(entity, graph, "right");
     addSeamCandidate(peerAbove, entity, "bottom");
     addSeamCandidate(entity, peerBelow, "bottom");
     addSeamCandidate(peerLeft, entity, "right");
@@ -1363,7 +1447,7 @@ export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH,
 
         const leftNode = side === "left" ? docked : leader;
         const rightNode = side === "left" ? leader : docked;
-        if (leftNode?.properties?.autoWidth !== false || rightNode?.properties?.autoWidth !== false) {
+        if (!canResizeHorizontalSeamPair(leftNode, rightNode, graph)) {
             result.handledWidth = true;
             result.handledAll = true;
             result.appliedWidth = getDockNodeWidth(entity);
@@ -1391,6 +1475,17 @@ export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH,
         const counterpartWidth = Math.max(counterpartMinW, totalWidth - draggedWidth);
         const adjustedLeftW = leftNode.id === entity.id ? draggedWidth : counterpartWidth;
         const adjustedRightW = rightNode.id === entity.id ? draggedWidth : counterpartWidth;
+        [leftNode, rightNode].forEach((member) => {
+            const width = member.id === leftNode.id ? adjustedLeftW : adjustedRightW;
+            if (!member.properties) member.properties = {};
+            member.properties.autoWidth = false;
+            member._horizontalDeckWidthResizeLock = true;
+            member._deckPressureSideHorizontalWidth = width;
+            member.properties._deckPressureSideHorizontalWidth = width;
+            member._horizontalDeckWidthBalanceObserved = width;
+            member._horizontalDeckWidthBalanceReady = true;
+        });
+        markDockResizeActiveMembers(entity, [leftNode, rightNode], entity, { markResizing: false });
 
         syncDeckNodeSize(leftNode, adjustedLeftW, getDockNodeHeight(leftNode));
         syncDeckNodeSize(rightNode, adjustedRightW, getDockNodeHeight(rightNode));
