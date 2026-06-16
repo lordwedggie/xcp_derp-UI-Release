@@ -436,7 +436,9 @@ export function syncDerpSliderCanvas(ctx, node, config) {
     const knobTravelW = Math.max(0, trackW - knobStyleW);
     const knobX = trackStart + knobTravelW * Math.max(0, percent);
     const fillStartX = trackStart;
-    const fillProgressW = Math.max(0, (knobX + 1) - fillStartX);
+    const fillProgressW = (style === "knob")
+        ? Math.max(0, (knobX + knobStyleW / 2) - fillStartX)
+        : Math.max(0, (knobX + 1) - fillStartX);
     const fillbarMargin = Math.max(0, FILLBAR_MARGIN);
     const fillbarDrawX = fillStartX + fillbarMargin;
     const fillbarDrawY = fillY;
