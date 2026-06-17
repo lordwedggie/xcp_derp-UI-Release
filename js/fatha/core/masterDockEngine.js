@@ -1415,10 +1415,15 @@ export function syncDeckNodeSize(node, width, height, options = {}) {
         previous: { width: prevW, height: prevH },
         changed,
     }));
-    setDerpNodeSizeCompat(node, nextW, nextH);
     if (!node.properties) node.properties = {};
+    const storedW = node.properties.nodeSize?.[0];
+    const storedH = node.properties.nodeSize?.[1];
+    if (!changed) {
+        if (storedW !== nextW || storedH !== nextH) node.properties.nodeSize = [nextW, nextH];
+        return false;
+    }
+    setDerpNodeSizeCompat(node, nextW, nextH);
     node.properties.nodeSize = [nextW, nextH];
-    if (!changed) return false;
 
     if (node.layout) node.layout._lastCacheKey = "";
     node._forceSync = true;
