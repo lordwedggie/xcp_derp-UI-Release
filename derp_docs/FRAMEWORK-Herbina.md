@@ -119,6 +119,7 @@ widgets/
 - Variable fonts can diverge between Canvas and DOM when the browser applies automatic optical sizing. For editor parity, disable DOM `fontOpticalSizing` and pin `fontVariationSettings` `opsz` to the unscaled layout font size used by Canvas measurement.
 - Active/focused `canvasShield` editor DOM must be positioned from the Canvas draw transform. Capture the screen rect from `ctx.getTransform()` plus the canvas bounding rect and reuse that rect for DOM `left`, `top`, `width`, and `height`; do not independently recompute placement from `node.pos + ds.offset`, which can diverge under zoom and make the editor drift upward.
 - Canvas-shield HTML editors should use physical CSS pixel dimensions with `transform: none`; text metrics, padding, and multiline scroll sync scale through the captured HTML scale.
+- While an EDITOR is focused, the next outside pointer-down commits/cancels through blur and is consumed before canvas, shield, or other widget handlers can also use that click.
 - Body-level editor DOM must use the host node's `_masterZHtml` unless the editor config explicitly supplies `zIndex`; never preserve stale inline z-index across graph-order changes.
 - Do not fix zoom-dependent EDITOR drift with per-zoom height, baseline, or translation nudges. If an asleep editor visual drifts, move that visual back into the Canvas path.
 - Keep vertical alignment math host-independent. System panels, Fatha nodes, ThemeManager fields, and numeric editors should use the same `labelAlign` calculation unless a concrete renderer bug requires a shared fix.
@@ -160,6 +161,9 @@ Rules:
 
 ## Z-Index
 `getNextZIndex()` starts at 10001, increments per widget. Used for stacking order in the DOM shield overlay.
+
+## Slider Animation Notes
+- Slider track clicks may animate the knob toward the snapped target value. A new drag-start on the visible knob interrupts that position lerp and snaps the animation state to the live value so dragging can take over immediately.
 
 ## Global Animation Toggle
 **Setting ID:** `Derp.UseAnimation` (boolean, default: `true`)

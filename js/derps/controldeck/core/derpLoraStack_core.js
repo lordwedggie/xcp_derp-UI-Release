@@ -950,9 +950,12 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                                         if (type === "dragStart") this._btnLRHandledKey = null;
                                         const sliderConfig = regions[targetKey];
                                         // Keep click-to-jump animated; only continuous movement should disable lerp.
-                                        if (sliderConfig) sliderConfig._isDraggingSlider = (type === "drag");
+                                        const interruptingLerp = type === "dragStart" && typeof window.interruptDerpSliderLerp === "function"
+                                            ? window.interruptDerpSliderLerp(this, reg, sliderConfig, localX, targetKey)
+                                            : false;
+                                        if (sliderConfig) sliderConfig._isDraggingSlider = (type === "drag") || interruptingLerp;
                                         if (this._compDataCache?.[targetKey]) {
-                                            this._compDataCache[targetKey]._isDraggingSlider = (type === "drag");
+                                            this._compDataCache[targetKey]._isDraggingSlider = (type === "drag") || interruptingLerp;
                                         }
                                         if ((type === "dragStart" || type === "click" || type === "dblclick") && sliderConfig) {
                                             const btnResult = handleDerpSliderBtnLR(this, reg, targetKey, type, localX, sliderConfig);

@@ -431,10 +431,13 @@ export function setupDerpSliderCore(nodeType) {
                         // Only treat active pointer movement as a drag.
                         // Track/background clicks also enter here as dragStart,
                         // and marking them as dragging suppresses the intended lerp.
-                        if (config) config._isDraggingSlider = (type === "drag");
                         const targetKey = `dynamicSlider_${targetIdx}`;
+                        const interruptingLerp = type === "dragStart" && typeof window.interruptDerpSliderLerp === "function"
+                            ? window.interruptDerpSliderLerp(this, reg, config, localX, targetKey)
+                            : false;
+                        if (config) config._isDraggingSlider = (type === "drag") || interruptingLerp;
                         if (this._compDataCache?.[targetKey]) {
-                            this._compDataCache[targetKey]._isDraggingSlider = (type === "drag");
+                            this._compDataCache[targetKey]._isDraggingSlider = (type === "drag") || interruptingLerp;
                         }
 
                         let valueResult;

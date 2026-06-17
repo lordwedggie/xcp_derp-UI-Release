@@ -24,10 +24,6 @@ const PASSIVE_WHOLE_WALL_CACHE_MAX_SCALE = 2;
 const PASSIVE_WHOLE_WALL_CACHE_SCALE_STEP = 0.25;
 const LORA_STACK_WHOLE_WALL_CACHE_MIN_ITEMS = 3;
 const TRIGGER_WALL_WHOLE_WALL_CACHE_MIN_ITEMS = 10;
-const LORA_STACK_DEBUG_FRAME_MS = 12;
-const LORA_STACK_DEBUG_THROTTLE_MS = 1000;
-const LORA_STACK_DEBUG_HEARTBEAT_MS = 3500;
-
 function isDerpLoraStackNode(node) {
     const text = [
         node?.type,
@@ -37,27 +33,6 @@ function isDerpLoraStackNode(node) {
         node?.title,
     ].filter(Boolean).join(" ").toLowerCase().replace(/[^a-z0-9]/g, "");
     return text.includes("derplorastack");
-}
-
-function logLoraStackFramePerf(node, perf) {
-    const now = performance.now();
-    if (!node || !perf) return;
-    const isSlow = perf.total >= LORA_STACK_DEBUG_FRAME_MS;
-    const throttleMs = isSlow ? LORA_STACK_DEBUG_THROTTLE_MS : LORA_STACK_DEBUG_HEARTBEAT_MS;
-    if (now - Number(node._lastLoraStackPerfLogAt || 0) < throttleMs) return;
-    node._lastLoraStackPerfLogAt = now;
-    const phaseText = Object.entries(perf.phases || {})
-        .map(([key, value]) => `${key}:${Number(value || 0).toFixed(1)}`)
-        .join(',');
-    const slowWidgets = (perf.widgets || [])
-        .sort((a, b) => b.ms - a.ms)
-        .slice(0, 6)
-        .map(item => `${item.key}/${item.type}:${item.ms.toFixed(1)}`)
-        .join(',') || 'none';
-    const cache = perf.cacheHit ? 'hit' : (perf.cacheEligible ? 'eligible' : 'off');
-    const stackCount = Array.isArray(node.properties?.stackData) ? node.properties.stackData.length : 0;
-    const deckText = `${node.properties?.deckParentId || 'none'}:${node.properties?.deckDockSide || 'none'}`;
-    console.log(`[LoraStackPerf] frame node=${node.id}:${node.titleLabel || node.title || node.type} zoom=${(app.canvas?.ds?.scale || 1).toFixed(2)} total=${perf.total.toFixed(1)} cache=${cache} path=${perf.cachePath || 'draw'} draw=${perf.cacheDraw || 'none'} deck=${deckText} presH=${perf.preserveHorizontalDeckHeight ? 1 : 0} lockH=${perf.lockHorizontalDeckResize ? 1 : 0} sync=${perf.syncReason || 'none'} shouldSync=${node._shouldSync ? 1 : 0} force=${node._forceSync ? 1 : 0} dirty=${node._layoutDirty ? 1 : 0} size=${Math.round(node.size?.[0] || 0)}x${Math.round(node.size?.[1] || 0)} stack=${stackCount} phases=${phaseText} slow=${slowWidgets}`);
 }
 
 function getFathaNodeScreenRect(node, canvasDS, canvasEl) {
@@ -261,11 +236,8 @@ function getFathaVisibleLocalRect(node) {
     };
 }
 
-function drawPassiveWholeWallCache(node, ctx, cacheCanvas, cacheReg, fallbackScale = 1, debugInfo = null) {
+function drawPassiveWholeWallCache(node, ctx, cacheCanvas, cacheReg, fallbackScale = 1) {
     if (!cacheCanvas || !cacheReg) return false;
-    const setDebugDraw = (text) => {
-        if (debugInfo) debugInfo.cacheDraw = text;
-    };
 
     const regX = Math.round(cacheReg.x || 0);
     const regY = Math.round(cacheReg.y || 0);
@@ -273,7 +245,6 @@ function drawPassiveWholeWallCache(node, ctx, cacheCanvas, cacheReg, fallbackSca
     const regH = Math.max(1, Math.round(cacheReg.h || node?.size?.[1] || 1));
     const visible = getFathaVisibleLocalRect(node);
     if (!visible) {
-        setDebugDraw(`full:${regW}x${regH}@${Math.max(1, Number(fallbackScale) || 1).toFixed(2)}`);
         ctx.drawImage(cacheCanvas, regX, regY, regW, regH);
         return true;
     }
@@ -292,7 +263,6 @@ function drawPassiveWholeWallCache(node, ctx, cacheCanvas, cacheReg, fallbackSca
     const sourceY = Math.max(0, Math.round((drawY - regY) * cacheScale));
     const sourceW = Math.max(1, Math.min(cacheCanvas.width - sourceX, Math.round(destW * cacheScale)));
     const sourceH = Math.max(1, Math.min(cacheCanvas.height - sourceY, Math.round(destH * cacheScale)));
-    setDebugDraw(`src:${sourceW}x${sourceH}@${cacheScale.toFixed(2)} dst:${Math.round(sourceW / cacheScale)}x${Math.round(sourceH / cacheScale)}`);
 
     ctx.drawImage(cacheCanvas, sourceX, sourceY, sourceW, sourceH, drawX, drawY, sourceW / cacheScale, sourceH / cacheScale);
     return true;
@@ -790,14 +760,6 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
         const curW = this.size[0], curH = this.size[1];
         const curS = canvasDS.scale;
         const curOX = canvasDS.offset[0], curOY = canvasDS.offset[1];
-        const loraStackPerf = isDerpLoraStackNode(this) ? { start: performance.now(), phases: {}, widgets: [] } : null;
-        let loraStackPerfMark = loraStackPerf?.start || 0;
-        const markLoraStackPhase = (name) => {
-            if (!loraStackPerf) return;
-            const now = performance.now();
-            loraStackPerf.phases[name] = (loraStackPerf.phases[name] || 0) + Math.max(0, now - loraStackPerfMark);
-            loraStackPerfMark = now;
-        };
 
         // THE HEIST FIX: Read the true state cached by the Heist wrapper
         const isTrueSelected = this._xcpTrueSelected !== undefined ? this._xcpTrueSelected : this.selected;
@@ -875,11 +837,6 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
         // During live resize, preserve the manually dragged axis but still let the auto-managed
         // secondary axis respond immediately (e.g. width shrink causing auto-height growth).
         const lockHorizontalDeckResize = this._horizontalDeckWidthResizeLock === true || shouldLockDeckPressureSideHorizontalWidth(this);
-        if (loraStackPerf) {
-            loraStackPerf.preserveHorizontalDeckHeight = !!preserveHorizontalDeckHeight;
-            loraStackPerf.lockHorizontalDeckResize = !!lockHorizontalDeckResize;
-            loraStackPerf.syncReason = [hasLayoutChanged ? 'layout' : '', hasVisualChanged ? 'visual' : '', this._forceSync ? 'force' : '', this._layoutDirty ? 'dirty' : ''].filter(Boolean).join('+') || 'none';
-        }
         const lockedDeckPressureSideW = getDeckPressureSideHorizontalLockedWidth(this);
         const liveTargetW = lockedDeckPressureSideW > 0
             ? lockedDeckPressureSideW
@@ -887,9 +844,7 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
         const liveTargetH = (this._isDerpResizing && !autoHeight) || lockHorizontalDeckResize ? this.size[1] : targetH;
         const preAnimateW = Number(this.size?.[0]) || 0;
         animateDerpSize(this, liveTargetW, liveTargetH, useAnim);
-        markLoraStackPhase("animate-size");
         balanceHorizontalDeckWidthChange(this, preAnimateW);
-        markLoraStackPhase("balance-width");
 
         const bounds = { x: 0, y: 0, w: this.size[0], h: this.size[1] };
 
@@ -899,7 +854,6 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
             spawnAnim: false,
             isVirtual: true
         }, needsLayoutCompute);
-        markLoraStackPhase("layout");
 
         if (preserveHorizontalDeckHeight) {
             if (!lockHorizontalDeckResize) {
@@ -913,7 +867,6 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
         } else if (shouldPreserveVerticalDeckWidth(this) || isComfyVueNodesMode()) {
             normalizeDerpDockedLayout(this);
         }
-        markLoraStackPhase("dock-sync");
 
         if (this.properties.nodeSize && !isMinState) {
             if (lockedDeckPressureSideW > 0) this.properties.nodeSize[0] = lockedDeckPressureSideW;
@@ -933,7 +886,6 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
         }
 
         handleDrawCTX(this, ctx);
-        markLoraStackPhase("base-bg");
 
         const createPassiveCanvas = createFathaCacheCanvas;
         const passiveCacheScale = getPassiveWholeWallCacheScale(curS);
@@ -949,30 +901,18 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
         const loraWidgetLayer = buildLoraStackWidgetLayerCacheState(this, passiveCacheScale, !this._shouldSync && !needsLayoutCompute && !collapseStateChanged && !isAnimating);
         const loraWidgetLayerCache = this._loraStackWidgetLayerCanvasCache;
         if (loraWidgetLayer.canUse && loraWidgetLayerCache?.key === loraWidgetLayer.key && loraWidgetLayerCache?.canvas) {
-            if (loraStackPerf) loraStackPerf.cachePath = "widget-layer";
-            drawPassiveWholeWallCache(this, ctx, loraWidgetLayerCache.canvas, loraWidgetLayer.cacheReg, loraWidgetLayerCache.scale || passiveCacheScale, loraStackPerf);
-            markLoraStackPhase("widget-layer-cache-hit");
+            drawPassiveWholeWallCache(this, ctx, loraWidgetLayerCache.canvas, loraWidgetLayer.cacheReg, loraWidgetLayerCache.scale || passiveCacheScale);
             ensurePassiveCacheInteractionBindings(this, app);
             syncDerpShield(this);
-            markLoraStackPhase("shield");
             if (this._forceSync) this._forceSync = false;
-            if (loraStackPerf) {
-                loraStackPerf.cacheHit = true;
-                loraStackPerf.cacheEligible = true;
-                loraStackPerf.total = performance.now() - loraStackPerf.start;
-                logLoraStackFramePerf(this, loraStackPerf);
-            }
             return;
         }
         const passiveWholeWallCache = passiveWholeWall.cacheSlot ? this[passiveWholeWall.cacheSlot] : null;
 
         if (canUsePassiveWholeWallCache && passiveWholeWallCache?.key === passiveWholeWall.key && passiveWholeWallCache?.canvas) {
-            if (loraStackPerf) loraStackPerf.cachePath = "whole-wall";
-            drawPassiveWholeWallCache(this, ctx, passiveWholeWallCache.canvas, passiveWholeWall.cacheReg, passiveWholeWallCache.scale || passiveCacheScale, loraStackPerf);
-            markLoraStackPhase("cache-hit-draw");
+            drawPassiveWholeWallCache(this, ctx, passiveWholeWallCache.canvas, passiveWholeWall.cacheReg, passiveWholeWallCache.scale || passiveCacheScale);
             ensurePassiveCacheInteractionBindings(this, app);
             syncDerpShield(this);
-            markLoraStackPhase("shield");
             if (this._shouldSync) {
                 this._prevDerpState = {
                     posX: curX, posY: curY,
@@ -985,12 +925,6 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
                 };
             }
             if (this._forceSync) this._forceSync = false;
-            if (loraStackPerf) {
-                loraStackPerf.cacheHit = true;
-                loraStackPerf.cacheEligible = true;
-                loraStackPerf.total = performance.now() - loraStackPerf.start;
-                logLoraStackFramePerf(this, loraStackPerf);
-            }
             return;
         }
 
@@ -1010,8 +944,6 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
             const cacheCtx = cacheCanvas?.getContext?.("2d") || null;
             const widgetLayerCtx = widgetLayerCanvas?.getContext?.("2d") || null;
             const activeCtx = cacheCtx || widgetLayerCtx || ctx;
-            if (loraStackPerf) loraStackPerf.cacheEligible = !!canUsePassiveWholeWallCache;
-            if (loraStackPerf && loraWidgetLayer.canUse) loraStackPerf.cacheEligible = true;
 
             if (cacheCtx) {
                 cacheCtx.clearRect(0, 0, cacheCanvas.width, cacheCanvas.height);
@@ -1065,58 +997,44 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
                         isNewElement = true;
                     }
                     if (this._shouldSync || isNewElement) {
-                        const widgetStart = loraStackPerf ? performance.now() : 0;
                         blueprint.sync(this._derpDomElements[key], this, app, compData);
-                        if (loraStackPerf) loraStackPerf.widgets.push({ key, type: reg.type, ms: performance.now() - widgetStart });
                     }
                 } else if (blueprint.isHybrid) {
-                    const widgetStart = loraStackPerf ? performance.now() : 0;
                     blueprint.sync(activeCtx, this, app, compData);
-                    if (loraStackPerf) loraStackPerf.widgets.push({ key, type: reg.type, ms: performance.now() - widgetStart });
                 } else {
-                    const widgetStart = loraStackPerf ? performance.now() : 0;
                     blueprint.sync(activeCtx, this, compData);
-                    if (loraStackPerf) loraStackPerf.widgets.push({ key, type: reg.type, ms: performance.now() - widgetStart });
                 }
             }
-            markLoraStackPhase("widgets");
 
             handleDrawCTX(this, activeCtx, true);
-            markLoraStackPhase("overlay-bg");
 
             for (const [key, reg] of Object.entries(this.layout.regions)) {
                 if (reg.strokeZIndex) {
                     const blueprint = COMPONENT_BLUEPRINTS[reg.type];
                     if (blueprint && blueprint.isHybrid && this._compDataCache[key]) {
-                        const widgetStart = loraStackPerf ? performance.now() : 0;
                         blueprint.sync(activeCtx, this, app, this._compDataCache[key], true);
-                        if (loraStackPerf) loraStackPerf.widgets.push({ key: `${key}#stroke`, type: reg.type, ms: performance.now() - widgetStart });
                     }
                 }
             }
-            markLoraStackPhase("stroke-pass");
 
             if (cacheCtx) {
                 cacheCtx.restore();
-                if (loraStackPerf) loraStackPerf.cachePath = "whole-wall-store";
                 this[passiveWholeWall.cacheSlot] = {
                     key: passiveWholeWall.key,
                     canvas: cacheCanvas,
                     scale: passiveCacheScale,
                 };
-                drawPassiveWholeWallCache(this, ctx, cacheCanvas, passiveWholeWall.cacheReg, passiveCacheScale, loraStackPerf);
+                drawPassiveWholeWallCache(this, ctx, cacheCanvas, passiveWholeWall.cacheReg, passiveCacheScale);
             }
             if (widgetLayerCtx) {
                 widgetLayerCtx.restore();
-                if (loraStackPerf) loraStackPerf.cachePath = "widget-layer-store";
                 this._loraStackWidgetLayerCanvasCache = {
                     key: loraWidgetLayer.key,
                     canvas: widgetLayerCanvas,
                     scale: passiveCacheScale,
                 };
-                drawPassiveWholeWallCache(this, ctx, widgetLayerCanvas, loraWidgetLayer.cacheReg, passiveCacheScale, loraStackPerf);
+                drawPassiveWholeWallCache(this, ctx, widgetLayerCanvas, loraWidgetLayer.cacheReg, passiveCacheScale);
             }
-            markLoraStackPhase("cache-store-draw");
 
             if (this._derpDomElements) {
                 for (const domKey in this._derpDomElements) {
@@ -1127,9 +1045,7 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
                 }
             }
         }
-        markLoraStackPhase("dom-cleanup");
         syncDerpShield(this);
-        markLoraStackPhase("shield");
 
         if (this._shouldSync) {
             this._prevDerpState = {
@@ -1143,11 +1059,6 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
             };
         }
         if (this._forceSync) this._forceSync = false;
-        if (loraStackPerf) {
-            loraStackPerf.cacheHit = false;
-            loraStackPerf.total = performance.now() - loraStackPerf.start;
-            logLoraStackFramePerf(this, loraStackPerf);
-        }
     };
 
     const onRemoved = nodeType.prototype.onRemoved;
