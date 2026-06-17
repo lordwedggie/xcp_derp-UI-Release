@@ -268,3 +268,12 @@ To add a skill, create `.agents/skills/<name>/SKILL.md` with YAML frontmatter (`
 - For layout anomalies, inspect `masterLayoutEngine` and `widget_Region` before patching symptoms.
 - When asking the user to enable debug logs, provide exact console commands in the same response.
 - Investigate root causes before broad FileBrowser pointer/hover punch-through fixes.
+
+### System Panel / Basta → Main Layout Sync
+
+When a system panel dropdown or Basta overlay widget changes a property that affects the main node's visual display, the `onChange`/`onPress` handler must rebuild BOTH layout maps — not just the panel's own:
+
+- **System panel handlers**: always follow `refreshDerpXxxSysMap()` with `refreshNodeLayoutMap()` if the changed property appears in the main node's layout map or hashes.
+- **Basta overlay handlers**: if a widget inside a Basta changes a property that affects a widget in the same Basta, clear `_compDataCache[key]`, set `_forceSync = true`, and call `requestDerpSync()`. If it also affects the host node's main layout, call `refreshNodeLayoutMap()` on the host.
+
+**This bit us twice in one session**: ImageDeck format dropdown (system panel) and PromptBook "insert after" toggle (Basta overlay). Both changed a property, refreshed only the panel/Basta, and left the main display stale until an unrelated click forced a full redraw.

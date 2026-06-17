@@ -559,16 +559,21 @@ export function handlePageAdd(node) {
     const currentIdx = node.properties.currentPageIndex || 0;
     node._pbInsertAfter = true;
 
+    const defaultName = tLocale("$derp_prompt_book.page.new_page_prefix", "New page") + " " + (book.length + 1);
+
     showBastaFileHandler(node, "derpPromptBook", "btnPageAdd", {
         title: tLocale("$derp_prompt_book.dialogs.add_page.title", "Add Page"),
         message: tLocale("$derp_prompt_book.dialogs.add_page.message", "Enter a name for the new page:"),
         confirm: tLocale("$derp_prompt_book.dialogs.add_page.confirm", "Add Page"),
         mode: "new",
+        originalName: defaultName,
         initialSize: [280, 180],
         properties: {
             showOptions: false,
             layoutMapOverride: (basta, vars) => {
                 const { oY, pW, pH } = vars;
+                const isLastPage = currentIdx === book.length - 1;
+                if (isLastPage) node._pbInsertAfter = false;
                 return {
                     contentRegion: {
                         optionRow: {
@@ -579,13 +584,22 @@ export function handlePageAdd(node) {
                                 type: UI_TYPES.TOGGLE_V2,
                                 themeKey: "button, t_textSystem",
                                 text: tLocale("$derp_prompt_book.dialogs.add_page.insert_after", "Insert after current page"),
-                                value: node._pbInsertAfter !== false,
+                                value: isLastPage ? false : node._pbInsertAfter !== false,
+                                state: isLastPage ? "DIS" : undefined,
                                 isTextOnly: true,
                                 width: "auto", height: "auto",
                                 padding: [pW, pH],
                                 onPress: () => {
-                                    node._pbInsertAfter = !node._pbInsertAfter;
+                                    const toggled = !!basta.layout?.regions?.toggleInsertAfter?.value;
+                                    node._pbInsertAfter = toggled;
+                                    if (basta.layout?.regions?.toggleInsertAfter) {
+                                        basta.layout.regions.toggleInsertAfter.value = toggled;
+                                    }
+                                    if (basta._compDataCache) delete basta._compDataCache.toggleInsertAfter;
+                                    basta._derpAwakeFrames = Math.max(basta._derpAwakeFrames || 0, 3);
+                                    basta._forceSync = true;
                                     basta.requestDerpSync();
+                                    basta.setDirtyCanvas(true, true);
                                 },
                             },
                         },

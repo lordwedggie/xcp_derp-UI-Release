@@ -287,7 +287,7 @@ app.registerExtension({
                         onChange: (val) => handlePageChange(this, val)
                     },
                     btnPageDelete: {
-                        type: this.UI_TYPES.ICONBUTTON, icon: "delete", themeKey: "button, t_textNormal",
+                        type: this.UI_TYPES.ICONBUTTON, icon: "trash", themeKey: "button, t_textNormal",
                         width: "match", height: "fill", spacing: [sW, 0], objectAlign: ["left", "middle"],
                         onPress: () => handlePageDelete(this)
                     },
