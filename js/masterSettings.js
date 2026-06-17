@@ -661,7 +661,7 @@ app.registerExtension({
             sortOrder: DERP_GROUP_SORT_ORDER.optimization,
             type: "combo",
             options: [
-                { value: "none", text: "None" },
+                { value: "none", text: "Never" },
                 { value: "3", text: "3" },
                 { value: "5", text: "5" },
                 { value: "8", text: "8" },
@@ -684,7 +684,7 @@ app.registerExtension({
             sortOrder: DERP_GROUP_SORT_ORDER.optimization,
             type: "combo",
             options: [
-                { value: "none", text: "None" },
+                { value: "none", text: "Never" },
                 { value: "10", text: "10" },
                 { value: "15", text: "15" },
                 { value: "20", text: "20" },

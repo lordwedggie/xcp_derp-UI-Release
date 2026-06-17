@@ -133,14 +133,14 @@ export function createDerpShield(node) {
     const shield = document.createElement("div");
 
     shield.style.cssText = `
-        position: fixed; 
+        position: fixed;
         top: 0;
         left: 0;
-        z-index: 5; 
+        z-index: 5;
         background: transparent;
-        pointer-events: auto; 
-        touch-action: none; 
-        user-select: none; 
+        pointer-events: auto;
+        touch-action: none;
+        user-select: none;
         -webkit-user-select: none;
         cursor: default;
         transition: box-shadow 0.2s ease, filter 0.2s ease;
@@ -151,12 +151,12 @@ export function createDerpShield(node) {
     const SHIELD_TOP_CORNER_HITBOX_PX = 10;
     const resizeHandle = document.createElement("div");
     resizeHandle.style.cssText = `
-        position: absolute; 
-        right: 0; 
+        position: absolute;
+        right: 0;
         bottom: 0;
-        width: ${SHIELD_BOTTOM_CORNER_HITBOX_PX}px; 
+        width: ${SHIELD_BOTTOM_CORNER_HITBOX_PX}px;
         height: ${SHIELD_BOTTOM_CORNER_HITBOX_PX}px;
-        cursor: nwse-resize; 
+        cursor: nwse-resize;
         z-index: 10;
         background: transparent;
     `;
@@ -922,7 +922,7 @@ export function createDerpShield(node) {
         const isBasta = node?.properties?.bastaSingleton !== undefined || node?.properties?.bastaMovalbe !== undefined;
         node._uiHovered = true;
         node._derpAwakeFrames = 5;
-        if (!isBasta) {
+        if (!isBasta && !node._skipShieldHoverForceSync) {
             node._forceSync = true;
         }
         if (typeof node.requestDerpSync === "function") node.requestDerpSync();
@@ -950,7 +950,7 @@ export function createDerpShield(node) {
         if (shield) shield.style.cursor = "default";
 
         node._derpAwakeFrames = 5;
-        if (!isBasta) {
+        if (!isBasta && !node._skipShieldHoverForceSync) {
             node._forceSync = true;
         }
         if (typeof node.requestDerpSync === "function") node.requestDerpSync();

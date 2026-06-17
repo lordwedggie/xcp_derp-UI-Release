@@ -440,6 +440,7 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                     this.isPureVirtual = true;
                     this.properties.isPureVirtual = true;
                     this.properties.drawSignalBtn = true;
+                    this._skipShieldHoverForceSync = true;
                     // Critical: pure virtual nodes must have empty outputs
                     this.outputs = [];
 
@@ -513,6 +514,7 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                     this.properties.showCLIP = this.properties.showCLIP ?? false;
                     this.properties.nameDisplay = this.properties.nameDisplay || "Top";
                     this.properties.toggleLR = this.properties.toggleLR ?? false;
+                    this._skipShieldHoverForceSync = true;
                     this.signalFilters = { types: this.properties.attentionMode === "Joint-Attention" ? ["MODEL"] : ["MODEL", "CLIP"] };
                     this.isPureVirtual = true;
                     this.properties.isPureVirtual = true;
