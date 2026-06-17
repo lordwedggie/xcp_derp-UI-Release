@@ -277,3 +277,15 @@ When a system panel dropdown or Basta overlay widget changes a property that aff
 - **Basta overlay handlers**: if a widget inside a Basta changes a property that affects a widget in the same Basta, clear `_compDataCache[key]`, set `_forceSync = true`, and call `requestDerpSync()`. If it also affects the host node's main layout, call `refreshNodeLayoutMap()` on the host.
 
 **This bit us twice in one session**: ImageDeck format dropdown (system panel) and PromptBook "insert after" toggle (Basta overlay). Both changed a property, refreshed only the panel/Basta, and left the main display stale until an unrelated click forced a full redraw.
+
+### Whole-Wall Passive Cache and Editor Updates
+
+When a `canvasShield` EDITOR widget's text must update and the node uses whole-wall passive caching (ImageDeck, LoraStack, TriggerWall), do NOT rely on cache invalidation + draw cycle. The draw cycle races against multiple cached layers (`_compDataCache`, `_editorLineCache`, `el._config`, layout regions, DOM element state hashes). Instead, **directly mutate all cached objects in-place** — the same approach as `syncImageDeckFilenameEditorDisplay`:
+
+- `editor.text/value` — the layout map config
+- `reg.text/value` — the live layout region
+- `_compDataCache[key].text/value` — the comp data cache
+- `el._config.text/value` — the DOM element's config
+- `el._lastStateHash = null` — forces DOM re-render
+
+This bypasses the whole-wall cache staleness entirely: the next whole-wall render captures the already-updated values, and the DOM resyncs because its state hash is cleared.
