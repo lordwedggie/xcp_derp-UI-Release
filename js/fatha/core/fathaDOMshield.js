@@ -18,8 +18,8 @@
  */
 import { app } from "../../../../scripts/app.js";
 import { renderHitboxDebug } from "../helpers/debugPainter.js";
-import { getDeckMembers, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureBranchAxis, getDeckPressureHubForNode, getNodeOnDeckEdge, isDeckPressureHub, isDeckPressureSideHorizontalBranchMember, isDeckPressureSideHorizontalHubEdge, isLinearDeckGroup } from "./masterDockEngine.js";
-import { canResizeHorizontalSharedEdgeWidth as canResizeHorizontalSharedEdge, canResizeHorizontalStackWidth } from "./dockResizeSharedEdges.js";
+import { getDeckMembers, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureBranchAxis, getDeckPressureHubForNode, getNodeOnDeckEdge, isDeckPressureHub, isDeckPressureSideHorizontalBranchMember, isDeckPressureSideHorizontalHubEdge, isDeckPressureSideWidthResizeEdge, isLinearDeckGroup } from "./masterDockEngine.js";
+import { canResizeHorizontalSharedEdgeWidth as canResizeHorizontalSharedEdge, canResizeHorizontalStackWidth, getHorizontalSameRowNeighbor } from "./dockResizeSharedEdges.js";
 import { beginDeckResizeOptimization, clearEntityTooltip, endDeckResizeOptimization } from "./fathaHandler.js";
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
 import { MASTER_Z, promoteMasterZ } from "./masterZ.js";
@@ -27,6 +27,8 @@ import { isComfyVueNodesMode } from "./fathaNode2Compat.js";
 
 // DEBUG_MODE is now dynamically handled via node.properties.debugMode
 const CORNER_RESIZE_ANCHORS = new Set(["top-left", "top-right", "bottom-left", "bottom-right"]);
+const SHIELD_CORNER_RESIZE_OUTWARD_PAD = 5;
+const SHIELD_HITBOX_DEBUG_FLAG = "xcpDerpDebugShieldHitboxes";
 
 function isCornerResizeAnchor(anchor) {
     return CORNER_RESIZE_ANCHORS.has(anchor);
@@ -92,18 +94,37 @@ function isDeckPressureHubSeamSideEdge(node, graph, side) {
     const pressureHub = graph ? getDeckPressureHubForNode(node, graph) : null;
     if (!pressureHub) return false;
     if (pressureHub.id === node?.id) return getDeckPressureBranchMembers(pressureHub, graph, side).length > 0;
-    const branchSide = getDeckPressureBranchSideForNode(pressureHub, graph, node);
-    if (branchSide !== "left" && branchSide !== "right") return false;
-    if (getDeckPressureBranchAxis(pressureHub, graph, branchSide) !== "vertical") return false;
-    if ((branchSide === "left" && side !== "right") || (branchSide === "right" && side !== "left")) return false;
-    const x = Number(node?.pos?.[0]) || 0;
-    const w = Number(node?.size?.[0] ?? node?.properties?.nodeSize?.[0]) || 0;
-    const edgeX = side === "left" ? x : x + w;
-    const hubX = Number(pressureHub.pos?.[0]) || 0;
-    const hubW = Number(pressureHub.size?.[0] ?? pressureHub.properties?.nodeSize?.[0]) || 0;
-    const targetX = branchSide === "left" ? hubX : hubX + hubW;
-    const tolerance = 1;
-    return Math.abs(edgeX - targetX) <= tolerance;
+    return isDeckPressureSideWidthResizeEdge(node, graph, side);
+}
+
+function getNodeGraphRect(node) {
+    if (!node) return null;
+    const x = Number(node.pos?.[0]) || 0;
+    const y = Number(node.pos?.[1]) || 0;
+    const w = Number(node.size?.[0] ?? node.properties?.nodeSize?.[0]) || 0;
+    const h = Number(node.size?.[1] ?? node.properties?.nodeSize?.[1]) || 0;
+    return { x, y, w, h, right: x + w, bottom: y + h };
+}
+
+function resolveDeckPressureSideSeam(node, graph, side) {
+    if (side !== "left" && side !== "right") return null;
+    const pressureHub = graph ? getDeckPressureHubForNode(node, graph) : null;
+    if (!pressureHub) return null;
+    if (pressureHub.id === node?.id) {
+        return getDeckPressureBranchMembers(pressureHub, graph, side).length > 0 ? { hub: pressureHub, branchSide: side } : null;
+    }
+    const directBranchSide = getDeckPressureBranchSideForNode(pressureHub, graph, node);
+    if (isDeckPressureSideWidthResizeEdge(node, graph, side)) return { hub: pressureHub, branchSide: directBranchSide };
+    const nodeRect = getNodeGraphRect(node);
+    if (!nodeRect) return null;
+    const edgeX = side === "left" ? nodeRect.x : nodeRect.right;
+    for (const branchSide of ["left", "right"]) {
+        const branchMembers = getDeckPressureBranchMembers(pressureHub, graph, branchSide);
+        if (!branchMembers.length) continue;
+        const targetX = branchSide === "left" ? (Number(pressureHub.pos?.[0]) || 0) : (Number(pressureHub.pos?.[0]) || 0) + (Number(pressureHub.size?.[0] ?? pressureHub.properties?.nodeSize?.[0]) || 0);
+        if (Math.abs(edgeX - targetX) <= 4) return { hub: pressureHub, branchSide };
+    }
+    return null;
 }
 
 function getDeckPressureHubSeamResizeTarget(node, graph, anchor) {
@@ -125,6 +146,24 @@ function getDeckPressureHubSeamResizeTarget(node, graph, anchor) {
         node: target,
         anchor: branchSide === "left" ? "right" : "left",
     };
+}
+
+function getDeckPressureSideSeamResizeTarget(node, graph, anchor) {
+    const seam = resolveDeckPressureSideSeam(node, graph, anchor);
+    if (!seam) return null;
+    if (isDeckPressureHub(node)) return getDeckPressureHubSeamResizeTarget(node, graph, anchor);
+    const branchMembers = getDeckPressureBranchMembers(seam.hub, graph, seam.branchSide);
+    const branchAxis = getDeckPressureBranchAxis(seam.hub, graph, seam.branchSide);
+    const targetAnchor = seam.branchSide === "left" ? "right" : "left";
+    const target = branchAxis === "horizontal"
+        ? branchMembers.reduce((best, member) => {
+            if (!best) return member;
+            const memberX = Number(member?.pos?.[0]) || 0;
+            const bestX = Number(best?.pos?.[0]) || 0;
+            return seam.branchSide === "left" ? (memberX > bestX ? member : best) : (memberX < bestX ? member : best);
+        }, null)
+        : (branchMembers[0] || null);
+    return target ? { node: target, anchor: targetAnchor } : null;
 }
 
 export function createDerpShield(node) {
@@ -742,9 +781,11 @@ export function createDerpShield(node) {
         isResizing = true;
         const pressureHub = graph ? getDeckPressureHubForNode(node, graph) : null;
         const routeToPressureHub = pressureHub && pressureHub.id !== node.id && pressureFrameCorner;
-        const hubSeamResize = getDeckPressureHubSeamResizeTarget(node, graph, anchor);
+        const hubSeamResize = getDeckPressureSideSeamResizeTarget(node, graph, anchor);
         activeResizeNode = hubSeamResize?.node || (routeToPressureHub ? pressureHub : node);
         activeResizeNode._resizeAnchor = hubSeamResize?.anchor || anchor;
+        node._dockResizeHoverSession = null;
+        activeResizeNode._dockResizeHoverSession = null;
         activeResizeNode._isDerpResizing = true; // THE FIX: Pause Fatha's auto-enforcer during drag
         startMouseX = e.clientX;
         startMouseY = e.clientY; // THE FIX: Capture Y for vertical resizing
@@ -800,9 +841,31 @@ export function createDerpShield(node) {
         const rect = node.interactionShield.getBoundingClientRect();
         const edgeWidth = Math.max(10, Number(vars.mW || 0) * (app.canvas?.ds?.scale || 1));
         const localX = e.clientX - rect.left;
+        if (localX <= edgeWidth && resolveDeckPressureSideSeam(node, graph, "left")) return "left";
+        if (localX >= rect.width - edgeWidth && resolveDeckPressureSideSeam(node, graph, "right")) return "right";
         if (localX <= edgeWidth && canResizeHorizontalSharedEdge(node, graph, "left")) return "left";
         if (localX >= rect.width - edgeWidth && canResizeHorizontalSharedEdge(node, graph, "right")) return "right";
         return null;
+    };
+
+    const updateSharedResizeHoverSession = (e) => {
+        const graph = app.graph || node.graph || null;
+        const handleAnchor = e.target?._resizeAnchorOverride;
+        const anchor = (handleAnchor === "top" || handleAnchor === "bottom") ? handleAnchor : getSharedResizeAnchorAtPointer(e);
+        const neighbor = anchor && graph
+            ? (anchor === "top" || anchor === "bottom" ? getVerticalSharedResizeNeighbor(node, graph, anchor) : getHorizontalSameRowNeighbor(node, graph, anchor))
+            : null;
+        const seam = anchor ? resolveDeckPressureSideSeam(node, graph, anchor) : null;
+        const next = seam
+            ? { side: anchor, entityId: node.id, neighborId: seam.hub.id, hubId: seam.hub.id, branchSide: seam.branchSide, deckPressureSideWidth: true }
+            : (neighbor ? { side: anchor, entityId: node.id, neighborId: neighbor.id } : null);
+        const prev = node._dockResizeHoverSession || null;
+        const changed = (prev?.side || null) !== (next?.side || null)
+            || (prev?.neighborId ?? null) !== (next?.neighborId ?? null)
+            || (prev?.hubId ?? null) !== (next?.hubId ?? null)
+            || (prev?.branchSide ?? null) !== (next?.branchSide ?? null);
+        node._dockResizeHoverSession = next;
+        if (changed && window.app?.canvas) window.app.canvas.setDirty(true, true);
     };
 
     shield.onpointerdown = (e) => {
@@ -889,6 +952,7 @@ export function createDerpShield(node) {
 
     // HOVER DELEGATION
     shield.onpointermove = (e) => {
+        updateSharedResizeHoverSession(e);
         const localPos = getLocalCoords(e);
         const rect = shield.getBoundingClientRect();
         node.handleShieldInteraction("hover", {
@@ -947,6 +1011,7 @@ export function createDerpShield(node) {
         node._systemBtnHovered = false;
         node._hoveredRegionKey = null; // --- Clear hover key to allow re-entry detection ---
         node._hoveredFieldIndex = null;
+        node._dockResizeHoverSession = null;
         if (shield) shield.style.cursor = "default";
 
         node._derpAwakeFrames = 5;
@@ -1043,6 +1108,16 @@ function getLinearResizeMembers(node, graph, axis) {
     return isLinearDeckGroup(node, graph, axis) ? getDeckMembers(node, graph) : [];
 }
 
+function getVerticalSharedResizeNeighbor(node, graph, anchor) {
+    if (anchor !== "top" && anchor !== "bottom") return null;
+    const members = getLinearResizeMembers(node, graph, "vertical")
+        .filter(Boolean)
+        .sort((a, b) => (Number(a.pos?.[1]) || 0) - (Number(b.pos?.[1]) || 0));
+    const index = members.findIndex((member) => member?.id === node?.id);
+    if (index < 0) return null;
+    return anchor === "top" ? members[index - 1] || null : members[index + 1] || null;
+}
+
 function disableResizeHandles(shield) {
     [
         shield?._resizeHandle,
@@ -1058,6 +1133,90 @@ function disableResizeHandles(shield) {
         handle.style.cursor = "default";
         handle._resizeAnchorOverride = null;
     });
+}
+
+function isShieldHitboxDebugEnabled() {
+    return !!window?.[SHIELD_HITBOX_DEBUG_FLAG];
+}
+
+function ensureShieldDebugRectLayer(shield) {
+    if (!shield) return null;
+    if (!shield._debugMouseLayer) {
+        const layer = document.createElement("div");
+        layer.style.cssText = `position:absolute; inset:0; pointer-events:none; z-index:${MASTER_Z.debugHitboxLayer + 1};`;
+        shield.appendChild(layer);
+        shield._debugMouseLayer = layer;
+    }
+    return shield._debugMouseLayer;
+}
+
+function syncShieldDebugRect(layer, key, rect, color, label) {
+    let el = layer.querySelector(`[data-debug-rect="${key}"]`);
+    if (!el) {
+        el = document.createElement("div");
+        el.dataset.debugRect = key;
+        el.style.position = "absolute";
+        el.style.boxSizing = "border-box";
+        el.style.pointerEvents = "none";
+        layer.appendChild(el);
+        const tag = document.createElement("div");
+        tag.dataset.debugRectLabel = "true";
+        tag.style.cssText = "position:absolute; left:0; top:100%; padding:1px 3px; background:rgba(0,0,0,0.82); color:white; font:10px/1 monospace; white-space:nowrap;";
+        el.appendChild(tag);
+    }
+    el.style.left = `${rect.x}px`;
+    el.style.top = `${rect.y}px`;
+    el.style.width = `${rect.w}px`;
+    el.style.height = `${rect.h}px`;
+    el.style.background = color.replace("0.9", "0.18");
+    el.style.border = `1px solid ${color}`;
+    const tag = el.querySelector("[data-debug-rect-label]");
+    if (tag) tag.textContent = `${label} ${Math.round(rect.w)}x${Math.round(rect.h)}`;
+}
+
+function getHandleDebugRect(handle) {
+    if (!handle || handle.style.display === "none") return null;
+    return {
+        x: handle.offsetLeft,
+        y: handle.offsetTop,
+        w: handle.offsetWidth,
+        h: handle.offsetHeight,
+    };
+}
+
+function syncMouseHitboxDebugRects(node, scale) {
+    const shield = node?.interactionShield;
+    if (!shield) return;
+    if (!isShieldHitboxDebugEnabled()) {
+        shield._debugMouseLayer?.remove?.();
+        shield._debugMouseLayer = null;
+        return;
+    }
+    const layer = ensureShieldDebugRectLayer(shield);
+    if (!layer) return;
+    layer.innerHTML = "";
+
+    const handles = [
+        ["resize-tl", shield._resizeHandleTopLeft, "rgba(255,64,64,0.9)", "resize TL"],
+        ["resize-tr", shield._resizeHandleTopRight, "rgba(255,64,64,0.9)", "resize TR"],
+        ["resize-bl", shield._resizeHandleLeft, "rgba(255,64,64,0.9)", "resize BL"],
+        ["resize-br", shield._resizeHandle, "rgba(255,64,64,0.9)", "resize BR"],
+    ];
+    for (const [key, handle, color, label] of handles) {
+        const rect = getHandleDebugRect(handle);
+        if (rect) syncShieldDebugRect(layer, key, rect, color, label);
+    }
+
+    const sysBtn = node.layout?.regions?.systemBtn;
+    if (sysBtn) {
+        const rect = {
+            x: (Number(sysBtn.x) || 0) * scale,
+            w: Math.min(Number(sysBtn.w) || 32, 32) * scale,
+            y: ((Number(sysBtn.y) || 0) - 3) * scale,
+            h: (Math.min(Number(sysBtn.h) || 6, 6) + 3) * scale,
+        };
+        syncShieldDebugRect(layer, "system-btn", rect, "rgba(64,192,255,0.9)", "systemBtn");
+    }
 }
 
 export function syncDerpShield(node) {
@@ -1157,6 +1316,7 @@ export function syncDerpShield(node) {
         const bastaEdgeWidth = Math.max(1, (vars.mW || 0) * scale);
         const bottomRightWidth = isBasta ? bastaEdgeWidth : bottomCornerSize;
         const bottomLeftWidth = isBasta ? bastaEdgeWidth : bottomCornerSize;
+        const cornerOutwardPad = Math.max(0, Number(SHIELD_CORNER_RESIZE_OUTWARD_PAD) || 0) * scale;
 
         const handleStyle = node.interactionShield._resizeHandle.style;
         const edges = node.properties?.deckEdges || {};
@@ -1171,8 +1331,8 @@ export function syncDerpShield(node) {
         const isPressureHub = isDeckPressureHub(node);
         const pressureHub = graph ? getDeckPressureHubForNode(node, graph) : null;
         const isPressureMember = !!pressureHub;
-        const canResizePressureSeamLeftW = isDeckPressureHubSeamSideEdge(node, graph, "left") && canW;
-        const canResizePressureSeamRightW = isDeckPressureHubSeamSideEdge(node, graph, "right") && canW;
+        const canResizePressureSeamLeftW = isDeckPressureHubSeamSideEdge(node, graph, "left");
+        const canResizePressureSeamRightW = isDeckPressureHubSeamSideEdge(node, graph, "right");
         const canResizePressureSideHorizontalLeftW = isDeckPressureSideHorizontalHubEdge(node, graph, "left");
         const canResizePressureSideHorizontalRightW = isDeckPressureSideHorizontalHubEdge(node, graph, "right");
         const canResizeStackLeftW = isHorizontalDockStack && canResizeHorizontalStackWidth(node, graph, "left");
@@ -1206,9 +1366,10 @@ export function syncDerpShield(node) {
             sharedLeftStyle.left = `-${padL * scale}px`;
             sharedLeftStyle.top = "0px";
             sharedLeftStyle.cursor = "ew-resize";
-            sharedLeftStyle.display = canResizeSharedLeftW ? "block" : "none";
-            sharedLeftStyle.pointerEvents = canResizeSharedLeftW ? "auto" : "none";
-            node.interactionShield._resizeHandleSharedLeft._resizeAnchorOverride = canResizeSharedLeftW ? "left" : null;
+            const showSharedLeft = canResizeSharedLeftW || canResizePressureSeamLeftW || canResizePressureSideHorizontalLeftW;
+            sharedLeftStyle.display = showSharedLeft ? "block" : "none";
+            sharedLeftStyle.pointerEvents = showSharedLeft ? "auto" : "none";
+            node.interactionShield._resizeHandleSharedLeft._resizeAnchorOverride = showSharedLeft ? "left" : null;
         }
         if (node.interactionShield._resizeHandleSharedRight) {
             const sharedRightStyle = node.interactionShield._resizeHandleSharedRight.style;
@@ -1217,9 +1378,10 @@ export function syncDerpShield(node) {
             sharedRightStyle.right = `-${padR * scale}px`;
             sharedRightStyle.top = "0px";
             sharedRightStyle.cursor = "ew-resize";
-            sharedRightStyle.display = canResizeSharedRightW ? "block" : "none";
-            sharedRightStyle.pointerEvents = canResizeSharedRightW ? "auto" : "none";
-            node.interactionShield._resizeHandleSharedRight._resizeAnchorOverride = canResizeSharedRightW ? "right" : null;
+            const showSharedRight = canResizeSharedRightW || canResizePressureSeamRightW || canResizePressureSideHorizontalRightW;
+            sharedRightStyle.display = showSharedRight ? "block" : "none";
+            sharedRightStyle.pointerEvents = showSharedRight ? "auto" : "none";
+            node.interactionShield._resizeHandleSharedRight._resizeAnchorOverride = showSharedRight ? "right" : null;
         }
         node.interactionShield._resizeHandle._resizeAnchorOverride = ((!isPressureHub && !isVerticalDockStack && canResizeSharedRightW) || canResizePressureSeamRightW || canResizePressureSideHorizontalRightW) ? "right" : null;
         handleStyle.width = `${bottomRightWidth}px`;
@@ -1231,6 +1393,12 @@ export function syncDerpShield(node) {
         handleStyle.pointerEvents = (node.resizable && allowBottomResizeCorners && allowFrameCornerBottomRight) ? "auto" : "none";
         handleStyle.right = `-${padR * scale}px`;
         handleStyle.bottom = "0px";
+        if (handleStyle.display === "block" && !node.interactionShield._resizeHandle._resizeAnchorOverride) {
+            handleStyle.width = `${bottomRightWidth + cornerOutwardPad}px`;
+            handleStyle.height = `${bottomCornerSize + cornerOutwardPad}px`;
+            handleStyle.right = `-${(padR * scale) + cornerOutwardPad}px`;
+            handleStyle.bottom = `-${cornerOutwardPad}px`;
+        }
 
         if (allowBottomResizeCorners && ((canResizeSharedRightW && !isVerticalDockStack && !isPressureHub) || canResizePressureSeamRightW || canResizePressureSideHorizontalRightW) && canUseRightW) {
             handleStyle.width = `${sharedEdgeWidth}px`; handleStyle.height = `${isPressureMember ? pressureSharedEdgeHeight : visualH * scale}px`; handleStyle.cursor = "ew-resize"; handleStyle.display = "block"; handleStyle.pointerEvents = "auto";
@@ -1240,6 +1408,7 @@ export function syncDerpShield(node) {
             if (isCollapsed && isBottomBoundary) {
                 handleStyle.width = `${bottomRightWidth}px`;
                 handleStyle.height = `${bottomCornerSize}px`;
+                handleStyle.bottom = "0px";
                 handleStyle.cursor = canUseRightW ? "ew-resize" : "default";
                 handleStyle.display = (node.resizable && allowBottomResizeCorners) ? "block" : "none";
                 handleStyle.pointerEvents = (node.resizable && allowBottomResizeCorners) ? "auto" : "none";
@@ -1249,6 +1418,7 @@ export function syncDerpShield(node) {
                 handleStyle.width = `${seamWidth}px`;
                 handleStyle.height = `${sharedEdgeWidth}px`;
                 handleStyle.right = isPressureMember ? `${bottomRightWidth - (padR * scale)}px` : `-${padR * scale}px`;
+                handleStyle.bottom = "0px";
                 handleStyle.cursor = "ns-resize";
                 handleStyle.display = "block";
                 handleStyle.pointerEvents = "auto";
@@ -1266,6 +1436,12 @@ export function syncDerpShield(node) {
             leftStyle.pointerEvents = (node.resizable && allowBottomResizeCorners && allowFrameCornerBottomLeft) ? "auto" : "none";
             leftStyle.left = `-${padL * scale}px`;
             leftStyle.bottom = "0px";
+            if (leftStyle.display === "block" && !node.interactionShield._resizeHandleLeft._resizeAnchorOverride) {
+                leftStyle.width = `${bottomLeftWidth + cornerOutwardPad}px`;
+                leftStyle.height = `${bottomCornerSize + cornerOutwardPad}px`;
+                leftStyle.left = `-${(padL * scale) + cornerOutwardPad}px`;
+                leftStyle.bottom = `-${cornerOutwardPad}px`;
+            }
 
             if (allowBottomResizeCorners && ((canResizeSharedLeftW && !isVerticalDockStack && !isPressureHub) || canResizePressureSeamLeftW || canResizePressureSideHorizontalLeftW) && canUseLeftW) {
                 leftStyle.width = `${sharedEdgeWidth}px`; leftStyle.height = `${isPressureMember ? pressureSharedEdgeHeight : visualH * scale}px`; leftStyle.cursor = "ew-resize"; leftStyle.display = "block"; leftStyle.pointerEvents = "auto";
@@ -1275,6 +1451,7 @@ export function syncDerpShield(node) {
                 if (isCollapsed && isBottomBoundary) {
                     leftStyle.width = `${bottomLeftWidth}px`;
                     leftStyle.height = `${bottomCornerSize}px`;
+                    leftStyle.bottom = "0px";
                     leftStyle.cursor = canUseLeftW ? "ew-resize" : "default";
                     leftStyle.display = (node.resizable && allowBottomResizeCorners) ? "block" : "none";
                     leftStyle.pointerEvents = (node.resizable && allowBottomResizeCorners) ? "auto" : "none";
@@ -1284,6 +1461,7 @@ export function syncDerpShield(node) {
                     leftStyle.width = `${seamWidth}px`;
                     leftStyle.height = `${sharedEdgeWidth}px`;
                     leftStyle.left = isPressureMember ? `${bottomLeftWidth - (padL * scale)}px` : `-${padL * scale}px`;
+                    leftStyle.bottom = "0px";
                     leftStyle.cursor = "ns-resize";
                     leftStyle.display = "block";
                     leftStyle.pointerEvents = "auto";
@@ -1309,15 +1487,24 @@ export function syncDerpShield(node) {
 
         if (node.interactionShield._resizeHandleTopLeft) {
             const topLeftStyle = node.interactionShield._resizeHandleTopLeft.style;
+            node.interactionShield._resizeHandleTopLeft._resizeAnchorOverride = null;
             topLeftStyle.width = `${topLeftWidth}px`;
             topLeftStyle.height = `${topCornerSize}px`;
             topLeftStyle.display = (showTopCorners && allowTopResizeCorners && allowFrameCornerTopLeft && !hasSharedLeftEdge) ? "block" : "none";
             topLeftStyle.pointerEvents = (showTopCorners && allowTopResizeCorners && allowFrameCornerTopLeft && !hasSharedLeftEdge) ? "auto" : "none";
             topLeftStyle.left = `-${padL * scale}px`;
+            topLeftStyle.top = "0px";
+            if (topLeftStyle.display === "block" && !node.interactionShield._resizeHandleTopLeft._resizeAnchorOverride) {
+                topLeftStyle.height = `${topCornerSize + cornerOutwardPad}px`;
+                topLeftStyle.left = `-${(padL * scale) + cornerOutwardPad}px`;
+                topLeftStyle.top = `-${cornerOutwardPad}px`;
+                topLeftStyle.width = `${topLeftWidth + (cornerOutwardPad * 2)}px`;
+            }
             if (isVerticalDockStack && hasInternalTopResizeEdge && canH) {
                 if (isCollapsed && isTopBoundary) {
                     topLeftStyle.width = `${topLeftWidth}px`;
                     topLeftStyle.height = `${topCornerSize}px`;
+                    topLeftStyle.top = "0px";
                     topLeftStyle.display = (showTopCorners && allowFrameCornerTopLeft && !hasSharedLeftEdge) ? "block" : "none";
                     topLeftStyle.pointerEvents = (showTopCorners && allowFrameCornerTopLeft && !hasSharedLeftEdge) ? "auto" : "none";
                     topLeftStyle.cursor = canUseLeftW ? "ew-resize" : "default";
@@ -1327,6 +1514,7 @@ export function syncDerpShield(node) {
                     topLeftStyle.width = `${seamWidth}px`;
                     topLeftStyle.height = `${sharedEdgeWidth}px`;
                     topLeftStyle.left = isPressureMember ? `${topLeftWidth - (padL * scale)}px` : `-${padL * scale}px`;
+                    topLeftStyle.top = "0px";
                     topLeftStyle.cursor = "ns-resize";
                     topLeftStyle.display = "block";
                     topLeftStyle.pointerEvents = "auto";
@@ -1339,15 +1527,24 @@ export function syncDerpShield(node) {
 
         if (node.interactionShield._resizeHandleTopRight) {
             const topRightStyle = node.interactionShield._resizeHandleTopRight.style;
+            node.interactionShield._resizeHandleTopRight._resizeAnchorOverride = null;
             topRightStyle.width = `${topRightWidth}px`;
             topRightStyle.height = `${topCornerSize}px`;
             topRightStyle.display = (showTopCorners && allowTopResizeCorners && allowFrameCornerTopRight && !hasSharedRightEdge) ? "block" : "none";
             topRightStyle.pointerEvents = (showTopCorners && allowTopResizeCorners && allowFrameCornerTopRight && !hasSharedRightEdge) ? "auto" : "none";
             topRightStyle.right = `-${padR * scale}px`;
+            topRightStyle.top = "0px";
+            if (topRightStyle.display === "block" && !node.interactionShield._resizeHandleTopRight._resizeAnchorOverride) {
+                topRightStyle.height = `${topCornerSize + cornerOutwardPad}px`;
+                topRightStyle.right = `-${(padR * scale) + cornerOutwardPad}px`;
+                topRightStyle.top = `-${cornerOutwardPad}px`;
+                topRightStyle.width = `${topRightWidth + (cornerOutwardPad * 2)}px`;
+            }
             if (isVerticalDockStack && hasInternalTopResizeEdge && canH) {
                 if (isCollapsed && isTopBoundary) {
                     topRightStyle.width = `${topRightWidth}px`;
                     topRightStyle.height = `${topCornerSize}px`;
+                    topRightStyle.top = "0px";
                     topRightStyle.display = (showTopCorners && allowFrameCornerTopRight && !hasSharedRightEdge) ? "block" : "none";
                     topRightStyle.pointerEvents = (showTopCorners && allowFrameCornerTopRight && !hasSharedRightEdge) ? "auto" : "none";
                     topRightStyle.cursor = canUseRightW ? "ew-resize" : "default";
@@ -1357,6 +1554,7 @@ export function syncDerpShield(node) {
                     topRightStyle.width = `${seamWidth}px`;
                     topRightStyle.height = `${sharedEdgeWidth}px`;
                     topRightStyle.right = isPressureMember ? `${topRightWidth - (padR * scale)}px` : `-${padR * scale}px`;
+                    topRightStyle.top = "0px";
                     topRightStyle.cursor = "ns-resize";
                     topRightStyle.display = "block";
                     topRightStyle.pointerEvents = "auto";
@@ -1366,6 +1564,10 @@ export function syncDerpShield(node) {
                 topRightStyle.cursor = (canUseRightW && canH) ? "nesw-resize" : (canUseRightW ? "ew-resize" : "ns-resize");
             }
         }
+    }
+    syncMouseHitboxDebugRects(node, scale);
+    if (isShieldHitboxDebugEnabled()) {
+        requestAnimationFrame(() => syncMouseHitboxDebugRects(node, scale));
     }
 }
 

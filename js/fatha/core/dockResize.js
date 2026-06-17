@@ -13,6 +13,7 @@ import {
     isDeckPressureHub,
     isDeckPressureSideHorizontalHubEdge,
     isDeckPressureSideHorizontalBranchMember,
+    isDeckPressureSideWidthResizeEdge,
     isLinearDeckGroup,
     isNodeDocked,
     syncDeckNodeSize,
@@ -1077,8 +1078,7 @@ function applyDeckPressureSideWidthResize(entity, resizeAnchor, requestedEntityW
     if (branchSide !== "left" && branchSide !== "right") return false;
     const branchAxis = getDeckPressureBranchAxis(pressureHub, graph, branchSide);
     if (branchAxis !== "vertical" && branchAxis !== "horizontal") return false;
-    if (getNodeOnDeckEdge(entity, graph, resizeAnchor)?.id !== pressureHub.id) return false;
-    if ((branchSide === "left" && resizeAnchor !== "right") || (branchSide === "right" && resizeAnchor !== "left")) return false;
+    if (!isDeckPressureSideWidthResizeEdge(entity, graph, resizeAnchor)) return false;
 
     const branchMembers = getDeckPressureBranchMembers(pressureHub, graph, branchSide);
     if (!branchMembers.length) return false;

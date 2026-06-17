@@ -6,7 +6,7 @@
 import { app } from "../../../scripts/app.js";
 import { createDerpShield, syncDerpShield, removeDerpShield } from "./core/fathaDOMshield.js";
 import { masterLayoutEngine } from "./core/masterLayoutEngine.js";
-import { handleShieldInteraction, handleDrawCTX, handleThemeUpdate, handleInitDerpGlobalListener, getDerpVars, handleDerpRequestSync, handleDerpComputeSize, handleDerpCollapse, animateDerpSize, drawDeckPreviewGlobal, shouldPreserveHorizontalDeckHeight, shouldPreserveVerticalDeckWidth, balanceHorizontalDeckWidthChange, syncHorizontalDeckHeight, resolveDerpRuntimeSize, resolveHorizontalDeckSharedHeight, normalizeDerpDockedLayout, syncDerpLocalizedDefaultTitle, drawDeckResizeOptimizedNode, shouldLockDeckPressureSideHorizontalWidth, getDeckPressureSideHorizontalLockedWidth } from "./core/fathaHandler.js";
+import { handleShieldInteraction, handleDrawCTX, handleThemeUpdate, handleInitDerpGlobalListener, getDerpVars, handleDerpRequestSync, handleDerpComputeSize, handleDerpCollapse, animateDerpSize, drawDeckPreviewGlobal, drawSharedResizeSeamGhostsGlobal, shouldPreserveHorizontalDeckHeight, shouldPreserveVerticalDeckWidth, balanceHorizontalDeckWidthChange, syncHorizontalDeckHeight, resolveDerpRuntimeSize, resolveHorizontalDeckSharedHeight, normalizeDerpDockedLayout, syncDerpLocalizedDefaultTitle, drawDeckResizeOptimizedNode, shouldLockDeckPressureSideHorizontalWidth, getDeckPressureSideHorizontalLockedWidth } from "./core/fathaHandler.js";
 export { getDerpVars };
 import { drawDerpSysPanelGlobal, isHostActive, closeDerpSysPanel, sysPanel } from "./helpers/fathaSysPanel.js";
 import { drawBastaLayer } from "./basta.js";
@@ -1203,6 +1203,7 @@ if (!window._xcp_DerpVirtualLoader_Loaded) {
 
                      if (typeof drawDerpSysPanelGlobal === "function") drawDerpSysPanelGlobal(ctx);
                      if (typeof drawDeckPreviewGlobal === "function") drawDeckPreviewGlobal(ctx);
+                     if (typeof drawSharedResizeSeamGhostsGlobal === "function") drawSharedResizeSeamGhostsGlobal(ctx);
                      // THE RENDER FIX: Actually call the Basta layer during the global draw pass
                      if (typeof drawDerpSignalOutGlobalWires === "function") drawDerpSignalOutGlobalWires(ctx);
                      if (typeof drawBastaLayer === "function") drawBastaLayer(ctx);

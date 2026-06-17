@@ -2,7 +2,7 @@ import { sysPanel } from "../helpers/fathaSysPanel.js";
 import { applyDockResizeResult, syncDockResizePair } from "./dockResize.js";
 import { canResizeHorizontalSharedEdgeWidth, canResizeHorizontalStackWidth } from "./dockResizeSharedEdges.js";
 import { getDockGroupAxisFromMembers, getDockNodeMinHeight, getDockNodeMinWidth, resolveDockResizeAxes } from "./dockDimensions.js";
-import { applyDeckPressureLayout, getDeckMembers, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureBranchAxis, getDeckPressureHubForNode, getDeckPressureHubMinWidth, getNodeOnDeckEdge, isDeckPressureHub, setDeckNodePos } from "./masterDockEngine.js";
+import { applyDeckPressureLayout, getDeckMembers, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureBranchAxis, getDeckPressureHubForNode, getDeckPressureHubMinWidth, getNodeOnDeckEdge, isDeckPressureHub, isDeckPressureSideWidthResizeEdge, setDeckNodePos } from "./masterDockEngine.js";
 import { dockDebug, snapshotDockNode } from "./dockDebugHelpers.js";
 import { setDerpNodeSizeCompat } from "./fathaNode2Compat.js";
 
@@ -16,13 +16,7 @@ function getResizeAxis(entity, graph) {
 }
 
 function isDeckPressureSideWidthResize(entity, graph, resizeAnchor) {
-    if (resizeAnchor !== "left" && resizeAnchor !== "right") return false;
-    const pressureHub = getDeckPressureHubForNode(entity, graph);
-    if (!pressureHub || pressureHub.id === entity?.id) return false;
-    const branchSide = getDeckPressureBranchSideForNode(pressureHub, graph, entity);
-    if (branchSide !== "left" && branchSide !== "right") return false;
-    if (getNodeOnDeckEdge(entity, graph, resizeAnchor)?.id !== pressureHub.id) return false;
-    return (branchSide === "left" && resizeAnchor === "right") || (branchSide === "right" && resizeAnchor === "left");
+    return isDeckPressureSideWidthResizeEdge(entity, graph, resizeAnchor);
 }
 
 function getResizeSessionPressureMinWidth(entity, graph, snap, fallbackMinWidth) {
