@@ -47,3 +47,17 @@ Agent 在任务执行过程中发现的条目应遵循以下格式：
   - Keep tone slightly playful with only a light touch of humor.
   - Preserve the formatting conventions already established in the individual node instruction docs.
   - Reflect the motto "I know exactly what I want, just not sure how to get there... but you can't stop me." as attitude and voice when it fits, without overusing the exact quote.
+
+[Theme and palette build order]
+- Date: 2026-06-17
+- Context: User defined the preferred design workflow for updating themes and palettes
+- Instructions:
+  - For both theme and palette work, always start from the main `_ON`, `_OFF`, and `_DIS` colors first.
+  - Build stroke, shadow, and glow from the established main colors rather than designing effects independently first.
+  - For theme work, start from the `canvas` key first because it sets the base LT/NE/DK tone, saturation, and transparency for the whole theme.
+  - For theme size work, treat `_layout` and the text-key `font` and `fontSize` settings as one coordinated size system because together they determine how large or compact a node feels.
+  - Text keys such as `t_textBig`, `t_textNormal`, `t_textSmall`, and `t_textSystem` should usually move together in scale rather than mixing unrelated size extremes, unless a special-case design is intended.
+  - For theme and palette color work, use HSVA or HSLA as the main working language; treat RGBA as the JSON storage format.
+  - Many related theme or palette entries should share similar saturation and lightness or value, with hue carrying most of the variation.
+  - Warm hues from violet-purple through orange-yellow often need extra brightness or value and sometimes extra saturation so they do not look muddy compared with cooler hues.
+  - For theme or palette work, establish the high-level goal before editing: whether it is Light, Neutral, or Dark, and whether it should feel clean, nearly monochromatic, or very vibrant. If that brief is missing, ask first.

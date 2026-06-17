@@ -122,6 +122,9 @@ Reusable task workflows live in `.agents/skills/` as `SKILL.md` files. Each skil
 
 - **commit-push** — stages changes, writes conventional commits, pushes to `github/daily-development`. Does not update CHANGELOG.
 - **release-bump** — bumps version in `pyproject.toml` + `package.json`, verifies CHANGELOG entries exist, pushes to `github` and `release` remotes. Does not edit CHANGELOG.
+- **syncthing-debug** — diagnoses and recovers MonkeyCode Syncthing connection issues, stale relay sessions, device identity drift, and workspace sync confusion.
+- **update-palette** — updates many palette JSON entries from one or a few hand-crafted exemplar entries while preserving category-specific behavior and palette structure.
+- **update-theme** — updates many theme JSON keys from one or a few hand-crafted exemplar keys, starting from `canvas` and the main `_ON/_OFF/_DIS` colors before deriving effects.
 - **video-editor** — automates video editing with FFmpeg: trim, cut, concatenate, text overlays, intro/outro cards, speed ramps, and MP4 rendering for tutorial videos.
 
 To add a skill, create `.agents/skills/<name>/SKILL.md` with YAML frontmatter (`name`, `description`) and a workflow body. Keep skills project-scoped so all agents share them.
@@ -192,6 +195,13 @@ To add a skill, create `.agents/skills/<name>/SKILL.md` with YAML frontmatter (`
 
 - `themeManagerV2.js`, `themeManagerV2_core.js`, and `derpThemeManagerV2.py` are private modules excluded from public release.
 - Theme `Category` is a top-level property and should serialize first. Legacy `_category` is normalized to `Category`.
+- For both theme and palette design work, start from the main `_ON` / `_OFF` / `_DIS` colors first; derive stroke, shadow, and glow from those main colors instead of designing effects in isolation.
+- For theme design, start on the `canvas` key first because it establishes the core LT/NE/DK tone, saturation, and transparency of the whole theme.
+- For theme size, treat `_layout` plus the text-key `font` and `fontSize` settings as one coordinated system because together they determine whether a themed node feels large or compact.
+- Text-key sizes should usually move together as a family; avoid mixed size hierarchies unless the design is intentionally special-case.
+- For theme and palette color work, think in HSVA/HSLA terms first even though files store RGBA arrays; hue usually leads, with sibling entries often sharing similar saturation and lightness/value.
+- Warm hues from violet-purple through orange-yellow often need higher brightness/value and sometimes higher saturation than cooler-hue equivalents to avoid looking muddy.
+- For theme or palette design work, clarify the high-level goal up front: Light/Neutral/Dark plus clean, nearly monochromatic, or very vibrant. If the user did not specify that brief, ask before editing.
 - Theme weight files live under `Themes/_System/` and use `_WT_` filename prefix.
 - Weight files save/apply only `_layout`, per-key `corners`, and text-key `font`, `fontSize`, `fontWeight`.
 - Weight files must not save/apply shadow, stroke, glow, color, clip, or palette data.
@@ -265,6 +275,7 @@ To add a skill, create `.agents/skills/<name>/SKILL.md` with YAML frontmatter (`
   - **CodeWhale**: `tools/codewhale_turn_complete_piper.ps1` (Piper TTS, male voice `en_US-ryan-high`)
   - **Codex**: `tools/codex_turn_complete_piper.ps1` (Piper TTS, female voice `en_GB-cori-high`)
   - Acceptable address terms include Sir, Dude, Bruce, Lord Wedggie, My Lord, and your Lordship.
+- Syncthing device identity comes from `cert.pem` and `key.pem` under `/root/.config/syncthing-xcp/`; if the workspace is rebuilt, back up and restore that directory to keep the same device ID.
 
 - For layout anomalies, inspect `masterLayoutEngine` and `widget_Region` before patching symptoms.
 - When asking the user to enable debug logs, provide exact console commands in the same response.
