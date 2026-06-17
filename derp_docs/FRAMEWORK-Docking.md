@@ -54,6 +54,9 @@ After normalizing, triggers a layout recompute for the leader and all members. T
 
 ## Size Normalization
 
+### No-op size syncs stay quiet
+`syncDeckNodeSize()` must return before calling Node 2.0/Vue size setters when width and height are unchanged. Those compatibility setters mark nodes layout-dirty, so calling them for an already-aligned deck member can force `_forceSync` every frame and keep horizontal stacks such as `derpLoraStack` in a permanent layout loop.
+
 ### Automatic horizontal edge width compensation
 When a left-most or right-most member in a horizontal stack changes width from runtime layout changes, the stack first tries to keep its total width stable. Growth borrows shrinkable width from members on the opposite side down to their measured minimums; shrinkage gives the freed width to those opposite members. If there is not enough spare room, the stack is allowed to grow.
 The first observed width for an edge member after load/dock is treated as the baseline and is not rebalanced; this prevents autoWidth hydration from being counted as a real width delta on every page refresh.
