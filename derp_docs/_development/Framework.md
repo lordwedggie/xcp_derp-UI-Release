@@ -1,2 +1,3 @@
 Bugs:
 1. Node's btnSystem and corner resizing are still too small to activate. We need to fine tune them and make sure they are scaling correctly with comfyUI canvas zoom level. First, we need debug drawings, draw a rect on the exact position and exact dimension on each of the four drag-resize's corners matching their hit-detection bounding boxes, and one on btnSystem too. (btnSystem is the button used to click open the system panel in fathaLayoutMaps, exists on every single derp node).
+2. For shared edge resizing on stacks and decks, draw a 1px ghost centered exactly on the shared edge, and show it while hovering or dragging.

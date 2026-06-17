@@ -600,7 +600,7 @@ export const getVirtualNodeLayoutMap = (node) => {
                     const visualW = Math.min(Number(reg?.w) || 32, 32);
                     const visualH = Math.min(Number(reg?.h) || 6, 6);
                     return localMouse[0] >= x && localMouse[0] <= x + visualW &&
-                        localMouse[1] >= y && localMouse[1] <= y + visualH;
+                        localMouse[1] >= y - 3 && localMouse[1] <= y + visualH;
                 }
             }
         }

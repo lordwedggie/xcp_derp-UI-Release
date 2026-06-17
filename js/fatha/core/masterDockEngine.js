@@ -492,6 +492,26 @@ export function isDeckPressureSideHorizontalHubEdge(node, graph, side) {
     return getNodeOnDeckEdge(node, graph, side)?.id === pressureHub?.id;
 }
 
+export function isDeckPressureSideWidthResizeEdge(node, graph, side) {
+    if (side !== "left" && side !== "right") return false;
+    if (!node || !graph) return false;
+    const pressureHub = getDeckPressureHubForNode(node, graph);
+    if (!pressureHub || pressureHub.id === node.id) return false;
+    const branchSide = getDeckPressureBranchSideForNode(pressureHub, graph, node);
+    if (branchSide !== "left" && branchSide !== "right") return false;
+    const branchAxis = getDeckPressureBranchAxis(pressureHub, graph, branchSide);
+    if (branchAxis !== "vertical" && branchAxis !== "horizontal") return false;
+    const hubFacingSide = branchSide === "left" ? "right" : "left";
+    if (side !== hubFacingSide) return false;
+    const x = Number(node.pos?.[0]) || 0;
+    const w = getNodeSizeValue(node, 0);
+    const edgeX = side === "left" ? x : x + w;
+    const hubX = Number(pressureHub.pos?.[0]) || 0;
+    const hubW = getNodeSizeValue(pressureHub, 0);
+    const targetX = branchSide === "left" ? hubX : hubX + hubW;
+    return Math.abs(edgeX - targetX) <= 4;
+}
+
 function isDeckPressureHubSeam(node, neighbor, graph) {
     if (!node || !neighbor || !graph) return false;
     return (isDeckPressureHub(node) && getDeckPressureHubForNode(neighbor, graph)?.id === node.id)
@@ -2627,6 +2647,174 @@ export function drawDeckGhost(ctx, ghost, options = {}) {
         ctx.stroke();
     }
     ctx.restore();
+}
+
+function getNodeBounds(node) {
+    if (!node) return null;
+    const x = Number(node.pos?.[0]) || 0;
+    const y = Number(node.pos?.[1]) || 0;
+    const w = Number(node.size?.[0] ?? node.properties?.nodeSize?.[0]) || 0;
+    const h = Number(node.size?.[1] ?? node.properties?.nodeSize?.[1]) || 0;
+    if (w <= 0 || h <= 0) return null;
+    return { x, y, w, h, right: x + w, bottom: y + h };
+}
+
+function getNodeById(graph, id) {
+    if (!graph || id === null || id === undefined) return null;
+    if (typeof graph.getNodeById === "function") return graph.getNodeById(id) || null;
+    return graph._nodes?.find?.((node) => node?.id === id) || null;
+}
+
+function getBoundsForNodes(nodes = []) {
+    const rects = nodes.map(getNodeBounds).filter(Boolean);
+    if (!rects.length) return null;
+    const left = Math.min(...rects.map((rect) => rect.x));
+    const top = Math.min(...rects.map((rect) => rect.y));
+    const right = Math.max(...rects.map((rect) => rect.right));
+    const bottom = Math.max(...rects.map((rect) => rect.bottom));
+    return { x: left, y: top, w: right - left, h: bottom - top, right, bottom };
+}
+
+function getDeckPressureSideSeamGhost(entity, graph, session) {
+    if (!entity || !graph || !session || typeof session.side !== "string" || !session.side.startsWith("deck-pressure-") || !session.side.endsWith("-seam")) return null;
+    const hub = getNodeById(graph, session.hubId);
+    if (!hub) return null;
+    const branchSide = session.side.slice("deck-pressure-".length, -"-seam".length);
+    if (branchSide !== "left" && branchSide !== "right") return null;
+    const branchBounds = getBoundsForNodes(getDeckPressureBranchMembers(hub, graph, branchSide));
+    const hubBounds = getNodeBounds(hub);
+    if (!branchBounds || !hubBounds) return null;
+    const seamX = branchSide === "left" ? hubBounds.x : hubBounds.right;
+    return { x: seamX - 0.5, y: branchBounds.y, w: 1, h: branchBounds.h };
+}
+
+function getDeckPressureSideHoverGhost(entity, graph, session) {
+    if (!entity || !graph || !session?.deckPressureSideWidth) return null;
+    const hub = getNodeById(graph, session.hubId);
+    if (!hub) return null;
+    const branchSide = session.branchSide;
+    if (branchSide !== "left" && branchSide !== "right") return null;
+    const branchBounds = getBoundsForNodes(getDeckPressureBranchMembers(hub, graph, branchSide));
+    const hubBounds = getNodeBounds(hub);
+    if (!branchBounds || !hubBounds) return null;
+    const seamX = branchSide === "left" ? hubBounds.x : hubBounds.right;
+    return { x: seamX - 0.5, y: branchBounds.y, w: 1, h: branchBounds.h };
+}
+
+function getSeamGhostPairsForSession(entity, graph, session = entity?._dockResizeSession) {
+    if (!session || !graph) return [];
+    if (session.entityId !== undefined && session.neighborId !== undefined) {
+        if (session.deckPressureSideWidth) return [];
+        const entityNode = getNodeById(graph, session.entityId);
+        const neighbor = getNodeById(graph, session.neighborId);
+        return entityNode && neighbor ? [{ a: entityNode, b: neighbor, side: session.side }] : [];
+    }
+    if ((session.side === "left" || session.side === "right" || session.side === "top" || session.side === "bottom") && session.leaderId !== undefined && session.dockedId !== undefined) {
+        const leader = getNodeById(graph, session.leaderId);
+        const docked = getNodeById(graph, session.dockedId);
+        return leader && docked ? [{ a: leader, b: docked, side: session.side }] : [];
+    }
+    if (session.side === "vertical-ordered-seam" && session.topNodeId !== undefined && session.bottomNodeId !== undefined) {
+        const topNode = getNodeById(graph, session.topNodeId);
+        const bottomNode = getNodeById(graph, session.bottomNodeId);
+        return topNode && bottomNode ? [{ a: topNode, b: bottomNode, side: "bottom" }] : [];
+    }
+    if (typeof session.side === "string" && session.side.startsWith("deck-pressure-") && session.side.endsWith("-seam") && session.hubId !== undefined) {
+        const hub = getNodeById(graph, session.hubId);
+        return hub && hub.id !== entity.id ? [{ a: entity, b: hub, side: entity._resizeAnchor || "right" }] : [];
+    }
+    return [];
+}
+
+function drawSeamGhostRect(ctx, x, y, width, height, paint) {
+    if (width <= 0 || height <= 0) return;
+    masterPainter(ctx, {
+        posX: x,
+        posY: y,
+        width,
+        height,
+        color: paint.fill,
+        paintData: { ...paint, corners: 0 },
+    });
+}
+
+function drawSeamGhostPair(ctx, pair, paint) {
+    const a = getNodeBounds(pair?.a);
+    const b = getNodeBounds(pair?.b);
+    if (!a || !b) return;
+    const overlapX = Math.max(0, Math.min(a.right, b.right) - Math.max(a.x, b.x));
+    const overlapY = Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.y, b.y));
+    const vertical = overlapY > overlapX;
+    ctx.save();
+    if (vertical) {
+        const left = a.x <= b.x ? a : b;
+        const right = left === a ? b : a;
+        const top = Math.max(left.y, right.y);
+        const bottom = Math.min(left.bottom, right.bottom);
+        const h = Math.max(0, bottom - top);
+        if (h > 0) {
+            const seamX = (left.right + right.x) * 0.5;
+            drawSeamGhostRect(ctx, seamX - 0.5, top, 1, h, paint);
+        }
+    } else {
+        const topNode = a.y <= b.y ? a : b;
+        const bottomNode = topNode === a ? b : a;
+        const left = Math.max(topNode.x, bottomNode.x);
+        const right = Math.min(topNode.right, bottomNode.right);
+        const w = Math.max(0, right - left);
+        if (w > 0) {
+            const seamY = (topNode.bottom + bottomNode.y) * 0.5;
+            drawSeamGhostRect(ctx, left, seamY - 0.5, w, 1, paint);
+        }
+    }
+    ctx.restore();
+}
+
+export function drawSharedResizeSeamGhosts(ctx, graph = globalThis?.app?.graph || null) {
+    if (!ctx || !graph?._nodes?.length) return;
+    const useAnim = window.DERP_GLOBAL_SETTINGS?.useAnimation !== false;
+    const bodyPaint = resolveSystemThemePaint("ghost_seam_valid", "OFF") || { fill: "rgba(56, 202, 90, 0.95)", corners: 0 };
+    const fill = useAnim
+        ? getPulsedColor(
+            parseColor(resolveSystemThemeFill("ghost_seam_valid", "rgba(56, 202, 90, 0.95)", "OFF")),
+            parseColor(resolveSystemThemeFill("ghost_seam_valid", "rgba(120, 255, 150, 0.95)", "ON")),
+            DEFAULT_PULSE_SPEED
+        )
+        : resolveSystemThemeFill("ghost_seam_valid", "rgba(56, 202, 90, 0.95)", "OFF");
+    const paint = { ...bodyPaint, fill, corners: 0 };
+    let drew = false;
+    const seen = new Set();
+    graph._nodes.forEach((node) => {
+        const sessions = [];
+        if (node?._isDerpResizing === true && node._dockResizeSession) sessions.push(node._dockResizeSession);
+        if (node?._dockResizeHoverSession) sessions.push(node._dockResizeHoverSession);
+        sessions.forEach((session) => {
+            const seamGhost = getDeckPressureSideSeamGhost(node, graph, session) || getDeckPressureSideHoverGhost(node, graph, session);
+            if (seamGhost) {
+                const key = `deck-pressure:${session.hubId}:${session.branchSide || session.side}`;
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    drawSeamGhostRect(ctx, seamGhost.x, seamGhost.y, seamGhost.w, seamGhost.h, paint);
+                    drew = true;
+                }
+                return;
+            }
+            getSeamGhostPairsForSession(node, graph, session).forEach((pair) => {
+                const ids = [pair.a?.id, pair.b?.id].sort().join(":");
+                if (!ids || seen.has(ids)) return;
+                seen.add(ids);
+                drawSeamGhostPair(ctx, pair, paint);
+                drew = true;
+            });
+        });
+    });
+    if (drew && useAnim && !window._xcpSeamGhostPulsePending && window.app?.canvas) {
+        window._xcpSeamGhostPulsePending = true;
+        requestAnimationFrame(() => {
+            window._xcpSeamGhostPulsePending = false;
+            window.app?.canvas?.setDirty?.(true, true);
+        });
+    }
 }
 
 export class masterDockEngine {
