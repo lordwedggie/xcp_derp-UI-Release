@@ -71,6 +71,7 @@ function flushLoraStackSysSettings(node) {
 
 if (!window._xcp_derpLoraStack_Layout_Loaded) {
     window._xcp_derpLoraStack_Layout_Loaded = true;
+    console.log("[LoraStackDebug] layout-extension-loaded perf=on tags=LoraStackPerf heartbeat=3500ms slow=25ms");
     try {
         app.registerExtension({
             name: "xcp.derpLoraStack_Layout",

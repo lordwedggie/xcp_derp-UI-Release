@@ -24,6 +24,40 @@ const PASSIVE_WHOLE_WALL_CACHE_MAX_SCALE = 2;
 const PASSIVE_WHOLE_WALL_CACHE_SCALE_STEP = 0.25;
 const LORA_STACK_WHOLE_WALL_CACHE_MIN_ITEMS = 3;
 const TRIGGER_WALL_WHOLE_WALL_CACHE_MIN_ITEMS = 10;
+const LORA_STACK_DEBUG_FRAME_MS = 25;
+const LORA_STACK_DEBUG_THROTTLE_MS = 1200;
+const LORA_STACK_DEBUG_HEARTBEAT_MS = 3500;
+
+function isDerpLoraStackNode(node) {
+    const text = [
+        node?.type,
+        node?.comfyClass,
+        node?.constructor?.comfyClass,
+        node?.titleLabel,
+        node?.title,
+    ].filter(Boolean).join(" ").toLowerCase().replace(/[^a-z0-9]/g, "");
+    return text.includes("derplorastack");
+}
+
+function logLoraStackFramePerf(node, perf) {
+    const now = performance.now();
+    if (!node || !perf) return;
+    const isSlow = perf.total >= LORA_STACK_DEBUG_FRAME_MS;
+    const throttleMs = isSlow ? LORA_STACK_DEBUG_THROTTLE_MS : LORA_STACK_DEBUG_HEARTBEAT_MS;
+    if (now - Number(node._lastLoraStackPerfLogAt || 0) < throttleMs) return;
+    node._lastLoraStackPerfLogAt = now;
+    const phaseText = Object.entries(perf.phases || {})
+        .map(([key, value]) => `${key}:${Number(value || 0).toFixed(1)}`)
+        .join(",");
+    const slowWidgets = (perf.widgets || [])
+        .sort((a, b) => b.ms - a.ms)
+        .slice(0, 6)
+        .map(item => `${item.key}/${item.type}:${item.ms.toFixed(1)}`)
+        .join(",") || "none";
+    const cache = perf.cacheHit ? "hit" : (perf.cacheEligible ? "eligible" : "off");
+    const stackCount = Array.isArray(node.properties?.stackData) ? node.properties.stackData.length : 0;
+    console.log(`[LoraStackPerf] frame node=${node.id}:${node.titleLabel || node.title || node.type} zoom=${(app.canvas?.ds?.scale || 1).toFixed(2)} total=${perf.total.toFixed(1)} cache=${cache} shouldSync=${node._shouldSync ? 1 : 0} force=${node._forceSync ? 1 : 0} dirty=${node._layoutDirty ? 1 : 0} size=${Math.round(node.size?.[0] || 0)}x${Math.round(node.size?.[1] || 0)} stack=${stackCount} phases=${phaseText} slow=${slowWidgets}`);
+}
 
 function getFathaNodeScreenRect(node, canvasDS, canvasEl) {
     if (!node || !canvasDS || !canvasEl) return null;
@@ -144,6 +178,69 @@ function getPassiveWholeWallCacheScale(canvasScale = 1) {
     // tiny DragAndScale jitter does not invalidate large LoRA/Trigger/ImageDeck caches.
     const bucketScale = Math.ceil(desiredScale / PASSIVE_WHOLE_WALL_CACHE_SCALE_STEP) * PASSIVE_WHOLE_WALL_CACHE_SCALE_STEP;
     return Math.max(1, Math.min(PASSIVE_WHOLE_WALL_CACHE_MAX_SCALE, bucketScale));
+}
+
+
+function createFathaCacheCanvas(width, height, scaleFactor = 1) {
+    const safeW = Math.max(1, Math.round(width || 1));
+    const safeH = Math.max(1, Math.round(height || 1));
+    const safeScale = Math.max(1, Number(scaleFactor) || 1);
+    if (typeof OffscreenCanvas !== "undefined") {
+        return new OffscreenCanvas(Math.max(1, Math.round(safeW * safeScale)), Math.max(1, Math.round(safeH * safeScale)));
+    }
+    if (typeof document !== "undefined" && typeof document.createElement === "function") {
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(safeW * safeScale));
+        canvas.height = Math.max(1, Math.round(safeH * safeScale));
+        return canvas;
+    }
+    return null;
+}
+
+function buildLoraStackWidgetLayerCacheState(node, cacheScale, idleReady) {
+    if (!idleReady || !isDerpLoraStackNode(node)) return { canUse: false, cacheReg: null, key: null };
+    const cacheReg = node.layout?.regions?.panelBackground;
+    const stackCount = Array.isArray(node.properties?.stackData) ? node.properties.stackData.length : 0;
+    const detailBastaId = "basta_lora_detail_global_unique_id";
+    const isDetailOpen = !!(window.xcpActiveBastas?.get(detailBastaId)?.hostNode === node);
+    const hasOpenPicker = !!(window.__xcpHasActiveDropdown || window.__xcpHasActiveFileBrowser);
+    const hasAwakeDom = !!(node._derpDomElements && Object.values(node._derpDomElements).some(el => el?._isAwake || document.activeElement === el));
+    const canUse = !!(
+        cacheReg &&
+        stackCount > 0 &&
+        !node._forceSync &&
+        !node._layoutDirty &&
+        !(Number(node._pendingImageLoads || 0) > 0) &&
+        !node._dragTrig &&
+        !node._dragThresholdMet &&
+        !node._loraFloatingSnapshot &&
+        !node._hasVisibleDerpEditorDom &&
+        !node._hoveredRegionKey &&
+        !node._pressedRegionKey &&
+        !node._activeSliderKey &&
+        !hasOpenPicker &&
+        !hasAwakeDom &&
+        !isDetailOpen &&
+        (node._activeDetailSlot == null || node._activeDetailSlot < 0)
+    );
+    const valueHash = String(node._lastStackValues || "");
+    const previewHash = Array.isArray(node._loraPreviewList) ? [...node._loraPreviewList].sort().join("|") : "";
+    const key = canUse ? [
+        Math.max(1, Math.round(cacheReg?.w || node.size?.[0] || 1)),
+        Math.max(1, Math.round(cacheReg?.h || node.size?.[1] || 1)),
+        node._layoutMapHash || "",
+        valueHash,
+        previewHash,
+        node._currentThemeCacheKey || node._currentThemeName || "",
+        node.mode || 0,
+        node.properties?.contentCollapsed === true ? 1 : 0,
+        node.properties?.nameDisplay || "",
+        node.properties?.showCLIP === false ? 0 : 1,
+        node.properties?.attentionMode || "",
+        node.properties?.toggleLR ? 1 : 0,
+        cacheScale,
+    ].join("|") : null;
+    return { canUse, cacheReg, key };
 }
 
 function getFathaVisibleLocalRect(node) {
@@ -687,6 +784,14 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
         const curW = this.size[0], curH = this.size[1];
         const curS = canvasDS.scale;
         const curOX = canvasDS.offset[0], curOY = canvasDS.offset[1];
+        const loraStackPerf = isDerpLoraStackNode(this) ? { start: performance.now(), phases: {}, widgets: [] } : null;
+        let loraStackPerfMark = loraStackPerf?.start || 0;
+        const markLoraStackPhase = (name) => {
+            if (!loraStackPerf) return;
+            const now = performance.now();
+            loraStackPerf.phases[name] = (loraStackPerf.phases[name] || 0) + Math.max(0, now - loraStackPerfMark);
+            loraStackPerfMark = now;
+        };
 
         // THE HEIST FIX: Read the true state cached by the Heist wrapper
         const isTrueSelected = this._xcpTrueSelected !== undefined ? this._xcpTrueSelected : this.selected;
@@ -770,7 +875,9 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
         const liveTargetH = (this._isDerpResizing && !autoHeight) || lockHorizontalDeckResize ? this.size[1] : targetH;
         const preAnimateW = Number(this.size?.[0]) || 0;
         animateDerpSize(this, liveTargetW, liveTargetH, useAnim);
+        markLoraStackPhase("animate-size");
         balanceHorizontalDeckWidthChange(this, preAnimateW);
+        markLoraStackPhase("balance-width");
 
         const bounds = { x: 0, y: 0, w: this.size[0], h: this.size[1] };
 
@@ -780,6 +887,7 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
             spawnAnim: false,
             isVirtual: true
         }, needsLayoutCompute);
+        markLoraStackPhase("layout");
 
         if (preserveHorizontalDeckHeight) {
             if (!lockHorizontalDeckResize) {
@@ -793,6 +901,7 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
         } else if (shouldPreserveVerticalDeckWidth(this) || isComfyVueNodesMode()) {
             normalizeDerpDockedLayout(this);
         }
+        markLoraStackPhase("dock-sync");
 
         if (this.properties.nodeSize && !isMinState) {
             if (lockedDeckPressureSideW > 0) this.properties.nodeSize[0] = lockedDeckPressureSideW;
@@ -812,22 +921,9 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
         }
 
         handleDrawCTX(this, ctx);
+        markLoraStackPhase("base-bg");
 
-        const createPassiveCanvas = (width, height, scaleFactor = 1) => {
-            const safeW = Math.max(1, Math.round(width || 1));
-            const safeH = Math.max(1, Math.round(height || 1));
-            const safeScale = Math.max(1, Number(scaleFactor) || 1);
-            if (typeof OffscreenCanvas !== "undefined") {
-                return new OffscreenCanvas(Math.max(1, Math.round(safeW * safeScale)), Math.max(1, Math.round(safeH * safeScale)));
-            }
-            if (typeof document !== "undefined" && typeof document.createElement === "function") {
-                const canvas = document.createElement("canvas");
-                canvas.width = Math.max(1, Math.round(safeW * safeScale));
-                canvas.height = Math.max(1, Math.round(safeH * safeScale));
-                return canvas;
-            }
-            return null;
-        };
+        const createPassiveCanvas = createFathaCacheCanvas;
         const passiveCacheScale = getPassiveWholeWallCacheScale(curS);
         const hasStructuralOrInteractionSync = !this._prevDerpState || hasLayoutChanged ||
             this._prevDerpState.hoveredKey !== this._hoveredRegionKey;
@@ -838,12 +934,31 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
             passiveWholeWall.canUse &&
             !hasStructuralOrInteractionSync
         );
+        const loraWidgetLayer = buildLoraStackWidgetLayerCacheState(this, passiveCacheScale, !this._shouldSync && !needsLayoutCompute && !collapseStateChanged && !isAnimating);
+        const loraWidgetLayerCache = this._loraStackWidgetLayerCanvasCache;
+        if (loraWidgetLayer.canUse && loraWidgetLayerCache?.key === loraWidgetLayer.key && loraWidgetLayerCache?.canvas) {
+            drawPassiveWholeWallCache(this, ctx, loraWidgetLayerCache.canvas, loraWidgetLayer.cacheReg, loraWidgetLayerCache.scale || passiveCacheScale);
+            markLoraStackPhase("widget-layer-cache-hit");
+            ensurePassiveCacheInteractionBindings(this, app);
+            syncDerpShield(this);
+            markLoraStackPhase("shield");
+            if (this._forceSync) this._forceSync = false;
+            if (loraStackPerf) {
+                loraStackPerf.cacheHit = true;
+                loraStackPerf.cacheEligible = true;
+                loraStackPerf.total = performance.now() - loraStackPerf.start;
+                logLoraStackFramePerf(this, loraStackPerf);
+            }
+            return;
+        }
         const passiveWholeWallCache = passiveWholeWall.cacheSlot ? this[passiveWholeWall.cacheSlot] : null;
 
         if (canUsePassiveWholeWallCache && passiveWholeWallCache?.key === passiveWholeWall.key && passiveWholeWallCache?.canvas) {
             drawPassiveWholeWallCache(this, ctx, passiveWholeWallCache.canvas, passiveWholeWall.cacheReg, passiveWholeWallCache.scale || passiveCacheScale);
+            markLoraStackPhase("cache-hit-draw");
             ensurePassiveCacheInteractionBindings(this, app);
             syncDerpShield(this);
+            markLoraStackPhase("shield");
             if (this._shouldSync) {
                 this._prevDerpState = {
                     posX: curX, posY: curY,
@@ -856,6 +971,12 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
                 };
             }
             if (this._forceSync) this._forceSync = false;
+            if (loraStackPerf) {
+                loraStackPerf.cacheHit = true;
+                loraStackPerf.cacheEligible = true;
+                loraStackPerf.total = performance.now() - loraStackPerf.start;
+                logLoraStackFramePerf(this, loraStackPerf);
+            }
             return;
         }
 
@@ -867,14 +988,28 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
                 Math.max(1, Math.round(passiveWholeWall.cacheReg?.h || this.size?.[1] || 1)),
                 passiveCacheScale
             ) : null;
+            const widgetLayerCanvas = (!cacheCanvas && loraWidgetLayer.canUse) ? createFathaCacheCanvas(
+                Math.max(1, Math.round(loraWidgetLayer.cacheReg?.w || this.size?.[0] || 1)),
+                Math.max(1, Math.round(loraWidgetLayer.cacheReg?.h || this.size?.[1] || 1)),
+                passiveCacheScale
+            ) : null;
             const cacheCtx = cacheCanvas?.getContext?.("2d") || null;
-            const activeCtx = cacheCtx || ctx;
+            const widgetLayerCtx = widgetLayerCanvas?.getContext?.("2d") || null;
+            const activeCtx = cacheCtx || widgetLayerCtx || ctx;
+            if (loraStackPerf) loraStackPerf.cacheEligible = !!canUsePassiveWholeWallCache;
+            if (loraStackPerf && loraWidgetLayer.canUse) loraStackPerf.cacheEligible = true;
 
             if (cacheCtx) {
                 cacheCtx.clearRect(0, 0, cacheCanvas.width, cacheCanvas.height);
                 cacheCtx.save();
                 cacheCtx.scale(passiveCacheScale, passiveCacheScale);
                 cacheCtx.translate(-Math.round(passiveWholeWall.cacheReg.x || 0), -Math.round(passiveWholeWall.cacheReg.y || 0));
+            }
+            if (widgetLayerCtx) {
+                widgetLayerCtx.clearRect(0, 0, widgetLayerCanvas.width, widgetLayerCanvas.height);
+                widgetLayerCtx.save();
+                widgetLayerCtx.scale(passiveCacheScale, passiveCacheScale);
+                widgetLayerCtx.translate(-Math.round(loraWidgetLayer.cacheReg.x || 0), -Math.round(loraWidgetLayer.cacheReg.y || 0));
             }
             for (const [key, reg] of Object.entries(this.layout.regions)) {
                 if (!reg.type || key === "systemBtn") continue;
@@ -916,25 +1051,36 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
                         isNewElement = true;
                     }
                     if (this._shouldSync || isNewElement) {
+                        const widgetStart = loraStackPerf ? performance.now() : 0;
                         blueprint.sync(this._derpDomElements[key], this, app, compData);
+                        if (loraStackPerf) loraStackPerf.widgets.push({ key, type: reg.type, ms: performance.now() - widgetStart });
                     }
                 } else if (blueprint.isHybrid) {
+                    const widgetStart = loraStackPerf ? performance.now() : 0;
                     blueprint.sync(activeCtx, this, app, compData);
+                    if (loraStackPerf) loraStackPerf.widgets.push({ key, type: reg.type, ms: performance.now() - widgetStart });
                 } else {
+                    const widgetStart = loraStackPerf ? performance.now() : 0;
                     blueprint.sync(activeCtx, this, compData);
+                    if (loraStackPerf) loraStackPerf.widgets.push({ key, type: reg.type, ms: performance.now() - widgetStart });
                 }
             }
+            markLoraStackPhase("widgets");
 
             handleDrawCTX(this, activeCtx, true);
+            markLoraStackPhase("overlay-bg");
 
             for (const [key, reg] of Object.entries(this.layout.regions)) {
                 if (reg.strokeZIndex) {
                     const blueprint = COMPONENT_BLUEPRINTS[reg.type];
                     if (blueprint && blueprint.isHybrid && this._compDataCache[key]) {
+                        const widgetStart = loraStackPerf ? performance.now() : 0;
                         blueprint.sync(activeCtx, this, app, this._compDataCache[key], true);
+                        if (loraStackPerf) loraStackPerf.widgets.push({ key: `${key}#stroke`, type: reg.type, ms: performance.now() - widgetStart });
                     }
                 }
             }
+            markLoraStackPhase("stroke-pass");
 
             if (cacheCtx) {
                 cacheCtx.restore();
@@ -945,6 +1091,16 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
                 };
                 drawPassiveWholeWallCache(this, ctx, cacheCanvas, passiveWholeWall.cacheReg, passiveCacheScale);
             }
+            if (widgetLayerCtx) {
+                widgetLayerCtx.restore();
+                this._loraStackWidgetLayerCanvasCache = {
+                    key: loraWidgetLayer.key,
+                    canvas: widgetLayerCanvas,
+                    scale: passiveCacheScale,
+                };
+                drawPassiveWholeWallCache(this, ctx, widgetLayerCanvas, loraWidgetLayer.cacheReg, passiveCacheScale);
+            }
+            markLoraStackPhase("cache-store-draw");
 
             if (this._derpDomElements) {
                 for (const domKey in this._derpDomElements) {
@@ -955,7 +1111,9 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
                 }
             }
         }
+        markLoraStackPhase("dom-cleanup");
         syncDerpShield(this);
+        markLoraStackPhase("shield");
 
         if (this._shouldSync) {
             this._prevDerpState = {
@@ -969,6 +1127,11 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
             };
         }
         if (this._forceSync) this._forceSync = false;
+        if (loraStackPerf) {
+            loraStackPerf.cacheHit = false;
+            loraStackPerf.total = performance.now() - loraStackPerf.start;
+            logLoraStackFramePerf(this, loraStackPerf);
+        }
     };
 
     const onRemoved = nodeType.prototype.onRemoved;
