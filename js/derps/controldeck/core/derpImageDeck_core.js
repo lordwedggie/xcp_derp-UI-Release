@@ -303,6 +303,7 @@ function initDerpImageDeckCore(nodeType) {
         if (this._lastWirelessImageHash === nextHash) return;
 
         this._lastWirelessImageHash = nextHash;
+        if (this.properties) this.properties.imageDeckFilenameOverride = "";
         this._derpImageDeckFailedUrl = null;
         this._derpImageDeckList = list;
         this._derpImageDeckIndex = list.length - 1;

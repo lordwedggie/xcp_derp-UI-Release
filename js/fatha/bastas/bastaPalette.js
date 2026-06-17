@@ -115,10 +115,11 @@ function syncActivePalettePreview(basta) {
     if (!activeName) return false;
 
     if (!window.xcpPaletteCache || typeof window.xcpPaletteCache !== "object") window.xcpPaletteCache = {};
-    window.xcpPaletteCache[activeName] = {
+    const activeData = {
         effects: basta.properties.includeEffectKeys === true,
         palettes: basta._availablePalettes || [],
     };
+    getPaletteNameAliases(activeName).forEach(name => { window.xcpPaletteCache[name] = activeData; });
     if (normalizePaletteName(window.xcpActivePaletteName || "") === activeName) {
         if (!window.xcpActivePalette) window.xcpActivePalette = {};
         window.xcpActivePalette.effects = basta.properties.includeEffectKeys === true;
@@ -126,12 +127,24 @@ function syncActivePalettePreview(basta) {
         window.xcpActivePaletteName = activeName;
     }
     if (!window.xcpStringPaletteCache || typeof window.xcpStringPaletteCache !== "object") window.xcpStringPaletteCache = {};
-    window.xcpStringPaletteCache[activeName] = window.xcpPaletteCache[activeName];
+    getPaletteNameAliases(activeName).forEach(name => { window.xcpStringPaletteCache[name] = activeData; });
     return true;
 }
 
+function getPaletteNameAliases(name) {
+    const normalized = normalizePaletteName(name || "");
+    if (!normalized) return [];
+    const withoutExt = normalized.replace(/\.json$/i, "");
+    const withExt = `${withoutExt}.json`;
+    return withoutExt === withExt ? [normalized] : Array.from(new Set([normalized, withoutExt, withExt]));
+}
+
+function paletteNameKey(name) {
+    return normalizePaletteName(name || "").replace(/\.json$/i, "").toLowerCase();
+}
+
 function paletteNameMatches(a, b) {
-    return normalizePaletteName(a || "").toLowerCase() === normalizePaletteName(b || "").toLowerCase();
+    return paletteNameKey(a) === paletteNameKey(b);
 }
 
 function refreshNodePalettePreview(node) {
@@ -140,11 +153,17 @@ function refreshNodePalettePreview(node) {
         handleThemeUpdateImpl(node, window.xcpDerpThemeConfig, { preserveBastas: true });
     } else {
         if (node._derpBgCache) node._derpBgCache.key = "";
+        node._imageDeckPassiveCanvasCache = null;
+        node._triggerWallPassiveCanvasCache = null;
+        node._passiveWholeWallCanvasCache = null;
         if (node._compDataCache) node._compDataCache = {};
         if (node.layout) node.layout._lastCacheKey = "";
         node._prevDerpState = null;
         node._forceSync = true;
     }
+    node._imageDeckPassiveCanvasCache = null;
+    node._triggerWallPassiveCanvasCache = null;
+    node._passiveWholeWallCanvasCache = null;
     if (typeof node.requestDerpSync === "function") node.requestDerpSync();
     else if (typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, false);
 }

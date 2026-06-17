@@ -81,11 +81,39 @@ function getImageDeckCustomPrefix(raw) {
     return prefix && !isImageDeckPrefixPlaceholder(prefix) ? prefix : "";
 }
 
+function formatImageDeckPrefixDisplay(raw) {
+    return `{{t_text_warning::${String(raw || getImageDeckPrefixPlaceholder())}}}`;
+}
+
+function getImageDeckFilenameOverride(raw) {
+    return String(raw || "").replace(/\{\{[^:}]+::([^}]*)\}\}/g, "$1").trim();
+}
+
+function getImageDeckFilenameExt(format) {
+    const cleanFormat = String(format || "PNG").trim();
+    return cleanFormat === "JPEG" ? ".jpg" : (cleanFormat === "WebP" ? ".webp" : ".png");
+}
+
+function getImageDeckFilenameEditBase(raw) {
+    const text = getImageDeckFilenameOverride(raw).split(/[\\/]/).pop();
+    return normalizeImageDeckFilenameToken(text);
+}
+
+function formatImageDeckFilenameDisplay(baseName, format, customFolder = "") {
+    const displayName = `{{t_text_accent::${baseName}${getImageDeckFilenameExt(format)}}}`;
+    const folder = normalizeImageDeckFolderPath(customFolder || "");
+    if (!folder) return displayName;
+    const folderPath = `${folder.replace(/\//g, "\\")}\\`;
+    return `{{t_text_highlight::${folderPath}}}${displayName}`;
+}
+
 function normalizeImageDeckFolderPath(raw) {
     return String(raw || "").replace(/\\/g, "/").trim().replace(/^\/+|\/+$/g, "");
 }
 
 function buildImageDeckBaseName(node, fileNameOnly = "") {
+    const override = getImageDeckFilenameEditBase(node.properties?.imageDeckFilenameOverride);
+    if (override) return override;
     const modelPrefix = node.getImageDeckModelNamePrefix ? node.getImageDeckModelNamePrefix() : "";
     const samplerPrefix = node.getImageDeckSamplerNamePrefix ? node.getImageDeckSamplerNamePrefix(fileNameOnly) : "";
     const schedulerPrefix = node.getImageDeckSchedulerNamePrefix ? node.getImageDeckSchedulerNamePrefix(fileNameOnly) : "";
@@ -462,6 +490,7 @@ app.registerExtension({
         };
 
         nodeType.prototype.getImageDeckFilenameText = function() {
+            const override = getImageDeckFilenameEditBase(this.properties.imageDeckFilenameOverride);
             const list = Array.isArray(this._derpImageDeckList) ? this._derpImageDeckList : [];
             const idx = Number.isInteger(this._derpImageDeckIndex) ? this._derpImageDeckIndex : (list.length - 1);
             const image = list[idx] || null;
@@ -470,14 +499,8 @@ app.registerExtension({
                 ? (image.filename || image.image || (typeof image === "string" ? image : ""))
                 : "";
             const fileNameOnly = String(rawFile || "").split(/[\\/]/).pop();
-            const baseName = buildImageDeckBaseName(this, fileNameOnly);
-            const format = String(this.properties.imageDeckSaveFormat || "PNG").trim();
-            const formatExt = format === "JPEG" ? ".jpg" : (format === "WebP" ? ".webp" : ".png");
-            const displayName = `${baseName}${formatExt}`;
-            const customFolder = normalizeImageDeckFolderPath(this.properties.imageDeckCustomFolder || "");
-            if (!customFolder) return displayName;
-            const folderPath = `${customFolder.replace(/\//g, "\\")}\\`;
-            return `{{t_text_highlight::${folderPath}}}${displayName}`;
+            const baseName = override || buildImageDeckBaseName(this, fileNameOnly);
+            return formatImageDeckFilenameDisplay(baseName, this.properties.imageDeckSaveFormat, this.properties.imageDeckCustomFolder);
         };
 
         nodeType.prototype.applyPalette = function() {
@@ -501,6 +524,9 @@ app.registerExtension({
             this.properties.imageDeckFilenamePrefix = typeof this.properties.imageDeckFilenamePrefix === "string"
                 ? this.properties.imageDeckFilenamePrefix
                 : getImageDeckPrefixPlaceholder();
+            this.properties.imageDeckFilenameOverride = typeof this.properties.imageDeckFilenameOverride === "string"
+                ? this.properties.imageDeckFilenameOverride
+                : "";
             this.properties.imageDeckSaveFormat = typeof this.properties.imageDeckSaveFormat === "string"
                 ? this.properties.imageDeckSaveFormat
                 : "PNG";
@@ -711,6 +737,7 @@ app.registerExtension({
             data.properties.nodeSize = Array.isArray(this.size) ? [...this.size] : this.properties.nodeSize;
             data.properties.imageDeckCustomFolder = this.properties.imageDeckCustomFolder || "";
             data.properties.imageDeckFilenamePrefix = this.properties.imageDeckFilenamePrefix || getImageDeckPrefixPlaceholder();
+            data.properties.imageDeckFilenameOverride = this.properties.imageDeckFilenameOverride || "";
             data.properties.toggleAutoSave = this.properties.toggleAutoSave === true;
             data.properties.imageDeckState = {
                 images: Array.isArray(this._derpImageDeckList) ? this._derpImageDeckList : [],
@@ -883,10 +910,31 @@ app.registerExtension({
                             height: "auto",
                             padding: [pW, pH], spacing: [sH, 0],
                             labelAlign: ["left", "middle"],
-                            text: this.properties.imageDeckFilenamePrefix || getImageDeckPrefixPlaceholder(),
+                            text: formatImageDeckPrefixDisplay(this.properties.imageDeckFilenamePrefix),
                             value: this.properties.imageDeckFilenamePrefix || getImageDeckPrefixPlaceholder(),
                             onBlur: (v) => {
                                 this.properties.imageDeckFilenamePrefix = String(v || "").trim() || getImageDeckPrefixPlaceholder();
+                                this.properties.imageDeckFilenameOverride = "";
+                                const filenameText = this.getImageDeckFilenameText ? this.getImageDeckFilenameText() : "";
+                                const filenameReg = this.layout?.regions?.editorImageFilename;
+                                if (filenameReg) {
+                                    filenameReg.text = filenameText;
+                                    filenameReg.value = filenameText;
+                                }
+                                const filenameComp = this._compDataCache?.editorImageFilename;
+                                if (filenameComp) {
+                                    filenameComp.text = filenameText;
+                                    filenameComp.value = filenameText;
+                                }
+                                if (this._editorLineCache?.editorImageFilename) delete this._editorLineCache.editorImageFilename;
+                                const filenameEl = this._derpDomElements?.editorImageFilename;
+                                if (filenameEl?._config) {
+                                    filenameEl._config.text = filenameText;
+                                    filenameEl._config.value = filenameText;
+                                    filenameEl._lastStateHash = null;
+                                    if (!filenameEl._isAwake && document.activeElement !== filenameEl) filenameEl.value = filenameText.replace(/\{\{[^}]+\}\}/g, "");
+                                }
+                                this._layoutMapHash = null;
                                 if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
                                 if (this.requestDerpSync) this.requestDerpSync();
                             }
@@ -902,7 +950,22 @@ app.registerExtension({
                             labelAlign: ["left", "middle"],
                             text: filenameText,
                             value: filenameText,
-                            onBlur: () => {
+                            onFocus: (_v, el) => {
+                                const editBase = getImageDeckFilenameEditBase(this.properties.imageDeckFilenameOverride || filenameText);
+                                if (el && el.value !== editBase) el.value = editBase;
+                                if (el?._config) {
+                                    el._config.text = editBase;
+                                    el._config.value = editBase;
+                                }
+                            },
+                            onInput: (v) => {
+                                this.properties.imageDeckFilenameOverride = getImageDeckFilenameEditBase(v);
+                                this._layoutMapHash = null;
+                                if (this.requestDerpSync) this.requestDerpSync();
+                                if (this.setDirtyCanvas) this.setDirtyCanvas(true, true);
+                            },
+                            onBlur: (v) => {
+                                this.properties.imageDeckFilenameOverride = getImageDeckFilenameEditBase(v);
                                 if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
                                 if (this.requestDerpSync) this.requestDerpSync();
                             }

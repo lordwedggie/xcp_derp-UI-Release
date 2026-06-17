@@ -351,6 +351,7 @@ function buildPassiveWholeWallCacheState(node, passiveCacheScale) {
             node.mode || 0,
             node.properties?.contentCollapsed === true ? 1 : 0,
             node.properties?.imageDeckFilenamePrefix || "",
+            node.properties?.imageDeckFilenameOverride || "",
             node.properties?.imageDeckCustomFolder || "",
             node.properties?.imageDeckSaveFormat || "",
             node.properties?.toggleModelInfo === false ? 0 : 1,

@@ -265,7 +265,7 @@ Color-key markup is display-only. Framework text measurement paths strip `{{key:
 3. User selects a palette file → `fetch(/xcp/load/palettes?name=...)` loads it
 4. Existing effect keys set their visibility toggles; missing effect keys stay omitted unless the user enables their toggle
 5. User edits colors via `bastaColorDesigner.js` → writes directly to `basta._availablePalettes`
-6. `markPaletteColorEdited()` fires → `schedulePalettePreviewRedraw()` updates all nodes using that palette in real-time
+6. `markPaletteColorEdited()` fires -> `schedulePalettePreviewRedraw()` writes the edited palette into the in-memory palette caches, updates matching string-palette data, and redraws all Fatha/Uncle nodes so color-key text reparses live.
 7. Dirty state is tracked by `_paletteDirty` plus a `getPaletteHash()` baseline (`_lastFileHash`). If the user closes Palette Manager from the header close button or footer Done button while dirty, the panel opens a `bastaFileHandler` discard confirmation before closing.
 8. User clicks Save → `fetch(/xcp/save/palettes, {method: "POST", body: ...})` persists to disk
 
