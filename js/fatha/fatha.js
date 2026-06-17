@@ -198,6 +198,7 @@ function drawPassiveWholeWallCache(node, ctx, cacheCanvas, cacheReg, fallbackSca
 function getWholeWallCacheGateValue(settingValue, fallbackValue) {
     const raw = String(settingValue ?? fallbackValue).trim().toLowerCase();
     if (raw === "none") return null;
+    if (raw === "always") return 0;
     const value = Number(raw);
     return Number.isFinite(value) ? Math.max(0, Math.floor(value)) : fallbackValue;
 }

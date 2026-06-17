@@ -544,7 +544,8 @@
       "cover": "封面",
       "prefix": "第",
       "empty": "空白",
-      "untitled_title": "未命名"
+      "untitled_title": "未命名",
+      "new_page_prefix": "新页面"
     },
     "dialogs": {
       "save_as": {

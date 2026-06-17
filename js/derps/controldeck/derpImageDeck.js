@@ -471,8 +471,9 @@ app.registerExtension({
                 : "";
             const fileNameOnly = String(rawFile || "").split(/[\\/]/).pop();
             const baseName = buildImageDeckBaseName(this, fileNameOnly);
-            const extension = (String(fileNameOnly || "").match(/(\.[^.\\/]+)$/) || [""])[0];
-            const displayName = `${baseName}${extension}`;
+            const format = String(this.properties.imageDeckSaveFormat || "PNG").trim();
+            const formatExt = format === "JPEG" ? ".jpg" : (format === "WebP" ? ".webp" : ".png");
+            const displayName = `${baseName}${formatExt}`;
             const customFolder = normalizeImageDeckFolderPath(this.properties.imageDeckCustomFolder || "");
             if (!customFolder) return displayName;
             const folderPath = `${customFolder.replace(/\//g, "\\")}\\`;
@@ -1068,6 +1069,7 @@ app.registerExtension({
                             onChange: (v) => {
                                 this.properties.imageDeckSaveFormat = String(v || "PNG").trim() || "PNG";
                                 this.refreshDerpImageDeckSysMap();
+                                this.refreshNodeLayoutMap();
                                 this.requestDerpSync();
                             }
                         }

@@ -76,6 +76,65 @@ function cleanPromptBookText(text) {
     }).join('\n');
 }
 
+export function normalizePromptBookEditorStoredValue(value) {
+    return String(value || "").replace(/\[\[IMG:\/xcp\/get_asset\/derpPromptBook\?name=([^&\]]+)(?:&bookName=[^\]]*)?\]\]/g, (m, encFile) => {
+        return `[[IMG:${decodeURIComponent(encFile)}]]`;
+    });
+}
+
+function formatPromptBookEditorDisplayValue(node, content) {
+    const bookName = node?.properties?.bookName || tLocale("$derp_prompt_book.book.untitled_name", "Untitled Book");
+    return String(content || "").replace(/\[\[IMG:(?!data:|http|\/|.*_IMG\/)([^\]]+)\]\]/g, (m, file) => {
+        return `[[IMG:/xcp/get_asset/derpPromptBook?name=${encodeURIComponent(file)}&bookName=${encodeURIComponent(bookName)}]]`;
+    });
+}
+
+export function syncDerpPromptBookEditorDisplay(node, content, options = {}) {
+    if (!node) return;
+    const storedValue = normalizePromptBookEditorStoredValue(content);
+    const displayValue = options.displayValue ?? formatPromptBookEditorDisplayValue(node, storedValue);
+    const widget = node.widgets?.find(x => x.name === "prompt");
+    if (widget) widget.value = storedValue;
+
+    const mapEditor = node.layoutMap?.contentRegion?.editorMain;
+    if (mapEditor) {
+        mapEditor.value = displayValue;
+        mapEditor.text = displayValue;
+        if (options.padding) mapEditor.padding = options.padding;
+    }
+
+    const liveRegion = node.layout?.regions?.editorMain;
+    if (liveRegion) {
+        liveRegion.value = displayValue;
+        liveRegion.text = displayValue;
+        if (options.padding) liveRegion.padding = options.padding;
+    }
+
+    const compEditor = node._compDataCache?.editorMain;
+    if (compEditor) {
+        compEditor.value = displayValue;
+        compEditor.text = displayValue;
+        if (options.padding) compEditor.padding = options.padding;
+    }
+
+    const el = node._derpDomElements?.editorMain;
+    if (el) {
+        if (el._config) {
+            el._config.value = displayValue;
+            el._config.text = displayValue;
+            if (options.padding) el._config.padding = options.padding;
+        }
+        el._lastStateHash = null;
+        el._lastSyncKey = null;
+        el._lastProps = null;
+        el._lastMetrics = null;
+        el._lastDerpValue = null;
+        if (document.activeElement !== el) el.innerText = displayValue;
+    }
+
+    if (node._editorLineCache?.editorMain) delete node._editorLineCache.editorMain;
+}
+
 function compactMultilineSignalOutput(text) {
     if (!text) return "";
     return String(text)
@@ -132,6 +191,8 @@ async function refreshPromptBookState(node, bookName, bookData = null) {
     if (Array.isArray(bookData)) {
         node.properties.derpBook = JSON.parse(JSON.stringify(bookData));
     }
+    node.properties.prompt = node.properties.derpBook?.[node.properties.currentPageIndex || 0]?.content || "";
+    syncDerpPromptBookEditorDisplay(node, node.properties.prompt);
     if (node.fetchRemoteBooks) await node.fetchRemoteBooks();
     if (node.refreshNodeLayoutMap) node.refreshNodeLayoutMap();
     if (node.refreshDerpPromptBookSysMap) node.refreshDerpPromptBookSysMap();
@@ -155,8 +216,7 @@ async function validateActivePromptBook(node) {
         node.properties.derpBook = createDefaultDerpBook();
         node.properties.prompt = node.properties.derpBook[0]?.content || "";
 
-        const w = node.widgets?.find(x => x.name === "prompt");
-        if (w) w.value = node.properties.prompt;
+        syncDerpPromptBookEditorDisplay(node, node.properties.prompt);
 
         if (node.refreshNodeLayoutMap) node.refreshNodeLayoutMap();
         if (node.refreshDerpPromptBookSysMap) node.refreshDerpPromptBookSysMap();
@@ -394,6 +454,7 @@ export function bindPromptBookHooks(nodeType) {
                         handleBookChange(this, bookName, { preservePage: true }).then(() => {
                             this.properties.currentPageIndex = Math.max(0, Math.min(savedPageIndex, Math.max(0, (this.properties.derpBook || []).length - 1)));
                             this.properties.prompt = this.properties.derpBook?.[this.properties.currentPageIndex]?.content || "";
+                            syncDerpPromptBookEditorDisplay(this, this.properties.prompt);
                             this._lastSyncedContent = null;
                             this._promptBookConfigurePending = false;
                             if (this.syncDerpOutputs) this.syncDerpOutputs();
@@ -467,10 +528,12 @@ export function bindPromptBookHooks(nodeType) {
                     const book = this.properties.derpBook || [];
                     const idx = this.properties.currentPageIndex || 0;
                     if (book[idx]) {
-                        const content = el.innerText;
+                        const content = normalizePromptBookEditorStoredValue(el.innerText);
                         if (book[idx].content === content) return;
                         book[idx].content = content;
                         this.properties.prompt = content;
+                        this._lastSyncedContent = null;
+                        syncDerpPromptBookEditorDisplay(this, content);
                         this._derpAwakeFrames = 5;
 
                         if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
@@ -508,8 +571,7 @@ export async function handleBookChange(node, val, options = {}) {
         node.properties.currentPageIndex = nextPageIndex;
         node.properties.prompt = data[nextPageIndex]?.content || "";
 
-        const w = node.widgets?.find(x => x.name === "prompt");
-        if (w) w.value = node.properties.prompt;
+        syncDerpPromptBookEditorDisplay(node, node.properties.prompt);
 
         node._lastSyncedContent = null;
         if (node.syncDerpOutputs) node.syncDerpOutputs();
@@ -542,8 +604,8 @@ export function handlePageChange(node, action) {
 
     const newContent = book[node.properties.currentPageIndex]?.content || "";
     node.properties.prompt = newContent;
-    const w = node.widgets?.find(x => x.name === "prompt");
-    if (w) w.value = newContent;
+    node._lastSyncedContent = null;
+    syncDerpPromptBookEditorDisplay(node, newContent);
 
     if (node.syncDerpOutputs) node.syncDerpOutputs();
 
@@ -559,16 +621,21 @@ export function handlePageAdd(node) {
     const currentIdx = node.properties.currentPageIndex || 0;
     node._pbInsertAfter = true;
 
+    const defaultName = tLocale("$derp_prompt_book.page.new_page_prefix", "New page") + " " + (book.length + 1);
+
     showBastaFileHandler(node, "derpPromptBook", "btnPageAdd", {
         title: tLocale("$derp_prompt_book.dialogs.add_page.title", "Add Page"),
         message: tLocale("$derp_prompt_book.dialogs.add_page.message", "Enter a name for the new page:"),
         confirm: tLocale("$derp_prompt_book.dialogs.add_page.confirm", "Add Page"),
         mode: "new",
+        originalName: defaultName,
         initialSize: [280, 180],
         properties: {
             showOptions: false,
             layoutMapOverride: (basta, vars) => {
                 const { oY, pW, pH } = vars;
+                const isLastPage = currentIdx === book.length - 1;
+                if (isLastPage) node._pbInsertAfter = false;
                 return {
                     contentRegion: {
                         optionRow: {
@@ -579,13 +646,22 @@ export function handlePageAdd(node) {
                                 type: UI_TYPES.TOGGLE_V2,
                                 themeKey: "button, t_textSystem",
                                 text: tLocale("$derp_prompt_book.dialogs.add_page.insert_after", "Insert after current page"),
-                                value: node._pbInsertAfter !== false,
+                                value: isLastPage ? false : node._pbInsertAfter !== false,
+                                state: isLastPage ? "DIS" : undefined,
                                 isTextOnly: true,
                                 width: "auto", height: "auto",
                                 padding: [pW, pH],
                                 onPress: () => {
-                                    node._pbInsertAfter = !node._pbInsertAfter;
+                                    const toggled = !!basta.layout?.regions?.toggleInsertAfter?.value;
+                                    node._pbInsertAfter = toggled;
+                                    if (basta.layout?.regions?.toggleInsertAfter) {
+                                        basta.layout.regions.toggleInsertAfter.value = toggled;
+                                    }
+                                    if (basta._compDataCache) delete basta._compDataCache.toggleInsertAfter;
+                                    basta._derpAwakeFrames = Math.max(basta._derpAwakeFrames || 0, 3);
+                                    basta._forceSync = true;
                                     basta.requestDerpSync();
+                                    basta.setDirtyCanvas(true, true);
                                 },
                             },
                         },
@@ -606,8 +682,8 @@ export function handlePageAdd(node) {
             delete node._pbInsertAfter;
 
             node.properties.prompt = "";
-            const w = node.widgets?.find(x => x.name === "prompt");
-            if (w) w.value = "";
+            node._lastSyncedContent = null;
+            syncDerpPromptBookEditorDisplay(node, "");
 
             if (node.syncDerpOutputs) node.syncDerpOutputs();
 
@@ -651,8 +727,8 @@ export function handlePageClean(node) {
     page.content = cleaned;
     node.properties.prompt = cleaned;
 
-    const w = node.widgets?.find(x => x.name === "prompt");
-    if (w) w.value = cleaned;
+    node._lastSyncedContent = null;
+    syncDerpPromptBookEditorDisplay(node, cleaned);
 
     if (node.refreshNodeLayoutMap) node.refreshNodeLayoutMap();
     if (node.updateDerpPromptBookUI) node.updateDerpPromptBookUI();
@@ -686,8 +762,8 @@ export function handlePageDelete(node) {
 
             const nextContent = node.properties.derpBook[node.properties.currentPageIndex]?.content || "";
             node.properties.prompt = nextContent;
-            const w = node.widgets?.find(x => x.name === "prompt");
-            if (w) w.value = nextContent;
+            node._lastSyncedContent = null;
+            syncDerpPromptBookEditorDisplay(node, nextContent);
 
             if (node.refreshNodeLayoutMap) node.refreshNodeLayoutMap();
             if (node.updateDerpPromptBookUI) node.updateDerpPromptBookUI();

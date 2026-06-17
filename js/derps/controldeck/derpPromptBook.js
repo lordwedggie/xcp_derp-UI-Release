@@ -9,6 +9,8 @@ import {
     bindPromptBookHooks,
     getPageLabel,
     syncDerpPromptBookLocaleLabels,
+    normalizePromptBookEditorStoredValue,
+    syncDerpPromptBookEditorDisplay,
     handleBookChange,
     handlePageChange,
     handlePageAdd,
@@ -134,21 +136,7 @@ app.registerExtension({
                         return `[[IMG:/xcp/get_asset/derpPromptBook?name=${encodeURIComponent(file)}&bookName=${encodeURIComponent(bName)}]]`;
                     });
                     // THE ASSET RESOLUTION FIX: Category must match the server-side registry (derpPromptBook)
-                    cReg.editorMain.value = editorValue;
-                    cReg.editorMain.text = editorValue;
-
-                    const liveEditor = this._derpDomElements?.editorMain;
-                    if (liveEditor) {
-                        liveEditor._config.value = editorValue;
-                        liveEditor._config.text = editorValue;
-                        liveEditor._lastStateHash = null;
-                        liveEditor._lastSyncKey = null;
-                        liveEditor._lastProps = null;
-                        liveEditor._lastMetrics = null;
-                        if (document.activeElement !== liveEditor) {
-                            liveEditor.innerText = editorValue;
-                        }
-                    }
+                    syncDerpPromptBookEditorDisplay(this, activePage.content || "", { displayValue: editorValue, padding: editorPadding });
                 }
                 this.requestDerpSync();
                 return;
@@ -225,10 +213,13 @@ app.registerExtension({
                         onBlur: () => {
                             const pIndex = this.properties.currentPageIndex || 0;
                             if (book[pIndex]) {
-                                const content = book[pIndex].content;
+                                const content = normalizePromptBookEditorStoredValue(this._derpDomElements?.editorMain?.innerText ?? book[pIndex].content);
                                 book[pIndex].content = content;
                                 this.properties.prompt = content;
+                                this._lastSyncedContent = null;
+                                syncDerpPromptBookEditorDisplay(this, content);
                                 this.refreshNodeLayoutMap();
+                                if (this.syncDerpOutputs) this.syncDerpOutputs();
                             }
                         },
                         value: (activePage.content || "").replace(/\[\[IMG:(?!data:|http|\/|.*_IMG\/)([^\]]+)\]\]/g, (m, file) => {
@@ -238,14 +229,12 @@ app.registerExtension({
                         onInput: (val) => {
                             const pIndex = this.properties.currentPageIndex || 0;
                             if (book[pIndex]) {
-                                const cleanVal = val.replace(/\[\[IMG:\/xcp\/get_asset\/derpPromptBook\?name=([^&\]]+)(?:&bookName=[^\]]*)?\]\]/g, (m, encFile) => {
-                                    return `[[IMG:${decodeURIComponent(encFile)}]]`;
-                                });
+                                const cleanVal = normalizePromptBookEditorStoredValue(val);
                                 if (book[pIndex].content === cleanVal) return;
                                 book[pIndex].content = cleanVal;
                                 this.properties.prompt = cleanVal;
-                                const w = this.widgets?.find(x => x.name === "prompt");
-                                if (w) w.value = cleanVal;
+                                this._lastSyncedContent = null;
+                                syncDerpPromptBookEditorDisplay(this, cleanVal);
                                 if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
                                 if (this.requestDerpSync) this.requestDerpSync();
                                 if (this.syncDerpOutputs) this.syncDerpOutputs();
@@ -287,7 +276,7 @@ app.registerExtension({
                         onChange: (val) => handlePageChange(this, val)
                     },
                     btnPageDelete: {
-                        type: this.UI_TYPES.ICONBUTTON, icon: "delete", themeKey: "button, t_textNormal",
+                        type: this.UI_TYPES.ICONBUTTON, icon: "trash", themeKey: "button, t_textNormal",
                         width: "match", height: "fill", spacing: [sW, 0], objectAlign: ["left", "middle"],
                         onPress: () => handlePageDelete(this)
                     },
