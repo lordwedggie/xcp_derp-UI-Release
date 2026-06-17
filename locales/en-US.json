@@ -544,7 +544,8 @@
       "cover": "Cover",
       "prefix": "Page",
       "empty": "Empty",
-      "untitled_title": "untitled"
+      "untitled_title": "untitled",
+      "new_page_prefix": "New page"
     },
     "dialogs": {
       "save_as": {

@@ -136,14 +136,14 @@ if (this._layoutMapHash === structureHash && this.layoutMap) {
 
 ## TriggerWall Special Behavior
 - Passive Whole Wall Cache — caches entire panel as OffscreenCanvas
-- Passive whole-wall caching is gated by `Derp.TriggerWallWholeWallCacheGate` in masterSettings (`None`, `10`, `15`, `20`, `30`; default `10`). It activates when the visible individual trigger count in the runtime deck data (`_triggerGroupData`, with `properties.triggerGroups` fallback) is at least the numeric threshold; `None` disables it.
+- Passive whole-wall caching is gated by `Derp.TriggerWallWholeWallCacheGate` in masterSettings (`None`, `10`, `15`, `20`, `30`, `Always`; default `10`). It activates when the visible individual trigger count in the runtime deck data (`_triggerGroupData`, with `properties.triggerGroups` fallback) is at least the numeric threshold; `Always` enables it whenever normal cache safety gates allow it; `None` disables it.
 - Cache key includes: size, layout hash, theme name, mode, collapsed, settings active, header visibility, hover/press region, device pixel ratio
 - Cache invalidated on: dropdown open, file browser open, drag, modal open, force sync, layout dirty
 - `_triggerWallCacheSuspendUntil` — temporary cache suspension timestamp
 
 ## LoraStack Special Behavior
 - Also uses Passive Whole Wall Cache
-- Passive whole-wall caching is gated by `Derp.LoraStackWholeWallCacheGate` in masterSettings (`None`, `3`, `5`, `8`; default `3`). It activates only when `properties.stackData.length` is greater than the numeric threshold; `None` disables it.
+- Passive whole-wall caching is gated by `Derp.LoraStackWholeWallCacheGate` in masterSettings (`None`, `3`, `5`, `8`, `Always`; default `3`). It activates only when `properties.stackData.length` is greater than the numeric threshold; `Always` enables it whenever normal cache safety gates allow it; `None` disables it.
 - Cache backing scale is zoom-aware but capped/quantized in Fatha; cache reuse draws only the visible local slice to avoid high-zoom FPS drops.
 - Cache key additionally includes: stack values, preview list, name display, CLIP visibility, attention mode, toggle LR, passive cache scale
 - Cache invalidated on: detail panel open, slider interaction, live control interaction

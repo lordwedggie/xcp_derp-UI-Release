@@ -664,13 +664,14 @@ app.registerExtension({
                 { value: "none", text: "None" },
                 { value: "3", text: "3" },
                 { value: "5", text: "5" },
-                { value: "8", text: "8" }
+                { value: "8", text: "8" },
+                { value: "always", text: "Always" }
             ],
             default: "3",
             onChange: (v) => {
                 const value = String(v || "3").trim().toLowerCase();
                 window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
-                window.DERP_GLOBAL_SETTINGS.loraStackWholeWallCacheGate = ["none", "3", "5", "8"].includes(value) ? value : "3";
+                window.DERP_GLOBAL_SETTINGS.loraStackWholeWallCacheGate = ["none", "3", "5", "8", "always"].includes(value) ? value : "3";
                 syncDerpGlobalSettingsAlias();
                 if (app.canvas) app.canvas.setDirty(true, true);
             }
@@ -687,13 +688,14 @@ app.registerExtension({
                 { value: "10", text: "10" },
                 { value: "15", text: "15" },
                 { value: "20", text: "20" },
-                { value: "30", text: "30" }
+                { value: "30", text: "30" },
+                { value: "always", text: "Always" }
             ],
             default: "10",
             onChange: (v) => {
                 const value = String(v || "10").trim().toLowerCase();
                 window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
-                window.DERP_GLOBAL_SETTINGS.triggerWallWholeWallCacheGate = ["none", "10", "15", "20", "30"].includes(value) ? value : "10";
+                window.DERP_GLOBAL_SETTINGS.triggerWallWholeWallCacheGate = ["none", "10", "15", "20", "30", "always"].includes(value) ? value : "10";
                 syncDerpGlobalSettingsAlias();
                 if (app.canvas) app.canvas.setDirty(true, true);
             }

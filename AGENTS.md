@@ -11,6 +11,7 @@ This section is the top-priority project memory for coding behavior. Follow it b
 5. **Report changed files.** At the bottom of every response, include a **Files Changed** section listing only files changed during the current turn. Use full paths.
 6. **Review relevant framework docs before edits.** Read the matching `derp_docs/FRAMEWORK-*.md` file before changing Fatha, Herbina, Basta, Motha, backend, docking, node, or theme-palette code.
 7. **Self-maintain this file.** When a durable project lesson is learned, add it under **Lessons Learned** without being asked.
+8. **NEVER use destructive git commands.** `git reset --hard`, `git clean -fd`, `git checkout -- .`, or any command that discards uncommitted work is FORBIDDEN unless the user explicitly types the exact command themselves. Use `git stash` only with explicit approval.
 
 ---
 
@@ -268,3 +269,24 @@ To add a skill, create `.agents/skills/<name>/SKILL.md` with YAML frontmatter (`
 - For layout anomalies, inspect `masterLayoutEngine` and `widget_Region` before patching symptoms.
 - When asking the user to enable debug logs, provide exact console commands in the same response.
 - Investigate root causes before broad FileBrowser pointer/hover punch-through fixes.
+
+### System Panel / Basta → Main Layout Sync
+
+When a system panel dropdown or Basta overlay widget changes a property that affects the main node's visual display, the `onChange`/`onPress` handler must rebuild BOTH layout maps — not just the panel's own:
+
+- **System panel handlers**: always follow `refreshDerpXxxSysMap()` with `refreshNodeLayoutMap()` if the changed property appears in the main node's layout map or hashes.
+- **Basta overlay handlers**: if a widget inside a Basta changes a property that affects a widget in the same Basta, clear `_compDataCache[key]`, set `_forceSync = true`, and call `requestDerpSync()`. If it also affects the host node's main layout, call `refreshNodeLayoutMap()` on the host.
+
+**This bit us twice in one session**: ImageDeck format dropdown (system panel) and PromptBook "insert after" toggle (Basta overlay). Both changed a property, refreshed only the panel/Basta, and left the main display stale until an unrelated click forced a full redraw.
+
+### Whole-Wall Passive Cache and Editor Updates
+
+When a `canvasShield` EDITOR widget's text must update and the node uses whole-wall passive caching (ImageDeck, LoraStack, TriggerWall), do NOT rely on cache invalidation + draw cycle. The draw cycle races against multiple cached layers (`_compDataCache`, `_editorLineCache`, `el._config`, layout regions, DOM element state hashes). Instead, **directly mutate all cached objects in-place** — the same approach as `syncImageDeckFilenameEditorDisplay`:
+
+- `editor.text/value` — the layout map config
+- `reg.text/value` — the live layout region
+- `_compDataCache[key].text/value` — the comp data cache
+- `el._config.text/value` — the DOM element's config
+- `el._lastStateHash = null` — forces DOM re-render
+
+This bypasses the whole-wall cache staleness entirely: the next whole-wall render captures the already-updated values, and the DOM resyncs because its state hash is cleared.
