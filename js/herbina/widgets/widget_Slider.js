@@ -95,6 +95,54 @@ var FILLBAR_MARGIN = 0;
 var ROUND_KNOB = true;
 var SLIDER_POS_LERP = 0.1;  // knob position lerp speed on track click
 
+function getSliderPositionAnimKey(config, fallbackKey = null) {
+    return "_svp_" + (config?.key || config?._sliderAnimFallbackKey || fallbackKey || "0");
+}
+
+function getSliderTargetPercent(config) {
+    const value = parseFloat(config?.value) || 0;
+    const min = parseFloat(config?.min ?? 0);
+    const max = parseFloat(config?.max ?? 1);
+    const range = max - min;
+    if (!Number.isFinite(range) || Math.abs(range) < 0.000001) return 0;
+    return Math.max(0, Math.min(1, (value - min) / range));
+}
+
+function getSliderTrackMetrics(reg, config) {
+    if (!reg || !config) return null;
+    const ins = config.fillPadding || [0, 0, 0, 0];
+    const fullFillH = Math.max(0, (reg.h || 0) - (ins[0] || 0) - (ins[2] || 0));
+    const btnW = config.btnLR ? Math.round(fullFillH * BTN_LR_RATIO) : 0;
+    const leftBtnRight = reg.x + BTN_LR_MARGIN + btnW;
+    const rightBtnLeft = reg.x + reg.w - btnW - BTN_LR_MARGIN;
+    const trackStart = config.btnLR ? leftBtnRight + 1 : reg.x + (ins[3] || 0);
+    const trackEnd = config.btnLR ? rightBtnLeft - 1 : reg.x + reg.w - (ins[1] || 0);
+    const trackW = Math.max(0, trackEnd - trackStart);
+    const knobWidthScale = Number.isFinite(Number(config.knobWidthScale)) ? Math.max(0.2, Math.min(2.0, Number(config.knobWidthScale))) : 1.0;
+    const knobW = (config.style === "knob") ? (fullFillH * knobWidthScale) : 0;
+    return { trackStart, knobTravelW: Math.max(0, trackW - knobW), knobW };
+}
+
+window.interruptDerpSliderLerp = function(node, reg, config, localX, fallbackKey = null) {
+    if (!node || !config || !reg || typeof localX !== "number") return false;
+    if (!config.key && fallbackKey) config._sliderAnimFallbackKey = fallbackKey;
+    const animKey = getSliderPositionAnimKey(config, fallbackKey);
+    const targetPercent = getSliderTargetPercent(config);
+    const visPercent = node[animKey];
+    if (!Number.isFinite(visPercent) || Math.abs(visPercent - targetPercent) <= 0.001) return false;
+
+    const metrics = getSliderTrackMetrics(reg, config);
+    if (!metrics) return false;
+    const knobX = metrics.trackStart + metrics.knobTravelW * Math.max(0, Math.min(1, visPercent));
+    const hitPad = Math.max(6, metrics.knobW * 0.75);
+    if (localX < knobX - hitPad || localX > knobX + metrics.knobW + hitPad) return false;
+
+    node[animKey] = visPercent;
+    config._sliderDragVisualPercent = visPercent;
+    config._isDraggingSlider = true;
+    return true;
+};
+
 /**
  * Default properties for the Slider widget.
  */
@@ -372,17 +420,21 @@ export function syncDerpSliderCanvas(ctx, node, config) {
     const prevVal = config._sliderPrevVal;
     if (prevVal !== undefined && Math.abs(curVal - prevVal) > 0.0001) {
         config._sliderLastChange = performance.now();
+        delete config._sliderDragVisualPercent;
     }
     config._sliderPrevVal = curVal;
     const isDraggingSlider = !!config._isDraggingSlider;
     const isPressedVisualState = (stateStr === "ON") || isDraggingSlider;
     // Lerp knob into position on click (not during drag)
-    const svpKey = "_svp_" + (config.key || "0");
+    const svpKey = getSliderPositionAnimKey(config);
     const prevVis = node[svpKey] !== undefined ? node[svpKey] : targetPercent;
     const doLerp = useAnim && !isDraggingSlider;
     const visPercent = doLerp ? (prevVis + (targetPercent - prevVis) * SLIDER_POS_LERP) : targetPercent;
     node[svpKey] = visPercent;
     const lerpAnimating = doLerp && Math.abs(visPercent - targetPercent) > 0.001;
+    const heldDragPercent = isDraggingSlider && Number.isFinite(config._sliderDragVisualPercent)
+        ? Math.max(0, Math.min(1, config._sliderDragVisualPercent))
+        : null;
 
     if (lerpAnimating) {
         node._derpAwakeFrames = Math.max(node._derpAwakeFrames || 0, 5);
@@ -401,7 +453,7 @@ export function syncDerpSliderCanvas(ctx, node, config) {
             node.setDirtyCanvas(true);
         }
     }
-    const percent = isDraggingSlider ? targetPercent : visPercent;
+    const percent = heldDragPercent ?? (isDraggingSlider ? targetPercent : visPercent);
 
     // THE FILL STRENGTH FIX: If active, interpolate between states based on value.
     const fillKey = props.fillKey || props.bodyKey;

@@ -37,6 +37,26 @@ import { animateWidgetColors } from "../masterAnimator.js";
 
 const BYPASS_BRIGHTNESS = 0.6;
 
+function handleDerpEditorOutsidePointer(e) {
+    const active = document.activeElement;
+    if (!active?.dataset?.derpEditor || active.contains(e.target)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+    active.blur();
+}
+
+function setDerpEditorOutsidePointerGuard(enabled) {
+    if (enabled) {
+        if (window._derpEditorOutsidePointerGuardActive) return;
+        window.addEventListener("pointerdown", handleDerpEditorOutsidePointer, true);
+        window._derpEditorOutsidePointerGuardActive = true;
+    } else if (window._derpEditorOutsidePointerGuardActive) {
+        window.removeEventListener("pointerdown", handleDerpEditorOutsidePointer, true);
+        window._derpEditorOutsidePointerGuardActive = false;
+    }
+}
+
 function measureDerpEditorPrefixGlyphWidth(glyphText, fontSize, fontFamily, fontWeight) {
     if (!glyphText) return 0;
     return measureTextWidth(glyphText, fontSize, fontFamily || "Arial", fontWeight || "normal");
@@ -241,6 +261,7 @@ export function createDerpEditorHTML(callbacks = {}) {
     }
 
     el.style.position = "fixed";
+    el.dataset.derpEditor = "true";
     el.style.outline = "none";
     el.style.border = "none";
     el.style.overflowX = "hidden";
@@ -303,6 +324,7 @@ export function createDerpEditorHTML(callbacks = {}) {
 
     el.addEventListener("focus", () => {
         el._isAwake = true;
+        setDerpEditorOutsidePointerGuard(true);
         el._editStartValue = getDerpEditorDomValue(el);
         el._cancelEdit = false;
         if (el._nodeRef) {
@@ -338,6 +360,7 @@ export function createDerpEditorHTML(callbacks = {}) {
     el.addEventListener("blur", () => {
         const finalValue = el._cancelEdit ? (el._editStartValue ?? "") : getDerpEditorDomValue(el);
         el._isAwake = false;
+        setDerpEditorOutsidePointerGuard(false);
         if (el._config) {
             el._config.value = finalValue;
             el._config.text = finalValue;
