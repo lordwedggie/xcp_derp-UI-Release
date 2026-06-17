@@ -310,6 +310,8 @@ export function createDerpEditorHTML(callbacks = {}) {
             if (el._nodeRef.requestDerpSync) el._nodeRef.requestDerpSync();
             else if (el._nodeRef.setDirtyCanvas) el._nodeRef.setDirtyCanvas(true);
         }
+        const cb = el._config?.onFocus || callbacks.onFocus;
+        if (cb) cb(getDerpEditorDomValue(el), el);
 
         if (el._isMultiline && el._nodeRef && el._config) {
             const scroll = el._nodeRef._derpScrollOffsets?.[el._config.key] || 0;
@@ -382,7 +384,8 @@ export function syncDerpEditor(context, node, app, config) {
             el = createDerpEditorHTML({
                 spellCheck: safeConfig.spellCheck,
                 onInput: safeConfig.onInput,
-                onBlur: safeConfig.onBlur
+                onBlur: safeConfig.onBlur,
+                onFocus: safeConfig.onFocus
             });
             node._derpDomElements[safeConfig.key] = el;
         }
