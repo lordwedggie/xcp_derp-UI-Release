@@ -1,6 +1,6 @@
 ---
 name: update-palette
-description: Update many palette entries from one or a few hand-crafted exemplar entries. Use when editing palette JSON files under `user/derpNodes/Palettes/`, especially `_DK_defaultTheme.json`, `_LT_defaultTheme.json`, `_NE_defaultTheme.json`, `_defaultTheme.json`, header palettes, or other large palette files with repeated entry patterns.
+description: Update many palette entries from one or a few hand-crafted exemplar entries. Use when editing palette JSON files under `user/derpNodes/Palettes/`, especially `_DK_defaultPalette.json`, `_LT_defaultPalette.json`, `_NE_defaultPalette.json`, `_defaultPalette.json`, header palettes, or other large palette files with repeated entry patterns.
 ---
 
 # Update Palette
@@ -172,17 +172,17 @@ Some palette files also contain special-purpose entries such as tooltip-related 
 
 For category-aware defaults, these files matter most:
 
-- `user/derpNodes/Palettes/_system/_DK_defaultTheme.json`
-- `user/derpNodes/Palettes/_system/_LT_defaultTheme.json`
-- `user/derpNodes/Palettes/_system/_NE_defaultTheme.json`
-- `user/derpNodes/Palettes/_system/_defaultTheme.json`
+- `user/derpNodes/Palettes/_system/_DK_defaultPalette.json`
+- `user/derpNodes/Palettes/_system/_LT_defaultPalette.json`
+- `user/derpNodes/Palettes/_system/_NE_defaultPalette.json`
+- `user/derpNodes/Palettes/_system/_defaultPalette.json`
 
 Interpret them like this:
 
 - `DK` is the dark-category default string palette.
 - `LT` is the light-category default string palette.
 - `NE` is the neutral-category default string palette.
-- `_defaultTheme.json` is the general fallback.
+- `_defaultPalette.json` is the general fallback.
 
 Do not collapse category-specific files into one shared look unless the user explicitly asks for that.
 
@@ -305,7 +305,7 @@ Avoid these failure modes:
 - copying one entry verbatim onto unrelated semantic entries
 - making dark, light, and neutral files numerically identical
 - adding glow or shadow everywhere because one exemplar had it
-- changing fallback `_defaultTheme.json` without checking category-specific files
+- changing fallback `_defaultPalette.json` without checking category-specific files
 - touching palette entries outside the requested family
 
 ## Review Checklist
@@ -338,6 +338,6 @@ When using this skill, report:
 
 ## Example Use Cases
 
-- “I fixed `t_text_error` and `t_text_warning` by hand in `_DK_defaultTheme.json`. Apply the same style logic to `t_text_accent` and `t_text_highlight`.”
+- “I fixed `t_text_error` and `t_text_warning` by hand in `_DK_defaultPalette.json`. Apply the same style logic to `t_text_accent` and `t_text_highlight`.”
 - “Use these three hand-tuned entries as the basis for updating the light, dark, and neutral default text palettes.”
 - “I crafted one header palette entry exactly how I want it. Propagate that structure across the sibling header entries without flattening their colors.”

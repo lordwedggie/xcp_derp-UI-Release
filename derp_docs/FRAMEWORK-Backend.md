@@ -100,6 +100,12 @@ Syncs default assets from extension's `user/derpNodes/` to ComfyUI's user direct
 - `/xcp/markdown_media` serves whitelisted Markdown-adjacent media files directly with their guessed MIME type and no attachment/download header, allowing native browser playback for local video embeds.
 - Markdown media resolution must reject traversal and unsupported extensions; it is not a general filesystem route.
 
+## Version Check (`xcp_version_check.py`)
+- GET `/xcp/check_version` compares the local `pyproject.toml` version with the release repo `pyproject.toml`.
+- Success returns `local`, `remote`, `status`, `url`, and `notify`.
+- Transient network failures from the remote fetch, including short SSL EOF handshake failures, return a quiet `status: "unavailable"` with `notify: false` so the frontend skips noisy console warnings.
+- Hard failures such as malformed local or remote version data still return HTTP `502` with an `error` message.
+
 ## Signal System (Python)
 - `DERP_LIVE_REGISTRY` — global dict mapping `node_id → value` for wireless signals
 - API: `/xcp/update_signal` (POST) — register a signal value

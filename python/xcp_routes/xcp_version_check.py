@@ -16,6 +16,24 @@ VERSION_RE = re.compile(r'^\s*version\s*=\s*["\']([^"\']+)["\']', re.MULTILINE)
 _version_notice_sent = False
 
 
+def is_transient_version_error(exc):
+    if isinstance(exc, (URLError, TimeoutError, OSError)):
+        message = str(exc).lower()
+        transient_markers = (
+            "unexpected_eof_while_reading",
+            "eof occurred in violation of protocol",
+            "timed out",
+            "temporary failure",
+            "connection reset",
+            "connection aborted",
+            "connection refused",
+            "name or service not known",
+            "nodename nor servname provided",
+        )
+        return any(marker in message for marker in transient_markers)
+    return False
+
+
 def parse_version_text(text):
     match = VERSION_RE.search(text or "")
     return match.group(1).strip() if match else None
@@ -76,6 +94,14 @@ async def check_version(request):
             "notify": notify,
         })
     except (HTTPError, URLError, TimeoutError, OSError, ValueError) as exc:
+        if is_transient_version_error(exc):
+            return web.json_response({
+                "local": get_local_version(),
+                "remote": None,
+                "status": "unavailable",
+                "url": REMOTE_PYPROJECT_URL,
+                "notify": False,
+            })
         return web.json_response({"error": str(exc), "url": REMOTE_PYPROJECT_URL}, status=502)
 
 

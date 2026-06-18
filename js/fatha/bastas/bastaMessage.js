@@ -5,6 +5,7 @@ import { spawnBasta, activeBastas } from "../basta.js";
 import { UI_TYPES } from "../core/masterLayoutTypes.js";
 import { measureTextWidth, resolvePaintData, parseColorKeyText } from "../../herbina/utils/widgetsUtils.js";
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
+import { resolveSystemThemePaint } from "../helpers/fathaSystemTheme.js";
 
 export const TOOLTIP_EXPAND_START_WIDTH = 1;
 export const TOOLTIP_EXPAND_ANIMATION_SPEED = 0.22;
@@ -16,13 +17,38 @@ function getTooltipPalette(host) {
     return path ? { path, data } : null;
 }
 
+function mergePaintColorOverrides(basePaint, overridePaint) {
+    if (!basePaint) return overridePaint ? { ...overridePaint } : null;
+    if (!overridePaint) return { ...basePaint };
+    return {
+        ...basePaint,
+        fill: overridePaint.fill || overridePaint.textColor || basePaint.fill,
+        textColor: overridePaint.textColor || overridePaint.fill || basePaint.textColor,
+        shadow: overridePaint.shadow || basePaint.shadow,
+        border: overridePaint.border || basePaint.border,
+        glow: overridePaint.glow || basePaint.glow,
+    };
+}
+
+function resolveTooltipTextPaint(host, paintKey, tooltipPalette, stateSuffix = "_OFF") {
+    const state = stateSuffix === "_ON" ? "ON" : stateSuffix === "_DIS" ? "DIS" : "OFF";
+    const systemPaint = resolveSystemThemePaint(paintKey, state);
+    const palettePaint = tooltipPalette
+        ? resolvePaintData(host, paintKey, stateSuffix, null, tooltipPalette)
+        : null;
+    return mergePaintColorOverrides(systemPaint, palettePaint)
+        || resolvePaintData(host, paintKey, stateSuffix, null, tooltipPalette)
+        || resolvePaintData(host, paintKey, stateSuffix)
+        || null;
+}
+
 function getLabelThemeKey(themeKey) {
     const parts = String(themeKey || "").split(",").map(p => p.trim());
     return parts.length > 1 ? (parts[1] || parts[0]) : parts[0];
 }
 
 function getBodyThemeKey(themeKey) {
-    return String(themeKey || "").split(",").map(p => p.trim())[0] || "toolTip_background";
+    return String(themeKey || "").split(",").map(p => p.trim())[0] || "tooltip_background";
 }
 
 export function getBastaMessageId(host, targetRegion = null) {
@@ -54,15 +80,14 @@ export function showBastaMessage(host, text, duration = 3000, animations = {}, t
     const hasFixedW = animations && animations.width;
     const isTooltipMessage = animations?.tooltipExpand === true;
     const textThemeKey = isTooltipMessage
-        ? (animations?.textThemeKey || "toolTip_background, t_toolTip_normal")
+        ? (animations?.textThemeKey || "tooltip_background, t_tooltip_Text")
         : (animations?.textThemeKey || animations?.messageThemeKey || "t_textnormal");
     const labelThemeKey = getLabelThemeKey(textThemeKey);
     const tooltipPalette = isTooltipMessage ? getTooltipPalette(host) : null;
     const backgroundThemeKey = isTooltipMessage
         ? getBodyThemeKey(textThemeKey)
         : (animations?.backgroundThemeKey || null);
-    const fontData = resolvePaintData(host, labelThemeKey, "_OFF", null, tooltipPalette)
-        || resolvePaintData(host, labelThemeKey, "_OFF")
+    const fontData = resolveTooltipTextPaint(host, labelThemeKey, tooltipPalette, "_OFF")
         || host._t_textsystemPaintData_OFF
         || host._t_textSystemPaintData_OFF
         || host._t_textnormalPaintData
@@ -111,6 +136,8 @@ export function showBastaMessage(host, text, duration = 3000, animations = {}, t
             tooltipExpandAnimationSpeed: TOOLTIP_EXPAND_ANIMATION_SPEED,
             tooltipExpandPaddingX: pW,
             tooltipExpandTargetWidth: initialW,
+            tooltipBodyPaletteEntry: "toolTip_background",
+            tooltipTextPaletteEntry: "t_toolTip_normal",
             palette: tooltipPalette || undefined,
             _derpStringPalette: tooltipPalette || undefined
         },

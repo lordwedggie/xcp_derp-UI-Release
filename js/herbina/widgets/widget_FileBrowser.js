@@ -471,15 +471,15 @@ function computePickerPrefixSlotWidth(state, ctx, labelPaint) {
     return maxWidth;
 }
 
-function computeTriggerIndicatorOffset(ctx, glyph, fontSize, labelPaint, glyphScale = 1.0) {
+function computeTriggerIndicatorOffset(ctx, glyph, fontSize, labelPaint, glyphScale = 1.0, gap = 0) {
     const fallback = fontSize * DROPDOWN_PICKER_GLYPH_LABEL_GAP_SCALE;
-    if (!ctx || !glyph) return fallback;
+    if (!ctx || !glyph) return fallback + gap;
     const prefixText = String(glyph).replace(/\s+$/, "");
     ctx.save();
     ctx.font = `${labelPaint?.fontWeight || "normal"} ${fontSize * glyphScale}px ${labelPaint?.font || "Arial"}`;
     const measured = ctx.measureText?.(prefixText).width || fallback;
     ctx.restore();
-    return Math.max(fallback, measured);
+    return Math.max(fallback, measured) + gap;
 }
 
 function computeLabelPartColumnWidths(state, ctx, labelPaint) {
@@ -1341,7 +1341,14 @@ export function syncFileBrowser(context, node, app, config, overlayPass = false)
     const triggerDisplay = (selectedItem && typeof selectedItem === "object" && selectedItem._triggerDisplay)
         ? selectedItem._triggerDisplay
         : null;
-    const labelStr = triggerDisplay || dropdownDisplay || ((mode === "folder" || mode === "signal" || ((mode === "file" || mode === "browser") && isSelection)) ? currentVal : (props.displayText || "Browse Files..."));
+    const showFolderRootPlaceholder = mode === "folder"
+        && safeConfig.placeholderWhenRoot === true
+        && !isSelection
+        && typeof props.displayText === "string"
+        && props.displayText.trim() !== "";
+    const labelStr = triggerDisplay || dropdownDisplay || (showFolderRootPlaceholder
+        ? props.displayText
+        : ((mode === "folder" || mode === "signal" || ((mode === "file" || mode === "browser") && isSelection)) ? currentVal : (props.displayText || "Browse Files...")));
     const glyphs = getFileBrowserGlyphs(safeConfig?.icon);
     const glyphIndex = isAwake ? 1 : 0;
     const triggerGlyph = glyphs[glyphIndex] || glyphs[0];
@@ -1362,7 +1369,8 @@ export function syncFileBrowser(context, node, app, config, overlayPass = false)
 
     if (labelPaint) {
         const pX = props.padding[0];
-        const iconOffset = computeTriggerIndicatorOffset(ctx, triggerGlyph, fs, labelPaint, triggerGlyphScale);
+        const triggerGap = props.spacing?.[0] || 0;
+        const iconOffset = computeTriggerIndicatorOffset(ctx, triggerGlyph, fs, labelPaint, triggerGlyphScale, triggerGap);
         const indicatorOffset = iconOffset;
         const textLimit = Math.max(0, w - (pX * 2) - indicatorOffset);
         const drawLabel = (labelHasKeys && labelSegments)

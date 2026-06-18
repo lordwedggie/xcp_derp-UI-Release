@@ -35,6 +35,12 @@ function getLiveSystemThemeRecord(themeName = SYSTEM_THEME_NAME) {
     return { name: liveName, theme: themes[liveName], revision };
 }
 
+function findCaseInsensitiveThemeKey(theme, keyName) {
+    if (!theme || !keyName) return null;
+    const target = String(keyName).toLowerCase();
+    return Object.keys(theme).find((key) => String(key).toLowerCase() === target) || null;
+}
+
 export function syncDerpSystemThemeFromConfig(themeName = SYSTEM_THEME_NAME) {
     const record = getLiveSystemThemeRecord(themeName);
     if (!record) return null;
@@ -108,14 +114,16 @@ export async function loadDerpSystemTheme(themeName = SYSTEM_THEME_NAME) {
 export function resolveSystemThemePaint(keyName, state = "OFF") {
     syncDerpSystemThemeFromConfig(window.xcpDerpSystemThemeName || SYSTEM_THEME_NAME);
     const theme = window.xcpDerpSystemTheme;
-    const key = theme?.[keyName];
+    const resolvedKeyName = findCaseInsensitiveThemeKey(theme, keyName);
+    const key = resolvedKeyName ? theme?.[resolvedKeyName] : null;
     if (!key || typeof key !== "object" || Array.isArray(key)) return null;
-    return compileThemeData(key, keyName, normalizeThemeState(state));
+    return compileThemeData(key, resolvedKeyName || keyName, normalizeThemeState(state));
 }
 
 export function resolveSystemThemeFill(keyName, fallback = null, state = "OFF") {
     const theme = syncDerpSystemThemeFromConfig(window.xcpDerpSystemThemeName || SYSTEM_THEME_NAME) || window.xcpDerpSystemTheme;
-    const key = theme?.[keyName];
+    const resolvedKeyName = findCaseInsensitiveThemeKey(theme, keyName);
+    const key = resolvedKeyName ? theme?.[resolvedKeyName] : null;
     const stateSuffix = `_${normalizeThemeState(state)}`;
     if (!key || typeof key !== "object" || Array.isArray(key) || !Array.isArray(key[stateSuffix])) return fallback;
     const paint = resolveSystemThemePaint(keyName, state);

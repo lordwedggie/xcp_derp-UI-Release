@@ -82,7 +82,7 @@ Docs must stay synced with framework behavior. Stale docs are treated as bugs.
 - Theme keys use the comma format: `"BodyKey, LabelKey, FontSizeOverride"`.
 - Respect `_ON`, `_OFF`, and `_DIS` suffixes when resolving theme states.
 - `resolvePaintData` is for compiled theme paint data. Palette entries such as `t_text_accent` and `t_text_error` must use the `{{}}` string-color pipeline.
-- Category-aware string palettes are active: Dark/Light/Neutral themes use category-specific `_system/_*_defaultTheme.json` files; other/missing categories fall back to `_system/_defaultTheme.json`.
+- Category-aware string palettes are active: Dark/Light/Neutral themes use category-specific `_system/_*_defaultPalette.json` files; other/missing categories fall back to `_system/_defaultPalette.json`.
 
 ### CHANGELOG
 

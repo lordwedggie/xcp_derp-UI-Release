@@ -35,6 +35,7 @@ app.registerExtension({
                 return;
             }
             if (data.notify === false) return;
+            if (data.status === "unavailable") return;
 
             if (data.status === "outdated") {
                 showVersionMessage("xcp_derp-UI update available: ", `${data.local} -> ${data.remote}`, "warning");

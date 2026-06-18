@@ -14,10 +14,10 @@ This report maps which palette files the Derp framework actually uses today, whi
 
 <span style="color: #80aaff"><strong>Category-aware string palettes</strong></span>: These are the live semantic text and tooltip palettes selected by theme `Category` and attached through the string-palette runtime.
 
-- `user/derpNodes/Palettes/_system/_defaultTheme.json`
-- `user/derpNodes/Palettes/_system/_DK_defaultTheme.json`
-- `user/derpNodes/Palettes/_system/_LT_defaultTheme.json`
-- `user/derpNodes/Palettes/_system/_NE_defaultTheme.json`
+- `user/derpNodes/Palettes/_system/_defaultPalette.json`
+- `user/derpNodes/Palettes/_system/_DK_defaultPalette.json`
+- `user/derpNodes/Palettes/_system/_LT_defaultPalette.json`
+- `user/derpNodes/Palettes/_system/_NE_defaultPalette.json`
 
 <span style="color: #80aaff"><strong>Theme-attached node palettes</strong></span>: These `_system/` files are the current header, canvas, and icon-button override documents used when a theme writes a file name into `theme._palette` and the runtime stores it on `node._headerPaletteName`.
 
@@ -275,10 +275,10 @@ Selected by:
 
 Typical files:
 
-- `_system/_defaultTheme.json`
-- `_system/_DK_defaultTheme.json`
-- `_system/_LT_defaultTheme.json`
-- `_system/_NE_defaultTheme.json`
+- `_system/_defaultPalette.json`
+- `_system/_DK_defaultPalette.json`
+- `_system/_LT_defaultPalette.json`
+- `_system/_NE_defaultPalette.json`
 
 Used for:
 
@@ -320,10 +320,10 @@ Key rule:
 
 Category default string palettes:
 
-- `user/derpNodes/Palettes/_system/_defaultTheme.json`
-- `user/derpNodes/Palettes/_system/_DK_defaultTheme.json`
-- `user/derpNodes/Palettes/_system/_LT_defaultTheme.json`
-- `user/derpNodes/Palettes/_system/_NE_defaultTheme.json`
+- `user/derpNodes/Palettes/_system/_defaultPalette.json`
+- `user/derpNodes/Palettes/_system/_DK_defaultPalette.json`
+- `user/derpNodes/Palettes/_system/_LT_defaultPalette.json`
+- `user/derpNodes/Palettes/_system/_NE_defaultPalette.json`
 
 Purpose:
 
@@ -333,10 +333,10 @@ Purpose:
 
 Rules:
 
-- `Dark` themes prefer `_DK_defaultTheme.json`
-- `Light` themes prefer `_LT_defaultTheme.json`
-- `Neutral` themes prefer `_NE_defaultTheme.json`
-- unknown or missing category files fall back to `_defaultTheme.json`
+- `Dark` themes prefer `_DK_defaultPalette.json`
+- `Light` themes prefer `_LT_defaultPalette.json`
+- `Neutral` themes prefer `_NE_defaultPalette.json`
+- unknown or missing category files fall back to `_defaultPalette.json`
 
 Legacy retired tooltip palette:
 
@@ -425,7 +425,7 @@ Rules:
 ### File-level naming
 
 - `_system/` means system-managed palette file namespace
-- `_defaultTheme` files are category-aware string-color defaults
+- `_defaultPalette` files are category-aware string-color defaults
 - header palettes often use `Header_*` or `*_Full_*` file names
 - ratings palettes use `PAL_*`
 - node-specific or component-specific documents may use `NODE_*`
@@ -653,6 +653,6 @@ When authoring or editing palette files in this repo:
 2. Preserve `id`, `name`, entry order, and omitted effect keys unless the task clearly targets them.
 3. Use `<NodeType>_header` and `<NodeType>_canvas` for attached node palette entries.
 4. Use `_ICONBTN_<icon>` for icon-button background overrides.
-5. Use `_defaultTheme` category files for semantic text colors and tooltip colors.
+5. Use `_defaultPalette` category files for semantic text colors and tooltip colors.
 6. Remember that `effects: true` controls whether effect colors replace theme effect colors.
 7. Be careful with legacy `@key` assumptions because modern palette files are document-shaped, not flat maps.

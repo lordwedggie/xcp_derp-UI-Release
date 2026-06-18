@@ -123,7 +123,7 @@ function getThemeWeightItems(showResetItem = false) {
                     .filter((item) => typeof item === "string" && item.replace(/\\/g, "/").toLowerCase().startsWith(`${THEME_WEIGHT_SYSTEM_DIR.toLowerCase()}/`))
                     .filter(isThemeWeightFileName)
                     .sort((a, b) => a.localeCompare(b))
-                    .map((item) => ({ value: item, display: item.replace(/\\/g, "/").split("/").pop() }));
+                    .map((item) => ({ value: item, display: item.replace(/\\/g, "/").split("/").pop().replace(/^_WT_/, "") }));
                 return window.xcpDerpThemeWeightItems;
             })
             .catch((err) => {
@@ -325,7 +325,7 @@ export const getPanelVars = (node) => {
 export const getVirtualNodeLayoutMap = (node) => {
     const p = node.properties || {};
     const { mW, mH, sW, sH, oX, oY, pW, pH } = getPanelVars(node);
-    const collapseIcon = p.contentCollapsed ? "add" : "subtract";
+    const collapseIcon = p.contentCollapsed ? "uncollapse" : "collapse";
     const customKeys = Object.keys(node.layoutMap || {});
     const lastCustomRegion = (p.contentCollapsed || customKeys.length === 0) ? "headerRegion" : customKeys[customKeys.length - 1];
     const headerPaletteFill = resolveHeaderPaletteFill(node);
@@ -734,7 +734,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                 canvasShield: true,
                 indicator: true,
                 displayMode: "cutoff",
-                displayText: "Load theme weight",
+                displayText: "Weight",
                 spacing: [sW, 0],
                 padding: [pW, pH],
                 width: "auto", height: "auto", minWidth: 82,

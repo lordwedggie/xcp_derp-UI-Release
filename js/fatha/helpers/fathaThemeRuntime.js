@@ -78,12 +78,12 @@ function getStringPaletteCache() {
     return window.xcpStringPaletteCache;
 }
 
-const DEFAULT_STRING_PALETTE = "_system/_defaultTheme.json";
+const DEFAULT_STRING_PALETTE = "_system/_defaultPalette.json";
 const CATEGORY_STRING_PALETTES = {
-    dark: "_system/_DK_defaultTheme.json",
-    light: "_system/_LT_defaultTheme.json",
-    neutral: "_system/_NE_defaultTheme.json",
-    netural: "_system/_NE_defaultTheme.json",
+    dark: "_system/_DK_defaultPalette.json",
+    light: "_system/_LT_defaultPalette.json",
+    neutral: "_system/_NE_defaultPalette.json",
+    netural: "_system/_NE_defaultPalette.json",
 };
 const THEME_WEIGHT_ROOT_VALUE = "_System/";
 const THEME_WEIGHT_RESET_VALUE = "__theme_weight_reset__";
