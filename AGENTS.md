@@ -12,6 +12,7 @@ This section is the top-priority project memory for coding behavior. Follow it b
 6. **Review relevant framework docs before edits.** Read the matching `derp_docs/FRAMEWORK-*.md` file before changing Fatha, Herbina, Basta, Motha, backend, docking, node, or theme-palette code.
 7. **Self-maintain this file.** When a durable project lesson is learned, add it under **Lessons Learned** without being asked.
 8. **NEVER use destructive git commands.** `git reset --hard`, `git clean -fd`, `git checkout -- .`, or any command that discards uncommitted work is FORBIDDEN unless the user explicitly types the exact command themselves. Use `git stash` only with explicit approval.
+9. **Do not blindly agree.** If a requested implementation seems illogical, risky, or there is a clearly better approach, stop and explain the concern before editing.
 
 ---
 

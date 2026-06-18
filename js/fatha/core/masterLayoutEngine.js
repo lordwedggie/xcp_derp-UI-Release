@@ -362,6 +362,9 @@ export class masterLayoutEngine {
             this.originalWidth = SQUISH_WIDTH;
             const measureBounds = { ...bounds, x: isSys ? bounds.x : 0, w: SQUISH_WIDTH, h: 0 };
             this.runLayoutPass(measureBounds, profileMap, context);
+            const measuredMinWidth = this.contentMinWidth;
+            applyContentViewportLayout(this.owner, this.regions, this, { publishState: false });
+            this.contentMinWidth = measuredMinWidth;
 
             const rootRegsMeasure = Object.entries(this.regions)
                 .filter(([k, r]) => !r.isChild && k !== "panelBackground" && !r.ignoreLayout)
@@ -771,7 +774,7 @@ export class masterLayoutEngine {
                 y: regY,
                 w: regW,
                 h: regH,
-                isAutoHeight: hPropResolved === "auto" && localCfg.scrollViewport !== true,
+                isAutoHeight: hPropResolved === "auto",
                 isFillHeight: this._isFillHeight,
                 wPropStr: wPropResolved,
                 hPropStr: hPropResolved,
@@ -812,7 +815,10 @@ export class masterLayoutEngine {
                         y: currentRegion.y,
                         w: spacing[0],
                         h: currentRegion.h,
-                        isSpacing: true
+                        isSpacing: true,
+                        isChild: true,
+                        ignoreLayout: true,
+                        parentKey: currentRegion.parentKey
                     };
                     currentLevelMaxX += spacing[0]; // Only advance cursor for the actual gap
                 }
@@ -822,7 +828,16 @@ export class masterLayoutEngine {
                 currentLevelMaxX = Math.max(currentLevelMaxX, currentRegion.x + currentRegion.w + margin[2]);
 
                 if ((spacing[1] || 0) > 0 && !isLastItem) {
-                    this.regions[`_spacing_y_${key}`] = { x: currentRegion.x, y: itemEndPlusMarginY, w: currentRegion.w, h: spacing[1], isSpacing: true };
+                    this.regions[`_spacing_y_${key}`] = {
+                        x: currentRegion.x,
+                        y: itemEndPlusMarginY,
+                        w: currentRegion.w,
+                        h: spacing[1],
+                        isSpacing: true,
+                        isChild: true,
+                        ignoreLayout: true,
+                        parentKey: currentRegion.parentKey
+                    };
                     currentLevelMaxY += spacing[1];
                 }
             }

@@ -22,6 +22,7 @@ import {
 import { getPreviewImageUrl } from "./helpers/loraImages.js";
 
 const LORA_STACK_DEFAULT_VISIBLE_ENTRIES = 2;
+const LORA_STACK_CLIP_TRIGGER_ENTRIES = 2;
 
 function tLocale(key, fallback = key) {
     if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
@@ -215,7 +216,8 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                     const signalSelectionHash = `${modelSignalId || ""}_${clipSignalId || ""}`;
 
                     const dragIdxHash = (this._dragTrig) ? `drag_${this._dragTrig.index}_${this._dragThresholdMet}_${this._dropPreviewIdx}` : "no-drag";
-                    const structureHash = `${stack.length}_${stack.map(l => `${l[0]}_${l[5]}`).join('|')}_${trigHash}_${this.properties.nameDisplay}_${this.properties.showCLIP}_${this.properties.attentionMode}_${this.properties.toggleLR}_${signalSelectionHash}_${window._xcpDerpSession}_${activeSlot}_${mW}_${mH}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}_${dragIdxHash}`;
+                    const useEntryViewport = this.properties.loraStackClipEntries === true || stack.length > LORA_STACK_CLIP_TRIGGER_ENTRIES;
+                    const structureHash = `${stack.length}_${stack.map(l => `${l[0]}_${l[5]}`).join('|')}_${trigHash}_${this.properties.nameDisplay}_${this.properties.showCLIP}_${this.properties.attentionMode}_${this.properties.toggleLR}_${signalSelectionHash}_${window._xcpDerpSession}_${activeSlot}_${mW}_${mH}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}_${dragIdxHash}_${useEntryViewport ? 1 : 0}`;
 
                     // ZERO-INFERENCE VALUE GATE: Block redundant property hydration on idle nodes
                     // Hover already has a dedicated visual invalidation path in Fatha.
@@ -751,10 +753,10 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                             width: "full", height: "auto", dir: "col",
                             margin: [mW, mH, mW, 0],
                             loraEntriesRegion: {
-                                scrollViewport: this.properties.loraStackClipEntries === true,
+                                scrollViewport: useEntryViewport,
                                 clipHeight: resolveLoraStackClipHeight,
                                 width: "full", height: "auto", dir: "col",
-                                margin: [0, 0, Number(this._contentViewportGutter) || 0, 0],
+                                margin: [0, 0, 0, 0],
                                 ...stackRows,
                             },
                             footerControls: {

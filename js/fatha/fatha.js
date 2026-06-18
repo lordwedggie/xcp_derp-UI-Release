@@ -824,6 +824,16 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
             if (this.layout) this.layout._lastCacheKey = "";
         }
 
+        if (needsLayoutCompute) {
+            const preSizeBounds = { x: 0, y: 0, w: this.size[0], h: this.size[1] };
+            this.layout.compute(preSizeBounds, getVirtualNodeLayoutMap(this), {
+                textTheme: this._t_textSmallPaintData || this._t_textNormalPaintData,
+                useAnim: false,
+                spawnAnim: false,
+                isVirtual: true
+            }, true);
+        }
+
         const { SNAP, autoWidth, autoHeight } = this.getDerpVars(this);
         const isMinState = this.properties.contentCollapsed;
 
@@ -846,12 +856,13 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
             : ((this._isDerpResizing && !autoWidth) || lockHorizontalDeckResize ? this.size[0] : targetW);
         const liveTargetH = (this._isDerpResizing && !autoHeight) || lockHorizontalDeckResize ? this.size[1] : targetH;
         const preAnimateW = Number(this.size?.[0]) || 0;
+        const preAnimateH = Number(this.size?.[1]) || 0;
         animateDerpSize(this, liveTargetW, liveTargetH, useAnim);
         balanceHorizontalDeckWidthChange(this, preAnimateW);
 
         const bounds = { x: 0, y: 0, w: this.size[0], h: this.size[1] };
 
-        this.layout.compute(bounds, getVirtualNodeLayoutMap(this), {
+        if (!needsLayoutCompute || Math.abs((Number(this.size?.[0]) || 0) - preAnimateW) > 0.5 || Math.abs((Number(this.size?.[1]) || 0) - preAnimateH) > 0.5) this.layout.compute(bounds, getVirtualNodeLayoutMap(this), {
             textTheme: this._t_textSmallPaintData || this._t_textNormalPaintData,
             useAnim: false,
             spawnAnim: false,
