@@ -1078,7 +1078,12 @@ function applyDeckPressureSideWidthResize(entity, resizeAnchor, requestedEntityW
     if (branchSide !== "left" && branchSide !== "right") return false;
     const branchAxis = getDeckPressureBranchAxis(pressureHub, graph, branchSide);
     if (branchAxis !== "vertical" && branchAxis !== "horizontal") return false;
-    if (!isDeckPressureSideWidthResizeEdge(entity, graph, resizeAnchor)) return false;
+    const currentSession = entity._dockResizeSession;
+    const sessionMatches = currentSession
+        && currentSession.side === `deck-pressure-${branchSide}-seam`
+        && currentSession.entityId === entity.id
+        && currentSession.hubId === pressureHub.id;
+    if (!sessionMatches && !isDeckPressureSideWidthResizeEdge(entity, graph, resizeAnchor)) return false;
 
     const branchMembers = getDeckPressureBranchMembers(pressureHub, graph, branchSide);
     if (!branchMembers.length) return false;
@@ -1087,11 +1092,6 @@ function applyDeckPressureSideWidthResize(entity, resizeAnchor, requestedEntityW
     const frameBefore = getDockFrameBounds(allMembers);
     if (!frameBefore) return false;
 
-    const currentSession = entity._dockResizeSession;
-    const sessionMatches = currentSession
-        && currentSession.side === `deck-pressure-${branchSide}-seam`
-        && currentSession.entityId === entity.id
-        && currentSession.hubId === pressureHub.id;
     if (!sessionMatches) {
         entity._dockResizeSession = {
             side: `deck-pressure-${branchSide}-seam`,

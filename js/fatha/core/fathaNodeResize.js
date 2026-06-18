@@ -16,6 +16,12 @@ function getResizeAxis(entity, graph) {
 }
 
 function isDeckPressureSideWidthResize(entity, graph, resizeAnchor) {
+    const session = entity?._dockResizeSession;
+    if ((resizeAnchor === "left" || resizeAnchor === "right")
+        && session?.entityId === entity?.id
+        && typeof session.side === "string"
+        && session.side.startsWith("deck-pressure-")
+        && session.side.endsWith("-seam")) return true;
     return isDeckPressureSideWidthResizeEdge(entity, graph, resizeAnchor);
 }
 
