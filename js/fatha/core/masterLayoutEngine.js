@@ -4,6 +4,7 @@
  */
 import { interpretLayoutProps } from "../../herbina/utils/widgetsUtils.js";
 import { renderLayoutDebug } from "../helpers/debugPainter.js";
+import { applyContentViewportLayout } from "./fathaContentViewport.js";
 
 /**
  * t: Translates a key using the global locale registry.
@@ -87,7 +88,7 @@ const RESERVED_KEYWORDS = [
     "objectAlign", "labelAlign", "themeKey", "align",
     "baseline", "anchor", "dir", "corners", "offset", "hidden",
     "text", "label", "measureText", "items", "prompt", "bypassHashOptimization",
-    "palette"
+    "palette", "scrollViewport", "clipHeight", "contentViewportClip"
 ];
 
 /**
@@ -405,6 +406,7 @@ export class masterLayoutEngine {
         this.regions.panelBackground.h = this.totalHeight;
 
         this.totalWidth = finalWidth;
+        applyContentViewportLayout(this.owner, this.regions, this);
 
         this.computedRegions = { ...this.regions };
 
@@ -769,7 +771,7 @@ export class masterLayoutEngine {
                 y: regY,
                 w: regW,
                 h: regH,
-                isAutoHeight: hPropResolved === "auto",
+                isAutoHeight: hPropResolved === "auto" && localCfg.scrollViewport !== true,
                 isFillHeight: this._isFillHeight,
                 wPropStr: wPropResolved,
                 hPropStr: hPropResolved,

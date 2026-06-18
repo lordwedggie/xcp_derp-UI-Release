@@ -369,7 +369,12 @@ export function resolveDerpRuntimeSizeImpl(node, measured, vars = {}) {
     const branchSide = pressureHub && pressureHub.id !== node?.id ? getDeckPressureBranchSideForNode(pressureHub, graph, node) : null;
     const branchAxis = getDeckPressureBranchAxis(pressureHub, graph, branchSide);
     const axis = branchAxis || (graph && node ? getDockGroupAxisFromMembers(getDeckMembers(node, graph)) : null);
-    return resolveRuntimeDockSize(node, axis, measured, vars);
+    const resolved = resolveRuntimeDockSize(node, axis, measured, vars);
+    const minExpandedHeight = Number(node?.properties?._minExpandedHeight) || 0;
+    if (node?.properties?.contentCollapsed !== true && minExpandedHeight > 0) {
+        resolved.height = Math.max(Number(resolved.height) || 0, minExpandedHeight);
+    }
+    return resolved;
 }
 
 export function resolveHorizontalDeckSharedHeightImpl(node, deps = {}) {

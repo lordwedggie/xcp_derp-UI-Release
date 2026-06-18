@@ -45,6 +45,7 @@ import {
 } from "../helpers/fathaThemeRuntime.js";
 import { resolveSystemThemePaint } from "../helpers/fathaSystemTheme.js";
 import { isComfyVueNodesMode } from "./fathaNode2Compat.js";
+import { isContentViewportRegionHitVisible } from "./fathaContentViewport.js";
 
 const COLLAPSED_NODE_MAX_CORNER = 5;
 const TOOLTIP_DELAY_MS = 650;
@@ -1320,6 +1321,7 @@ function findHitRegion(layout, localMouse, options = {}) {
         const allowDisabledInteraction = reg.allowOpenWhenDisabled === true;
         if (isDisabled && !allowDisabledInteraction && !(allowDisabledDrag && reg.allowDragWhenDisabled)) continue;
         if (!(reg.hitTest ? reg.hitTest(localMouse, reg) : layout.hitTest(localMouse, reg))) continue;
+        if (!isContentViewportRegionHitVisible(layout.owner, key, { x: localMouse[0], y: localMouse[1] })) continue;
         if (!isInsideClipAncestors(reg)) continue;
 
         if (isDisabled && allowDisabledDrag && reg.dragProxyKey) {

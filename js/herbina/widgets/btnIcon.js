@@ -82,6 +82,59 @@ const ICON_MAP = {
     // ⌕, 👁, 🎚, 🗁, 🗀, 🗂, 
 };
 
+const BTN_ICON_CORNER_GUARD_RATIO = 2.0;
+
+function normalizeBtnIconCorners(corners) {
+    if (typeof corners === "number") {
+        const value = Number(corners) || 0;
+        return [value, value, value, value];
+    }
+    if (!Array.isArray(corners) || corners.length === 0) return null;
+    const values = corners.map((value) => Number(value) || 0);
+    if (values.length === 1) return [values[0], values[0], values[0], values[0]];
+    if (values.length === 2) return [values[0], values[1], values[0], values[1]];
+    if (values.length === 3) return [values[0], values[1], values[2], values[1]];
+    return [values[0], values[1], values[2], values[3]];
+}
+
+function restoreBtnIconCornerShape(originalCorners, guardedCorners) {
+    if (!guardedCorners) return originalCorners;
+    if (typeof originalCorners === "number") return guardedCorners[0];
+    if (!Array.isArray(originalCorners)) return guardedCorners;
+    if (originalCorners.length === 1) return [guardedCorners[0]];
+    if (originalCorners.length === 2) return [guardedCorners[0], guardedCorners[1]];
+    if (originalCorners.length === 3) return [guardedCorners[0], guardedCorners[1], guardedCorners[2]];
+    return guardedCorners;
+}
+
+function guardBtnIconCorners(corners, width, height) {
+    const normalized = normalizeBtnIconCorners(corners);
+    if (!normalized) return corners;
+    const safeWidth = Math.max(0, Number(width) || 0);
+    const safeHeight = Math.max(0, Number(height) || 0);
+    let guarded = [...normalized];
+    let guardPasses = 0;
+    while (guardPasses < 128) {
+        const horizontalCorner = Math.max(Math.abs(guarded[0]), Math.abs(guarded[1]));
+        const verticalCorner = Math.max(Math.abs(guarded[0]), Math.abs(guarded[3]));
+        const horizontalOk = safeWidth >= (horizontalCorner * BTN_ICON_CORNER_GUARD_RATIO);
+        const verticalOk = safeHeight >= (verticalCorner * BTN_ICON_CORNER_GUARD_RATIO);
+        if ((horizontalOk && verticalOk) || guarded.every((value) => Math.abs(value) <= 0)) break;
+        guarded = guarded.map((value) => {
+            if (value > 0) return Math.max(0, value - 1);
+            if (value < 0) return Math.min(0, value + 1);
+            return 0;
+        });
+        guardPasses += 1;
+    }
+    return restoreBtnIconCornerShape(corners, guarded);
+}
+
+function resolveBtnIconGuardedCorners(config, paintData, width, height) {
+    const sourceCorners = config.corners !== undefined ? config.corners : paintData?.corners;
+    return guardBtnIconCorners(sourceCorners, width, height);
+}
+
 function resolveBtnIconGlyph(config = {}) {
     const lookup = String(config.icon || "fallback").toLowerCase();
     const iconEntry = ICON_MAP[lookup];
@@ -341,13 +394,17 @@ export function syncBtnIconHTML(el, node, app, config) {
         }
 
         el.style.opacity = alpha;
-        const animatedPaint = compileAnimatedPaint(bodyPaint, config, alpha, { fill: fillColor, textColor: iconColor, corners: config.corners });
+        const guardedCorners = resolveBtnIconGuardedCorners(config, bodyPaint, w, h);
+        const animatedPaint = compileAnimatedPaint(bodyPaint, config, alpha, { fill: fillColor, textColor: iconColor, corners: guardedCorners });
         animatedPaint.fill = fillColor;
         animatedPaint.bgColor = fillColor;
         animatedPaint.backgroundColor = fillColor;
         if (shadowColor && animatedPaint.shadow) animatedPaint.shadow = { ...animatedPaint.shadow, color: shadowColor };
         if (borderColor && animatedPaint.border) animatedPaint.border = { ...animatedPaint.border, color: borderColor };
         if (glowColor && animatedPaint.glow) animatedPaint.glow = { ...animatedPaint.glow, color: glowColor };
+        if (guardedCorners !== undefined) {
+            animatedPaint.corners = guardedCorners;
+        }
 
         // 1. Apply theme FIRST so it doesn't overwrite our custom font math below
         applyHTMLTheme(el, animatedPaint, coords.scale);
@@ -478,15 +535,16 @@ export function syncBtnIcon(ctx, node, config) {
         if (node._derpAwakeFrames !== undefined) node._derpAwakeFrames = 2;
     }
 
-    const animatedPaint = compileAnimatedPaint(bodyPaint, config, alpha, { fill: fillColor, textColor: iconColor, corners: config.corners });
+    const guardedCorners = resolveBtnIconGuardedCorners(config, bodyPaint, w, h);
+    const animatedPaint = compileAnimatedPaint(bodyPaint, config, alpha, { fill: fillColor, textColor: iconColor, corners: guardedCorners });
     animatedPaint.fill = fillColor;
     animatedPaint.bgColor = fillColor;
     animatedPaint.backgroundColor = fillColor;
     if (shadowColor && animatedPaint.shadow) animatedPaint.shadow = { ...animatedPaint.shadow, color: shadowColor };
     if (borderColor && animatedPaint.border) animatedPaint.border = { ...animatedPaint.border, color: borderColor };
     if (glowColor && animatedPaint.glow) animatedPaint.glow = { ...animatedPaint.glow, color: glowColor };
-    if (config.corners !== undefined) {
-        animatedPaint.corners = config.corners;
+    if (guardedCorners !== undefined) {
+        animatedPaint.corners = guardedCorners;
     }
 
     if (alpha < 1) {
