@@ -18,7 +18,7 @@
  */
 import { app } from "../../../../scripts/app.js";
 import { renderHitboxDebug } from "../helpers/debugPainter.js";
-import { getDeckMembers, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureBranchAxis, getDeckPressureHubForNode, getNodeOnDeckEdge, isDeckPressureHub, isDeckPressureSideHorizontalBranchMember, isDeckPressureSideHorizontalHubEdge, isDeckPressureSideWidthResizeEdge, isLinearDeckGroup } from "./masterDockEngine.js";
+import { computeDeckPressureGeometryPlan, getDeckMembers, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureBranchAxis, getDeckPressureHubForNode, getNodeOnDeckEdge, isDeckPressureHub, isDeckPressureSideHorizontalBranchMember, isDeckPressureSideHorizontalHubEdge, isDeckPressureSideWidthResizeEdge, isLinearDeckGroup } from "./masterDockEngine.js";
 import { canResizeHorizontalSharedEdgeWidth as canResizeHorizontalSharedEdge, canResizeHorizontalStackWidth, getHorizontalSameRowNeighbor } from "./dockResizeSharedEdges.js";
 import { beginDeckResizeOptimization, clearEntityTooltip, endDeckResizeOptimization } from "./fathaHandler.js";
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
@@ -53,21 +53,8 @@ function getNodeResizeCornerPoint(node, anchor) {
 
 function getDeckPressureFrameBounds(hub, graph) {
     if (!hub || !graph) return null;
-    const members = [hub, ...getDeckMembers(hub, graph)].filter(Boolean);
-    if (members.length === 0) return null;
-    const bounds = members.reduce((acc, member) => {
-        const x = Number(member?.pos?.[0]) || 0;
-        const y = Number(member?.pos?.[1]) || 0;
-        const w = Number(member?.size?.[0] ?? member?.properties?.nodeSize?.[0]) || 0;
-        const h = Number(member?.size?.[1] ?? member?.properties?.nodeSize?.[1]) || 0;
-        return {
-            left: Math.min(acc.left, x),
-            top: Math.min(acc.top, y),
-            right: Math.max(acc.right, x + w),
-            bottom: Math.max(acc.bottom, y + h),
-        };
-    }, { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity });
-    return Number.isFinite(bounds.left) ? bounds : null;
+    const plan = computeDeckPressureGeometryPlan(hub, graph);
+    return plan?.frame ? { left: plan.frame.left, top: plan.frame.top, right: plan.frame.right, bottom: plan.frame.bottom } : null;
 }
 
 function isDeckPressureFrameCorner(node, graph, anchor) {

@@ -1,12 +1,14 @@
 import { app } from "../../../../scripts/app.js";
 import { syncDerpShield } from "./fathaDOMshield.js";
 import {
+    computeDeckPressureGeometryPlan,
     getDeckParent,
     getDeckChildren,
     getDeckMembers,
     getDeckPressureBranchMembers,
     getDeckPressureBranchSideForNode,
     getDeckPressureBranchAxis,
+    getDeckPressureHubMinWidth,
     getDeckPressureHubForNode,
     getNodeOnDeckEdge,
     applyDeckPressureLayout,
@@ -1088,8 +1090,8 @@ function applyDeckPressureSideWidthResize(entity, resizeAnchor, requestedEntityW
     const branchMembers = getDeckPressureBranchMembers(pressureHub, graph, branchSide);
     if (!branchMembers.length) return false;
 
-    const allMembers = [pressureHub, ...getDeckMembers(pressureHub, graph)].filter(Boolean);
-    const frameBefore = getDockFrameBounds(allMembers);
+    const planBefore = computeDeckPressureGeometryPlan(pressureHub, graph, snap);
+    const frameBefore = planBefore?.frame || null;
     if (!frameBefore) return false;
 
     if (!sessionMatches) {
@@ -1105,6 +1107,9 @@ function applyDeckPressureSideWidthResize(entity, resizeAnchor, requestedEntityW
                 : Math.max(...branchMembers.map((member) => getDockNodeWidth(member)), 0),
             branchStartWidths: Object.fromEntries(branchMembers.map((member) => [member.id, getDockNodeWidth(member)])),
             branchAxis,
+            oppositeSideWidth: branchSide === "left" ? Number(planBefore?.constraints?.rightWidth) || 0 : Number(planBefore?.constraints?.leftWidth) || 0,
+            topBottomMinWidth: Number(planBefore?.constraints?.topBottomMinWidth) || 0,
+            arrangement: planBefore?.arrangement || null,
         };
     }
     const session = entity._dockResizeSession;
@@ -1118,11 +1123,18 @@ function applyDeckPressureSideWidthResize(entity, resizeAnchor, requestedEntityW
     const branchMinWidth = branchAxis === "horizontal"
         ? branchMembers.reduce((sum, member) => sum + getDockNodeMinWidth(member, minW, snap), 0)
         : Math.max(...branchMembers.map((member) => getDockNodeMinWidth(member, minW, snap)), 0);
-    const hubMinWidth = getDockNodeMinWidth(pressureHub, minW, snap);
-    const maxBranchWidth = Math.max(branchMinWidth, branchStartWidth + hubStartW - hubMinWidth);
+    const preservedFrameWidth = Math.max(0, Number(preservedFrame.right) - Number(preservedFrame.left));
+    const oppositeSideWidth = Math.max(0, Number(session.oppositeSideWidth) || (preservedFrameWidth - branchStartWidth - hubStartW));
+    const fallbackHubMinWidth = getDockNodeMinWidth(pressureHub, minW, snap);
+    const hubMinWidth = Math.max(fallbackHubMinWidth, getDeckPressureHubMinWidth(pressureHub, graph, snap, fallbackHubMinWidth));
+    const topBottomMinWidth = Math.max(0, Number(session.topBottomMinWidth) || 0);
+    const hubRequiredWidth = session.arrangement === "vertical_sandwich" ? Math.max(hubMinWidth, topBottomMinWidth) : hubMinWidth;
+    const availableBranchWidth = Math.max(0, preservedFrameWidth - oppositeSideWidth - hubRequiredWidth);
+    const maxBranchWidth = Math.max(0, availableBranchWidth);
     const explicitDelta = Number(entity._dockResizeRequestedDeltaW);
     const requestedDelta = Number.isFinite(explicitDelta) ? explicitDelta : (Number(requestedEntityWidth) - branchStartWidth);
-    const nextBranchWidth = Math.min(maxBranchWidth, Math.max(branchMinWidth, branchStartWidth + requestedDelta));
+    const lowerBranchWidth = Math.min(branchMinWidth, maxBranchWidth);
+    const nextBranchWidth = Math.min(maxBranchWidth, Math.max(lowerBranchWidth, branchStartWidth + requestedDelta));
     const delta = nextBranchWidth - branchStartWidth;
     if (Math.abs(delta) < 0.5) {
         result.handledWidth = true;
@@ -1132,6 +1144,13 @@ function applyDeckPressureSideWidthResize(entity, resizeAnchor, requestedEntityW
         addCounterpart(pressureHub);
         return true;
     }
+
+    const currentPlan = computeDeckPressureGeometryPlan(pressureHub, graph, snap, { frameBounds: preservedFrame });
+    const currentWidths = currentPlan?.constraints || {};
+    const sideWidths = {
+        left: branchSide === "left" ? nextBranchWidth : Number(currentWidths.leftWidth) || 0,
+        right: branchSide === "right" ? nextBranchWidth : Number(currentWidths.rightWidth) || 0,
+    };
 
     if (branchAxis === "horizontal") {
         const minWidths = new Map(branchMembers.map((member) => [member.id, getDockNodeMinWidth(member, minW, snap)]));
@@ -1170,24 +1189,18 @@ function applyDeckPressureSideWidthResize(entity, resizeAnchor, requestedEntityW
         });
         markDockResizeActiveMembers(entity, branchMembers, entity, { markResizing: false });
     } else {
-        branchMembers.forEach((member) => {
-            syncDeckNodeSize(member, nextBranchWidth, getDockNodeHeight(member), { silent: true });
-            if (typeof member.syncUncleSlots === "function") member.syncUncleSlots();
-            addCounterpart(member);
-        });
+        branchMembers.forEach(addCounterpart);
     }
 
-    const nextHubWidth = Math.max(hubMinWidth, hubStartW - delta);
-    const nextHubX = branchSide === "left" ? hubStartX + delta : hubStartX;
-    syncDeckNodeSize(pressureHub, nextHubWidth, getDockNodeHeight(pressureHub), { silent: true });
-    setDeckNodePos(pressureHub, nextHubX, Number(pressureHub.pos?.[1]) || 0);
     addCounterpart(pressureHub);
+    pressureHub._deckPressureSideWidthOverrides = sideWidths;
 
     pressureHub._deckPressurePreserveFrameBounds = preservedFrame;
     try {
         applyDeckPressureLayout(pressureHub, graph, snap);
     } finally {
         delete pressureHub._deckPressurePreserveFrameBounds;
+        delete pressureHub._deckPressureSideWidthOverrides;
     }
 
     result.handledWidth = true;
