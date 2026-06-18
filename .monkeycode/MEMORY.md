@@ -32,8 +32,8 @@ Agent 在任务执行过程中发现的条目应遵循以下格式：
 ## 条目
 
 [Use English for replies]
-- Date: 2026-06-17
-- Context: User corrected response language during workspace and sync support
+- Date: 2026-06-18
+- Context: User corrected response language during workspace and sync support, then switched back to English again during ImageDeck PNG metadata tracing
 - Instructions:
   - Use English for user-facing replies in this project unless the user changes the preference again.
 

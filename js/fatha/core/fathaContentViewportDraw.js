@@ -59,7 +59,7 @@ export function drawContentViewportScrollbars(ctx, node) {
         const rect = state.rect;
         const trackH = Math.max(1, rect.h - 4);
         const trackW = FATHA_CONTENT_SCROLLBAR_WIDTH;
-        const trackX = rect.x + rect.w + Math.max(2, (state.gutter - trackW) / 2);
+        const trackX = rect.x + rect.w + Math.max(0, (state.gutter - trackW) / 2);
         const trackY = rect.y + 2;
         const thumbH = Math.max(FATHA_CONTENT_SCROLLBAR_MIN_THUMB, trackH * (rect.h / Math.max(rect.h, state.fullHeight)));
         const maxThumbTravel = Math.max(0, trackH - thumbH);

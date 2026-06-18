@@ -49,6 +49,8 @@ import {
     triggerWall_groupDragEnd
 } from "./core/derpTriggerWall_core.js";
 
+const TRIGGER_WALL_CLIP_TRIGGER_GROUPS = 2;
+
 function tLocale(key, fallback = key) {
     if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
     const path = key.substring(1).split(".");
@@ -310,6 +312,21 @@ function normalizeTriggerWeightForHash(weight) {
     return w.toFixed(3);
 }
 
+function resolveTriggerWallGroupsClipHeight(node, region, regions = {}) {
+    const groupKeys = Object.keys(regions).filter((key) => key.startsWith("triggerRegion_"));
+    if (groupKeys.length > 0) {
+        const visibleKeys = groupKeys.slice(0, TRIGGER_WALL_CLIP_TRIGGER_GROUPS);
+        const top = Math.min(...visibleKeys.map((key) => Number(regions[key]?.y) || 0));
+        const bottom = Math.max(...visibleKeys.map((key) => {
+            const reg = regions[key] || {};
+            const marginB = Array.isArray(reg.margin) ? (reg.margin.length === 4 ? reg.margin[3] : (reg.margin[1] || 0)) : 0;
+            return (Number(reg.y) || 0) + (Number(reg.h) || 0) + marginB;
+        }));
+        if (bottom > top) return bottom - top;
+    }
+    return Number(region?.h) || 180;
+}
+
 function buildTriggerWallStructuralHash(node, params) {
     const {
         widthBucket,
@@ -322,6 +339,7 @@ function buildTriggerWallStructuralHash(node, params) {
         toggleAddAlways,
         drawHeader,
         settingActive,
+        useGroupsViewport,
     } = params;
 
     const groupsForHash = (node._triggerGroupData || []).filter((g) => !g.hidden);
@@ -355,6 +373,7 @@ function buildTriggerWallStructuralHash(node, params) {
         toggleAddAlways ? 1 : 0,
         drawHeader ? 1 : 0,
         settingActive ? 1 : 0,
+        useGroupsViewport ? 1 : 0,
         groupParts,
     ].join("#");
 }
@@ -450,6 +469,8 @@ app.registerExtension({
             const selectedIdxForHash = (this._triggerGroupData || []).findIndex((g, gIdx) => !g.hidden && this._selectedRegions?.[`triggerRegion_${gIdx}`]);
             const presetItems = this._presetItems || [];
             const presetSortKey = presetItems.join("\u0001");
+            const visibleGroupCountForHash = (this._triggerGroupData || []).filter((g) => !g.hidden).length;
+            const useGroupsViewport = visibleGroupCountForHash > TRIGGER_WALL_CLIP_TRIGGER_GROUPS;
             const currentHash = buildTriggerWallStructuralHash(this, {
                 widthBucket: hashWidthBucket,
                 selectedIdx: selectedIdxForHash,
@@ -461,6 +482,7 @@ app.registerExtension({
                 toggleAddAlways: !!this.properties.toggleAddAlways,
                 drawHeader: !!this.properties.drawHeader,
                 settingActive: !!this.properties.settingActive,
+                useGroupsViewport,
             });
             this._triggerWallVisualHash = currentHash;
 
@@ -835,15 +857,23 @@ app.registerExtension({
                 },
             };
 
-            let lastRegionKey = "groupControlRow1";
+            const groupRegionHost = useGroupsViewport ? {
+                anchor: { target: "groupControlRow1", axis: "y" },
+                scrollViewport: true,
+                clipHeight: resolveTriggerWallGroupsClipHeight,
+                width: "full", height: "auto", dir: "col", minWidth: 0,
+                margin: [0, 0, sW, 0],
+            } : layoutMap;
+            if (useGroupsViewport) layoutMap.triggerGroupsViewportRegion = groupRegionHost;
+            let lastRegionKey = useGroupsViewport ? "triggerGroupsViewportRegion" : "groupControlRow1";
 
             visibleGroupEntries.forEach((entry) => {
                 const { group, gIdx, isPreviewGhost } = entry;
                 const isGroupPreviewGhost = !!isPreviewGhost;
                 const regionKey = `triggerRegion_${gIdx}`;
                 const isSelected = !!this._selectedRegions?.[regionKey];
-                const isFirstGroup = Object.keys(layoutMap).filter(k => k.startsWith("triggerRegion_")).length === 0;
-                layoutMap[regionKey] = buildGroupRegion(group, gIdx, regionKey, isSelected, {
+                const isFirstGroup = Object.keys(groupRegionHost).filter(k => k.startsWith("triggerRegion_")).length === 0;
+                groupRegionHost[regionKey] = buildGroupRegion(group, gIdx, regionKey, isSelected, {
                     groupMarginOverride: isFirstGroup ? [mW * 2, mH, mW * 2, mH] : undefined,
                     isPreviewGhost: isGroupPreviewGhost,
                     childKeyPrefix: "",
@@ -864,6 +894,8 @@ app.registerExtension({
                 });
                 lastRegionKey = regionKey;
             });
+
+            if (useGroupsViewport) lastRegionKey = "triggerGroupsViewportRegion";
 
             const loadedDeckTitles = new Set(
                 (this._triggerGroupData || [])

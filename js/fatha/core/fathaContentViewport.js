@@ -1,7 +1,6 @@
 import { app } from "../../../../scripts/app.js";
 
-export const FATHA_CONTENT_SCROLLBAR_GUTTER = 10;
-export const FATHA_CONTENT_SCROLLBAR_WIDTH = 4;
+export const FATHA_CONTENT_SCROLLBAR_WIDTH = 2;
 export const FATHA_CONTENT_SCROLLBAR_MIN_THUMB = 14;
 export const FATHA_CONTENT_VIEWPORT_DEBUG_FLAG = "xcpDerpDebugContentViewports";
 
@@ -70,6 +69,31 @@ function recomputeAutoHeightAncestors(regions, startParentKey) {
         }
         parentKey = parent.parentKey;
     }
+}
+
+function shiftFollowingAncestorSiblings(regions, startKey, dy) {
+    if (!regions || !startKey || !(Math.abs(numberOr(dy)) > 0.5)) return;
+    let currentKey = startKey;
+    const seen = new Set();
+    while (currentKey && currentKey !== "panelBackground" && !seen.has(currentKey)) {
+        seen.add(currentKey);
+        const current = regions[currentKey];
+        const parentKey = current?.parentKey;
+        if (!current || !parentKey) break;
+        const currentBottom = numberOr(current.y) + numberOr(current.h) + normalizeMargin(current.margin)[3];
+        for (const candidate of Object.values(regions)) {
+            if (!candidate || candidate.key === currentKey || candidate.parentKey !== parentKey) continue;
+            if (numberOr(candidate.y) > currentBottom + 0.5) shiftRegionSubtree(regions, candidate.key, -dy);
+        }
+        currentKey = parentKey;
+    }
+}
+
+function compactViewportAncestors(regions, startParentKey, delta) {
+    if (!regions || !startParentKey || !(Math.abs(numberOr(delta)) > 0.5)) return;
+    recomputeAutoHeightAncestors(regions, startParentKey);
+    shiftFollowingAncestorSiblings(regions, startParentKey, delta);
+    recomputeAutoHeightAncestors(regions, regions[startParentKey]?.parentKey);
 }
 
 export function getContentViewportState(node, viewportKey) {
@@ -141,8 +165,9 @@ export function hasContentViewportOverflow(node) {
     return Object.values(node?._contentViewportState || {}).some((state) => state?.hasOverflow);
 }
 
-export function applyContentViewportLayout(node, regions, layout) {
+export function applyContentViewportLayout(node, regions, layout, options = {}) {
     if (!node || !regions) return false;
+    const publishState = options.publishState !== false;
     const viewportHeightDeltas = [];
     const nextState = {};
     let hasOverflow = false;
@@ -165,9 +190,11 @@ export function applyContentViewportLayout(node, regions, layout) {
         const fullHeight = Math.max(numberOr(region.h), contentBottom);
         const visibleHeight = Math.min(fullHeight, clipHeight);
         const overflow = fullHeight > visibleHeight + 0.5;
+        const gutter = overflow ? FATHA_CONTENT_SCROLLBAR_WIDTH : 0;
+        const visibleWidth = Math.max(1, numberOr(region.w) - gutter);
         if (overflow) {
             hasOverflow = true;
-            maxGutter = Math.max(maxGutter, FATHA_CONTENT_SCROLLBAR_GUTTER);
+            maxGutter = Math.max(maxGutter, FATHA_CONTENT_SCROLLBAR_WIDTH);
         }
 
         region._contentViewport = true;
@@ -181,15 +208,25 @@ export function applyContentViewportLayout(node, regions, layout) {
         const scrollTop = Math.max(0, Math.min(getContentViewportScroll(node, key), Math.max(0, fullHeight - visibleHeight)));
         nextState[key] = {
             key,
-            rect: { x: numberOr(region.x), y: numberOr(region.y), w: numberOr(region.w), h: visibleHeight },
+            rect: { x: numberOr(region.x), y: numberOr(region.y), w: visibleWidth, h: visibleHeight },
             fullHeight,
             clipHeight: visibleHeight,
             maxScroll: Math.max(0, fullHeight - visibleHeight),
             scrollTop,
             hasOverflow: overflow,
-            gutter: overflow ? FATHA_CONTENT_SCROLLBAR_GUTTER : 0,
+            gutter,
         };
     }
+
+    for (const { key, region, delta } of viewportHeightDeltas) {
+        for (const candidate of Object.values(regions)) {
+            if (!candidate || candidate.key === key || candidate.parentKey !== region.parentKey) continue;
+            if (numberOr(candidate.y) > numberOr(region.y) + numberOr(region.h) + 0.5) shiftRegionSubtree(regions, candidate.key, -delta);
+        }
+        compactViewportAncestors(regions, region.parentKey, delta);
+    }
+
+    if (!publishState) return hasOverflow;
 
     node._contentViewportState = nextState;
     node._contentViewportCandidate = hasViewport;
@@ -204,13 +241,6 @@ export function applyContentViewportLayout(node, regions, layout) {
     staleKeys.forEach((key) => { delete node._contentViewportScroll[key]; });
 
     if (layout) layout.contentViewportGutter = 0;
-    for (const { key, region, delta } of viewportHeightDeltas) {
-        for (const candidate of Object.values(regions)) {
-            if (!candidate || candidate.key === key || candidate.parentKey !== region.parentKey) continue;
-            if (numberOr(candidate.y) > numberOr(region.y) + numberOr(region.h) + 0.5) shiftRegionSubtree(regions, candidate.key, -delta);
-        }
-        recomputeAutoHeightAncestors(regions, region.parentKey);
-    }
     if (hasOverflow && layout) {
         const rootRegions = Object.entries(regions)
             .filter(([k, r]) => !r.isChild && k !== "panelBackground" && !r.ignoreLayout)

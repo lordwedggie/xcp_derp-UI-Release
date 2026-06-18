@@ -1,5 +1,4 @@
 import {
-    FATHA_CONTENT_SCROLLBAR_GUTTER,
     FATHA_CONTENT_SCROLLBAR_MIN_THUMB,
     FATHA_CONTENT_SCROLLBAR_WIDTH,
     mapPointThroughContentViewport,
@@ -17,7 +16,7 @@ function getViewportAtLocalPoint(node, localPoint) {
     const states = Object.values(node?._contentViewportState || {});
     return states.find((state) => {
         const rect = state?.rect;
-        return state?.hasOverflow && rect && localPoint.x >= rect.x && localPoint.x <= rect.x + rect.w + FATHA_CONTENT_SCROLLBAR_GUTTER && localPoint.y >= rect.y && localPoint.y <= rect.y + rect.h;
+        return state?.hasOverflow && rect && localPoint.x >= rect.x && localPoint.x <= rect.x + rect.w + (state.gutter || 0) && localPoint.y >= rect.y && localPoint.y <= rect.y + rect.h;
     }) || null;
 }
 
@@ -26,7 +25,7 @@ function getScrollbarRects(state) {
     const rect = state.rect;
     const trackH = Math.max(1, rect.h - 4);
     const trackW = FATHA_CONTENT_SCROLLBAR_WIDTH;
-    const trackX = rect.x + rect.w + Math.max(2, (state.gutter - trackW) / 2);
+    const trackX = rect.x + rect.w + Math.max(0, (state.gutter - trackW) / 2);
     const trackY = rect.y + 2;
     const thumbH = Math.max(FATHA_CONTENT_SCROLLBAR_MIN_THUMB, trackH * (rect.h / Math.max(rect.h, state.fullHeight)));
     const maxThumbTravel = Math.max(0, trackH - thumbH);
