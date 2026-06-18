@@ -1099,7 +1099,8 @@ export function syncDerpEditor(context, node, app, config) {
     }
 
     const baseAlpha = sysAlpha;
-    const domPointerEvents = (effectiveState === "DIS" || (safeConfig.deferAsleepDomHitTest && !isAwake)) ? "none" : "auto";
+    const asleepCanvasShieldHitPassthrough = isCanvas && requestedCanvasShield && !isAwake;
+    const domPointerEvents = (effectiveState === "DIS" || (safeConfig.deferAsleepDomHitTest && !isAwake) || asleepCanvasShieldHitPassthrough) ? "none" : "auto";
 
     el.style.display = useSingleLineFlex ? "flex" : "block";
     el.style.alignItems = useSingleLineFlex ? "center" : "";
@@ -1130,7 +1131,7 @@ export function syncDerpEditor(context, node, app, config) {
         const glyph = el._derpEditorPrefixEl;
         setStyleIfChanged(editorWrapper, "display", "block");
         setStyleIfChanged(editorWrapper, "opacity", String(baseAlpha));
-        setStyleIfChanged(editorWrapper, "pointerEvents", "auto");
+        setStyleIfChanged(editorWrapper, "pointerEvents", domPointerEvents);
         if (glyph) {
             const glyphStyleKey = `${prefixGlyphText}|${prefixGlyphPad}|${prefixGlyphMargin}|${font}|${prefixGlyphFontSize}|${fontWeight}|${uiLineHeight}`;
             if (glyph._lastStyleKey !== glyphStyleKey) {

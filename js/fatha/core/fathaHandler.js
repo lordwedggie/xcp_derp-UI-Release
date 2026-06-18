@@ -43,6 +43,7 @@ import {
     handleInitDerpGlobalListenerImpl,
     getPaletteCache,
 } from "../helpers/fathaThemeRuntime.js";
+import { resolveSystemThemePaint } from "../helpers/fathaSystemTheme.js";
 import { isComfyVueNodesMode } from "./fathaNode2Compat.js";
 
 const COLLAPSED_NODE_MAX_CORNER = 5;
@@ -719,7 +720,21 @@ function getTooltipHostPalette(entity) {
     const stringPalette = host?._derpStringPalette || host?.properties?._derpStringPalette || null;
     const path = palette?.path || stringPalette?.path || entity._derpStringPalette?.path || entity.properties?._derpStringPalette?.path;
     const data = palette?.data || stringPalette?.data || host?._derpStringPaletteData || entity._derpStringPaletteData || entity._derpStringPalette?.data || entity.properties?._derpStringPalette?.data;
-    return path ? { path, data } : null;
+    const entry = entity.properties?.tooltipBodyPaletteEntry || "toolTip_background";
+    return path ? { path, data, entry } : null;
+}
+
+function mergePaintColorOverrides(basePaint, overridePaint) {
+    if (!basePaint) return overridePaint ? { ...overridePaint } : null;
+    if (!overridePaint) return { ...basePaint };
+    return {
+        ...basePaint,
+        fill: overridePaint.fill || overridePaint.textColor || basePaint.fill,
+        textColor: overridePaint.textColor || overridePaint.fill || basePaint.textColor,
+        shadow: overridePaint.shadow || basePaint.shadow,
+        border: overridePaint.border || basePaint.border,
+        glow: overridePaint.glow || basePaint.glow,
+    };
 }
 
 function isPointerOverEditableTitleText(entity, localMouse) {
@@ -798,7 +813,7 @@ function scheduleTooltip(entity, regionKey, tooltipText) {
         closeBastaMessage(host, regionKey, "tooltip-refresh");
         const basta = showBastaMessage(host, tooltipText, TOOLTIP_DURATION_MS, {
             fade: true,
-            textThemeKey: "toolTip_background, t_toolTip_normal",
+            textThemeKey: "tooltip_background, t_tooltip_Text",
             tooltipExpand: true
         }, regionKey, false, "info", false);
         if (!basta) return;
@@ -1616,8 +1631,21 @@ export function handleDrawCTX(entity, ctx, overlayPass = false) {
         const skipNodePaletteInjection = entity.properties?.tooltipExpand === true && !!backgroundPalette;
         const canvasPaletteStateOFF = isBypassed ? "_DIS" : "_OFF";
         const canvasPaletteStateON = isBypassed ? "_DIS" : "_ON";
-        const basePaintOFF = resolvePaintData(entity, backgroundPaintKey, bgOffSuffix, null, backgroundPalette) || resolvePaintData(entity, "canvas", isBypassed ? "_DIS" : "", null, backgroundPalette);
-        const basePaintON = resolvePaintData(entity, backgroundPaintKey, bgOnSuffix, null, backgroundPalette) || resolvePaintData(entity, "canvas", isBypassed ? "_DIS" : "_ON", null, backgroundPalette);
+        const resolveTooltipBackgroundPaint = (stateSuffix) => {
+            if (entity.properties?.tooltipExpand !== true) return null;
+            const state = stateSuffix === "_ON" ? "ON" : stateSuffix === "_DIS" ? "DIS" : "OFF";
+            const systemPaint = resolveSystemThemePaint(backgroundPaintKey, state);
+            const palettePaint = backgroundPalette
+                ? resolvePaintData(entity, backgroundPaintKey, stateSuffix, null, backgroundPalette)
+                : null;
+            return mergePaintColorOverrides(systemPaint, palettePaint) || systemPaint || palettePaint;
+        };
+        const basePaintOFF = resolveTooltipBackgroundPaint(bgOffSuffix)
+            || resolvePaintData(entity, backgroundPaintKey, bgOffSuffix, null, backgroundPalette)
+            || resolvePaintData(entity, "canvas", isBypassed ? "_DIS" : "", null, backgroundPalette);
+        const basePaintON = resolveTooltipBackgroundPaint(bgOnSuffix)
+            || resolvePaintData(entity, backgroundPaintKey, bgOnSuffix, null, backgroundPalette)
+            || resolvePaintData(entity, "canvas", isBypassed ? "_DIS" : "_ON", null, backgroundPalette);
         const paintOFF = skipNodePaletteInjection ? basePaintOFF : applyNodeCanvasPalette(entity, basePaintOFF, canvasPaletteStateOFF, basePaintOFF, getPaletteCache);
         const paintON = skipNodePaletteInjection ? basePaintON : applyNodeCanvasPalette(entity, basePaintON, canvasPaletteStateON, basePaintON, getPaletteCache);
         // Zero bottom corners for search-tab-style bastas

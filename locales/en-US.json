@@ -282,7 +282,8 @@
     "dialogs": {
       "select_folder": {
         "title": "Select folder",
-        "confirm": "Select"
+        "confirm": "Select",
+        "placeholder": "Click to select folder path"
       }
     },
     "messages": {

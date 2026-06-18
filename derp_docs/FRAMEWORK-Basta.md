@@ -16,7 +16,7 @@ Basta ("Bastard" Child Framework) is a multi-instance, canvas-native replacement
 - Uses same `masterLayoutEngine`, `COMPONENT_BLUEPRINTS`, `handleShieldInteraction`, `handleDrawCTX`
 - Fade animation: `animateAlpha()` with `BASTA_FADE_SPEED = 0.4`
 - Clip chain: `getRegionClipChain()` for nested clipping regions
-- Tooltip animation: `drawAnimatedTooltipLabel()` for expanding labels; tooltip text/background paint resolves through the host node's category-aware string palette context rather than a dedicated tooltip palette file.
+- Tooltip animation: `drawAnimatedTooltipLabel()` for expanding labels; tooltip base paint now comes from the system theme `_System/_DK_System` keys `tooltip_background` and `t_tooltip_Text`, while tooltip color overrides still resolve through the host node's category-aware string palette entries `toolTip_background` and `t_toolTip_normal`.
 
 ### Basta Lifecycle
 1. Created via `showBasta*()` functions in panel modules
@@ -105,5 +105,6 @@ const bgOnSuffix  = isBypassed ? "_DIS" : (isOptionalBgKey ? "_DIS" : "_ON");
 ## Maintenance Notes
 - Avoid creating one-off overlay systems when a Basta panel can use existing layout maps and shield routing.
 - `bastaFileHandler` save/rename flows can accept a `filePicker` property to render an optional file-mode `FILEBROWSER` above the name editor. Selecting a file updates `pendingName`, allowing callers such as Theme Weight save to overwrite an existing managed file without custom dialog code.
+- `bastaFileHandler` folder flows can pass `folderDisplayText` plus `folderPlaceholderWhenRoot: true` to show a placeholder label while the picker is still at its root path. This is useful for callers like ImageDeck that want an explicit "choose a folder" prompt before a custom subfolder is selected.
 - If a Basta affects node visuals, check passive whole-wall cache invalidation in `fatha.js` and the owning node.
 - Update this document when adding/removing panels or changing global Basta lifecycle/registry behavior.

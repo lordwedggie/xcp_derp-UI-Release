@@ -19,20 +19,17 @@ export const getBastaBaseMap = (basta) => {
             dir: "col",
             width: "full",
             height: "auto",
-            margin: [0, mH, 0, 0],
-            spacing: [0, sH],
             headerMain: {
                 dir: "row",
                 width: "full",
                 height: "auto",
-                margin: [mW, 0],
+                margin: [mW, sH],
                 titleLabel: {
                     type: UI_TYPES.TEXT,
                     skipBackground: true,
-                    themeKey: "dialog, t_textNormal",
+                    themeKey: "dialog, t_textSmall",
                     width: "full",
-                    height: "auto",
-                    padding: [pW, pH],
+                    height: "auto",                    
                     text: basta.titleLabel || p.titleLabel || "Basta Panel",
                     labelAlign: ["left", "middle"],
                     spacing: [sW, 0]
@@ -41,21 +38,20 @@ export const getBastaBaseMap = (basta) => {
                     type: UI_TYPES.ICONBUTTON,
                     themeKey: "buttonNode, t_textSystem",
                     icon: "close",
-                    iconScale: 0.72,
                     width: "match",
-                    height: "fit",
-                    padding: [pW, pH],
+                    height: "auto",
+                    //padding: [pW, pH],
                     onPress: () => basta.close("headerButton")
                 }
             },
             headerBreak: {
-                margin: [0, pH, 0, 0], height: 1,
+                height: 1,
                 type: UI_TYPES.LINEBREAK
             }
         },
         contentRegion: {
-            anchor: { target: "headerRegion", axis: "y", offset: 0 },
-            dir: "col", width: "full", height: "auto"
+            anchor: { target: "headerRegion", axis: "y" },
+            dir: "col", width: "full", height: "auto",
         },
 
         footerRegion: {

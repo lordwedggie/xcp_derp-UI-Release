@@ -99,6 +99,7 @@ widgets/
 - Keep pure data/state helpers in `helpers/fileBrowserHelpers.js`.
 - Keep drawing-only helper work in `helpers/fileBrowserDraw.js`.
 - Keep preview/pending state work in `helpers/fileBrowserPreview.js`.
+- Trigger glyph-to-label spacing follows the widget's horizontal `spacing[0]`. Use `spacing: [sW, ...]` when the trigger needs the standard control gap between its indicator glyph and text.
 - The open picker panel uses the optional `#picker` theme key when present.
 - The hovered picker row band uses the optional `#picker_highlight` theme key as an exact lookup, resolving default/`_OFF` first and `_ON` as fallback; active pickers refresh when the theme cache key changes during live theme edits.
 - For signal selection UIs, prefer `FILEBROWSER` with `mode: "signal"` instead of custom ad-hoc picker panels.
@@ -115,6 +116,7 @@ widgets/
 ## EDITOR Rendering Protocol
 - `UI_TYPES.EDITOR` is a hybrid widget: Canvas draws asleep visuals and the DOM element handles hit testing, focus, selection, and editing.
 - For `canvasShield` editors, asleep background and text must be rendered by Canvas, not by the DOM overlay. DOM-rendered asleep boxes/text drift relative to canvas controls under zoom because CSS transforms and Canvas compositing use different subpixel paths.
+- For asleep `canvasShield` editors, the transparent DOM box must release pointer hit testing back to the node shield so hover states and tooltips still trigger across the full widget body instead of only the exposed margins.
 - For active/focused `canvasShield` editors, the themed background rect is still Canvas-owned. Keep the DOM editor text visible because it is the native caret, selection, IME, and CJK hit-testing surface; only the DOM theme background/border/shadow should be transparent so the edit box matches the Canvas renderer.
 - Variable fonts can diverge between Canvas and DOM when the browser applies automatic optical sizing. For editor parity, disable DOM `fontOpticalSizing` and pin `fontVariationSettings` `opsz` to the unscaled layout font size used by Canvas measurement.
 - Active/focused `canvasShield` editor DOM must be positioned from the Canvas draw transform. Capture the screen rect from `ctx.getTransform()` plus the canvas bounding rect and reuse that rect for DOM `left`, `top`, `width`, and `height`; do not independently recompute placement from `node.pos + ds.offset`, which can diverge under zoom and make the editor drift upward.

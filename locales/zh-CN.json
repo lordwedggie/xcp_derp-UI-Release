@@ -282,7 +282,8 @@
     "dialogs": {
       "select_folder": {
         "title": "选择文件夹",
-        "confirm": "选择"
+        "confirm": "选择",
+        "placeholder": "点击选择文件夹路径"
       }
     },
     "messages": {

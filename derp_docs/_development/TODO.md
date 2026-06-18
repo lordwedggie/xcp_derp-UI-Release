@@ -38,7 +38,7 @@
     > [!NOTE]- Details
     > - 
 
-- [ ] **Palette string color hot-reload** — reload `_defaultTheme.json` without full theme refresh
+- [ ] **Palette string color hot-reload** — reload `_defaultPalette.json` without full theme refresh
     > [!NOTE]- Details
     > - 
 

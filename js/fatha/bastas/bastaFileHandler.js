@@ -274,15 +274,17 @@ export function showBastaFileHandler(host, category = "settings", targetRegion =
                 contentRegion: {
                     anchor: { target: "headerRegion", axis: "y" },
                     dir: "col", width: "full", height: "auto",
-                    margin: [mW, 0], // THE FIX: Always respect mW margins to align with finalWidth
+                    margin: [mW, sH], // THE FIX: Always respect mW margins to align with finalWidth
                     regionFolder: {
                         hidden: basta.properties.showFolderBrowser !== true,
                         anchor: { target: "contentRegion", axis: "y", offset: oY },
                         dir: "row", width: "full", minWidth: basta.properties.folderRowMinWidth || 0,
                         dropdownFolder: {
                             type: UI_TYPES.FILEBROWSER || "fileBrowser", themeKey: "dialog, t_textNormal",
-                            width: "full", height: "auto", padding: [pW, pH], spacing: [0, sH],
+                            width: "full", height: "auto", padding: [pW, pH], spacing: [sW, sH],
                             minWidth: basta.properties.folderBrowserMinWidth || 0,
+                            displayText: basta.properties.folderDisplayText || "",
+                            placeholderWhenRoot: basta.properties.folderPlaceholderWhenRoot === true,
                             items: basta._fileList || [],
                             value: basta.properties.selectedFolder || "/",
                             mode: "folder",
@@ -304,10 +306,8 @@ export function showBastaFileHandler(host, category = "settings", targetRegion =
                             type: UI_TYPES.ICONBUTTON,
                             themeKey: "buttonNode, t_textSystem",
                             icon: "revert",
-                            width: "match",
-                            height: 20,
+                            width: "match", height: "fill", objectAlign: ["left", "middle"],
                             minWidth: basta.properties.folderRefreshMinWidth || 0,
-                            padding: [pW, pH],
                             spacing: [sW, sH],
                             mouseOver: true,
                             state: "OFF",
@@ -317,28 +317,21 @@ export function showBastaFileHandler(host, category = "settings", targetRegion =
                     infoRegion: {
                         hidden: isFolderMode,
                         dir: "col", width: "full",
-                        anchor: { target: "regionFolder", axis: "y", offset: mH },
+                        anchor: { target: "regionFolder", axis: "y"},
                         labelMain: {
                             type: UI_TYPES.TEXT,
-                            themeKey: basta.properties.messageThemeKey || "t_textNormal",
+                            themeKey: basta.properties.messageThemeKey || "t_textSmall",
                             text: basta.properties.customMessage || "Custom message here",
                             labelColor: isDelete ? getPulsedColor(colA, colB, 0.005) : null,
                             width: basta.properties.messageWidth || "auto",
                             labelAlign: basta.properties.messageAlign || ["left", "middle"],
                             wrap: basta.properties.messageWrap || false,
-                            margin: [0,mH],
+                            margin: [0,sH],
                         },
-                        messageBreak: {
-                            type: UI_TYPES.LINEBREAK,
-                            hidden: basta.properties.showMessageLinebreak !== true,
-                            anchor: { target: "labelMain", axis: "y", offset: sH },
-                            margin: [-mW, mH, -mW, mH],
-                            width: "full"
-                        }
                     },
                     pickerRegion: {
                         hidden: !showFilePicker,
-                        anchor: { target: "infoRegion", axis: "y", offset: oY },
+                        anchor: { target: "infoRegion", axis: "y"},
                         dir: "col", width: "full", height: "auto",
                         dropdownExistingFile: {
                             type: UI_TYPES.FILEBROWSER,
@@ -372,14 +365,15 @@ export function showBastaFileHandler(host, category = "settings", targetRegion =
                     },
                     editorRegion: {
                         hidden: isDelete || isFolderMode,
-                        anchor: { target: showFilePicker ? "pickerRegion" : "infoRegion", axis: "y", offset: oY },
+                        anchor: { target: showFilePicker ? "pickerRegion" : "infoRegion", axis: "y" },                        
                         dir: "col",
                         editorNewName: {
                             type: UI_TYPES.EDITOR,
                             themeKey: "dialog, t_textNormal", canvasShield: true,
+                            margin: [0, sH, 0, 0],
                             text: basta.properties.pendingName,
                             value: basta.properties.pendingName,
-                            width: "full", height: 20, padding: [pW, pH], spacing: [0, sH],
+                            width: "full", height: "auto", padding: [pW, pH], spacing: [0, sH],
                             onInput: (v) => {
                                 basta.properties.pendingName = v;
                                 const editorReg = basta.layout?.regions?.editorNewName;

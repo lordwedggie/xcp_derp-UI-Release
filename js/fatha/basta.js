@@ -15,6 +15,7 @@ import { resolvePaintData, parseColorKeyText } from "../herbina/utils/widgetsUti
 import { getBastaBaseMap } from "./helpers/bastaLayoutMaps.js";
 import { ensureScreenRectVisible, isWarping } from "./core/fathaWarp.js";
 import { MASTER_Z } from "./core/masterZ.js";
+import { resolveSystemThemePaint } from "./helpers/fathaSystemTheme.js";
 
 const BASTA_FADE_SPEED = 0.4;
 const BLD_ID = "basta_lora_detail_global_unique_id";
@@ -58,14 +59,56 @@ function getTooltipPaletteContext(basta) {
     const stringPalette = host?._derpStringPalette || host?.properties?._derpStringPalette || null;
     const path = palette?.path || stringPalette?.path;
     const data = palette?.data || stringPalette?.data || host?._derpStringPaletteData;
-    return path ? { host, palette: { path, data } } : { host, palette: null };
+    if (!path) return { host, bodyPalette: null, textPalette: null };
+    return {
+        host,
+        bodyPalette: {
+            path,
+            data,
+            entry: basta?.properties?.tooltipBodyPaletteEntry || "toolTip_background"
+        },
+        textPalette: {
+            path,
+            data,
+            entry: basta?.properties?.tooltipTextPaletteEntry || "t_toolTip_normal"
+        }
+    };
+}
+
+function mergePaintColorOverrides(basePaint, overridePaint) {
+    if (!basePaint) return overridePaint ? { ...overridePaint } : null;
+    if (!overridePaint) return { ...basePaint };
+    return {
+        ...basePaint,
+        fill: overridePaint.fill || overridePaint.textColor || basePaint.fill,
+        textColor: overridePaint.textColor || overridePaint.fill || basePaint.textColor,
+        shadow: overridePaint.shadow || basePaint.shadow,
+        border: overridePaint.border || basePaint.border,
+        glow: overridePaint.glow || basePaint.glow,
+    };
+}
+
+function resolveTooltipTextPaint(basta, paintKey, stateSuffix = "_OFF") {
+    const { host: tooltipPaletteHost, textPalette: tooltipPalette } = getTooltipPaletteContext(basta);
+    const state = stateSuffix === "_ON" ? "ON" : stateSuffix === "_DIS" ? "DIS" : "OFF";
+    const systemPaint = resolveSystemThemePaint(paintKey, state);
+    const palettePaint = tooltipPalette
+        ? resolvePaintData(tooltipPaletteHost, paintKey, stateSuffix, null, tooltipPalette)
+        : null;
+    const mergedPaint = mergePaintColorOverrides(systemPaint, palettePaint);
+    return mergedPaint
+        || resolvePaintData(tooltipPaletteHost, paintKey, stateSuffix, null, tooltipPalette)
+        || resolvePaintData(basta, paintKey, stateSuffix)
+        || basta[`_${paintKey}PaintData`]
+        || basta.hostNode?.[`_${paintKey}PaintData`]
+        || null;
 }
 
 function drawAnimatedTooltipLabel(ctx, basta, region) {
     if (!ctx || !basta?.properties?.tooltipExpand || !region) return false;
     const text = String(basta.properties?.tooltipText || region.text || "");
     if (!text) return false;
-    const { host: tooltipPaletteHost, palette: tooltipPalette } = getTooltipPaletteContext(basta);
+    const { host: tooltipPaletteHost, textPalette: tooltipPalette } = getTooltipPaletteContext(basta);
 
     const paddingX = Number(region.padding?.[0] ?? basta._tooltipExpandPaddingX ?? 0) || 0;
     const paddingY = Number(region.padding?.[1] ?? 0) || 0;
@@ -79,14 +122,12 @@ function drawAnimatedTooltipLabel(ctx, basta, region) {
     // Parse compound key: "bodyKey, labelKey" → use labelKey for text
     const parts = String(rawKey).split(",").map(p => p.trim());
     const paintKey = parts.length > 1 ? (parts[1] || parts[0]) : parts[0];
-    const sysFallback = resolvePaintData(tooltipPaletteHost, "t_textSystem", "_OFF", null, tooltipPalette)
+    const sysFallback = resolveSystemThemePaint("t_textSystem", "OFF")
+        || resolvePaintData(tooltipPaletteHost, "t_textSystem", "_OFF", null, tooltipPalette)
         || resolvePaintData(basta, "t_textSystem", "_OFF")
         || basta.hostNode?._t_textSystemPaintData_OFF
         || basta.hostNode?._t_textsystemPaintData_OFF;
-    const rawTheme = resolvePaintData(tooltipPaletteHost, paintKey, "_OFF", null, tooltipPalette)
-        || resolvePaintData(basta, paintKey, "_OFF")
-        || basta[`_${paintKey}PaintData`]
-        || basta.hostNode?.[`_${paintKey}PaintData`]
+    const rawTheme = resolveTooltipTextPaint(basta, paintKey, "_OFF")
         || sysFallback
         || { fontSize: 12, font: "arial", fill: "rgba(180,180,180,0.6)" };
     const fontSize = parseFloat(rawTheme.fontSize) || 12;
@@ -415,9 +456,7 @@ class BastaInstance {
             const rawMeasureKey = this.properties.messageThemeKey || "t_textNormal";
             const measureParts = String(rawMeasureKey).split(",").map(p => p.trim());
             const measureThemeKey = measureParts.length > 1 ? (measureParts[1] || measureParts[0]) : measureParts[0];
-            const { host: tooltipPaletteHost, palette: tooltipPalette } = getTooltipPaletteContext(this);
-            const tTheme = resolvePaintData(tooltipPaletteHost, measureThemeKey, "_OFF", null, tooltipPalette)
-                || resolvePaintData(this, measureThemeKey, "_OFF")
+            const tTheme = resolveTooltipTextPaint(this, measureThemeKey, "_OFF")
                 || this.hostNode?._t_textsystemPaintData_OFF
                 || this.hostNode?._t_textSystemPaintData_OFF
                 || this.hostNode?._t_textnormalPaintData

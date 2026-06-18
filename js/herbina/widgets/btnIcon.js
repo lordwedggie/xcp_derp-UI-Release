@@ -44,6 +44,8 @@ import {
 const ICON_MAP = {
     add: "＋",
     subtract: "－",
+    collapse: "－",
+    uncollapse: "＋",
     deck: "▦",
     undeck: "⊣",
     dockleft: "⊣",

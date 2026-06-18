@@ -216,6 +216,8 @@ function openImageDeckFolderSelector(node, items = []) {
         properties: {
             bastaMovalbe: false,
             showFolderBrowser: true,
+            folderDisplayText: tLocale("$derp_image_deck.dialogs.select_folder.placeholder", "Click to select folder path"),
+            folderPlaceholderWhenRoot: true,
             selectedFolder: node.properties.imageDeckCustomFolder || "/",
             pendingName: "",
             originalName: ""
@@ -905,6 +907,7 @@ app.registerExtension({
                         edtiorFilenamePrefix: {
                             type: this.UI_TYPES.EDITOR,
                             canvasShield: true,
+                            toolTip: `{{t_text_highlight::Prefix}} for auto-generated image {{t_text_accent::Filename}}`,
                             themeKey: "dialog, t_textNormal",
                             width: "fit",
                             height: "auto",
