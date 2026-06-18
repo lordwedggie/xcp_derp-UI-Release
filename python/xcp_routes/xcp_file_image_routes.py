@@ -5,12 +5,14 @@ Messy apron, useful results.
 """
 
 import os
+import json
 import re
 import shutil
 
 import folder_paths
 from aiohttp import web
 from PIL import Image
+from PIL.PngImagePlugin import PngInfo
 
 from .xcp_file_categories import get_background_search_dirs
 from .xcp_file_common import attach_fallback_header, resolve_case_insensitive_path
@@ -82,6 +84,25 @@ def _resolve_search_path(search_dirs, file_name):
     return target_path, used_fallback
 
 
+def _build_png_metadata(img, body):
+    metadata = PngInfo()
+    for key, value in (img.info or {}).items():
+        if isinstance(key, str) and isinstance(value, str):
+            metadata.add_text(key, value)
+
+    prompt = body.get("prompt")
+    if prompt is not None:
+        metadata.add_text("prompt", json.dumps(prompt))
+
+    extra_pnginfo = body.get("extra_pnginfo") or {}
+    if isinstance(extra_pnginfo, dict):
+        for key, value in extra_pnginfo.items():
+            if isinstance(key, str):
+                metadata.add_text(key, json.dumps(value))
+
+    return metadata
+
+
 async def get_background_file(request):
     file_name = request.query.get("name")
     if not file_name:
@@ -134,11 +155,14 @@ async def save_current_image_from_deck(request):
             target_path = os.path.join(target_dir, target_name)
             index += 1
 
-        if save_format == "PNG":
+        if save_format == "PNG" and not (body.get("prompt") or body.get("extra_pnginfo")):
             shutil.copy2(src_path, target_path)
         else:
             with Image.open(src_path) as img:
-                if save_format == "JPEG":
+                if save_format == "PNG":
+                    metadata = _build_png_metadata(img, body)
+                    img.save(target_path, "PNG", pnginfo=metadata, compress_level=4)
+                elif save_format == "JPEG":
                     if img.mode not in ("RGB", "L"):
                         bg = Image.new("RGB", img.size, (255, 255, 255))
                         alpha = img.getchannel("A") if "A" in img.getbands() else None

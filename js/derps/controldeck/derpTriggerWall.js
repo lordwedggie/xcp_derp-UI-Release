@@ -49,7 +49,7 @@ import {
     triggerWall_groupDragEnd
 } from "./core/derpTriggerWall_core.js";
 
-const TRIGGER_WALL_CLIP_TRIGGER_GROUPS = 2;
+const TRIGGER_WALL_CLIP_VISIBLE_LIMIT_ITEMS = ["Auto", "1", "2", "3", "4", "5"];
 
 function tLocale(key, fallback = key) {
     if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
@@ -312,18 +312,98 @@ function normalizeTriggerWeightForHash(weight) {
     return w.toFixed(3);
 }
 
+function normalizeTriggerWallClipVisibleLimit(value) {
+    const raw = String(value ?? "Auto");
+    return TRIGGER_WALL_CLIP_VISIBLE_LIMIT_ITEMS.includes(raw) ? raw : "Auto";
+}
+
+function getTriggerWallClipVisibleLimit(node) {
+    return normalizeTriggerWallClipVisibleLimit(node?.properties?.triggerWallClipVisibleLimit);
+}
+
+function getTriggerWallNumericClipVisibleLimit(node) {
+    const value = getTriggerWallClipVisibleLimit(node);
+    if (value === "Auto") return null;
+    const parsed = parseInt(value, 10);
+    return Number.isFinite(parsed) ? Math.max(1, parsed) : null;
+}
+
+function getRegionBottom(reg) {
+    if (!reg) return 0;
+    const marginB = Array.isArray(reg.margin) ? (reg.margin.length === 4 ? reg.margin[3] : (reg.margin[1] || 0)) : 0;
+    return (Number(reg.y) || 0) + (Number(reg.h) || 0) + marginB;
+}
+
+function getTriggerWallFooterReserve(regions = {}) {
+    const footer = regions.footerRegion;
+    const systemBtn = regions.systemBtn;
+    const footerMin = Number(footer?.minHeight || 0);
+    const footerGap = Number(regions.footerGap?.h || 0);
+    const systemBtnH = systemBtn ? Math.max(0, getRegionBottom(systemBtn) - (Number(systemBtn.y) || 0)) : 0;
+    const footerBody = Math.max(footerMin, footerGap + systemBtnH, 0);
+    return footerBody + footerGap;
+}
+
+function logTriggerWallClipDebug(node, message) {
+    if (!node) return;
+    const now = performance.now?.() || Date.now();
+    const last = Number(node._twClipDebugLastAt || 0);
+    const sig = String(message || "");
+    if (sig === node._twClipDebugLastSig && now - last < 900) return;
+    if (sig !== node._twClipDebugLastSig || now - last >= 1400) {
+        node._twClipDebugLastSig = sig;
+        node._twClipDebugLastAt = now;
+        console.log(`[TriggerWallClipDebug] ${sig}`);
+    }
+}
+
+function resolveTriggerWallAutoClipHeight(node, region, regions = {}, fullContentHeight = 0) {
+    const nodeH = Number(node?.size?.[1] || node?.properties?.nodeSize?.[1] || 0);
+    const regionY = Number(region?.y) || 0;
+    if (nodeH <= 0 || regionY <= 0) return 0;
+
+    const belowRegions = [regions.regionSelectTriggerGroup, regions.regionOption1, regions.bottomSpacer].filter(Boolean);
+    const firstBelowY = belowRegions.reduce((min, reg) => Math.min(min, Number(reg.y) || min), Infinity);
+    let fixedBelow = 0;
+    if (Number.isFinite(firstBelowY)) {
+        const lastBelowBottom = belowRegions.reduce((max, reg) => Math.max(max, getRegionBottom(reg)), firstBelowY);
+        fixedBelow = Math.max(0, lastBelowBottom - firstBelowY);
+    }
+    const footerReserve = getTriggerWallFooterReserve(regions);
+    const vars = typeof node?.getDerpVars === "function" ? node.getDerpVars(node) : null;
+    const viewportGap = Math.max(0, Number(vars?.mH || 0));
+    const available = nodeH - regionY - viewportGap - fixedBelow - viewportGap - footerReserve;
+    if (!Number.isFinite(available) || available <= 0) return 0;
+    const resolved = fullContentHeight > 0 ? Math.min(available, fullContentHeight) : available;
+    logTriggerWallClipDebug(node, `auto-clip node=${node?.id}:${node?.titleLabel || node?.title || node?.type} nodeH=${nodeH.toFixed(1)} regionY=${regionY.toFixed(1)} gap=${viewportGap.toFixed(1)} fixedBelow=${fixedBelow.toFixed(1)} footer=${footerReserve.toFixed(1)} footerGap=${Number(regions.footerGap?.h || 0).toFixed(1)} available=${available.toFixed(1)} full=${Number(fullContentHeight || 0).toFixed(1)} resolved=${Number(resolved || 0).toFixed(1)} autoH=${node?.properties?.autoHeight !== false} nodeSizeH=${Number(node?.properties?.nodeSize?.[1] || 0).toFixed(1)}`);
+    return resolved;
+}
+
 function resolveTriggerWallGroupsClipHeight(node, region, regions = {}) {
     const groupKeys = Object.keys(regions).filter((key) => key.startsWith("triggerRegion_"));
     if (groupKeys.length > 0) {
-        const visibleKeys = groupKeys.slice(0, TRIGGER_WALL_CLIP_TRIGGER_GROUPS);
+        const numericLimit = getTriggerWallNumericClipVisibleLimit(node);
+        const visibleLimit = numericLimit || 1;
+        const visibleKeys = groupKeys.slice(0, visibleLimit);
         const top = Math.min(...visibleKeys.map((key) => Number(regions[key]?.y) || 0));
-        const bottom = Math.max(...visibleKeys.map((key) => {
-            const reg = regions[key] || {};
-            const marginB = Array.isArray(reg.margin) ? (reg.margin.length === 4 ? reg.margin[3] : (reg.margin[1] || 0)) : 0;
-            return (Number(reg.y) || 0) + (Number(reg.h) || 0) + marginB;
-        }));
-        if (bottom > top) return bottom - top;
+        const bottom = Math.max(...visibleKeys.map((key) => getRegionBottom(regions[key])));
+        if (bottom > top) {
+            const measuredHeight = bottom - top;
+            if (numericLimit !== null) return measuredHeight;
+            const fullBottom = Math.max(...groupKeys.map((key) => getRegionBottom(regions[key])));
+            const fullContentHeight = fullBottom > top ? fullBottom - top : measuredHeight;
+            const autoHeight = resolveTriggerWallAutoClipHeight(node, region, regions, fullContentHeight);
+            if (autoHeight > 0) return Math.max(measuredHeight, autoHeight);
+            return measuredHeight;
+        }
     }
+    return Number(region?.h) || 180;
+}
+
+function resolveTriggerWallGroupsMinClipHeight(node, region, regions = {}) {
+    const firstGroupKey = Object.keys(regions).find((key) => key.startsWith("triggerRegion_"));
+    const firstGroup = firstGroupKey ? regions[firstGroupKey] : null;
+    if (firstGroup) return Math.max(1, getRegionBottom(firstGroup) - (Number(firstGroup.y) || 0));
     return Number(region?.h) || 180;
 }
 
@@ -340,6 +420,7 @@ function buildTriggerWallStructuralHash(node, params) {
         drawHeader,
         settingActive,
         useGroupsViewport,
+        clipVisibleLimit,
     } = params;
 
     const groupsForHash = (node._triggerGroupData || []).filter((g) => !g.hidden);
@@ -374,6 +455,7 @@ function buildTriggerWallStructuralHash(node, params) {
         drawHeader ? 1 : 0,
         settingActive ? 1 : 0,
         useGroupsViewport ? 1 : 0,
+        clipVisibleLimit,
         groupParts,
     ].join("#");
 }
@@ -470,7 +552,9 @@ app.registerExtension({
             const presetItems = this._presetItems || [];
             const presetSortKey = presetItems.join("\u0001");
             const visibleGroupCountForHash = (this._triggerGroupData || []).filter((g) => !g.hidden).length;
-            const useGroupsViewport = visibleGroupCountForHash > TRIGGER_WALL_CLIP_TRIGGER_GROUPS;
+            const clipVisibleLimit = getTriggerWallClipVisibleLimit(this);
+            const numericClipLimit = getTriggerWallNumericClipVisibleLimit(this);
+            const useGroupsViewport = numericClipLimit !== null ? visibleGroupCountForHash > numericClipLimit : visibleGroupCountForHash > 1;
             const currentHash = buildTriggerWallStructuralHash(this, {
                 widthBucket: hashWidthBucket,
                 selectedIdx: selectedIdxForHash,
@@ -483,6 +567,7 @@ app.registerExtension({
                 drawHeader: !!this.properties.drawHeader,
                 settingActive: !!this.properties.settingActive,
                 useGroupsViewport,
+                clipVisibleLimit,
             });
             this._triggerWallVisualHash = currentHash;
 
@@ -824,7 +909,7 @@ app.registerExtension({
 
             layoutMap.groupControlRow1 = {
                 anchor: { target: "contentRegion", axis: "y" },
-                dir: "row", width: "full", height: "auto", margin: [mW, mH, mW, 0],
+                dir: "row", width: "full", height: "auto", margin: [mW, mH, mW, mH],
                 addGroup: {
                     type: this.UI_TYPES.BUTTON, themeKey: "button, t_textsmall", labelAlign: ["center", "middle"],
                     toolTip: tLocale("$derp_trigger_wall.tooltips.new_group", "Adds a new Trigger Group. Remember to save it to a Preset or it will be lost when loading a new workflow!"),
@@ -861,6 +946,7 @@ app.registerExtension({
                 anchor: { target: "groupControlRow1", axis: "y" },
                 scrollViewport: true,
                 clipHeight: resolveTriggerWallGroupsClipHeight,
+                minClipHeight: resolveTriggerWallGroupsMinClipHeight,
                 width: "full", height: "auto", dir: "col", minWidth: 0,
                 margin: [0, 0, sW, 0],
             } : layoutMap;
@@ -914,7 +1000,7 @@ app.registerExtension({
                 .map(g => g.title || tLocale("$derp_trigger_wall.groups.default", "Trigger Group"));
 
             layoutMap.regionSelectTriggerGroup = {
-                anchor: { target: lastRegionKey, axis: "y"},
+                anchor: { target: lastRegionKey, axis: "y", offset: mH },
                 dir: "row", width: "full", height: "auto", margin: [mW, 0, mW, 0],
                 spacing: [sW, 0],
                 dropdownTriggerGroup: {
@@ -1036,6 +1122,30 @@ app.registerExtension({
                     },
                     regionOption1: {
                         dir: "row", width: "full", height: "auto",
+                        lblClipVisibleLimit: {
+                            type: this.UI_TYPES.TEXT, themeKey: "t_textSystem",
+                            text: tLocale("$derp_trigger_wall.system.clip_visible_limit", "Visible before clip:"), width: "auto", padding: [pW, 0],
+                        },
+                        dropdownClipVisibleLimit: {
+                            type: this.UI_TYPES.FILEBROWSER,
+                            icon: "dropdown",
+                            themeKey: "button, t_textSystem",
+                            canvasShield: true, padding: [pW, pH],
+                            width: "auto", height: "fill",
+                            mode: "file",
+                            rootName: "visible-before-clip",
+                            mouseOver: false,
+                            items: TRIGGER_WALL_CLIP_VISIBLE_LIMIT_ITEMS,
+                            value: getTriggerWallClipVisibleLimit(this),
+                            onChange: (v) => {
+                                this.properties.triggerWallClipVisibleLimit = normalizeTriggerWallClipVisibleLimit(v);
+                                this.refreshNodeLayoutMap();
+                                this.refreshDerpTriggerWallSysMap();
+                                if (this.requestDerpSync) this.requestDerpSync();
+                                if (this.setDirtyCanvas) this.setDirtyCanvas(true, true);
+                                if (app.graph && typeof app.graph.change === "function") app.graph.change();
+                            }
+                        },
                         toggleShowWeight: {
                             type: this.UI_TYPES.TOGGLE,
                             textThemeKey: "t_textsystem",

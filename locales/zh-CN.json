@@ -349,6 +349,7 @@
       "name_display": "名称显示：",
       "strength_setting": "强度设置",
       "clip_setting": "CLIP 设置",
+      "clip_visible_limit": "裁剪前显示：",
       "min": "最小：",
       "max": "最大：",
       "step": "步进：",
@@ -391,6 +392,7 @@
     },
     "system": {
       "properties": "老登触发词墙属性：",
+      "clip_visible_limit": "裁剪前显示：",
       "show_weight": "显示触发词权重",
       "add_always": "始终显示添加触发词按钮"
     },

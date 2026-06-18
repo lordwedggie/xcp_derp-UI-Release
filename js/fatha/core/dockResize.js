@@ -370,6 +370,16 @@ export function resolveDerpRuntimeSizeImpl(node, measured, vars = {}) {
     const branchAxis = getDeckPressureBranchAxis(pressureHub, graph, branchSide);
     const axis = branchAxis || (graph && node ? getDockGroupAxisFromMembers(getDeckMembers(node, graph)) : null);
     const resolved = resolveRuntimeDockSize(node, axis, measured, vars);
+    const isTriggerWall = String(node?.type || node?.comfyClass || node?.titleLabel || node?.title || "").toLowerCase().includes("triggerwall") || String(node?.titleLabel || node?.title || "").toLowerCase().includes("trigger wall");
+    if (isTriggerWall) {
+        const now = performance.now?.() || Date.now();
+        const sig = `runtime node=${node?.id}:${node?.titleLabel || node?.title || node?.type} axis=${axis || "none"} autoH=${vars.autoHeight === true} storedH=${Number(node?.properties?.nodeSize?.[1] || 0).toFixed(1)} liveH=${Number(node?.size?.[1] || 0).toFixed(1)} measured=${Number(measured?.contentMinHeight || 0).toFixed(1)}/${Number(measured?.totalHeight || 0).toFixed(1)} floor=${Number(resolved.engineFloorH || 0).toFixed(1)} resolvedH=${Number(resolved.height || 0).toFixed(1)}`;
+        if (sig !== node._twRuntimeDebugLastSig || now - Number(node._twRuntimeDebugLastAt || 0) >= 1200) {
+            node._twRuntimeDebugLastSig = sig;
+            node._twRuntimeDebugLastAt = now;
+            console.log(`[TriggerWallResizeDebug] ${sig}`);
+        }
+    }
     const minExpandedHeight = Number(node?.properties?._minExpandedHeight) || 0;
     if (node?.properties?.contentCollapsed !== true && minExpandedHeight > 0) {
         resolved.height = Math.max(Number(resolved.height) || 0, minExpandedHeight);

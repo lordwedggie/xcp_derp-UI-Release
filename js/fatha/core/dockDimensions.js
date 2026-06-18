@@ -121,7 +121,9 @@ export function resolveRuntimeDockSize(node, axis, measured, vars = {}) {
     const rawH = isMinState
         ? getCollapsedDockHeight(node, snap, { contentMinHeight: contentMinH, totalHeight: totalH })
         : (contentMinH || totalH || 40);
-    const engineFloorH = isMinState ? rawH : snapCeil(rawH, snap);
+    const manualRawH = isMinState ? rawH : (contentMinH || totalH || 40);
+    const autoRawH = isMinState ? rawH : (totalH || contentMinH || 40);
+    const engineFloorH = isMinState ? rawH : snapCeil(autoHeight ? autoRawH : manualRawH, snap);
 
     const storedW = Number(node?.properties?.nodeSize?.[0]) || 0;
     const storedH = Number(node?.properties?.nodeSize?.[1]) || 0;
