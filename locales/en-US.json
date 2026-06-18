@@ -349,6 +349,7 @@
       "name_display": "Name display:",
       "strength_setting": "Strength Setting",
       "clip_setting": "CLIP Setting",
+      "clip_visible_limit": "Visible before clip:",
       "min": "Min:",
       "max": "Max:",
       "step": "Step:",
@@ -391,6 +392,7 @@
     },
     "system": {
       "properties": "Derp Trigger Wall properties:",
+      "clip_visible_limit": "Visible before clip:",
       "show_weight": "Show Trigger Weight",
       "add_always": "Add trigger button always visible"
     },

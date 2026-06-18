@@ -47,7 +47,7 @@ HTTP route wiring for the entire backend API. Uses `safe_post()` / `safe_get()` 
 | File | Routes |
 |------|--------|
 | `xcp_file_asset_routes.py` | Bundled asset serving |
-| `xcp_file_image_routes.py` | Image serving/upload |
+| `xcp_file_image_routes.py` | Image serving/upload, including ImageDeck save/export |
 | `xcp_file_json_routes.py` | JSON data endpoints |
 | `xcp_file_markdown_routes.py` | Markdown note list/load plus restricted local media serving |
 | `xcp_file_prompt_book_routes.py` | Prompt book CRUD |
@@ -99,6 +99,12 @@ Syncs default assets from extension's `user/derpNodes/` to ComfyUI's user direct
 - `/xcp/load_markdown` returns UTF-8 Markdown content plus its root-relative path so frontend widgets can resolve adjacent media.
 - `/xcp/markdown_media` serves whitelisted Markdown-adjacent media files directly with their guessed MIME type and no attachment/download header, allowing native browser playback for local video embeds.
 - Markdown media resolution must reject traversal and unsupported extensions; it is not a general filesystem route.
+
+## ImageDeck Save Route (`xcp_file_image_routes.py`)
+- POST `/xcp/derp_image_deck/save_current_image` saves the currently selected ImageDeck image into the output directory or a chosen output subfolder.
+- `PNG` saves now embed the current Comfy prompt/workflow metadata when the frontend sends `prompt` and `extra_pnginfo.workflow`.
+- Plain `PNG` saves without metadata payload still use file copy behavior.
+- `JPEG` and `WEBP` saves re-encode the source image and do not carry PNG metadata.
 
 ## Version Check (`xcp_version_check.py`)
 - GET `/xcp/check_version` compares the local `pyproject.toml` version with the release repo `pyproject.toml`.

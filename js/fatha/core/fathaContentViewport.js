@@ -169,6 +169,7 @@ export function applyContentViewportLayout(node, regions, layout, options = {}) 
     if (!node || !regions) return false;
     const publishState = options.publishState !== false;
     const viewportHeightDeltas = [];
+    const viewportMinHeightDeltas = [];
     const nextState = {};
     let hasOverflow = false;
     let hasViewport = false;
@@ -180,6 +181,7 @@ export function applyContentViewportLayout(node, regions, layout, options = {}) 
         const clipHeight = numberOr(typeof region.clipHeight === "function" ? region.clipHeight(node, region, regions) : region.clipHeight, 0);
         if (!(clipHeight > 0)) continue;
 
+        const rawMinClipHeight = numberOr(typeof region.minClipHeight === "function" ? region.minClipHeight(node, region, regions) : region.minClipHeight, 0);
         const descendants = Object.values(regions).filter((candidate) => candidate && candidate.key !== key && !candidate.ignoreLayout && isDescendantOf(candidate, key, regions));
         const contentBottom = descendants.length
             ? Math.max(...descendants.map((child) => {
@@ -189,6 +191,7 @@ export function applyContentViewportLayout(node, regions, layout, options = {}) 
             : numberOr(region.h);
         const fullHeight = Math.max(numberOr(region.h), contentBottom);
         const visibleHeight = Math.min(fullHeight, clipHeight);
+        const minVisibleHeight = rawMinClipHeight > 0 ? Math.min(visibleHeight, rawMinClipHeight) : visibleHeight;
         const overflow = fullHeight > visibleHeight + 0.5;
         const gutter = overflow ? FATHA_CONTENT_SCROLLBAR_WIDTH : 0;
         const visibleWidth = Math.max(1, numberOr(region.w) - gutter);
@@ -204,6 +207,8 @@ export function applyContentViewportLayout(node, regions, layout, options = {}) 
         const heightDelta = numberOr(region.h) - visibleHeight;
         region.h = visibleHeight;
         if (heightDelta > 0.5) viewportHeightDeltas.push({ key, region, delta: heightDelta });
+        const minHeightDelta = visibleHeight - minVisibleHeight;
+        if (minHeightDelta > 0.5) viewportMinHeightDeltas.push(minHeightDelta);
 
         const scrollTop = Math.max(0, Math.min(getContentViewportScroll(node, key), Math.max(0, fullHeight - visibleHeight)));
         nextState[key] = {
@@ -211,6 +216,7 @@ export function applyContentViewportLayout(node, regions, layout, options = {}) 
             rect: { x: numberOr(region.x), y: numberOr(region.y), w: visibleWidth, h: visibleHeight },
             fullHeight,
             clipHeight: visibleHeight,
+            minClipHeight: minVisibleHeight,
             maxScroll: Math.max(0, fullHeight - visibleHeight),
             scrollTop,
             hasOverflow: overflow,
@@ -221,7 +227,7 @@ export function applyContentViewportLayout(node, regions, layout, options = {}) 
     for (const { key, region, delta } of viewportHeightDeltas) {
         for (const candidate of Object.values(regions)) {
             if (!candidate || candidate.key === key || candidate.parentKey !== region.parentKey) continue;
-            if (numberOr(candidate.y) > numberOr(region.y) + numberOr(region.h) + 0.5) shiftRegionSubtree(regions, candidate.key, -delta);
+            if (numberOr(candidate.y) >= numberOr(region.y) + numberOr(region.h) - 0.5) shiftRegionSubtree(regions, candidate.key, -delta);
         }
         compactViewportAncestors(regions, region.parentKey, delta);
     }
@@ -241,7 +247,7 @@ export function applyContentViewportLayout(node, regions, layout, options = {}) 
     staleKeys.forEach((key) => { delete node._contentViewportScroll[key]; });
 
     if (layout) layout.contentViewportGutter = 0;
-    if (hasOverflow && layout) {
+    if ((hasOverflow || viewportMinHeightDeltas.length > 0) && layout) {
         const rootRegions = Object.entries(regions)
             .filter(([k, r]) => !r.isChild && k !== "panelBackground" && !r.ignoreLayout)
             .map(([, r]) => r);
@@ -250,7 +256,8 @@ export function applyContentViewportLayout(node, regions, layout, options = {}) 
             : 40;
         const nextHeight = Math.max(1, bottomPoint - numberOr(regions.panelBackground?.y));
         layout.totalHeight = nextHeight;
-        layout.contentMinHeight = nextHeight;
+        const minDelta = viewportMinHeightDeltas.reduce((sum, delta) => sum + delta, 0);
+        layout.contentMinHeight = Math.max(1, nextHeight - minDelta);
         if (regions.panelBackground) regions.panelBackground.h = nextHeight;
         layout.contentViewportGutter = maxGutter;
         node._contentViewportGutter = maxGutter;
@@ -270,6 +277,7 @@ export function getContentViewportSignature(node) {
         Math.round(numberOr(state.clipHeight)),
         Math.round(numberOr(state.scrollTop)),
         state.hasOverflow ? 1 : 0,
+        Math.round(numberOr(state.minClipHeight)),
     ].join(":")) .join("|");
 }
 

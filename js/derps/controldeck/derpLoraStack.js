@@ -21,8 +21,7 @@ import {
 } from "./helpers/loraComponents.js";
 import { getPreviewImageUrl } from "./helpers/loraImages.js";
 
-const LORA_STACK_DEFAULT_VISIBLE_ENTRIES = 2;
-const LORA_STACK_CLIP_TRIGGER_ENTRIES = 2;
+const LORA_STACK_CLIP_VISIBLE_LIMIT_ITEMS = ["Auto", "1", "2", "3", "4", "5"];
 
 function tLocale(key, fallback = key) {
     if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
@@ -51,6 +50,11 @@ function flushLoraStackSysSettings(node) {
     if (!sysState || sysState.hostNode !== node) return;
 
     const dynamicElements = sysState.dynamicElements || {};
+    const clipLimitEl = dynamicElements.dropdownClipVisibleLimit;
+    if (clipLimitEl?.value !== undefined) {
+        node.properties.loraStackClipVisibleLimit = normalizeLoraStackClipVisibleLimit(clipLimitEl.value);
+    }
+
     const numericFields = [
         ["editorMin", "sliderMin"],
         ["editorMax", "sliderMax"],
@@ -72,6 +76,53 @@ function flushLoraStackSysSettings(node) {
     });
 }
 
+function normalizeLoraStackClipVisibleLimit(value) {
+    const raw = String(value ?? "Auto");
+    return LORA_STACK_CLIP_VISIBLE_LIMIT_ITEMS.includes(raw) ? raw : "Auto";
+}
+
+function getLoraStackClipVisibleLimit(node) {
+    return normalizeLoraStackClipVisibleLimit(node?.properties?.loraStackClipVisibleLimit);
+}
+
+function getLoraStackNumericClipVisibleLimit(node) {
+    const value = getLoraStackClipVisibleLimit(node);
+    if (value === "Auto") return null;
+    const parsed = parseInt(value, 10);
+    return Number.isFinite(parsed) ? Math.max(1, parsed) : null;
+}
+
+function getRegionBottom(reg) {
+    if (!reg) return 0;
+    const marginB = Array.isArray(reg.margin) ? (reg.margin.length === 4 ? reg.margin[3] : (reg.margin[1] || 0)) : 0;
+    return (Number(reg.y) || 0) + (Number(reg.h) || 0) + marginB;
+}
+
+function getLoraStackFooterReserve(regions = {}) {
+    const footer = regions.footerRegion;
+    const systemBtn = regions.systemBtn;
+    const footerMin = Number(footer?.minHeight || 0);
+    const footerGap = Number(regions.footerGap?.h || 0);
+    const systemBtnH = systemBtn ? Math.max(0, getRegionBottom(systemBtn) - (Number(systemBtn.y) || 0)) : 0;
+    const footerBody = Math.max(footerMin, footerGap + systemBtnH, 0);
+    return footerBody + footerGap;
+}
+
+function resolveLoraStackAutoClipHeight(node, region, regions = {}, fullContentHeight = 0) {
+    const nodeH = Number(node?.size?.[1] || node?.properties?.nodeSize?.[1] || 0);
+    const regionY = Number(region?.y) || 0;
+    if (nodeH <= 0 || regionY <= 0) return 0;
+
+    const footer = regions.footerControls || regions.regionWarning;
+    const footerH = footer ? Math.max(0, getRegionBottom(footer) - (Number(footer.y) || 0)) : 0;
+    const vars = typeof node?.getDerpVars === "function" ? node.getDerpVars(node) : null;
+    const viewportGap = Math.max(0, Number(vars?.mH || 0));
+    const fathaFooterH = getLoraStackFooterReserve(regions);
+    const available = nodeH - regionY - viewportGap - footerH - viewportGap - fathaFooterH;
+    if (!Number.isFinite(available) || available <= 0) return 0;
+    return fullContentHeight > 0 ? Math.min(available, fullContentHeight) : available;
+}
+
 function resolveLoraStackClipHeight(node, region, regions = {}) {
     const explicitHeight = Number(node?.properties?.contentClipHeight ?? node?.properties?.loraStackClipHeight);
     if (Number.isFinite(explicitHeight) && explicitHeight > 0) return explicitHeight;
@@ -79,16 +130,34 @@ function resolveLoraStackClipHeight(node, region, regions = {}) {
     const rows = Array.isArray(node?.properties?.stackData) ? node.properties.stackData.length : 0;
     if (rows <= 0) return 0;
 
-    const visibleRows = Math.max(1, Math.min(rows, Number(node?.properties?.loraStackVisibleEntries) || LORA_STACK_DEFAULT_VISIBLE_ENTRIES));
+    const numericLimit = getLoraStackNumericClipVisibleLimit(node);
+    const autoMinimumRows = 1;
+    const visibleRows = Math.max(1, Math.min(rows, numericLimit || autoMinimumRows));
     const firstRow = regions.loraRow_0;
     const lastRow = regions[`loraRow_${visibleRows - 1}`];
     if (firstRow && lastRow) {
-        const marginB = Array.isArray(lastRow.margin) ? (lastRow.margin.length === 4 ? lastRow.margin[3] : (lastRow.margin[1] || 0)) : 0;
         const top = Number(firstRow.y) || 0;
-        const bottom = (Number(lastRow.y) || 0) + (Number(lastRow.h) || 0) + marginB;
-        if (bottom > top) return bottom - top;
+        const bottom = getRegionBottom(lastRow);
+        if (bottom > top) {
+            const measuredHeight = bottom - top;
+            if (numericLimit !== null) return measuredHeight;
+            const fullLastRow = regions[`loraRow_${rows - 1}`] || lastRow;
+            const fullBottom = getRegionBottom(fullLastRow);
+            const fullContentHeight = fullBottom > top ? fullBottom - top : measuredHeight;
+            const autoHeight = resolveLoraStackAutoClipHeight(node, region, regions, fullContentHeight);
+            if (autoHeight > 0) return Math.max(measuredHeight, autoHeight);
+            return measuredHeight;
+        }
     }
 
+    return Number(region?.h) || 180;
+}
+
+function resolveLoraStackMinClipHeight(node, region, regions = {}) {
+    const rows = Array.isArray(node?.properties?.stackData) ? node.properties.stackData.length : 0;
+    if (rows <= 0) return 0;
+    const firstRow = regions.loraRow_0;
+    if (firstRow) return Math.max(1, getRegionBottom(firstRow) - (Number(firstRow.y) || 0));
     return Number(region?.h) || 180;
 }
 
@@ -216,8 +285,10 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                     const signalSelectionHash = `${modelSignalId || ""}_${clipSignalId || ""}`;
 
                     const dragIdxHash = (this._dragTrig) ? `drag_${this._dragTrig.index}_${this._dragThresholdMet}_${this._dropPreviewIdx}` : "no-drag";
-                    const useEntryViewport = this.properties.loraStackClipEntries === true || stack.length > LORA_STACK_CLIP_TRIGGER_ENTRIES;
-                    const structureHash = `${stack.length}_${stack.map(l => `${l[0]}_${l[5]}`).join('|')}_${trigHash}_${this.properties.nameDisplay}_${this.properties.showCLIP}_${this.properties.attentionMode}_${this.properties.toggleLR}_${signalSelectionHash}_${window._xcpDerpSession}_${activeSlot}_${mW}_${mH}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}_${dragIdxHash}_${useEntryViewport ? 1 : 0}`;
+                    const clipVisibleLimit = getLoraStackClipVisibleLimit(this);
+                    const numericClipLimit = getLoraStackNumericClipVisibleLimit(this);
+                    const useEntryViewport = this.properties.loraStackClipEntries === true || (numericClipLimit !== null ? stack.length > numericClipLimit : stack.length > 1);
+                    const structureHash = `${stack.length}_${stack.map(l => `${l[0]}_${l[5]}`).join('|')}_${trigHash}_${this.properties.nameDisplay}_${this.properties.showCLIP}_${this.properties.attentionMode}_${this.properties.toggleLR}_${signalSelectionHash}_${window._xcpDerpSession}_${activeSlot}_${mW}_${mH}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}_${(this.size?.[1] || 0).toFixed(2)}_${dragIdxHash}_${useEntryViewport ? 1 : 0}_${clipVisibleLimit}`;
 
                     // ZERO-INFERENCE VALUE GATE: Block redundant property hydration on idle nodes
                     // Hover already has a dedicated visual invalidation path in Fatha.
@@ -755,6 +826,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                             loraEntriesRegion: {
                                 scrollViewport: useEntryViewport,
                                 clipHeight: resolveLoraStackClipHeight,
+                                minClipHeight: resolveLoraStackMinClipHeight,
                                 width: "full", height: "auto", dir: "col",
                                 margin: [0, 0, 0, 0],
                                 ...stackRows,
@@ -889,7 +961,29 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                             anchor: { target: "sysDefaultControlsRegion", axis: "y", }, margin: [mW, mH],
                             width: "full", height: "auto",
                             sysRow_1: {
-                                dir: "row", width: "full", height: "auto", margin: [mW, mH],                                
+                                dir: "row", width: "full", height: "auto", margin: [mW, mH],
+                                lblClipVisibleLimit: {
+                                    type: this.UI_TYPES.TEXT, themeKey: "t_textSystem",
+                                    text: tLocale("$derp_lora_stack.system.clip_visible_limit", "Visible before clip:"), width: "auto", padding: [pW, 0], spacing: [sW, 0],
+                                },
+                                dropdownClipVisibleLimit: {
+                                    type: this.UI_TYPES.FILEBROWSER,
+                                    icon: "dropdown",
+                                    themeKey: "button, t_textSystem",
+                                    canvasShield: true, padding: [pW, pH],
+                                    width: "auto", height: "auto",
+                                    mode: "file",
+                                    rootName: "visible-before-clip",
+                                    mouseOver: false,
+                                    items: LORA_STACK_CLIP_VISIBLE_LIMIT_ITEMS,
+                                    value: getLoraStackClipVisibleLimit(this),
+                                    onChange: (v) => {
+                                        this.properties.loraStackClipVisibleLimit = normalizeLoraStackClipVisibleLimit(v);
+                                        this.refreshNodeLayoutMap();
+                                        this.refreshDerpLoraStackSysMap();
+                                        persistLoraStackSettings(this);
+                                    }
+                                },
                                 btnToggleMode: {
                                     type: this.UI_TYPES.BUTTON, themeKey: "button, t_textSystem",
                                     text: `${tLocale("$derp_lora_stack.system.mode", "Mode")}: ${this.properties.attentionMode || "Cross-Attention"}`,

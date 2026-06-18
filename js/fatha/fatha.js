@@ -18,7 +18,7 @@ import { initPerfOverlay, togglePerfOverlay } from "./helpers/fathaPerfOverlay.j
 import { promoteMasterZ, syncMasterZ } from "./core/masterZ.js";
 import { isComfyVueNodesMode, scheduleNativeVueNodeShellSuppression, shouldMutateLegacySelectionForDraw, suppressNativeVueNodeShell } from "./core/fathaNode2Compat.js";
 import { drawContentViewportScrollbars, getContentViewportGeometry, withContentViewportClip } from "./core/fathaContentViewportDraw.js";
-import { getContentViewportSignature, hasContentViewportOverflow } from "./core/fathaContentViewport.js";
+import { getContentViewportSignature } from "./core/fathaContentViewport.js";
 
 const FATHA_OVERLAY_WINDOW_MS = 4000;
 const FATHA_VIEWPORT_CULL_MARGIN_PX = 160;
@@ -838,12 +838,11 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
         const isMinState = this.properties.contentCollapsed;
 
         const preserveHorizontalDeckHeight = shouldPreserveHorizontalDeckHeight(this);
-        const viewportOverflow = hasContentViewportOverflow(this);
         const resolvedSize = resolveDerpRuntimeSize(this, {
             contentMinWidth: this.layout?.contentMinWidth || 0,
             contentMinHeight: this.layout?.contentMinHeight || 0,
             totalHeight: this.layout?.totalHeight || 0,
-        }, { SNAP, autoWidth, autoHeight: autoHeight || viewportOverflow });
+        }, { SNAP, autoWidth, autoHeight });
         const targetW = resolvedSize.width;
         const targetH = resolvedSize.height;
 
@@ -885,7 +884,7 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
         if (this.properties.nodeSize && !isMinState) {
             if (lockedDeckPressureSideW > 0) this.properties.nodeSize[0] = lockedDeckPressureSideW;
             else if (autoWidth && !shouldPreserveVerticalDeckWidth(this) && !lockHorizontalDeckResize) this.properties.nodeSize[0] = targetW;
-            if (autoHeight || viewportOverflow) this.properties.nodeSize[1] = preserveHorizontalDeckHeight
+            if (autoHeight) this.properties.nodeSize[1] = preserveHorizontalDeckHeight
                 ? (Number(this.size?.[1]) || targetH)
                 : targetH;
         }

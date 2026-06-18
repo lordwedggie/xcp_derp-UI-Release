@@ -22,6 +22,19 @@ function tLocale(key, fallback = key) {
     return target;
 }
 
+function logTriggerWallResizeDebug(node, message) {
+    if (!node) return;
+    const now = performance.now?.() || Date.now();
+    const sig = String(message || "");
+    const lastAt = Number(node._twResizeDebugLastAt || 0);
+    if (sig === node._twResizeDebugLastSig && now - lastAt < 900) return;
+    if (sig !== node._twResizeDebugLastSig || now - lastAt >= 1200) {
+        node._twResizeDebugLastSig = sig;
+        node._twResizeDebugLastAt = now;
+        console.log(`[TriggerWallResizeDebug] ${sig}`);
+    }
+}
+
 function syncDerpTriggerWallLocaleLabels(node) {
     if (!node?.properties) return;
     const localizedTitle = tLocale("$derp_trigger_wall.title", "Derp Trigger Wall");
@@ -1041,6 +1054,11 @@ export function triggerWall_onResize(node, size) {
     const minW = node.properties.minWidth || 200;
     const safeW = Math.max(minW, size[0] || minW);
     const safeH = Math.max(50, size[1] || 150);
+    const prevH = Number(node.size?.[1] || 0);
+    const propH = Number(node.properties?.nodeSize?.[1] || 0);
+    const layoutH = Number(node.layout?.totalHeight || 0);
+    const contentH = Number(node.layout?.contentMinHeight || 0);
+    logTriggerWallResizeDebug(node, `onResize node=${node.id}:${node.titleLabel || node.title || node.type} requested=${Number(size?.[0] || 0).toFixed(1)}x${Number(size?.[1] || 0).toFixed(1)} safe=${safeW.toFixed(1)}x${safeH.toFixed(1)} prevH=${prevH.toFixed(1)} propH=${propH.toFixed(1)} layoutH=${layoutH.toFixed(1)} contentH=${contentH.toFixed(1)} autoH=${node.properties?.autoHeight !== false}`);
     node.size = [safeW, safeH];
     node.properties.nodeSize = [safeW, safeH];
     node._layoutMapHash = null;
