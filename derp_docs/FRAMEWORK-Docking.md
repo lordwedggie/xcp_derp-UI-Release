@@ -127,6 +127,9 @@ When ComfyUI Node 2.0/Vue mode moves a default group containing docked Derp stac
 
 ### Deck Pressure Hub
 - V1 is limited to `derpImageDeck` nodes (`_isDerpImageDeckNode` / `xcpDerpImageDeck`).
+- Deck Pressure geometry is owned by the canonical plan from `computeDeckPressureGeometryPlan()` in `masterDockEngine.js`: one frame, one hub rect, four branch bands, and member rects solved inside those bands. Layout, side-seam resizing, outer-frame corner bounds, and seam ghosts should read from that plan rather than re-deriving bounds from live child extents.
+- Child node extents must not silently redefine the Deck frame during resize. Side seams adjust only the side branch / hub split inside the preserved frame; outer Deck width and height should change only through explicit outer-frame resize handles.
+- If side-seam min constraints cannot fit inside the preserved frame, the seam clamps inside that frame; layout must not repair the impossible split by growing the outer Deck frame.
 - Alt-drag a node or existing docked stack near an ImageDeck edge to attach it as a Deck Pressure branch.
 - A hub can own one linear branch per edge: `left`, `right`, `top`, and `bottom`.
 - Branches remain normal graph-space docked nodes; there is no nested container, viewport, clipping, or custom serialization.
