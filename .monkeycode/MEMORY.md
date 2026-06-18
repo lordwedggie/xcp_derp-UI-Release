@@ -61,3 +61,11 @@ Agent 在任务执行过程中发现的条目应遵循以下格式：
   - Many related theme or palette entries should share similar saturation and lightness or value, with hue carrying most of the variation.
   - Warm hues from violet-purple through orange-yellow often need extra brightness or value and sometimes extra saturation so they do not look muddy compared with cooler hues.
   - For theme or palette work, establish the high-level goal before editing: whether it is Light, Neutral, or Dark, and whether it should feel clean, nearly monochromatic, or very vibrant. If that brief is missing, ask first.
+
+[derp_docs color format]
+- Date: 2026-06-18
+- Context: User requested consistent formatting for palette framework docs and future docs skill output
+- Instructions:
+  - In `derp_docs`, use the same inline color formatting style established by the ControlDeck node docs.
+  - For framework usage reports, move the concrete files currently used by the live runtime to the top of the document.
+  - Keep the document structure consistent by using colored title spans, teal major section headers, blue lead labels, and orange notes.

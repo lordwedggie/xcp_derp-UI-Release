@@ -116,15 +116,10 @@ app.registerExtension({
                 const pReg = this.layoutMap.pageRegion;
                 if (pReg && pReg.dropdownPages) {
                     pReg.dropdownPages.value = String(safeIndex);
-                    pReg.dropdownPages.items = book.map((page, idx) => ({
-                        value: String(idx),
-                        display: getPageLabel(this, idx, page.title)
-                    }));
                 }
 
                 const bReg = this.layoutMap.bookRegion;
                 if (bReg && bReg.dropdownBooks) {
-                    bReg.dropdownBooks.items = this._availableBooks || [];
                     bReg.dropdownBooks.value = this.properties.bookName || tLocale("$derp_prompt_book.book.untitled_name", "Untitled Book");
                 }
 
@@ -177,7 +172,9 @@ app.registerExtension({
                         dropdownBooks: {
                             type: this.UI_TYPES.FILEBROWSER, canvasShield: true, skipBackground: true, themeKey: "panel, t_textNormal",
                             indicator: "on", mouseOver: false, searchTab: true,
-                            items: this._availableBooks || [], value: this.properties.bookName || tLocale("$derp_prompt_book.book.untitled_name", "Untitled Book"),
+                            items: (this._availableBooks || []).map(name => ({ value: name, _triggerDisplay: `{{t_text_accent::${name}}}` })),
+                            triggerIconColorKey: "t_text_warning",
+                            value: this.properties.bookName || tLocale("$derp_prompt_book.book.untitled_name", "Untitled Book"),
                             mode: "file", fileType: "promptBook", displayText: tLocale("$derp_prompt_book.browser.select", "Select Book..."),
                             minWidth: 200, width: "full", height: "auto", padding: [pW, pH], spacing: [sW, 0],
                             onChange: (val) => handleBookChange(this, val)
@@ -266,8 +263,10 @@ app.registerExtension({
                         canvasShield: true, themeKey: "panel, t_textNormal",
                         items: book.map((page, idx) => ({
                             value: String(idx),
-                            display: getPageLabel(this, idx, page.title)
+                            display: getPageLabel(this, idx, page.title),
+                            _triggerDisplay: `{{t_text_highlight::${getPageLabel(this, idx, page.title)}}}`
                         })),
+                        triggerIconColorKey: "t_text_warning",
                         mouseOver: false,
                         width: "full", height: "auto", padding: [pW, pH], spacing: [sW, 0],
                         mode: "file",
