@@ -1,9 +1,9 @@
 ---
 name: docs-md
-description: Maintain and repair README.md and CHANGELOG.md files. Clean control characters, sync authoritative copies between derp_docs/ and root, fix broken arrows and paths. Use when the user mentions corrupted docs, broken CHANGELOG characters, FF/BS diamonds, or syncing docs for publishing.
+description: Maintain and repair README.md, CHANGELOG.md, and derp_docs markdown display formatting. Clean control characters, sync authoritative copies between derp_docs/ and root, fix broken arrows and paths, and preserve the ControlDeck-style colored document format. Use when the user mentions corrupted docs, broken CHANGELOG characters, FF/BS diamonds, syncing docs for publishing, or wants derp_docs markdown reformatted.
 ---
 
-# Docs MD — README & CHANGELOG Maintenance
+# Docs MD — derp_docs Display Maintenance
 
 ## Authoritative Source
 
@@ -28,6 +28,25 @@ Use byte-level replacement — PowerShell `[IO.File]::ReadAllBytes` / `WriteAllB
 - No double blank lines within sections.
 - Arrows use `→` (U+2192), not `->`, `→`, or `?`.
 - Paths: `fatha` and `basta` should render correctly — verify after any file move or encoding change.
+
+## derp_docs Display Style
+
+Use the same inline HTML color style already established in the ControlDeck node docs. Stay with inline `<span style="color: ...">` formatting, not CSS blocks.
+
+- Document titles should use the two-tone pattern when it fits the document name: `# <span style="color: #ff8080">Primary</span> <span style="color: #ffffff">Rest</span>`
+- Major sections should use teal H3 headings: `### <span style="color: #80ffc0">Section</span>`
+- Important lead labels should use blue bold inline labels: `<span style="color: #80aaff"><strong>Label</strong></span>: text`
+- Notes should use orange inline labels: `<span style="color: #ffc680"><strong>Note:</strong></span> text`
+- Warnings should use orange or red inline emphasis depending on severity.
+- Keep the same restrained humorous tone used by the node docs.
+
+## Framework Usage Report Priority
+
+For `derp_docs/_development/` usage reports and framework analysis docs:
+
+- put the concrete files currently used by the live runtime at the top of the document
+- list actual active palette/theme/assets before broad inventories, legacy files, or speculative cleanup notes
+- call out hard-coded mismatches or naming relics near the top when they affect current behavior
 
 ## CHANGELOG Section Colors
 
