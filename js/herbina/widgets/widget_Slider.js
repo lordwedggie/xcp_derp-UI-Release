@@ -90,6 +90,7 @@ var BTN_LR_RATIO = 0.75;
 var BTN_LR_FONTSIZE = 6;
 var BTN_LR_MARGIN = 0;
 var BTN_LR_HEIGHTOFFSET = 1;
+var BTN_LR_CORNER_GUARD_RATIO = 4;
 var FILLBAR_KNOBOFFSET = 1;
 var FILLBAR_MARGIN = 0;
 var ROUND_KNOB = true;
@@ -143,6 +144,52 @@ window.interruptDerpSliderLerp = function(node, reg, config, localX, fallbackKey
     return true;
 };
 
+function normalizeSliderCorners(corners) {
+    if (typeof corners === "number") {
+        const value = Number(corners) || 0;
+        return [value, value, value, value];
+    }
+    if (!Array.isArray(corners) || corners.length === 0) return null;
+    const values = corners.map((value) => Number(value) || 0);
+    if (values.length === 1) return [values[0], values[0], values[0], values[0]];
+    if (values.length === 2) return [values[0], values[1], values[0], values[1]];
+    if (values.length === 3) return [values[0], values[1], values[2], values[1]];
+    return [values[0], values[1], values[2], values[3]];
+}
+
+function clampSliderCornerMagnitude(corners, maxMagnitude) {
+    const normalized = normalizeSliderCorners(corners);
+    if (!normalized) return corners;
+    const safeMagnitude = Math.max(0, Number(maxMagnitude) || 0);
+    return normalized.map((value) => {
+        const sign = value < 0 ? -1 : 1;
+        return Math.min(Math.abs(value), safeMagnitude) * sign;
+    });
+}
+
+function guardSliderCorners(corners, width, height) {
+    const normalized = normalizeSliderCorners(corners);
+    if (!normalized) return corners;
+    const safeWidth = Math.max(0, Number(width) || 0);
+    const safeHeight = Math.max(0, Number(height) || 0);
+    const guarded = [...normalized];
+    let guardPasses = 0;
+    while (guardPasses < 128) {
+        const horizontalCorner = Math.max(Math.abs(guarded[0]), Math.abs(guarded[1]));
+        const verticalCorner = Math.max(Math.abs(guarded[0]), Math.abs(guarded[3]));
+        const horizontalOk = safeWidth >= (horizontalCorner * BTN_LR_CORNER_GUARD_RATIO);
+        const verticalOk = safeHeight >= (verticalCorner * BTN_LR_CORNER_GUARD_RATIO);
+        if ((horizontalOk && verticalOk) || guarded.every((value) => Math.abs(value) <= 0)) break;
+        for (let i = 0; i < guarded.length; i += 1) {
+            const value = guarded[i];
+            if (value > 0) guarded[i] = Math.max(0, value - 1);
+            else if (value < 0) guarded[i] = Math.min(0, value + 1);
+            else guarded[i] = 0;
+        }
+        guardPasses += 1;
+    }
+    return guarded;
+}
 /**
  * Default properties for the Slider widget.
  */
@@ -382,15 +429,7 @@ export function syncDerpSliderCanvas(ctx, node, config) {
         fill: iconColor
     };
 
-    // 1. Draw Background (Animated)
-    if (sliderBackgroundData) {
-        masterPainter(ctx, {
-            posX: x, posY: y, width: w, height: h,
-            paintData: sliderBackgroundData, color: fillColor
-        });
-    }
-
-    // 2. Draw Progress Bar (The Fill)
+    // 1. Compute geometry, then draw the track background and fill.
     const value = parseFloat(config.value) || 0;
     const min = config.min ?? 0;
     const max = config.max ?? 1;
@@ -485,6 +524,19 @@ export function syncDerpSliderCanvas(ctx, node, config) {
     const trackStart = config.btnLR ? leftBtnRight + 1 : x + ins[3];
     const trackEnd   = config.btnLR ? rightBtnLeft - 1 : x + w - ins[1];
     const trackW = Math.max(0, trackEnd - trackStart);
+
+    if (sliderBackgroundData) {
+        const backgroundX = config.btnLR ? leftBtnRight : x;
+        const backgroundW = config.btnLR ? Math.max(0, rightBtnLeft - leftBtnRight) : w;
+        const backgroundPaint = config.btnLR
+            ? { ...sliderBackgroundData, corners: [0, 0, 0, 0] }
+            : sliderBackgroundData;
+        masterPainter(ctx, {
+            posX: backgroundX, posY: y, width: backgroundW, height: h,
+            paintData: backgroundPaint, color: fillColor
+        });
+    }
+
     const knobTravelW = Math.max(0, trackW - knobStyleW);
     const knobX = trackStart + knobTravelW * Math.max(0, percent);
     const fillStartX = trackStart;
@@ -503,7 +555,8 @@ export function syncDerpSliderCanvas(ctx, node, config) {
             ? [themeCorners[0] || 0, 0, 0, themeCorners[3] || 0]
             : [themeCorners || 0, 0, 0, themeCorners || 0];
         const maxFillCorner = fillbarDrawH / 2;
-        const fillCorners = rawFillCorners.map((corner) => Math.min(Math.max(0, Number(corner) || 0), maxFillCorner));
+        const clampedFillCorners = clampSliderCornerMagnitude(rawFillCorners, maxFillCorner);
+        const fillCorners = guardSliderCorners(clampedFillCorners, fillbarDrawW, fillbarDrawH);
         masterPainter(ctx, {
             posX: fillbarDrawX,
             posY: fillbarDrawY,
@@ -552,7 +605,8 @@ export function syncDerpSliderCanvas(ctx, node, config) {
         // Left button (-): flat right corners, _OFF at min
         {
             const src = leftBtnData?.corners;
-            const corners = Array.isArray(src) ? [src[0] || 0, 1, 1, src[3] || 0] : [src || 0, 0, 0, src || 0];
+            const rawCorners = Array.isArray(src) ? [src[0] || 0, 1, 1, src[3] || 0] : [src || 0, 0, 0, src || 0];
+            const corners = guardSliderCorners(rawCorners, btnW, btnH);
             masterPainter(ctx, {
                 posX: x + btnMargin, posY: btnY,
                 width: btnW, height: btnH,
@@ -569,7 +623,8 @@ export function syncDerpSliderCanvas(ctx, node, config) {
         // Right button (+): flat left corners, _OFF at max
         {
             const src = rightBtnData?.corners;
-            const corners = Array.isArray(src) ? [1, src[1] || 0, src[2] || 0, 1] : [0, src || 0, src || 0, 0];
+            const rawCorners = Array.isArray(src) ? [1, src[1] || 0, src[2] || 0, 1] : [0, src || 0, src || 0, 0];
+            const corners = guardSliderCorners(rawCorners, btnW, btnH);
             masterPainter(ctx, {
                 posX: x + w - btnW - btnMargin, posY: btnY,
                 width: btnW, height: btnH,
