@@ -232,6 +232,8 @@ app.registerExtension({
             this.layoutMap = {
                 sysContentRegion: {
                     anchor: { target: "headerRegion", axis: "y", offset: mH },
+                    scrollViewport: true,
+                    clipHeight: this.properties.contentClipHeight || this.properties.loaderClipHeight || 180,
                     width: "full", height: "auto", dir: "col",
                     margin: [mW, mH, mW, mH],
                     regionDiffusionDeck: {

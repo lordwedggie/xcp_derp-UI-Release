@@ -21,6 +21,8 @@ import {
 } from "./helpers/loraComponents.js";
 import { getPreviewImageUrl } from "./helpers/loraImages.js";
 
+const LORA_STACK_DEFAULT_VISIBLE_ENTRIES = 2;
+
 function tLocale(key, fallback = key) {
     if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
     const path = key.substring(1).split(".");
@@ -69,6 +71,43 @@ function flushLoraStackSysSettings(node) {
     });
 }
 
+function resolveLoraStackClipHeight(node, region, regions = {}) {
+    const explicitHeight = Number(node?.properties?.contentClipHeight ?? node?.properties?.loraStackClipHeight);
+    if (Number.isFinite(explicitHeight) && explicitHeight > 0) return explicitHeight;
+
+    const rows = Array.isArray(node?.properties?.stackData) ? node.properties.stackData.length : 0;
+    if (rows <= 0) return 0;
+
+    const visibleRows = Math.max(1, Math.min(rows, Number(node?.properties?.loraStackVisibleEntries) || LORA_STACK_DEFAULT_VISIBLE_ENTRIES));
+    const firstRow = regions.loraRow_0;
+    const lastRow = regions[`loraRow_${visibleRows - 1}`];
+    if (firstRow && lastRow) {
+        const marginB = Array.isArray(lastRow.margin) ? (lastRow.margin.length === 4 ? lastRow.margin[3] : (lastRow.margin[1] || 0)) : 0;
+        const top = Number(firstRow.y) || 0;
+        const bottom = (Number(lastRow.y) || 0) + (Number(lastRow.h) || 0) + marginB;
+        if (bottom > top) return bottom - top;
+    }
+
+    return Number(region?.h) || 180;
+}
+
+function resolveLoraStackOneEntryHeight(node) {
+    const regions = node?.layout?.regions || {};
+    const header = regions.headerRegion;
+    const main = regions.mainContentRegion;
+    const row = regions.loraRow_0;
+    const footer = regions.footerControls || regions.regionWarning;
+    const panel = regions.panelBackground;
+    if (!panel || !main || !footer) return 0;
+
+    const top = Number(panel.y) || 0;
+    let bottom = 0;
+    if (header) bottom = Math.max(bottom, (Number(header.y) || 0) + (Number(header.h) || 0) + (Array.isArray(header.margin) ? (header.margin[3] || header.margin[1] || 0) : 0));
+    if (row) bottom = Math.max(bottom, (Number(row.y) || 0) + (Number(row.h) || 0) + (Array.isArray(row.margin) ? (row.margin[3] || row.margin[1] || 0) : 0));
+    bottom = Math.max(bottom, (Number(footer.y) || 0) + (Number(footer.h) || 0) + (Array.isArray(footer.margin) ? (footer.margin[3] || footer.margin[1] || 0) : 0));
+    return Math.max(0, bottom - top);
+}
+
 if (!window._xcp_derpLoraStack_Layout_Loaded) {
     window._xcp_derpLoraStack_Layout_Loaded = true;
     try {
@@ -94,6 +133,10 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
 
                 nodeType.prototype.flushDerpLoraStackSysSettings = function() {
                     flushLoraStackSysSettings(this);
+                };
+
+                nodeType.prototype.resolveLoraStackOneEntryHeight = function() {
+                    return resolveLoraStackOneEntryHeight(this);
                 };
 
                 const onNodeCreated = nodeType.prototype.onNodeCreated;
@@ -189,7 +232,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
 
                         // RE-HYDRATE VISUALS: Update icons, colors, and animations in-place on the cached structure
                         stack.forEach((lora, i) => {
-                            const loraRow = this.layoutMap.mainContentRegion[`loraRow_${i}`];
+                            const loraRow = this.layoutMap.mainContentRegion?.loraEntriesRegion?.[`loraRow_${i}`] || this.layoutMap.mainContentRegion?.[`loraRow_${i}`];
                             if (loraRow) {
                                 // THE BYPASS SYNC: Detect if the entire node (mode 2/4, properties, or bypass widget) or just this LoRA entry is bypassed
                                 const nodeBypassed = this.mode === 2 || this.mode === 4 || this.properties.isBypassed || (this.widgets && this.widgets[0] && this.widgets[0].value === "bypass");
@@ -673,9 +716,6 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                     }, {});
 
                     const hasTailDropPreview = hasEffectiveDropTarget && dropIdx === stableCount;
-                    const stackFooterTarget = hasTailDropPreview
-                        ? "loraDropPreview_tail"
-                        : lastVisibleRowKey;
                     if (hasTailDropPreview) {
                         const tailPreviewAnchorKey = draggedRowWasTail ? (draggedRowAnchorKey || lastVisibleRowKey) : lastVisibleRowKey;
                         stackRows.loraDropPreview_tail = {
@@ -710,13 +750,20 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                             // THE MARGIN FIX: Remove internal padding and use mW margin to align with header buttons
                             width: "full", height: "auto", dir: "col",
                             margin: [mW, mH, mW, 0],
-                            ...stackRows,
+                            loraEntriesRegion: {
+                                scrollViewport: this.properties.loraStackClipEntries === true,
+                                clipHeight: resolveLoraStackClipHeight,
+                                width: "full", height: "auto", dir: "col",
+                                margin: [0, 0, Number(this._contentViewportGutter) || 0, 0],
+                                ...stackRows,
+                            },
                             footerControls: {
                                 anchor: {
-                                    target: stackFooterTarget,
+                                    target: "loraEntriesRegion",
                                     axis: "y",
                                     offset: sH
                                 },
+                                contentViewportClip: false,
                                 hidden: !hasRequiredSignals,
                                 dir: "row", width: "full", height: "auto", spacing: [0, 0],
                                 margin: [0, mH, 0, mH],
@@ -794,10 +841,11 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                             },
                             regionWarning: {
                                 anchor: {
-                                    target: stackFooterTarget,
+                                    target: "loraEntriesRegion",
                                     axis: "y",
                                     offset: sH
                                 },
+                                contentViewportClip: false,
                                 hidden: hasRequiredSignals,
                                 dir: "col",
                                 width: "full",

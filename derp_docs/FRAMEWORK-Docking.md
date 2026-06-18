@@ -133,6 +133,7 @@ When ComfyUI Node 2.0/Vue mode moves a default group containing docked Derp stac
 - Alt-drag a node or existing docked stack near an ImageDeck edge to attach it as a Deck Pressure branch.
 - A hub can own one linear branch per edge: `left`, `right`, `top`, and `bottom`.
 - Branches remain normal graph-space docked nodes; there is no nested container, viewport, clipping, or custom serialization.
+- Experimental Fatha content viewports are opt-in inside branch nodes: a scroll-enabled content region may expose a clipped physical height to Deck Pressure while preserving its full internal content height behind a scrollbar. Deck math should use the clipped physical node height; widget drawing and hit-testing are remapped by `fathaContentViewport*.js`.
 - Existing linear stacks may attach to any ImageDeck edge. Deck Pressure preserves the stack's own orientation and infers branch axis from the branch topology instead of from the hub side; single-node branches still fall back to the side's original default axis.
 - Deck Pressure hubs expose their own header deck control only while branches are attached. Ordinary stack undock buttons are hidden on nodes that are themselves inside a Deck Pressure group, so stack controls do not double as deck controls.
 - The hub deck control detaches every Deck Pressure branch from the hub while leaving ordinary stacks inside those branches intact.

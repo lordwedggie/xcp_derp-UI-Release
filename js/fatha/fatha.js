@@ -17,6 +17,8 @@ import { animateRecoil } from "../herbina/masterAnimator.js";
 import { initPerfOverlay, togglePerfOverlay } from "./helpers/fathaPerfOverlay.js";
 import { promoteMasterZ, syncMasterZ } from "./core/masterZ.js";
 import { isComfyVueNodesMode, scheduleNativeVueNodeShellSuppression, shouldMutateLegacySelectionForDraw, suppressNativeVueNodeShell } from "./core/fathaNode2Compat.js";
+import { drawContentViewportScrollbars, getContentViewportGeometry, withContentViewportClip } from "./core/fathaContentViewportDraw.js";
+import { getContentViewportSignature, hasContentViewportOverflow } from "./core/fathaContentViewport.js";
 
 const FATHA_OVERLAY_WINDOW_MS = 4000;
 const FATHA_VIEWPORT_CULL_MARGIN_PX = 160;
@@ -826,11 +828,12 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
         const isMinState = this.properties.contentCollapsed;
 
         const preserveHorizontalDeckHeight = shouldPreserveHorizontalDeckHeight(this);
+        const viewportOverflow = hasContentViewportOverflow(this);
         const resolvedSize = resolveDerpRuntimeSize(this, {
             contentMinWidth: this.layout?.contentMinWidth || 0,
             contentMinHeight: this.layout?.contentMinHeight || 0,
             totalHeight: this.layout?.totalHeight || 0,
-        }, { SNAP, autoWidth, autoHeight });
+        }, { SNAP, autoWidth, autoHeight: autoHeight || viewportOverflow });
         const targetW = resolvedSize.width;
         const targetH = resolvedSize.height;
 
@@ -871,7 +874,7 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
         if (this.properties.nodeSize && !isMinState) {
             if (lockedDeckPressureSideW > 0) this.properties.nodeSize[0] = lockedDeckPressureSideW;
             else if (autoWidth && !shouldPreserveVerticalDeckWidth(this) && !lockHorizontalDeckResize) this.properties.nodeSize[0] = targetW;
-            if (autoHeight) this.properties.nodeSize[1] = preserveHorizontalDeckHeight
+            if (autoHeight || viewportOverflow) this.properties.nodeSize[1] = preserveHorizontalDeckHeight
                 ? (Number(this.size?.[1]) || targetH)
                 : targetH;
         }
@@ -891,14 +894,17 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
         const passiveCacheScale = getPassiveWholeWallCacheScale(curS);
         const hasStructuralOrInteractionSync = !this._prevDerpState || hasLayoutChanged ||
             this._prevDerpState.hoveredKey !== this._hoveredRegionKey;
+        const viewportSignature = getContentViewportSignature(this);
         const passiveWholeWall = isPassiveWholeWallCacheNode(this)
             ? buildPassiveWholeWallCacheState(this, passiveCacheScale)
             : { canUse: false, cacheReg: null, key: null, cacheSlot: null };
+        if (passiveWholeWall.key) passiveWholeWall.key += `|viewport:${viewportSignature}`;
         const canUsePassiveWholeWallCache = !!(
             passiveWholeWall.canUse &&
             !hasStructuralOrInteractionSync
         );
         const loraWidgetLayer = buildLoraStackWidgetLayerCacheState(this, passiveCacheScale, !this._shouldSync && !needsLayoutCompute && !collapseStateChanged && !isAnimating);
+        if (loraWidgetLayer.key) loraWidgetLayer.key += `|viewport:${viewportSignature}`;
         const loraWidgetLayerCache = this._loraStackWidgetLayerCanvasCache;
         if (loraWidgetLayer.canUse && loraWidgetLayerCache?.key === loraWidgetLayer.key && loraWidgetLayerCache?.canvas) {
             drawPassiveWholeWallCache(this, ctx, loraWidgetLayerCache.canvas, loraWidgetLayer.cacheReg, loraWidgetLayerCache.scale || passiveCacheScale);
@@ -964,13 +970,17 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
                 const blueprint = COMPONENT_BLUEPRINTS[reg.type];
                 if (!blueprint) continue;
 
+                const viewportDraw = getContentViewportGeometry(this, key, { x: reg.x, y: reg.y, w: reg.w, h: reg.h });
+                if (viewportDraw.hidden) continue;
+                const drawGeometry = viewportDraw.geometry;
+
                 // Conservative draw culling: only skip canvas/hybrid widgets that are fully
                 // outside the node's visible panel bounds. Layout and hit-testing remain intact.
                 if (!blueprint.isHtml) {
-                    const regX = reg.x || 0;
-                    const regY = reg.y || 0;
-                    const regW = reg.w || 0;
-                    const regH = reg.h || 0;
+                    const regX = drawGeometry.x || 0;
+                    const regY = drawGeometry.y || 0;
+                    const regW = drawGeometry.w || 0;
+                    const regH = drawGeometry.h || 0;
                     if ((regX + regW) < 0 || regX > this.size[0] || (regY + regH) < 0 || regY > this.size[1]) {
                         continue;
                     }
@@ -979,9 +989,10 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
                 // THE COMP-DATA CACHE: Reuse geometry and data objects unless a layout shift occurred
                 let compData = this._compDataCache[key];
                 if (needsLayoutCompute || collapseStateChanged || !compData) {
-                    compData = { ...reg, key, useAnim, geometry: { x: reg.x, y: reg.y, w: reg.w, h: reg.h } };
+                    compData = { ...reg, key, useAnim, geometry: drawGeometry };
                     this._compDataCache[key] = compData;
                 }
+                compData.geometry = drawGeometry;
 
                 if (!blueprint.isHtml && !blueprint.isHybrid && this._derpDomElements?.[key]) {
                     this._derpDomElements[key].remove();
@@ -1000,19 +1011,21 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
                         blueprint.sync(this._derpDomElements[key], this, app, compData);
                     }
                 } else if (blueprint.isHybrid) {
-                    blueprint.sync(activeCtx, this, app, compData);
+                    withContentViewportClip(activeCtx, this, key, compData.geometry, (drawCtx, geometry) => blueprint.sync(drawCtx, this, app, { ...compData, geometry }));
                 } else {
-                    blueprint.sync(activeCtx, this, compData);
+                    withContentViewportClip(activeCtx, this, key, compData.geometry, (drawCtx, geometry) => blueprint.sync(drawCtx, this, { ...compData, geometry }));
                 }
             }
 
             handleDrawCTX(this, activeCtx, true);
+            drawContentViewportScrollbars(activeCtx, this);
 
             for (const [key, reg] of Object.entries(this.layout.regions)) {
                 if (reg.strokeZIndex) {
                     const blueprint = COMPONENT_BLUEPRINTS[reg.type];
                     if (blueprint && blueprint.isHybrid && this._compDataCache[key]) {
-                        blueprint.sync(activeCtx, this, app, this._compDataCache[key], true);
+                        const compData = this._compDataCache[key];
+                        withContentViewportClip(activeCtx, this, key, compData.geometry, (drawCtx, geometry) => blueprint.sync(drawCtx, this, app, { ...compData, geometry }, true));
                     }
                 }
             }

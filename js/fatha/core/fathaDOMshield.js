@@ -24,6 +24,7 @@ import { beginDeckResizeOptimization, clearEntityTooltip, endDeckResizeOptimizat
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
 import { MASTER_Z, promoteMasterZ } from "./masterZ.js";
 import { isComfyVueNodesMode } from "./fathaNode2Compat.js";
+import { handleContentViewportWheel, mapShieldPointThroughContentViewport, tryStartContentViewportScrollbarDrag } from "./fathaContentViewportShield.js";
 
 // DEBUG_MODE is now dynamically handled via node.properties.debugMode
 const CORNER_RESIZE_ANCHORS = new Set(["top-left", "top-right", "bottom-left", "bottom-right"]);
@@ -303,6 +304,8 @@ export function createDerpShield(node) {
             y: canvasY - (Number(targetNode?.pos?.[1]) || 0),
         };
     };
+
+    const getViewportLocalCoords = (e, targetNode = node) => mapShieldPointThroughContentViewport(targetNode, getLocalCoords(e, targetNode));
 
     const cursorStyleId = "derp-drag-cursor-override";
 
@@ -606,7 +609,7 @@ export function createDerpShield(node) {
 
         // MODE 2: DRAGGING (Delegate to Node)
         if (longPressed) {
-            const localPos = getLocalCoords(e);
+            const localPos = getViewportLocalCoords(e);
             const rect = shield.getBoundingClientRect();
             node.handleShieldInteraction("drag", {
                 dx, dy,
@@ -624,7 +627,7 @@ export function createDerpShield(node) {
         // can advance their own hold/threshold logic without letting the
         // canvas start panning underneath.
         if (pendingNodeHoldDrag) {
-            const localPos = getLocalCoords(e);
+            const localPos = getViewportLocalCoords(e);
             const rect = shield.getBoundingClientRect();
             node.handleShieldInteraction("drag", {
                 dx, dy,
@@ -692,14 +695,15 @@ export function createDerpShield(node) {
         // Select node on click natively
         if (!movedSignificantly && !isResizing && !heldStackDrag) {
             const localPos = getLocalCoords(e);
+            const viewportLocalPos = getViewportLocalCoords(e);
             const rect = shield.getBoundingClientRect();
 
             // Check if node handled the click (e.g., hit a slider). If so, block native selection.
             const handled = node.handleShieldInteraction("click", {
                 x: e.clientX - rect.left,
                 y: e.clientY - rect.top,
-                localX: localPos.x,
-                localY: localPos.y,
+                localX: viewportLocalPos.x,
+                localY: viewportLocalPos.y,
                 originalEvent: e
             });
 
@@ -723,12 +727,12 @@ export function createDerpShield(node) {
         node._dockResizeSession = null;
 
         // THE FIX: Pass coordinate data to prevent 'undefined' errors in the handler
-        const localPos = getLocalCoords(e);
+        const viewportLocalPos = getViewportLocalCoords(e);
         node.handleShieldInteraction("dragEnd", {
             x: e.clientX - shield.getBoundingClientRect().left,
             y: e.clientY - shield.getBoundingClientRect().top,
-            localX: localPos.x,
-            localY: localPos.y,
+            localX: viewportLocalPos.x,
+            localY: viewportLocalPos.y,
             originalEvent: e
         });
 
@@ -873,14 +877,16 @@ export function createDerpShield(node) {
         startMouseY = e.clientY;
 
         const localPos = getLocalCoords(e);
+        if (tryStartContentViewportScrollbarDrag(node, localPos, e, getLocalCoords)) return;
+        const viewportLocalPos = getViewportLocalCoords(e);
         const rect = shield.getBoundingClientRect();
 
         if (isDblClick) {
             node.handleShieldInteraction("dblclick", {
                 x: e.clientX - rect.left,
                 y: e.clientY - rect.top,
-                localX: localPos.x,
-                localY: localPos.y,
+                localX: viewportLocalPos.x,
+                localY: viewportLocalPos.y,
                 originalEvent: e
             });
             clearBrowserSelection();
@@ -892,8 +898,8 @@ export function createDerpShield(node) {
         const handled = node.handleShieldInteraction("dragStart", {
             x: e.clientX - rect.left,
             y: e.clientY - rect.top,
-            localX: localPos.x,
-            localY: localPos.y,
+            localX: viewportLocalPos.x,
+            localY: viewportLocalPos.y,
             originalEvent: e
         });
 
@@ -940,7 +946,7 @@ export function createDerpShield(node) {
     // HOVER DELEGATION
     shield.onpointermove = (e) => {
         updateSharedResizeHoverSession(e);
-        const localPos = getLocalCoords(e);
+        const localPos = getViewportLocalCoords(e);
         const rect = shield.getBoundingClientRect();
         node.handleShieldInteraction("hover", {
             x: e.clientX - rect.left,
@@ -1015,7 +1021,8 @@ export function createDerpShield(node) {
         e.stopPropagation();
         if (typeof e.stopImmediatePropagation === "function") e.stopImmediatePropagation();
         const scale = app.canvas?.ds?.scale || 1;
-        const localMouse = [e.offsetX / scale, e.offsetY / scale];
+        const mappedContextPoint = mapShieldPointThroughContentViewport(node, { x: e.offsetX / scale, y: e.offsetY / scale });
+        const localMouse = [mappedContextPoint.x, mappedContextPoint.y];
 
         // Right-click on header in vertical dock stack toggles collapse (no title exclusion)
         const headerRegion = node.layout?.regions?.headerRegion;
@@ -1063,6 +1070,8 @@ export function createDerpShield(node) {
     };
 
     shield.onwheel = (e) => {
+        const localPos = getLocalCoords(e);
+        if (handleContentViewportWheel(node, localPos, e)) return;
         // THE SCROLL PASS-THROUGH: If we are hovering over a scrollable region,
         // capture the wheel delta and apply it to the node's scroll state.
         if (node._hoveredRegionKey && node._derpScrollOffsets?.[node._hoveredRegionKey] !== undefined) {
@@ -1563,4 +1572,11 @@ export function removeDerpShield(node) {
         node.interactionShield.remove();
         node.interactionShield = null;
     }
+    if (!node) return;
+    node._hoveredRegionKey = null;
+    node._pressedRegionKey = null;
+    node._pressedRegionType = null;
+    node._pressedRegionIsDragHandle = false;
+    node._dragEndRegionKey = null;
+    node._dockResizeHoverSession = null;
 }
