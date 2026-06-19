@@ -119,6 +119,7 @@ Current node-side opt-in examples:
 - `scrollViewport: true`
 - `clipHeight`
 - `minClipHeight`
+- `getDerpHeightModeConfig()` when the shared system-panel Height Mode control needs clipped-node-specific options such as `Fit Node` or measured entry/group counts
 - `contentViewportClip: false` on descendants that must remain visually outside clipping
 
 <span style="color: #ffc680"><strong>Note:</strong></span> When a footer, overlay, or loading control must stay outside the viewport clip, place it as a sibling after the viewport region or explicitly mark the subtree with `contentViewportClip: false`.

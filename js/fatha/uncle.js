@@ -282,7 +282,13 @@ export function uncle(nodeType, nodeData, minWidth = 100) {
         const liveTargetW = lockedDeckPressureSideW > 0
             ? lockedDeckPressureSideW
             : ((this._isDerpResizing && !autoWidth) || lockHorizontalDeckResize ? this.size[0] : targetW);
-        const liveTargetH = (this._isDerpResizing && !autoHeight) || lockHorizontalDeckResize ? this.size[1] : targetH;
+        // A freshly seam-/pressure-fit member (e.g. a clipped autoHeight LoRA Stack in numeric
+        // Height Mode) must keep the seam-assigned height; without this, the autoHeight path
+        // recomputes the clipped content floor each frame and snaps the node back, fighting the
+        // Deck Pressure reflow. The manual-fit flag is time-bounded and shared with the reflow
+        // guard, so normal autoHeight growth resumes once the seam session ends.
+        const manualHeightFitActive = Number(this._deckPressureManualBranchFitUntil || 0) > (performance.now?.() || Date.now());
+        const liveTargetH = (this._isDerpResizing && (!autoHeight || manualHeightFitActive)) || lockHorizontalDeckResize ? this.size[1] : targetH;
         const preAnimateW = Number(this.size?.[0]) || 0;
         animateDerpSize(this, liveTargetW, liveTargetH, useAnim);
         balanceHorizontalDeckWidthChange(this, preAnimateW);

@@ -153,14 +153,17 @@ function resolveBtnIconColorSegments(node, config, stateSuffix, fallbackColor, g
     return hasColorKeys ? segments : null;
 }
 
-function buildBtnIconTextShadow(segment, paintData) {
+function buildBtnIconTextShadow(segment, paintData, scale = 1) {
     if (!segment || !paintData) return "";
     const shadows = [];
     const addEffect = (name) => {
         const baseEffect = paintData[name];
         const effectColor = segment.effects ? segment.effects[name] : baseEffect?.color;
         if (!baseEffect || !effectColor) return;
-        shadows.push(`${baseEffect.offsetX || 0}px ${baseEffect.offsetY || 0}px ${baseEffect.blur || 0}px ${effectColor}`);
+        const offX = (Number(baseEffect.offsetX) || 0) * scale;
+        const offY = (Number(baseEffect.offsetY) || 0) * scale;
+        const blur = Math.max(0, (Number(baseEffect.blur) || 0) * scale);
+        shadows.push(`${offX}px ${offY}px ${blur}px ${effectColor}`);
     };
     addEffect("shadow");
     addEffect("glow");
@@ -412,7 +415,7 @@ export function syncBtnIconHTML(el, node, app, config) {
         const iconPaint = { ...labelPaint, fill: iconColor, textColor: iconColor };
         const iconHTML = iconColorSegments
             ? colorSegmentsToHTML(iconColorSegments, iconColor, {
-                getTextShadow: (segment) => buildBtnIconTextShadow(segment, iconPaint)
+                getTextShadow: (segment) => buildBtnIconTextShadow(segment, iconPaint, coords.scale)
             })
             : null;
         if (iconHTML !== null) {

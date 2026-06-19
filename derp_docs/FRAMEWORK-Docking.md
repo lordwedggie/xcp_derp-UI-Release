@@ -177,6 +177,7 @@ When ComfyUI Node 2.0/Vue mode moves a default group containing docked Derp stac
 - Pressure min-span measurement is cached per node by axis, collapsed state, snap, width, and layout hash; current height is deliberately excluded because pressure layout changes it during fitting.
 - Active filler selection ignores hover-only state; it prefers the current interaction window, pressed nodes, selected expanded nodes, then any already-expanded side-branch member before falling back to branch order.
 - Top/bottom vertical Deck Pressure branches preserve their own member heights during ImageDeck frame resize; hub height deltas must not be fit into those branch columns.
+- Left/right vertical Deck Pressure branches preserve freshly seam-resized member heights during release settlement; saved expanded heights must not immediately re-grow the active lower member after mouse-up.
 - Collapsed pressure height uses the recomputed collapsed virtual layout only; hidden expanded `layoutMap` regions and their `minHeight` values are ignored for collapsed side-branch sizing.
 - Collapsed pressure height falls back to the compact collapsed header height (`DEFAULT_DECK_SNAP * 2`) rather than the generic 40px node fallback.
 - Pressure layout keeps the ImageDeck hub position anchored during collapse/un-collapse passes; only active hub resize may move it to preserve the dragged edge.

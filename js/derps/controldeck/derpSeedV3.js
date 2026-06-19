@@ -94,7 +94,7 @@ app.registerExtension({
     async beforeRegisterNodeDef(nodeType, nodeData) {
         if (nodeData.name !== "derpSeedV3") return;
 
-        fatha(nodeType, nodeData, 160);
+        fatha(nodeType, nodeData, 100);
 
         nodeType.prototype.onThemeUpdate = function(config) {
             this.handleThemeUpdate(config);
@@ -425,8 +425,9 @@ app.registerExtension({
             defaultSeedV3Properties(this);
             this.titleLabel = tLocale("$derp_seed_v3.title", "Derp Seed V3");
             this.properties.titleLabel = this.titleLabel;
-            this.properties.nodeSize = [180, 120];
-            this.size = [180, 120];
+            this.properties.minWidth = 100;
+            this.properties.nodeSize = [100, 100];
+            this.size = [100, 100];
             this._isExecuting = false;
             this._comfyIsBusy = false;
             hideNativeSeedV3Widgets(this);
