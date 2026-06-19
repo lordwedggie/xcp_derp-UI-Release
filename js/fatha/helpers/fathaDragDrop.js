@@ -6,11 +6,40 @@
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
 import { app } from "../../../../scripts/app.js";
 import { settleDerpSizeBeforeDraw, shouldPreserveHorizontalDeckHeight, syncHorizontalDeckHeight } from "../core/fathaHandler.js";
+import { getContentViewportForRegion, isContentViewportRegionHitVisible } from "../core/fathaContentViewport.js";
 import { getDeckMembers } from "../core/masterDockEngine.js";
 
 const STACK_DRAG_HOLD_BOX_PX = 5;
 const STACK_DRAG_HOLD_BOX_HALF = STACK_DRAG_HOLD_BOX_PX / 2;
 const STACK_DRAG_RELEASE_LOCK_MS = 120;
+
+function isStackDragRegionVisible(node, regionKey, localPoint) {
+    return isContentViewportRegionHitVisible(node, regionKey, localPoint);
+}
+
+function numberOr(value, fallback = 0) {
+    const num = Number(value);
+    return Number.isFinite(num) ? num : fallback;
+}
+
+function isStackDragRegionDisplayed(node, region) {
+    if (!node || !region?.key) return false;
+    const state = getContentViewportForRegion(node, region.key);
+    if (!state?.rect || state.key === region.key) return true;
+    const visibleTop = numberOr(state.rect.y) + numberOr(state.scrollTop);
+    const visibleBottom = visibleTop + numberOr(state.rect.h);
+    const regionTop = numberOr(region.y);
+    const regionBottom = regionTop + numberOr(region.h);
+    return regionBottom >= visibleTop && regionTop <= visibleBottom;
+}
+
+function getInsertionBefore(candidateIndex, dragIndex) {
+    return candidateIndex < dragIndex ? candidateIndex : Math.max(0, candidateIndex - 1);
+}
+
+function getInsertionAfter(candidateIndex, dragIndex) {
+    return candidateIndex < dragIndex ? candidateIndex + 1 : candidateIndex;
+}
 
 function activateStackDrag(node) {
     if (!node?._dragTrig || node._dragThresholdMet) return;
@@ -80,6 +109,8 @@ function markHorizontalStackReleaseLock(node) {
 export function startStackDrag(node, data, index, regionKey, options = {}) {
     const reg = node.layout.regions[regionKey];
     if (!reg) return;
+    const localPoint = { x: data.localX, y: data.localY };
+    if (!isStackDragRegionVisible(node, regionKey, localPoint)) return;
 
     node._dragTrig = {
         index,
@@ -138,19 +169,19 @@ export function updateStackDrag(node, data, regionPrefix, itemCount) {
     for (let i = 0; i < itemCount; i++) {
         if (i === node._dragTrig.index) continue;
         const r = node.layout.regions[`${regionPrefix}${i}`];
-        if (r) stableRegs.push(r);
+        if (r && isStackDragRegionDisplayed(node, r)) stableRegs.push({ reg: r, index: i });
     }
 
     // Sort by vertical position to ensure linear traversal[cite: 43]
-    stableRegs.sort((a, b) => a.y - b.y);
+    stableRegs.sort((a, b) => a.reg.y - b.reg.y);
 
-    let targetIdx = 0;
+    let targetIdx = stableRegs.length ? getInsertionBefore(stableRegs[0].index, node._dragTrig.index) : node._dragTrig.index;
     for (let i = 0; i < stableRegs.length; i++) {
-        const reg = stableRegs[i];
+        const { reg, index } = stableRegs[i];
         const thresholdY = reg.y + (reg.h / 2);
         // If mouse is below the midpoint of a stable item, move target index past it
         if (mouseY > thresholdY) {
-            targetIdx = i + 1;
+            targetIdx = getInsertionAfter(index, node._dragTrig.index);
         } else {
             break;
         }
@@ -159,11 +190,11 @@ export function updateStackDrag(node, data, regionPrefix, itemCount) {
     // Prefer tail insertion when hovering the lower half of the last visible row
     // or any space directly below it. This ensures reliable append behavior.
     if (stableRegs.length > 0) {
-        const lastReg = stableRegs[stableRegs.length - 1];
+        const { reg: lastReg, index: lastIndex } = stableRegs[stableRegs.length - 1];
         const tailThresholdY = lastReg.y + (lastReg.h * 0.5);
         const belowLastRowY = lastReg.y + lastReg.h;
         if (mouseY >= tailThresholdY || mouseY >= belowLastRowY) {
-            targetIdx = stableRegs.length;
+            targetIdx = getInsertionAfter(lastIndex, node._dragTrig.index);
         }
     }
 

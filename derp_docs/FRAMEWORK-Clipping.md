@@ -99,6 +99,8 @@ Relevant integration in `fathaDOMshield.js`:
 
 <span style="color: #80aaff"><strong>Hit filtering:</strong></span> `fathaHandler.js` calls `isContentViewportRegionHitVisible()` so descendants clipped outside the viewport rectangle stop receiving hover, click, drag, and context menu hits.
 
+<span style="color: #80aaff"><strong>Drag-and-drop filtering:</strong></span> Stack/list DnD must use viewport-displayed regions only. `helpers/fathaDragDrop.js` filters drop candidates through `getContentViewportForRegion()` and keeps drop preview indexes in the real property-array insertion space. Custom DnD paths, such as TriggerWall group/item drag, must do the same when they bypass `updateStackDrag()`.
+
 ## <span style="color: #80ffc0">Node Integration</span>
 
 <span style="color: #80aaff"><strong>Framework expectation:</strong></span> Nodes should only declare viewport regions and provide clip sizing logic. They should not reimplement scrollbar drawing, wheel behavior, or thumb dragging.

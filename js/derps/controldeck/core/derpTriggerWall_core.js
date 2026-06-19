@@ -9,6 +9,7 @@ import { showBastaMessage } from "../../../fatha/bastas/bastaMessage.js";
 import { showBastaSystemMessage } from "../../../fatha/bastas/bastaSystemMessage.js";
 import { endStackDrag } from "../../../fatha/helpers/fathaDragDrop.js";
 import { settleDerpSizeBeforeDraw } from "../../../fatha/core/fathaHandler.js";
+import { getContentViewportForRegion, isContentViewportRegionHitVisible } from "../../../fatha/core/fathaContentViewport.js";
 import { isLinearDeckGroup, isNodeDocked } from "../../../fatha/core/masterDockEngine.js";
 
 function tLocale(key, fallback = key) {
@@ -20,6 +21,30 @@ function tLocale(key, fallback = key) {
         if (target === undefined) return fallback;
     }
     return target;
+}
+
+function numberOr(value, fallback = 0) {
+    const num = Number(value);
+    return Number.isFinite(num) ? num : fallback;
+}
+
+function isTriggerWallDragRegionDisplayed(node, region) {
+    if (!node || !region?.key) return false;
+    const state = getContentViewportForRegion(node, region.key);
+    if (!state?.rect || state.key === region.key) return true;
+    const visibleTop = numberOr(state.rect.y) + numberOr(state.scrollTop);
+    const visibleBottom = visibleTop + numberOr(state.rect.h);
+    const regionTop = numberOr(region.y);
+    const regionBottom = regionTop + numberOr(region.h);
+    return regionBottom >= visibleTop && regionTop <= visibleBottom;
+}
+
+function getInsertionBefore(candidateIndex, dragIndex) {
+    return candidateIndex < dragIndex ? candidateIndex : Math.max(0, candidateIndex - 1);
+}
+
+function getInsertionAfter(candidateIndex, dragIndex) {
+    return candidateIndex < dragIndex ? candidateIndex + 1 : candidateIndex;
 }
 
 function syncDerpTriggerWallLocaleLabels(node) {
@@ -421,25 +446,25 @@ export function triggerWall_groupDrag(node, data, visibleGroupIndices = []) {
     visibleGroupIndices.forEach((gIdx, visibleIdx) => {
         if (visibleIdx === draggedVisibleIdx) return;
         const reg = node.layout?.regions?.[`triggerRegion_${gIdx}`];
-        if (reg) stableRegs.push(reg);
+        if (reg && isTriggerWallDragRegionDisplayed(node, reg)) stableRegs.push({ reg, visibleIdx });
     });
 
-    stableRegs.sort((a, b) => a.y - b.y);
+    stableRegs.sort((a, b) => a.reg.y - b.reg.y);
 
-    let targetIdx = 0;
+    let targetIdx = stableRegs.length ? getInsertionBefore(stableRegs[0].visibleIdx, draggedVisibleIdx) : draggedVisibleIdx;
     for (let i = 0; i < stableRegs.length; i++) {
-        const reg = stableRegs[i];
+        const { reg, visibleIdx } = stableRegs[i];
         const thresholdY = reg.y + (reg.h / 2);
-        if (mouseY > thresholdY) targetIdx = i + 1;
+        if (mouseY > thresholdY) targetIdx = getInsertionAfter(visibleIdx, draggedVisibleIdx);
         else break;
     }
 
     if (stableRegs.length > 0) {
-        const lastReg = stableRegs[stableRegs.length - 1];
+        const { reg: lastReg, visibleIdx: lastVisibleIdx } = stableRegs[stableRegs.length - 1];
         const tailThresholdY = lastReg.y + (lastReg.h * 0.5);
         const belowLastRowY = lastReg.y + lastReg.h;
         if (mouseY >= tailThresholdY || mouseY >= belowLastRowY) {
-            targetIdx = stableRegs.length;
+            targetIdx = getInsertionAfter(lastVisibleIdx, draggedVisibleIdx);
         }
     }
 
@@ -504,6 +529,7 @@ export function triggerWall_itemDragStart(node, e, data, gIdx, tIdx) {
     const key = `triggerItem_${gIdx}_${tIdx}`;
     const reg = node.layout.regions[key];
     if (!reg) return;
+    if (!isContentViewportRegionHitVisible(node, key, { x: data.localX, y: data.localY })) return;
     node._dragTrig = { key, gIdx, tIdx };
     node._dragOffset = [data.localX - reg.x, data.localY - reg.y];
     node._dragMouse = [data.localX, data.localY];
@@ -524,7 +550,7 @@ export function triggerWall_itemDrag(node, e, data) {
     for (let i = 0; i < group.triggers.length; i++) {
         if (i === node._dragTrig.tIdx) continue;
         const r = regions[`triggerItem_${node._dragTrig.gIdx}_${i}`];
-        if (r) stableRegs.push(r);
+        if (r && isTriggerWallDragRegionDisplayed(node, r)) stableRegs.push({ reg: r, index: i });
     }
 
     if (stableRegs.length === 0) {
@@ -537,35 +563,37 @@ export function triggerWall_itemDrag(node, e, data) {
     }
 
     // Sort once, then group by Y in a single pass.
-    stableRegs.sort((a, b) => (a.y - b.y) || (a.x - b.x));
+    stableRegs.sort((a, b) => (a.reg.y - b.reg.y) || (a.reg.x - b.reg.x));
 
     const rows = [];
     let currentRow = null;
     const rowThreshold = 5;
     for (let i = 0; i < stableRegs.length; i++) {
-        const reg = stableRegs[i];
+        const { reg, index } = stableRegs[i];
         if (!currentRow || Math.abs(currentRow.y - reg.y) >= rowThreshold) {
-            currentRow = { y: reg.y, h: reg.h, items: [reg] };
+            currentRow = { y: reg.y, h: reg.h, items: [{ reg, index }] };
             rows.push(currentRow);
         } else {
-            currentRow.items.push(reg);
+            currentRow.items.push({ reg, index });
             if (reg.h > currentRow.h) currentRow.h = reg.h;
         }
     }
 
-    let targetIdx = 0, foundRow = -1;
+    let targetIdx = stableRegs.length ? getInsertionBefore(stableRegs[0].index, node._dragTrig.tIdx) : node._dragTrig.tIdx;
+    let foundRow = -1;
     for (let i = 0; i < rows.length; i++) {
         const r = rows[i], next = rows[i+1];
         const splitY = next ? (r.y + r.h + next.y) / 2 : Infinity;
         if (mouseY < splitY) { foundRow = i; break; }
-        targetIdx += r.items.length;
+        const lastItem = r.items[r.items.length - 1];
+        targetIdx = getInsertionAfter(lastItem.index, node._dragTrig.tIdx);
     }
 
     if (foundRow !== -1) {
         const rowItems = rows[foundRow].items;
         for (let i = 0; i < rowItems.length; i++) {
-            const reg = rowItems[i];
-            if (mouseX > (reg.x + (reg.w / 2))) targetIdx++;
+            const { reg, index } = rowItems[i];
+            if (mouseX > (reg.x + (reg.w / 2))) targetIdx = getInsertionAfter(index, node._dragTrig.tIdx);
         }
     }
 
