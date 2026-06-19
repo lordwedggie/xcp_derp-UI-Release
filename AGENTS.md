@@ -268,6 +268,10 @@ To add a skill, create `.agents/skills/<name>/SKILL.md` with YAML frontmatter (`
 - Vertical stack seam resizing must pin active members to the seam-assigned physical height during the live gesture, even when a clipped node's Height Mode normally resolves through numeric/auto sizing. Otherwise viewport-backed nodes can redraw taller than the stack frame while the seam is dragged.
 - Tooltips for content viewport descendants must anchor to displayed viewport coordinates, not raw unscrolled content-space region positions; resolve through viewport state and subtract scroll before pinning Basta overlays.
 - Left/right vertical Deck Pressure branch seam resizing must preserve the freshly fitted member heights during mouse-up settlement; saved expanded-height preferences should not immediately re-grow a lower active member after release.
+- Internal vertical seam drags in left/right Deck Pressure branches must preserve the canonical Deck frame and immediately rerun Deck Pressure layout; generic vertical normalization can push later branch members outside the side band until idle layout repairs them.
+- Content viewport resize floors must use `_contentViewportMinClipHeight` / `minClipHeight` rather than the current visible clip height, so Fit Node clipped regions can shrink to one visible entry/group during seam resizing.
+- Deck Pressure side-branch active-resize and fresh manual seam-fit preservation must never preserve live heights whose total exceeds the canonical side band; over-tall live totals push lower members outside the frame at clamp/release.
+- Deck Pressure internal vertical seam drags should snapshot all branch member heights after the seam fit; otherwise subsequent pressure passes can redistribute spare height into unrelated siblings and make Slider/LoraStack change height during another seam's resize.
 
 ### Node-Specific Notes
 
