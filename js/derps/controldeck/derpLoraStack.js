@@ -164,9 +164,20 @@ function resolveLoraStackClipHeight(node, region, regions = {}) {
 function resolveLoraStackMinClipHeight(node, region, regions = {}) {
     const rows = Array.isArray(node?.properties?.stackData) ? node.properties.stackData.length : 0;
     if (rows <= 0) return 0;
+    // Numeric Height Mode floors at the selected entry count; Fit Node floors at one entry so the
+    // seam can shrink the viewport down to a single visible LoRA row.
+    const numericLimit = getLoraStackNumericClipVisibleLimit(node);
+    const floorRows = numericLimit !== null ? Math.min(rows, numericLimit) : 1;
     const firstRow = regions.loraRow_0;
-    if (firstRow) return Math.max(1, getRegionBottom(firstRow) - (Number(firstRow.y) || 0));
-    return Number(region?.h) || 180;
+    const oneRowH = firstRow ? Math.max(1, getRegionBottom(firstRow) - (Number(firstRow.y) || 0)) : 0;
+    if (floorRows <= 1) return oneRowH || (Number(region?.h) || 180);
+    const lastFloorRow = regions[`loraRow_${floorRows - 1}`];
+    if (lastFloorRow) {
+        const bottom = getRegionBottom(lastFloorRow);
+        const top = Number(firstRow?.y) || 0;
+        if (bottom > top) return bottom - top;
+    }
+    return oneRowH || (Number(region?.h) || 180);
 }
 
 function resolveLoraStackOneEntryHeight(node) {

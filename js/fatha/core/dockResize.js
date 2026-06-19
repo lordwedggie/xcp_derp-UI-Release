@@ -371,7 +371,7 @@ export function resolveDerpRuntimeSizeImpl(node, measured, vars = {}) {
     const axis = branchAxis || (graph && node ? getDockGroupAxisFromMembers(getDeckMembers(node, graph)) : null);
     const resolved = resolveRuntimeDockSize(node, axis, measured, vars);
     const minExpandedHeight = Number(node?.properties?._minExpandedHeight) || 0;
-    if (node?.properties?.contentCollapsed !== true && minExpandedHeight > 0) {
+    if (node?.properties?.contentCollapsed !== true && vars?.autoHeight === true && minExpandedHeight > 0) {
         resolved.height = Math.max(Number(resolved.height) || 0, minExpandedHeight);
     }
     return resolved;
@@ -721,7 +721,7 @@ function getVisibleRegionLayoutFloor(config, liveRegions = {}, key = null) {
     return marginTop + height + marginBottom;
 }
 
-function getVerticalResizeTargetMinHeight(node, snap, options = {}) {
+export function getVerticalResizeTargetMinHeight(node, snap, options = {}) {
     if (node?.properties?.contentCollapsed === true) return getDockNodeMinHeight(node, 0, snap);
 
     const rootEntries = node?.layoutMap && typeof node.layoutMap === "object" ? Object.entries(node.layoutMap) : [];
@@ -731,8 +731,11 @@ function getVerticalResizeTargetMinHeight(node, snap, options = {}) {
     const currentMin = getDockNodeMinHeight(node, 0, snap);
     if (compactFloor <= 0) return currentMin;
     const hasContentViewport = Object.values(node?._contentViewportState || {}).length > 0;
-    const visibleLayoutFloor = hasContentViewport ? (Number(node?.layout?.totalHeight) || 0) : 0;
-    const compactMin = Math.ceil(Math.max(compactFloor, visibleLayoutFloor, snap * 4) / snap) * snap;
+    // Viewport min floors let Fit Node clipped regions shrink to their declared entry/group minimum.
+    const layoutFloor = hasContentViewport
+        ? (Number(node?.layout?.contentMinHeight) || Number(node?.layout?.totalHeight) || 0)
+        : 0;
+    const compactMin = Math.ceil(Math.max(compactFloor, layoutFloor, snap * 4) / snap) * snap;
     return options.preserveExpandedFloor === true
         ? Math.max(currentMin, compactMin)
         : Math.min(currentMin, compactMin);

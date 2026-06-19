@@ -1,5 +1,5 @@
 import { sysPanel } from "../helpers/fathaSysPanel.js";
-import { applyDockResizeResult, syncDockResizePair } from "./dockResize.js";
+import { applyDockResizeResult, getVerticalResizeTargetMinHeight, syncDockResizePair } from "./dockResize.js";
 import { canResizeHorizontalSharedEdgeWidth, canResizeHorizontalStackWidth } from "./dockResizeSharedEdges.js";
 import { getDockGroupAxisFromMembers, getDockNodeMinHeight, getDockNodeMinWidth, resolveDockResizeAxes } from "./dockDimensions.js";
 import { applyDeckPressureLayout, getDeckMembers, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureBranchAxis, getDeckPressureHubForNode, getDeckPressureHubMinWidth, getNodeOnDeckEdge, isDeckPressureHub, isDeckPressureSideWidthResizeEdge, setDeckNodePos } from "./masterDockEngine.js";
@@ -103,7 +103,7 @@ export function handleNodeResize(entity, data, scale) {
     const minW = isPressureHubResize
         ? getResizeSessionPressureMinWidth(entity, graph, SNAP, fallbackMinW)
         : fallbackMinW;
-    const minH = isPressureHubResize ? SNAP * 8 : getDockNodeMinHeight(entity, 0, SNAP);
+    const minH = isPressureHubResize ? SNAP * 8 : getVerticalResizeTargetMinHeight(entity, SNAP, { preserveExpandedFloor: true });
 
     const deltaX = data.dx / scale;
     const deltaY = data.dy / scale;

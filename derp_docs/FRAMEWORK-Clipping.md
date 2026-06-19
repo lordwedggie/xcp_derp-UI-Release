@@ -64,7 +64,7 @@ Relevant framework call sites:
 - `FATHA_CONTENT_SCROLLBAR_WIDTH`
 - `FATHA_CONTENT_SCROLLBAR_MIN_THUMB`
 
-<span style="color: #ffc680"><strong>Note:</strong></span> `minClipHeight` is separate from `clipHeight`. `clipHeight` controls visible height. `minClipHeight` controls how much the viewport contributes to manual resize floors.
+<span style="color: #ffc680"><strong>Note:</strong></span> `minClipHeight` is separate from `clipHeight`. `clipHeight` controls the current visible height. `minClipHeight` controls how much the viewport contributes to manual resize floors through `_contentViewportState[viewportKey].minClipHeight` and `layout.contentMinHeight`.
 
 ## <span style="color: #80ffc0">Drawing</span>
 
@@ -124,17 +124,26 @@ Current node-side opt-in examples:
 - `getDerpHeightModeConfig()` when the shared system-panel Height Mode control needs clipped-node-specific options such as `Fit Node` or measured entry/group counts
 - `contentViewportClip: false` on descendants that must remain visually outside clipping
 
+<span style="color: #80aaff"><strong>Height Mode contract:</strong></span> For clipped nodes, `Fit Node` is manual outer-node height (`autoHeight = false`) with a viewport that fits the current node/stack/deck height. Numeric modes set `autoHeight = true` and floor the viewport at the selected number of measured entries or groups before overflow scrolling begins.
+
+<span style="color: #ffc680"><strong>Note:</strong></span> Clipped-node lifecycle/configure code must normalize the persisted Height Mode value and derive `autoHeight` from it. If a node shows `Fit Node` but still behaves like auto-height until the user changes modes, the properties are out of sync.
+
 <span style="color: #ffc680"><strong>Note:</strong></span> When a footer, overlay, or loading control must stay outside the viewport clip, place it as a sibling after the viewport region or explicitly mark the subtree with `contentViewportClip: false`.
 
 ## <span style="color: #80ffc0">Resize and Docking Interactions</span>
 
 <span style="color: #80aaff"><strong>Manual resize floors:</strong></span> `dockResize.js` contains viewport-aware minimum-floor logic so clipped regions contribute their visible/min-clip height instead of their hidden full content height.
 
-Relevant helper:
+Relevant helpers:
 
 - `getVisibleRegionLayoutFloor()` in `js/fatha/core/dockResize.js`
+- `getVerticalResizeTargetMinHeight()` in `js/fatha/core/dockResize.js`
 
 <span style="color: #80aaff"><strong>Why it exists:</strong></span> Dock and manual height resizing need the clipped physical height, not the internal scrolled content height, or the node will immediately grow back after a manual shrink.
+
+<span style="color: #80aaff"><strong>Live vs settled floors:</strong></span> Standalone/manual node resize should preserve the settled expanded floor during drag so the node cannot visually compress past the height it will snap to on pointer-up. Stack/deck seam math can use the viewport-aware min floor to divide a fixed stack span while still respecting each clipped node's declared `minClipHeight`.
+
+<span style="color: #80aaff"><strong>Runtime sizing:</strong></span> Runtime-only expanded-height guards such as `_minExpandedHeight` must not override `Fit Node` manual height. Apply those guards only when the node is actually auto-height, otherwise a clipped node can look correct during drag and snap taller on release.
 
 <span style="color: #ffc680"><strong>Note:</strong></span> This is still framework-owned behavior. It is viewport-aware resize math, not a second scrollbar implementation.
 
@@ -160,6 +169,7 @@ Node-local only:
 - whether a region uses `scrollViewport`
 - how tall `clipHeight` should be for that node
 - how much `minClipHeight` should contribute to manual floors
+- whether Height Mode options need node-specific labels or measured entry/group counts
 - whether a descendant subtree should opt out through `contentViewportClip: false`
 
 <span style="color: #ffc680"><strong>Maintenance rule:</strong></span> Any future scrollbar visual, interaction, overflow, or clipped hit-test fix belongs in `fathaContentViewport*.js`, `fathaDOMshield.js`, `masterLayoutEngine.js`, `fatha.js`, or `dockResize.js` as appropriate. Do not fork viewport behavior per node unless there is a proven framework gap.

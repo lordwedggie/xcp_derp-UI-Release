@@ -28,6 +28,18 @@ function numberOr(value, fallback = 0) {
     return Number.isFinite(num) ? num : fallback;
 }
 
+function normalizeTriggerWallClipVisibleLimit(value) {
+    const raw = String(value ?? "Auto");
+    return ["Auto", "1", "2", "3", "4", "5"].includes(raw) ? raw : "Auto";
+}
+
+function syncTriggerWallHeightModeProperties(node) {
+    if (!node?.properties) return;
+    const value = normalizeTriggerWallClipVisibleLimit(node.properties.triggerWallClipVisibleLimit);
+    node.properties.triggerWallClipVisibleLimit = value;
+    node.properties.autoHeight = value !== "Auto";
+}
+
 function isTriggerWallDragRegionDisplayed(node, region) {
     if (!node || !region?.key) return false;
     const state = getContentViewportForRegion(node, region.key);
@@ -221,7 +233,7 @@ export function triggerWall_onNodeCreated(node, originalCallback) {
     node._lastSettingActive = false;
     node.properties.exclusiveMode = false;
     node.properties.autoWidth = false;
-    node.properties.autoHeight = true;
+    syncTriggerWallHeightModeProperties(node);
     node.properties.useCollapsedTotalHeight = true;
     node.properties.minWidth = 200;
     node.properties.optimizeHoverDirty = true;
@@ -250,6 +262,7 @@ export function triggerWall_onConfigure(node, info, originalCallback) {
 
     if (info && info.properties) {
         if (node.properties.showWeight === undefined) node.properties.showWeight = true;
+        syncTriggerWallHeightModeProperties(node);
         node._lastDerpW = null; // Force frame-one rebuild in onDrawForeground
         node._lastSyncedContent = null;
         ensureTriggerGroupData(node, true); // force re-seed from deserialized properties
