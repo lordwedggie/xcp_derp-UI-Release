@@ -329,9 +329,16 @@ export function createDerpShield(node) {
 
     const clearDockResizeActiveMembers = (resizeNode) => {
         const activeMembers = resizeNode?._dockResizeActiveMembers;
+        const graph = app.graph || resizeNode?.graph || node?.graph || null;
+        const clearPressureSession = (member) => {
+            const pressureHub = graph && member ? getDeckPressureHubForNode(member, graph) : null;
+            if (pressureHub) pressureHub._deckPressureVerticalSeamSession = null;
+        };
+        clearPressureSession(resizeNode);
         if (activeMembers instanceof Set) {
             activeMembers.forEach((member) => {
                 if (!member) return;
+                clearPressureSession(member);
                 if (member !== resizeNode) member._isDerpResizing = false;
                 member._horizontalDeckWidthResizeLock = false;
             });

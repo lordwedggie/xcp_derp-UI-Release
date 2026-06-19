@@ -2393,6 +2393,11 @@ function fitDeckPressureSideHeights(members, targetHeight, snap) {
     if (members.some((member) => member?._isDerpResizing === true) && collapsedClampedCurrent.every((value, index) => value >= mins[index])) {
         return collapsedClampedCurrent;
     }
+    const now = performance.now?.() || Date.now();
+    const hasFreshManualFit = members.some((member) => Number(member?._deckPressureManualBranchFitUntil || 0) > now);
+    if (hasFreshManualFit && Math.abs(collapsedClampedTotal - resolvedTarget) <= 0.5 && collapsedClampedCurrent.every((value, index) => value >= mins[index])) {
+        return collapsedClampedCurrent;
+    }
     const freshActive = getDeckPressureFreshActiveMember(members);
     const freshActiveIndex = expandedIndexes.find((index) => members[index]?.id === freshActive?.id);
     const hasFreshActiveSavedHeight = freshActiveIndex >= 0 && Number(members[freshActiveIndex]?.properties?._savedExpandedHeight || 0) > 0;

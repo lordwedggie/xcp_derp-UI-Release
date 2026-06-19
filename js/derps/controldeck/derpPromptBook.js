@@ -73,7 +73,7 @@ app.registerExtension({
         console.log(`[Fatha] Intercepting Python Node: ${nodeData.name}`);
 
         // Initialize Virtual Fatha framework hijacking
-        fatha(nodeType, nodeData, 300);
+        fatha(nodeType, nodeData, 200);
 
         if (typeof bindPromptBookHooks === "function") {
             bindPromptBookHooks(nodeType);
@@ -176,7 +176,7 @@ app.registerExtension({
                             triggerIconColorKey: "t_text_warning",
                             value: this.properties.bookName || tLocale("$derp_prompt_book.book.untitled_name", "Untitled Book"),
                             mode: "file", fileType: "promptBook", displayText: tLocale("$derp_prompt_book.browser.select", "Select Book..."),
-                            minWidth: 200, width: "full", height: "auto", padding: [pW, pH], spacing: [sW, 0],
+                            width: "full", height: "auto", padding: [pW, pH], spacing: [sW, 0], displayMode: "ellipsis",
                             onChange: (val) => handleBookChange(this, val)
                         },
                         btnOpenBookFolder: {
@@ -268,7 +268,7 @@ app.registerExtension({
                         })),
                         triggerIconColorKey: "t_text_warning",
                         mouseOver: false,
-                        width: "full", height: "auto", padding: [pW, pH], spacing: [sW, 0],
+                        width: "full", height: "auto", padding: [pW, pH], spacing: [sW, 0], displayMode: "ellipsis",
                         mode: "file",
                         rootName: "pages",
                         value: String(safeIndex),
@@ -372,6 +372,7 @@ app.registerExtension({
             this.properties.titleLabel = tLocale("$derp_prompt_book.title", "Derp Prompt Book");
 
             Object.assign(this.properties, {
+                minWidth: 200,
                 nodeSize: [400, 400],
                 derpBook: typeof createDefaultDerpBook === "function" ? createDefaultDerpBook() : [{title: tLocale("$derp_prompt_book.page.cover", "Cover"), content: ""}],
                 currentPageIndex: 0,

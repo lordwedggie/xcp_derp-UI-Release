@@ -157,6 +157,7 @@ To add a skill, create `.agents/skills/<name>/SKILL.md` with YAML frontmatter (`
 - `width: "match"` depends on height and can temporarily measure at fallback size during early passes.
 - PASS 1 measures at `SQUISH_WIDTH = 10`; high `minWidth` values can inflate the whole layout.
 - Derp nodes default to manual width; only explicit `properties.autoWidth = true` opts into auto width. Missing `autoWidth` must be treated like `false` in layout, docking, and resize paths.
+- System panel height selection is one shared Height Mode FILEBROWSER. Standard nodes expose Auto/Manual; clipped nodes should provide `getDerpHeightModeConfig()` instead of adding separate viewport-height controls.
 - Use `_forceSync`, `_layoutDirty`, and `_derpAwakeFrames` deliberately for recompute and animation wakeups.
 - Whole-wall/passive caches can hide correct widget state; inspect cache keys when visuals revert unexpectedly.
 
@@ -264,6 +265,7 @@ To add a skill, create `.agents/skills/<name>/SKILL.md` with YAML frontmatter (`
 - Pressed non-drag widget regions must absorb pointer movement; otherwise a small click twitch can fall through to `updateDockDrag()` and move a deck root using a child node's press-start position.
 - Deck target picking for dragged linear stacks must use the stack bounding rect, not only the drag root's node rect, so side/top/bottom attach detection follows the moving stack's outer edge.
 - Shared-edge DOM hitboxes and resize handlers must use the same seam eligibility helpers; duplicated seam predicates between `fathaDOMshield.js` and `dockResize.js` can show a handle that the resize path later rejects, or hide a seam that would resize correctly.
+- Left/right vertical Deck Pressure branch seam resizing must preserve the freshly fitted member heights during mouse-up settlement; saved expanded-height preferences should not immediately re-grow a lower active member after release.
 
 ### Node-Specific Notes
 

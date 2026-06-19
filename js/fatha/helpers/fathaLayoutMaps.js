@@ -40,6 +40,7 @@ const THEME_WEIGHT_RESET_ITEM = {
     hidePrefix: true,
     disableSelectedStyle: true,
 };
+const STANDARD_HEIGHT_MODE_ITEMS = ["Auto", "Manual"];
 
 function tLocale(key, fallback = key) {
     if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
@@ -50,6 +51,29 @@ function tLocale(key, fallback = key) {
         if (target === undefined) return fallback;
     }
     return target;
+}
+
+function getStandardHeightModeConfig(hostNode) {
+    return {
+        items: STANDARD_HEIGHT_MODE_ITEMS,
+        value: hostNode?.properties?.autoHeight !== false ? "Auto" : "Manual",
+        rootName: "height-mode",
+        onChange: (nextValue) => {
+            if (!hostNode?.properties) return;
+            hostNode.properties.autoHeight = String(nextValue || "Auto") !== "Manual";
+            if (typeof hostNode.refreshNodeLayoutMap === "function") hostNode.refreshNodeLayoutMap();
+            if (typeof hostNode.requestDerpSync === "function") hostNode.requestDerpSync();
+            else if (typeof hostNode.setDirtyCanvas === "function") hostNode.setDirtyCanvas(true, true);
+        },
+    };
+}
+
+function getHeightModeConfig(hostNode) {
+    if (typeof hostNode?.getDerpHeightModeConfig === "function") {
+        const customConfig = hostNode.getDerpHeightModeConfig();
+        if (customConfig?.items?.length) return customConfig;
+    }
+    return getStandardHeightModeConfig(hostNode);
 }
 
 function paletteColorToCss(color) {
@@ -612,6 +636,7 @@ export function getPanelBaseMap(hostNode, app, sysState) {
     const showWarpRegion = hostNode.properties?._showWarpRegion === true;
     const isDocked = isNodeDocked(hostNode, hostNode?.graph || app?.graph || null);
     const isVerticalDocked = isVerticalDockedGroup(hostNode);
+    const heightModeConfig = getHeightModeConfig(hostNode);
 
     if (!Array.isArray(hostNode.properties.warpShortcutItems) || hostNode.properties.warpShortcutItems.length === 0) {
         hostNode.properties.warpShortcutItems = [...WARP_SHORTCUT_ITEMS];
@@ -890,20 +915,31 @@ export function getPanelBaseMap(hostNode, app, sysState) {
             anchor: { target: "regionWarp", axis: "y" },
             dir: "row", margin: [mW, sH, mW, mH],             
             width: "full", height: "auto",
-            btnAutoHeight: {
-                type: UI_TYPES.TOGGLE_V2,
-                textThemeKey: "dialog, button, t_textSystem", skipBackground: true,
-                toolTip: tLocale("$fatha_layout.tooltips.auto_height", "If disabled, the node height can be resized manually"),
-                spacing: [sW, 0],
-                value: hostNode.properties?.autoHeight !== false,
-                state: "OFF",
-                objectAlign: ["left", "top"], labelAlign: ["left", "middle"],
-                label: "$system.auto_height",
+            lblHeightMode: {
+                type: UI_TYPES.TEXT,
+                themeKey: "t_textSystem",
+                text: "$system.height_mode",
                 width: "auto", height: "fill",
-                padding: [pW, pH],
-                onPress: () => {
-                    hostNode.properties.autoHeight = (hostNode.properties.autoHeight !== false) ? false : true;
-                    hostNode.requestDerpSync();
+                objectAlign: ["left", "middle"], labelAlign: ["left", "middle"],
+                padding: [pW, 0], spacing: [sW, 0],
+            },
+            dropdownHeightMode: {
+                type: UI_TYPES.FILEBROWSER,
+                icon: "dropdown",
+                themeKey: "button, t_textSystem",
+                toolTip: tLocale("$fatha_layout.tooltips.height_mode", "Choose how this node resolves its height"),
+                canvasShield: true, padding: [pW, pH],
+                spacing: [sW, 0],
+                width: "auto", height: "fill",
+                mode: "file",
+                rootName: heightModeConfig.rootName || "height-mode",
+                mouseOver: false,
+                items: heightModeConfig.items || STANDARD_HEIGHT_MODE_ITEMS,
+                value: heightModeConfig.value || "Auto",
+                onChange: (v) => {
+                    if (typeof heightModeConfig.onChange === "function") heightModeConfig.onChange(v, hostNode);
+                    if (sysState) sysState._layoutDirty = true;
+                    if (typeof hostNode.setDirtyCanvas === "function") hostNode.setDirtyCanvas(true, true);
                 }
             },
             btnHideTitle: {

@@ -50,8 +50,9 @@ function flushLoraStackSysSettings(node) {
     if (!sysState || sysState.hostNode !== node) return;
 
     const dynamicElements = sysState.dynamicElements || {};
-    const clipLimitEl = dynamicElements.dropdownClipVisibleLimit;
+    const clipLimitEl = dynamicElements.dropdownHeightMode;
     if (clipLimitEl?.value !== undefined) {
+        node.properties.autoHeight = normalizeLoraStackClipVisibleLimit(clipLimitEl.value) !== "Auto";
         node.properties.loraStackClipVisibleLimit = normalizeLoraStackClipVisibleLimit(clipLimitEl.value);
     }
 
@@ -79,6 +80,13 @@ function flushLoraStackSysSettings(node) {
 function normalizeLoraStackClipVisibleLimit(value) {
     const raw = String(value ?? "Auto");
     return LORA_STACK_CLIP_VISIBLE_LIMIT_ITEMS.includes(raw) ? raw : "Auto";
+}
+
+function getLoraStackHeightModeItems() {
+    return LORA_STACK_CLIP_VISIBLE_LIMIT_ITEMS.map((value) => ({
+        value,
+        display: value === "Auto" ? "Fit Node" : `${value} LoRA ${value === "1" ? "Entry" : "Entries"}`,
+    }));
 }
 
 function getLoraStackClipVisibleLimit(node) {
@@ -207,6 +215,21 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
 
                 nodeType.prototype.resolveLoraStackOneEntryHeight = function() {
                     return resolveLoraStackOneEntryHeight(this);
+                };
+
+                nodeType.prototype.getDerpHeightModeConfig = function() {
+                    return {
+                        items: getLoraStackHeightModeItems(),
+                        value: getLoraStackClipVisibleLimit(this),
+                        rootName: "height-mode",
+                        onChange: (v) => {
+                            this.properties.autoHeight = normalizeLoraStackClipVisibleLimit(v) !== "Auto";
+                            this.properties.loraStackClipVisibleLimit = normalizeLoraStackClipVisibleLimit(v);
+                            this.refreshNodeLayoutMap();
+                            if (this.refreshDerpLoraStackSysMap) this.refreshDerpLoraStackSysMap();
+                            persistLoraStackSettings(this);
+                        },
+                    };
                 };
 
                 const onNodeCreated = nodeType.prototype.onNodeCreated;
@@ -962,28 +985,6 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                             width: "full", height: "auto",
                             sysRow_1: {
                                 dir: "row", width: "full", height: "auto", margin: [mW, mH],
-                                lblClipVisibleLimit: {
-                                    type: this.UI_TYPES.TEXT, themeKey: "t_textSystem",
-                                    text: tLocale("$derp_lora_stack.system.clip_visible_limit", "Visible before clip:"), width: "auto", padding: [pW, 0], spacing: [sW, 0],
-                                },
-                                dropdownClipVisibleLimit: {
-                                    type: this.UI_TYPES.FILEBROWSER,
-                                    icon: "dropdown",
-                                    themeKey: "button, t_textSystem",
-                                    canvasShield: true, padding: [pW, pH],
-                                    width: "auto", height: "auto",
-                                    mode: "file",
-                                    rootName: "visible-before-clip",
-                                    mouseOver: false,
-                                    items: LORA_STACK_CLIP_VISIBLE_LIMIT_ITEMS,
-                                    value: getLoraStackClipVisibleLimit(this),
-                                    onChange: (v) => {
-                                        this.properties.loraStackClipVisibleLimit = normalizeLoraStackClipVisibleLimit(v);
-                                        this.refreshNodeLayoutMap();
-                                        this.refreshDerpLoraStackSysMap();
-                                        persistLoraStackSettings(this);
-                                    }
-                                },
                                 btnToggleMode: {
                                     type: this.UI_TYPES.BUTTON, themeKey: "button, t_textSystem",
                                     text: `${tLocale("$derp_lora_stack.system.mode", "Mode")}: ${this.properties.attentionMode || "Cross-Attention"}`,

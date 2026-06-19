@@ -128,7 +128,7 @@ export function applyHTMLTheme(el, paintData, scale = 1.0) {
     const shadow = paintData.shadow;
 
     // 1. BASE GEOMETRY
-    // Use raw scale for corners — CSS transform already handles visual scaling of border-radius
+    // Keep corner geometry on the requested layout scale.
     applyHTMLCornerGeometry(el, corners, scale);
 
     el.style.backgroundColor = Array.isArray(paintData.fill) ? toRGBA(paintData.fill) : (paintData.fill || "transparent");
@@ -142,23 +142,23 @@ export function applyHTMLTheme(el, paintData, scale = 1.0) {
     const shadowClip = paintData.shadowClip || "c_shadowNone";
     if (shadow) {
         if (shadowClip === "c_shadowInside") {
-            const layer = buildBoxShadowLayer(shadow, scale, DERP_HTML_ALPHA_FACTOR, DERP_HTML_BLUR_FACTOR, DERP_HTML_OFFSET_FACTOR, true);
+            const layer = buildBoxShadowLayer(shadow, effectiveScale, DERP_HTML_ALPHA_FACTOR, DERP_HTML_BLUR_FACTOR, DERP_HTML_OFFSET_FACTOR, true);
             if (layer) shadowLayers.push(layer);
         } else if (shadowClip === "c_shadowOutside") {
             if (hasChamfer) {
-                const layer = buildDropShadowLayer(shadow, scale, DERP_HTML_ALPHA_FACTOR, DERP_HTML_BLUR_FACTOR, DERP_HTML_OFFSET_FACTOR);
+                const layer = buildDropShadowLayer(shadow, effectiveScale, DERP_HTML_ALPHA_FACTOR, DERP_HTML_BLUR_FACTOR, DERP_HTML_OFFSET_FACTOR);
                 if (layer) dropShadowLayers.push(layer);
             } else {
-                const layer = buildBoxShadowLayer(shadow, scale, DERP_HTML_ALPHA_FACTOR, DERP_HTML_BLUR_FACTOR, DERP_HTML_OFFSET_FACTOR, false);
+                const layer = buildBoxShadowLayer(shadow, effectiveScale, DERP_HTML_ALPHA_FACTOR, DERP_HTML_BLUR_FACTOR, DERP_HTML_OFFSET_FACTOR, false);
                 if (layer) shadowLayers.push(layer);
             }
         } else {
             const outerLayer = hasChamfer
                 ? null
-                : buildBoxShadowLayer(shadow, scale, DERP_HTML_ALPHA_FACTOR, DERP_HTML_BLUR_FACTOR, DERP_HTML_OFFSET_FACTOR, false);
-            const innerLayer = buildBoxShadowLayer(shadow, scale, DERP_HTML_ALPHA_FACTOR, DERP_HTML_BLUR_FACTOR, DERP_HTML_OFFSET_FACTOR, true);
+                : buildBoxShadowLayer(shadow, effectiveScale, DERP_HTML_ALPHA_FACTOR, DERP_HTML_BLUR_FACTOR, DERP_HTML_OFFSET_FACTOR, false);
+            const innerLayer = buildBoxShadowLayer(shadow, effectiveScale, DERP_HTML_ALPHA_FACTOR, DERP_HTML_BLUR_FACTOR, DERP_HTML_OFFSET_FACTOR, true);
             if (hasChamfer) {
-                const dropLayer = buildDropShadowLayer(shadow, scale, DERP_HTML_ALPHA_FACTOR, DERP_HTML_BLUR_FACTOR, DERP_HTML_OFFSET_FACTOR);
+                const dropLayer = buildDropShadowLayer(shadow, effectiveScale, DERP_HTML_ALPHA_FACTOR, DERP_HTML_BLUR_FACTOR, DERP_HTML_OFFSET_FACTOR);
                 if (dropLayer) dropShadowLayers.push(dropLayer);
             }
             if (outerLayer) shadowLayers.push(outerLayer);
@@ -175,23 +175,23 @@ export function applyHTMLTheme(el, paintData, scale = 1.0) {
 
     if (glow) {
         if (glowClip === "c_glowInside") {
-            const layer = buildBoxShadowLayer(glow, scale, DERP_HTML_ALPHA_FACTOR, DERP_HTML_BLUR_FACTOR, DERP_HTML_OFFSET_FACTOR, true);
+            const layer = buildBoxShadowLayer(glow, effectiveScale, DERP_HTML_ALPHA_FACTOR, DERP_HTML_BLUR_FACTOR, DERP_HTML_OFFSET_FACTOR, true);
             if (layer) shadowLayers.push(layer);
         } else if (glowClip === "c_glowOutside") {
             if (hasChamfer) {
-                const layer = buildDropShadowLayer(glow, scale, DERP_HTML_ALPHA_FACTOR, DERP_HTML_BLUR_FACTOR, DERP_HTML_OFFSET_FACTOR);
+                const layer = buildDropShadowLayer(glow, effectiveScale, DERP_HTML_ALPHA_FACTOR, DERP_HTML_BLUR_FACTOR, DERP_HTML_OFFSET_FACTOR);
                 if (layer) dropShadowLayers.push(layer);
             } else {
-                const layer = buildBoxShadowLayer(glow, scale, DERP_HTML_ALPHA_FACTOR, DERP_HTML_BLUR_FACTOR, DERP_HTML_OFFSET_FACTOR, false);
+                const layer = buildBoxShadowLayer(glow, effectiveScale, DERP_HTML_ALPHA_FACTOR, DERP_HTML_BLUR_FACTOR, DERP_HTML_OFFSET_FACTOR, false);
                 if (layer) shadowLayers.push(layer);
             }
         } else {
             const outerLayer = hasChamfer
                 ? null
-                : buildBoxShadowLayer(glow, scale, DERP_HTML_ALPHA_FACTOR, DERP_HTML_BLUR_FACTOR, DERP_HTML_OFFSET_FACTOR, false);
-            const innerLayer = buildBoxShadowLayer(glow, scale, DERP_HTML_ALPHA_FACTOR, DERP_HTML_BLUR_FACTOR, DERP_HTML_OFFSET_FACTOR, true);
+                : buildBoxShadowLayer(glow, effectiveScale, DERP_HTML_ALPHA_FACTOR, DERP_HTML_BLUR_FACTOR, DERP_HTML_OFFSET_FACTOR, false);
+            const innerLayer = buildBoxShadowLayer(glow, effectiveScale, DERP_HTML_ALPHA_FACTOR, DERP_HTML_BLUR_FACTOR, DERP_HTML_OFFSET_FACTOR, true);
             if (hasChamfer) {
-                const dropLayer = buildDropShadowLayer(glow, scale, DERP_HTML_ALPHA_FACTOR, DERP_HTML_BLUR_FACTOR, DERP_HTML_OFFSET_FACTOR);
+                const dropLayer = buildDropShadowLayer(glow, effectiveScale, DERP_HTML_ALPHA_FACTOR, DERP_HTML_BLUR_FACTOR, DERP_HTML_OFFSET_FACTOR);
                 if (dropLayer) dropShadowLayers.push(dropLayer);
             }
             if (outerLayer) shadowLayers.push(outerLayer);

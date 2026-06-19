@@ -317,6 +317,13 @@ function normalizeTriggerWallClipVisibleLimit(value) {
     return TRIGGER_WALL_CLIP_VISIBLE_LIMIT_ITEMS.includes(raw) ? raw : "Auto";
 }
 
+function getTriggerWallHeightModeItems() {
+    return TRIGGER_WALL_CLIP_VISIBLE_LIMIT_ITEMS.map((value) => ({
+        value,
+        display: value === "Auto" ? "Fit Node" : `${value} Trigger ${value === "1" ? "Group" : "Groups"}`,
+    }));
+}
+
 function getTriggerWallClipVisibleLimit(node) {
     return normalizeTriggerWallClipVisibleLimit(node?.properties?.triggerWallClipVisibleLimit);
 }
@@ -1113,30 +1120,6 @@ app.registerExtension({
                     },
                     regionOption1: {
                         dir: "row", width: "full", height: "auto",
-                        lblClipVisibleLimit: {
-                            type: this.UI_TYPES.TEXT, themeKey: "t_textSystem",
-                            text: tLocale("$derp_trigger_wall.system.clip_visible_limit", "Visible before clip:"), width: "auto", padding: [pW, 0],
-                        },
-                        dropdownClipVisibleLimit: {
-                            type: this.UI_TYPES.FILEBROWSER,
-                            icon: "dropdown",
-                            themeKey: "button, t_textSystem",
-                            canvasShield: true, padding: [pW, pH],
-                            width: "auto", height: "fill",
-                            mode: "file",
-                            rootName: "visible-before-clip",
-                            mouseOver: false,
-                            items: TRIGGER_WALL_CLIP_VISIBLE_LIMIT_ITEMS,
-                            value: getTriggerWallClipVisibleLimit(this),
-                            onChange: (v) => {
-                                this.properties.triggerWallClipVisibleLimit = normalizeTriggerWallClipVisibleLimit(v);
-                                this.refreshNodeLayoutMap();
-                                this.refreshDerpTriggerWallSysMap();
-                                if (this.requestDerpSync) this.requestDerpSync();
-                                if (this.setDirtyCanvas) this.setDirtyCanvas(true, true);
-                                if (app.graph && typeof app.graph.change === "function") app.graph.change();
-                            }
-                        },
                         toggleShowWeight: {
                             type: this.UI_TYPES.TOGGLE,
                             textThemeKey: "t_textsystem",
@@ -1170,6 +1153,23 @@ app.registerExtension({
 
         nodeType.prototype.onDerpSysPanelOpen = function(panel) {
             triggerWall_onDerpSysPanelOpen(this, panel);
+        };
+
+        nodeType.prototype.getDerpHeightModeConfig = function() {
+            return {
+                items: getTriggerWallHeightModeItems(),
+                value: getTriggerWallClipVisibleLimit(this),
+                rootName: "height-mode",
+                onChange: (v) => {
+                    this.properties.autoHeight = normalizeTriggerWallClipVisibleLimit(v) !== "Auto";
+                    this.properties.triggerWallClipVisibleLimit = normalizeTriggerWallClipVisibleLimit(v);
+                    this.refreshNodeLayoutMap();
+                    if (this.refreshDerpTriggerWallSysMap) this.refreshDerpTriggerWallSysMap();
+                    if (this.requestDerpSync) this.requestDerpSync();
+                    if (this.setDirtyCanvas) this.setDirtyCanvas(true, true);
+                    if (app.graph && typeof app.graph.change === "function") app.graph.change();
+                },
+            };
         };
 
         nodeType.prototype.onResize = function(size) {

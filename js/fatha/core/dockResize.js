@@ -742,6 +742,24 @@ function rememberExpandedDeckHeight(node, height) {
     node._preCollapseHeight = nextHeight;
 }
 
+function markManualDeckPressureBranchFit(members) {
+    if (!Array.isArray(members) || members.length <= 1) return;
+    const until = (performance.now?.() || Date.now()) + 1200;
+    members.forEach((member) => {
+        if (!member) return;
+        member._deckPressureManualBranchFitUntil = until;
+    });
+}
+
+function getDeckPressureVerticalSideBranchContext(node, graph) {
+    const pressureHub = getDeckPressureHubForNode(node, graph);
+    if (!pressureHub || pressureHub.id === node?.id) return null;
+    const branchSide = getDeckPressureBranchSideForNode(pressureHub, graph, node);
+    if (branchSide !== "left" && branchSide !== "right") return null;
+    if (getDeckPressureBranchAxis(pressureHub, graph, branchSide) !== "vertical") return null;
+    return { pressureHub, branchSide };
+}
+
 function applyVerticalStackSharedEdgeResize(entity, resizeAnchor, requestedEntityHeight, snap, result, addCounterpart, graph) {
     if (resizeAnchor !== "top" && resizeAnchor !== "bottom") return false;
 
@@ -754,6 +772,10 @@ function applyVerticalStackSharedEdgeResize(entity, resizeAnchor, requestedEntit
     const topNode = resizeAnchor === "top" ? members[entityIndex - 1] : entity;
     const bottomNode = resizeAnchor === "top" ? entity : members[entityIndex + 1];
     if (!topNode || !bottomNode) return false;
+    const pressureContext = getDeckPressureVerticalSideBranchContext(entity, graph);
+    const frameBefore = pressureContext ? getDockFrameBounds(getDeckMembers(pressureContext.pressureHub, graph)) : null;
+    const sessionOwner = pressureContext?.pressureHub || entity;
+    const sessionKey = pressureContext ? "_deckPressureVerticalSeamSession" : "_dockResizeSession";
 
     markDockResizeActiveMembers(entity, members, bottomNode);
 
@@ -768,7 +790,7 @@ function applyVerticalStackSharedEdgeResize(entity, resizeAnchor, requestedEntit
     }
 
     const sessionSide = "vertical-ordered-seam";
-    const currentSession = entity._dockResizeSession;
+    const currentSession = sessionOwner[sessionKey];
     const sessionMatches = currentSession
         && currentSession.side === sessionSide
         && currentSession.entityId === entity.id
@@ -778,18 +800,19 @@ function applyVerticalStackSharedEdgeResize(entity, resizeAnchor, requestedEntit
         && currentSession.memberIds.length === members.length
         && currentSession.memberIds.every((id, index) => id === members[index].id);
     if (!sessionMatches) {
-        entity._dockResizeSession = {
+        sessionOwner[sessionKey] = {
             side: sessionSide,
             entityId: entity.id,
             topNodeId: topNode.id,
             bottomNodeId: bottomNode.id,
             topStartH: getDockNodeHeight(topNode),
             bottomStartH: getDockNodeHeight(bottomNode),
+            frameBounds: frameBefore,
             memberIds: members.map((member) => member.id),
         };
     }
 
-    const session = entity._dockResizeSession;
+    const session = sessionOwner[sessionKey];
     const totalHeight = (Number(session.topStartH) || getDockNodeHeight(topNode)) + (Number(session.bottomStartH) || getDockNodeHeight(bottomNode));
     const topMinH = getVerticalResizeTargetMinHeight(topNode, snap, { preserveExpandedFloor: true });
     const bottomMinH = getVerticalResizeTargetMinHeight(bottomNode, snap, { preserveExpandedFloor: true });
@@ -814,6 +837,7 @@ function applyVerticalStackSharedEdgeResize(entity, resizeAnchor, requestedEntit
     syncDeckNodeSize(bottomNode, getDockNodeWidth(bottomNode), adjustedBottomH, { silent: true });
     rememberExpandedDeckHeight(topNode, adjustedTopH);
     rememberExpandedDeckHeight(bottomNode, adjustedBottomH);
+    markManualDeckPressureBranchFit(members);
     normalizeVerticalMemberPositions(topNode, graph);
     if (typeof topNode.syncUncleSlots === "function") topNode.syncUncleSlots();
     if (typeof bottomNode.syncUncleSlots === "function") bottomNode.syncUncleSlots();
@@ -932,6 +956,8 @@ function applyCollapsedVerticalBoundaryResize(entity, resizeAnchor, requestedEnt
             addCounterpart(member);
         });
     }
+
+    markManualDeckPressureBranchFit(members);
 
     result.handledHeight = true;
     result.handledAll = true;
@@ -1524,6 +1550,7 @@ export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH,
         syncDeckNodeSize(bottomNode, getDockNodeWidth(bottomNode), adjustedBottomH, { silent: true });
         rememberExpandedDeckHeight(topNode, adjustedTopH);
         rememberExpandedDeckHeight(bottomNode, adjustedBottomH);
+        markManualDeckPressureBranchFit(verticalMembers);
         setDeckNodePos(bottomNode, Number(bottomNode.pos?.[0]) || 0, (Number(topNode.pos?.[1]) || 0) + adjustedTopH);
         normalizeVerticalMemberPositions(topNode, graph);
         if (typeof topNode.syncUncleSlots === "function") topNode.syncUncleSlots();

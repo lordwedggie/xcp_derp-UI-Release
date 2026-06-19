@@ -5,7 +5,7 @@
     "author": "Gemini"
   },
   "system": {
-    "auto_height": "Auto-height",
+    "height_mode": "Height mode:",
     "title": "Title",
     "animation": "Animation",
     "close_panel": "Close panel"
@@ -40,7 +40,7 @@
       "select_theme_weight": "Apply saved theme weight settings to the selected theme",
       "add_warp_point": "Assign a Warp Point hotkey to this node so the canvas can center on it",
       "delete_warp_point": "Remove this node's Warp Point and free the shortcut key",
-      "auto_height": "If disabled, the node height can be resized manually",
+      "height_mode": "Choose how this node resolves its height",
       "hide_header": "Hide the node header. Headers cannot be hidden while vertically docked",
       "animation_toggle": "Toggle this node's individual animation setting",
       "load_profile": "Select a saved profile and load this node's settings from it",
@@ -368,7 +368,6 @@
       "name_display": "Name display:",
       "strength_setting": "Strength Setting",
       "clip_setting": "CLIP Setting",
-      "clip_visible_limit": "Visible before clip:",
       "min": "Min:",
       "max": "Max:",
       "step": "Step:",
@@ -411,7 +410,6 @@
     },
     "system": {
       "properties": "Derp Trigger Wall properties:",
-      "clip_visible_limit": "Visible before clip:",
       "show_weight": "Show Trigger Weight",
       "add_always": "Add trigger button always visible"
     },
