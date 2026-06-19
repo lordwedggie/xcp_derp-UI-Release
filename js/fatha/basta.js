@@ -16,6 +16,7 @@ import { getBastaBaseMap } from "./helpers/bastaLayoutMaps.js";
 import { ensureScreenRectVisible, isWarping } from "./core/fathaWarp.js";
 import { MASTER_Z } from "./core/masterZ.js";
 import { resolveSystemThemePaint } from "./helpers/fathaSystemTheme.js";
+import { getContentViewportForRegion } from "./core/fathaContentViewport.js";
 
 const BASTA_FADE_SPEED = 0.4;
 const BLD_ID = "basta_lora_detail_global_unique_id";
@@ -499,10 +500,21 @@ class BastaInstance {
             const target = this.hostNode.layout?.regions?.[this.targetRegion];
 
             if (target) {
+                const viewport = getContentViewportForRegion(this.hostNode, this.targetRegion);
+                const viewportRect = viewport?.rect || null;
+                const rawTargetY = (Number(target.y) || 0) - (Number(viewport?.scrollTop) || 0);
+                const rawTargetBottom = rawTargetY + (Number(target.h) || 0);
+                const targetY = viewportRect
+                    ? Math.max(rawTargetY, Number(viewportRect.y) || 0)
+                    : rawTargetY;
+                const targetBottom = viewportRect
+                    ? Math.min(rawTargetBottom, (Number(viewportRect.y) || 0) + (Number(viewportRect.h) || 0))
+                    : rawTargetBottom;
+                const targetH = Math.max(0, targetBottom - targetY);
                 // Pinning: Bottom of Basta to Top of Caller, centered horizontally on Caller.
                 this.offset = [
                     Math.round(target.x + (target.w / 2) - (this.targetSize[0] / 2)),
-                    Math.round(target.y - this.targetSize[1] - oY)
+                    Math.round((targetH > 0 ? targetY : rawTargetY) - this.targetSize[1] - oY)
                 ];
             } else {
                 // Fallback: Center-top of Node

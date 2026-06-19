@@ -266,6 +266,7 @@ To add a skill, create `.agents/skills/<name>/SKILL.md` with YAML frontmatter (`
 - Deck target picking for dragged linear stacks must use the stack bounding rect, not only the drag root's node rect, so side/top/bottom attach detection follows the moving stack's outer edge.
 - Shared-edge DOM hitboxes and resize handlers must use the same seam eligibility helpers; duplicated seam predicates between `fathaDOMshield.js` and `dockResize.js` can show a handle that the resize path later rejects, or hide a seam that would resize correctly.
 - Vertical stack seam resizing must pin active members to the seam-assigned physical height during the live gesture, even when a clipped node's Height Mode normally resolves through numeric/auto sizing. Otherwise viewport-backed nodes can redraw taller than the stack frame while the seam is dragged.
+- Tooltips for content viewport descendants must anchor to displayed viewport coordinates, not raw unscrolled content-space region positions; resolve through viewport state and subtract scroll before pinning Basta overlays.
 - Left/right vertical Deck Pressure branch seam resizing must preserve the freshly fitted member heights during mouse-up settlement; saved expanded-height preferences should not immediately re-grow a lower active member after release.
 
 ### Node-Specific Notes
