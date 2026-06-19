@@ -1,6 +1,6 @@
 ---
 name: docs-md
-description: Maintain and repair README.md, CHANGELOG.md, and derp_docs markdown display formatting. Clean control characters, sync authoritative copies between derp_docs/ and root, fix broken arrows and paths, and preserve the ControlDeck-style colored document format. Use when the user mentions corrupted docs, broken CHANGELOG characters, FF/BS diamonds, syncing docs for publishing, or wants derp_docs markdown reformatted.
+description: Maintain and repair README.md, CHANGELOG.md, and derp_docs markdown display formatting, including FRAMEWORK-*.md documents. Clean control characters, sync authoritative copies between derp_docs/ and root, fix broken arrows and paths, and preserve the ControlDeck-style colored document format. Use when the user mentions corrupted docs, broken CHANGELOG characters, FF/BS diamonds, syncing docs for publishing, or wants derp_docs markdown reformatted.
 ---
 
 # Docs MD — derp_docs Display Maintenance
@@ -33,8 +33,10 @@ Use byte-level replacement — PowerShell `[IO.File]::ReadAllBytes` / `WriteAllB
 
 Use the same inline HTML color style already established in the ControlDeck node docs. Stay with inline `<span style="color: ...">` formatting, not CSS blocks.
 
+This style applies to `README.md`, `CHANGELOG.md`, and all `FRAMEWORK-*.md` docs under `derp_docs/`.
+
 - Document titles should use the two-tone pattern when it fits the document name: `# <span style="color: #ff8080">Primary</span> <span style="color: #ffffff">Rest</span>`
-- Major sections should use teal H3 headings: `### <span style="color: #80ffc0">Section</span>`
+- Framework major sections may use teal H2 or H3 headings depending on the existing document depth: `## <span style="color: #80ffc0">Section</span>` or `### <span style="color: #80ffc0">Section</span>`
 - Important lead labels should use blue bold inline labels: `<span style="color: #80aaff"><strong>Label</strong></span>: text`
 - Notes should use orange inline labels: `<span style="color: #ffc680"><strong>Note:</strong></span> text`
 - Warnings should use orange or red inline emphasis depending on severity.

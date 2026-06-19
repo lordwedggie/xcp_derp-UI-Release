@@ -45,15 +45,17 @@ This section is the top-priority project memory for coding behavior. Follow it b
 
 ### Framework Docs
 
-There are eight authoritative framework docs:
+There are ten authoritative framework docs:
 
 - `derp_docs/FRAMEWORK-Backend.md`
 - `derp_docs/FRAMEWORK-Basta.md`
+- `derp_docs/FRAMEWORK-Clipping.md`
 - `derp_docs/FRAMEWORK-Docking.md`
 - `derp_docs/FRAMEWORK-Fatha.md`
 - `derp_docs/FRAMEWORK-Herbina.md`
 - `derp_docs/FRAMEWORK-Motha.md`
 - `derp_docs/FRAMEWORK-Nodes.md`
+- `derp_docs/FRAMEWORK-Optimization.md`
 - `derp_docs/FRAMEWORK-ThemePalette.md`
 
 Docs must stay synced with framework behavior. Stale docs are treated as bugs.
@@ -146,6 +148,7 @@ To add a skill, create `.agents/skills/<name>/SKILL.md` with YAML frontmatter (`
 
 - Read the relevant `FRAMEWORK-*.md` before touching framework code.
 - Update the same doc when changing framework contracts, widget APIs, palette resolution, layout behavior, docking, Basta lifecycle, or backend routes.
+- Treat `derp_docs/FRAMEWORK-Clipping.md` as the authoritative doc for `scrollViewport`, clipped-region behavior, shared scrollbar drawing, viewport wheel/drag handling, and viewport-aware resize floors.
 
 ### Layout Engine
 
@@ -280,6 +283,7 @@ To add a skill, create `.agents/skills/<name>/SKILL.md` with YAML frontmatter (`
 - Syncthing device identity comes from `cert.pem` and `key.pem` under `/root/.config/syncthing-xcp/`; if the workspace is rebuilt, back up and restore that directory to keep the same device ID.
 
 - For layout anomalies, inspect `masterLayoutEngine` and `widget_Region` before patching symptoms.
+- For node optimization work, read `derp_docs/FRAMEWORK-Optimization.md` first, then the matching framework docs for Fatha, Uncle, Basta, Herbina, docking, clipping, or node-specific behavior.
 - When asking the user to enable debug logs, provide exact console commands in the same response.
 - Investigate root causes before broad FileBrowser pointer/hover punch-through fixes.
 
