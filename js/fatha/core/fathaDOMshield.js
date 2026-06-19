@@ -1258,7 +1258,7 @@ export function syncDerpShield(node) {
     const canvasEl = app.canvas.canvas;
     const rect = canvasEl.getBoundingClientRect();
     const edgeState = node.properties?.deckEdges || {};
-    const varsForHash = node.getDerpVars ? node.getDerpVars(node) : { autoWidth: true, autoHeight: true };
+    const varsForHash = node.getDerpVars ? node.getDerpVars(node) : { autoWidth: false, autoHeight: true };
     const graphForHash = app.graph || node.graph || null;
     const pressureHubForHash = graphForHash ? getDeckPressureHubForNode(node, graphForHash) : null;
     const branchSideForHash = pressureHubForHash && pressureHubForHash.id !== node.id ? getDeckPressureBranchSideForNode(pressureHubForHash, graphForHash, node) : null;
@@ -1320,7 +1320,7 @@ export function syncDerpShield(node) {
         node.resizable = false;
         disableResizeHandles(node.interactionShield);
     } else if (node.interactionShield._resizeHandle) {
-        const vars = node.getDerpVars ? node.getDerpVars(node) : { autoWidth: true, autoHeight: true };
+        const vars = node.getDerpVars ? node.getDerpVars(node) : { autoWidth: false, autoHeight: true };
         const themedBottomCornerSize = Math.max(6 * scale, (Number(vars.mW || 0) + Number(vars.mH || 0)) * 0.5 * scale);
         const themedTopCornerSize = Math.max(6 * scale, Number(vars.mH || 0) * scale);
         const bottomCornerSize = Number.isFinite(themedBottomCornerSize) ? themedBottomCornerSize : defaultBottomCornerSize;

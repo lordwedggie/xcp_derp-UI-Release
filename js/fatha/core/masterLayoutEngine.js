@@ -192,7 +192,7 @@ export class masterLayoutEngine {
         const hProp = String(cfg.height === undefined ? "auto" : cfg.height).toLowerCase();
 
         // completely overrides text-measured minimums to allow node shrinking.
-        const isAutoWidth = this.owner?.properties?.autoWidth !== false || context.isSystemPanel;
+        const isAutoWidth = this.owner?.properties?.autoWidth === true || context.isSystemPanel;
         const useExplicitMin = !isAutoWidth && cfg.minWidth !== undefined;
 
         if (wProp.startsWith("match")) {

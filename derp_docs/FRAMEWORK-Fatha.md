@@ -88,6 +88,7 @@ A "hybrid" framework combining Fatha's modern engine with legacy node compatibil
 ## Key Patterns
 - **Ghost Slots:** Heist caches inputs/outputs as `_xcpTrueInputs`/`_xcpTrueOutputs`, sets real arrays to `[]` during draw
 - **Passive Whole Wall Cache:** OffscreenCanvas cache for TriggerWall/LoraStack/ImageDeck panel backgrounds. Backing scale is zoom-aware but capped/quantized, and cache reuse draws only the visible local slice so high zoom does not blit huge panels every frame.
+- **Manual Width Default:** Fatha/Uncle derp nodes default to manual width. `autoWidth` is true only when a node explicitly sets `properties.autoWidth = true`; the system panel no longer exposes an Auto-width toggle. Width-related docking and resize code must treat missing `autoWidth` the same as `false`.
 - **TriggerWall Cache Threshold:** `Derp.TriggerWallWholeWallCacheGate` in masterSettings controls when `derpTriggerWall` joins the passive whole-wall cache path. `Never` disables the cache; `Always` enables it whenever normal cache safety gates allow it; numeric values enable it when the visible individual trigger count in the runtime deck data (`_triggerGroupData`, with `properties.triggerGroups` fallback) is at least that value. `TRIGGER_WALL_WHOLE_WALL_CACHE_MIN_ITEMS` in `fatha.js` is the fallback default.
 - **LoRA Stack Cache Threshold:** `Derp.LoraStackWholeWallCacheGate` in masterSettings controls when `derpLoraStack` joins the passive whole-wall cache path. `Never` disables the cache; `Always` enables it whenever normal cache safety gates allow it; numeric values enable it only when `properties.stackData.length` is greater than that value. `LORA_STACK_WHOLE_WALL_CACHE_MIN_ITEMS` in `fatha.js` is the fallback default.
 - **Deck Resize Optimization:** `Derp.DeckResizeOptimization` can render Deck Pressure branch members as `Ghost Layout` outlines or `Whole-Wall Cache` snapshots while the ImageDeck hub is actively resizing. The hub keeps full rendering, branch DOM widgets are hidden during the gesture, and members force a normal redraw on release.
@@ -127,13 +128,14 @@ A "hybrid" framework combining Fatha's modern engine with legacy node compatibil
 - Stack/list reordering uses `helpers/fathaDragDrop.js` with `startStackDrag()`, `updateStackDrag()`, and `endStackDrag()`.
 - `startStackDrag()` is hold-first by default: pointer-down arms `_dragHoldTimer`, and pickup only becomes visual/structural after `_dragThresholdMet` is true.
 - Row/list layout hashes should ignore `_dragTrig`, `_dropPreviewIdx`, and `_dragMouse` until `_dragThresholdMet` is true, otherwise a plain click can rebuild into a drag-looking state.
+- Viewport-clipped rows must only participate in DnD while displayed inside their `scrollViewport` window. Shared DnD code filters candidate regions through the content viewport state and maps preview targets back to the real property-array insertion index.
 - Normal click actions inside draggable rows must call `endStackDrag(node, arrayKey)` before toggling, selecting, expanding, or removing items; this cancels the pending hold timer.
 - `fathaHandler.js` stores `_dragEndRegionKey` separately from `_pressedRegionKey`, because pointer-up click activation clears `_pressedRegionKey` before `dockDrag.js` runs `onDragEnd`.
 - Drag-capable row regions should implement `onDragEnd` and call `endStackDrag(node, arrayKey)` so release cleanup runs even when no click action fires.
 
 ## Docking / Resize Notes
 - Dock behavior is split across `masterDockEngine.js`, `dockDrag.js`, `dockTargetPicking.js`, `dockDimensions.js`, `dockResize.js`, and `fathaNodeResize.js`. Check all of them before changing docking rules.
-- Horizontal stacks support width resize only from outer stack boundaries. Internal shared seams should only expose width resize when both seam nodes are manual-width (`autoWidth === false`).
+- Horizontal stacks support width resize only from outer stack boundaries. Internal shared seams should only expose width resize when both seam nodes are manual-width (`autoWidth !== true`).
 - Deck Pressure side-seam width handles are exposed on the `derpImageDeck` hub shield and route the resize gesture to the attached left/right branch member with the branch-facing anchor.
 - Vertical stack seam height resize should not expose handles when either connected node is collapsed or auto-height.
 - Draw-time deck frame state must classify Deck Pressure top/bottom branches by their branch-only horizontal member list before deciding whether to preserve shared height. The full ImageDeck-owned pressure group is mixed-axis, so using the whole group can skip horizontal height resync after structural changes such as LoRA Stack add/remove.

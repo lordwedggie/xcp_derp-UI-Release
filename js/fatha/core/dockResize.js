@@ -1039,7 +1039,7 @@ function applyHorizontalStackWidthResize(entity, resizeAnchor, requestedEntityWi
             return Math.min(min, Number(startPos[0]) || 0);
         }, Number.POSITIVE_INFINITY);
     const fixedWidth = members
-        .filter((member) => member?.properties?.autoWidth !== false)
+        .filter((member) => member?.properties?.autoWidth === true)
         .reduce((sum, member) => sum + (originalWidths.get(member.id) || 0), 0);
     const manualMinTotal = manualMembers.reduce((sum, member) => sum + getDockNodeMinWidth(member, minW, snap), 0);
     const originalManualTotal = manualMembers.reduce((sum, member) => sum + (originalWidths.get(member.id) || 0), 0);

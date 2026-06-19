@@ -1244,7 +1244,7 @@ export const getDerpVars = (node) => {
         SNAP: 10,
         MIN_FOOTER_H: 6,
         collapseToMinWidth: true,
-        autoWidth: safeNode.properties?.autoWidth !== false,
+        autoWidth: safeNode.properties?.autoWidth === true,
         autoHeight: safeNode.properties?.autoHeight !== false,
     };
 };
