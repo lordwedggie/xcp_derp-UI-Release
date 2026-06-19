@@ -912,13 +912,12 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                 toolTip: tLocale("$fatha_layout.tooltips.auto_height", "If disabled, the node height can be resized manually"),
                 spacing: [sW, 0],
                 value: hostNode.properties?.autoHeight !== false,
-                state: isDocked ? "DIS" : "OFF",
+                state: "OFF",
                 objectAlign: ["left", "top"], labelAlign: ["left", "middle"],
                 label: "$system.auto_height",
                 width: "auto", height: "fill",
                 padding: [pW, pH],
                 onPress: () => {
-                    if (isDocked) return;
                     hostNode.properties.autoHeight = (hostNode.properties.autoHeight !== false) ? false : true;
                     hostNode.requestDerpSync();
                 }

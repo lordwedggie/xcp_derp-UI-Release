@@ -37,6 +37,17 @@ function isDerpLoraStackNode(node) {
     return text.includes("derplorastack");
 }
 
+function isDerpSeedV3Node(node) {
+    const text = [
+        node?.type,
+        node?.comfyClass,
+        node?.constructor?.comfyClass,
+        node?.titleLabel,
+        node?.title,
+    ].filter(Boolean).join(" ").toLowerCase().replace(/[^a-z0-9]/g, "");
+    return text.includes("derpseedv3");
+}
+
 function getFathaNodeScreenRect(node, canvasDS, canvasEl) {
     if (!node || !canvasDS || !canvasEl) return null;
     const scale = Number(canvasDS.scale) || 1;
@@ -173,6 +184,69 @@ function createFathaCacheCanvas(width, height, scaleFactor = 1) {
         return canvas;
     }
     return null;
+}
+
+function getSeedV3DrawCacheBlockReason(node) {
+    if (node._isDragging || node._isDerpResizing || node._isDeckDragging || node._isFathaDragging) return "drag-resize";
+    if (node._pressedRegionKey || node._dragTrig || node._dragThresholdMet) return "pointer-active";
+    if (Number(node._derpAwakeFrames || 0) > 0) return "awake";
+    if (node._derpDomElements && Object.values(node._derpDomElements).some(el => el?._isAwake || (typeof document !== "undefined" && document.activeElement === el))) return "dom-active";
+    return null;
+}
+
+function buildSeedV3DrawCacheKey(node, scale) {
+    return [
+        Math.round(Number(node?.size?.[0]) || 1),
+        Math.round(Number(node?.size?.[1]) || 1),
+        Number(scale || 1).toFixed(2),
+        node?._layoutMapHash || "",
+        Array.isArray(node?.properties?.seedHistory) ? node.properties.seedHistory.join("|") : "",
+        node?.properties?.seedMode || "",
+        node?.properties?.toggleColorKey !== false ? 1 : 0,
+        node?.titleLabel || node?.title || "",
+        node?._comfyIsBusy ? 1 : 0,
+        node?.mode || 0,
+        node?._derpSpoofedBypass ? 1 : 0,
+        node?._xcpTrueSelected || node?._xcpTrueInMap ? 1 : 0,
+        node?._hoveredRegionKey || "",
+        window._xcpDerpSession || "",
+    ].join("|");
+}
+
+function tryDrawSeedV3Cache(node, ctx, canvasDS) {
+    const blockReason = getSeedV3DrawCacheBlockReason(node);
+    if (blockReason) {
+        return false;
+    }
+    const cacheScale = getPassiveWholeWallCacheScale(canvasDS?.scale || 1);
+    const key = buildSeedV3DrawCacheKey(node, cacheScale);
+    const w = Math.max(1, Math.round(Number(node?.size?.[0]) || 1));
+    const h = Math.max(1, Math.round(Number(node?.size?.[1]) || 1));
+    const existing = node._seedV3DrawCanvasCache;
+    const hadStaleDirtyFlags = !!(node._forceSync || node._layoutDirty);
+    if (existing?.key === key && existing.canvas) {
+        ctx.drawImage(existing.canvas, 0, 0, w, h);
+        syncDerpShield(node);
+        if (hadStaleDirtyFlags) {
+            node._layoutDirty = false;
+            node._forceSync = false;
+            node._shouldSync = false;
+        }
+        return true;
+    }
+
+    const canvas = createFathaCacheCanvas(w, h, cacheScale);
+    const cacheCtx = canvas?.getContext?.("2d");
+    if (!canvas || !cacheCtx) return false;
+    cacheCtx.save();
+    cacheCtx.clearRect(0, 0, canvas.width, canvas.height);
+    cacheCtx.scale(cacheScale, cacheScale);
+    node.onDrawForeground(cacheCtx);
+    cacheCtx.restore();
+    node._seedV3DrawCanvasCache = { key, canvas, scale: cacheScale };
+    ctx.drawImage(canvas, 0, 0, w, h);
+    syncDerpShield(node);
+    return true;
 }
 
 function buildLoraStackWidgetLayerCacheState(node, cacheScale, idleReady) {
@@ -557,7 +631,8 @@ if (!window._xcpFathaGlobalHijack) {
             }
 
             // EXECUTE DRAW (Suppresses native LiteGraph background and selection box)
-            node.onDrawForeground(ctx);
+            const usedSeedV3Cache = isDerpSeedV3Node(node) && tryDrawSeedV3Cache(node, ctx, this.ds);
+            if (!usedSeedV3Cache) node.onDrawForeground(ctx);
 
             if (node._derpSpoofedBypass) {
                 node.mode = 4;

@@ -83,6 +83,57 @@ export function syncSeedV3LocaleLabels(node) {
     node._lastLocalizedDerpSeedV3Title = title;
 }
 
+function syncSeedV3ConfigValue(target, value, props = {}) {
+    if (!target) return;
+    target.text = value;
+    target.value = value;
+    Object.assign(target, props);
+}
+
+function syncSeedV3ButtonDom(node, key, text, props) {
+    const el = node._derpDomElements?.[key];
+    if (!el?._config) return;
+    syncSeedV3ConfigValue(el._config, text, props);
+    el._lastStateHash = null;
+}
+
+export function syncSeedV3LayoutValues(node) {
+    const history = node?.properties?.seedHistory;
+    if (!Array.isArray(history)) return;
+    const activeSeed = String(getSeedV3ActiveSeed(node));
+    syncSeedV3ConfigValue(node.layoutMap?.manualSeedRegion?.seedEditor, activeSeed);
+    syncSeedV3ConfigValue(node.layout?.regions?.seedEditor, activeSeed);
+    syncSeedV3ConfigValue(node._compDataCache?.seedEditor, activeSeed);
+
+    const editorEl = node._derpDomElements?.seedEditor;
+    if (editorEl) {
+        syncSeedV3ConfigValue(editorEl._config, activeSeed);
+        editorEl._lastStateHash = null;
+        editorEl._lastSyncKey = null;
+        editorEl._lastProps = null;
+        editorEl._lastMetrics = null;
+        editorEl._lastDerpValue = null;
+        if (typeof document !== "undefined" && document.activeElement !== editorEl) editorEl.value = activeSeed;
+    }
+    if (node._editorLineCache?.seedEditor) delete node._editorLineCache.seedEditor;
+
+    history.forEach((seed, index) => {
+        const text = String(seed);
+        const isPlaceholder = text.includes("-");
+        const props = {
+            state: index === 0 ? "ON" : "OFF",
+            noHover: isPlaceholder,
+            mouseOver: !isPlaceholder,
+            onPress: () => { if (!isPlaceholder) handleSeedV3HistoryPress(node, seed); },
+        };
+        const key = `historySeed_${index}`;
+        syncSeedV3ConfigValue(node.layoutMap?.historyRegion?.[key], text, props);
+        syncSeedV3ConfigValue(node.layout?.regions?.[key], text, props);
+        syncSeedV3ConfigValue(node._compDataCache?.[key], text, props);
+        syncSeedV3ButtonDom(node, key, text, props);
+    });
+}
+
 export function broadcastSeedV3Signal(node) {
     const valWidget = getSeedWidget(node);
     if (!valWidget || node.id === -1) return;
@@ -92,6 +143,9 @@ export function broadcastSeedV3Signal(node) {
     const signalId = `${node.id}:0`;
     const nodeName = node.titleLabel || node.title || tLocale("$derp_seed_v3.title", "Derp Seed V3");
     const val = isBypassed ? null : valWidget.value;
+    const signalSignature = `${signalId}|${nodeName}|${isBypassed ? "null" : "INT"}|${val}`;
+    const changed = node._seedV3LastSignalSignature !== signalSignature;
+    node._seedV3LastSignalSignature = signalSignature;
 
     if (!window.xcpDerpSignals) window.xcpDerpSignals = {};
     window.xcpDerpSignals[signalId] = {
@@ -103,6 +157,8 @@ export function broadcastSeedV3Signal(node) {
         upstreamIds: [],
         timestamp: Date.now(),
     };
+
+    if (!changed) return;
 
     if (node._signalSyncDebouncer) clearTimeout(node._signalSyncDebouncer);
     node._signalSyncDebouncer = setTimeout(() => {
@@ -135,8 +191,7 @@ export function setSeedV3ActiveSeed(node, seed, options = {}) {
     if (valWidget) valWidget.value = next;
     broadcastSeedV3Signal(node);
     if (options.refresh !== false) {
-        node._layoutMapHash = null;
-        node.refreshNodeLayoutMap?.();
+        syncSeedV3LayoutValues(node);
         node.updateDerpSeedV3UI?.(node._comfyIsBusy);
         node.requestDerpSync?.();
     }
@@ -166,8 +221,8 @@ export function handleSeedV3Input(node, val) {
     const valWidget = getSeedWidget(node);
     if (valWidget) valWidget.value = next;
     broadcastSeedV3Signal(node);
-    node._layoutMapHash = null;
-    node.refreshNodeLayoutMap?.();
+    syncSeedV3LayoutValues(node);
+    node.requestDerpSync?.();
 }
 
 export function handleSeedV3Blur(node, val) {
@@ -187,8 +242,14 @@ export function handleSeedV3HistoryPress(node, seed) {
 export function handleSeedV3ModePress(node) {
     const currentIdx = SEED_V3_MODES.indexOf(node.properties.seedMode || "Random");
     node.properties.seedMode = SEED_V3_MODES[(currentIdx < 0 ? 0 : currentIdx + 1) % SEED_V3_MODES.length];
-    node._layoutMapHash = null;
-    node.refreshNodeLayoutMap?.();
+    const modeText = tLocale(`$derp_seed_v3.modes.${node.properties.seedMode.toLowerCase()}`, node.properties.seedMode);
+    const modeButton = node.layoutMap?.topControlsRegion?.btnSeedMode;
+    if (modeButton) modeButton.text = modeText;
+    const modeRegion = node.layout?.regions?.btnSeedMode;
+    if (modeRegion) modeRegion.text = modeText;
+    const modeComp = node._compDataCache?.btnSeedMode;
+    if (modeComp) modeComp.text = modeText;
+    syncSeedV3ButtonDom(node, "btnSeedMode", modeText, {});
     node.requestDerpSync?.();
 }
 
@@ -273,9 +334,11 @@ export function handleSeedV3Stop(node) {
 
 export function handleSeedV3HistoryCountBlur(node, val) {
     const next = Math.max(1, Math.min(20, parseInt(val) || getSeedV3HistoryLimit(node)));
+    if (getSeedV3HistoryLimit(node) === next) return;
     node.properties.seedHistoryLimit = next;
     ensureSeedV3History(node);
     node._layoutMapHash = null;
+    node._seedV3SysLayoutHash = null;
     node.refreshNodeLayoutMap?.();
     node.refreshDerpSeedV3SysMap?.();
     node.requestDerpSync?.();
@@ -291,14 +354,17 @@ export function handleSeedV3DigitBlur(node, val) {
     if (valWidget) valWidget.value = initialSeed;
     broadcastSeedV3Signal(node);
     node._layoutMapHash = null;
+    node._seedV3SysLayoutHash = null;
     node.refreshNodeLayoutMap?.();
     node.refreshDerpSeedV3SysMap?.();
     node.requestDerpSync?.();
 }
 
 export function handleSeedV3VisibleHistoryChange(node, val) {
+    if (String(getSeedV3VisibleHistory(node)) === String(val)) return;
     node.properties.historyVisibleBeforeClip = val;
     node._layoutMapHash = null;
+    node._seedV3SysLayoutHash = null;
     node.refreshNodeLayoutMap?.();
     node.refreshDerpSeedV3SysMap?.();
     node.requestDerpSync?.();
