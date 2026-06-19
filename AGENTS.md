@@ -114,6 +114,7 @@ Docs must stay synced with framework behavior. Stale docs are treated as bugs.
 - Release version bumps must update and re-read both `pyproject.toml` and `package.json` before committing.
 - Do not use destructive git commands or broad untracked cleanup unless explicitly requested.
 - Preserve unrelated user changes in dirty worktrees.
+- **Line endings are pinned via `.gitattributes** (`* text=auto eol=crlf`, binary assets marked `binary`, `derp_docs/.obsidian/workspace.json -text`). Git normalizes on commit, so an editor saving LF will not produce full-file line-ending churn. Never delete or weaken these rules. If a commit's `--stat` shows hundreds of lines changed but `git show --ignore-all-space --stat` shows almost none, line-ending normalization has regressed — re-add the `.gitattributes` rules and run `git add --renormalize .`.
 
 ---
 
