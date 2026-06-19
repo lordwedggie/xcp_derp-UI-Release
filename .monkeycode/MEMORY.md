@@ -75,3 +75,10 @@ Agent 在任务执行过程中发现的条目应遵循以下格式：
 - Context: User requested shorter direct answers during ImageDeck PNG metadata work
 - Instructions:
   - When the answer is simple, answer directly and briefly before any supporting detail.
+
+[Framework clipping doc maintenance]
+- Date: 2026-06-19
+- Context: User requested a dedicated framework doc for clipped regions and asked that it remain part of the maintained FRAMEWORK doc set
+- Instructions:
+  - Keep `derp_docs/FRAMEWORK-Clipping.md` as the dedicated authoritative doc for clipped regions and viewport behavior.
+  - Include `FRAMEWORK-Clipping.md` in the FRAMEWORK docs that must be updated when clipped-region or viewport behavior changes.
