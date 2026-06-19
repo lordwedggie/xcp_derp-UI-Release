@@ -111,6 +111,27 @@
       "false": "假"
     }
   },
+  "derp_seed_v3": {
+    "title": "老登种子 V3",
+    "labels": {
+      "seed": "种子"
+    },
+    "modes": {
+      "random": "随机",
+      "fixed": "固定",
+      "increment": "递增"
+    },
+    "system": {
+      "properties": "老登种子 V3 属性：",
+      "history_logs": "历史记录：",
+      "decimals": "位数：",
+      "color_overlay": "颜色标记",
+      "clip_visible_limit": "裁切可见："
+    },
+    "messages": {
+      "workflow_unchanged": "工作流未变。已跳过重复队列。"
+    }
+  },
   "derp_swatch": {
     "title": "老登色卡",
     "entry": "条目",

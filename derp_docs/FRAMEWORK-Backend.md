@@ -14,6 +14,7 @@ Registers all node class mappings and display names into ComfyUI's registry:
 NODE_CLASS_MAPPINGS = {}
 NODE_CLASS_MAPPINGS.update(THEME_V2_NODES)      # from derpThemeManagerV2
 NODE_CLASS_MAPPINGS.update(SEED_V2_NODES)       # from derpSeedV2
+NODE_CLASS_MAPPINGS.update(SEED_V3_NODES)       # from derpSeedV3
 NODE_CLASS_MAPPINGS.update(TEMPLATE_NODES)       # from derpTemplate
 NODE_CLASS_MAPPINGS.update(SIGNAL_OUT_NODES)     # from derpSignalOut
 NODE_CLASS_MAPPINGS.update(CONTROLDECK_NODES)    # from derpControldeck
@@ -33,6 +34,7 @@ Hard-registered nodes: `DerpImageDeckNode`, `DerpToggleNode` (always in root map
 | `python/derpSignalOut.py` | Signal router node (173 lines). `DERP_LIVE_REGISTRY` dict for signal values. API: `/xcp/purge_signal`, `/xcp/update_signal`. `xcpDerpSignalOut` class with `AnyType("*")` for 16 virtual outputs. |
 | `python/derpControldeck.py` | ControlDeck nodes (299 lines): `DerpTemplateV2Node`, `DerpLoraStackNode`, `DerpSliderNode`, `DerpToggleNode`, `DerpSeedV2Node`, `DerpTriggerWallNode`, `DerpImageDeckNode`, loader nodes. Utility: `get_sampler_names()`, `get_scheduler_names()`. |
 | `python/derpSeedV2.py` | Seed node |
+| `python/derpSeedV3.py` | Fatha Seed V3 node |
 | `python/derpStringV3.py` | String node |
 | `python/derpTemplate.py` | Template node |
 | `python/derpThemeManagerV2.py` | PRIVATE — Theme manager Python node |

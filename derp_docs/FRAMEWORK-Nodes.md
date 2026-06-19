@@ -61,6 +61,7 @@ Current UI pattern:
 | `derpLoraStack.js` | `core/derpLoraStack_core.js` | LoRA stack manager |
 | `derpPromptBook.js` | `core/derpPromptBook_core.js` | Prompt book/browser |
 | `derpSeedV2.js` | `core/derpSeedV2_core.js` | Seed control node |
+| `derpSeedV3.js` | `core/derpSeedV3_core.js` | Fatha seed control node with vertical layout |
 | `derpSlider.js` | `core/derpSlider_core.js` | Generic slider node |
 | `derpSwatch.js` | — | Palette swatch drag/drop utility |
 | `derpToggle.js` | — | Boolean toggle node |

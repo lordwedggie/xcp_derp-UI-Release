@@ -111,6 +111,27 @@
       "false": "FALSE"
     }
   },
+  "derp_seed_v3": {
+    "title": "Derp Seed V3",
+    "labels": {
+      "seed": "Seed"
+    },
+    "modes": {
+      "random": "Random",
+      "fixed": "Fixed",
+      "increment": "Increment"
+    },
+    "system": {
+      "properties": "Derp Seed V3 properties:",
+      "history_logs": "History logs:",
+      "decimals": "Decimals:",
+      "color_overlay": "Color overlay",
+      "clip_visible_limit": "Clip visible:"
+    },
+    "messages": {
+      "workflow_unchanged": "Workflow unchanged. Skipping redundant queue."
+    }
+  },
   "derp_swatch": {
     "title": "Derp Swatch",
     "entry": "Entry",
