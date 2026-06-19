@@ -20,7 +20,7 @@ import { app } from "../../../../scripts/app.js";
 import { renderHitboxDebug } from "../helpers/debugPainter.js";
 import { computeDeckPressureGeometryPlan, getDeckMembers, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureBranchAxis, getDeckPressureHubForNode, getNodeOnDeckEdge, isDeckPressureHub, isDeckPressureSideHorizontalBranchMember, isDeckPressureSideHorizontalHubEdge, isDeckPressureSideWidthResizeEdge, isLinearDeckGroup } from "./masterDockEngine.js";
 import { canResizeHorizontalSharedEdgeWidth as canResizeHorizontalSharedEdge, canResizeHorizontalStackWidth, getHorizontalSameRowNeighbor } from "./dockResizeSharedEdges.js";
-import { beginDeckResizeOptimization, clearEntityTooltip, endDeckResizeOptimization } from "./fathaHandler.js";
+import { beginDeckResizeOptimization, clearEntityTooltip, endDeckResizeOptimization, isSystemButtonHit } from "./fathaHandler.js";
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
 import { MASTER_Z, promoteMasterZ } from "./masterZ.js";
 import { isComfyVueNodesMode } from "./fathaNode2Compat.js";
@@ -948,6 +948,17 @@ export function createDerpShield(node) {
         updateSharedResizeHoverSession(e);
         const localPos = getViewportLocalCoords(e);
         const rect = shield.getBoundingClientRect();
+        // The footer system button can sit under the bottom resize seam div, whose static cursor is ns-resize.
+        // That shows the up-down resize glyph over a clickable button, misleading the user into thinking the click
+        // won't land (it does). The hover handler in fathaHandler.js already sets the shield's cursor to "pointer"
+        // over the system button, but a child element's own cursor beats the parent's. So when the pointer is over
+        // the system button, clear the inline cursor on the element actually under the pointer (the seam handle div)
+        // so the shield's "pointer" shows through. The seam's own shield-sync owns ns-resize and re-applies it when
+        // the pointer moves off the button, so we only ever neutralize here — never restore.
+        const targetEl = e.target;
+        if (targetEl && targetEl !== shield && isSystemButtonHit(node, [localPos.x, localPos.y], app.canvas?.ds?.scale || 1)) {
+            targetEl.style.cursor = "";
+        }
         node.handleShieldInteraction("hover", {
             x: e.clientX - rect.left,
             y: e.clientY - rect.top,

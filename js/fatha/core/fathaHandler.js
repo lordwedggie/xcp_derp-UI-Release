@@ -1334,7 +1334,7 @@ function findHitRegion(layout, localMouse, options = {}) {
     return null;
 }
 
-function isSystemButtonHit(entity, localMouse, scale) {
+export function isSystemButtonHit(entity, localMouse, scale) {
     const sysBtn = entity.layout?.regions?.systemBtn;
     return !!(sysBtn && (sysBtn.hitTest ? sysBtn.hitTest(localMouse, sysBtn) : entity.layout.hitTest(localMouse, sysBtn)));
 }
