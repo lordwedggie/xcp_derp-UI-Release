@@ -190,6 +190,12 @@ async function saveImageDeckCurrentImage(node, isAutoSave = false) {
         save_name: String(stampedSaveName || "").trim()
     };
 
+    if (String(payload.save_format).toUpperCase() === "PNG") {
+        const promptData = await app.graphToPrompt();
+        if (promptData?.output) payload.prompt = promptData.output;
+        if (promptData?.workflow) payload.extra_pnginfo = { workflow: promptData.workflow };
+    }
+
     const res = await fetch("/xcp/derp_image_deck/save_current_image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

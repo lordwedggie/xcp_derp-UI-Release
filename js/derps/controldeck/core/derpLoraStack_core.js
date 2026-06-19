@@ -9,6 +9,7 @@ import { showBastaSystemMessage } from "../../../fatha/bastas/bastaSystemMessage
 import { fetchLoraTriggers, fetchLoraRating, syncRatingColorsCache, fetchLoraData, regionBelongsToRow } from "../helpers/loraComponents.js";
 import { startStackDrag, updateStackDrag, endStackDrag } from "../../../fatha/helpers/fathaDragDrop.js";
 import { COMPONENT_BLUEPRINTS } from "../../../fatha/core/masterLayoutTypes.js";
+import { isContentViewportRegionHitVisible } from "../../../fatha/core/fathaContentViewport.js";
 
 const BTN_LR_RATIO = 0.75;
 const BTN_LR_MARGIN = 1;
@@ -116,6 +117,19 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                     };
 
                     let targetHeight = remeasureNode(this);
+                    const minOneEntryHeight = typeof this.resolveLoraStackOneEntryHeight === "function"
+                        ? this.resolveLoraStackOneEntryHeight()
+                        : 0;
+                    if (minOneEntryHeight > 0) {
+                        const snap = Number(this.getDerpVars?.(this)?.SNAP) || 10;
+                        const minHeight = Math.ceil(minOneEntryHeight / snap) * snap;
+                        this.properties._minExpandedHeight = minHeight;
+                        if (targetHeight < minHeight) {
+                            targetHeight = minHeight;
+                            if (Array.isArray(this.size)) this.size[1] = minHeight;
+                            if (Array.isArray(this.properties.nodeSize)) this.properties.nodeSize[1] = minHeight;
+                        }
+                    }
 
                     if (typeof shouldPreserveHorizontalDeckHeight === "function" &&
                         typeof syncHorizontalDeckHeight === "function" &&
@@ -563,7 +577,7 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                                 // Draw an opaque canvas-backed plate under the dragged row.
                                 // REGION themes are often transparent, so we borrow REGION corners
                                 // but force the canvas OFF paint to stabilize ghost readability.
-                                const rowCfg = this.layoutMap?.mainContentRegion?.[rowKey] || snapshot?.regions?.[rowKey] || {};
+                                const rowCfg = this.layoutMap?.mainContentRegion?.loraEntriesRegion?.[rowKey] || this.layoutMap?.mainContentRegion?.[rowKey] || snapshot?.regions?.[rowKey] || {};
                                 const regionBp = this.UI_TYPES ? COMPONENT_BLUEPRINTS[this.UI_TYPES.REGION] : null;
                                 if (regionBp) {
                                     const ghostPlate = {
@@ -859,7 +873,7 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
 
                         if (regions && typeof localX === 'number' && typeof localY === 'number') {
                             keys = Object.keys(regions).reverse();
-                            isHit = (key) => this.layout.hitTest([localX, localY], regions[key]);
+                            isHit = (key) => this.layout.hitTest([localX, localY], regions[key]) && isContentViewportRegionHitVisible(this, key, { x: localX, y: localY });
 
                             // Check row controls first so row drag logic does not steal button clicks.
                             for (const key of keys) {
@@ -1099,7 +1113,9 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                     }
                 };
 
+                const previousOnRemoved = nodeType.prototype.onRemoved;
                 nodeType.prototype.onRemoved = function() {
+                    if (previousOnRemoved) previousOnRemoved.apply(this, arguments);
                     if (window.xcpActiveBastas) {
                         const detailId = `basta_lora_detail_global_unique_id`;
                         const b = window.xcpActiveBastas.get(detailId);

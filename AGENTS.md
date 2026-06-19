@@ -12,6 +12,7 @@ This section is the top-priority project memory for coding behavior. Follow it b
 6. **Review relevant framework docs before edits.** Read the matching `derp_docs/FRAMEWORK-*.md` file before changing Fatha, Herbina, Basta, Motha, backend, docking, node, or theme-palette code.
 7. **Self-maintain this file.** When a durable project lesson is learned, add it under **Lessons Learned** without being asked.
 8. **NEVER use destructive git commands.** `git reset --hard`, `git clean -fd`, `git checkout -- .`, or any command that discards uncommitted work is FORBIDDEN unless the user explicitly types the exact command themselves. Use `git stash` only with explicit approval.
+9. **Do not blindly agree.** If a requested implementation seems illogical, risky, or there is a clearly better approach, stop and explain the concern before editing.
 
 ---
 
@@ -113,6 +114,7 @@ Docs must stay synced with framework behavior. Stale docs are treated as bugs.
 - Release version bumps must update and re-read both `pyproject.toml` and `package.json` before committing.
 - Do not use destructive git commands or broad untracked cleanup unless explicitly requested.
 - Preserve unrelated user changes in dirty worktrees.
+- **Line endings are pinned via `.gitattributes** (`* text=auto eol=crlf`, binary assets marked `binary`, `derp_docs/.obsidian/workspace.json -text`). Git normalizes on commit, so an editor saving LF will not produce full-file line-ending churn. Never delete or weaken these rules. If a commit's `--stat` shows hundreds of lines changed but `git show --ignore-all-space --stat` shows almost none, line-ending normalization has regressed — re-add the `.gitattributes` rules and run `git add --renormalize .`.
 
 ---
 

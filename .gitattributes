@@ -18,9 +18,16 @@ derp_docs/.obsidian/workspace.json -text
 *.gif binary
 *.webp binary
 *.ico binary
+*.bmp binary
 *.woff binary
 *.woff2 binary
 *.ttf binary
 *.otf binary
+*.eot binary
 *.pyc binary
 *.mp4 binary
+*.webm binary
+*.pdf binary
+*.zip binary
+*.gz binary
+*.sqlite binary
