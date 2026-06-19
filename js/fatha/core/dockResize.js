@@ -662,12 +662,14 @@ function markDockResizeActiveMembers(entity, members = [], pressureActiveNode = 
     if (!entity || !Array.isArray(members) || members.length === 0) return;
     if (!(entity._dockResizeActiveMembers instanceof Set)) entity._dockResizeActiveMembers = new Set();
     const markResizing = options.markResizing !== false;
+    const preserveHeight = options.preserveHeight === true;
     const horizontalWidthLock = options.horizontalWidthLock === true;
     const activeUntil = (performance.now?.() || Date.now()) + 1200;
     if (pressureActiveNode) pressureActiveNode._deckPressureActiveUntil = activeUntil;
     members.forEach((member) => {
         if (!member) return;
         if (markResizing) member._isDerpResizing = true;
+        if (preserveHeight) member._dockResizePreserveHeight = true;
         if (horizontalWidthLock) member._horizontalDeckWidthResizeLock = true;
         if (member !== entity) entity._dockResizeActiveMembers.add(member);
     });
@@ -728,7 +730,9 @@ function getVerticalResizeTargetMinHeight(node, snap, options = {}) {
 
     const currentMin = getDockNodeMinHeight(node, 0, snap);
     if (compactFloor <= 0) return currentMin;
-    const compactMin = Math.ceil(Math.max(compactFloor, snap * 4) / snap) * snap;
+    const hasContentViewport = Object.values(node?._contentViewportState || {}).length > 0;
+    const visibleLayoutFloor = hasContentViewport ? (Number(node?.layout?.totalHeight) || 0) : 0;
+    const compactMin = Math.ceil(Math.max(compactFloor, visibleLayoutFloor, snap * 4) / snap) * snap;
     return options.preserveExpandedFloor === true
         ? Math.max(currentMin, compactMin)
         : Math.min(currentMin, compactMin);
@@ -777,7 +781,7 @@ function applyVerticalStackSharedEdgeResize(entity, resizeAnchor, requestedEntit
     const sessionOwner = pressureContext?.pressureHub || entity;
     const sessionKey = pressureContext ? "_deckPressureVerticalSeamSession" : "_dockResizeSession";
 
-    markDockResizeActiveMembers(entity, members, bottomNode);
+    markDockResizeActiveMembers(entity, members, bottomNode, { preserveHeight: true });
 
     const topCollapsed = topNode?.properties?.contentCollapsed === true;
     const bottomCollapsed = bottomNode?.properties?.contentCollapsed === true;
@@ -1503,7 +1507,7 @@ export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH,
         const bottomNode = side === "top" ? leader : docked;
         const verticalMembers = getVerticalDeckMembersByY(topNode, graph);
         if (resizeAnchor === "top" || resizeAnchor === "bottom") {
-            markDockResizeActiveMembers(entity, verticalMembers, bottomNode);
+            markDockResizeActiveMembers(entity, verticalMembers, bottomNode, { preserveHeight: true });
         }
 
         const topCollapsed = topNode?.properties?.contentCollapsed === true;
