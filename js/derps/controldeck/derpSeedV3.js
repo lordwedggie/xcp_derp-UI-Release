@@ -23,18 +23,22 @@ import {
     handleSeedV3ModePress,
     handleSeedV3Stop,
     handleSeedV3VisibleHistoryChange,
+    syncSeedV3LayoutValues,
     syncSeedV3LocaleLabels,
     tLocale,
 } from "./core/derpSeedV3_core.js";
 
 function hideNativeSeedV3Widgets(node) {
     if (!Array.isArray(node?.widgets)) return;
+    const signature = node.widgets.map((widget) => `${widget.name}:${widget.hidden ? 1 : 0}:${widget.value}`).join("|");
+    if (node._seedV3NativeWidgetsHiddenSignature === signature) return;
     node.widgets.forEach((widget) => {
         widget.hidden = true;
         widget.last_y = -5000;
         if (widget.element?.style) widget.element.style.display = "none";
         if (widget.name === "control_after_generate") widget.value = "fixed";
     });
+    node._seedV3NativeWidgetsHiddenSignature = node.widgets.map((widget) => `${widget.name}:${widget.hidden ? 1 : 0}:${widget.value}`).join("|");
 }
 
 function getSeedV3ModeLabel(mode) {
@@ -49,6 +53,7 @@ function buildSeedV3LayoutHash(node, vars, history) {
         node.properties?.seedMode || "Random",
         node.properties?.toggleColorKey !== false ? 1 : 0,
         getSeedV3DigitCount(node),
+        getSeedV3HistoryLimit(node),
         getSeedV3VisibleHistory(node),
         history.join("|"),
         Number(vars.mW || 0).toFixed(2),
@@ -95,6 +100,7 @@ app.registerExtension({
             this.handleThemeUpdate(config);
             syncSeedV3LocaleLabels(this);
             this._layoutMapHash = null;
+            this._seedV3SysLayoutHash = null;
             this.refreshNodeLayoutMap();
             this.refreshDerpSeedV3SysMap();
             this.updateDerpSeedV3UI(this._comfyIsBusy);
@@ -105,18 +111,21 @@ app.registerExtension({
             if (window.xcpDerpThemeConfig) this.handleThemeUpdate(window.xcpDerpThemeConfig);
             syncSeedV3LocaleLabels(this);
             this._layoutMapHash = null;
+            this._seedV3SysLayoutHash = null;
             this.refreshNodeLayoutMap();
             this.refreshDerpSeedV3SysMap();
             this.requestDerpSync();
         };
 
         nodeType.prototype.updateDerpSeedV3UI = function(isBusy = false) {
-            this._comfyIsBusy = !!isBusy;
+            const nextBusy = !!isBusy;
+            const wasBusy = this._comfyIsBusy;
+            this._comfyIsBusy = nextBusy;
             const controls = this.layoutMap?.topControlsRegion;
-            if (controls?.btnExecute) controls.btnExecute.state = isBusy ? "DIS" : "OFF";
-            if (controls?.btnStop) controls.btnStop.state = isBusy ? "OFF" : "DIS";
-            if (controls?.btnSeedMode) controls.btnSeedMode.state = isBusy ? "DIS" : "OFF";
-            this.requestDerpSync?.();
+            if (controls?.btnExecute) controls.btnExecute.state = nextBusy ? "DIS" : "OFF";
+            if (controls?.btnStop) controls.btnStop.state = nextBusy ? "OFF" : "DIS";
+            if (controls?.btnSeedMode) controls.btnSeedMode.state = nextBusy ? "DIS" : "OFF";
+            if (wasBusy !== nextBusy || controls) this.requestDerpSync?.();
         };
 
         nodeType.prototype.refreshNodeLayoutMap = function() {
@@ -134,6 +143,7 @@ app.registerExtension({
             const structureHash = buildSeedV3LayoutHash(this, { mW, mH, oY }, history);
 
             if (this._layoutMapHash === structureHash && this.layoutMap) {
+                syncSeedV3LayoutValues(this);
                 this.requestDerpSync();
                 return;
             }
@@ -256,6 +266,25 @@ app.registerExtension({
 
         nodeType.prototype.refreshDerpSeedV3SysMap = function() {
             const { mW, mH, sW, oY, pW, pH } = this.getDerpVars(this);
+            const sysHash = [
+                getSeedV3HistoryLimit(this),
+                getSeedV3DigitCount(this),
+                getSeedV3VisibleHistory(this),
+                this.properties?.toggleColorKey !== false ? 1 : 0,
+                Number(mW || 0).toFixed(2),
+                Number(mH || 0).toFixed(2),
+                Number(sW || 0).toFixed(2),
+                Number(oY || 0).toFixed(2),
+                Number(pW || 0).toFixed(2),
+                Number(pH || 0).toFixed(2),
+                window._xcpDerpSession,
+            ].join("_");
+            if (this._seedV3SysLayoutHash === sysHash && this.sysLayoutMap) {
+                if (this._derpPanel?.setLayoutMap) this._derpPanel.setLayoutMap(this.sysLayoutMap);
+                return;
+            }
+            this._seedV3SysLayoutHash = sysHash;
+
             const visibleItems = ["Auto", "1", "2", "3", "4", "5"].map((value) => ({ value, display: value }));
             this.sysLayoutMap = {
                 sysContentRegion: {
@@ -361,8 +390,10 @@ app.registerExtension({
                             padding: [pW, pH],
                             value: this.properties.toggleColorKey !== false,
                             onChange: (value) => {
+                                if (this.properties.toggleColorKey === value) return;
                                 this.properties.toggleColorKey = value;
                                 this._layoutMapHash = null;
+                                this._seedV3SysLayoutHash = null;
                                 this.refreshNodeLayoutMap();
                                 this.refreshDerpSeedV3SysMap();
                             },
@@ -417,6 +448,7 @@ app.registerExtension({
             syncSeedV3LocaleLabels(this);
             this.attachDerpSeedV3ExecutionListeners?.();
             this._layoutMapHash = null;
+            this._seedV3SysLayoutHash = null;
             this.refreshNodeLayoutMap();
             this.refreshDerpSeedV3SysMap();
             this.syncDerpOutputs?.();
@@ -467,20 +499,23 @@ app.registerExtension({
         nodeType.prototype.onDrawForeground = function(ctx) {
             if (onDrawForeground) onDrawForeground.apply(this, arguments);
             if (this.flags?.collapsed) return;
-            hideNativeSeedV3Widgets(this);
             const isBusy = !!app?.extensionManager?.queue?.remaining || !!this._localExecutionTriggered;
             const isBypassed = this.mode === 4 || this.mode === 2 || this._derpSpoofedBypass;
             const width = Math.round(this.size?.[0] || 0);
             const stateHash = `${isBusy}_${isBypassed}_${width}`;
             if (this._lastSeedV3DrawStateHash !== stateHash) {
+                const previousHash = this._lastSeedV3DrawStateHash || "";
+                const previousWidth = previousHash.split("_")[2];
                 this._lastSeedV3DrawStateHash = stateHash;
                 if (!isBusy && this._localExecutionTriggered) this.finalizeSeedV3UI();
                 this.updateDerpSeedV3UI(isBusy);
                 broadcastSeedV3Signal(this);
-                this._layoutMapHash = null;
-                this.refreshNodeLayoutMap();
-                this.refreshDerpSeedV3SysMap();
-                this.requestDerpSync();
+                if (previousWidth !== String(width)) {
+                    this._layoutMapHash = null;
+                    this.refreshNodeLayoutMap();
+                } else {
+                    syncSeedV3LayoutValues(this);
+                }
             }
         };
     },
