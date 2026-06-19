@@ -890,22 +890,6 @@ export function getPanelBaseMap(hostNode, app, sysState) {
             anchor: { target: "regionWarp", axis: "y" },
             dir: "row", margin: [mW, sH, mW, mH],             
             width: "full", height: "auto",
-            btnAutoWidth: {
-                type: UI_TYPES.TOGGLE_V2,
-                textThemeKey: "dialog, button, t_textSystem", skipBackground: true,
-                toolTip: tLocale("$fatha_layout.tooltips.auto_width", "If disabled, the node width can be resized manually"),
-                spacing: [sW, 0],
-                value: hostNode.properties?.autoWidth !== false,
-                state: isDocked ? "DIS" : "OFF",
-                objectAlign: ["left", "top"], labelAlign: ["left", "middle"],
-                label: "$system.auto_width",
-                width: "auto", height: "fill",
-                onPress: () => {
-                    if (isDocked) return;
-                    hostNode.properties.autoWidth = (hostNode.properties.autoWidth !== false) ? false : true;
-                    hostNode.requestDerpSync();
-                }
-            },
             btnAutoHeight: {
                 type: UI_TYPES.TOGGLE_V2,
                 textThemeKey: "dialog, button, t_textSystem", skipBackground: true,

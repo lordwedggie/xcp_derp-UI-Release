@@ -1181,7 +1181,7 @@ function saveDeckNodeAxes(node) {
     const props = ensureDeckProps(node);
     if (!props) return;
     if (!Object.prototype.hasOwnProperty.call(props, "deckSavedAutoWidth")) {
-        props.deckSavedAutoWidth = props.autoWidth !== false;
+        props.deckSavedAutoWidth = props.autoWidth === true;
     }
     if (!Object.prototype.hasOwnProperty.call(props, "deckSavedAutoHeight")) {
         props.deckSavedAutoHeight = props.autoHeight !== false;
@@ -2241,7 +2241,7 @@ function getDeckPressureBranchMinSpan(members, axis, snap) {
 function getDeckPressureRowFixedWidth(member, snap) {
     const unit = Math.max(1, snap);
     const minWidth = quantizeSize(getDeckPressureMinSpanForState(member, "horizontal", snap, member?.properties?.contentCollapsed === true), unit);
-    if (member?.properties?.autoWidth === false) return minWidth;
+    if (member?.properties?.autoWidth !== true) return minWidth;
     return Math.max(minWidth, quantizeSize(getNodeSizeValue(member, 0), unit));
 }
 
@@ -2339,14 +2339,14 @@ export function getDeckPressureHubMinWidth(hub, graph, snap = DEFAULT_DECK_SNAP,
 function fitDeckPressureRowWidths(members, targetWidth, snap) {
     if (!Array.isArray(members) || members.length === 0) return [];
 
-    const manualMembers = members.filter((member) => member?.properties?.autoWidth === false);
+    const manualMembers = members.filter((member) => member?.properties?.autoWidth !== true);
     if (manualMembers.length === 0) return fitSizesToTotal(members, "width", targetWidth, snap);
 
     const unit = Math.max(1, snap);
     const widths = new Map();
     const manualMins = new Map(manualMembers.map((member) => [member.id, quantizeSize(getNodeMinWidth(member, snap), unit)]));
     const fixedTotal = members.reduce((sum, member) => {
-        if (member?.properties?.autoWidth === false) return sum;
+        if (member?.properties?.autoWidth !== true) return sum;
         const width = getDeckPressureRowFixedWidth(member, snap);
         widths.set(member.id, width);
         return sum + width;

@@ -39,7 +39,7 @@ export function getHorizontalDeckMembersByX(node, graph) {
 }
 
 export function canResizeHorizontalMemberWidth(node, graph) {
-    if (node?.properties?.autoWidth === false) return true;
+    if (node?.properties?.autoWidth !== true) return true;
     return isDeckPressureSideHorizontalBranchMember(node, graph);
 }
 

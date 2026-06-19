@@ -156,6 +156,7 @@ To add a skill, create `.agents/skills/<name>/SKILL.md` with YAML frontmatter (`
 - Hashes prevent rebuilds. Every parameter that changes visible output must be represented in the appropriate hash.
 - `width: "match"` depends on height and can temporarily measure at fallback size during early passes.
 - PASS 1 measures at `SQUISH_WIDTH = 10`; high `minWidth` values can inflate the whole layout.
+- Derp nodes default to manual width; only explicit `properties.autoWidth = true` opts into auto width. Missing `autoWidth` must be treated like `false` in layout, docking, and resize paths.
 - Use `_forceSync`, `_layoutDirty`, and `_derpAwakeFrames` deliberately for recompute and animation wakeups.
 - Whole-wall/passive caches can hide correct widget state; inspect cache keys when visuals revert unexpectedly.
 

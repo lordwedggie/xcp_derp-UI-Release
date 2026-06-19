@@ -5,7 +5,6 @@
     "author": "Gemini"
   },
   "system": {
-    "auto_width": "Auto-width",
     "auto_height": "Auto-height",
     "title": "Title",
     "animation": "Animation",
@@ -41,7 +40,6 @@
       "select_theme_weight": "Apply saved theme weight settings to the selected theme",
       "add_warp_point": "Assign a Warp Point hotkey to this node so the canvas can center on it",
       "delete_warp_point": "Remove this node's Warp Point and free the shortcut key",
-      "auto_width": "If disabled, the node width can be resized manually",
       "auto_height": "If disabled, the node height can be resized manually",
       "hide_header": "Hide the node header. Headers cannot be hidden while vertically docked",
       "animation_toggle": "Toggle this node's individual animation setting",
