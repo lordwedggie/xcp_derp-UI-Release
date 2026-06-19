@@ -1083,15 +1083,23 @@ export function createDerpShield(node) {
     shield.onwheel = (e) => {
         const localPos = getLocalCoords(e);
         if (handleContentViewportWheel(node, localPos, e)) return;
-        // THE SCROLL PASS-THROUGH: If we are hovering over a scrollable region,
-        // capture the wheel delta and apply it to the node's scroll state.
+        // THE SCROLL PASS-THROUGH: Only capture wheel input when the hovered
+        // region actually has editor overflow to consume. Otherwise let ComfyUI
+        // keep the normal canvas zoom behavior.
         if (node._hoveredRegionKey && node._derpScrollOffsets?.[node._hoveredRegionKey] !== undefined) {
+            const regionKey = node._hoveredRegionKey;
+            const scrollConfig = node._derpScrollConfigs?.[regionKey];
+            const maxScroll = scrollConfig && typeof scrollConfig._clampScroll === "function"
+                ? Number(scrollConfig._clampScroll()) || 0
+                : 0;
+            if (!(maxScroll > 0)) {
+                app.canvas.canvas.dispatchEvent(new WheelEvent("wheel", e));
+                return;
+            }
             e.preventDefault();
             e.stopPropagation();
-            const regionKey = node._hoveredRegionKey;
             node._derpScrollOffsets[regionKey] += e.deltaY;
 
-            const scrollConfig = node._derpScrollConfigs?.[regionKey];
             if (scrollConfig && typeof scrollConfig._clampScroll === "function") {
                 scrollConfig._clampScroll();
             } else {
