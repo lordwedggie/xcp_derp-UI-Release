@@ -370,16 +370,6 @@ export function resolveDerpRuntimeSizeImpl(node, measured, vars = {}) {
     const branchAxis = getDeckPressureBranchAxis(pressureHub, graph, branchSide);
     const axis = branchAxis || (graph && node ? getDockGroupAxisFromMembers(getDeckMembers(node, graph)) : null);
     const resolved = resolveRuntimeDockSize(node, axis, measured, vars);
-    const isTriggerWall = String(node?.type || node?.comfyClass || node?.titleLabel || node?.title || "").toLowerCase().includes("triggerwall") || String(node?.titleLabel || node?.title || "").toLowerCase().includes("trigger wall");
-    if (isTriggerWall) {
-        const now = performance.now?.() || Date.now();
-        const sig = `runtime node=${node?.id}:${node?.titleLabel || node?.title || node?.type} axis=${axis || "none"} autoH=${vars.autoHeight === true} storedH=${Number(node?.properties?.nodeSize?.[1] || 0).toFixed(1)} liveH=${Number(node?.size?.[1] || 0).toFixed(1)} measured=${Number(measured?.contentMinHeight || 0).toFixed(1)}/${Number(measured?.totalHeight || 0).toFixed(1)} floor=${Number(resolved.engineFloorH || 0).toFixed(1)} resolvedH=${Number(resolved.height || 0).toFixed(1)}`;
-        if (sig !== node._twRuntimeDebugLastSig || now - Number(node._twRuntimeDebugLastAt || 0) >= 1200) {
-            node._twRuntimeDebugLastSig = sig;
-            node._twRuntimeDebugLastAt = now;
-            console.log(`[TriggerWallResizeDebug] ${sig}`);
-        }
-    }
     const minExpandedHeight = Number(node?.properties?._minExpandedHeight) || 0;
     if (node?.properties?.contentCollapsed !== true && minExpandedHeight > 0) {
         resolved.height = Math.max(Number(resolved.height) || 0, minExpandedHeight);
@@ -699,6 +689,10 @@ function getVisibleRegionLayoutFloor(config, liveRegions = {}, key = null) {
     const marginTop = Number(margin?.[1]) || 0;
     const marginBottom = Number(margin?.length === 4 ? margin[3] : margin?.[1]) || 0;
     const heightProp = String(config.height === undefined ? "auto" : config.height).toLowerCase();
+    if (config.scrollViewport === true || live?.scrollViewport === true || live?._contentViewport === true) {
+        const viewportHeight = Number(live?._contentViewportClipHeight) || Number(live?.h) || Number(config.minClipHeight) || Number(config.clipHeight) || Number(config.minHeight) || 0;
+        return marginTop + viewportHeight + marginBottom;
+    }
     const childFloors = Object.entries(config)
         .filter(([childKey, childConfig]) => !LAYOUT_RESERVED_KEYS.has(childKey) && childConfig && typeof childConfig === "object" && !Array.isArray(childConfig))
         .map(([childKey, childConfig]) => getVisibleRegionLayoutFloor(childConfig, liveRegions, childKey));
@@ -816,8 +810,8 @@ function applyVerticalStackSharedEdgeResize(entity, resizeAnchor, requestedEntit
     const adjustedTopH = topNode.id === entity.id ? draggedHeight : counterpartHeight;
     const adjustedBottomH = bottomNode.id === entity.id ? draggedHeight : counterpartHeight;
 
-    syncDeckNodeSize(topNode, getDockNodeWidth(topNode), adjustedTopH);
-    syncDeckNodeSize(bottomNode, getDockNodeWidth(bottomNode), adjustedBottomH);
+    syncDeckNodeSize(topNode, getDockNodeWidth(topNode), adjustedTopH, { silent: true });
+    syncDeckNodeSize(bottomNode, getDockNodeWidth(bottomNode), adjustedBottomH, { silent: true });
     rememberExpandedDeckHeight(topNode, adjustedTopH);
     rememberExpandedDeckHeight(bottomNode, adjustedBottomH);
     normalizeVerticalMemberPositions(topNode, graph);
@@ -1526,8 +1520,8 @@ export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH,
         const adjustedTopH = topNode.id === entity.id ? draggedHeight : counterpartHeight;
         const adjustedBottomH = bottomNode.id === entity.id ? draggedHeight : counterpartHeight;
 
-        syncDeckNodeSize(topNode, getDockNodeWidth(topNode), adjustedTopH);
-        syncDeckNodeSize(bottomNode, getDockNodeWidth(bottomNode), adjustedBottomH);
+        syncDeckNodeSize(topNode, getDockNodeWidth(topNode), adjustedTopH, { silent: true });
+        syncDeckNodeSize(bottomNode, getDockNodeWidth(bottomNode), adjustedBottomH, { silent: true });
         rememberExpandedDeckHeight(topNode, adjustedTopH);
         rememberExpandedDeckHeight(bottomNode, adjustedBottomH);
         setDeckNodePos(bottomNode, Number(bottomNode.pos?.[0]) || 0, (Number(topNode.pos?.[1]) || 0) + adjustedTopH);
