@@ -159,6 +159,7 @@ Rules:
 - Never add `padding: [pW, pH]` — shrinks icon
 - `spacing: [sW, 0]` for horizontal gap between adjacent buttons
 - `themeKey: "button, t_textNormal"` — standard
+- `btnIcon.js` now guards background corners against undersized buttons. Default guard ratio is `2.0`: width must fit `2x` the larger absolute value of top-left/top-right, and height must fit `2x` the larger absolute value of top-left/bottom-left. This applies to both normal rounded corners and negative chamfer corners. If either side is too small, the widget steps each corner magnitude toward `0` by `1` until they fit.
 - Theme-attached palette entries named `_ICONBTN_<icon>` override only the background rect paint for matching icons, including hover/press/pulse animation colors. Example: `_ICONBTN_add` applies to `icon: "add"` and keeps glyph color/geometry on the normal theme path.
 
 ## Z-Index

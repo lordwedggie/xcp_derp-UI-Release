@@ -405,6 +405,9 @@ export function calculateScreenCoords(node, app, localX, localY, width, height) 
     const ds = app.canvas.ds;
     const scale = ds.scale;
     const canvasRect = window.xcpDerpSingleton?.getCanvasRect ? window.xcpDerpSingleton.getCanvasRect() : app.canvas.canvas.getBoundingClientRect();
+    if (arguments.length > 6 && arguments[6]?.hidden) {
+        return { left: "-10000px", top: "-10000px", width: "0px", height: "0px", scale };
+    }
     return {
         left: `${canvasRect.left + (node.pos[0] + ds.offset[0] + localX) * scale}px`,
         top: `${canvasRect.top + (node.pos[1] + ds.offset[1] + localY) * scale}px`,

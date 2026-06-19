@@ -32,8 +32,8 @@ Agent 在任务执行过程中发现的条目应遵循以下格式：
 ## 条目
 
 [Use English for replies]
-- Date: 2026-06-17
-- Context: User corrected response language during workspace and sync support
+- Date: 2026-06-18
+- Context: User corrected response language during workspace and sync support, then switched back to English again during ImageDeck PNG metadata tracing
 - Instructions:
   - Use English for user-facing replies in this project unless the user changes the preference again.
 
@@ -69,3 +69,9 @@ Agent 在任务执行过程中发现的条目应遵循以下格式：
   - In `derp_docs`, use the same inline color formatting style established by the ControlDeck node docs.
   - For framework usage reports, move the concrete files currently used by the live runtime to the top of the document.
   - Keep the document structure consistent by using colored title spans, teal major section headers, blue lead labels, and orange notes.
+
+[Keep answers concise]
+- Date: 2026-06-18
+- Context: User requested shorter direct answers during ImageDeck PNG metadata work
+- Instructions:
+  - When the answer is simple, answer directly and briefly before any supporting detail.
