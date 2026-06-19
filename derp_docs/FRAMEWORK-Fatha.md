@@ -138,6 +138,7 @@ A "hybrid" framework combining Fatha's modern engine with legacy node compatibil
 - Horizontal stacks support width resize only from outer stack boundaries. Internal shared seams should only expose width resize when both seam nodes are manual-width (`autoWidth !== true`).
 - Deck Pressure side-seam width handles are exposed on the `derpImageDeck` hub shield and route the resize gesture to the attached left/right branch member with the branch-facing anchor.
 - Vertical stack seam height resize should not expose handles when either connected node is collapsed or auto-height.
+- During an active vertical stack seam resize, Fatha pins the involved members to the seam-assigned physical height even if a clipped node's normal Height Mode is numeric/auto. The Height Mode resumes normal sizing after pointer-up.
 - Draw-time deck frame state must classify Deck Pressure top/bottom branches by their branch-only horizontal member list before deciding whether to preserve shared height. The full ImageDeck-owned pressure group is mixed-axis, so using the whole group can skip horizontal height resync after structural changes such as LoRA Stack add/remove.
 - In Node 2.0/Vue mode, `fathaHandler.js` performs an aligned-edge guard before release-time dock maintenance. If a default ComfyUI group move leaves a docked Derp stack already edge-aligned, shared-height sync and normalization should not re-layout the stack on mouse release.
 - Avoid adding per-node docking hacks. Prefer shared fixes in the dock engine/resizer/shield layers.
