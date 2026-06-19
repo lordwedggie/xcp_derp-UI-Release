@@ -344,25 +344,17 @@ function getTriggerWallFooterReserve(regions = {}) {
     return footerBody + footerGap;
 }
 
-function logTriggerWallClipDebug(node, message) {
-    if (!node) return;
-    const now = performance.now?.() || Date.now();
-    const last = Number(node._twClipDebugLastAt || 0);
-    const sig = String(message || "");
-    if (sig === node._twClipDebugLastSig && now - last < 900) return;
-    if (sig !== node._twClipDebugLastSig || now - last >= 1400) {
-        node._twClipDebugLastSig = sig;
-        node._twClipDebugLastAt = now;
-        console.log(`[TriggerWallClipDebug] ${sig}`);
-    }
-}
-
 function resolveTriggerWallAutoClipHeight(node, region, regions = {}, fullContentHeight = 0) {
     const nodeH = Number(node?.size?.[1] || node?.properties?.nodeSize?.[1] || 0);
     const regionY = Number(region?.y) || 0;
     if (nodeH <= 0 || regionY <= 0) return 0;
 
     const belowRegions = [regions.regionSelectTriggerGroup, regions.regionOption1, regions.bottomSpacer].filter(Boolean);
+    if (fullContentHeight > 0) {
+        const fullContentBottom = regionY + fullContentHeight;
+        const fullLayoutBottom = belowRegions.reduce((max, reg) => Math.max(max, getRegionBottom(reg)), fullContentBottom);
+        if (fullLayoutBottom + getTriggerWallFooterReserve(regions) <= nodeH + 0.5) return fullContentHeight;
+    }
     const firstBelowY = belowRegions.reduce((min, reg) => Math.min(min, Number(reg.y) || min), Infinity);
     let fixedBelow = 0;
     if (Number.isFinite(firstBelowY)) {
@@ -375,7 +367,6 @@ function resolveTriggerWallAutoClipHeight(node, region, regions = {}, fullConten
     const available = nodeH - regionY - viewportGap - fixedBelow - viewportGap - footerReserve;
     if (!Number.isFinite(available) || available <= 0) return 0;
     const resolved = fullContentHeight > 0 ? Math.min(available, fullContentHeight) : available;
-    logTriggerWallClipDebug(node, `auto-clip node=${node?.id}:${node?.titleLabel || node?.title || node?.type} nodeH=${nodeH.toFixed(1)} regionY=${regionY.toFixed(1)} gap=${viewportGap.toFixed(1)} fixedBelow=${fixedBelow.toFixed(1)} footer=${footerReserve.toFixed(1)} footerGap=${Number(regions.footerGap?.h || 0).toFixed(1)} available=${available.toFixed(1)} full=${Number(fullContentHeight || 0).toFixed(1)} resolved=${Number(resolved || 0).toFixed(1)} autoH=${node?.properties?.autoHeight !== false} nodeSizeH=${Number(node?.properties?.nodeSize?.[1] || 0).toFixed(1)}`);
     return resolved;
 }
 
