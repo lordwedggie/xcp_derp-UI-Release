@@ -98,7 +98,7 @@ const bgOnSuffix  = isBypassed ? "_DIS" : (isOptionalBgKey ? "_DIS" : "_ON");
 ```
 
 | `bastaBackgroundKey` | Theme has key | Theme lacks key |
-|---|---|---|
+|------|---------------|-----------------|
 | `"#picker"` | Renders with `_DIS` colors | Falls back to `canvas` |
 | `"canvas"` | Renders normally (`_OFF`/`_ON`) | (canvas is always present) |
 

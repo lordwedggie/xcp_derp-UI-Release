@@ -1,20 +1,20 @@
-# Herbina — Widget / UI Component Library
+# <span style="color: #ff8080">Framework:</span> <span style="color: #ffffff">Herbina Widget / UI Component Library</span>
 
-## Overview
+## <span style="color: #80ffc0">Overview</span>
 Herbina is the UI toolkit layer. All visual widgets — buttons, sliders, toggles, labels, file browsers, editors — are defined here. Fatha's `masterLayoutEngine` consumes them via `COMPONENT_BLUEPRINTS` in `masterLayoutTypes.js`.
 
-**Hub:** `js/herbina/masterWidgets.js`
-**Last reviewed:** 2026-06-04
+<span style="color: #80aaff"><strong>Hub:</strong></span> `js/herbina/masterWidgets.js`
+<span style="color: #80aaff"><strong>Last reviewed:</strong></span> 2026-06-04
 
-## Architecture
+## <span style="color: #80ffc0">Architecture</span>
 
-### Widget Protocol (from masterWidgets.js)
+### <span style="color: #80ffc0">Widget Protocol (from masterWidgets.js)</span>
 1. **Unified Theme Keys:** All text-drawing widgets support three-part themeKey: `"BodyKey, LabelKey, FontSizeOverride"`
 2. **Parsing:** Use `parseThemeKey` from `utils/widgetsUtils.js`
 3. **Resolution:** Use `resolvePaintData` for all node lookups (handles casing mismatches, state suffixes `_ON`/`_DIS`)
 4. **Font Overrides:** 3rd part of themeKey overrides paintData's fontSize in both measurement and drawing
 
-### Widget Re-exports (masterWidgets.js hub)
+### <span style="color: #80ffc0">Widget Re-exports (masterWidgets.js hub)</span>
 | Export | Source | Role |
 |--------|--------|------|
 | `createDerpEditorHTML`, `syncDerpEditor` | `widgets/derpEditor.js` | Multiline text editor |
@@ -33,24 +33,24 @@ Herbina is the UI toolkit layer. All visual widgets — buttons, sliders, toggle
 | `createDerpRegion`, `syncDerpRegion` | `widgets/widget_Region.js` | Container region |
 | `syncDerpTrigger`, `syncDerpCompositeTrigger` | `widgets/widget_Trigger.js` | Trigger button |
 
-### Painting Layer
+### <span style="color: #80ffc0">Painting Layer</span>
 | File | Role |
 |------|------|
 | `masterPainter.js` | Canvas 2D painting (450 lines). Theme compilation: `compileThemeData()` — resolves fill/shadow/stroke/glow from theme config with palette color references (`@key` syntax). Cache via WeakMap. |
 | `masterPainterHTML.js` | HTML DOM painting for HTML-based widgets |
 
-### Animation Layer
+### <span style="color: #80ffc0">Animation Layer</span>
 | File | Role |
 |------|------|
 | `masterAnimator.js` | Animation engine. `animateRecoil()` — spring-like recoil for press feedback. `animateAlpha()`, `lerpTo()`, and shared pulse helpers. `DEFAULT_PULSE_SPEED` matches the selected-node pulse cadence and is the default unless a caller explicitly passes another speed. |
 
-### Sound Layer
+### <span style="color: #80ffc0">Sound Layer</span>
 | File | Role |
 |------|------|
 | `masterSoundEffects.js` | Sound effects. `playKaChing()` and other sound triggers. |
 | `sound_lib/` | Sound asset library |
 
-### Extenders
+### <span style="color: #80ffc0">Extenders</span>
 | File | Role |
 |------|------|
 | `extenders/paletteExtender.js` | Node context/palette extension behavior. |
@@ -58,14 +58,14 @@ Herbina is the UI toolkit layer. All visual widgets — buttons, sliders, toggle
 | `extenders/bypassExtender.js` | Remote bypass extension behavior. |
 | `extenders/helpers/bypassSignalPicker.js` | Shared bypass signal picker helper. |
 
-### Utilities
+### <span style="color: #80ffc0">Utilities</span>
 | File | Role |
 |------|------|
 | `utils/widgetsUtils.js` | `interpretLayoutProps()`, `resolvePaintData()`, `parseColorKeyText()`, theme key parsing |
 | `utils/colorMath.js` | Color manipulation utilities |
 | `utils/singletonController.js` | Singleton pattern controller |
 
-### Complete Widget Inventory
+### <span style="color: #80ffc0">Complete Widget Inventory</span>
 ```
 widgets/
 ├── btnIcon.js          — Icon button (canonical pattern: width:"match", height:"fill", objectAlign:["left","middle"])
@@ -94,7 +94,7 @@ widgets/
     └── fileBrowserPreview.js   — FileBrowser preview loading/drawing helpers
 ```
 
-## FileBrowser Notes
+## <span style="color: #80ffc0">FileBrowser Notes</span>
 - `widget_FileBrowser.js` remains the main widget entry and orchestration point.
 - Keep pure data/state helpers in `helpers/fileBrowserHelpers.js`.
 - Keep drawing-only helper work in `helpers/fileBrowserDraw.js`.
@@ -105,7 +105,7 @@ widgets/
 - For signal selection UIs, prefer `FILEBROWSER` with `mode: "signal"` instead of custom ad-hoc picker panels.
 
 
-## Markdown HTML Notes
+## <span style="color: #80ffc0">Markdown HTML Notes</span>
 - `UI_TYPES.MARKDOWN_HTML` is an HTML widget backed by `widget_MarkdownHTML.js`.
 - It renders a conservative Markdown subset plus sanitized safe HTML tags. Raw scripts, event handlers, unsafe URL schemes, arbitrary inline styles, and non-explicit remote URLs are stripped.
 - Obsidian-style embeds (`![[clip.mp4]]`), Markdown image embeds (`![](clip.mp4)`), plain local video paths, and safe raw `<video>` tags whose target is a video extension render as native `<video controls playsinline preload="metadata">`.
@@ -113,7 +113,7 @@ widgets/
 - Relative media URLs resolve through `/xcp/markdown_media` using the selected Markdown file path as context. Video playback uses that route directly as the browser `src`; do not reintroduce blob/base64 media wrappers unless the route behavior changes.
 - Do not use `MARKDOWN_HTML` as a general arbitrary-file HTML renderer; local media access is expected to stay constrained by the backend Markdown route roots and extension whitelist.
 
-## EDITOR Rendering Protocol
+## <span style="color: #80ffc0">EDITOR Rendering Protocol</span>
 - `UI_TYPES.EDITOR` is a hybrid widget: Canvas draws asleep visuals and the DOM element handles hit testing, focus, selection, and editing.
 - For `canvasShield` editors, asleep background and text must be rendered by Canvas, not by the DOM overlay. DOM-rendered asleep boxes/text drift relative to canvas controls under zoom because CSS transforms and Canvas compositing use different subpixel paths.
 - For asleep `canvasShield` editors, the transparent DOM box must release pointer hit testing back to the node shield so hover states and tooltips still trigger across the full widget body instead of only the exposed margins.
@@ -128,7 +128,7 @@ widgets/
 - Keep vertical alignment math host-independent. System panels, Fatha nodes, ThemeManager fields, and numeric editors should use the same `labelAlign` calculation unless a concrete renderer bug requires a shared fix.
 - PromptBook image embeds use `richImageContent: true`; this makes `EDITOR` sync through `innerText` so the PromptBook image handler can preserve real `<img>` nodes instead of being overwritten by `textContent`.
 
-## TOGGLE_V2 Optional `#` Theme Keys
+## <span style="color: #80ffc0">TOGGLE_V2 Optional `#` Theme Keys</span>
 - Theme authors can override individual toggle visual elements via `#`-prefixed theme keys in palette JSON. The `#` key takes priority over the 3-key themeKey system and falls back gracefully.
 - Supported `#` keys with `_ON`/`_OFF`/`_DIS` state resolution:
   - `#toggle_body` — outer background (falls back to `bodyPaint` from themeKey)
@@ -138,12 +138,12 @@ widgets/
 - Each element resolves independently via `resolvePaintData(node, "#key", suffix)` before falling back to the standard key, and animates through `animatePaintData` with the same `TOGGLE_COLOR_SPEED`.
 - Internal variable `dotPaint` renamed to `knobPaint` for consistency.
 
-## Text Wrapping
+## <span style="color: #80ffc0">Text Wrapping</span>
 - `textLabel` Canvas wrapping and layout height measurement use `wrapTextToLines()` from `widgetsUtils.js`; keep these paths in sync so rendered line count matches measured auto-height.
 - CJK text must wrap at character boundaries because Chinese/Japanese/Korean strings often have no spaces. Do not use space-only splitting for wrapped labels.
 - HTML `textLabel` wrapping should allow continuous CJK text to break with `overflow-wrap: anywhere` while preserving normal nowrap behavior when `wrap` is false.
 
-## ICONBUTTON Canonical Pattern
+## <span style="color: #80ffc0">ICONBUTTON Canonical Pattern</span>
 ```js
 {
     type: UI_TYPES.ICONBUTTON,
@@ -163,16 +163,16 @@ Rules:
 - `btnIcon.js` now guards background corners against undersized buttons. Default guard ratio is `2.0`: width must fit `2x` the larger absolute value of top-left/top-right, and height must fit `2x` the larger absolute value of top-left/bottom-left. This applies to both normal rounded corners and negative chamfer corners. If either side is too small, the widget steps each corner magnitude toward `0` by `1` until they fit.
 - Theme-attached palette entries named `_ICONBTN_<icon>` override only the background rect paint for matching icons, including hover/press/pulse animation colors. Example: `_ICONBTN_add` applies to `icon: "add"` and keeps glyph color/geometry on the normal theme path.
 
-## Z-Index
+## <span style="color: #80ffc0">Z-Index</span>
 `getNextZIndex()` starts at 10001, increments per widget. Used for stacking order in the DOM shield overlay.
 
-## Slider Animation Notes
+## <span style="color: #80ffc0">Slider Animation Notes</span>
 - Slider track clicks may animate the knob toward the snapped target value. A new drag-start on the visible knob interrupts that position lerp and snaps the animation state to the live value so dragging can take over immediately.
 
-## Global Animation Toggle
-**Setting ID:** `Derp.UseAnimation` (boolean, default: `true`)
+## <span style="color: #80ffc0">Global Animation Toggle</span>
+<span style="color: #80aaff"><strong>Setting ID:</strong></span> `Derp.UseAnimation` (boolean, default: `true`)
 
-**Chain:**
+<span style="color: #80aaff"><strong>Chain:</strong></span>
 1. Setting toggle → `window.DERP_GLOBAL_SETTINGS.useAnimation`
 2. Synced to `node.properties.useAnimations` on all Fatha/Uncle nodes
 3. Synced to `basta.properties.useAnimations` on all active Bastas
@@ -180,14 +180,14 @@ Rules:
 5. In `onDrawForeground`: `const useAnim = this.properties.useAnimations !== false;`
 6. Passed to every animation call as the `useAnim` parameter
 
-**When `false`:** all animation functions (`lerpTo`, `animateRecoil`, `animateAlpha`, `animateWidgetColors`, `animatePaintData`, `animatePaintData`) skip interpolation and teleport directly to the target value. `isAnimating` returns `false`.
+<span style="color: #80aaff"><strong>When `false`:</strong></span> all animation functions (`lerpTo`, `animateRecoil`, `animateAlpha`, `animateWidgetColors`, `animatePaintData`, `animatePaintData`) skip interpolation and teleport directly to the target value. `isAnimating` returns `false`.
 
-**Any new animation MUST:**
+<span style="color: #ffc680"><strong>Any new animation MUST:</strong></span>
 - Accept a `useAnim` parameter (or read `node.properties.useAnimations`)
 - Return `{value, isAnimating}` matching the existing pattern
 - Skip lerp and return target + `isAnimating: false` when `useAnim` is false
 - Set `_derpAwakeFrames` only when actually animating
 
-## Maintenance Notes
+## <span style="color: #80ffc0">Maintenance Notes</span>
 - Update this document when widget files are split, new extenders are added, or component blueprint expectations change.
 - Before changing a widget protocol, verify `masterWidgets.js`, `masterLayoutTypes.js`, and the specific widget file together.

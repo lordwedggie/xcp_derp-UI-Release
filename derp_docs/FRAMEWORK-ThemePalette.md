@@ -1,14 +1,14 @@
-# Theme & Palette — Resolution and Mechanics
+# <span style="color: #ff8080">Framework:</span> <span style="color: #ffffff">Theme & Palette Resolution and Mechanics</span>
 
-## Overview
+## <span style="color: #80ffc0">Overview</span>
 
 This document covers the practical mechanics of how themes and palettes interact — the resolution chain, the update flow, and the debugging checklist. For the theme system architecture (data structures, painting pipeline, key anatomy), see `FRAMEWORK-Motha.md`. For the palette editor UI, see `FRAMEWORK-Basta.md`.
 
-**Last reviewed:** 2026-06-04
+<span style="color: #80aaff"><strong>Last reviewed:</strong></span> 2026-06-04
 
 ---
 
-## The Two Systems, Summarized
+## <span style="color: #80ffc0">The Two Systems, Summarized</span>
 
 | System | Lives in | Controls |
 |--------|----------|----------|
@@ -19,7 +19,7 @@ Themes are the *structure*. Palettes are the *paint buckets*. In current code, p
 
 ---
 
-## Palette File Format
+## <span style="color: #80ffc0">Palette File Format</span>
 
 Palettes are JSON files with an optional `effects` boolean and a `palettes` array:
 
@@ -46,7 +46,7 @@ Palettes are JSON files with an optional `effects` boolean and a `palettes` arra
 }
 ```
 
-**Key rules:**
+<span style="color: #80aaff"><strong>Key rules:</strong></span>
 - `effects: true` enables shadow/stroke/glow color replacement. When `false` (or omitted), only `main` fill colors are applied; effects keep their theme-defined colors.
 - A theme's `_palette` is inherited by generic widget paint resolution. Explicit widget palette config still wins, but otherwise matching palette entries can override theme-key `main`, `shadow`, `stroke`, and `glow` colors while preserving theme geometry and effect physics.
 - Each palette entry is keyed by `name`. The `name` determines which theme key it overrides (e.g., `header_DerpSeedV2` overrides the `header` theme key for nodes of type `DerpSeedV2`).
@@ -55,13 +55,13 @@ Palettes are JSON files with an optional `effects` boolean and a `palettes` arra
 
 ---
 
-## Theme Key Reference
+## <span style="color: #80ffc0">Theme Key Reference</span>
 
 Every theme JSON object is a flat dictionary of named keys (e.g., `"canvas"`, `"button"`, `"t_textNormal"`). Each key defines its own fill colors, corners, shadows, strokes, glow, font, and font size. Widgets reference these keys via `themeKey` in their layout map definitions.
 
 Keys fall into two categories: **container keys** (define backgrounds and effects for regions) and **text keys** (define font family, size, and text color). Most widgets use a **compound key** format: `"containerKey, textKey"` (optionally with a third font-size override).
 
-### Container Keys (Required keys for a theme file)
+### <span style="color: #80ffc0">Container Keys (Required keys for a theme file)</span>
 
 These define the visual surface behind a widget — fill, corners, shadows, strokes, glow.
 
@@ -78,7 +78,7 @@ These define the visual surface behind a widget — fill, corners, shadows, stro
 | `region` | Generic `UI_TYPES.REGION` container widgets. Heavily used — 15+ references across loader nodes, LoraStack, TriggerWall, SignalOut, Concatenate. Default for `UI_TYPES.REGION` in `masterLayoutTypes.js`. |
 | `header` | 🆕 Optional — detected at theme load time, not referenced via `themeKey` in layout maps. If present, used to render the node header section separately from the body. If absent, the `canvas` key renders the entire node background including the header area. |
 
-### Text Keys
+### <span style="color: #80ffc0">Text Keys</span>
 
 These define font family, font size, and text color (`_ON` / `_OFF` / `_DIS`). They have no corners, shadows, strokes, or glow — text rendering reads only `font`, `fontSize`, `fontWeight`, and `_ON`/`_OFF`/`_DIS` for color.
 
@@ -89,7 +89,7 @@ These define font family, font size, and text color (`_ON` / `_OFF` / `_DIS`). T
 | `t_textSmall` | 10px | Secondary labels, file browser row metadata, helper text, Basta panel labels |
 | `t_textSystem` | 12px | System panel labels, Fatha layout toolbar button text, warning/info messages |
 
-### Optional Override Keys (`#` prefix)
+### <span style="color: #80ffc0">Optional Override Keys (`#` prefix)</span>
 
 Keys prefixed with `#` are optional overrides for specific widget rendering paths. The theme manager's save logic places them at the bottom of the theme key list. If a `#` key exists, the widget uses it instead of its layout map's `themeKey`. If absent, the widget falls back to its normal `themeKey` behavior.
 
@@ -108,7 +108,7 @@ These are full theme keys with `_ON`/`_OFF`/`_DIS` fills and optional effects (c
 
 `_ICONBTN_<icon>` entries live in the palette document attached to the active theme via `_palette`, not in the layout map and not in the global active palette fallback. `btnIcon.js` checks the icon key from the `ICON_MAP` lookup and, when a matching entry is present in `node._headerPaletteName`, replaces only the icon button background rect paint (`main`, plus `shadow`/`stroke`/`glow` when the palette has `effects: true`). The override participates in normal hover, press, pulse, and effect color animation paths. The glyph color, font, geometry, recoil, and layout sizing continue to come from the widget's normal `themeKey` and icon color paths.
 
-### Compound Key Format
+### <span style="color: #80ffc0">Compound Key Format</span>
 
 When a widget needs both a background and text styling, the `themeKey` uses a comma-separated compound:
 
@@ -118,7 +118,7 @@ When a widget needs both a background and text styling, the `themeKey` uses a co
 
 The layout engine parses this via `parseThemeKey()` in `widgetsUtils.js`. The first segment controls the widget's background surface; the second controls text rendering. An optional third segment overrides `fontSize`.
 
-**Common compounds seen across the codebase:**
+<span style="color: #80aaff"><strong>Common compounds seen across the codebase:</strong></span>
 
 | Compound | Where |
 |----------|-------|
@@ -132,7 +132,7 @@ The layout engine parses this via `parseThemeKey()` in `widgetsUtils.js`. The fi
 | `"systemButton, t_textSystem"` | System panel action buttons |
 | `"canvas, t_textSmall"` | (rare) small text directly on canvas background |
 
-### Minimal Required Key Set
+### <span style="color: #80ffc0">Minimal Required Key Set</span>
 
 A theme MUST define at minimum these keys or nothing will render properly:
 
@@ -151,17 +151,17 @@ A theme MUST define at minimum these keys or nothing will render properly:
 | `systemBackground` | Fatha settings panel, theme manager internal regions. Without it, system panels have no background. |
 | `systemButton` | System panel save/rename/copy/delete buttons. Without it, system action buttons have no background. |
 
-**Practical minimum for a working theme:** `canvas`, `panel`, `dialog`, `button`, `buttonNode`, `systemBackground`, `systemButton`, `t_textBig`, `t_textNormal`, `t_textSmall`, `t_textSystem` — plus `region` for full coverage. `header` is optional (falls back to `canvas` if missing). `background` is deprecated and safe to delete.
+<span style="color: #80aaff"><strong>Practical minimum for a working theme:</strong></span> `canvas`, `panel`, `dialog`, `button`, `buttonNode`, `systemBackground`, `systemButton`, `t_textBig`, `t_textNormal`, `t_textSmall`, `t_textSystem` — plus `region` for full coverage. `header` is optional (falls back to `canvas` if missing). `background` is deprecated and safe to delete.
 
 > **TODO: Fill in** — expand with actual RGBA values, corner presets, and shadow/stroke/glow defaults for each key.
 
 ---
 
-## The Palette Resolution Chain
+## <span style="color: #80ffc0">The Palette Resolution Chain</span>
 
 When a Fatha/Uncle node renders, its colors go through a four-stage resolution:
 
-### Stage 1: Theme Compilation (`masterPainter.js`)
+### <span style="color: #80ffc0">Stage 1: Theme Compilation (`masterPainter.js`)</span>
 
 `compileThemeData(themeMain, keyName, state)` takes a theme key (e.g., `header`) and resolves it to concrete RGBA/CSS-ready paint data:
 
@@ -180,11 +180,11 @@ function resolvePaletteColor(val) {
 }
 ```
 
-**Critical gotcha:** If `@key` references a key that does not exist directly on `window.xcpActivePalette`, `resolvePaletteColor()` returns the raw `@key` string. `compileThemeData()` guards fill colors through `ensureArray()`, but shadow/stroke/glow paths can still build invalid CSS if given unresolved strings. **No user-facing error is thrown.**
+<span style="color: #ffc680"><strong>Critical gotcha:</strong></span> If `@key` references a key that does not exist directly on `window.xcpActivePalette`, `resolvePaletteColor()` returns the raw `@key` string. `compileThemeData()` guards fill colors through `ensureArray()`, but shadow/stroke/glow paths can still build invalid CSS if given unresolved strings. <span style="color: #ffc680"><strong>No user-facing error is thrown.</strong></span>
 
 The compiled result is cached in a WeakMap keyed by `"OFF::paletteName"` / `"ON::paletteName"` / `"DIS::paletteName"`. Changing the active palette name automatically invalidates this cache.
 
-### Stage 2: Per-Node Header Palette (`headerPaletteIdentity.js`)
+### <span style="color: #80ffc0">Stage 2: Per-Node Header Palette (`headerPaletteIdentity.js`)</span>
 
 After the global palette is applied, `applyNodeHeaderPalette()` can override individual nodes based on their `_headerPaletteName`:
 
@@ -198,13 +198,13 @@ After the global palette is applied, `applyNodeHeaderPalette()` can override ind
 
 This is how different node types can get different header colors from the same palette file — the `name` matching is based on `entity.type`, `entity.constructor.type`, `entity.comfyClass`, or `entity._sysProfileFile`.
 
-**Header palette naming convention:** Entry names are `header_<NodeType>` (e.g., `header_DerpSeedV2`, `header_DerpLoraStack`). The `findHeaderPaletteEntry()` function also checks aliases — if the node type is `DerpSeedV2Node`, it also tries `header_derpSeedV2`.
+<span style="color: #80aaff"><strong>Header palette naming convention:</strong></span> Entry names are `header_<NodeType>` (e.g., `header_DerpSeedV2`, `header_DerpLoraStack`). The `findHeaderPaletteEntry()` function also checks aliases — if the node type is `DerpSeedV2Node`, it also tries `header_derpSeedV2`.
 
-**Collapsed header state:** The node header background is drawn by `fathaHandler.js`'s canvas base renderer, not by the layout-map `headerMain` region. Expanded headers use `_OFF` by default, selected headers use `_ON`, bypassed headers use `_DIS`, and collapsed headers also use `_ON`. If a node has an attached header palette, the palette entry's `main._ON` overrides the theme `header._ON`; otherwise the renderer falls back to the theme `header._ON`. Theme and palette authors should treat `header._ON` / `header_<NodeType>.entries.main._ON` as the collapsed-header color.
+<span style="color: #80aaff"><strong>Collapsed header state:</strong></span> The node header background is drawn by `fathaHandler.js`'s canvas base renderer, not by the layout-map `headerMain` region. Expanded headers use `_OFF` by default, selected headers use `_ON`, bypassed headers use `_DIS`, and collapsed headers also use `_ON`. If a node has an attached header palette, the palette entry's `main._ON` overrides the theme `header._ON`; otherwise the renderer falls back to the theme `header._ON`. Theme and palette authors should treat `header._ON` / `header_<NodeType>.entries.main._ON` as the collapsed-header color.
 
-**Collapsed title text state:** The node title editor (`dialog, t_textBig`) also receives state `ON` while collapsed. If no string palette or color-key override resolves for the title text, the label paint falls back to the active theme's `t_textBig._ON`. Theme authors should set `t_textBig._ON` for collapsed node title text contrast.
+<span style="color: #80aaff"><strong>Collapsed title text state:</strong></span> The node title editor (`dialog, t_textBig`) also receives state `ON` while collapsed. If no string palette or color-key override resolves for the title text, the label paint falls back to the active theme's `t_textBig._ON`. Theme authors should set `t_textBig._ON` for collapsed node title text contrast.
 
-### Stage 3: Theme Manager System Palette (`themeManagerV2.js` / `themeManagerV2_core.js`)
+### <span style="color: #80ffc0">Stage 3: Theme Manager System Palette (`themeManagerV2.js` / `themeManagerV2_core.js`)</span>
 
 The theme manager node has a system palette dropdown that sets `themeToEdit._palette` and `node.properties.systemPaletteName`. This is stored on the edited theme and later copied into `window.xcpDerpThemeConfig.themes[name]._palette` when the binding path or save path runs:
 
@@ -217,7 +217,7 @@ else delete themeObj._palette;
 
 The `None` option sets the value to empty string `""`, which means "no palette override — use the global default."
 
-### Stage 4: Global Default Palette
+### <span style="color: #80ffc0">Stage 4: Global Default Palette</span>
 
 The global default is set via the ComfyUI setting `Derp.Palette`:
 
@@ -234,7 +234,7 @@ This calls `loadDerpPalette()` which fetches the palette JSON and sets:
 
 ---
 
-## The Full Resolution Order
+## <span style="color: #80ffc0">The Full Resolution Order</span>
 
 For any given node, the effective color is determined by:
 
@@ -250,15 +250,15 @@ For any given node, the effective color is determined by:
 5. Fallback: raw theme key value (if no @key, or palette not loaded)
 ```
 
-**Practical rule:** The per-theme `_palette` is the source for `node._headerPaletteName`, so it controls per-node header palette matching. Framework text color-key strings use the per-node `node._derpStringPalette` context first. By default this loads `_system/_defaultPalette.json`; themes with `Category: "Dark"`, `"Light"`, or `"Neutral"` load `_system/_DK_defaultPalette.json`, `_system/_LT_defaultPalette.json`, or `_system/_NE_defaultPalette.json` respectively, falling back to `_system/_defaultPalette.json` if the category file is missing. Tooltip text/background paint now uses `_System/_DK_System` as the theme base, then maps host string palette overrides onto palette entries `toolTip_background` and `t_toolTip_normal`. Legacy `_system/_toolTip` palette names are sanitized at runtime and must not be used by new tooltip code. The global `Derp.Palette` setting remains the fallback active palette document for legacy/color-key lookups. If nothing resolves, you get the raw theme color or a broken unresolved `@key` string.
+<span style="color: #80aaff"><strong>Practical rule:</strong></span> The per-theme `_palette` is the source for `node._headerPaletteName`, so it controls per-node header palette matching. Framework text color-key strings use the per-node `node._derpStringPalette` context first. By default this loads `_system/_defaultPalette.json`; themes with `Category: "Dark"`, `"Light"`, or `"Neutral"` load `_system/_DK_defaultPalette.json`, `_system/_LT_defaultPalette.json`, or `_system/_NE_defaultPalette.json` respectively, falling back to `_system/_defaultPalette.json` if the category file is missing. Tooltip text/background paint now uses `_System/_DK_System` as the theme base, then maps host string palette overrides onto palette entries `toolTip_background` and `t_toolTip_normal`. Legacy `_system/_toolTip` palette names are sanitized at runtime and must not be used by new tooltip code. The global `Derp.Palette` setting remains the fallback active palette document for legacy/color-key lookups. If nothing resolves, you get the raw theme color or a broken unresolved `@key` string.
 
 Color-key markup is display-only. Framework text measurement paths strip `{{key::display}}` down to `display`, so color tags do not contribute to auto width, wrapped height, cutoff, overflow detection, or shrink calculations. Missing color-key entries leave the visible segment uncolored, so rendering uses the same layoutMap text theme key paint path it would have used without color-key markup. Color-key lookup must not use generic `resolvePaintData()` fallback behavior for missing keys; only exact palette entries or exact hydrated paint keys should colorize a segment. Segmented canvas text preserves the same theme text effects as normal text rendering, including shadow and glow passes. Palette string color keys control segment-level effect colors and effect enablement: if a palette key has `shadow` or `glow`, that segment uses the palette effect color with the current theme text key's offset/blur physics; if an effect key is missing, that effect is disabled for the segment. `textLabel` HTML rendering maps theme text shadow/glow onto CSS `text-shadow` because `applyHTMLTheme()` clears glyph shadows while applying box effects. Color-key strings are supported on all layout text theme keys, including `t_textNormal`, `t_textSmall`, `t_textBig`, and `t_textSystem`; wrapped canvas text must preserve per-line color segments instead of falling back to plain visible text. Prefer the `t_text_*` key pattern for string color entries, such as `{{t_text_accent::Accent}}`, `{{t_text_highlight::Highlight}}`, `{{t_text_warning::Warning}}`, and `{{t_text_error::Error}}`.
 
 ---
 
-## Palette Update Flow (End to End)
+## <span style="color: #80ffc0">Palette Update Flow (End to End)</span>
 
-### When the user opens the Palette Manager Basta (`bastaPalette.js`):
+### <span style="color: #80ffc0">When the user opens the Palette Manager Basta (`bastaPalette.js`):</span>
 
 1. `showBastaPalette(host)` is called from a Fatha/Uncle node
 2. `refreshPaletteFileList()` fetches `/xcp/list/palettes` for the file list
@@ -269,20 +269,20 @@ Color-key markup is display-only. Framework text measurement paths strip `{{key:
 7. Dirty state is tracked by `_paletteDirty` plus a `getPaletteHash()` baseline (`_lastFileHash`). If the user closes Palette Manager from the header close button or footer Done button while dirty, the panel opens a `bastaFileHandler` discard confirmation before closing.
 8. User clicks Save → `fetch(/xcp/save/palettes, {method: "POST", body: ...})` persists to disk
 
-### When palette is saved (propagation):
+### <span style="color: #80ffc0">When palette is saved (propagation):</span>
 
 1. `syncActivePalettePreview()` writes the edited palette document to `window.xcpPaletteCache[activeName]`
 2. If the saved palette is the *currently active* palette, it mutates `window.xcpActivePalette.effects` and `window.xcpActivePalette.palettes`
 3. `schedulePalettePreviewRedraw()` iterates ALL Fatha/Uncle nodes, finds those with matching `_headerPaletteName`, and invalidates their caches
 
-### When the theme manager changes a theme's palette:
+### <span style="color: #80ffc0">When the theme manager changes a theme's palette:</span>
 
 1. Dropdown change fires `dropdownPalette.onChange`
 2. Sets `node.properties.systemPaletteName` and `themeToEdit._palette`
 3. Syncs to `window.xcpDerpThemeConfig.themes[name]._palette`
 4. Triggers `handleThemeUpdate()` → re-compiles all paint data → flushes all caches
 
-### When `Derp.Palette` ComfyUI setting changes:
+### <span style="color: #80ffc0">When `Derp.Palette` ComfyUI setting changes:</span>
 
 1. `loadDerpPalette(newPalette)` is called
 2. Sets `window.xcpActivePalette` to the loaded palette document
@@ -292,7 +292,7 @@ Color-key markup is display-only. Framework text measurement paths strip `{{key:
 
 ---
 
-## Key Variables and Their Meanings
+## <span style="color: #80ffc0">Key Variables and Their Meanings</span>
 
 | Variable | Scope | Meaning |
 |----------|-------|---------|
@@ -309,7 +309,7 @@ Color-key markup is display-only. Framework text measurement paths strip `{{key:
 
 ---
 
-## The `paletteExtender.js` (Non-Derp Nodes)
+## <span style="color: #80ffc0">The `paletteExtender.js` (Non-Derp Nodes)</span>
 
 `paletteExtender` is retained in the workspace for reference, but its `app.registerExtension(...)` block is intentionally commented out and it no longer registers itself with ComfyUI. Default-node palette application is moving to explicit utility-node flows such as `derpSwatch` instead of a global context menu extender.
 
@@ -322,7 +322,7 @@ Historical behavior, when enabled:
 
 ---
 
-## Node 2.0 Changeable Elements (Default ComfyUI Nodes)
+## <span style="color: #80ffc0">Node 2.0 Changeable Elements (Default ComfyUI Nodes)</span>
 
 Node 2.0/Vue-rendered default nodes expose more colorable surfaces than legacy LiteGraph nodes, but they do not all use the same mechanism. Header and body colors remain per-node LiteGraph properties, while most additional Node 2.0 surfaces are design-system CSS tokens.
 
@@ -368,7 +368,7 @@ Slot-type colors are still separate from these Node 2.0 component tokens and sho
 
 ---
 
-## Bundle Sync (`bundled_asset_sync.py`)
+## <span style="color: #80ffc0">Bundle Sync (`bundled_asset_sync.py`)</span>
 
 Default palettes are shipped with the extension in `user/derpNodes/Palettes/_system/`. At startup:
 
@@ -379,29 +379,29 @@ Default palettes are shipped with the extension in `user/derpNodes/Palettes/_sys
 
 ---
 
-## Common Failure Modes
+## <span style="color: #80ffc0">Common Failure Modes</span>
 
-### "I changed a palette but nothing happened"
+### <span style="color: #80ffc0">"I changed a palette but nothing happened"</span>
 1. Is `window.xcpActivePaletteName` pointing at the right file?
 2. Did the theme key actually use `@key` syntax? (Check the theme JSON — if the value is a raw `[r,g,b,a]` array, it won't use the palette at all.)
 3. Is the `_palette` key on the theme pointing to the right palette file?
 4. Did `loadDerpPalette()` actually complete? (Check network tab — if the palette file 404'd, `@key` references silently fail.)
 
-### "The header color is wrong on one node type"
+### <span style="color: #80ffc0">"The header color is wrong on one node type"</span>
 1. Check `headerPaletteIdentity.js` — does the node type match a `header_*` entry name in the palette?
 2. Check the aliases in `buildHeaderPaletteAliases()` — the entry name might need to be `header_derpLoraStack` not `header_DerpLoraStack`.
 3. Is `_headerPaletteName` set on the node? (It's set during `handleThemeUpdate()` from `theme._palette`.)
 
-### "The theme manager's palette dropdown shows 'None' but the node still has palette colors"
+### <span style="color: #80ffc0">"The theme manager's palette dropdown shows 'None' but the node still has palette colors"</span>
 - The `None` value clears the per-theme `_palette` override. The node will fall through to the global `Derp.Palette` setting. If that's also set, the node will still get palette colors.
 
-### "Colors are broken/garbled after palette change"
+### <span style="color: #80ffc0">"Colors are broken/garbled after palette change"</span>
 - The `compileThemeData` cache is keyed by `state::paletteName` per theme object. If the palette name did not change but the same theme object remains cached, stale compiled paint data can be served. Force-invalidate by calling `invalidateCompiledThemeCache(themeKeyObject)` or by triggering a normal theme update path that invalidates each theme key.
 - Direct `@key` references that fail silently return the raw string `"@key"` instead of an RGBA array. Fill colors fall back more safely than effect colors; unresolved shadow/stroke/glow values can still produce invalid CSS.
 
 ---
 
-## Files Reference
+## <span style="color: #80ffc0">Files Reference</span>
 
 | File | Role |
 |------|------|
@@ -424,7 +424,7 @@ Default palettes are shipped with the extension in `user/derpNodes/Palettes/_sys
 
 ---
 
-## Maintenance Notes
+## <span style="color: #80ffc0">Maintenance Notes</span>
 
 - When adding a new node type that needs distinct header colors, add a `header_<NodeType>` entry to the palette file AND verify the aliases in `buildHeaderPaletteAliases()` match.
 - When changing how `@key` references work, update `resolvePaletteColor()` in `masterPainter.js`, color-key text resolution in `widgetsUtils.js`, and this document.

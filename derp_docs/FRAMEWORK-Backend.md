@@ -1,13 +1,13 @@
-# Python Backend
+# <span style="color: #ff8080">Framework:</span> <span style="color: #ffffff">Python Backend</span>
 
-## Overview
+## <span style="color: #80ffc0">Overview</span>
 The Python layer handles node registration, file serving, API routes, LoRA management, theme persistence, and asset syncing.
 
-**Entry point:** `__init__.py`
-**Directory:** `python/` (node implementations), root (server/routes)
-**Last reviewed:** 2026-06-04
+<span style="color: #80aaff"><strong>Entry point:</strong></span> `__init__.py`
+<span style="color: #80aaff"><strong>Directory:</strong></span> `python/` (node implementations), root (server/routes)
+<span style="color: #80aaff"><strong>Last reviewed:</strong></span> 2026-06-04
 
-## Node Registration (`__init__.py`)
+## <span style="color: #80ffc0">Node Registration (`__init__.py`)</span>
 Registers all node class mappings and display names into ComfyUI's registry:
 
 ```python
@@ -28,7 +28,7 @@ Conditional imports:
 
 Hard-registered nodes: `DerpImageDeckNode`, `DerpToggleNode` (always in root mappings)
 
-## Python Node Files
+## <span style="color: #80ffc0">Python Node Files</span>
 | File | Role |
 |------|------|
 | `python/derpSignalOut.py` | Signal router node (173 lines). `DERP_LIVE_REGISTRY` dict for signal values. API: `/xcp/purge_signal`, `/xcp/update_signal`. `xcpDerpSignalOut` class with `AnyType("*")` for 16 virtual outputs. |
@@ -42,10 +42,10 @@ Hard-registered nodes: `DerpImageDeckNode`, `DerpToggleNode` (always in root map
 | `python/derpUtilities.py` | Utility virtual shells such as `derpSkunk` and `derpNotes` |
 | `python/signalDictionaryDefault.py` | Signal fallback dictionary |
 
-## File Server (`xcp_file_server.py`, 184 lines)
+## <span style="color: #80ffc0">File Server (`xcp_file_server.py`, 184 lines)</span>
 HTTP route wiring for the entire backend API. Uses `safe_post()` / `safe_get()` to prevent duplicate route registration.
 
-### Route Modules
+### <span style="color: #80ffc0">Route Modules</span>
 | File | Routes |
 |------|--------|
 | `xcp_file_asset_routes.py` | Bundled asset serving |
@@ -57,7 +57,7 @@ HTTP route wiring for the entire backend API. Uses `safe_post()` / `safe_get()` 
 | `xcp_file_common.py` | `resolve_case_insensitive_path()` utility |
 | `xcp_file_categories.py` | `get_category_dir()` utility |
 
-### LoRA Stack API (`xcp_loraStack.py`)
+### <span style="color: #80ffc0">LoRA Stack API (`xcp_loraStack.py`)</span>
 | Handler | Endpoint |
 |---------|----------|
 | `handle_get_loras` | GET `/xcp/get_loras` |
@@ -80,13 +80,13 @@ HTTP route wiring for the entire backend API. Uses `safe_post()` / `safe_get()` 
 | `handle_list_derpLoraStack` | GET `/xcp/list/derpLoraStack` |
 | `load_settings_redirect` | GET `/xcp/load/settings` |
 
-### Tag Handling (`xcp_tagHandling.py`)
+### <span style="color: #80ffc0">Tag Handling (`xcp_tagHandling.py`)</span>
 | Handler | Endpoint |
 |---------|----------|
 | `handle_import_lora_tags` | POST `/xcp/import_lora_tags` |
 | `handle_manage_lora_tag` | POST `/xcp/manage_lora_tag` |
 
-## Bundled Asset Sync (`bundled_asset_sync.py`)
+## <span style="color: #80ffc0">Bundled Asset Sync (`bundled_asset_sync.py`)</span>
 Syncs default assets from extension's `user/derpNodes/` to ComfyUI's user directory.
 
 - Source: `EXT_ROOT/user/derpNodes/`
@@ -96,25 +96,25 @@ Syncs default assets from extension's `user/derpNodes/` to ComfyUI's user direct
 - System-managed folders/files (prefixed with `_`) get special handling
 - Called at startup via `sync_bundled_assets()` in `__init__.__init__.py`
 
-## Markdown Routes (`xcp_file_markdown_routes.py`)
+## <span style="color: #80ffc0">Markdown Routes (`xcp_file_markdown_routes.py`)</span>
 - `/xcp/list_markdown` lists `.md` / `.markdown` files from the configured derpNotes and `derp_docs` roots.
 - `/xcp/load_markdown` returns UTF-8 Markdown content plus its root-relative path so frontend widgets can resolve adjacent media.
 - `/xcp/markdown_media` serves whitelisted Markdown-adjacent media files directly with their guessed MIME type and no attachment/download header, allowing native browser playback for local video embeds.
 - Markdown media resolution must reject traversal and unsupported extensions; it is not a general filesystem route.
 
-## ImageDeck Save Route (`xcp_file_image_routes.py`)
+## <span style="color: #80ffc0">ImageDeck Save Route (`xcp_file_image_routes.py`)</span>
 - POST `/xcp/derp_image_deck/save_current_image` saves the currently selected ImageDeck image into the output directory or a chosen output subfolder.
 - `PNG` saves now embed the current Comfy prompt/workflow metadata when the frontend sends `prompt` and `extra_pnginfo.workflow`.
 - Plain `PNG` saves without metadata payload still use file copy behavior.
 - `JPEG` and `WEBP` saves re-encode the source image and do not carry PNG metadata.
 
-## Version Check (`xcp_version_check.py`)
+## <span style="color: #80ffc0">Version Check (`xcp_version_check.py`)</span>
 - GET `/xcp/check_version` compares the local `pyproject.toml` version with the release repo `pyproject.toml`.
 - Success returns `local`, `remote`, `status`, `url`, and `notify`.
 - Transient network failures from the remote fetch, including short SSL EOF handshake failures, return a quiet `status: "unavailable"` with `notify: false` so the frontend skips noisy console warnings.
 - Hard failures such as malformed local or remote version data still return HTTP `502` with an `error` message.
 
-## Signal System (Python)
+## <span style="color: #80ffc0">Signal System (Python)</span>
 - `DERP_LIVE_REGISTRY` — global dict mapping `node_id → value` for wireless signals
 - API: `/xcp/update_signal` (POST) — register a signal value
 - API: `/xcp/purge_signal` (POST) — remove a signal
@@ -122,7 +122,7 @@ Syncs default assets from extension's `user/derpNodes/` to ComfyUI's user direct
 - `clone_runtime_signal_value()` — safe clone for MODEL/CLIP/VAE types
 - Signal out node has 16 hidden wireless inputs (`_hidden_wire_0..15`) and 16 virtual outputs
 
-## Key Pattern: Virtual Nodes
+## <span style="color: #80ffc0">Key Pattern: Virtual Nodes</span>
 Most Controldeck nodes are "pure virtual shells" — they have no real inputs, minimal outputs, and `do_nothing()` as their function. All actual logic happens in the JS frontend. They exist only for:
 1. Appearing in the node graph
 2. Transmitting wireless signals
@@ -137,6 +137,6 @@ class DerpLoraStackNode:
         return (None,)  # Pure virtual — JS handles everything
 ```
 
-## Maintenance Notes
+## <span style="color: #80ffc0">Maintenance Notes</span>
 - Treat this document as a route/register map, not implementation truth. Verify `__init__.py`, `xcp_file_server.py`, and route modules before backend edits.
 - Update this document whenever a Python node module, backend route, or bundled asset sync behavior changes.
