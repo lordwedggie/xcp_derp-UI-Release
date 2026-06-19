@@ -2216,9 +2216,11 @@ function applyDeckPressureCollapse(members, targetSpan, axis, snap) {
     const candidates = members
         .filter((member) => member.id !== active?.id && member.properties?.contentCollapsed !== true)
         .sort((a, b) => {
-            const activePos = Number(active?.pos?.[sizeIndex === 1 ? 1 : 0]) || 0;
-            const da = Math.abs((Number(a?.pos?.[sizeIndex === 1 ? 1 : 0]) || 0) - activePos);
-            const db = Math.abs((Number(b?.pos?.[sizeIndex === 1 ? 1 : 0]) || 0) - activePos);
+            // sizeIndex is 0 (width/x) for horizontal axis, 1 (height/y) for vertical;
+            // it already selects the correct position component, so use it directly.
+            const activePos = Number(active?.pos?.[sizeIndex]) || 0;
+            const da = Math.abs((Number(a?.pos?.[sizeIndex]) || 0) - activePos);
+            const db = Math.abs((Number(b?.pos?.[sizeIndex]) || 0) - activePos);
             return db - da;
         });
 
@@ -2391,14 +2393,18 @@ function fitDeckPressureSideHeights(members, targetHeight, snap) {
     if (members.some((member) => member?._isDerpResizing === true) && collapsedClampedCurrent.every((value, index) => value >= mins[index])) {
         return collapsedClampedCurrent;
     }
-    if (Math.abs(collapsedClampedTotal - resolvedTarget) <= 0.5 && collapsedClampedCurrent.every((value, index) => value >= mins[index])) return collapsedClampedCurrent;
+    const freshActive = getDeckPressureFreshActiveMember(members);
+    const freshActiveIndex = expandedIndexes.find((index) => members[index]?.id === freshActive?.id);
+    const hasFreshActiveSavedHeight = freshActiveIndex >= 0 && Number(members[freshActiveIndex]?.properties?._savedExpandedHeight || 0) > 0;
+    // Skip the "already aligned" fast-path when a freshly-activated member has a saved
+    // expanded height to grow into: the stale live heights may already sum to the target,
+    // which would otherwise pin the active member below its preferred size for a frame.
+    const wantsFreshActiveGrowth = freshActiveIndex >= 0 && hasFreshActiveSavedHeight;
+    if (!wantsFreshActiveGrowth && Math.abs(collapsedClampedTotal - resolvedTarget) <= 0.5 && collapsedClampedCurrent.every((value, index) => value >= mins[index])) return collapsedClampedCurrent;
     const sizes = [...mins];
     let extra = resolvedTarget - minTotal;
     if (extra <= 0) return sizes;
 
-    const freshActive = getDeckPressureFreshActiveMember(members);
-    const freshActiveIndex = expandedIndexes.find((index) => members[index]?.id === freshActive?.id);
-    const hasFreshActiveSavedHeight = freshActiveIndex >= 0 && Number(members[freshActiveIndex]?.properties?._savedExpandedHeight || 0) > 0;
     if (freshActiveIndex >= 0) {
         const preferredHeight = quantizeSize(getDeckPressurePreferredExpandedHeight(members[freshActiveIndex], mins[freshActiveIndex]), unit);
         const preferredExtra = Math.max(0, preferredHeight - mins[freshActiveIndex]);
@@ -2600,7 +2606,7 @@ export function drawDeckGhost(ctx, ghost, options = {}) {
     const useAnim = options.useAnim !== false && window.DERP_GLOBAL_SETTINGS?.useAnimation !== false;
     const fallbackFill = edgeValid
         ? "rgba(120, 200, 255, 0.18)"
-        : "rgba(120, 200, 255, 0.18)";
+        : "rgba(255, 149, 0, 0.18)";
     const bodyPaint = edgeValid
         ? (resolveSystemThemePaint("ghost_deck_valid", "DIS") || { fill: fallbackFill, corners: 0 })
         : { fill: fallbackFill, corners: 0 };
