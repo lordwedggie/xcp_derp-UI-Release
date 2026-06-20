@@ -7,7 +7,7 @@ import { fatha, initDerpGlobalListener } from "../../fatha/fatha.js";
 import { settleDerpSizeBeforeDraw } from "../../fatha/core/fathaHandler.js";
 import { isLinearDeckGroup, isNodeDocked } from "../../fatha/core/masterDockEngine.js";
 import { setDerpNodeSizeCompat } from "../../fatha/core/fathaNode2Compat.js";
-import { startStackDrag } from "../../fatha/helpers/fathaDragDrop.js";
+import { captureStackDragFloatingSnapshot, getStackDragFloatingTransform, startStackDrag } from "../../fatha/helpers/fathaDragDrop.js";
 import { COMPONENT_BLUEPRINTS } from "../../fatha/core/masterLayoutTypes.js";
 import {
     triggerWall_syncOutputs,
@@ -235,39 +235,18 @@ function bumpTWPerfSource(node, key) {
 }
 
 function captureFloatingPreviewRegions(node, rootKey) {
-    if (!node?.layout?.regions?.[rootKey]) return null;
-    const regions = node.layout.regions;
-    const captured = {};
-    const visit = (key) => {
-        const reg = regions[key];
-        if (!reg || captured[key]) return;
-        captured[key] = {
-            ...reg,
-            geometry: { x: reg.x, y: reg.y, w: reg.w, h: reg.h }
-        };
-        for (const [childKey, childReg] of Object.entries(regions)) {
-            if (childReg?.parentKey === key) visit(childKey);
-        }
-    };
-    visit(rootKey);
-    return captured;
+    return captureStackDragFloatingSnapshot(node, rootKey)?.regions || null;
 }
 
 function drawFloatingPreview(node, ctx) {
     const snapshot = node?._floatingPreviewSnapshot;
-    const dragMouse = node?._dragMouse;
-    const dragOffset = node?._dragOffset;
-    if (!snapshot || !dragMouse || !dragOffset) return;
+    if (!snapshot) return;
 
     const rootKey = snapshot.rootKey;
-    const rootReg = snapshot.regions?.[rootKey];
-    if (!rootReg) return;
+    const transform = getStackDragFloatingTransform(node, snapshot, rootKey);
+    if (!transform) return;
+    const { dx, dy } = transform;
     bumpTWPerfCounter(node, "floatingDraw");
-
-    const targetX = dragMouse[0] - dragOffset[0];
-    const targetY = dragMouse[1] - dragOffset[1];
-    const dx = targetX - rootReg.x;
-    const dy = targetY - rootReg.y;
 
     const entries = Object.entries(snapshot.regions)
         .filter(([, reg]) => !!reg?.type)

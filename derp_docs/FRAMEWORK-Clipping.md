@@ -103,6 +103,10 @@ Relevant integration in `fathaDOMshield.js`:
 
 <span style="color: #80aaff"><strong>Drag-and-drop filtering:</strong></span> Stack/list DnD must use viewport-displayed regions only. `helpers/fathaDragDrop.js` filters drop candidates through `getContentViewportForRegion()` and keeps drop preview indexes in the real property-array insertion space. Custom DnD paths, such as TriggerWall group/item drag, must do the same when they bypass `updateStackDrag()`.
 
+<span style="color: #80aaff"><strong>Drag floater coordinates:</strong></span> Viewport DnD stores pointer state in scrolled content space for hit testing and insertion math. Shared helpers in `helpers/fathaDragDrop.js` capture floating snapshots and resolve floater transforms through viewport-displayed geometry so dragged rows stay under the cursor after scrolling.
+
+<span style="color: #ffc680"><strong>Note:</strong></span> Drag payloads from `fathaDOMshield.js` intentionally carry both coordinate spaces: `localX/localY` are viewport-remapped content coordinates, while `displayLocalX/displayLocalY` are raw displayed node-local coordinates. Stack/list floaters should use displayed coordinates for visuals and content coordinates for drop math.
+
 ## <span style="color: #80ffc0">Node Integration</span>
 
 <span style="color: #80aaff"><strong>Framework expectation:</strong></span> Nodes should only declare viewport regions and provide clip sizing logic. They should not reimplement scrollbar drawing, wheel behavior, or thumb dragging.

@@ -6,7 +6,7 @@
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
 import { app } from "../../../../scripts/app.js";
 import { settleDerpSizeBeforeDraw, shouldPreserveHorizontalDeckHeight, syncHorizontalDeckHeight } from "../core/fathaHandler.js";
-import { getContentViewportForRegion, isContentViewportRegionHitVisible } from "../core/fathaContentViewport.js";
+import { getContentViewportDisplayedGeometry, getContentViewportForRegion, isContentViewportRegionHitVisible } from "../core/fathaContentViewport.js";
 import { getDeckMembers } from "../core/masterDockEngine.js";
 
 const STACK_DRAG_HOLD_BOX_PX = 5;
@@ -31,6 +31,54 @@ function isStackDragRegionDisplayed(node, region) {
     const regionTop = numberOr(region.y);
     const regionBottom = regionTop + numberOr(region.h);
     return regionBottom >= visibleTop && regionTop <= visibleBottom;
+}
+
+export function captureStackDragFloatingSnapshot(node, rootKey) {
+    if (!node?.layout?.regions?.[rootKey]) return null;
+    const regions = node.layout.regions;
+    const captured = {};
+    const visit = (key) => {
+        const reg = regions[key];
+        if (!reg || captured[key]) return;
+        const displayed = getContentViewportDisplayedGeometry(node, key, reg) || reg;
+        captured[key] = {
+            ...reg,
+            x: displayed.x,
+            y: displayed.y,
+            geometry: { x: displayed.x, y: displayed.y, w: displayed.w, h: displayed.h }
+        };
+        for (const [childKey, childReg] of Object.entries(regions)) {
+            if (childReg?.parentKey === key) visit(childKey);
+        }
+    };
+    visit(rootKey);
+    return { rootKey, regions: captured };
+}
+
+export function getStackDragFloatingTransform(node, snapshot, rootKey = snapshot?.rootKey) {
+    const rootReg = snapshot?.regions?.[rootKey];
+    const dragMouse = node?._dragMouse;
+    const dragOffset = node?._dragOffset;
+    if (!rootReg || !dragMouse || !dragOffset) return null;
+    const displayMouse = node?._dragDisplayMouse;
+    const displayOffset = node?._dragDisplayOffset;
+    if (displayMouse && displayOffset) {
+        const targetX = displayMouse[0] - displayOffset[0];
+        const targetY = displayMouse[1] - displayOffset[1];
+        return {
+            rootReg,
+            dx: numberOr(targetX) - numberOr(rootReg.x),
+            dy: numberOr(targetY) - numberOr(rootReg.y)
+        };
+    }
+    const targetX = dragMouse[0] - dragOffset[0];
+    const targetY = dragMouse[1] - dragOffset[1];
+    const target = getContentViewportDisplayedGeometry(node, rootKey, { x: targetX, y: targetY, w: rootReg.w, h: rootReg.h }) || { x: targetX, y: targetY };
+    return {
+        rootReg,
+        dx: numberOr(target.x) - numberOr(rootReg.x),
+        dy: numberOr(target.y) - numberOr(rootReg.y)
+    };
 }
 
 function getInsertionBefore(candidateIndex, dragIndex) {
@@ -121,6 +169,16 @@ export function startStackDrag(node, data, index, regionKey, options = {}) {
     };
     node._dragMouse = [data.localX, data.localY];
     node._dragOffset = [data.localX - reg.x, data.localY - reg.y];
+    const displayX = Number(data.displayLocalX);
+    const displayY = Number(data.displayLocalY);
+    if (Number.isFinite(displayX) && Number.isFinite(displayY)) {
+        const displayedReg = getContentViewportDisplayedGeometry(node, regionKey, reg) || reg;
+        node._dragDisplayMouse = [displayX, displayY];
+        node._dragDisplayOffset = [displayX - numberOr(displayedReg.x), displayY - numberOr(displayedReg.y)];
+    } else {
+        node._dragDisplayMouse = null;
+        node._dragDisplayOffset = null;
+    }
     node._dragThresholdMet = false;
     node._derpAwakeFrames = 10;
 
@@ -162,6 +220,11 @@ export function updateStackDrag(node, data, regionPrefix, itemCount) {
     }
 
     node._dragMouse = [data.localX, data.localY];
+    const displayX = Number(data.displayLocalX);
+    const displayY = Number(data.displayLocalY);
+    if (Number.isFinite(displayX) && Number.isFinite(displayY)) {
+        node._dragDisplayMouse = [displayX, displayY];
+    }
     const mouseY = data.localY;
 
     // Identify stable regions in the stack to compare midpoints
@@ -235,6 +298,8 @@ export function endStackDrag(node, arrayKey) {
     node._dragTrig = null;
     node._dragMouse = null;
     node._dragOffset = null;
+    node._dragDisplayMouse = null;
+    node._dragDisplayOffset = null;
     node._dropPreviewIdx = undefined;
     node._dragThresholdMet = false;
 

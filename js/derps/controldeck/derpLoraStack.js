@@ -529,11 +529,6 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                             prev = gapKey;
                         }
 
-                        if (isDragged) {
-                            draggedRowAnchorKey = prev || lastVisibleRowKey;
-                            return acc;
-                        }
-
                         const isSelected = (i === activeSlot);
                         const noTriggerRequired = isLoraNoTriggerRequired(lora);
                         const triggerNoneText = noTriggerRequired
@@ -817,7 +812,8 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                             }
                         };
 
-                        if (!isDragged) lastVisibleRowKey = `loraRow_${i}`;
+                        lastVisibleRowKey = `loraRow_${i}`;
+                        if (isDragged) draggedRowAnchorKey = lastVisibleRowKey;
 
                         return acc;
                     }, {});

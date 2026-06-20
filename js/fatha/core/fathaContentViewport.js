@@ -112,6 +112,14 @@ export function getContentViewportForRegion(node, regionKey) {
     }) || null;
 }
 
+export function getContentViewportDisplayedGeometry(node, regionKey, geometry = null) {
+    const base = geometry || node?.layout?.regions?.[regionKey];
+    if (!base) return null;
+    const state = getContentViewportForRegion(node, regionKey);
+    if (!state?.rect || state.key === regionKey) return base;
+    return { ...base, y: numberOr(base.y) - numberOr(state.scrollTop) };
+}
+
 export function isContentViewportRegionHitVisible(node, regionKey, localPoint) {
     const state = getContentViewportForRegion(node, regionKey);
     if (!state) return true;

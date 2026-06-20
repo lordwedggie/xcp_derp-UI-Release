@@ -13,6 +13,7 @@ This section is the top-priority project memory for coding behavior. Follow it b
 7. **Self-maintain this file.** When a durable project lesson is learned, add it under **Lessons Learned** without being asked.
 8. **NEVER use destructive git commands.** `git reset --hard`, `git clean -fd`, `git checkout -- .`, or any command that discards uncommitted work is FORBIDDEN unless the user explicitly types the exact command themselves. Use `git stash` only with explicit approval.
 9. **Do not blindly agree.** If a requested implementation seems illogical, risky, or there is a clearly better approach, stop and explain the concern before editing.
+10. **Framework-owned UI behavior stays consolidated.** Whenever possible, do not add specialized UI mechanics, visual behavior, drag/drop behavior, clipping behavior, scrollbar behavior, widget behavior, or interaction plumbing inside individual Derp child nodes. Fatha/Uncle child nodes should contain only node-specific domain logic and layout maps that arrange their UI. Shared UI behavior belongs in Fatha, Uncle, Herbina widgets, or other consolidated framework helpers via explicit parameters. If existing child-node code violates this rule, warn the user and ask whether to fix/remove it before expanding that pattern.
 
 ---
 
@@ -78,6 +79,7 @@ Docs must stay synced with framework behavior. Stale docs are treated as bugs.
 - JS node files live under `js/derps/` category folders, not old flat `js/controldeck/` paths.
 - Put large/reusable node logic in local `core/*_core.js` only when it actually reduces complexity.
 - Layout maps are declarative trees returned by `refreshNodeLayoutMap()`.
+- Keep shared UI mechanics out of child nodes. Node files may declare layout-map structure and domain-specific behavior such as seed, LoRA, trigger, or loader data handling; framework/widget behavior such as viewport DnD floaters, clipping, scrollbars, hover/press plumbing, and generic visuals must be centralized and parameterized instead of duplicated per node.
 - Include every visual-affecting setting in layout/widget/cache hashes.
 
 ### Theme and Palette

@@ -6,6 +6,7 @@ import { app } from "../../../../../scripts/app.js";
 import { playMicrowaveDing, playKaChing, playKaboom } from "../../../herbina/masterSoundEffects.js";
 import { showBastaMessage } from "../../../fatha/bastas/bastaMessage.js";
 import { getPreviewImageUrl, getLoraImageUrl, refreshLoraImageList } from "./loraImages.js";
+import { captureStackDragFloatingSnapshot } from "../../../fatha/helpers/fathaDragDrop.js";
 
 export function getLoraDisplayName(loraPath) {
     return (loraPath || "").split(/[\\/]/).pop().replace(/\.safetensors$/i, "");
@@ -102,22 +103,8 @@ export function resolveTriggerSelectionValue(triggers, value) {
 }
 
 export function captureLoraFloatingSnapshot(node, rowKey) {
-    if (!node?.layout?.regions?.[rowKey]) return null;
-    const regions = node.layout.regions;
-    const captured = {};
-    const visit = (key) => {
-        const reg = regions[key];
-        if (!reg || captured[key]) return;
-        captured[key] = {
-            ...reg,
-            geometry: { x: reg.x, y: reg.y, w: reg.w, h: reg.h }
-        };
-        for (const [childKey, childReg] of Object.entries(regions)) {
-            if (childReg?.parentKey === key) visit(childKey);
-        }
-    };
-    visit(rowKey);
-    return { rowKey, regions: captured };
+    const snapshot = captureStackDragFloatingSnapshot(node, rowKey);
+    return snapshot ? { ...snapshot, rowKey } : null;
 }
 
 export function estimateLoraDropGapHeight(node, dragRowKeyPrefix = "loraRow_") {
