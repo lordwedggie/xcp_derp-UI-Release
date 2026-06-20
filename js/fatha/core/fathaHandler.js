@@ -23,7 +23,7 @@ import {
     handleHorizontalDeckTitleToggleImpl,
 } from "./dockResize.js";
 import { masterDockEngine, getDeckMembers, getDeckCornerOverride, getNodeOnDeckEdge, isDeckPressureSideHorizontalBranchMember, isLinearDeckGroup, normalizeDockedLayout, setDeckNodePos, syncDeckNodeSize, isDeckPressureHub, getDeckPressureHubForNode, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureBranchAxis, applyDeckPressureLayout, getDeckPressureSideHorizontalWidthLock, drawSharedResizeSeamGhosts } from "./masterDockEngine.js";
-import { getDockGroupAxisFromMembers, getDockNodeHeight, getDockNodeMinWidth, getDockNodeWidth, getSharedDockMinWidth, getSharedDockWidth, shouldPreserveDockHeight, shouldPreserveDockWidth } from "./dockDimensions.js";
+import { getActiveVerticalDeckWidthLock, getDockGroupAxisFromMembers, getDockNodeHeight, getDockNodeMinWidth, getDockNodeWidth, getSharedDockMinWidth, getSharedDockWidth, shouldPreserveDockHeight, shouldPreserveDockWidth } from "./dockDimensions.js";
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
 import {
     getNodeHeaderPaletteFingerprint,
@@ -1075,10 +1075,12 @@ export function normalizeDerpDockedLayout(node) {
     }
     if (state?.preserveWidth === true) {
         const snap = getDerpVars(node).SNAP;
-        const sharedWidth = Math.max(
-            getSharedDockWidth(state.members, 0),
-            getSharedDockMinWidth(state.members, 0, snap)
-        );
+        const currentSharedWidth = getSharedDockWidth(state.members, 0);
+        const minSharedWidth = getSharedDockMinWidth(state.members, 0, snap);
+        const lockedSharedWidth = getActiveVerticalDeckWidthLock(state.members, minSharedWidth);
+        const sharedWidth = lockedSharedWidth > 0
+            ? lockedSharedWidth
+            : Math.max(currentSharedWidth, minSharedWidth);
         const signature = getDeckGeometrySignature(state.members, sharedWidth, "vertical");
         const widthAligned = sharedWidth > 0 && state.members.every((member) => Number(member?.size?.[0]) === sharedWidth);
         if ((state.skipState?.normalizeSignature === signature || (isComfyVueNodesMode() && areDockedEdgesAligned(state.members, graph))) && widthAligned) {

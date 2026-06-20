@@ -8,7 +8,7 @@ import { resolveDockTarget } from "./dockTargetPicking.js";
 import { syncDerpShield } from "./fathaDOMshield.js";
 import { handleNodeResize } from "./fathaNodeResize.js";
 import { getVirtualNodeLayoutMap } from "../helpers/fathaLayoutMaps.js";
-import { getDockNodeMinHeight, getDockNodeMinWidth, getSharedDockMinWidth, getSharedDockWidth, resolveDockAttachDimensions, resolveRuntimeDockSize } from "./dockDimensions.js";
+import { getActiveVerticalDeckWidthLock, getDockNodeMinHeight, getDockNodeMinWidth, getSharedDockMinWidth, getSharedDockWidth, resolveDockAttachDimensions, resolveRuntimeDockSize } from "./dockDimensions.js";
 import { setDerpNodeSizeCompat } from "./fathaNode2Compat.js";
 import { masterPainter } from "../../herbina/masterPainter.js";
 import { DEFAULT_PULSE_SPEED, getPulsedColor, parseColor } from "../../herbina/masterAnimator.js";
@@ -719,9 +719,11 @@ function normalizeSharedEdgePair(a, b, side, graph, snap = DEFAULT_DECK_SNAP) {
         const bottomSeed = side === "bottom" ? b : a;
         const column = sortDeckNodesByAxis(collectDeckLine(topSeed, graph, "top", "bottom"), "y");
         if (column.length === 0) return false;
-        const width = Math.max(
-            getSharedDockWidth(column, getNodeAxisSize(topSeed, "width") || getNodeAxisSize(bottomSeed, "width")),
-            getSharedDockMinWidth(column, getNodeAxisSize(topSeed, "width") || getNodeAxisSize(bottomSeed, "width"), snap)
+        const fallbackWidth = getNodeAxisSize(topSeed, "width") || getNodeAxisSize(bottomSeed, "width");
+        const minWidth = getSharedDockMinWidth(column, fallbackWidth, snap);
+        const width = getActiveVerticalDeckWidthLock(column, minWidth) || Math.max(
+            getSharedDockWidth(column, fallbackWidth),
+            minWidth
         );
         const heights = column.map((member) => getNodeAxisSize(member, "height"));
         const leftX = getFirstFinitePosition(column, 0);
@@ -2061,9 +2063,11 @@ export function reflowDockedChildren(node, graph, snap = DEFAULT_DECK_SNAP) {
         const column = ordered.length > 0 ? ordered : sortDeckNodesByAxis(collectDeckLine(node, graph, "top", "bottom"), "y");
         if (column.length > 1) {
             const heights = column.map((member) => getNodeAxisSize(member, "height"));
-            const width = Math.max(
-                getSharedDockWidth(column, getNodeAxisSize(node, "width")),
-                getSharedDockMinWidth(column, getNodeAxisSize(node, "width"), snap)
+            const fallbackWidth = getNodeAxisSize(node, "width");
+            const minWidth = getSharedDockMinWidth(column, fallbackWidth, snap);
+            const width = getActiveVerticalDeckWidthLock(column, minWidth) || Math.max(
+                getSharedDockWidth(column, fallbackWidth),
+                minWidth
             );
             const anchorIndex = Math.max(0, column.findIndex((member) => member?.properties?.pinActive === true));
             const anchorY = Number(column[anchorIndex]?.pos?.[1]) || 0;

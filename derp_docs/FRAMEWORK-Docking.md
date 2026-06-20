@@ -83,6 +83,7 @@ When a user drags a resize handle on a docked node:
 - **Horizontal dock:** `allowHeight = false` — height changes are blocked; only width can be dragged
 - **Vertical dock:** `allowWidth = false` — width changes are blocked; only height can be dragged
 - `syncDockResizePair` with `dx:0, dy:0` does NOT trigger re-normalization for blocked axes
+- Pure top/bottom vertical stack seam drags preserve the stack's starting shared width during the live resize window, growing only to a freshly measured content floor if that starting width is genuinely too small. This prevents stale wider member sizes from being reintroduced when height-only seam drags wake runtime sizing and vertical normalization.
 
 ### <span style="color: #80ffc0">settleDerpSizeBeforeDrawImpl (dockResize.js)</span>
 Handles SNAP alignment for nodes whose size isn't yet on the SNAP grid. Called for autoHeight nodes and nodes with explicit size changes. Uses `getNodeSizeBounds` for min/max clamping and `syncDockResizePair` for group propagation.
