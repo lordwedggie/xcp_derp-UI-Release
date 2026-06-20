@@ -307,6 +307,11 @@ export function createDerpShield(node) {
 
     const getViewportLocalCoords = (e, targetNode = node) => mapShieldPointThroughContentViewport(targetNode, getLocalCoords(e, targetNode));
 
+    const syncDragDisplayMouse = (targetNode, point) => {
+        if (!targetNode?._dragTrig || !targetNode?._dragDisplayOffset || !point) return;
+        targetNode._dragDisplayMouse = [point.x, point.y];
+    };
+
     const cursorStyleId = "derp-drag-cursor-override";
 
     // Initialize disabled style tag once
@@ -618,7 +623,9 @@ export function createDerpShield(node) {
 
         // MODE 2: DRAGGING (Delegate to Node)
         if (longPressed) {
-            const localPos = getViewportLocalCoords(e);
+            const displayLocalPos = getLocalCoords(e);
+            const localPos = mapShieldPointThroughContentViewport(node, displayLocalPos);
+            syncDragDisplayMouse(node, displayLocalPos);
             const rect = shield.getBoundingClientRect();
             node.handleShieldInteraction("drag", {
                 dx, dy,
@@ -626,6 +633,8 @@ export function createDerpShield(node) {
                 y: e.clientY - rect.top,
                 localX: localPos.x,
                 localY: localPos.y,
+                displayLocalX: displayLocalPos.x,
+                displayLocalY: displayLocalPos.y,
                 originalEvent: e
             });
             return;
@@ -636,7 +645,9 @@ export function createDerpShield(node) {
         // can advance their own hold/threshold logic without letting the
         // canvas start panning underneath.
         if (pendingNodeHoldDrag) {
-            const localPos = getViewportLocalCoords(e);
+            const displayLocalPos = getLocalCoords(e);
+            const localPos = mapShieldPointThroughContentViewport(node, displayLocalPos);
+            syncDragDisplayMouse(node, displayLocalPos);
             const rect = shield.getBoundingClientRect();
             node.handleShieldInteraction("drag", {
                 dx, dy,
@@ -644,6 +655,8 @@ export function createDerpShield(node) {
                 y: e.clientY - rect.top,
                 localX: localPos.x,
                 localY: localPos.y,
+                displayLocalX: displayLocalPos.x,
+                displayLocalY: displayLocalPos.y,
                 originalEvent: e
             });
 
@@ -736,12 +749,15 @@ export function createDerpShield(node) {
         node._dockResizeSession = null;
 
         // THE FIX: Pass coordinate data to prevent 'undefined' errors in the handler
-        const viewportLocalPos = getViewportLocalCoords(e);
+        const displayLocalPos = getLocalCoords(e);
+        const viewportLocalPos = mapShieldPointThroughContentViewport(node, displayLocalPos);
         node.handleShieldInteraction("dragEnd", {
             x: e.clientX - shield.getBoundingClientRect().left,
             y: e.clientY - shield.getBoundingClientRect().top,
             localX: viewportLocalPos.x,
             localY: viewportLocalPos.y,
+            displayLocalX: displayLocalPos.x,
+            displayLocalY: displayLocalPos.y,
             originalEvent: e
         });
 
@@ -887,7 +903,7 @@ export function createDerpShield(node) {
 
         const localPos = getLocalCoords(e);
         if (tryStartContentViewportScrollbarDrag(node, localPos, e, getLocalCoords)) return;
-        const viewportLocalPos = getViewportLocalCoords(e);
+        const viewportLocalPos = mapShieldPointThroughContentViewport(node, localPos);
         const rect = shield.getBoundingClientRect();
 
         if (isDblClick) {
@@ -896,6 +912,8 @@ export function createDerpShield(node) {
                 y: e.clientY - rect.top,
                 localX: viewportLocalPos.x,
                 localY: viewportLocalPos.y,
+                displayLocalX: localPos.x,
+                displayLocalY: localPos.y,
                 originalEvent: e
             });
             clearBrowserSelection();
@@ -909,6 +927,8 @@ export function createDerpShield(node) {
             y: e.clientY - rect.top,
             localX: viewportLocalPos.x,
             localY: viewportLocalPos.y,
+            displayLocalX: localPos.x,
+            displayLocalY: localPos.y,
             originalEvent: e
         });
 

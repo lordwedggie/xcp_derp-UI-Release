@@ -7,7 +7,7 @@ import { fatha, initDerpGlobalListener } from "../../../fatha/fatha.js";
 import { activeBastas } from "../../../fatha/basta.js";
 import { showBastaSystemMessage } from "../../../fatha/bastas/bastaSystemMessage.js";
 import { fetchLoraTriggers, fetchLoraRating, syncRatingColorsCache, fetchLoraData, regionBelongsToRow } from "../helpers/loraComponents.js";
-import { startStackDrag, updateStackDrag, endStackDrag } from "../../../fatha/helpers/fathaDragDrop.js";
+import { getStackDragFloatingTransform, startStackDrag, updateStackDrag, endStackDrag } from "../../../fatha/helpers/fathaDragDrop.js";
 import { COMPONENT_BLUEPRINTS } from "../../../fatha/core/masterLayoutTypes.js";
 import { isContentViewportRegionHitVisible } from "../../../fatha/core/fathaContentViewport.js";
 
@@ -556,11 +556,11 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                         const dragIdx = this._dragTrig.index;
                         const rowKey = `loraRow_${dragIdx}`;
                         const snapshot = this._loraFloatingSnapshot;
-                        const baseReg = snapshot?.regions?.[rowKey] || this.layout?.regions?.[rowKey];
+                        const transform = getStackDragFloatingTransform(this, snapshot, rowKey);
+                        const baseReg = transform?.rootReg || this.layout?.regions?.[rowKey];
 
-                        if (baseReg && this._dragMouse && this._dragOffset) {
-                            const dx = this._dragMouse[0] - this._dragOffset[0] - baseReg.x;
-                            const dy = this._dragMouse[1] - this._dragOffset[1] - baseReg.y;
+                        if (baseReg && transform) {
+                            const { dx, dy } = transform;
 
                             ctx.save();
                             ctx.translate(dx, dy);
