@@ -717,7 +717,7 @@ export function createDerpShield(node) {
         // Select node on click natively
         if (!movedSignificantly && !isResizing && !heldStackDrag) {
             const localPos = getLocalCoords(e);
-            const viewportLocalPos = getViewportLocalCoords(e);
+            const viewportLocalPos = mapShieldPointThroughContentViewport(node, localPos);
             const rect = shield.getBoundingClientRect();
 
             // Check if node handled the click (e.g., hit a slider). If so, block native selection.
@@ -726,6 +726,8 @@ export function createDerpShield(node) {
                 y: e.clientY - rect.top,
                 localX: viewportLocalPos.x,
                 localY: viewportLocalPos.y,
+                displayLocalX: localPos.x,
+                displayLocalY: localPos.y,
                 originalEvent: e
             });
 
@@ -975,7 +977,8 @@ export function createDerpShield(node) {
     // HOVER DELEGATION
     shield.onpointermove = (e) => {
         updateSharedResizeHoverSession(e);
-        const localPos = getViewportLocalCoords(e);
+        const displayLocalPos = getLocalCoords(e);
+        const localPos = mapShieldPointThroughContentViewport(node, displayLocalPos);
         const rect = shield.getBoundingClientRect();
         // The footer system button can sit under the bottom resize seam div, whose static cursor is ns-resize.
         // That shows the up-down resize glyph over a clickable button, misleading the user into thinking the click
@@ -985,14 +988,16 @@ export function createDerpShield(node) {
         // so the shield's "pointer" shows through. The seam's own shield-sync owns ns-resize and re-applies it when
         // the pointer moves off the button, so we only ever neutralize here — never restore.
         const targetEl = e.target;
-        if (targetEl && targetEl !== shield && isSystemButtonHit(node, [localPos.x, localPos.y], app.canvas?.ds?.scale || 1)) {
+        if (targetEl && targetEl !== shield && isSystemButtonHit(node, [displayLocalPos.x, displayLocalPos.y], app.canvas?.ds?.scale || 1)) {
             targetEl.style.cursor = "";
         }
         node.handleShieldInteraction("hover", {
             x: e.clientX - rect.left,
             y: e.clientY - rect.top,
             localX: localPos.x,
-            localY: localPos.y
+            localY: localPos.y,
+            displayLocalX: displayLocalPos.x,
+            displayLocalY: displayLocalPos.y
         });
     };
 
