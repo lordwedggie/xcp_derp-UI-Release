@@ -31,6 +31,12 @@ Agent 在任务执行过程中发现的条目应遵循以下格式：
 
 ## 条目
 
+[dairy entries newest-first]
+- Date: 2026-06-20
+- Context: User requested that ongoing `dairy.md` audit/log entries be added at the top instead of appended at the bottom
+- Instructions:
+  - For continuing diary-style files such as `derp_docs/_development/dairy.md`, add newer entries at the top so the latest audit appears first.
+
 [Use English for replies]
 - Date: 2026-06-18
 - Context: User corrected response language during workspace and sync support, then switched back to English again during ImageDeck PNG metadata tracing

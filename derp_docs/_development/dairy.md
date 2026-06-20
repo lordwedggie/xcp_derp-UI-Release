@@ -1,3 +1,218 @@
+# Clipped Viewport Scrollbar Audit Diary
+
+Date: 2026-06-20
+
+## Scope
+
+This report audits how the current clipped viewport scrollbar is implemented across Fatha and the derp nodes. The goal is to determine whether scrollbar behavior is centralized in shared framework code or scattered across child-node implementations.
+
+This is a code-reading audit only. No code was changed as part of this review.
+
+## Files Reviewed
+
+### Shared framework files
+
+- `js/fatha/core/fathaContentViewport.js`
+- `js/fatha/core/fathaContentViewportDraw.js`
+- `js/fatha/core/fathaContentViewportShield.js`
+- `js/fatha/core/fathaDOMshield.js`
+- `js/fatha/fatha.js`
+- `derp_docs/FRAMEWORK-Clipping.md`
+- `derp_docs/FRAMEWORK-Docking.md`
+
+### Node-side viewport declarations checked
+
+- `js/derps/controldeck/derpSeedV3.js`
+- `js/derps/controldeck/derpTriggerWall.js`
+- `js/derps/controldeck/derpLoraStack.js`
+- `js/derps/loaders/derpDiffusionLoader.js`
+
+## Executive Judgment
+
+The clipped viewport scrollbar is already largely consolidated in shared framework code.
+
+The child nodes are mainly declarative clients of that shared system. They decide whether a region uses a clipped viewport and what the region's `clipHeight` and `minClipHeight` policy should be. They are not currently drawing their own viewport scrollbars or owning their own viewport wheel and thumb-drag behavior.
+
+That is the good news.
+
+The slightly spicy news is that the consolidation is real, but the viewport contract is broader than just painting a scrollbar. The shared framework also owns viewport layout shrink, overflow state, scroll state, pointer remapping, hit filtering, and redraw requests. That means one bug in the shared viewport contract can affect many node families at once even when the scrollbar itself is centralized.
+
+## Current Architecture Summary
+
+The scrollbar path is split cleanly by responsibility inside the shared framework:
+
+1. `fathaContentViewport.js` owns viewport state and layout consequences.
+2. `fathaContentViewportDraw.js` owns scrollbar geometry and drawing.
+3. `fathaContentViewportShield.js` owns wheel scrolling and thumb/track dragging.
+4. `fathaDOMshield.js` integrates those handlers into the node interaction shield.
+5. `fatha.js` calls the shared scrollbar draw pass during node rendering.
+
+This is one coherent framework pipeline, not a per-node scrollbar zoo.
+
+## Main Findings
+
+### 1. Scrollbar drawing is centralized
+
+Severity: Low risk structurally, high leverage when broken
+
+`drawContentViewportScrollbars()` in `js/fatha/core/fathaContentViewportDraw.js` is the single shared draw path for clipped viewport scrollbars.
+
+It computes:
+
+- track rect
+- thumb rect
+- thumb size floor
+- thumb position from `scrollTop / maxScroll`
+
+It then draws the track and thumb via `masterPainter()`.
+
+`js/fatha/fatha.js` imports that helper and calls it after the main region draw pass.
+
+Practical consequence:
+
+- Nodes are not painting their own viewport scrollbars.
+- Scrollbar visuals are centralized.
+- A visual change to viewport scrollbars belongs in one framework file.
+
+### 2. Wheel scrolling and scrollbar drag are centralized
+
+Severity: Low risk structurally, high leverage when broken
+
+`js/fatha/core/fathaContentViewportShield.js` owns:
+
+- wheel scrolling through `handleContentViewportWheel()`
+- track click and thumb drag through `tryStartContentViewportScrollbarDrag()`
+- pointer-to-viewport remapping through `mapShieldPointThroughContentViewport()`
+
+`js/fatha/core/fathaDOMshield.js` wires those handlers into normal pointer and wheel event flow.
+
+Practical consequence:
+
+- Child nodes are not each implementing their own viewport wheel logic.
+- Child nodes are not each implementing their own scrollbar thumb drag logic.
+- Interaction bugs in viewport scrollbars should be investigated in the shared shield path first.
+
+### 3. Scroll state is centralized
+
+Severity: Medium
+
+`js/fatha/core/fathaContentViewport.js` owns the scroll state and derived viewport metadata:
+
+- `node._contentViewportScroll`
+- `node._contentViewportState`
+- `getContentViewportScroll()`
+- `setContentViewportScroll()`
+- `scrollContentViewport()`
+- `requestContentViewportRedraw()`
+
+This is strong consolidation.
+
+Practical consequence:
+
+- Scroll position persistence and clamping are shared.
+- Overflow state is shared.
+- Any desync between visible geometry and stored state will propagate to all viewport-enabled nodes.
+
+### 4. Hit filtering and coordinate remapping are also centralized
+
+Severity: Medium
+
+The viewport system does more than scrollbars.
+
+Shared viewport-aware interaction behavior currently includes:
+
+- draw clipping in `withContentViewportClip()`
+- displayed geometry remap in `getContentViewportGeometry()`
+- hit visibility filtering in `isContentViewportRegionHitVisible()`
+- pointer coordinate remap through `mapPointThroughContentViewport()`
+- DOM shield integration in `fathaDOMshield.js`
+
+Practical consequence:
+
+- The scrollbar itself is centralized.
+- The entire clipped viewport interaction model is centralized too.
+- Bugs that look like "the scrollbar is wrong" may really be layout, hit-test, or remap bugs in the same shared subsystem.
+
+### 5. Node-side responsibility is mostly declarative
+
+Severity: Low
+
+The nodes I checked are mainly responsible for:
+
+- setting `scrollViewport: true`
+- providing `clipHeight`
+- providing `minClipHeight`
+- shaping Height Mode policy around those values
+
+Examples:
+
+- `derpSeedV3` declares a history viewport and computes its clip height from visible history count or Fit Node height.
+- `derpTriggerWall` declares a groups viewport and computes its clip height from visible group count or auto-fit height.
+- `derpLoraStack` declares an entries viewport and computes clip/min-clip from visible row count.
+- `derpDiffusionLoader` declares a viewport with a simple property-driven fixed clip height.
+
+Practical consequence:
+
+- Child nodes are not scattering scrollbar implementation details around the codebase.
+- They are supplying viewport sizing policy, which is the correct node-side responsibility.
+
+### 6. Consolidated does not mean isolated
+
+Severity: High
+
+The scrollbar implementation is centralized, but the viewport system participates directly in layout and resize math.
+
+`applyContentViewportLayout()` does all of the following in one pass:
+
+- resolves `clipHeight`
+- measures full internal content height
+- shrinks live region height to visible height
+- determines overflow
+- stores shared viewport state
+- recomputes `layout.totalHeight`
+- recomputes `layout.contentMinHeight`
+
+That means the viewport layer is not a thin cosmetic scrollbar feature. It is part of the physical node sizing contract.
+
+Practical consequence:
+
+- Centralization reduces duplication.
+- Centralization increases blast radius.
+- A bug in viewport floor or visible-height math can hit scrollbar drawing, resize floors, and stack behavior all at once.
+
+## Final Verdict
+
+The current clipped viewport scrollbar handling is consolidated in the framework, not scattered among child nodes.
+
+More specifically:
+
+- scrollbar drawing is centralized
+- wheel scrolling is centralized
+- thumb dragging is centralized
+- scroll state is centralized
+- viewport hit filtering is centralized
+- viewport draw clipping is centralized
+
+The child nodes mainly provide viewport sizing policy and opt-in declarations.
+
+So if the question is "do the child nodes each own their own scrollbar behavior?" the answer is no.
+
+If the question is "can a clipped viewport bug still appear across many different nodes at once?" the answer is yes, because the shared viewport layer also owns layout consequences, not just scrollbar cosmetics.
+
+## Suggested Next Step
+
+When debugging clipped viewport issues, treat this subsystem as one framework-owned pipeline:
+
+1. `fathaContentViewport.js`
+2. `fathaContentViewportDraw.js`
+3. `fathaContentViewportShield.js`
+4. `fathaDOMshield.js`
+5. `fatha.js`
+
+The child nodes should be checked after that, mainly to confirm whether they are declaring the right `clipHeight` and `minClipHeight` policy.
+
+---
+
 # Animation Framework Audit Diary
 
 Date: 2026-06-19
