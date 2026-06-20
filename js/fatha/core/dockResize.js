@@ -291,6 +291,13 @@ export function settleDerpSizeBeforeDrawImpl(entity, options = {}, deps = {}) {
     const isMinState = entity.properties.contentCollapsed === true;
     const contentReqW = entity.layout?.contentMinWidth || 0;
     const engineFloorW = Math.ceil(contentReqW / SNAP) * SNAP;
+    const graph = app.graph || entity.graph || null;
+    const pressureHub = graph ? getDeckPressureHubForNode(entity, graph) : null;
+    const pressureSide = pressureHub && pressureHub.id !== entity.id ? getDeckPressureBranchSideForNode(pressureHub, graph, entity) : null;
+    const pressureAxis = getDeckPressureBranchAxis(pressureHub, graph, pressureSide);
+    const preserveFrameworkWidth = entity._horizontalDeckWidthResizeLock === true
+        || ((pressureSide === "left" || pressureSide === "right") && pressureAxis === "vertical");
+    const lockedFrameworkW = Number(entity._horizontalDeckWidthResizeValue) || 0;
     const layoutTotalH = Number(entity.layout?.totalHeight) || 0;
     const layoutContentH = Number(entity.layout?.contentMinHeight) || 0;
     const forceAutoHeight = options?.forceAutoHeight === true;
@@ -299,7 +306,10 @@ export function settleDerpSizeBeforeDrawImpl(entity, options = {}, deps = {}) {
         : (forceAutoHeight ? (layoutContentH || layoutTotalH || 40) : (layoutTotalH || layoutContentH || 40));
     const engineFloorH = isMinState ? rawH : Math.ceil(rawH / SNAP) * SNAP;
     const collapseMinimal = entity.properties?.collapseMinimal === true;
-    const targetW = (autoWidth || (isMinState && collapseMinimal)) ? engineFloorW : Math.max(entity.properties.nodeSize?.[0] || 0, engineFloorW);
+    const currentFrameworkW = Number(entity.size?.[0]) || Number(entity.properties.nodeSize?.[0]) || 0;
+    const targetW = preserveFrameworkWidth && currentFrameworkW > 0
+        ? (lockedFrameworkW > 0 ? lockedFrameworkW : currentFrameworkW)
+        : (autoWidth || (isMinState && collapseMinimal)) ? engineFloorW : Math.max(entity.properties.nodeSize?.[0] || 0, engineFloorW);
     const preserveCurrentHeight = options?.preserveCurrentHeight === true;
     const currentH = Number(entity.size?.[1]) || Number(entity.properties.nodeSize?.[1]) || 0;
     const targetH = preserveCurrentHeight
@@ -1130,6 +1140,7 @@ function applyHorizontalStackWidthResize(entity, resizeAnchor, requestedEntityWi
     let cursorX = isLeftHandle ? anchorX - totalWidth : anchorX;
     members.forEach((member) => {
         const width = nextWidths.get(member.id) || getDockNodeWidth(member);
+        member._horizontalDeckWidthResizeValue = width;
         const sizeChanged = syncDeckNodeSize(member, width, getDockNodeHeight(member), { silent: true, deferDirty: true, deferSync: true, liveResize: true });
         const posChanged = setDeckNodePos(member, cursorX, Number(member.pos?.[1]) || 0);
         cursorX += width;
@@ -1259,6 +1270,7 @@ function applyDeckPressureSideWidthResize(entity, resizeAnchor, requestedEntityW
             if (!member.properties) member.properties = {};
             member.properties.autoWidth = false;
             member._horizontalDeckWidthResizeLock = true;
+            member._horizontalDeckWidthResizeValue = width;
             member._deckPressureSideResizeMember = true;
             member._deckPressureSideHorizontalWidth = width;
             member.properties._deckPressureSideHorizontalWidth = width;
@@ -1272,6 +1284,7 @@ function applyDeckPressureSideWidthResize(entity, resizeAnchor, requestedEntityW
     } else {
         branchMembers.forEach((member) => {
             member._horizontalDeckWidthResizeLock = true;
+            member._horizontalDeckWidthResizeValue = nextBranchWidth;
             member._deckPressureSideResizeMember = true;
             addCounterpart(member);
         });
@@ -1530,6 +1543,7 @@ export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH,
             if (!member.properties) member.properties = {};
             member.properties.autoWidth = false;
             member._horizontalDeckWidthResizeLock = true;
+            member._horizontalDeckWidthResizeValue = width;
             member._deckPressureSideHorizontalWidth = width;
             member.properties._deckPressureSideHorizontalWidth = width;
             member._horizontalDeckWidthBalanceObserved = width;

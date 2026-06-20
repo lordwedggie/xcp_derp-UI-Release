@@ -352,12 +352,14 @@ export function createDerpShield(node) {
                 if (member !== resizeNode) member._isDerpResizing = false;
                 member._dockResizePreserveHeight = false;
                 member._horizontalDeckWidthResizeLock = false;
+                member._horizontalDeckWidthResizeValue = null;
                 member._deckPressureSideResizeMember = false;
             });
             activeMembers.clear();
         }
         if (resizeNode) {
             resizeNode._horizontalDeckWidthResizeLock = false;
+            resizeNode._horizontalDeckWidthResizeValue = null;
             resizeNode._deckPressureSideResizeMember = false;
             resizeNode._dockResizePreserveHeight = false;
             resizeNode._dockResizeActiveMembers = null;
