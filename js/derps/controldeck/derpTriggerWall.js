@@ -5,6 +5,8 @@
 import { app } from "../../../../scripts/app.js";
 import { fatha, initDerpGlobalListener } from "../../fatha/fatha.js";
 import { settleDerpSizeBeforeDraw } from "../../fatha/core/fathaHandler.js";
+import { applyDerpPreferredAutoHeight, resolveDerpRuntimeAutoHeight } from "../../fatha/core/derpHeightPolicy.js";
+import { consumeSuppressedDragClick } from "../../fatha/core/derpInteractionPolicy.js";
 import { isLinearDeckGroup, isNodeDocked } from "../../fatha/core/masterDockEngine.js";
 import { setDerpNodeSizeCompat } from "../../fatha/core/fathaNode2Compat.js";
 import { captureStackDragFloatingSnapshot, getStackDragFloatingTransform, startStackDrag } from "../../fatha/helpers/fathaDragDrop.js";
@@ -1065,7 +1067,7 @@ app.registerExtension({
                 bottomSpacer: layoutMap.bottomSpacer,
             });
             const graph = this.graph || globalThis?.app?.graph || null;
-            const suppressDockedVerticalSync = !!(graph && this.properties?.contentCollapsed !== true && this.properties?.autoHeight !== false && isNodeDocked(this, graph) && isLinearDeckGroup(this, graph, "vertical"));
+            const suppressDockedVerticalSync = !!(graph && this.properties?.contentCollapsed !== true && resolveDerpRuntimeAutoHeight(this) && isNodeDocked(this, graph) && isLinearDeckGroup(this, graph, "vertical"));
             if (this._isDerpResizing) {
                 settleDerpSizeBeforeDraw(this, {
                     preserveCurrentHeight: true,
@@ -1145,8 +1147,8 @@ app.registerExtension({
                 value: getTriggerWallClipVisibleLimit(this),
                 rootName: "height-mode",
                 onChange: (v) => {
-                    this.properties.autoHeight = normalizeTriggerWallClipVisibleLimit(v) !== "Auto";
                     this.properties.triggerWallClipVisibleLimit = normalizeTriggerWallClipVisibleLimit(v);
+                    applyDerpPreferredAutoHeight(this, this.properties.triggerWallClipVisibleLimit !== "Auto");
                     this.refreshNodeLayoutMap();
                     if (this.refreshDerpTriggerWallSysMap) this.refreshDerpTriggerWallSysMap();
                     if (this.requestDerpSync) this.requestDerpSync();
@@ -1193,10 +1195,7 @@ app.registerExtension({
                 }
             }
 
-            if (type === "click" && this._suppressClickAfterDrag) {
-                this._suppressClickAfterDrag = false;
-                return true;
-            }
+            if (consumeSuppressedDragClick(this, type)) return true;
             if (type === "resize") {
                 const parsedMinW = Number(this.properties?.minWidth);
                 const safeMinW = Number.isFinite(parsedMinW) && parsedMinW > 0 ? parsedMinW : 200;

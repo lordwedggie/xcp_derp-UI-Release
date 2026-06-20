@@ -38,6 +38,7 @@ import { canResizeHorizontalMemberWidth, canResizeHorizontalSeamPair, canResizeH
 import { dockDebug, isDockDebugEnabled, snapshotDockNode } from "./dockDebugHelpers.js";
 import { getVirtualNodeLayoutMap } from "../helpers/fathaLayoutMaps.js";
 import { setDerpNodeSizeCompat } from "./fathaNode2Compat.js";
+import { resolveDerpRuntimeAutoHeight } from "./derpHeightPolicy.js";
 
 globalThis.DERP_DOCK_RESIZE_DEBUG = globalThis.DERP_DOCK_RESIZE_DEBUG === true;
 if (globalThis.DERP_DOCK_RESIZE_DEBUG) globalThis.DERP_DOCK_RESIZE_LOGS = globalThis.DERP_DOCK_RESIZE_LOGS || [];
@@ -326,7 +327,7 @@ export function settleDerpSizeBeforeDrawImpl(entity, options = {}, deps = {}) {
 
 function settleCollapseSizeBeforeDrawImpl(entity, deps = {}) {
     settleDerpSizeBeforeDrawImpl(entity, {
-        forceAutoHeight: entity?.properties?.contentCollapsed !== true && entity?.properties?.autoHeight !== false,
+        forceAutoHeight: entity?.properties?.contentCollapsed !== true && resolveDerpRuntimeAutoHeight(entity),
     }, deps);
 }
 
@@ -406,7 +407,7 @@ export function resolveDerpRuntimeSizeImpl(node, measured, vars = {}) {
     const resolved = resolveRuntimeDockSize(node, axis, measured, vars);
     const widthLock = axis === "vertical" ? getActiveVerticalNodeWidthLock(node, resolved.engineFloorW) : 0;
     if (widthLock > 0) resolved.width = widthLock;
-    const minExpandedHeight = Number(node?.properties?._minExpandedHeight) || 0;
+    const minExpandedHeight = Number(node?.properties?._derpMeasuredMinExpandedHeight || node?.properties?._minExpandedHeight) || 0;
     if (node?.properties?.contentCollapsed !== true && vars?.autoHeight === true && minExpandedHeight > 0) {
         resolved.height = Math.max(Number(resolved.height) || 0, minExpandedHeight);
     }
@@ -493,7 +494,7 @@ export function handleDerpCollapseImpl(entity, force, deps = {}) {
 
         if (nextState === true && !target.properties.contentCollapsed) {
             if (typeof closeSysPanel === "function") closeSysPanel(target);
-            if (target.properties.autoHeight === false) {
+            if (!resolveDerpRuntimeAutoHeight(target)) {
                 const storedManualHeight = Number(target.properties?.nodeSize?.[1] || 0);
                 const liveHeight = Number(target.size?.[1] || 0);
                 target.properties._savedExpandedHeight = storedManualHeight > 0
@@ -510,7 +511,7 @@ export function handleDerpCollapseImpl(entity, force, deps = {}) {
         }
 
         target.properties.contentCollapsed = nextState;
-        if (nextState === false && target.properties.autoHeight === false) {
+        if (nextState === false && !resolveDerpRuntimeAutoHeight(target)) {
             const savedExpandedHeight = Number(target.properties._savedExpandedHeight || 0);
             if (savedExpandedHeight > 0) {
                 if (!Array.isArray(target.properties.nodeSize)) {
@@ -585,7 +586,7 @@ export function handleHorizontalDeckTitleToggleImpl(entity, deps = {}) {
         member._layoutMapHash = null;
         if (typeof settleDerpSizeBeforeDraw === "function") {
             settleDerpSizeBeforeDraw(member, {
-                forceAutoHeight: member.properties?.autoHeight !== false,
+                forceAutoHeight: resolveDerpRuntimeAutoHeight(member),
                 suppressRequestSync: true,
             });
         }
@@ -623,9 +624,9 @@ function normalizeHorizontalMemberPositions(anchorNode, graph) {
 
     let cursorX = Number(members[0]?.pos?.[0]) || 0;
     members.forEach((member) => {
-        setDeckNodePos(member, cursorX, Number(member.pos?.[1]) || 0);
+        const posChanged = setDeckNodePos(member, cursorX, Number(member.pos?.[1]) || 0);
         cursorX += getDockNodeWidth(member);
-        if (typeof member.syncUncleSlots === "function") member.syncUncleSlots();
+        if (posChanged && typeof member.syncUncleSlots === "function") member.syncUncleSlots();
     });
 }
 
@@ -1129,10 +1130,10 @@ function applyHorizontalStackWidthResize(entity, resizeAnchor, requestedEntityWi
     let cursorX = isLeftHandle ? anchorX - totalWidth : anchorX;
     members.forEach((member) => {
         const width = nextWidths.get(member.id) || getDockNodeWidth(member);
-        syncDeckNodeSize(member, width, getDockNodeHeight(member), { silent: true });
-        setDeckNodePos(member, cursorX, Number(member.pos?.[1]) || 0);
+        const sizeChanged = syncDeckNodeSize(member, width, getDockNodeHeight(member), { silent: true, deferDirty: true, deferSync: true, liveResize: true });
+        const posChanged = setDeckNodePos(member, cursorX, Number(member.pos?.[1]) || 0);
         cursorX += width;
-        if (typeof member.syncUncleSlots === "function") member.syncUncleSlots();
+        if ((sizeChanged || posChanged) && typeof member.syncUncleSlots === "function") member.syncUncleSlots();
         addCounterpart(member);
     });
 
@@ -1529,12 +1530,12 @@ export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH,
         });
         markDockResizeActiveMembers(entity, [leftNode, rightNode], entity, { markResizing: false });
 
-        syncDeckNodeSize(leftNode, adjustedLeftW, getDockNodeHeight(leftNode));
-        syncDeckNodeSize(rightNode, adjustedRightW, getDockNodeHeight(rightNode));
-        setDeckNodePos(rightNode, (Number(leftNode.pos?.[0]) || 0) + adjustedLeftW, Number(rightNode.pos?.[1]) || 0);
+        const leftSizeChanged = syncDeckNodeSize(leftNode, adjustedLeftW, getDockNodeHeight(leftNode), { silent: true, deferDirty: true, deferSync: true, liveResize: true });
+        const rightSizeChanged = syncDeckNodeSize(rightNode, adjustedRightW, getDockNodeHeight(rightNode), { silent: true, deferDirty: true, deferSync: true, liveResize: true });
+        const rightPosChanged = setDeckNodePos(rightNode, (Number(leftNode.pos?.[0]) || 0) + adjustedLeftW, Number(rightNode.pos?.[1]) || 0);
         normalizeHorizontalMemberPositions(leftNode, graph);
-        if (typeof leftNode.syncUncleSlots === "function") leftNode.syncUncleSlots();
-        if (typeof rightNode.syncUncleSlots === "function") rightNode.syncUncleSlots();
+        if (leftSizeChanged && typeof leftNode.syncUncleSlots === "function") leftNode.syncUncleSlots();
+        if ((rightSizeChanged || rightPosChanged) && typeof rightNode.syncUncleSlots === "function") rightNode.syncUncleSlots();
         result.handledWidth = true;
         result.handledAll = true;
         result.appliedWidth = entity.id === leftNode.id ? adjustedLeftW : adjustedRightW;

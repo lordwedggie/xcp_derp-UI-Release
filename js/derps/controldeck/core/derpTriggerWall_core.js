@@ -9,6 +9,7 @@ import { showBastaMessage } from "../../../fatha/bastas/bastaMessage.js";
 import { showBastaSystemMessage } from "../../../fatha/bastas/bastaSystemMessage.js";
 import { endStackDrag } from "../../../fatha/helpers/fathaDragDrop.js";
 import { settleDerpSizeBeforeDraw } from "../../../fatha/core/fathaHandler.js";
+import { applyDerpPreferredAutoHeight } from "../../../fatha/core/derpHeightPolicy.js";
 import { getContentViewportForRegion, isContentViewportRegionHitVisible } from "../../../fatha/core/fathaContentViewport.js";
 import { isLinearDeckGroup, isNodeDocked } from "../../../fatha/core/masterDockEngine.js";
 
@@ -41,7 +42,7 @@ function syncTriggerWallHeightModeProperties(node) {
     if (!node?.properties) return;
     const value = normalizeTriggerWallClipVisibleLimit(node.properties.triggerWallClipVisibleLimit);
     node.properties.triggerWallClipVisibleLimit = value;
-    node.properties.autoHeight = value !== "Auto";
+    applyDerpPreferredAutoHeight(node, value !== "Auto");
 }
 
 function isTriggerWallDragRegionDisplayed(node, region) {

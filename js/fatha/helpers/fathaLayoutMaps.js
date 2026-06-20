@@ -17,6 +17,7 @@ import { handleDerpCollapse, handleHorizontalDeckTitleToggle, isDerpDefaultLocal
 import { findHeaderPaletteEntry } from "./headerPaletteIdentity.js";
 import { showBastaSystemMessage } from "../bastas/bastaSystemMessage.js";
 import { getDeckCornerOverride } from "../core/masterDockEngine.js";
+import { applyDerpPreferredAutoHeight, resolveDerpPreferredAutoHeight, resolveDerpRuntimeAutoHeight } from "../core/derpHeightPolicy.js";
 
 const DEBUG_OPTIONS = ["None", "Layout", "Hitbox", "Widgets Hitbox"];
 const TITLE_LABEL_DEFAULT = "$fatha_layout.title_default";
@@ -56,11 +57,11 @@ function tLocale(key, fallback = key) {
 function getStandardHeightModeConfig(hostNode) {
     return {
         items: STANDARD_HEIGHT_MODE_ITEMS,
-        value: hostNode?.properties?.autoHeight !== false ? "Auto" : "Manual",
+        value: resolveDerpPreferredAutoHeight(hostNode) ? "Auto" : "Manual",
         rootName: "height-mode",
         onChange: (nextValue) => {
             if (!hostNode?.properties) return;
-            hostNode.properties.autoHeight = String(nextValue || "Auto") !== "Manual";
+            applyDerpPreferredAutoHeight(hostNode, String(nextValue || "Auto") !== "Manual");
             if (typeof hostNode.refreshNodeLayoutMap === "function") hostNode.refreshNodeLayoutMap();
             if (typeof hostNode.requestDerpSync === "function") hostNode.requestDerpSync();
             else if (typeof hostNode.setDirtyCanvas === "function") hostNode.setDirtyCanvas(true, true);
@@ -526,7 +527,7 @@ export const getVirtualNodeLayoutMap = (node) => {
                         if (node.layout) node.layout._lastCacheKey = "";
                         if (node.onDerpSettingsPress) node.onDerpSettingsPress(node.properties.settingActive);
                         if (node.refreshNodeLayoutMap) node.refreshNodeLayoutMap();
-                        if (node.properties?.autoHeight !== false) {
+                        if (resolveDerpRuntimeAutoHeight(node)) {
                             node._allowDockContentHeightShiftFrames = 4;
                             settleDerpSizeBeforeDraw(node, {
                                 forceAutoHeight: true,

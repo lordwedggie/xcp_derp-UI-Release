@@ -8,6 +8,7 @@ import { showBastaMessage } from "../../fatha/bastas/bastaMessage.js";
 import { showBastaFileHandler } from "../../fatha/bastas/bastaFileHandler.js";
 import { startStackDrag, updateStackDrag, endStackDrag } from "../../fatha/helpers/fathaDragDrop.js";
 import { isComfyVueNodesMode } from "../../fatha/core/fathaNode2Compat.js";
+import { applyDerpPreferredAutoHeight } from "../../fatha/core/derpHeightPolicy.js";
 import {
     resolveRatingColor,
     buildLoraDetailPayload,
@@ -52,8 +53,8 @@ function flushLoraStackSysSettings(node) {
     const dynamicElements = sysState.dynamicElements || {};
     const clipLimitEl = dynamicElements.dropdownHeightMode;
     if (clipLimitEl?.value !== undefined) {
-        node.properties.autoHeight = normalizeLoraStackClipVisibleLimit(clipLimitEl.value) !== "Auto";
         node.properties.loraStackClipVisibleLimit = normalizeLoraStackClipVisibleLimit(clipLimitEl.value);
+        applyDerpPreferredAutoHeight(node, node.properties.loraStackClipVisibleLimit !== "Auto");
     }
 
     const numericFields = [
@@ -236,8 +237,8 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                         value: getLoraStackClipVisibleLimit(this),
                         rootName: "height-mode",
                         onChange: (v) => {
-                            this.properties.autoHeight = normalizeLoraStackClipVisibleLimit(v) !== "Auto";
                             this.properties.loraStackClipVisibleLimit = normalizeLoraStackClipVisibleLimit(v);
+                            applyDerpPreferredAutoHeight(this, this.properties.loraStackClipVisibleLimit !== "Auto");
                             this.refreshNodeLayoutMap();
                             if (this.refreshDerpLoraStackSysMap) this.refreshDerpLoraStackSysMap();
                             persistLoraStackSettings(this);

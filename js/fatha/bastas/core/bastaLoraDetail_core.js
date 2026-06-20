@@ -12,6 +12,7 @@ import { showBastaFileHandler } from "../bastaFileHandler.js";
 import { resolvePaintData, measureTextHeight } from "../../../herbina/utils/widgetsUtils.js";
 import { initLoraImageHandlers, calculatePreviewAspectRatio, refreshLoraImageList } from "../../../derps/controldeck/helpers/loraImages.js";
 import { getLoraDetailTitle, isLoraNoTriggerRequired } from "../../../derps/controldeck/helpers/loraComponents.js";
+import { queueDerpHoverReplay } from "../../core/derpInteractionPolicy.js";
 
 function tLocale(key, fallback = key) {
     if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
@@ -1195,23 +1196,9 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
 
             const originalHandler = instance.handleShieldInteraction;
             instance.handleShieldInteraction = function(type, data) {
-                if (type === "hover") this._uiHovered = true;
-
-                // THE INTERACTION GATE: Prevent high-frequency mouse events (move/hover) from flooding the CPU
-                if (type === "move" || type === "hover") {
-                    if (this._syncLock) {
-                        this._pendingHoverData = data;
-                        return false;
-                    }
-                    this._syncLock = true;
-                    setTimeout(() => {
-                        this._syncLock = false;
-                        if (this._pendingHoverData) {
-                            originalHandler.call(this, type, this._pendingHoverData);
-                            this._pendingHoverData = null;
-                        }
-                    }, 32);
-                }
+                if (queueDerpHoverReplay(this, type, data, (queuedType, queuedData) => {
+                    originalHandler.call(this, queuedType, queuedData);
+                })) return false;
 
                 if (type === "click") {
                     const overKey = this._pressedRegionKey || "";

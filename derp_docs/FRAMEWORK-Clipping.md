@@ -130,9 +130,9 @@ Current node-side opt-in examples:
 - `getDerpHeightModeConfig()` when the shared system-panel Height Mode control needs clipped-node-specific options such as `Fit Node`, measured entry/group counts, or pixel presets for variable-height content
 - `contentViewportClip: false` on descendants that must remain visually outside clipping
 
-<span style="color: #80aaff"><strong>Height Mode contract:</strong></span> For clipped nodes, `Fit Node` is manual outer-node height (`autoHeight = false`) with a viewport that fits the current node/stack/deck height. Numeric modes set `autoHeight = true` and floor the viewport at the selected measured entry/group count or explicit pixel preset before overflow scrolling begins.
+<span style="color: #80aaff"><strong>Height Mode contract:</strong></span> For clipped nodes, `Fit Node` is the preferred manual outer-node mode with a viewport that fits the current node/stack/deck height. Numeric modes are the preferred auto-height modes and floor the viewport at the selected measured entry/group count or explicit pixel preset before overflow scrolling begins.
 
-<span style="color: #ffc680"><strong>Note:</strong></span> Clipped-node lifecycle/configure code must normalize the persisted Height Mode value and derive `autoHeight` from it. If a node shows `Fit Node` but still behaves like auto-height until the user changes modes, the properties are out of sync.
+<span style="color: #ffc680"><strong>Note:</strong></span> Clipped-node lifecycle/configure code must normalize the persisted Height Mode value and write the preference through the shared Fatha height-policy path. The framework now distinguishes preferred height mode from runtime docked behavior, so vertical stacks can temporarily force manual runtime height without erasing the node's saved `Fit Node` or numeric preference.
 
 <span style="color: #ffc680"><strong>Note:</strong></span> When a footer, overlay, or loading control must stay outside the viewport clip, place it as a sibling after the viewport region or explicitly mark the subtree with `contentViewportClip: false`.
 
@@ -149,7 +149,7 @@ Relevant helpers:
 
 <span style="color: #80aaff"><strong>Live vs settled floors:</strong></span> Standalone/manual node resize should preserve the settled expanded floor during drag so the node cannot visually compress past the height it will snap to on pointer-up. Stack/deck seam math can use the viewport-aware min floor to divide a fixed stack span while still respecting each clipped node's declared `minClipHeight`.
 
-<span style="color: #80aaff"><strong>Runtime sizing:</strong></span> Runtime-only expanded-height guards such as `_minExpandedHeight` must not override `Fit Node` manual height. Apply those guards only when the node is actually auto-height, otherwise a clipped node can look correct during drag and snap taller on release.
+<span style="color: #80aaff"><strong>Runtime sizing:</strong></span> Runtime-only expanded-height guards must stay framework-owned and must not override `Fit Node` manual height. `dockResize.js` now applies measured expanded-height hints only while the resolved runtime mode is auto-height, otherwise a clipped node can look correct during drag and snap taller on release.
 
 <span style="color: #ffc680"><strong>Note:</strong></span> This is still framework-owned behavior. It is viewport-aware resize math, not a second scrollbar implementation.
 
