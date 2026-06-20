@@ -1466,6 +1466,7 @@ function isWithinDeckSearchRadius(dragRect, targetRect, radius) {
 function lockDeckNodeAxes(node, side = null) {
     if (!node) return;
     if (!node.properties) node.properties = {};
+    const preferredAutoHeight = resolveDerpPreferredAutoHeight(node);
     saveDeckNodeAxes(node);
 
     if (side === "left" || side === "right") {
@@ -1476,7 +1477,7 @@ function lockDeckNodeAxes(node, side = null) {
             node.properties.autoHeight = false;
         }
     }
-    applyDerpPreferredAutoHeight(node, resolveDerpPreferredAutoHeight(node));
+    applyDerpPreferredAutoHeight(node, preferredAutoHeight);
 }
 
 function settleNodesAfterDockWidthMatch(nodes = []) {
