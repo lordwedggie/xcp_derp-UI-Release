@@ -85,7 +85,32 @@ function normalizeSeedV3HeightMode(value) {
 function syncSeedV3HeightMode(node) {
     const mode = normalizeSeedV3HeightMode(getSeedV3VisibleHistory(node));
     node.properties.historyVisibleBeforeClip = mode;
+    return mode;
+}
+
+function applySeedV3HeightModeAutoHeight(node) {
+    const mode = syncSeedV3HeightMode(node);
     node.properties.autoHeight = mode !== "Auto";
+    return mode;
+}
+
+function seedV3HasDockedHeightLock(node) {
+    return Object.prototype.hasOwnProperty.call(node?.properties || {}, "deckSavedAutoHeight");
+}
+
+function syncSeedV3DockedHeightMode(node) {
+    syncSeedV3HeightMode(node);
+    node.properties.autoHeight = false;
+}
+
+function applySeedV3HeightModeChange(node) {
+    const mode = syncSeedV3HeightMode(node);
+    if (seedV3HasDockedHeightLock(node)) {
+        node.properties.deckSavedAutoHeight = mode !== "Auto";
+        node.properties.autoHeight = false;
+    } else {
+        node.properties.autoHeight = mode !== "Auto";
+    }
     return mode;
 }
 
@@ -128,7 +153,8 @@ function defaultSeedV3Properties(node) {
     node.properties.skipGenericWirelessHeartbeat = true;
     node.properties.isPureVirtual = true;
     node.properties.autoWidth = false;
-    syncSeedV3HeightMode(node);
+    if (seedV3HasDockedHeightLock(node)) syncSeedV3DockedHeightMode(node);
+    else applySeedV3HeightModeAutoHeight(node);
 }
 
 app.registerExtension({
@@ -316,7 +342,7 @@ app.registerExtension({
                 rootName: "height-mode",
                 onChange: (v) => {
                     this.properties.historyVisibleBeforeClip = normalizeSeedV3HeightMode(v);
-                    syncSeedV3HeightMode(this);
+                    applySeedV3HeightModeChange(this);
                     this._layoutMapHash = null;
                     this._seedV3SysLayoutHash = null;
                     this.refreshNodeLayoutMap();
