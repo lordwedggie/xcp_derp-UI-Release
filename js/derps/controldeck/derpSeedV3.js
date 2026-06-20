@@ -64,10 +64,27 @@ function buildSeedV3LayoutHash(node, vars, history) {
     ].join("_");
 }
 
-function getSeedV3HistoryClipHeight(node, rowHeight, spacingY) {
+function getSeedV3NumericVisibleHistory(node) {
     const visible = getSeedV3VisibleHistory(node);
-    const count = visible === "Auto" ? Math.min(3, getSeedV3HistoryLimit(node)) : visible;
-    return Math.max(rowHeight, (rowHeight * count) + (spacingY * Math.max(0, count - 1)));
+    if (visible === "Auto") return null;
+    const count = Number(visible);
+    return Number.isFinite(count) && count > 0 ? count : null;
+}
+
+function getSeedV3HistoryRows(regions = {}) {
+    return Object.keys(regions)
+        .filter((key) => key.startsWith("historySeed_"))
+        .sort((a, b) => Number(a.split("_").pop()) - Number(b.split("_").pop()))
+        .map((key) => regions[key])
+        .filter(Boolean);
+}
+
+function getSeedV3HistoryRowsSpan(rows, count = rows.length) {
+    const visibleRows = rows.slice(0, Math.max(1, count));
+    if (visibleRows.length === 0) return 0;
+    const top = Math.min(...visibleRows.map((row) => Number(row.y) || 0));
+    const bottom = Math.max(...visibleRows.map((row) => getRegionBottom(row)));
+    return bottom > top ? bottom - top : 0;
 }
 
 function getSeedV3HeightModeItems() {
@@ -120,24 +137,38 @@ function getRegionBottom(reg) {
     return (Number(reg.y) || 0) + (Number(reg.h) || 0) + marginB;
 }
 
-function getSeedV3FitNodeClipHeight(node, region, regions, rowHeight) {
+function getSeedV3FitNodeClipHeight(node, region, regions, minClipHeight, fullContentHeight = 0) {
     const nodeH = Number(node?.size?.[1] || node?.properties?.nodeSize?.[1] || 0);
     const regionY = Number(region?.y) || 0;
-    if (nodeH <= 0 || regionY <= 0) return rowHeight;
+    if (nodeH <= 0 || regionY <= 0) return minClipHeight;
 
     const vars = typeof node?.getDerpVars === "function" ? node.getDerpVars(node) : null;
     const viewportGap = Math.max(0, Number(vars?.mH || 0));
     const footer = regions.footerRegion || regions.systemBtn;
     const footerH = footer ? Math.max(0, getRegionBottom(footer) - (Number(footer.y) || 0)) : 0;
     const available = nodeH - regionY - viewportGap - footerH;
-    return Number.isFinite(available) && available > rowHeight ? available : rowHeight;
+    if (!Number.isFinite(available) || available <= 0) return minClipHeight;
+    const clipped = fullContentHeight > 0 ? Math.min(available, fullContentHeight) : available;
+    return Math.max(minClipHeight, clipped);
 }
 
 function resolveSeedV3HistoryClipHeight(node, region, regions = {}) {
-    const vars = typeof node?.getDerpVars === "function" ? node.getDerpVars(node) : {};
-    const rowHeight = Math.max(18, ((Number(vars.pH) || 0) * 2) + 16);
-    if (getSeedV3VisibleHistory(node) === "Auto") return getSeedV3FitNodeClipHeight(node, region, regions, rowHeight);
-    return getSeedV3HistoryClipHeight(node, rowHeight, Number(vars.sH) || 0);
+    const rows = getSeedV3HistoryRows(regions);
+    if (rows.length === 0) return Number(region?.h) || 0;
+    const firstRowHeight = getSeedV3HistoryRowsSpan(rows, 1);
+    const numericLimit = getSeedV3NumericVisibleHistory(node);
+    if (numericLimit !== null) return getSeedV3HistoryRowsSpan(rows, Math.min(rows.length, numericLimit)) || firstRowHeight;
+
+    const fullContentHeight = getSeedV3HistoryRowsSpan(rows) || firstRowHeight;
+    return getSeedV3FitNodeClipHeight(node, region, regions, firstRowHeight, fullContentHeight);
+}
+
+function resolveSeedV3HistoryMinClipHeight(node, region, regions = {}) {
+    const rows = getSeedV3HistoryRows(regions);
+    if (rows.length === 0) return Number(region?.h) || 0;
+    const numericLimit = getSeedV3NumericVisibleHistory(node);
+    const floorRows = numericLimit !== null ? Math.min(rows.length, numericLimit) : 1;
+    return getSeedV3HistoryRowsSpan(rows, floorRows) || getSeedV3HistoryRowsSpan(rows, 1) || Number(region?.h) || 0;
 }
 
 function defaultSeedV3Properties(node) {
@@ -327,7 +358,7 @@ app.registerExtension({
                     spacing: [0, sH],
                     scrollViewport: true,
                     clipHeight: resolveSeedV3HistoryClipHeight,
-                    minClipHeight: rowMeasure,
+                    minClipHeight: resolveSeedV3HistoryMinClipHeight,
                     ...historyRows,
                 },
             };

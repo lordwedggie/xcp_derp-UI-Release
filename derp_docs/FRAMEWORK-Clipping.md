@@ -127,10 +127,10 @@ Current node-side opt-in examples:
 - `scrollViewport: true`
 - `clipHeight`
 - `minClipHeight`
-- `getDerpHeightModeConfig()` when the shared system-panel Height Mode control needs clipped-node-specific options such as `Fit Node` or measured entry/group counts
+- `getDerpHeightModeConfig()` when the shared system-panel Height Mode control needs clipped-node-specific options such as `Fit Node`, measured entry/group counts, or pixel presets for variable-height content
 - `contentViewportClip: false` on descendants that must remain visually outside clipping
 
-<span style="color: #80aaff"><strong>Height Mode contract:</strong></span> For clipped nodes, `Fit Node` is manual outer-node height (`autoHeight = false`) with a viewport that fits the current node/stack/deck height. Numeric modes set `autoHeight = true` and floor the viewport at the selected number of measured entries or groups before overflow scrolling begins.
+<span style="color: #80aaff"><strong>Height Mode contract:</strong></span> For clipped nodes, `Fit Node` is manual outer-node height (`autoHeight = false`) with a viewport that fits the current node/stack/deck height. Numeric modes set `autoHeight = true` and floor the viewport at the selected measured entry/group count or explicit pixel preset before overflow scrolling begins.
 
 <span style="color: #ffc680"><strong>Note:</strong></span> Clipped-node lifecycle/configure code must normalize the persisted Height Mode value and derive `autoHeight` from it. If a node shows `Fit Node` but still behaves like auto-height until the user changes modes, the properties are out of sync.
 
@@ -175,7 +175,7 @@ Node-local only:
 - whether a region uses `scrollViewport`
 - how tall `clipHeight` should be for that node
 - how much `minClipHeight` should contribute to manual floors
-- whether Height Mode options need node-specific labels or measured entry/group counts
+- whether Height Mode options need node-specific labels, measured entry/group counts, or pixel presets
 - whether a descendant subtree should opt out through `contentViewportClip: false`
 
 <span style="color: #ffc680"><strong>Maintenance rule:</strong></span> Any future scrollbar visual, interaction, overflow, or clipped hit-test fix belongs in `fathaContentViewport*.js`, `fathaDOMshield.js`, `masterLayoutEngine.js`, `fatha.js`, or `dockResize.js` as appropriate. Do not fork viewport behavior per node unless there is a proven framework gap.

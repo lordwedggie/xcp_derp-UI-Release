@@ -30,7 +30,11 @@ function numberOr(value, fallback = 0) {
 
 function normalizeTriggerWallClipVisibleLimit(value) {
     const raw = String(value ?? "Auto");
-    return ["Auto", "1", "2", "3", "4", "5"].includes(raw) ? raw : "Auto";
+    if (["Auto", "50", "100", "150"].includes(raw)) return raw;
+    if (raw === "1" || raw === "2" || raw === "20") return "50";
+    if (raw === "3" || raw === "80") return "100";
+    if (raw === "4" || raw === "5") return "150";
+    return "Auto";
 }
 
 function syncTriggerWallHeightModeProperties(node) {
