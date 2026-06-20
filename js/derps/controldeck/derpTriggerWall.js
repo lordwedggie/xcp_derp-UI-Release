@@ -49,7 +49,7 @@ import {
     triggerWall_groupDragEnd
 } from "./core/derpTriggerWall_core.js";
 
-const TRIGGER_WALL_CLIP_VISIBLE_LIMIT_ITEMS = ["Auto", "1", "2", "3", "4", "5"];
+const TRIGGER_WALL_CLIP_VISIBLE_LIMIT_ITEMS = ["Auto", "50", "100", "150"];
 
 function tLocale(key, fallback = key) {
     if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
@@ -293,13 +293,17 @@ function normalizeTriggerWeightForHash(weight) {
 
 function normalizeTriggerWallClipVisibleLimit(value) {
     const raw = String(value ?? "Auto");
-    return TRIGGER_WALL_CLIP_VISIBLE_LIMIT_ITEMS.includes(raw) ? raw : "Auto";
+    if (TRIGGER_WALL_CLIP_VISIBLE_LIMIT_ITEMS.includes(raw)) return raw;
+    if (raw === "1" || raw === "2" || raw === "20") return "50";
+    if (raw === "3" || raw === "80") return "100";
+    if (raw === "4" || raw === "5") return "150";
+    return "Auto";
 }
 
 function getTriggerWallHeightModeItems() {
     return TRIGGER_WALL_CLIP_VISIBLE_LIMIT_ITEMS.map((value) => ({
         value,
-        display: value === "Auto" ? "Fit Node" : `${value} Trigger ${value === "1" ? "Group" : "Groups"}`,
+        display: value === "Auto" ? "Fit Node" : `${value}px`,
     }));
 }
 
@@ -307,7 +311,7 @@ function getTriggerWallClipVisibleLimit(node) {
     return normalizeTriggerWallClipVisibleLimit(node?.properties?.triggerWallClipVisibleLimit);
 }
 
-function getTriggerWallNumericClipVisibleLimit(node) {
+function getTriggerWallPixelClipHeight(node) {
     const value = getTriggerWallClipVisibleLimit(node);
     if (value === "Auto") return null;
     const parsed = parseInt(value, 10);
@@ -359,14 +363,13 @@ function resolveTriggerWallAutoClipHeight(node, region, regions = {}, fullConten
 function resolveTriggerWallGroupsClipHeight(node, region, regions = {}) {
     const groupKeys = Object.keys(regions).filter((key) => key.startsWith("triggerRegion_"));
     if (groupKeys.length > 0) {
-        const numericLimit = getTriggerWallNumericClipVisibleLimit(node);
-        const visibleLimit = numericLimit || 1;
-        const visibleKeys = groupKeys.slice(0, visibleLimit);
+        const pixelClipHeight = getTriggerWallPixelClipHeight(node);
+        const visibleKeys = groupKeys.slice(0, 1);
         const top = Math.min(...visibleKeys.map((key) => Number(regions[key]?.y) || 0));
         const bottom = Math.max(...visibleKeys.map((key) => getRegionBottom(regions[key])));
         if (bottom > top) {
             const measuredHeight = bottom - top;
-            if (numericLimit !== null) return measuredHeight;
+            if (pixelClipHeight !== null) return pixelClipHeight;
             const fullBottom = Math.max(...groupKeys.map((key) => getRegionBottom(regions[key])));
             const fullContentHeight = fullBottom > top ? fullBottom - top : measuredHeight;
             const autoHeight = resolveTriggerWallAutoClipHeight(node, region, regions, fullContentHeight);
@@ -378,6 +381,8 @@ function resolveTriggerWallGroupsClipHeight(node, region, regions = {}) {
 }
 
 function resolveTriggerWallGroupsMinClipHeight(node, region, regions = {}) {
+    const pixelClipHeight = getTriggerWallPixelClipHeight(node);
+    if (pixelClipHeight !== null) return pixelClipHeight;
     const firstGroupKey = Object.keys(regions).find((key) => key.startsWith("triggerRegion_"));
     const firstGroup = firstGroupKey ? regions[firstGroupKey] : null;
     if (firstGroup) return Math.max(1, getRegionBottom(firstGroup) - (Number(firstGroup.y) || 0));
@@ -530,8 +535,8 @@ app.registerExtension({
             const presetSortKey = presetItems.join("\u0001");
             const visibleGroupCountForHash = (this._triggerGroupData || []).filter((g) => !g.hidden).length;
             const clipVisibleLimit = getTriggerWallClipVisibleLimit(this);
-            const numericClipLimit = getTriggerWallNumericClipVisibleLimit(this);
-            const useGroupsViewport = numericClipLimit !== null ? visibleGroupCountForHash > numericClipLimit : visibleGroupCountForHash > 1;
+            const pixelClipHeight = getTriggerWallPixelClipHeight(this);
+            const useGroupsViewport = pixelClipHeight !== null ? visibleGroupCountForHash > 0 : visibleGroupCountForHash > 1;
             const currentHash = buildTriggerWallStructuralHash(this, {
                 widthBucket: hashWidthBucket,
                 selectedIdx: selectedIdxForHash,
