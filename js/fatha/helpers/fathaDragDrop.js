@@ -8,6 +8,7 @@ import { app } from "../../../../scripts/app.js";
 import { settleDerpSizeBeforeDraw, shouldPreserveHorizontalDeckHeight, syncHorizontalDeckHeight } from "../core/fathaHandler.js";
 import { getContentViewportDisplayedGeometry, getContentViewportForRegion, isContentViewportRegionHitVisible } from "../core/fathaContentViewport.js";
 import { getDeckMembers } from "../core/masterDockEngine.js";
+import { resolveDerpRuntimeAutoHeight } from "../core/derpHeightPolicy.js";
 
 const STACK_DRAG_HOLD_BOX_PX = 5;
 const STACK_DRAG_HOLD_BOX_HALF = STACK_DRAG_HOLD_BOX_PX / 2;
@@ -81,6 +82,40 @@ export function getStackDragFloatingTransform(node, snapshot, rootKey = snapshot
     };
 }
 
+export function updateStackDragPointerState(node, data) {
+    if (!node) return;
+    node._dragMouse = [data.localX, data.localY];
+    const displayX = Number(data.displayLocalX);
+    const displayY = Number(data.displayLocalY);
+    if (Number.isFinite(displayX) && Number.isFinite(displayY)) {
+        node._dragDisplayMouse = [displayX, displayY];
+    }
+}
+
+export function clearStackDragState(node) {
+    if (!node) return;
+    if (node._dragHoldTimer) {
+        clearTimeout(node._dragHoldTimer);
+        node._dragHoldTimer = null;
+    }
+    node._dragTrig = null;
+    node._dragMouse = null;
+    node._dragOffset = null;
+    node._dragDisplayMouse = null;
+    node._dragDisplayOffset = null;
+    node._dropPreviewIdx = undefined;
+    node._dragThresholdMet = false;
+}
+
+export function cancelStackDragHold(node) {
+    if (!node?._dragTrig) return;
+    if (node._dragHoldTimer) {
+        clearTimeout(node._dragHoldTimer);
+        node._dragHoldTimer = null;
+    }
+    node._dragTrig.holdCancelled = true;
+}
+
 function getInsertionBefore(candidateIndex, dragIndex) {
     return candidateIndex < dragIndex ? candidateIndex : Math.max(0, candidateIndex - 1);
 }
@@ -117,7 +152,7 @@ function finalizeHorizontalStackStructure(node) {
     const remeasureNode = (target) => {
         if (!target || typeof settleDerpSizeBeforeDraw !== "function") return 0;
         settleDerpSizeBeforeDraw(target, {
-            forceAutoHeight: true,
+            forceAutoHeight: resolveDerpRuntimeAutoHeight(target),
             suppressRequestSync: true,
         });
         return Number(target.properties?.nodeSize?.[1] ?? target.size?.[1]) || 0;
@@ -163,6 +198,7 @@ export function startStackDrag(node, data, index, regionKey, options = {}) {
     node._dragTrig = {
         index,
         regionKey,
+        ...(options?.payload && typeof options.payload === "object" ? options.payload : {}),
         // Default to hold-first activation for row/list DnD.
         // Callers that truly want movement-armed drag must opt in with holdOnly: false.
         holdOnly: options?.holdOnly !== false
@@ -205,11 +241,7 @@ export function updateStackDrag(node, data, regionPrefix, itemCount) {
             // True click-and-hold: any meaningful pointer drift before the timer
             // completes cancels hold activation for this press.
             if (driftX > STACK_DRAG_HOLD_BOX_HALF || driftY > STACK_DRAG_HOLD_BOX_HALF) {
-                if (node._dragHoldTimer) {
-                    clearTimeout(node._dragHoldTimer);
-                    node._dragHoldTimer = null;
-                }
-                node._dragTrig.holdCancelled = true;
+                cancelStackDragHold(node);
             }
             return;
         }
@@ -219,12 +251,7 @@ export function updateStackDrag(node, data, regionPrefix, itemCount) {
         if (!node._dragThresholdMet) return;
     }
 
-    node._dragMouse = [data.localX, data.localY];
-    const displayX = Number(data.displayLocalX);
-    const displayY = Number(data.displayLocalY);
-    if (Number.isFinite(displayX) && Number.isFinite(displayY)) {
-        node._dragDisplayMouse = [displayX, displayY];
-    }
+    updateStackDragPointerState(node, data);
     const mouseY = data.localY;
 
     // Identify stable regions in the stack to compare midpoints
@@ -274,11 +301,6 @@ export function updateStackDrag(node, data, regionPrefix, itemCount) {
  * @param {string} arrayKey - The key of the property array to mutate (e.g., "stackData").
  */
 export function endStackDrag(node, arrayKey) {
-    if (node._dragHoldTimer) {
-        clearTimeout(node._dragHoldTimer);
-        node._dragHoldTimer = null;
-    }
-
     const drag = node._dragTrig;
     const thresholdMet = node._dragThresholdMet;
     const finalTarget = node._dropPreviewIdx;
@@ -295,13 +317,7 @@ export function endStackDrag(node, arrayKey) {
         markHorizontalStackReleaseLock(node);
     }
 
-    node._dragTrig = null;
-    node._dragMouse = null;
-    node._dragOffset = null;
-    node._dragDisplayMouse = null;
-    node._dragDisplayOffset = null;
-    node._dropPreviewIdx = undefined;
-    node._dragThresholdMet = false;
+    clearStackDragState(node);
 
     if (!drag || !thresholdMet) return;
 

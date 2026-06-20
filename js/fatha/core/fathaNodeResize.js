@@ -5,6 +5,7 @@ import { getDockGroupAxisFromMembers, getDockNodeMinHeight, getDockNodeMinWidth,
 import { applyDeckPressureLayout, getDeckMembers, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureBranchAxis, getDeckPressureHubForNode, getDeckPressureHubMinWidth, getNodeOnDeckEdge, isDeckPressureHub, isDeckPressureSideWidthResizeEdge, setDeckNodePos } from "./masterDockEngine.js";
 import { dockDebug, snapshotDockNode } from "./dockDebugHelpers.js";
 import { setDerpNodeSizeCompat } from "./fathaNode2Compat.js";
+import { resolveDerpRuntimeAutoHeight } from "./derpHeightPolicy.js";
 
 function getResizeAxis(entity, graph) {
     if (!graph || !entity || isDeckPressureHub(entity)) return null;
@@ -223,6 +224,6 @@ function getDerpVars(entity) {
     return entity?.getDerpVars ? entity.getDerpVars(entity) : {
         SNAP: 10,
         autoWidth: entity?.properties?.autoWidth,
-        autoHeight: entity?.properties?.autoHeight,
+        autoHeight: resolveDerpRuntimeAutoHeight(entity),
     };
 }

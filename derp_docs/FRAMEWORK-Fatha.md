@@ -128,6 +128,7 @@ A "hybrid" framework combining Fatha's modern engine with legacy node compatibil
 ## Stack Drag-and-Hold DnD
 - Stack/list reordering uses `helpers/fathaDragDrop.js` with `startStackDrag()`, `updateStackDrag()`, and `endStackDrag()`.
 - `startStackDrag()` is hold-first by default: pointer-down arms `_dragHoldTimer`, and pickup only becomes visual/structural after `_dragThresholdMet` is true.
+- Node-specific DnD paths that need custom insertion math should still use shared drag state helpers (`startStackDrag()`, `updateStackDragPointerState()`, `cancelStackDragHold()`, `clearStackDragState()`) instead of writing `_dragTrig`, `_dragMouse`, `_dragOffset`, or `_dragThresholdMet` directly.
 - Row/list layout hashes should ignore `_dragTrig`, `_dropPreviewIdx`, and `_dragMouse` until `_dragThresholdMet` is true, otherwise a plain click can rebuild into a drag-looking state.
 - Viewport-clipped rows must only participate in DnD while displayed inside their `scrollViewport` window. Shared DnD code filters candidate regions through the content viewport state and maps preview targets back to the real property-array insertion index.
 - Normal click actions inside draggable rows must call `endStackDrag(node, arrayKey)` before toggling, selecting, expanding, or removing items; this cancels the pending hold timer.

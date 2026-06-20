@@ -10,7 +10,7 @@ import { fetchLoraTriggers, fetchLoraRating, syncRatingColorsCache, fetchLoraDat
 import { getStackDragFloatingTransform, startStackDrag, updateStackDrag, endStackDrag } from "../../../fatha/helpers/fathaDragDrop.js";
 import { COMPONENT_BLUEPRINTS } from "../../../fatha/core/masterLayoutTypes.js";
 import { isContentViewportRegionHitVisible } from "../../../fatha/core/fathaContentViewport.js";
-import { applyDerpPreferredAutoHeight } from "../../../fatha/core/derpHeightPolicy.js";
+import { applyDerpPreferredAutoHeight, resolveDerpRuntimeAutoHeight } from "../../../fatha/core/derpHeightPolicy.js";
 import { consumeSuppressedDragClick, queueDerpHoverReplay } from "../../../fatha/core/derpInteractionPolicy.js";
 
 const BTN_LR_RATIO = 0.75;
@@ -60,6 +60,14 @@ function hasSerializedDerpLoraStackSettings(properties) {
     if (properties.nameDisplay !== undefined) return true;
     if (properties.toggleLR !== undefined) return true;
     return LORA_STACK_NUMERIC_SETTING_KEYS.some((key) => properties[key] !== undefined && properties[key] !== null);
+}
+
+function syncLoraStackHeightModePreference(node) {
+    if (!node?.properties) return;
+    const value = String(node.properties.loraStackClipVisibleLimit ?? "Auto");
+    const normalized = ["Auto", "1", "2", "3", "4", "5"].includes(value) ? value : "Auto";
+    node.properties.loraStackClipVisibleLimit = normalized;
+    applyDerpPreferredAutoHeight(node, normalized !== "Auto");
 }
 
 function queueMissingLoraMessages(node, items) {
@@ -112,7 +120,7 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                     const remeasureNode = (target) => {
                         if (!target || typeof settleDerpSizeBeforeDraw !== "function") return 0;
                         settleDerpSizeBeforeDraw(target, {
-                            forceAutoHeight: true,
+                            forceAutoHeight: resolveDerpRuntimeAutoHeight(target),
                             suppressRequestSync: true,
                         });
                         return Number(target.properties?.nodeSize?.[1] ?? target.size?.[1]) || 0;
@@ -459,7 +467,7 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
 
 
                     this.properties.autoWidth = false;
-                    applyDerpPreferredAutoHeight(this, true);
+                    syncLoraStackHeightModePreference(this);
                     this.properties.nodeSize = this.properties.nodeSize || [300, 60];
                     this.size = this.size || this.properties.nodeSize || [300, 60];
 
@@ -521,6 +529,7 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                     this.properties.showCLIP = this.properties.showCLIP ?? false;
                     this.properties.nameDisplay = this.properties.nameDisplay || "Top";
                     this.properties.toggleLR = this.properties.toggleLR ?? false;
+                    syncLoraStackHeightModePreference(this);
                     this._skipShieldHoverForceSync = true;
                     this.signalFilters = { types: this.properties.attentionMode === "Joint-Attention" ? ["MODEL"] : ["MODEL", "CLIP"] };
                     this.isPureVirtual = true;

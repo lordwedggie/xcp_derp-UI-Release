@@ -48,7 +48,8 @@ import {
     triggerWall_onDerpSysPanelOpen,
     triggerWall_onResize,
     triggerWall_groupDrag,
-    triggerWall_groupDragEnd
+    triggerWall_groupDragEnd,
+    isTriggerWallFrameworkSizingOwned
 } from "./core/derpTriggerWall_core.js";
 
 const TRIGGER_WALL_CLIP_VISIBLE_LIMIT_ITEMS = ["Auto", "50", "100", "150"];
@@ -526,12 +527,14 @@ app.registerExtension({
             const minW = Math.ceil(Math.max(propMinW, propMinW + padL + padR) / SNAP) * SNAP;
             const rawW = this.size?.[0] || 0;
             const clampedW = Math.max(minW, rawW);
-            if (rawW !== clampedW) {
+            const frameworkSizingOwned = isTriggerWallFrameworkSizingOwned(this);
+            if (!frameworkSizingOwned && rawW !== clampedW) {
                 setDerpNodeSizeCompat(this, clampedW, Number(this.size?.[1] || this.properties?.nodeSize?.[1] || 0));
                 if (this.properties?.nodeSize) this.properties.nodeSize[0] = clampedW;
             }
 
-            const hashWidthBucket = Math.round(clampedW / 10) * 10;
+            const layoutW = frameworkSizingOwned ? rawW : clampedW;
+            const hashWidthBucket = Math.round(layoutW / 10) * 10;
             const selectedIdxForHash = (this._triggerGroupData || []).findIndex((g, gIdx) => !g.hidden && this._selectedRegions?.[`triggerRegion_${gIdx}`]);
             const presetItems = this._presetItems || [];
             const presetSortKey = presetItems.join("\u0001");
@@ -545,7 +548,7 @@ app.registerExtension({
                 dropPreviewIdx: this._dropPreviewIdx,
                 dragTIdx: this._dragTrig?.tIdx,
                 dragIndex: this._dragTrig?.index,
-                dragThreshold: (this._dragThresholdMet || this._dragTrig?.tIdx !== undefined),
+                dragThreshold: !!this._dragThresholdMet,
                 showWeight: this.properties.showWeight !== false,
                 toggleAddAlways: !!this.properties.toggleAddAlways,
                 drawHeader: !!this.properties.drawHeader,
@@ -630,7 +633,7 @@ app.registerExtension({
 
                 let curR = 0;
                 let curW = 0;
-                const nodeW = Math.round(clampedW || 150);
+                const nodeW = Math.round(layoutW || 150);
                 const marginX = (mW * 4);
                 const maxW = nodeW - marginX;
                 const triggerRows = {};
@@ -639,7 +642,7 @@ app.registerExtension({
                     ...(group.triggers || []).map((trig, idx) => ({ type: "trig", trig, idx })).filter(i => !i.trig.hidden),
                     { type: "add" }
                 ];
-                if (itemDragEnabled && this._dragTrig && this._dragTrig.gIdx === gIdx) {
+                if (itemDragEnabled && this._dragTrig && this._dragThresholdMet && this._dragTrig.gIdx === gIdx) {
                     const d = this._dragTrig;
                     const pIdx = (this._dropPreviewIdx !== undefined) ? this._dropPreviewIdx : d.tIdx;
                     const [moved] = items.splice(d.tIdx, 1);
@@ -1202,7 +1205,7 @@ app.registerExtension({
                 if (!this.properties) this.properties = {};
                 this.properties.minWidth = safeMinW;
                 if (this.layout) {
-                    this.layout.contentMinWidth = Math.max(this.layout.contentMinWidth || 0, safeMinW);
+                    this.layout.contentMinWidth = safeMinW;
                 }
             }
             if (baseHandleInteraction) return baseHandleInteraction.apply(this, arguments);

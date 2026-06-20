@@ -6,6 +6,8 @@ import { app } from "../../../../../scripts/app.js";
 import { fatha, initDerpGlobalListener } from "../../fatha/fatha.js";
 import { UI_TYPES } from "../../fatha/core/masterLayoutTypes.js";
 import { applyDerpPreferredAutoHeight } from "../../fatha/core/derpHeightPolicy.js";
+import { setDerpNodeSizeCompat } from "../../fatha/core/fathaNode2Compat.js";
+import { measureTextWidth } from "../../herbina/utils/widgetsUtils.js";
 import {
     SEED_V3_MODES,
     broadcastSeedV3Signal,
@@ -168,8 +170,50 @@ function defaultSeedV3Properties(node) {
     node.properties.isWirelessTransmitter = true;
     node.properties.skipGenericWirelessHeartbeat = true;
     node.properties.isPureVirtual = true;
-    node.properties.autoWidth = false;
+    if (node.properties.autoWidth === undefined) node.properties.autoWidth = true;
     applyDerpPreferredAutoHeight(node, getSeedV3PreferredAutoHeight(node));
+}
+
+function getSeedV3TextPaint(node, key, fallbackFontSize) {
+    const variants = [
+        key,
+        key.replace("Text", "text"),
+        key.replace("System", "system").replace("Small", "small").replace("Normal", "normal"),
+    ];
+    for (const variant of variants) {
+        if (node?.[variant]) return node[variant];
+    }
+    return { fontSize: fallbackFontSize, font: "Arial", fontWeight: "normal" };
+}
+
+function getSeedV3MeasuredWidth(node, text, paintKey, fallbackFontSize, paddingX = 0) {
+    const paint = getSeedV3TextPaint(node, paintKey, fallbackFontSize);
+    return Math.ceil(measureTextWidth(text, paint.fontSize, paint.font, paint.fontWeight) + (paddingX * 2));
+}
+
+function getSeedV3MinWidth(node, vars) {
+    const digits = getSeedV3DigitCount(node);
+    const measurementStr = "9".repeat(digits);
+    const rowMeasure = Math.max(18, (vars.pH * 2) + 16);
+    const rowGap = Number(vars.sW || 0);
+    const sideMargins = Number(vars.mW || 0) * 2;
+    const buttonPadding = Number(vars.pW || 0);
+    const editorPadding = Number(vars.pW || 0);
+    const modeButtonText = SEED_V3_MODES.reduce((widest, mode) => {
+        const label = getSeedV3ModeLabel(mode);
+        return label.length > widest.length ? label : widest;
+    }, "Increment");
+    const modeButtonWidth = getSeedV3MeasuredWidth(node, modeButtonText, "_t_textSystemPaintData", 10, buttonPadding) + 8;
+    const stopButtonWidth = rowMeasure;
+    const executeButtonWidth = rowMeasure;
+    const seedLabelWidth = getSeedV3MeasuredWidth(node, tLocale("$derp_seed_v3.labels.seed", "Seed"), "_t_textSmallPaintData", 10, buttonPadding);
+    const seedEditorWidth = getSeedV3MeasuredWidth(node, measurementStr, "_t_textSmallPaintData", 10, editorPadding) + 10;
+    const historyButtonWidth = getSeedV3MeasuredWidth(node, measurementStr, "_t_textSmallPaintData", 10, buttonPadding) + 10;
+
+    const topRowWidth = sideMargins + modeButtonWidth + stopButtonWidth + executeButtonWidth + (rowGap * 2);
+    const manualRowWidth = sideMargins + seedLabelWidth + seedEditorWidth + rowGap;
+    const historyRowWidth = sideMargins + historyButtonWidth;
+    return Math.max(100, Math.ceil(topRowWidth), Math.ceil(manualRowWidth), Math.ceil(historyRowWidth));
 }
 
 app.registerExtension({
@@ -218,10 +262,30 @@ app.registerExtension({
             if (wasBusy !== nextBusy || controls) this.requestDerpSync?.();
         };
 
+        nodeType.prototype.syncDerpSeedV3WidthFloor = function(options = {}) {
+            defaultSeedV3Properties(this);
+            const vars = this.getDerpVars(this);
+            const minWidth = getSeedV3MinWidth(this, vars);
+            const currentW = Number(this.size?.[0] || this.properties?.nodeSize?.[0] || 0);
+            const currentH = Number(this.size?.[1] || this.properties?.nodeSize?.[1] || 100) || 100;
+            const autoWidth = this.properties?.autoWidth === true;
+            const nextW = autoWidth ? minWidth : Math.max(minWidth, currentW || minWidth);
+
+            if (!this.properties) this.properties = {};
+            this.properties.minWidth = minWidth;
+            this.properties.nodeSize = [nextW, currentH];
+            if (this.layout) this.layout.contentMinWidth = Math.max(Number(this.layout.contentMinWidth) || 0, minWidth);
+
+            if (options.applySize !== false) {
+                setDerpNodeSizeCompat(this, nextW, currentH);
+            }
+        };
+
         nodeType.prototype.refreshNodeLayoutMap = function() {
             if (this.flags?.collapsed || this.size?.[0] <= 0) return;
             hideNativeSeedV3Widgets(this);
             defaultSeedV3Properties(this);
+            this.syncDerpSeedV3WidthFloor({ applySize: false });
             syncSeedV3LocaleLabels(this);
             const { mW, mH, sW, sH, oY, pW, pH } = this.getDerpVars(this);
             const history = ensureSeedV3History(this);
@@ -512,13 +576,13 @@ app.registerExtension({
             defaultSeedV3Properties(this);
             this.titleLabel = tLocale("$derp_seed_v3.title", "Derp Seed V3");
             this.properties.titleLabel = this.titleLabel;
-            this.properties.minWidth = 100;
             this.properties.nodeSize = [100, 100];
             this.size = [100, 100];
             this._isExecuting = false;
             this._comfyIsBusy = false;
             hideNativeSeedV3Widgets(this);
             ensureSeedV3History(this);
+            this.syncDerpSeedV3WidthFloor();
             this.attachDerpSeedV3ExecutionListeners?.();
             this.refreshNodeLayoutMap();
             this.refreshDerpSeedV3SysMap();
@@ -535,6 +599,7 @@ app.registerExtension({
             ensureSeedV3History(this);
             syncSeedV3LocaleLabels(this);
             this.attachDerpSeedV3ExecutionListeners?.();
+            this.syncDerpSeedV3WidthFloor();
             this._layoutMapHash = null;
             this._seedV3SysLayoutHash = null;
             this.refreshNodeLayoutMap();

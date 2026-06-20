@@ -1,6 +1,7 @@
 import { app } from "../../../../scripts/app.js";
 
 export const FATHA_CONTENT_SCROLLBAR_WIDTH = 2;
+export const FATHA_CONTENT_SCROLLBAR_BACKGROUND_WIDTH = 2;
 export const FATHA_CONTENT_SCROLLBAR_MIN_THUMB = 14;
 export const FATHA_CONTENT_VIEWPORT_DEBUG_FLAG = "xcpDerpDebugContentViewports";
 
@@ -48,6 +49,37 @@ function shiftRegionSubtree(regions, rootKey, dy, seen = new Set()) {
     for (const child of Object.values(regions)) {
         if (child?.parentKey === rootKey) shiftRegionSubtree(regions, child.key, dy, seen);
     }
+}
+
+function restoreViewportDescendantWidth(region) {
+    if (!region) return;
+    if (Array.isArray(region._contentViewportBaseMargin)) region.margin = [...region._contentViewportBaseMargin];
+    if (Number.isFinite(region._contentViewportBaseWidth)) region.w = region._contentViewportBaseWidth;
+}
+
+function applyViewportDescendantRightClearance(regions, parentKey, parentRight, gutter, viewportKey) {
+    if (!regions || !parentKey || !(gutter > 0)) return;
+    const children = Object.values(regions).filter((candidate) => candidate?.parentKey === parentKey && !candidate.ignoreLayout);
+    children.forEach((child) => {
+        if (!child || isViewportClipDisabled(child, viewportKey, regions)) return;
+
+        const baseMargin = Array.isArray(child._contentViewportBaseMargin)
+            ? [...child._contentViewportBaseMargin]
+            : normalizeMargin(child.margin);
+        const baseWidth = Number.isFinite(child._contentViewportBaseWidth) ? child._contentViewportBaseWidth : numberOr(child.w);
+        child._contentViewportBaseMargin = [...baseMargin];
+        child._contentViewportBaseWidth = baseWidth;
+
+        const childRight = numberOr(child.x) + baseWidth + baseMargin[2];
+        let childContentRight = numberOr(child.x) + baseWidth;
+        if (childRight >= parentRight - 0.5) {
+            child.margin = [baseMargin[0], baseMargin[1], baseMargin[2] + gutter, baseMargin[3]];
+            child.w = Math.max(1, baseWidth - gutter);
+            childContentRight = numberOr(child.x) + numberOr(child.w);
+        }
+
+        applyViewportDescendantRightClearance(regions, child.key, childContentRight, gutter, viewportKey);
+    });
 }
 
 function recomputeAutoHeightAncestors(regions, startParentKey) {
@@ -182,6 +214,8 @@ export function applyContentViewportLayout(node, regions, layout, options = {}) 
     let hasOverflow = false;
     let hasViewport = false;
     let maxGutter = 0;
+    const locksDeckPressureSideWidth = node?._horizontalDeckWidthResizeLock === true
+        && node?._deckPressureSideResizeMember === true;
 
     for (const [key, region] of Object.entries(regions)) {
         if (!region?.scrollViewport) continue;
@@ -191,6 +225,9 @@ export function applyContentViewportLayout(node, regions, layout, options = {}) 
 
         const rawMinClipHeight = numberOr(typeof region.minClipHeight === "function" ? region.minClipHeight(node, region, regions) : region.minClipHeight, 0);
         const descendants = Object.values(regions).filter((candidate) => candidate && candidate.key !== key && !candidate.ignoreLayout && isDescendantOf(candidate, key, regions));
+        descendants.forEach((child) => {
+            if (!isViewportClipDisabled(child, key, regions)) restoreViewportDescendantWidth(child);
+        });
         const contentBottom = descendants.length
             ? Math.max(...descendants.map((child) => {
                 const margin = normalizeMargin(child.margin);
@@ -201,17 +238,26 @@ export function applyContentViewportLayout(node, regions, layout, options = {}) 
         const visibleHeight = Math.min(fullHeight, clipHeight);
         const minVisibleHeight = rawMinClipHeight > 0 ? Math.min(visibleHeight, rawMinClipHeight) : visibleHeight;
         const overflow = fullHeight > visibleHeight + 0.5;
-        const gutter = overflow ? FATHA_CONTENT_SCROLLBAR_WIDTH : 0;
-        const visibleWidth = Math.max(1, numberOr(region.w) - gutter);
-        if (overflow) {
+        const preserveResizeGutter = locksDeckPressureSideWidth && numberOr(node?._contentViewportState?.[key]?.gutter) > 0;
+        const effectiveOverflow = overflow || preserveResizeGutter;
+        const gutter = effectiveOverflow ? FATHA_CONTENT_SCROLLBAR_BACKGROUND_WIDTH : 0;
+        const visibleWidth = Math.max(1, numberOr(region.w));
+        if (effectiveOverflow) {
             hasOverflow = true;
-            maxGutter = Math.max(maxGutter, FATHA_CONTENT_SCROLLBAR_WIDTH);
+            maxGutter = Math.max(maxGutter, FATHA_CONTENT_SCROLLBAR_BACKGROUND_WIDTH);
+            applyViewportDescendantRightClearance(
+                regions,
+                key,
+                numberOr(region.x) + numberOr(region.w),
+                gutter,
+                key
+            );
         }
 
         region._contentViewport = true;
         region._contentViewportFullHeight = fullHeight;
         region._contentViewportClipHeight = visibleHeight;
-        region._contentViewportHasOverflow = overflow;
+        region._contentViewportHasOverflow = effectiveOverflow;
         const heightDelta = numberOr(region.h) - visibleHeight;
         region.h = visibleHeight;
         if (heightDelta > 0.5) viewportHeightDeltas.push({ key, region, delta: heightDelta });
@@ -227,7 +273,7 @@ export function applyContentViewportLayout(node, regions, layout, options = {}) 
             minClipHeight: minVisibleHeight,
             maxScroll: Math.max(0, fullHeight - visibleHeight),
             scrollTop,
-            hasOverflow: overflow,
+            hasOverflow: effectiveOverflow,
             gutter,
         };
     }
@@ -269,9 +315,11 @@ export function applyContentViewportLayout(node, regions, layout, options = {}) 
         if (regions.panelBackground) regions.panelBackground.h = nextHeight;
         layout.contentViewportGutter = maxGutter;
         node._contentViewportGutter = maxGutter;
-        layout.contentMinWidth = numberOr(layout.contentMinWidth) + maxGutter;
-        layout.totalWidth = numberOr(layout.totalWidth) + maxGutter;
-        if (regions.panelBackground) regions.panelBackground.w = numberOr(regions.panelBackground.w) + maxGutter;
+        if (!locksDeckPressureSideWidth) {
+            layout.contentMinWidth = numberOr(layout.contentMinWidth) + maxGutter;
+            layout.totalWidth = numberOr(layout.totalWidth) + maxGutter;
+            if (regions.panelBackground) regions.panelBackground.w = numberOr(regions.panelBackground.w) + maxGutter;
+        }
     }
     return hasOverflow;
 }

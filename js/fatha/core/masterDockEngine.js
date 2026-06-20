@@ -2403,7 +2403,7 @@ function fitDeckPressureSideHeights(members, targetHeight, snap) {
     const collapsedClampedCurrent = current.map((value, index) => members[index].properties?.contentCollapsed === true ? mins[index] : value);
     const collapsedClampedTotal = collapsedClampedCurrent.reduce((sum, value) => sum + value, 0);
     if (expandedIndexes.length === 0) return mins;
-    if (members.some((member) => member?._isDerpResizing === true) && collapsedClampedCurrent.every((value, index) => value >= mins[index])) {
+    if (members.some((member) => member?._isDerpResizing === true) && collapsedClampedTotal <= resolvedTarget + 0.5 && collapsedClampedCurrent.every((value, index) => value >= mins[index])) {
         return collapsedClampedCurrent;
     }
     const now = performance.now?.() || Date.now();

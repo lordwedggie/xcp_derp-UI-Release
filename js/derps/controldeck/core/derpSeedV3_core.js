@@ -207,8 +207,15 @@ export function generateSeedV3Value(node) {
         const next = current + 1n;
         return Number(next > maxSeed || next < minSeed ? minSeed : next);
     }
-    const range = Number(maxSeed - minSeed + 1n);
-    return Number(minSeed) + Math.floor(Math.random() * range);
+
+    // Treat the setting as a maximum digit count, not an overwhelmingly likely exact width.
+    const randomDigits = Math.max(1, Math.floor(Math.random() * digits) + 1);
+    if (randomDigits === 1) return Math.floor(Math.random() * 10);
+
+    const randomMin = 10n ** BigInt(randomDigits - 1);
+    const randomMax = (10n ** BigInt(randomDigits)) - 1n;
+    const range = Number(randomMax - randomMin + 1n);
+    return Number(randomMin) + Math.floor(Math.random() * range);
 }
 
 export function handleSeedV3Input(node, val) {
@@ -355,6 +362,7 @@ export function handleSeedV3DigitBlur(node, val) {
     broadcastSeedV3Signal(node);
     node._layoutMapHash = null;
     node._seedV3SysLayoutHash = null;
+    node.syncDerpSeedV3WidthFloor?.();
     node.refreshNodeLayoutMap?.();
     node.refreshDerpSeedV3SysMap?.();
     node.requestDerpSync?.();

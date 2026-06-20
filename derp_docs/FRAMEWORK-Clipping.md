@@ -48,7 +48,7 @@ Relevant framework call sites:
 2. Resolves `clipHeight` and optional `minClipHeight`.
 3. Measures descendant content bottom to get full internal height.
 4. Shrinks the live region height to the clipped visible height.
-5. Detects overflow and reserves scrollbar gutter width.
+5. Detects overflow, reserves scrollbar gutter width on the node's outer right side, and applies matching right-side clearance to viewport-clipped descendants that reach the viewport edge.
 6. Publishes `_contentViewportState` and clamps `_contentViewportScroll`.
 7. Recomputes `layout.totalHeight` and `layout.contentMinHeight` so hidden content stops growing the node.
 
@@ -69,6 +69,8 @@ Relevant framework call sites:
 ## <span style="color: #80ffc0">Drawing</span>
 
 <span style="color: #80aaff"><strong>Clipped draw remap:</strong></span> `fathaContentViewportDraw.js` exposes helpers that convert normal region drawing into viewport-aware drawing.
+
+<span style="color: #ffc680"><strong>Note:</strong></span> Viewport descendant `LINEBREAK` widgets still clip vertically to the viewport, but their clip rect may extend left to their own geometry `x` so separators can keep reaching the node's left edge while still ending before the scrollbar on the right.
 
 Main helpers:
 

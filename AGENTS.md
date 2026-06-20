@@ -277,6 +277,7 @@ To add a skill, create `.agents/skills/<name>/SKILL.md` with YAML frontmatter (`
 - Content viewport resize floors must use `_contentViewportMinClipHeight` / `minClipHeight` rather than the current visible clip height, so Fit Node clipped regions can shrink to one visible entry/group during seam resizing.
 - Deck Pressure side-branch active-resize and fresh manual seam-fit preservation must never preserve live heights whose total exceeds the canonical side band; over-tall live totals push lower members outside the frame at clamp/release.
 - Deck Pressure internal vertical seam drags should snapshot all branch member heights after the seam fit; otherwise subsequent pressure passes can redistribute spare height into unrelated siblings and make Slider/LoraStack change height during another seam's resize.
+- TriggerWall's trigger groups are width-wrapping content, so its measured `layout.contentMinWidth` can be stale or temporarily inflated during resize. Do not let that measured width become the framework resize floor; during resize preflight reset the floor to the explicit node minimum, and let active framework-owned passes draw from the live frame width without forcing physical node width.
 
 ### Node-Specific Notes
 
