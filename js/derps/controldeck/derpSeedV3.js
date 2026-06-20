@@ -5,6 +5,7 @@
 import { app } from "../../../../../scripts/app.js";
 import { fatha, initDerpGlobalListener } from "../../fatha/fatha.js";
 import { UI_TYPES } from "../../fatha/core/masterLayoutTypes.js";
+import { applyDerpPreferredAutoHeight } from "../../fatha/core/derpHeightPolicy.js";
 import {
     SEED_V3_MODES,
     broadcastSeedV3Signal,
@@ -105,29 +106,13 @@ function syncSeedV3HeightMode(node) {
     return mode;
 }
 
-function applySeedV3HeightModeAutoHeight(node) {
-    const mode = syncSeedV3HeightMode(node);
-    node.properties.autoHeight = mode !== "Auto";
-    return mode;
-}
-
-function seedV3HasDockedHeightLock(node) {
-    return Object.prototype.hasOwnProperty.call(node?.properties || {}, "deckSavedAutoHeight");
-}
-
-function syncSeedV3DockedHeightMode(node) {
-    syncSeedV3HeightMode(node);
-    node.properties.autoHeight = false;
+function getSeedV3PreferredAutoHeight(node) {
+    return syncSeedV3HeightMode(node) !== "Auto";
 }
 
 function applySeedV3HeightModeChange(node) {
     const mode = syncSeedV3HeightMode(node);
-    if (seedV3HasDockedHeightLock(node)) {
-        node.properties.deckSavedAutoHeight = mode !== "Auto";
-        node.properties.autoHeight = false;
-    } else {
-        node.properties.autoHeight = mode !== "Auto";
-    }
+    applyDerpPreferredAutoHeight(node, mode !== "Auto");
     return mode;
 }
 
@@ -184,8 +169,7 @@ function defaultSeedV3Properties(node) {
     node.properties.skipGenericWirelessHeartbeat = true;
     node.properties.isPureVirtual = true;
     node.properties.autoWidth = false;
-    if (seedV3HasDockedHeightLock(node)) syncSeedV3DockedHeightMode(node);
-    else applySeedV3HeightModeAutoHeight(node);
+    applyDerpPreferredAutoHeight(node, getSeedV3PreferredAutoHeight(node));
 }
 
 app.registerExtension({
@@ -198,6 +182,9 @@ app.registerExtension({
         if (nodeData.name !== "derpSeedV3") return;
 
         fatha(nodeType, nodeData, 100);
+        nodeType.prototype.getDerpPreferredAutoHeight = function() {
+            return getSeedV3PreferredAutoHeight(this);
+        };
 
         nodeType.prototype.onThemeUpdate = function(config) {
             this.handleThemeUpdate(config);

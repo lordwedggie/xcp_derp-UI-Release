@@ -46,6 +46,8 @@ import {
 import { resolveSystemThemePaint } from "../helpers/fathaSystemTheme.js";
 import { isComfyVueNodesMode } from "./fathaNode2Compat.js";
 import { getContentViewportForRegion, isContentViewportRegionHitVisible } from "./fathaContentViewport.js";
+import { resolveDerpRuntimeAutoHeight } from "./derpHeightPolicy.js";
+import { consumeSuppressedDragClick } from "./derpInteractionPolicy.js";
 
 const COLLAPSED_NODE_MAX_CORNER = 5;
 const TOOLTIP_DELAY_MS = 650;
@@ -977,7 +979,7 @@ export function settleDerpSizeBeforeDraw(entity, options = {}) {
 
 function settleCollapseSizeBeforeDraw(entity) {
     return settleDerpSizeBeforeDraw(entity, {
-        forceAutoHeight: entity?.properties?.contentCollapsed !== true && entity?.properties?.autoHeight !== false,
+        forceAutoHeight: entity?.properties?.contentCollapsed !== true && resolveDerpRuntimeAutoHeight(entity),
     });
 }
 
@@ -1180,7 +1182,7 @@ export const getDerpVars = (node) => {
         MIN_FOOTER_H: 6,
         collapseToMinWidth: true,
         autoWidth: safeNode.properties?.autoWidth === true,
-        autoHeight: safeNode.properties?.autoHeight !== false,
+        autoHeight: resolveDerpRuntimeAutoHeight(safeNode),
     };
 };
 
@@ -1414,10 +1416,7 @@ function handleVerticalHeaderClick(entity, localMouse, data) {
 
 function handleShieldClickOrPointerUp(entity, type, data, localMouse) {
     const displayLocalMouse = [data.displayLocalX ?? localMouse[0], data.displayLocalY ?? localMouse[1]];
-    if (type === "click" && entity._suppressClickAfterDrag) {
-        entity._suppressClickAfterDrag = false;
-        entity._pressedRegionKey = null;
-        entity._pressedRegionIsDragHandle = false;
+    if (consumeSuppressedDragClick(entity, type, { clearPressed: true })) {
         return true;
     }
 

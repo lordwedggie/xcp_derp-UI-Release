@@ -6,6 +6,7 @@
 import { dockDebug, isDockDebugEnabled, snapshotDockNode } from "./dockDebugHelpers.js";
 import { resolveDockTarget } from "./dockTargetPicking.js";
 import { syncDerpShield } from "./fathaDOMshield.js";
+import { applyDerpPreferredAutoHeight, resolveDerpPreferredAutoHeight } from "./derpHeightPolicy.js";
 import { handleNodeResize } from "./fathaNodeResize.js";
 import { getVirtualNodeLayoutMap } from "../helpers/fathaLayoutMaps.js";
 import { getActiveVerticalDeckWidthLock, getDockNodeMinHeight, getDockNodeMinWidth, getSharedDockMinWidth, getSharedDockWidth, resolveDockAttachDimensions, resolveRuntimeDockSize } from "./dockDimensions.js";
@@ -1186,7 +1187,7 @@ function saveDeckNodeAxes(node) {
         props.deckSavedAutoWidth = props.autoWidth === true;
     }
     if (!Object.prototype.hasOwnProperty.call(props, "deckSavedAutoHeight")) {
-        props.deckSavedAutoHeight = props.autoHeight !== false;
+        props.deckSavedAutoHeight = resolveDerpPreferredAutoHeight(node);
     }
 }
 
@@ -1197,7 +1198,10 @@ function restoreDeckNodeAxes(node) {
     if (!hasSavedWidth && !hasSavedHeight) return false;
 
     if (hasSavedWidth) node.properties.autoWidth = node.properties.deckSavedAutoWidth;
-    if (hasSavedHeight) node.properties.autoHeight = node.properties.deckSavedAutoHeight;
+    if (hasSavedHeight) {
+        node.properties._derpPreferredAutoHeight = node.properties.deckSavedAutoHeight === true;
+        node.properties.autoHeight = node.properties.deckSavedAutoHeight === true;
+    }
     delete node.properties.deckSavedAutoWidth;
     delete node.properties.deckSavedAutoHeight;
 
@@ -1406,6 +1410,7 @@ export function syncDeckNodeSize(node, width, height, options = {}) {
     const nextW = Number(width) || 0;
     const nextH = Number(height) || 0;
     const silent = options?.silent === true;
+    const liveResize = options?.liveResize === true;
     const deferDirty = options?.deferDirty === true;
     const deferSync = options?.deferSync === true;
 
@@ -1429,9 +1434,11 @@ export function syncDeckNodeSize(node, width, height, options = {}) {
     setDerpNodeSizeCompat(node, nextW, nextH);
     node.properties.nodeSize = [nextW, nextH];
 
-    if (node.layout) node.layout._lastCacheKey = "";
-    node._forceSync = true;
-    node._layoutDirty = true;
+    if (!liveResize) {
+        if (node.layout) node.layout._lastCacheKey = "";
+        node._forceSync = true;
+        node._layoutDirty = true;
+    }
     if (!deferSync && typeof node.syncUncleSlots === "function") node.syncUncleSlots();
     if (!silent && typeof node.refreshNodeLayoutMap === "function") node.refreshNodeLayoutMap();
     if (!silent && typeof node.requestDerpSync === "function") node.requestDerpSync();
@@ -1469,6 +1476,7 @@ function lockDeckNodeAxes(node, side = null) {
             node.properties.autoHeight = false;
         }
     }
+    applyDerpPreferredAutoHeight(node, resolveDerpPreferredAutoHeight(node));
 }
 
 function settleNodesAfterDockWidthMatch(nodes = []) {

@@ -10,11 +10,13 @@ import { fetchLoraTriggers, fetchLoraRating, syncRatingColorsCache, fetchLoraDat
 import { getStackDragFloatingTransform, startStackDrag, updateStackDrag, endStackDrag } from "../../../fatha/helpers/fathaDragDrop.js";
 import { COMPONENT_BLUEPRINTS } from "../../../fatha/core/masterLayoutTypes.js";
 import { isContentViewportRegionHitVisible } from "../../../fatha/core/fathaContentViewport.js";
+import { applyDerpPreferredAutoHeight } from "../../../fatha/core/derpHeightPolicy.js";
+import { consumeSuppressedDragClick, queueDerpHoverReplay } from "../../../fatha/core/derpInteractionPolicy.js";
 
 const BTN_LR_RATIO = 0.75;
 const BTN_LR_MARGIN = 1;
 const handleDerpSliderBtnLR = function() { var r = window.handleDerpSliderBtnLR; return r ? r.apply(null, arguments) : { handled: false }; };
-import { settleDerpSizeBeforeDraw, shouldPreserveHorizontalDeckHeight, syncHorizontalDeckHeight } from "../../../fatha/core/fathaHandler.js";
+import { settleDerpSizeBeforeDraw } from "../../../fatha/core/fathaHandler.js";
 
 const LORA_DETAIL_BASTA_ID = "basta_lora_detail_global_unique_id";
 
@@ -116,27 +118,18 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                         return Number(target.properties?.nodeSize?.[1] ?? target.size?.[1]) || 0;
                     };
 
-                    let targetHeight = remeasureNode(this);
+                    remeasureNode(this);
                     const minOneEntryHeight = typeof this.resolveLoraStackOneEntryHeight === "function"
                         ? this.resolveLoraStackOneEntryHeight()
                         : 0;
                     if (minOneEntryHeight > 0) {
                         const snap = Number(this.getDerpVars?.(this)?.SNAP) || 10;
                         const minHeight = Math.ceil(minOneEntryHeight / snap) * snap;
-                        this.properties._minExpandedHeight = minHeight;
-                        if (targetHeight < minHeight) {
-                            targetHeight = minHeight;
-                            if (Array.isArray(this.size)) this.size[1] = minHeight;
-                            if (Array.isArray(this.properties.nodeSize)) this.properties.nodeSize[1] = minHeight;
-                        }
+                        this.properties._derpMeasuredMinExpandedHeight = minHeight;
                     }
 
-                    if (typeof shouldPreserveHorizontalDeckHeight === "function" &&
-                        typeof syncHorizontalDeckHeight === "function" &&
-                        shouldPreserveHorizontalDeckHeight(this)) {
-                        if (targetHeight > 0) syncHorizontalDeckHeight(this, targetHeight);
-                    }
-
+                    this._layoutDirty = true;
+                    this._forceSync = true;
                     if (this.requestDerpSync) this.requestDerpSync();
                     if (this.setDirtyCanvas) this.setDirtyCanvas(true, true);
                 };
@@ -466,7 +459,7 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
 
 
                     this.properties.autoWidth = false;
-                    this.properties.autoHeight = true;
+                    applyDerpPreferredAutoHeight(this, true);
                     this.properties.nodeSize = this.properties.nodeSize || [300, 60];
                     this.size = this.size || this.properties.nodeSize || [300, 60];
 
@@ -783,6 +776,10 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
 
                 const baseHandleInteraction = nodeType.prototype.handleShieldInteraction;
                 nodeType.prototype.handleShieldInteraction = function(type, data) {
+                    return runLoraStackInteraction.call(this, type, data);
+                };
+
+                function runLoraStackInteraction(type, data, fromQueuedReplay = false) {
                     const isRowControlKey = (key) => key.startsWith("btnEnable_") || key.startsWith("btnEnableLeft_");
                     const isSliderKey = (key) => key && (key.startsWith("sldModel_") || key.startsWith("sldClip_"));
                     const sliderDragSessionActive = !!(this._activeSliderKey && isSliderKey(this._activeSliderKey));
@@ -793,31 +790,10 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                         key.startsWith("sldClip_") ||
                         key.startsWith("loraPreview_") ||
                         key.startsWith("loraRow_");
-                    if (type === "click" && this._suppressClickAfterDrag) {
-                        this._suppressClickAfterDrag = false;
-                        return true;
-                    }
-
-                    // THE SPAWN HOVER FIX: Shield mouseenter fails if panel spawns directly under the cursor.
-                    if (type === "hover") this._uiHovered = true;
-
-                    // THE INTERACTION GATE: Prevent high-frequency mouse events (move/hover) from flooding the CPU
-                    if (type === "move" || type === "hover") {
-                        if (this._syncLock) {
-                            this._pendingHoverData = data;
-                            return false;
-                        }
-                        this._syncLock = true;
-                        setTimeout(() => {
-                            this._syncLock = false;
-                            if (this._pendingHoverData) {
-                                if (this._uiHovered !== false) {
-                                    this.handleShieldInteraction(type, this._pendingHoverData);
-                                }
-                                this._pendingHoverData = null;
-                            }
-                        }, 32);
-                    }
+                    if (consumeSuppressedDragClick(this, type)) return true;
+                    if (!fromQueuedReplay && queueDerpHoverReplay(this, type, data, (queuedType, queuedData) => {
+                        runLoraStackInteraction.call(this, queuedType, queuedData, true);
+                    }, { requireHoverState: true })) return false;
 
                     if (type === "resize") this._isDerpResizing = true;
                     if (type === "click" || type === "dragEnd") {
@@ -1059,9 +1035,9 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
                     if (sliderDragSessionActive && (type === "hover" || type === "move" || type === "drag")) {
                         return true;
                     }
-                    if (baseHandleInteraction) return baseHandleInteraction.apply(this, arguments);
+                    if (baseHandleInteraction) return baseHandleInteraction.call(this, type, data);
                     return false;
-                };
+                }
 
                 // THE INTEGRITY FIX: Validate that loaded LoRAs still exist on disk
                 nodeType.prototype.validateLoraStack = async function() {

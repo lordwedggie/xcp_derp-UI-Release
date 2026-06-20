@@ -56,6 +56,7 @@ After normalizing, triggers a layout recompute for the leader and all members. T
 
 ### <span style="color: #80ffc0">No-op size syncs stay quiet</span>
 `syncDeckNodeSize()` must return before calling Node 2.0/Vue size setters when width and height are unchanged. Those compatibility setters mark nodes layout-dirty, so calling them for an already-aligned deck member can force `_forceSync` every frame and keep horizontal stacks such as `derpLoraStack` in a permanent layout loop.
+During active horizontal seam drags, callers may pass `liveResize: true` with silent/deferred flags so the physical size and stored `nodeSize` update without forcing full layout dirty state on every pointer move. The size change itself still makes Fatha recompute geometry for the next draw; release/final dirty paths keep shields and slots synchronized.
 
 ### <span style="color: #80ffc0">Automatic horizontal edge width compensation</span>
 When a left-most or right-most member in a horizontal stack changes width from runtime layout changes, the stack first tries to keep its total width stable. Growth borrows shrinkable width from members on the opposite side down to their measured minimums; shrinkage gives the freed width to those opposite members. If there is not enough spare room, the stack is allowed to grow.
@@ -108,7 +109,7 @@ When ComfyUI Node 2.0/Vue mode moves a default group containing docked Derp stac
 - Widths are normalized to the widest member
 - Heights are distributed across available vertical space
 - `allowWidth = false` during resize — only height can be dragged
-- `masterDockEngine.lockDeckNodeAxes()` saves each node's original `autoHeight`, sets `autoHeight = false` for top/bottom docking so member height can be freely adjusted, and restores the saved value on undock
+- `masterDockEngine.lockDeckNodeAxes()` saves each node's preferred height mode, forces manual runtime height for top/bottom docking, and restores the saved preference on undock
 - A node that must keep automatic height can opt out by setting `properties.deckForceAutoHeight = true` before docking
 
 ### <span style="color: #80ffc0">Vertical Stack</span>
@@ -116,7 +117,14 @@ When ComfyUI Node 2.0/Vue mode moves a default group containing docked Derp stac
 - Widths are normalized to the widest member
 - Each node keeps its own height (no height normalization)
 - `allowWidth = false` during resize
-- Member height defaults to free/manual resize through temporary `autoHeight = false` unless the node explicitly forces auto-height on
+- Member height defaults to free/manual runtime resize through the shared height-policy contract unless the node explicitly forces auto-height on
+
+### <span style="color: #80ffc0">Preferred vs Runtime Height</span>
+- `js/fatha/core/derpHeightPolicy.js` is the shared contract for height ownership.
+- `resolveDerpPreferredAutoHeight(node)` answers the node's saved Height Mode preference.
+- `resolveDerpRuntimeAutoHeight(node)` answers the live dock-aware behavior the resize engine should use.
+- `applyDerpPreferredAutoHeight(node, preferred)` updates both standalone behavior and dock-saved preference without letting child nodes punch raw `autoHeight` values back into vertical stacks.
+- Child nodes such as `derpSeedV3`, `derpTriggerWall`, and `derpLoraStack` now write Height Mode changes through that helper instead of open-coding `deckSavedAutoHeight` and `autoHeight` mutations.
 - If the outer top/bottom member is collapsed, boundary resize keeps that collapsed header at compact height and applies the added height to the nearest expanded member inside the stack
 - Collapsed boundary resize sessions must snapshot collapsed members at their compact minimum height, not stale live `nodeSize`, so top/bottom boundary drags cannot reintroduce phantom gaps.
 - Expanded filler members changed by collapsed boundary resize stay marked as actively resizing until pointer-up, so draw-time auto sizing cannot fight live shrink drags.

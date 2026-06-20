@@ -27,12 +27,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "_development/dairy.md",
+                "file": "CHANGELOG.md",
                 "mode": "preview",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "dairy"
+              "title": "CHANGELOG"
             }
           },
           {
@@ -123,7 +123,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "_development/dairy.md",
+                "file": "CHANGELOG.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -133,7 +133,7 @@
                 "unlinkedCollapsed": true
               },
               "icon": "links-coming-in",
-              "title": "Backlinks for dairy"
+              "title": "Backlinks for CHANGELOG"
             }
           },
           {
@@ -213,27 +213,28 @@
   },
   "active": "bd73590c56cfcedf",
   "lastOpenFiles": [
-    "CHANGELOG.md",
     "_development/dairy.md",
+    "_development/plan_OwnershipV2.md",
     "_development/~syncthing~dairy.md.tmp",
+    "~syncthing~FRAMEWORK-Fatha.md.tmp",
+    "~syncthing~FRAMEWORK-Nodes.md.tmp",
+    "~syncthing~FRAMEWORK-Docking.md.tmp",
+    "~syncthing~FRAMEWORK-Clipping.md.tmp",
+    "_development/usage_Palette.md",
+    "FRAMEWORK-Docking.md",
+    "_development/DEBUG.md",
+    "_development/Deck Features.md",
+    "CHANGELOG.md",
     "~syncthing~CHANGELOG.md.tmp",
     "FRAMEWORK-Optimization.md",
     "FRAMEWORK-Clipping.md",
     "FRAMEWORK-Basta.md",
     "FRAMEWORK-Backend.md",
-    "~syncthing~FRAMEWORK-Nodes.md.tmp",
     "~syncthing~FRAMEWORK-Herbina.md.tmp",
-    "~syncthing~FRAMEWORK-Fatha.md.tmp",
     "~syncthing~FRAMEWORK-Basta.md.tmp",
     "~syncthing~FRAMEWORK-Motha.md.tmp",
-    "~syncthing~FRAMEWORK-Docking.md.tmp",
     "~syncthing~FRAMEWORK-Backend.md.tmp",
-    "~syncthing~FRAMEWORK-ThemePalette.md.tmp",
-    "FRAMEWORK-Docking.md",
-    "_development/DEBUG.md",
-    "_development/usage_Palette.md",
     "_development/Framework.md",
-    "_development/Deck Features.md",
     "_development/KNOWNBUGS.md",
     "_development/TODO.md",
     "_assets/images/derp_performance_tracker.jpg",
@@ -249,8 +250,6 @@
     "Loader Nodes/Derp Latent.sync-conflict-20260617-133302-VQP2A24.md",
     "Loader Nodes/Derp Scheduler Loader_ZH.sync-conflict-20260617-133302-VQP2A24.md",
     "FRAMEWORK-Basta.sync-conflict-20260617-133301-VQP2A24.md",
-    "Loader Nodes/Derp Scheduler Loader.sync-conflict-20260617-133301-VQP2A24.md",
-    "Loader Nodes/Derp Sampler Loader_ZH.sync-conflict-20260617-133301-VQP2A24.md",
     "_inbox/{74AAE4B5-CE76-416E-B533-2AF2862EB787}.png",
     "_assets/images/derpModelLoader_01.jpg",
     "_assets/images/cover_civitAI_v01.jpg",

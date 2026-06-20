@@ -152,6 +152,11 @@ if (this._layoutMapHash === structureHash && this.layoutMap) {
 - Interaction bindings wrapped via `ensurePassiveCacheInteractionBindings()`
 - `properties.stackData` entries use array slots `[path, modelStrength, clipStrength, triggerKey, triggerText, bypassed, fuseQKV, noTriggerRequired]`; slot `7` is persisted workflow UI metadata for LoRAs with no trigger file.
 
+## <span style="color: #80ffc0">Height Mode Ownership Rule</span>
+- Nodes may define `getDerpHeightModeConfig()` to customize labels and persisted values.
+- Nodes should write Height Mode changes through the shared height-policy helper path, not by hand-editing `deckSavedAutoHeight` or guessing docked runtime behavior.
+- Clipped nodes may publish measured viewport floors such as `_derpMeasuredMinExpandedHeight`, while framework resize code remains the owner of when that hint is allowed to affect live node height.
+
 ## <span style="color: #80ffc0">New Node Checklist</span>
 - Start from the appropriate category folder under `js/derps/` for new Fatha node templates.
 - Keep node-specific UI in the node file and reusable logic in `core/*_core.js` only when it is genuinely reusable or large enough to justify the split.
