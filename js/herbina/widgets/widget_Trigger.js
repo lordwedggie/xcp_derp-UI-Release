@@ -83,31 +83,6 @@ function setTriggerStaticCache(node, key, value) {
     node._triggerStaticCache.set(key, value);
 }
 
-function getTriggerBitmapCache(node, key) {
-    if (!node._triggerBitmapCache) node._triggerBitmapCache = new Map();
-    return node._triggerBitmapCache.get(key) || null;
-}
-
-function setTriggerBitmapCache(node, key, value) {
-    if (!node._triggerBitmapCache) node._triggerBitmapCache = new Map();
-    node._triggerBitmapCache.set(key, value);
-}
-
-function createTriggerBitmap(width, height) {
-    const safeW = Math.max(1, Math.round(width));
-    const safeH = Math.max(1, Math.round(height));
-    if (typeof OffscreenCanvas !== "undefined") {
-        return new OffscreenCanvas(safeW, safeH);
-    }
-    if (typeof document !== "undefined" && typeof document.createElement === "function") {
-        const canvas = document.createElement("canvas");
-        canvas.width = safeW;
-        canvas.height = safeH;
-        return canvas;
-    }
-    return null;
-}
-
 export function syncDerpTrigger(ctx, node, app, config) {
     const triggerWallNode = isTriggerWallNode(node);
     const profileStart = triggerWallNode ? performance.now() : 0;
@@ -121,30 +96,6 @@ export function syncDerpTrigger(ctx, node, app, config) {
 
     const isDragging = node._dragTrig && node._dragTrig.key === config.key;
     const themeCacheKey = node._currentThemeCacheKey || node._currentThemeName || "";
-    const quickCanUseBitmapCache = triggerWallNode && !triggerWallCacheSuspended && !isDragging && sysAlpha === 1 && !node._forceSync;
-    const quickBitmapKey = quickCanUseBitmapCache ? [
-        config.key,
-        themeCacheKey,
-        config.themeKey || config.textThemeKey || "",
-        config.suffix || "",
-        config.state || "",
-        config.value ? 1 : 0,
-        config.disabled === true ? 1 : 0,
-        isHovered ? 1 : 0,
-        isPressed ? 1 : 0,
-        String(config.text || ""),
-        String(config.weight ?? 1.0),
-        config.showWeight === false ? 0 : 1,
-        Math.max(1, Math.round(w)),
-        Math.max(1, Math.round(h)),
-        config.fontWeight || "",
-    ].join("|") : null;
-    const quickCachedBitmap = quickCanUseBitmapCache ? getTriggerBitmapCache(node, config.key) : null;
-    if (quickCachedBitmap && quickCachedBitmap.key === quickBitmapKey && quickCachedBitmap.bitmap) {
-        ctx.drawImage(quickCachedBitmap.bitmap, Math.round(x), Math.round(y), Math.max(1, Math.round(w)), Math.max(1, Math.round(h)));
-        if (triggerWallNode) bumpTriggerWallWidgetProfile(node, performance.now() - profileStart);
-        return;
-    }
 
     let saved = false;
     if (isDragging || sysAlpha < 1) {
@@ -282,15 +233,6 @@ export function syncDerpTrigger(ctx, node, app, config) {
     const finalH = Math.max(1, Math.round(h));
     const baseX = Math.round(x);
     const baseY = Math.round(y);
-    const canUseBitmapCache = canReuseStatic && finalW > 0 && finalH > 0;
-    const bitmapCacheKey = canUseBitmapCache ? quickBitmapKey || `${staticKey}|${finalW}|${finalH}` : null;
-    const cachedBitmap = canUseBitmapCache ? getTriggerBitmapCache(node, config.key) : null;
-
-    if (cachedBitmap && cachedBitmap.key === bitmapCacheKey && cachedBitmap.bitmap) {
-        ctx.drawImage(cachedBitmap.bitmap, baseX, baseY, finalW, finalH);
-        if (profileStart) bumpTriggerWallWidgetProfile(node, performance.now() - profileStart);
-        return;
-    }
 
     if (!isTextOnly) {
         if (guardNoFx) drawFastBox(ctx, baseX, baseY, finalW, finalH, bodyPaintOut, bodyPaintOut?.fill);
@@ -375,59 +317,6 @@ export function syncDerpTrigger(ctx, node, app, config) {
     }
 
     if (saved) ctx.restore();
-
-    if (canUseBitmapCache) {
-        const bitmap = createTriggerBitmap(finalW, finalH);
-        const bitmapCtx = bitmap?.getContext?.("2d");
-        if (bitmapCtx) {
-            if (!isTextOnly) {
-                masterPainter(bitmapCtx, {
-                    posX: 0, posY: 0, width: finalW, height: finalH,
-                    color: bodyPaintOut.fill, paintData: bodyPaintOut
-                });
-            }
-
-            if (isWeightVisible) {
-                masterPainter(bitmapCtx, {
-                    posX: tX - baseX, posY: tY - baseY, width: tW, height: tH,
-                    color: slotPaintOut?.fill,
-                    paintData: slotPaintOut
-                });
-
-                masterPainterText(bitmapCtx, {
-                    x: (tX - baseX) + (tW / 2),
-                    y: (tY - baseY) + (tH / 2),
-                    width: tW,
-                    height: tH,
-                    text: weightText,
-                    paintData: { ...labelPaintOut, fontSize: weightFontSize, fontWeight },
-                    align: "center",
-                    baseline: "middle"
-                });
-            }
-
-            if (labelText.length > 0) {
-                bitmapCtx.save();
-                bitmapCtx.beginPath();
-                bitmapCtx.rect(textStartX - baseX, 0, Math.round(availW), finalH);
-                bitmapCtx.clip();
-                masterPainterText(bitmapCtx, {
-                    x: textStartX - baseX,
-                    y: Math.round(finalH / 2),
-                    width: availW,
-                    height: finalH,
-                    text: labelText,
-                    paintData: { ...labelPaintOut, fontSize: themeFontSize, fontWeight },
-                    align: "left",
-                    baseline: props.labelAlign?.[1] || "middle",
-                    cutoff: true
-                });
-                bitmapCtx.restore();
-            }
-
-            setTriggerBitmapCache(node, config.key, { key: bitmapCacheKey, bitmap });
-        }
-    }
 
     if (triggerWallNode) bumpTriggerWallWidgetProfile(node, performance.now() - profileStart);
 }

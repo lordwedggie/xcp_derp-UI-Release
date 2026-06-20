@@ -137,14 +137,14 @@ if (this._layoutMapHash === structureHash && this.layoutMap) {
 
 ## <span style="color: #80ffc0">TriggerWall Special Behavior</span>
 - Passive Whole Wall Cache — caches entire panel as OffscreenCanvas
-- Passive whole-wall caching is gated by `Derp.TriggerWallWholeWallCacheGate` in masterSettings (`Never`, `10`, `15`, `20`, `30`, `Always`; default `10`). It activates when the visible individual trigger count in the runtime deck data (`_triggerGroupData`, with `properties.triggerGroups` fallback) is at least the numeric threshold; `Always` enables it whenever normal cache safety gates allow it; `Never` disables it.
+- Passive whole-wall caching is gated by `Derp.TriggerWallWholeWallCacheGate` in masterSettings (`Never`, `10`, `15`, `20`, `30`, `Always`; default `10`). It activates when the number of trigger widgets actually drawn in the clipped viewport is at least the numeric threshold; `Always` enables it whenever normal cache safety gates allow it; `Never` disables it.
 - Cache key includes: size, layout hash, theme name, mode, collapsed, settings active, header visibility, hover/press region, device pixel ratio
 - Cache invalidated on: dropdown open, file browser open, drag, modal open, force sync, layout dirty
 - `_triggerWallCacheSuspendUntil` — temporary cache suspension timestamp
 
 ## <span style="color: #80ffc0">LoraStack Special Behavior</span>
 - Also uses Passive Whole Wall Cache
-- Passive whole-wall caching is gated by `Derp.LoraStackWholeWallCacheGate` in masterSettings (`Never`, `3`, `5`, `8`, `Always`; default `3`). It activates only when `properties.stackData.length` is greater than the numeric threshold; `Always` enables it whenever normal cache safety gates allow it; `Never` disables it.
+- Passive whole-wall caching is gated by `Derp.LoraStackWholeWallCacheGate` in masterSettings (`Never`, `3`, `5`, `8`, `Always`; default `3`). It activates only when the number of LoRA rows actually drawn in the clipped viewport is greater than the numeric threshold; `Always` enables it whenever normal cache safety gates allow it; `Never` disables it.
 - Cache backing scale is zoom-aware but capped/quantized in Fatha; cache reuse draws only the visible local slice to avoid high-zoom FPS drops.
 - Cache key additionally includes: stack values, preview list, name display, CLIP visibility, attention mode, toggle LR, passive cache scale
 - Cache invalidated on: detail panel open, slider interaction, live control interaction

@@ -16,7 +16,7 @@ Do these in order. Most expensive nodes are not slow because of one heroic algor
 2. Find unnecessary layout-map rebuilds before adding draw caches.
 3. Find dirty/sync loops before adding logs.
 4. Guard no-op value changes, signal fanout, DOM/native widget mutation, and size setters.
-5. Add bitmap or layer caching only after the cache key can prove the visual output is complete.
+5. Treat bitmap/layer caching as a last resort, not a normal optimization step. Use it only when the user explicitly asks for bitmap caching, or when a potentially extremely heavy node remains too slow after layout rebuilds, dirty/sync loops, and no-op guards are exhausted.
 6. Verify in the same graph arrangement that was slow.
 7. Remove temporary diagnostics when the cause is understood.
 
@@ -59,7 +59,9 @@ No-op guards are real optimization. Before writing a property, sending a fetch, 
 
 ## <span style="color: #80ffc0">Fatha Draw Caches</span>
 
-A draw cache is safe only when its key includes every visible input. If the key is incomplete, the cache is a bug with a pretty hat.
+Bitmap draw caches are a last-resort optimization for potentially extremely heavy nodes. They can be fast, but they often look less sharp than direct canvas drawing and can introduce occasional flicker. Do not add a bitmap cache unless the user specifically asks for it, or unless measured rendering cost remains unacceptable after simpler optimizations are exhausted.
+
+A draw cache is safe only when its key includes every visible input. If the key is incomplete, the cache is a bug with a pretty hat. Even when the key is complete, prefer no-op guards, layout-map hash fixes, direct value sync, and targeted measurement caches first.
 
 Good cache key fields usually include:
 
@@ -86,7 +88,7 @@ Selected and hovered visuals do not automatically block caching. If selection an
 
 Important Deck Pressure lesson: dirty is not the same as visually changed. A docked node may arrive with `_forceSync` or `_layoutDirty` set every frame because the deck owner is maintaining geometry. If an existing bitmap cache key still matches the complete visual state, reuse the bitmap and clear stale dirty flags. If there is no existing cache, it can still be correct to build the cache from the normal draw path even while dirty, provided the key fully represents the resulting visual.
 
-For large whole-wall caches, keep backing scale zoom-aware but quantized/capped, and blit only the visible local slice when possible. Avoid huge per-frame bitmap work at high zoom.
+For approved large whole-wall caches, keep backing scale zoom-aware but quantized/capped, and blit only the visible local slice when possible. Avoid huge per-frame bitmap work at high zoom.
 
 ## <span style="color: #80ffc0">Fatha Nodes</span>
 
@@ -95,7 +97,7 @@ For full virtual Fatha nodes:
 - Keep native Comfy widgets hidden in lifecycle hooks or behind a signature guard, not in the hot draw path.
 - Let `onDrawForeground()` update runtime state only when a compact state hash changed.
 - Use in-place sync for value changes such as seed text, button labels, busy state, row labels, and history values.
-- Use `syncDerpShield(node)` after bitmap cache draws so hitboxes stay aligned.
+- Avoid bitmap caches for simple nodes; if a last-resort bitmap cache is approved, call `syncDerpShield(node)` after cache draws so hitboxes stay aligned.
 - Include color-key toggles and localized display text in layout/cache hashes when they affect measurement or output.
 - Prefer local node helpers over broad framework changes unless multiple nodes share the same hot-path problem.
 
@@ -129,7 +131,7 @@ Widget optimization starts with the shared widget protocol, not one-off paint sh
 - Do not recreate DOM nodes or rewrite inline styles every frame. Use state hashes and clear `_lastStateHash` only when the effective state changed.
 - For segmented text, pass parsed segments to canvas text and use `colorSegmentsToHTML(...)` for HTML text. Do not bypass color-key parsing for speed.
 - Cache expensive text measurement, image decoding, or static paint layers by the exact visual inputs that affect them.
-- For sliders, editors, file browsers, dropdowns, and pickers, active interaction usually blocks whole-node bitmap caches. Cache their static parts instead of freezing the live interaction.
+- For sliders, editors, file browsers, dropdowns, and pickers, active interaction usually blocks whole-node bitmap caches. Prefer static-part or measurement caches before considering a whole-node bitmap cache.
 - For canvas-shield editors, keep DOM text visible while active. Performance fixes must not hide the real editable DOM text behind a stale canvas duplicate.
 
 ## <span style="color: #80ffc0">Signals And Network Fanout</span>

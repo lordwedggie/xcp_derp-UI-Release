@@ -37,17 +37,6 @@ function isDerpLoraStackNode(node) {
     return text.includes("derplorastack");
 }
 
-function isDerpSeedV3Node(node) {
-    const text = [
-        node?.type,
-        node?.comfyClass,
-        node?.constructor?.comfyClass,
-        node?.titleLabel,
-        node?.title,
-    ].filter(Boolean).join(" ").toLowerCase().replace(/[^a-z0-9]/g, "");
-    return text.includes("derpseedv3");
-}
-
 function getFathaNodeScreenRect(node, canvasDS, canvasEl) {
     if (!node || !canvasDS || !canvasEl) return null;
     const scale = Number(canvasDS.scale) || 1;
@@ -186,115 +175,6 @@ function createFathaCacheCanvas(width, height, scaleFactor = 1) {
     return null;
 }
 
-function getSeedV3DrawCacheBlockReason(node) {
-    if (node._isDragging || node._isDerpResizing || node._isDeckDragging || node._isFathaDragging) return "drag-resize";
-    if (node._pressedRegionKey || node._dragTrig || node._dragThresholdMet) return "pointer-active";
-    if (Number(node._derpAwakeFrames || 0) > 0) return "awake";
-    if (node._derpDomElements && Object.values(node._derpDomElements).some(el => el?._isAwake || (typeof document !== "undefined" && document.activeElement === el))) return "dom-active";
-    return null;
-}
-
-function buildSeedV3DrawCacheKey(node, scale) {
-    return [
-        Math.round(Number(node?.size?.[0]) || 1),
-        Math.round(Number(node?.size?.[1]) || 1),
-        Number(scale || 1).toFixed(2),
-        node?._layoutMapHash || "",
-        Array.isArray(node?.properties?.seedHistory) ? node.properties.seedHistory.join("|") : "",
-        node?.properties?.seedMode || "",
-        node?.properties?.toggleColorKey !== false ? 1 : 0,
-        node?.titleLabel || node?.title || "",
-        node?._comfyIsBusy ? 1 : 0,
-        node?.mode || 0,
-        node?._derpSpoofedBypass ? 1 : 0,
-        node?._xcpTrueSelected || node?._xcpTrueInMap ? 1 : 0,
-        node?._hoveredRegionKey || "",
-        window._xcpDerpSession || "",
-    ].join("|");
-}
-
-function tryDrawSeedV3Cache(node, ctx, canvasDS) {
-    const blockReason = getSeedV3DrawCacheBlockReason(node);
-    if (blockReason) {
-        return false;
-    }
-    const cacheScale = getPassiveWholeWallCacheScale(canvasDS?.scale || 1);
-    const key = buildSeedV3DrawCacheKey(node, cacheScale);
-    const w = Math.max(1, Math.round(Number(node?.size?.[0]) || 1));
-    const h = Math.max(1, Math.round(Number(node?.size?.[1]) || 1));
-    const existing = node._seedV3DrawCanvasCache;
-    const hadStaleDirtyFlags = !!(node._forceSync || node._layoutDirty);
-    if (existing?.key === key && existing.canvas) {
-        ctx.drawImage(existing.canvas, 0, 0, w, h);
-        syncDerpShield(node);
-        if (hadStaleDirtyFlags) {
-            node._layoutDirty = false;
-            node._forceSync = false;
-            node._shouldSync = false;
-        }
-        return true;
-    }
-
-    const canvas = createFathaCacheCanvas(w, h, cacheScale);
-    const cacheCtx = canvas?.getContext?.("2d");
-    if (!canvas || !cacheCtx) return false;
-    cacheCtx.save();
-    cacheCtx.clearRect(0, 0, canvas.width, canvas.height);
-    cacheCtx.scale(cacheScale, cacheScale);
-    node.onDrawForeground(cacheCtx);
-    cacheCtx.restore();
-    node._seedV3DrawCanvasCache = { key, canvas, scale: cacheScale };
-    ctx.drawImage(canvas, 0, 0, w, h);
-    syncDerpShield(node);
-    return true;
-}
-
-function buildLoraStackWidgetLayerCacheState(node, cacheScale, idleReady) {
-    if (!idleReady || !isDerpLoraStackNode(node)) return { canUse: false, cacheReg: null, key: null };
-    const cacheReg = node.layout?.regions?.panelBackground;
-    const stackCount = Array.isArray(node.properties?.stackData) ? node.properties.stackData.length : 0;
-    const detailBastaId = "basta_lora_detail_global_unique_id";
-    const isDetailOpen = !!(window.xcpActiveBastas?.get(detailBastaId)?.hostNode === node);
-    const hasOpenPicker = !!(window.__xcpHasActiveDropdown || window.__xcpHasActiveFileBrowser);
-    const hasAwakeDom = !!(node._derpDomElements && Object.values(node._derpDomElements).some(el => el?._isAwake || document.activeElement === el));
-    const canUse = !!(
-        cacheReg &&
-        stackCount > 0 &&
-        !node._forceSync &&
-        !node._layoutDirty &&
-        !(Number(node._pendingImageLoads || 0) > 0) &&
-        !node._dragTrig &&
-        !node._dragThresholdMet &&
-        !node._loraFloatingSnapshot &&
-        !node._hasVisibleDerpEditorDom &&
-        !node._hoveredRegionKey &&
-        !node._pressedRegionKey &&
-        !node._activeSliderKey &&
-        !hasOpenPicker &&
-        !hasAwakeDom &&
-        !isDetailOpen &&
-        (node._activeDetailSlot == null || node._activeDetailSlot < 0)
-    );
-    const valueHash = String(node._lastStackValues || "");
-    const previewHash = Array.isArray(node._loraPreviewList) ? [...node._loraPreviewList].sort().join("|") : "";
-    const key = canUse ? [
-        Math.max(1, Math.round(cacheReg?.w || node.size?.[0] || 1)),
-        Math.max(1, Math.round(cacheReg?.h || node.size?.[1] || 1)),
-        node._layoutMapHash || "",
-        valueHash,
-        previewHash,
-        node._currentThemeCacheKey || node._currentThemeName || "",
-        node.mode || 0,
-        node.properties?.contentCollapsed === true ? 1 : 0,
-        node.properties?.nameDisplay || "",
-        node.properties?.showCLIP === false ? 0 : 1,
-        node.properties?.attentionMode || "",
-        node.properties?.toggleLR ? 1 : 0,
-        cacheScale,
-    ].join("|") : null;
-    return { canUse, cacheReg, key };
-}
-
 function getFathaVisibleLocalRect(node) {
     const canvas = app?.canvas?.canvas;
     const canvasDS = app?.canvas?.ds;
@@ -352,6 +232,33 @@ function getWholeWallCacheGateValue(settingValue, fallbackValue) {
     return Number.isFinite(value) ? Math.max(0, Math.floor(value)) : fallbackValue;
 }
 
+function isRegionDrawnInViewport(node, key, region) {
+    if (!node || !key || !region || region.hidden === true || Number(region.alpha ?? 1) <= 0) return false;
+    const viewportDraw = getContentViewportGeometry(node, key, {
+        x: region.x || 0,
+        y: region.y || 0,
+        w: region.w || 0,
+        h: region.h || 0,
+    });
+    return !viewportDraw.hidden;
+}
+
+function countDrawnTriggerWallTriggers(node) {
+    const regions = node?.layout?.regions || {};
+    return Object.entries(regions).reduce((count, [key, region]) => {
+        if (!/^triggerItem_\d+_\d+$/.test(key) || region?.type !== UI_TYPES.COMPOSITE_TRIGGER) return count;
+        return count + (isRegionDrawnInViewport(node, key, region) ? 1 : 0);
+    }, 0);
+}
+
+function countDrawnLoraStackRows(node) {
+    const regions = node?.layout?.regions || {};
+    return Object.entries(regions).reduce((count, [key, region]) => {
+        if (!/^loraRow_\d+$/.test(key)) return count;
+        return count + (isRegionDrawnInViewport(node, key, region) ? 1 : 0);
+    }, 0);
+}
+
 function buildPassiveWholeWallCacheState(node, passiveCacheScale) {
     const typeName = String(node?.type || "").toLowerCase();
     if (typeName.includes("triggerwall")) {
@@ -360,20 +267,13 @@ function buildPassiveWholeWallCacheState(node, passiveCacheScale) {
             window.DERP_GLOBAL_SETTINGS?.triggerWallWholeWallCacheGate,
             TRIGGER_WALL_WHOLE_WALL_CACHE_MIN_ITEMS
         );
-        const triggerGroups = Array.isArray(node._triggerGroupData)
-            ? node._triggerGroupData
-            : (Array.isArray(node.properties?.triggerGroups) ? node.properties.triggerGroups : []);
-        const triggerCount = triggerGroups.reduce((count, group) => {
-            if (group?.hidden) return count;
-            const triggers = Array.isArray(group?.triggers) ? group.triggers : [];
-            return count + triggers.reduce((groupCount, trigger) => groupCount + (trigger?.hidden ? 0 : 1), 0);
-        }, 0);
+        const drawnTriggerCount = countDrawnTriggerWallTriggers(node);
         const suspendUntil = Number(node._triggerWallCacheSuspendUntil || 0);
         const hasOpenPicker = !!(window.__xcpHasActiveDropdown || window.__xcpHasActiveFileBrowser);
         const canUse = !!(
             cacheReg &&
             triggerWallCacheGate !== null &&
-            triggerCount >= triggerWallCacheGate &&
+            drawnTriggerCount >= triggerWallCacheGate &&
             !node._forceSync &&
             !node._layoutDirty &&
             performance.now() >= suspendUntil &&
@@ -407,7 +307,7 @@ function buildPassiveWholeWallCacheState(node, passiveCacheScale) {
             window.DERP_GLOBAL_SETTINGS?.loraStackWholeWallCacheGate,
             LORA_STACK_WHOLE_WALL_CACHE_MIN_ITEMS
         );
-        const stackCount = Array.isArray(node.properties?.stackData) ? node.properties.stackData.length : 0;
+        const drawnStackCount = countDrawnLoraStackRows(node);
         const detailBastaId = "basta_lora_detail_global_unique_id";
         const isDetailOpen = !!(window.xcpActiveBastas?.get(detailBastaId)?.hostNode === node);
         const suspendUntil = Number(node._passiveWholeWallCacheSuspendUntil || 0);
@@ -423,7 +323,7 @@ function buildPassiveWholeWallCacheState(node, passiveCacheScale) {
         const canUse = !!(
             cacheReg &&
             loraStackCacheGate !== null &&
-            stackCount > loraStackCacheGate &&
+            drawnStackCount > loraStackCacheGate &&
             !node._forceSync &&
             !node._layoutDirty &&
             !(Number(node._pendingImageLoads || 0) > 0) &&
@@ -631,8 +531,7 @@ if (!window._xcpFathaGlobalHijack) {
             }
 
             // EXECUTE DRAW (Suppresses native LiteGraph background and selection box)
-            const usedSeedV3Cache = isDerpSeedV3Node(node) && tryDrawSeedV3Cache(node, ctx, this.ds);
-            if (!usedSeedV3Cache) node.onDrawForeground(ctx);
+            node.onDrawForeground(ctx);
 
             if (node._derpSpoofedBypass) {
                 node.mode = 4;
@@ -989,16 +888,6 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
             passiveWholeWall.canUse &&
             !hasStructuralOrInteractionSync
         );
-        const loraWidgetLayer = buildLoraStackWidgetLayerCacheState(this, passiveCacheScale, !this._shouldSync && !needsLayoutCompute && !collapseStateChanged && !isAnimating);
-        if (loraWidgetLayer.key) loraWidgetLayer.key += `|viewport:${viewportSignature}`;
-        const loraWidgetLayerCache = this._loraStackWidgetLayerCanvasCache;
-        if (loraWidgetLayer.canUse && loraWidgetLayerCache?.key === loraWidgetLayer.key && loraWidgetLayerCache?.canvas) {
-            drawPassiveWholeWallCache(this, ctx, loraWidgetLayerCache.canvas, loraWidgetLayer.cacheReg, loraWidgetLayerCache.scale || passiveCacheScale);
-            ensurePassiveCacheInteractionBindings(this, app);
-            syncDerpShield(this);
-            if (this._forceSync) this._forceSync = false;
-            return;
-        }
         const passiveWholeWallCache = passiveWholeWall.cacheSlot ? this[passiveWholeWall.cacheSlot] : null;
 
         if (canUsePassiveWholeWallCache && passiveWholeWallCache?.key === passiveWholeWall.key && passiveWholeWallCache?.canvas) {
@@ -1028,26 +917,14 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
                 Math.max(1, Math.round(passiveWholeWall.cacheReg?.h || this.size?.[1] || 1)),
                 passiveCacheScale
             ) : null;
-            const widgetLayerCanvas = (!cacheCanvas && loraWidgetLayer.canUse) ? createFathaCacheCanvas(
-                Math.max(1, Math.round(loraWidgetLayer.cacheReg?.w || this.size?.[0] || 1)),
-                Math.max(1, Math.round(loraWidgetLayer.cacheReg?.h || this.size?.[1] || 1)),
-                passiveCacheScale
-            ) : null;
             const cacheCtx = cacheCanvas?.getContext?.("2d") || null;
-            const widgetLayerCtx = widgetLayerCanvas?.getContext?.("2d") || null;
-            const activeCtx = cacheCtx || widgetLayerCtx || ctx;
+            const activeCtx = cacheCtx || ctx;
 
             if (cacheCtx) {
                 cacheCtx.clearRect(0, 0, cacheCanvas.width, cacheCanvas.height);
                 cacheCtx.save();
                 cacheCtx.scale(passiveCacheScale, passiveCacheScale);
                 cacheCtx.translate(-Math.round(passiveWholeWall.cacheReg.x || 0), -Math.round(passiveWholeWall.cacheReg.y || 0));
-            }
-            if (widgetLayerCtx) {
-                widgetLayerCtx.clearRect(0, 0, widgetLayerCanvas.width, widgetLayerCanvas.height);
-                widgetLayerCtx.save();
-                widgetLayerCtx.scale(passiveCacheScale, passiveCacheScale);
-                widgetLayerCtx.translate(-Math.round(loraWidgetLayer.cacheReg.x || 0), -Math.round(loraWidgetLayer.cacheReg.y || 0));
             }
             for (const [key, reg] of Object.entries(this.layout.regions)) {
                 if (!reg.type || key === "systemBtn") continue;
@@ -1124,15 +1001,6 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
                     scale: passiveCacheScale,
                 };
                 drawPassiveWholeWallCache(this, ctx, cacheCanvas, passiveWholeWall.cacheReg, passiveCacheScale);
-            }
-            if (widgetLayerCtx) {
-                widgetLayerCtx.restore();
-                this._loraStackWidgetLayerCanvasCache = {
-                    key: loraWidgetLayer.key,
-                    canvas: widgetLayerCanvas,
-                    scale: passiveCacheScale,
-                };
-                drawPassiveWholeWallCache(this, ctx, widgetLayerCanvas, loraWidgetLayer.cacheReg, passiveCacheScale);
             }
 
             if (this._derpDomElements) {

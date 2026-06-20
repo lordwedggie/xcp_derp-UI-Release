@@ -293,6 +293,7 @@ To add a skill, create `.agents/skills/<name>/SKILL.md` with YAML frontmatter (`
 
 - For layout anomalies, inspect `masterLayoutEngine` and `widget_Region` before patching symptoms.
 - For node optimization work, read `derp_docs/FRAMEWORK-Optimization.md` first, then the matching framework docs for Fatha, Uncle, Basta, Herbina, docking, clipping, or node-specific behavior.
+- Bitmap/offscreen-canvas draw caching is a last-resort optimization for potentially extremely heavy nodes. It can be fast, but it may look less sharp and can flicker; do not add it unless explicitly requested or after simpler rendering optimizations are exhausted.
 - When asking the user to enable debug logs, provide exact console commands in the same response.
 - Investigate root causes before broad FileBrowser pointer/hover punch-through fixes.
 

@@ -22,11 +22,12 @@ import {
     handleSeedV3Input,
     handleSeedV3ModePress,
     handleSeedV3Stop,
-    handleSeedV3VisibleHistoryChange,
     syncSeedV3LayoutValues,
     syncSeedV3LocaleLabels,
     tLocale,
 } from "./core/derpSeedV3_core.js";
+
+const SEED_V3_HEIGHT_MODE_ITEMS = ["Auto", "1", "2", "3", "4", "5"];
 
 function hideNativeSeedV3Widgets(node) {
     if (!Array.isArray(node?.widgets)) return;
@@ -69,6 +70,51 @@ function getSeedV3HistoryClipHeight(node, rowHeight, spacingY) {
     return Math.max(rowHeight, (rowHeight * count) + (spacingY * Math.max(0, count - 1)));
 }
 
+function getSeedV3HeightModeItems() {
+    return SEED_V3_HEIGHT_MODE_ITEMS.map((value) => ({
+        value,
+        display: value === "Auto" ? "Fit Node" : `${value} History ${value === "1" ? "Entry" : "Entries"}`,
+    }));
+}
+
+function normalizeSeedV3HeightMode(value) {
+    const raw = String(value ?? "Auto");
+    return SEED_V3_HEIGHT_MODE_ITEMS.includes(raw) ? raw : "Auto";
+}
+
+function syncSeedV3HeightMode(node) {
+    const mode = normalizeSeedV3HeightMode(getSeedV3VisibleHistory(node));
+    node.properties.historyVisibleBeforeClip = mode;
+    node.properties.autoHeight = mode !== "Auto";
+    return mode;
+}
+
+function getRegionBottom(reg) {
+    if (!reg) return 0;
+    const marginB = Array.isArray(reg.margin) ? (reg.margin.length === 4 ? reg.margin[3] : (reg.margin[1] || 0)) : 0;
+    return (Number(reg.y) || 0) + (Number(reg.h) || 0) + marginB;
+}
+
+function getSeedV3FitNodeClipHeight(node, region, regions, rowHeight) {
+    const nodeH = Number(node?.size?.[1] || node?.properties?.nodeSize?.[1] || 0);
+    const regionY = Number(region?.y) || 0;
+    if (nodeH <= 0 || regionY <= 0) return rowHeight;
+
+    const vars = typeof node?.getDerpVars === "function" ? node.getDerpVars(node) : null;
+    const viewportGap = Math.max(0, Number(vars?.mH || 0));
+    const footer = regions.footerRegion || regions.systemBtn;
+    const footerH = footer ? Math.max(0, getRegionBottom(footer) - (Number(footer.y) || 0)) : 0;
+    const available = nodeH - regionY - viewportGap - footerH;
+    return Number.isFinite(available) && available > rowHeight ? available : rowHeight;
+}
+
+function resolveSeedV3HistoryClipHeight(node, region, regions = {}) {
+    const vars = typeof node?.getDerpVars === "function" ? node.getDerpVars(node) : {};
+    const rowHeight = Math.max(18, ((Number(vars.pH) || 0) * 2) + 16);
+    if (getSeedV3VisibleHistory(node) === "Auto") return getSeedV3FitNodeClipHeight(node, region, regions, rowHeight);
+    return getSeedV3HistoryClipHeight(node, rowHeight, Number(vars.sH) || 0);
+}
+
 function defaultSeedV3Properties(node) {
     if (!node.properties) node.properties = {};
     if (!node.properties.titleLabel) node.properties.titleLabel = tLocale("$derp_seed_v3.title", "Derp Seed V3");
@@ -82,7 +128,7 @@ function defaultSeedV3Properties(node) {
     node.properties.skipGenericWirelessHeartbeat = true;
     node.properties.isPureVirtual = true;
     node.properties.autoWidth = false;
-    node.properties.autoHeight = true;
+    syncSeedV3HeightMode(node);
 }
 
 app.registerExtension({
@@ -138,7 +184,6 @@ app.registerExtension({
             const digits = getSeedV3DigitCount(this);
             const measurementStr = "9".repeat(digits);
             const rowMeasure = Math.max(18, (pH * 2) + 16);
-            const clipHeight = getSeedV3HistoryClipHeight(this, rowMeasure, sH);
             const useColorKeys = this.properties.toggleColorKey !== false;
             const structureHash = buildSeedV3LayoutHash(this, { mW, mH, oY }, history);
 
@@ -255,7 +300,7 @@ app.registerExtension({
                     margin: [mW, mH, mW, mH],
                     spacing: [0, sH],
                     scrollViewport: true,
-                    clipHeight,
+                    clipHeight: resolveSeedV3HistoryClipHeight,
                     minClipHeight: rowMeasure,
                     ...historyRows,
                 },
@@ -264,7 +309,27 @@ app.registerExtension({
             this.requestDerpSync();
         };
 
+        nodeType.prototype.getDerpHeightModeConfig = function() {
+            return {
+                items: getSeedV3HeightModeItems(),
+                value: syncSeedV3HeightMode(this),
+                rootName: "height-mode",
+                onChange: (v) => {
+                    this.properties.historyVisibleBeforeClip = normalizeSeedV3HeightMode(v);
+                    syncSeedV3HeightMode(this);
+                    this._layoutMapHash = null;
+                    this._seedV3SysLayoutHash = null;
+                    this.refreshNodeLayoutMap();
+                    if (this.refreshDerpSeedV3SysMap) this.refreshDerpSeedV3SysMap();
+                    if (this.requestDerpSync) this.requestDerpSync();
+                    if (this.setDirtyCanvas) this.setDirtyCanvas(true, true);
+                    if (app.graph && typeof app.graph.change === "function") app.graph.change();
+                },
+            };
+        };
+
         nodeType.prototype.refreshDerpSeedV3SysMap = function() {
+            syncSeedV3HeightMode(this);
             const { mW, mH, sW, oY, pW, pH } = this.getDerpVars(this);
             const sysHash = [
                 getSeedV3HistoryLimit(this),
@@ -285,7 +350,6 @@ app.registerExtension({
             }
             this._seedV3SysLayoutHash = sysHash;
 
-            const visibleItems = ["Auto", "1", "2", "3", "4", "5"].map((value) => ({ value, display: value }));
             this.sysLayoutMap = {
                 sysContentRegion: {
                     anchor: { target: "sysDefaultControlsRegion", axis: "y", offset: oY },
@@ -359,27 +423,6 @@ app.registerExtension({
                         width: "full",
                         height: "auto",
                         spacing: [sW, 0],
-                        clipLabel: {
-                            type: UI_TYPES.TEXT,
-                            themeKey: "t_textsystem",
-                            text: tLocale("$derp_seed_v3.system.clip_visible_limit", "Clip visible:"),
-                            width: "auto",
-                            height: "auto",
-                            padding: [pW, pH],
-                            mouseOver: false,
-                        },
-                        clipVisible: {
-                            type: UI_TYPES.FILEBROWSER,
-                            themeKey: "dialog, t_textsystem",
-                            rootFolder: tLocale("$derp_seed_v3.system.clip_visible_limit", "Clip visible:"),
-                            items: visibleItems,
-                            value: String(getSeedV3VisibleHistory(this)),
-                            text: String(getSeedV3VisibleHistory(this)),
-                            width: "auto",
-                            height: "auto",
-                            padding: [pW, pH],
-                            onChange: (val) => handleSeedV3VisibleHistoryChange(this, val?.value ?? val),
-                        },
                         toggleColorKey: {
                             type: UI_TYPES.TOGGLE_V2,
                             isTextOnly: true,

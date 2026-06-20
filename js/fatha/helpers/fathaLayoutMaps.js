@@ -936,6 +936,16 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                 mouseOver: false,
                 items: heightModeConfig.items || STANDARD_HEIGHT_MODE_ITEMS,
                 value: heightModeConfig.value || "Auto",
+                measureText: (() => {
+                    const items = heightModeConfig.items || STANDARD_HEIGHT_MODE_ITEMS;
+                    if (!items?.length) return "Auto";
+                    let longest = "";
+                    for (const item of items) {
+                        const display = typeof item === "string" ? item : (item?.display || item?.label || String(item?.value ?? ""));
+                        if (display.length > longest.length) longest = display;
+                    }
+                    return longest || "Auto";
+                })(),
                 onChange: (v) => {
                     if (typeof heightModeConfig.onChange === "function") heightModeConfig.onChange(v, hostNode);
                     if (sysState) sysState._layoutDirty = true;
