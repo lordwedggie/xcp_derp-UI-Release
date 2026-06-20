@@ -304,6 +304,8 @@ export function triggerWall_onConfigure(node, info, originalCallback) {
 }
 
 export function triggerWall_onDrawForeground(node, ctx, originalCallback) {
+    const graph = node?.graph || window.app?.graph || null;
+    const isHorizontalDocked = !!(graph && isNodeDocked(node, graph) && isLinearDeckGroup(node, graph, "horizontal"));
     if (node._lastSettingActive !== node.properties.settingActive) {
         node._lastSettingActive = node.properties.settingActive;
         node.refreshNodeLayoutMap();
@@ -338,6 +340,16 @@ export function triggerWall_onDrawForeground(node, ctx, originalCallback) {
     }
 
     if (originalCallback) originalCallback.apply(node, [ctx]);
+    if (node.layout && (!isTriggerWallFrameworkSizingOwned(node) || isHorizontalDocked)) {
+        node.layout.contentMinWidth = node.properties.minWidth || 200;
+    }
+    if (isHorizontalDocked && isTriggerWallFrameworkSizingOwned(node)) {
+        const ownedW = Number(node._horizontalDeckWidthResizeValue) || Number(node.properties?.nodeSize?.[0]) || 0;
+        if (ownedW > 0) {
+            node.size[0] = ownedW;
+            if (Array.isArray(node.properties?.nodeSize)) node.properties.nodeSize[0] = ownedW;
+        }
+    }
 
     if (node.flags?.collapsed) return;
 }
@@ -1096,10 +1108,19 @@ export function triggerWall_onDerpSysPanelOpen(node, panel) {
 
 export function triggerWall_onResize(node, size) {
     const minW = node.properties.minWidth || 200;
-    const safeW = Math.max(minW, size[0] || minW);
+    const frameworkOwned = isTriggerWallFrameworkSizingOwned(node);
+    const graph = node?.graph || window.app?.graph || null;
+    const isHorizontalDocked = !!(graph && isNodeDocked(node, graph) && isLinearDeckGroup(node, graph, "horizontal"));
+    const storedW = Number(node.properties?.nodeSize?.[0]) || minW;
+    const requestedW = Math.max(minW, Number(size?.[0]) || minW);
+    const frameworkW = Math.max(minW, Number(node._horizontalDeckWidthResizeValue) || storedW);
+    const safeW = isHorizontalDocked
+        ? (frameworkOwned ? frameworkW : Math.max(minW, storedW))
+        : requestedW;
     const safeH = Math.max(50, size[1] || 150);
     node.size = [safeW, safeH];
     node.properties.nodeSize = [safeW, safeH];
+    if (frameworkOwned) node._horizontalDeckWidthResizeValue = safeW;
     node._layoutMapHash = null;
     if (node.layout) node.layout._lastCacheKey = "";
     // Avoid forcing an immediate secondary sync chain here. Docking and live resize
