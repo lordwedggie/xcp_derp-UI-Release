@@ -835,7 +835,7 @@ app.registerExtension({
                         width: "full",
                         height: "fill",
                         dir: "col",
-                        margin: [mW, mH],
+                        margin: [mW, mH, mW, 0],
                     //spacing: [0, sH],
                     imageRegion: {                        
                         type: this.UI_TYPES.IMAGE_HTML,
