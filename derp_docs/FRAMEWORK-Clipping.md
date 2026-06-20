@@ -91,6 +91,8 @@ Main helpers:
 
 <span style="color: #80aaff"><strong>Pointer mapping:</strong></span> `mapShieldPointThroughContentViewport()` remaps local shield coordinates so hovered/pressed descendants use the correct scrolled content-space `y` position.
 
+<span style="color: #ffc680"><strong>Important:</strong></span> Hit testing must resolve pointer space per candidate region. Descendants inside a scrolled viewport are tested with content-space coordinates, while normal siblings below the viewport, footer controls, and the system button are tested with displayed node-local coordinates. Do not run one globally scrolled pointer through every region candidate.
+
 Relevant integration in `fathaDOMshield.js`:
 
 - pointer-down checks `tryStartContentViewportScrollbarDrag(...)`

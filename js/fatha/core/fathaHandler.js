@@ -45,7 +45,7 @@ import {
 } from "../helpers/fathaThemeRuntime.js";
 import { resolveSystemThemePaint } from "../helpers/fathaSystemTheme.js";
 import { isComfyVueNodesMode } from "./fathaNode2Compat.js";
-import { isContentViewportRegionHitVisible } from "./fathaContentViewport.js";
+import { getContentViewportForRegion, isContentViewportRegionHitVisible } from "./fathaContentViewport.js";
 
 const COLLAPSED_NODE_MAX_CORNER = 5;
 const TOOLTIP_DELAY_MS = 650;
@@ -1225,12 +1225,21 @@ export function handleHorizontalDeckTitleToggle(entity) {
 
 function findHitRegion(layout, localMouse, options = {}) {
     if (!layout || !layout.regions) return null;
-    const { allowDisabledDrag = false } = options;
+    const { allowDisabledDrag = false, displayMouse = localMouse } = options;
+    const displayPoint = Array.isArray(displayMouse) ? { x: displayMouse[0], y: displayMouse[1] } : { x: localMouse[0], y: localMouse[1] };
 
-    const isInsideClipAncestors = (reg) => {
+    const getRegionLocalMouse = (key) => {
+        const state = getContentViewportForRegion(layout.owner, key);
+        if (!state?.rect || state.key === key) return displayMouse;
+        const rect = state.rect;
+        const insideViewport = displayPoint.x >= rect.x && displayPoint.x <= rect.x + rect.w && displayPoint.y >= rect.y && displayPoint.y <= rect.y + rect.h;
+        return insideViewport ? localMouse : null;
+    };
+
+    const isInsideClipAncestors = (reg, hitMouse) => {
         let current = reg?.parentKey ? layout.regions[reg.parentKey] : null;
         while (current) {
-            if ((current.type === UI_TYPES.IMAGE_HTML || current.clipChildren === true) && !layout.hitTest(localMouse, current)) {
+            if ((current.type === UI_TYPES.IMAGE_HTML || current.clipChildren === true) && !layout.hitTest(hitMouse, current)) {
                 return false;
             }
             current = current.parentKey ? layout.regions[current.parentKey] : null;
@@ -1253,16 +1262,18 @@ function findHitRegion(layout, localMouse, options = {}) {
         const isDisabled = reg.state === "DIS";
         const allowDisabledInteraction = reg.allowOpenWhenDisabled === true;
         if (isDisabled && !allowDisabledInteraction && !(allowDisabledDrag && reg.allowDragWhenDisabled)) continue;
-        if (!(reg.hitTest ? reg.hitTest(localMouse, reg) : layout.hitTest(localMouse, reg))) continue;
-        if (!isContentViewportRegionHitVisible(layout.owner, key, { x: localMouse[0], y: localMouse[1] })) continue;
-        if (!isInsideClipAncestors(reg)) continue;
+        const hitMouse = getRegionLocalMouse(key);
+        if (!hitMouse) continue;
+        if (!(reg.hitTest ? reg.hitTest(hitMouse, reg) : layout.hitTest(hitMouse, reg))) continue;
+        if (!isContentViewportRegionHitVisible(layout.owner, key, { x: hitMouse[0], y: hitMouse[1] })) continue;
+        if (!isInsideClipAncestors(reg, hitMouse)) continue;
 
         if (isDisabled && allowDisabledDrag && reg.dragProxyKey) {
             const proxyReg = layout.regions[reg.dragProxyKey];
-            if (proxyReg) return { key: reg.dragProxyKey, reg: proxyReg, sourceKey: key, sourceReg: reg };
+            if (proxyReg) return { key: reg.dragProxyKey, reg: proxyReg, sourceKey: key, sourceReg: reg, localMouse: hitMouse };
         }
 
-        return { key, reg };
+        return { key, reg, localMouse: hitMouse };
     }
     return null;
 }
@@ -1273,28 +1284,33 @@ export function isSystemButtonHit(entity, localMouse, scale) {
 }
 
 function handleShieldDragStart(entity, data, localMouse, scale, deckEngine) {
+    const displayLocalMouse = [data.displayLocalX ?? localMouse[0], data.displayLocalY ?? localMouse[1]];
     entity._startPos = [...(entity.pos || [0, 0])];
     entity._startSize = [...(entity.size || [0, 0])];
     entity._deckDragAltActive = !!data.originalEvent?.altKey;
     entity._dragEndRegionKey = null;
+    entity._pressedRegionData = null;
 
-    if (isSystemButtonHit(entity, localMouse, scale)) {
+    if (isSystemButtonHit(entity, displayLocalMouse, scale)) {
         entity._pressedRegionKey = "systemBtn";
         return true;
     }
 
-    const hit = findHitRegion(entity.layout, localMouse, { allowDisabledDrag: true });
+    const hit = findHitRegion(entity.layout, localMouse, { allowDisabledDrag: true, displayMouse: displayLocalMouse });
     if (hit && !hit.reg.noDragLock) {
+        const hitData = hit.localMouse ? { ...data, localX: hit.localMouse[0], localY: hit.localMouse[1] } : data;
         entity._pressedRegionKey = hit.key;
         entity._pressedRegionType = hit.reg?.type || null;
         entity._pressedRegionIsDragHandle = !!hit.reg.onDragStart || !!hit.reg.onDrag || hit.reg.type === UI_TYPES.SLIDER;
         if (hit.reg.onDragStart || hit.reg.onDrag || hit.reg.onDragEnd) entity._dragEndRegionKey = hit.key;
-        if (hit.reg.onDragStart) hit.reg.onDragStart(data.originalEvent, data);
+        if (hit.reg.onDragStart) hit.reg.onDragStart(data.originalEvent, hitData);
         entity._derpAwakeFrames = 15;
         entity.setDirtyCanvas(true);
         return true;
     }
     if (hit && hit.reg.noDragLock && (hit.reg.onDblClick || hit.reg.onPress || hit.reg.onClick)) {
+        const hitData = hit.localMouse ? { ...data, localX: hit.localMouse[0], localY: hit.localMouse[1] } : data;
+        entity._pressedRegionData = hitData;
         entity._pressedRegionKey = hit.key;
         entity._pressedRegionType = hit.reg?.type || null;
         entity._pressedRegionIsDragHandle = false;
@@ -1395,6 +1411,7 @@ function handleVerticalHeaderClick(entity, localMouse, data) {
 }
 
 function handleShieldClickOrPointerUp(entity, type, data, localMouse) {
+    const displayLocalMouse = [data.displayLocalX ?? localMouse[0], data.displayLocalY ?? localMouse[1]];
     if (type === "click" && entity._suppressClickAfterDrag) {
         entity._suppressClickAfterDrag = false;
         entity._pressedRegionKey = null;
@@ -1403,7 +1420,9 @@ function handleShieldClickOrPointerUp(entity, type, data, localMouse) {
     }
 
     const key = entity._pressedRegionKey;
+    const pressedRegionData = entity._pressedRegionData;
     entity._pressedRegionKey = null;
+    entity._pressedRegionData = null;
     entity._pressedRegionType = null;
     entity._pressedRegionIsDragHandle = false;
 
@@ -1415,10 +1434,10 @@ function handleShieldClickOrPointerUp(entity, type, data, localMouse) {
         return true;
     }
 
-    const handledRegion = handlePressedRegionActivation(entity, key, data);
+    const handledRegion = handlePressedRegionActivation(entity, key, pressedRegionData || data);
     if (handledRegion !== null) return handledRegion;
 
-    return handleVerticalHeaderClick(entity, localMouse, data);
+    return handleVerticalHeaderClick(entity, displayLocalMouse, data);
 }
 
 function handleHeaderRenameDblClick(entity, localMouse) {
@@ -1449,18 +1468,22 @@ function handleHeaderRenameDblClick(entity, localMouse) {
 }
 
 function handleShieldDblClick(entity, data, localMouse) {
-    const hit = findHitRegion(entity.layout, localMouse);
+    const displayLocalMouse = [data.displayLocalX ?? localMouse[0], data.displayLocalY ?? localMouse[1]];
+    const hit = findHitRegion(entity.layout, localMouse, { displayMouse: displayLocalMouse });
 
     if (hit && hit.reg.onDblClick) {
-        hit.reg.onDblClick(data.originalEvent, hit.reg, data);
+        const hitData = hit.localMouse ? { ...data, localX: hit.localMouse[0], localY: hit.localMouse[1] } : data;
+        hit.reg.onDblClick(data.originalEvent, hit.reg, hitData);
         if (app.graph && app.graph.change) app.graph.change();
         return true;
     }
 
-    return handleHeaderRenameDblClick(entity, localMouse);
+    return handleHeaderRenameDblClick(entity, displayLocalMouse);
 }
 
 function handleShieldHover(entity, localMouse, scale) {
+    const data = arguments.length > 3 ? arguments[3] : null;
+    const displayLocalMouse = [data?.displayLocalX ?? localMouse[0], data?.displayLocalY ?? localMouse[1]];
     const sliderDragActive = entity._pressedRegionType === UI_TYPES.SLIDER && !!entity._pressedRegionKey;
 
     if (sliderDragActive) {
@@ -1478,8 +1501,8 @@ function handleShieldHover(entity, localMouse, scale) {
         return;
     }
 
-    const isOverSys = isSystemButtonHit(entity, localMouse, scale);
-    const hit = findHitRegion(entity.layout, localMouse);
+    const isOverSys = isSystemButtonHit(entity, displayLocalMouse, scale);
+    const hit = findHitRegion(entity.layout, localMouse, { displayMouse: displayLocalMouse });
     const hitType = hit?.reg?.type;
     const isPickerRegion = hitType === UI_TYPES.DROPDOWN_DERP || hitType === UI_TYPES.DROPDOWN || hitType === UI_TYPES.FILEBROWSER;
 
@@ -1509,7 +1532,8 @@ function handleShieldHover(entity, localMouse, scale) {
             if (window.app && window.app.canvas) window.app.canvas.setDirty(true, true);
         }
     }
-    handleTooltipHover(entity, nextKey, localMouse);
+    const tooltipMouse = isOverSys ? displayLocalMouse : (hit?.localMouse || localMouse);
+    handleTooltipHover(entity, nextKey, tooltipMouse);
 }
 
 function handleShieldDragEnd(entity, data, deckEngine) {
@@ -1538,7 +1562,7 @@ export function handleShieldInteraction(entity, type, data = {}) {
         clearEntityTooltip(entity, true);
         return handleShieldDblClick(entity, data, localMouse);
     } else if (type === "hover") {
-        handleShieldHover(entity, localMouse, scale);
+        handleShieldHover(entity, localMouse, scale, data);
     } else if (type === "dragEnd") {
         clearEntityTooltip(entity, true);
         handleShieldDragEnd(entity, data, deckEngine);

@@ -116,6 +116,21 @@ function getLoraStackFooterReserve(regions = {}) {
     return footerBody + footerGap;
 }
 
+function getLoraStackFlowEntries(regions = {}) {
+    return Object.entries(regions)
+        .filter(([key, reg]) => reg && reg.parentKey === "loraEntriesRegion" && (key.startsWith("loraRow_") || key.startsWith("loraDropPreview_")))
+        .map(([key, reg]) => ({ key, reg }))
+        .sort((a, b) => (Number(a.reg.y) || 0) - (Number(b.reg.y) || 0));
+}
+
+function getLoraStackFlowSpan(entries, count = entries.length) {
+    const visible = entries.slice(0, Math.max(0, count));
+    if (!visible.length) return 0;
+    const top = Number(visible[0].reg.y) || 0;
+    const bottom = Math.max(...visible.map(({ reg }) => getRegionBottom(reg)));
+    return bottom > top ? bottom - top : 0;
+}
+
 function resolveLoraStackAutoClipHeight(node, region, regions = {}, fullContentHeight = 0) {
     const nodeH = Number(node?.size?.[1] || node?.properties?.nodeSize?.[1] || 0);
     const regionY = Number(region?.y) || 0;
@@ -141,21 +156,14 @@ function resolveLoraStackClipHeight(node, region, regions = {}) {
     const numericLimit = getLoraStackNumericClipVisibleLimit(node);
     const autoMinimumRows = 1;
     const visibleRows = Math.max(1, Math.min(rows, numericLimit || autoMinimumRows));
-    const firstRow = regions.loraRow_0;
-    const lastRow = regions[`loraRow_${visibleRows - 1}`];
-    if (firstRow && lastRow) {
-        const top = Number(firstRow.y) || 0;
-        const bottom = getRegionBottom(lastRow);
-        if (bottom > top) {
-            const measuredHeight = bottom - top;
-            if (numericLimit !== null) return measuredHeight;
-            const fullLastRow = regions[`loraRow_${rows - 1}`] || lastRow;
-            const fullBottom = getRegionBottom(fullLastRow);
-            const fullContentHeight = fullBottom > top ? fullBottom - top : measuredHeight;
-            const autoHeight = resolveLoraStackAutoClipHeight(node, region, regions, fullContentHeight);
-            if (autoHeight > 0) return Math.max(measuredHeight, autoHeight);
-            return measuredHeight;
-        }
+    const flowEntries = getLoraStackFlowEntries(regions);
+    const measuredHeight = getLoraStackFlowSpan(flowEntries, visibleRows);
+    if (measuredHeight > 0) {
+        if (numericLimit !== null) return measuredHeight;
+        const fullContentHeight = getLoraStackFlowSpan(flowEntries) || measuredHeight;
+        const autoHeight = resolveLoraStackAutoClipHeight(node, region, regions, fullContentHeight);
+        if (autoHeight > 0) return Math.max(measuredHeight, autoHeight);
+        return measuredHeight;
     }
 
     return Number(region?.h) || 180;
@@ -168,16 +176,10 @@ function resolveLoraStackMinClipHeight(node, region, regions = {}) {
     // seam can shrink the viewport down to a single visible LoRA row.
     const numericLimit = getLoraStackNumericClipVisibleLimit(node);
     const floorRows = numericLimit !== null ? Math.min(rows, numericLimit) : 1;
-    const firstRow = regions.loraRow_0;
-    const oneRowH = firstRow ? Math.max(1, getRegionBottom(firstRow) - (Number(firstRow.y) || 0)) : 0;
+    const flowEntries = getLoraStackFlowEntries(regions);
+    const oneRowH = getLoraStackFlowSpan(flowEntries, 1);
     if (floorRows <= 1) return oneRowH || (Number(region?.h) || 180);
-    const lastFloorRow = regions[`loraRow_${floorRows - 1}`];
-    if (lastFloorRow) {
-        const bottom = getRegionBottom(lastFloorRow);
-        const top = Number(firstRow?.y) || 0;
-        if (bottom > top) return bottom - top;
-    }
-    return oneRowH || (Number(region?.h) || 180);
+    return getLoraStackFlowSpan(flowEntries, floorRows) || oneRowH || (Number(region?.h) || 180);
 }
 
 function resolveLoraStackOneEntryHeight(node) {
@@ -472,7 +474,6 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                     const draggedRowWasTail = isDragPreviewActive && dragIdx === stack.length - 1;
 
                     let lastVisibleRowKey = null;
-                    let draggedRowAnchorKey = null;
 
                     const stackRows = stack.reduce((acc, lora, i) => {
                         let prev = lastVisibleRowKey;
@@ -483,14 +484,6 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                         const isBypassed = rowBypassed || nodeBypassed;
                         const isDragged = !!(this._dragTrig && this._dragThresholdMet && this._dragTrig.index === i);
 
-                        if (prev) {
-                            acc[`loraSep_${i}`] = {
-                                anchor: { target: prev, axis: "y", offset: oY },
-                                type: this.UI_TYPES.LINEBREAK, width: "full", height: 1, margin: [-mW, 0, -mW, mH],
-                            };
-                            prev = `loraSep_${i}`;
-                        }
-
                         // THE DROP PREVIEW GAP: Render an explicit empty slot where the item would be dropped.
                         // We attach it before the row currently occupying that visual index.
                         let visualPos = i;
@@ -500,6 +493,13 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                         }
 
                         const shouldPlaceGapBeforeThisRow = hasEffectiveDropTarget && visualPos === dropIdx;
+                        if (prev && (!isDragged || shouldPlaceGapBeforeThisRow)) {
+                            acc[`loraSep_${i}`] = {
+                                anchor: { target: prev, axis: "y", offset: oY },
+                                type: this.UI_TYPES.LINEBREAK, width: "full", height: 1, margin: [-mW, 0, -mW, mH],
+                            };
+                            prev = `loraSep_${i}`;
+                        }
                         if (shouldPlaceGapBeforeThisRow) {
                             const gapKey = `loraDropPreview_${i}`;
                             acc[gapKey] = {
@@ -528,6 +528,8 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                             };
                             prev = gapKey;
                         }
+
+                        if (isDragged) return acc;
 
                         const isSelected = (i === activeSlot);
                         const noTriggerRequired = isLoraNoTriggerRequired(lora);
@@ -813,16 +815,14 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                         };
 
                         lastVisibleRowKey = `loraRow_${i}`;
-                        if (isDragged) draggedRowAnchorKey = lastVisibleRowKey;
 
                         return acc;
                     }, {});
 
                     const hasTailDropPreview = hasEffectiveDropTarget && dropIdx === stableCount;
                     if (hasTailDropPreview) {
-                        const tailPreviewAnchorKey = draggedRowWasTail ? (draggedRowAnchorKey || lastVisibleRowKey) : lastVisibleRowKey;
                         stackRows.loraDropPreview_tail = {
-                            anchor: tailPreviewAnchorKey ? { target: tailPreviewAnchorKey, axis: "y", offset: oY } : null,
+                            anchor: lastVisibleRowKey ? { target: lastVisibleRowKey, axis: "y", offset: oY } : null,
                             type: this.UI_TYPES.REGION,
                             themeKey: "region",
                             state: "OFF",
