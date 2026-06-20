@@ -203,6 +203,22 @@ export function getSharedDockMinWidth(members = [], fallback = 0, snap = DEFAULT
     return minWidths.length ? Math.max(...minWidths) : (Number(fallback) || 0);
 }
 
+export function getActiveVerticalDeckWidthLock(members = [], minWidth = 0) {
+    const now = performance.now?.() || Date.now();
+    const locks = members
+        .map((member) => ({
+            width: Number(member?._verticalDeckWidthLock) || 0,
+            until: Number(member?._verticalDeckWidthLockUntil) || 0,
+            floor: Number(member?._verticalDeckWidthLockFloor) || 0,
+            floorUntil: Number(member?._verticalDeckWidthLockFloorUntil) || 0,
+        }))
+        .filter((lock) => lock.width > 0 && lock.until > now);
+    if (locks.length !== members.length || locks.length === 0) return 0;
+    const width = Math.min(...locks.map((lock) => lock.width));
+    const floor = Math.max(...locks.map((lock) => lock.floorUntil > now ? lock.floor : 0), Number(minWidth) || 0);
+    return Math.max(width, floor);
+}
+
 export function getSharedDockHeight(members = [], fallback = 0) {
     const heights = (Array.isArray(members) ? members : [])
         .map(getDockNodeHeight)

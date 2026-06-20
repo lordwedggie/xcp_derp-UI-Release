@@ -56,6 +56,40 @@ function snapshotDockMembers(node, graph) {
     return graph && node ? getDeckMembers(node, graph).map(snapshotDockNode) : [];
 }
 
+function markVerticalStackWidthLock(members = []) {
+    const validMembers = members.filter(Boolean);
+    if (validMembers.length <= 1) return;
+    const now = performance.now?.() || Date.now();
+    const activeLocks = validMembers
+        .map((member) => ({ width: Number(member?._verticalDeckWidthLock) || 0, until: Number(member?._verticalDeckWidthLockUntil) || 0 }))
+        .filter((lock) => lock.width > 0 && lock.until > now);
+    const isContinuingResize = activeLocks.length === validMembers.length;
+    const width = isContinuingResize
+        ? Math.min(...activeLocks.map((lock) => lock.width))
+        : Math.max(...validMembers.map((member) => getDockNodeWidth(member)), 0);
+    if (width <= 0) return;
+    const activeUntil = now + 1200;
+    validMembers.forEach((member) => {
+        member._verticalDeckWidthLock = width;
+        member._verticalDeckWidthLockUntil = activeUntil;
+        if (!isContinuingResize) {
+            member._verticalDeckWidthLockFloor = 0;
+            member._verticalDeckWidthLockFloorUntil = 0;
+        }
+    });
+}
+
+function getActiveVerticalNodeWidthLock(node, minWidth = 0) {
+    const width = Number(node?._verticalDeckWidthLock) || 0;
+    const until = Number(node?._verticalDeckWidthLockUntil) || 0;
+    const now = performance.now?.() || Date.now();
+    if (width <= 0 || until <= now) return 0;
+    const target = Math.max(width, Number(minWidth) || 0);
+    node._verticalDeckWidthLockFloor = Math.max(Number(node._verticalDeckWidthLockFloor) || 0, target);
+    node._verticalDeckWidthLockFloorUntil = until;
+    return target;
+}
+
 export function resolveCollapseShiftDirection(node, graph) {
     if (!node || !graph) return 0;
     if (!isNodeDocked(node, graph)) return 0;
@@ -370,6 +404,8 @@ export function resolveDerpRuntimeSizeImpl(node, measured, vars = {}) {
     const branchAxis = getDeckPressureBranchAxis(pressureHub, graph, branchSide);
     const axis = branchAxis || (graph && node ? getDockGroupAxisFromMembers(getDeckMembers(node, graph)) : null);
     const resolved = resolveRuntimeDockSize(node, axis, measured, vars);
+    const widthLock = axis === "vertical" ? getActiveVerticalNodeWidthLock(node, resolved.engineFloorW) : 0;
+    if (widthLock > 0) resolved.width = widthLock;
     const minExpandedHeight = Number(node?.properties?._minExpandedHeight) || 0;
     if (node?.properties?.contentCollapsed !== true && vars?.autoHeight === true && minExpandedHeight > 0) {
         resolved.height = Math.max(Number(resolved.height) || 0, minExpandedHeight);
@@ -1276,13 +1312,17 @@ export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH,
     const isRightHandle = resizeAnchor === "right" || resizeAnchor === "top-right" || resizeAnchor === "bottom-right";
     const isTopHandle = resizeAnchor === "top" || resizeAnchor === "top-left" || resizeAnchor === "top-right";
     const isBottomHandle = resizeAnchor === "bottom" || resizeAnchor === "bottom-left" || resizeAnchor === "bottom-right";
+    const requestsWidthResize = (isLeftHandle || isRightHandle) && newW !== getDockNodeWidth(entity);
+    const isPureVerticalSeamResize = (resizeAnchor === "top" || resizeAnchor === "bottom") && getLinearResizeMembers(entity, graph, "vertical").length > 1;
+    const verticalSeamMembers = isPureVerticalSeamResize ? getVerticalDeckMembersByY(entity, graph) : [];
+    if (isPureVerticalSeamResize) markVerticalStackWidthLock(verticalSeamMembers);
 
     if ((isLeftHandle || isRightHandle) && applyDeckPressureSideWidthResize(entity, resizeAnchor, newW, minW, snap, result, addCounterpart, graph)) {
         return result;
     }
 
     const verticalResizeMembers = getLinearResizeMembers(entity, graph, "vertical");
-    if (verticalResizeMembers.length > 1) {
+    if (verticalResizeMembers.length > 1 && requestsWidthResize) {
         result.pinnedAnchor = getPinnedVerticalDeckPositionAnchor(entity, graph);
         dockDebug("resize-vertical-before", () => ({
             entity: snapshotDockNode(entity),
