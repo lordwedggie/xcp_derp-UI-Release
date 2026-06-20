@@ -337,7 +337,12 @@ export function createDerpShield(node) {
         const graph = app.graph || resizeNode?.graph || node?.graph || null;
         const clearPressureSession = (member) => {
             const pressureHub = graph && member ? getDeckPressureHubForNode(member, graph) : null;
-            if (pressureHub) pressureHub._deckPressureVerticalSeamSession = null;
+            if (pressureHub) {
+                pressureHub._deckPressureVerticalSeamSession = null;
+                pressureHub._deckPressureSideResizeSession = null;
+                delete pressureHub._deckPressurePreserveFrameBounds;
+                delete pressureHub._deckPressureSideWidthOverrides;
+            }
         };
         clearPressureSession(resizeNode);
         if (activeMembers instanceof Set) {
@@ -347,11 +352,13 @@ export function createDerpShield(node) {
                 if (member !== resizeNode) member._isDerpResizing = false;
                 member._dockResizePreserveHeight = false;
                 member._horizontalDeckWidthResizeLock = false;
+                member._deckPressureSideResizeMember = false;
             });
             activeMembers.clear();
         }
         if (resizeNode) {
             resizeNode._horizontalDeckWidthResizeLock = false;
+            resizeNode._deckPressureSideResizeMember = false;
             resizeNode._dockResizePreserveHeight = false;
             resizeNode._dockResizeActiveMembers = null;
         }

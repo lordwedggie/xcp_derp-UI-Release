@@ -1190,6 +1190,10 @@ function applyDeckPressureSideWidthResize(entity, resizeAnchor, requestedEntityW
             topBottomMinWidth: Number(planBefore?.constraints?.topBottomMinWidth) || 0,
             arrangement: planBefore?.arrangement || null,
         };
+        pressureHub._deckPressureSideResizeSession = {
+            entityId: entity.id,
+            branchSide,
+        };
     }
     const session = entity._dockResizeSession;
     const preservedFrame = session.frameBounds || frameBefore;
@@ -1214,21 +1218,18 @@ function applyDeckPressureSideWidthResize(entity, resizeAnchor, requestedEntityW
     const requestedDelta = Number.isFinite(explicitDelta) ? explicitDelta : (Number(requestedEntityWidth) - branchStartWidth);
     const lowerBranchWidth = Math.min(branchMinWidth, maxBranchWidth);
     const nextBranchWidth = Math.min(maxBranchWidth, Math.max(lowerBranchWidth, branchStartWidth + requestedDelta));
-    const delta = nextBranchWidth - branchStartWidth;
-    if (Math.abs(delta) < 0.5) {
-        result.handledWidth = true;
-        result.handledAll = true;
-        result.appliedWidth = branchStartWidth;
-        branchMembers.forEach(addCounterpart);
-        addCounterpart(pressureHub);
-        return true;
-    }
+    const activeSideWidths = {
+        left: branchSide === "left" ? nextBranchWidth : oppositeSideWidth,
+        right: branchSide === "right" ? nextBranchWidth : oppositeSideWidth,
+    };
+    pressureHub._deckPressurePreserveFrameBounds = preservedFrame;
+    pressureHub._deckPressureSideWidthOverrides = activeSideWidths;
 
     const currentPlan = computeDeckPressureGeometryPlan(pressureHub, graph, snap, { frameBounds: preservedFrame });
     const currentWidths = currentPlan?.constraints || {};
     const sideWidths = {
-        left: branchSide === "left" ? nextBranchWidth : Number(currentWidths.leftWidth) || 0,
-        right: branchSide === "right" ? nextBranchWidth : Number(currentWidths.rightWidth) || 0,
+        left: branchSide === "left" ? nextBranchWidth : Number(currentWidths.leftWidth) || activeSideWidths.left,
+        right: branchSide === "right" ? nextBranchWidth : Number(currentWidths.rightWidth) || activeSideWidths.right,
     };
 
     if (branchAxis === "horizontal") {
@@ -1258,6 +1259,7 @@ function applyDeckPressureSideWidthResize(entity, resizeAnchor, requestedEntityW
             if (!member.properties) member.properties = {};
             member.properties.autoWidth = false;
             member._horizontalDeckWidthResizeLock = true;
+            member._deckPressureSideResizeMember = true;
             member._deckPressureSideHorizontalWidth = width;
             member.properties._deckPressureSideHorizontalWidth = width;
             member._horizontalDeckWidthBalanceObserved = width;
@@ -1268,18 +1270,23 @@ function applyDeckPressureSideWidthResize(entity, resizeAnchor, requestedEntityW
         });
         markDockResizeActiveMembers(entity, branchMembers, entity, { markResizing: false });
     } else {
-        branchMembers.forEach(addCounterpart);
+        branchMembers.forEach((member) => {
+            member._horizontalDeckWidthResizeLock = true;
+            member._deckPressureSideResizeMember = true;
+            addCounterpart(member);
+        });
+        markDockResizeActiveMembers(entity, branchMembers, entity, { markResizing: false, horizontalWidthLock: true });
     }
 
     addCounterpart(pressureHub);
     pressureHub._deckPressureSideWidthOverrides = sideWidths;
-
-    pressureHub._deckPressurePreserveFrameBounds = preservedFrame;
     try {
         applyDeckPressureLayout(pressureHub, graph, snap);
     } finally {
-        delete pressureHub._deckPressurePreserveFrameBounds;
-        delete pressureHub._deckPressureSideWidthOverrides;
+        if (!pressureHub._deckPressureSideResizeSession) {
+            delete pressureHub._deckPressurePreserveFrameBounds;
+            delete pressureHub._deckPressureSideWidthOverrides;
+        }
     }
 
     result.handledWidth = true;

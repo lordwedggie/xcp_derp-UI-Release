@@ -124,10 +124,10 @@ function getLoraStackFlowEntries(regions = {}) {
         .sort((a, b) => (Number(a.reg.y) || 0) - (Number(b.reg.y) || 0));
 }
 
-function getLoraStackFlowSpan(entries, count = entries.length) {
+function getLoraStackFlowSpan(entries, region = null, count = entries.length) {
     const visible = entries.slice(0, Math.max(0, count));
     if (!visible.length) return 0;
-    const top = Number(visible[0].reg.y) || 0;
+    const top = Number(region?.y) || Number(visible[0].reg.y) || 0;
     const bottom = Math.max(...visible.map(({ reg }) => getRegionBottom(reg)));
     return bottom > top ? bottom - top : 0;
 }
@@ -158,10 +158,10 @@ function resolveLoraStackClipHeight(node, region, regions = {}) {
     const autoMinimumRows = 1;
     const visibleRows = Math.max(1, Math.min(rows, numericLimit || autoMinimumRows));
     const flowEntries = getLoraStackFlowEntries(regions);
-    const measuredHeight = getLoraStackFlowSpan(flowEntries, visibleRows);
+    const measuredHeight = getLoraStackFlowSpan(flowEntries, region, visibleRows);
     if (measuredHeight > 0) {
         if (numericLimit !== null) return measuredHeight;
-        const fullContentHeight = getLoraStackFlowSpan(flowEntries) || measuredHeight;
+        const fullContentHeight = getLoraStackFlowSpan(flowEntries, region) || measuredHeight;
         const autoHeight = resolveLoraStackAutoClipHeight(node, region, regions, fullContentHeight);
         if (autoHeight > 0) return Math.max(measuredHeight, autoHeight);
         return measuredHeight;
@@ -178,9 +178,9 @@ function resolveLoraStackMinClipHeight(node, region, regions = {}) {
     const numericLimit = getLoraStackNumericClipVisibleLimit(node);
     const floorRows = numericLimit !== null ? Math.min(rows, numericLimit) : 1;
     const flowEntries = getLoraStackFlowEntries(regions);
-    const oneRowH = getLoraStackFlowSpan(flowEntries, 1);
+    const oneRowH = getLoraStackFlowSpan(flowEntries, region, 1);
     if (floorRows <= 1) return oneRowH || (Number(region?.h) || 180);
-    return getLoraStackFlowSpan(flowEntries, floorRows) || oneRowH || (Number(region?.h) || 180);
+    return getLoraStackFlowSpan(flowEntries, region, floorRows) || oneRowH || (Number(region?.h) || 180);
 }
 
 function resolveLoraStackOneEntryHeight(node) {
@@ -462,6 +462,8 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                     const isDetailOpen = !!(window.xcpActiveBastas?.get(detailBastaId)?.hostNode === this);
                     if (!isDetailOpen) this._activeDetailSlot = -1;
 
+                    const lineBreakMarginL = mW;
+
                     const dropGapHeight = estimateLoraDropGapHeight(this, "loraRow_");
                     const dropGapWithTrailingSeparatorHeight = dropGapHeight + 1 + mH + oY;
 
@@ -497,7 +499,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                         if (prev && (!isDragged || shouldPlaceGapBeforeThisRow)) {
                             acc[`loraSep_${i}`] = {
                                 anchor: { target: prev, axis: "y", offset: oY },
-                                type: this.UI_TYPES.LINEBREAK, width: "full", height: 1, margin: [-mW, 0, -mW, mH],
+                                type: this.UI_TYPES.LINEBREAK, width: "full", height: 1, margin: [-lineBreakMarginL, 0, -mW, mH],
                             };
                             prev = `loraSep_${i}`;
                         }
@@ -860,6 +862,15 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                 minClipHeight: resolveLoraStackMinClipHeight,
                                 width: "full", height: "auto", dir: "col",
                                 margin: [0, 0, 0, 0],
+                                loraViewportTopPad: {
+                                    hidden: !useEntryViewport,
+                                    type: this.UI_TYPES.REGION,
+                                    hoverEffect: false,
+                                    alpha: 0,
+                                    width: "full",
+                                    height: 2,
+                                    margin: [0, 0, 0, 0],
+                                },
                                 ...stackRows,
                             },
                             footerControls: {

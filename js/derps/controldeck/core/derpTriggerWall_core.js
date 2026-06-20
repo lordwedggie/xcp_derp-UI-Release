@@ -7,10 +7,10 @@ import { showTriggerWall } from "../../../fatha/bastas/bastaTriggerWall.js";
 import { showBastaFileHandler } from "../../../fatha/bastas/bastaFileHandler.js";
 import { showBastaMessage } from "../../../fatha/bastas/bastaMessage.js";
 import { showBastaSystemMessage } from "../../../fatha/bastas/bastaSystemMessage.js";
-import { endStackDrag } from "../../../fatha/helpers/fathaDragDrop.js";
+import { cancelStackDragHold, clearStackDragState, endStackDrag, startStackDrag, updateStackDragPointerState } from "../../../fatha/helpers/fathaDragDrop.js";
 import { settleDerpSizeBeforeDraw } from "../../../fatha/core/fathaHandler.js";
 import { applyDerpPreferredAutoHeight } from "../../../fatha/core/derpHeightPolicy.js";
-import { getContentViewportForRegion, isContentViewportRegionHitVisible } from "../../../fatha/core/fathaContentViewport.js";
+import { getContentViewportForRegion } from "../../../fatha/core/fathaContentViewport.js";
 import { isLinearDeckGroup, isNodeDocked } from "../../../fatha/core/masterDockEngine.js";
 
 function tLocale(key, fallback = key) {
@@ -27,6 +27,15 @@ function tLocale(key, fallback = key) {
 function numberOr(value, fallback = 0) {
     const num = Number(value);
     return Number.isFinite(num) ? num : fallback;
+}
+
+export function isTriggerWallFrameworkSizingOwned(node) {
+    if (!node) return false;
+    if (node._isDerpResizing === true) return true;
+    if (node._horizontalDeckWidthResizeLock === true) return true;
+    if (node._deckPressureSideResizeMember === true) return true;
+    if (node._dockResizeSession) return true;
+    return false;
 }
 
 function normalizeTriggerWallClipVisibleLimit(value) {
@@ -300,7 +309,7 @@ export function triggerWall_onDrawForeground(node, ctx, originalCallback) {
         node.refreshNodeLayoutMap();
     }
 
-    if (node.layout) {
+    if (node.layout && !isTriggerWallFrameworkSizingOwned(node)) {
         node.layout.contentMinWidth = node.properties.minWidth || 200;
     }
 
@@ -450,12 +459,12 @@ export function triggerWall_groupDrag(node, data, visibleGroupIndices = []) {
         const driftX = Math.abs(data.localX - node._dragMouse[0]);
         const driftY = Math.abs(data.localY - node._dragMouse[1]);
         if (driftX > 2.5 || driftY > 2.5) {
-            endStackDrag(node, "");
+            cancelStackDragHold(node);
         }
         return;
     }
 
-    node._dragMouse = [data.localX, data.localY];
+    updateStackDragPointerState(node, data);
     const mouseY = data.localY;
     const draggedVisibleIdx = node._dragTrig.index;
     const stableRegs = [];
@@ -544,17 +553,21 @@ export function triggerWall_groupDragEnd(node) {
 
 export function triggerWall_itemDragStart(node, e, data, gIdx, tIdx) {
     const key = `triggerItem_${gIdx}_${tIdx}`;
-    const reg = node.layout.regions[key];
-    if (!reg) return;
-    if (!isContentViewportRegionHitVisible(node, key, { x: data.localX, y: data.localY })) return;
-    node._dragTrig = { key, gIdx, tIdx };
-    node._dragOffset = [data.localX - reg.x, data.localY - reg.y];
-    node._dragMouse = [data.localX, data.localY];
+    startStackDrag(node, data, tIdx, key, {
+        payload: { key, gIdx, tIdx },
+    });
 }
 
 export function triggerWall_itemDrag(node, e, data) {
     if (!node._dragTrig) return;
-    node._dragMouse = [data.localX, data.localY];
+    if (!node._dragThresholdMet) {
+        const driftX = Math.abs(data.localX - node._dragMouse[0]);
+        const driftY = Math.abs(data.localY - node._dragMouse[1]);
+        if (driftX > 2.5 || driftY > 2.5) cancelStackDragHold(node);
+        return;
+    }
+
+    updateStackDragPointerState(node, data);
     const mouseX = data.localX;
     const mouseY = data.localY;
     const group = node._triggerGroupData[node._dragTrig.gIdx];
@@ -624,13 +637,12 @@ export function triggerWall_itemDrag(node, e, data) {
 export function triggerWall_itemDragEnd(node, e, data) {
     const drag = node._dragTrig;
     const finalTarget = node._dropPreviewIdx;
-    node._dragTrig = null;
-    node._dragMouse = null;
-    node._dragOffset = null;
-    node._dropPreviewIdx = undefined;
+    const thresholdMet = node._dragThresholdMet;
+    if (thresholdMet) node._suppressClickAfterDrag = true;
+    clearStackDragState(node);
     node._floatingPreviewSnapshot = null;
 
-    if (!drag) return;
+    if (!drag || !thresholdMet) return;
 
     if (finalTarget !== undefined && finalTarget !== drag.tIdx) {
         const group = node._triggerGroupData[drag.gIdx];
