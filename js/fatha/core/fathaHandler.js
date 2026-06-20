@@ -54,8 +54,7 @@ const TOOLTIP_MOVE_THRESHOLD = 5;
 const DERP_BACKGROUND_SETTING_ID = "Derp.BackgroundImage";
 const DECK_RESIZE_OPT_NONE = "none";
 const DECK_RESIZE_OPT_GHOST = "ghost_layout";
-const DECK_RESIZE_OPT_CACHE = "whole_wall_cache";
-const DECK_RESIZE_OPT_MODES = new Set([DECK_RESIZE_OPT_NONE, DECK_RESIZE_OPT_GHOST, DECK_RESIZE_OPT_CACHE]);
+const DECK_RESIZE_OPT_MODES = new Set([DECK_RESIZE_OPT_NONE, DECK_RESIZE_OPT_GHOST]);
 const DERP_DEFAULT_TITLE_LOCALE_KEYS = [
     "fatha_layout.title_default",
     "derp_latent.title",
@@ -289,8 +288,8 @@ function restoreHorizontalDeckPositionAnchor(anchor) {
 }
 
 function getDeckResizeOptimizationMode() {
-    const raw = String(window.DERP_GLOBAL_SETTINGS?.deckResizeOptimization || DECK_RESIZE_OPT_CACHE).trim();
-    return DECK_RESIZE_OPT_MODES.has(raw) ? raw : DECK_RESIZE_OPT_CACHE;
+    const raw = String(window.DERP_GLOBAL_SETTINGS?.deckResizeOptimization || DECK_RESIZE_OPT_GHOST).trim();
+    return DECK_RESIZE_OPT_MODES.has(raw) ? raw : DECK_RESIZE_OPT_GHOST;
 }
 
 function setDeckResizeDomHidden(node, hidden) {
@@ -312,55 +311,6 @@ function setDeckResizeDomHidden(node, hidden) {
     if (!hidden) delete node._deckResizeDomHidden;
 }
 
-function createDeckResizeCanvas(width, height) {
-    const safeW = Math.max(1, Math.round(Number(width) || 1));
-    const safeH = Math.max(1, Math.round(Number(height) || 1));
-    if (typeof OffscreenCanvas !== "undefined") return new OffscreenCanvas(safeW, safeH);
-    if (typeof document !== "undefined" && typeof document.createElement === "function") {
-        const canvas = document.createElement("canvas");
-        canvas.width = safeW;
-        canvas.height = safeH;
-        return canvas;
-    }
-    return null;
-}
-
-function captureDeckResizeSnapshot(node) {
-    const canvas = app.canvas?.canvas;
-    const ds = app.canvas?.ds;
-    if (!node || !canvas || !ds) return null;
-    const rect = canvas.getBoundingClientRect?.();
-    const ratioX = rect?.width ? canvas.width / rect.width : 1;
-    const ratioY = rect?.height ? canvas.height / rect.height : 1;
-    const scale = Number(ds.scale) || 1;
-    const x = (Number(node.pos?.[0]) + Number(ds.offset?.[0] || 0)) * scale * ratioX;
-    const y = (Number(node.pos?.[1]) + Number(ds.offset?.[1] || 0)) * scale * ratioY;
-    const w = Math.max(1, Number(node.size?.[0] || 1) * scale * ratioX);
-    const h = Math.max(1, Number(node.size?.[1] || 1) * scale * ratioY);
-    const sx = Math.max(0, Math.floor(x));
-    const sy = Math.max(0, Math.floor(y));
-    const right = Math.min(canvas.width, Math.ceil(x + w));
-    const bottom = Math.min(canvas.height, Math.ceil(y + h));
-    const sw = right - sx;
-    const sh = bottom - sy;
-    if (sw <= 0 || sh <= 0) return null;
-    const snapshot = createDeckResizeCanvas(sw, sh);
-    const targetCtx = snapshot?.getContext?.("2d");
-    if (!snapshot || !targetCtx) return null;
-    try {
-        targetCtx.drawImage(canvas, sx, sy, sw, sh, 0, 0, sw, sh);
-    } catch (_) {
-        return null;
-    }
-    return {
-        canvas: snapshot,
-        width: sw,
-        height: sh,
-        nodeWidth: Math.max(1, Number(node.size?.[0] || 1)),
-        nodeHeight: Math.max(1, Number(node.size?.[1] || 1)),
-    };
-}
-
 function getDeckResizeHubMembers(hub, graph) {
     if (!isDeckPressureHub(hub) || !graph) return [];
     return getDeckMembers(hub, graph).filter((member) => member && member.id !== hub.id);
@@ -376,7 +326,6 @@ export function beginDeckResizeOptimization(hub, graph = app.graph || hub?.graph
     members.forEach((member) => {
         member._deckResizeOptimizationHubId = hub.id;
         member._deckResizeOptimizationMode = mode;
-        member._deckResizeSnapshot = mode === DECK_RESIZE_OPT_CACHE ? captureDeckResizeSnapshot(member) : null;
         setDeckResizeDomHidden(member, true);
     });
 }
@@ -388,7 +337,6 @@ export function endDeckResizeOptimization(hub) {
         setDeckResizeDomHidden(member, false);
         delete member._deckResizeOptimizationHubId;
         delete member._deckResizeOptimizationMode;
-        delete member._deckResizeSnapshot;
         member._forceSync = true;
         member._layoutDirty = true;
         if (typeof member.setDirtyCanvas === "function") member.setDirtyCanvas(true, true);
@@ -407,7 +355,7 @@ function getActiveDeckResizeModeForNode(node) {
     const graph = app.graph || node.graph || null;
     const hub = getDeckPressureHubForNode(node, graph);
     if (!hub || hub.id === node.id || hub.id !== node._deckResizeOptimizationHubId || hub._isDerpResizing !== true) return null;
-    return activeMode === DECK_RESIZE_OPT_CACHE || activeMode === DECK_RESIZE_OPT_GHOST ? activeMode : null;
+    return activeMode === DECK_RESIZE_OPT_GHOST ? activeMode : null;
 }
 
 function drawDeckResizeGhost(node, ctx) {
@@ -433,22 +381,7 @@ export function drawDeckResizeOptimizedNode(node, ctx) {
         return false;
     }
     setDeckResizeDomHidden(node, true);
-    const snapshot = mode === DECK_RESIZE_OPT_CACHE ? node._deckResizeSnapshot : null;
-    if (snapshot?.canvas && snapshot.width > 0 && snapshot.height > 0) {
-        ctx.drawImage(
-            snapshot.canvas,
-            0,
-            0,
-            snapshot.width,
-            snapshot.height,
-            0,
-            0,
-            Math.max(1, Number(node.size?.[0] || snapshot.nodeWidth || 1)),
-            Math.max(1, Number(node.size?.[1] || snapshot.nodeHeight || 1))
-        );
-    } else {
-        drawDeckResizeGhost(node, ctx);
-    }
+    drawDeckResizeGhost(node, ctx);
     if (node._forceSync) node._forceSync = false;
     return true;
 }

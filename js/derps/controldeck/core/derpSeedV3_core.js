@@ -360,16 +360,6 @@ export function handleSeedV3DigitBlur(node, val) {
     node.requestDerpSync?.();
 }
 
-export function handleSeedV3VisibleHistoryChange(node, val) {
-    if (String(getSeedV3VisibleHistory(node)) === String(val)) return;
-    node.properties.historyVisibleBeforeClip = val;
-    node._layoutMapHash = null;
-    node._seedV3SysLayoutHash = null;
-    node.refreshNodeLayoutMap?.();
-    node.refreshDerpSeedV3SysMap?.();
-    node.requestDerpSync?.();
-}
-
 export function finalizeSeedV3UI(node) {
     node._isExecuting = false;
     node._currentPromptId = null;

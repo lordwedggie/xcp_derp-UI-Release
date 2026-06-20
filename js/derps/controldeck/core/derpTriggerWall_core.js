@@ -105,7 +105,6 @@ function refreshAndSync(node, syncOutputs = true, dirtyFull = false, settleOptio
     syncTriggerGroupToProperties(node);
     node._compDataCache = {};
     node._triggerStaticCache?.clear?.();
-    node._triggerBitmapCache?.clear?.();
     node.refreshNodeLayoutMap();
     if (typeof settleDerpSizeBeforeDraw === "function") settleDerpSizeBeforeDraw(node, settleOptions);
     if (syncOutputs && node.syncDerpOutputs) node.syncDerpOutputs();

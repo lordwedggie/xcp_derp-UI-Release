@@ -61,7 +61,7 @@ const DERP_SETTING_DEFAULTS = {
     verticalPinnedCollapseUpward: true,
     verticalDeckExpandCount: "auto_fit",
     deckArrangement: "automatic",
-    deckResizeOptimization: "whole_wall_cache",
+    deckResizeOptimization: "ghost_layout",
     loraStackWholeWallCacheGate: "3",
     triggerWallWholeWallCacheGate: "10",
     perfOverlayHotkey: "Alt+Shift+P",
@@ -581,16 +581,15 @@ app.registerExtension({
             type: "combo",
             options: [
                 { value: "none", text: "None" },
-                { value: "ghost_layout", text: "Ghost Layout" },
-                { value: "whole_wall_cache", text: "Whole-Wall Cache" }
+                { value: "ghost_layout", text: "Ghost Layout" }
             ],
-            default: "whole_wall_cache",
+            default: "ghost_layout",
             onChange: (v) => {
-                const value = String(v || "whole_wall_cache").trim();
+                const value = String(v || "ghost_layout").trim();
                 window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
-                window.DERP_GLOBAL_SETTINGS.deckResizeOptimization = ["none", "ghost_layout", "whole_wall_cache"].includes(value)
+                window.DERP_GLOBAL_SETTINGS.deckResizeOptimization = ["none", "ghost_layout"].includes(value)
                     ? value
-                    : "whole_wall_cache";
+                    : "ghost_layout";
                 syncDerpGlobalSettingsAlias();
                 if (app.canvas) app.canvas.setDirty(true, true);
             }
@@ -657,14 +656,14 @@ app.registerExtension({
         app.ui.settings.addSetting({
             id: "Derp.LoraStackWholeWallCacheGate",
             name: "Derp LoRA Stack Whole-Wall Cache Gate",
-            category: DERP_GROUPS.optimization("Derp LoRA Stack Whole-Wall Cache Gate"),
+            category: DERP_GROUPS.optimization("LoRA Stack Cache: Drawn Entries"),
             sortOrder: DERP_GROUP_SORT_ORDER.optimization,
             type: "combo",
             options: [
                 { value: "none", text: "Never" },
-                { value: "3", text: "3" },
-                { value: "5", text: "5" },
-                { value: "8", text: "8" },
+                { value: "3", text: "More than 3 drawn entries" },
+                { value: "5", text: "More than 5 drawn entries" },
+                { value: "8", text: "More than 8 drawn entries" },
                 { value: "always", text: "Always" }
             ],
             default: "3",
@@ -680,15 +679,15 @@ app.registerExtension({
         app.ui.settings.addSetting({
             id: "Derp.TriggerWallWholeWallCacheGate",
             name: "Derp Trigger Wall Whole-Wall Cache Gate",
-            category: DERP_GROUPS.optimization("Derp Trigger Wall Whole-Wall Cache Gate"),
+            category: DERP_GROUPS.optimization("Trigger Wall Cache: Drawn Triggers"),
             sortOrder: DERP_GROUP_SORT_ORDER.optimization,
             type: "combo",
             options: [
                 { value: "none", text: "Never" },
-                { value: "10", text: "10" },
-                { value: "15", text: "15" },
-                { value: "20", text: "20" },
-                { value: "30", text: "30" },
+                { value: "10", text: "10 drawn triggers" },
+                { value: "15", text: "15 drawn triggers" },
+                { value: "20", text: "20 drawn triggers" },
+                { value: "30", text: "30 drawn triggers" },
                 { value: "always", text: "Always" }
             ],
             default: "10",
