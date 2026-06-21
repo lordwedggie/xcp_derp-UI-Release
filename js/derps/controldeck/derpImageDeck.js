@@ -278,8 +278,7 @@ app.registerExtension({
     },
 
     async beforeRegisterNodeDef(nodeType, nodeData) {
-        const nodeName = nodeData && typeof nodeData.name === "string" ? nodeData.name.toLowerCase() : "";
-        if (!nodeName.includes("imagedeck")) return;
+        if (nodeData.name !== "DerpImageDeckNode") return;
 
         fatha(nodeType, nodeData, 220);
         nodeType.prototype.computeSize = function(out) {
@@ -848,6 +847,8 @@ app.registerExtension({
                         imageUrl,
                         previousImageUrl: prevImageUrl,
                         transitionAlpha: fadeAlpha,
+                        useRenderCache: false,
+                        imageSmoothingQuality: "high",
                         aspectFit: "contain",
                         cornerRadius: 0,
                         suppressPlaceholder: false,

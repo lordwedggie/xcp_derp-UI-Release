@@ -442,6 +442,7 @@ export const getVirtualNodeLayoutMap = (node) => {
                     themeKey: "dialog, t_textBig",
                     state: p.contentCollapsed ? "ON" : undefined,
                     width: "full", height: "auto", padding: [pW, 0],
+                    displayMode: "cutoff",
                     hitTest: isTitleTextHit, deferAsleepDomHitTest: true,
                     
                     text: node.titleLabel || "Virtual Node",

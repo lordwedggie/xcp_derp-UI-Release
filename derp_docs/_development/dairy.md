@@ -1057,4 +1057,117 @@ If you decide to proceed, the best next deliverable is a design document for `ma
 - compatibility shims
 - migration order
 
-That would make the rewrite predictable and keep the old system functional while the new one comes online.
+# Startup Warning: Toast Notification for Missing user/derpNodes Folder
+
+Date: 2026-06-21
+
+## Source
+
+Inspected the `ComfyUI-NL_Nodes` repo to understand how it pops up a user-visible warning when `extra_model_paths.yaml` is missing. The mechanism is clean and reusable for our own startup checks.
+
+## The NL_Nodes Pattern
+
+### Python backend (`model_localizer.py` / `nl_templates.py`)
+
+1. A helper function checks for the required resource at import/startup time:
+
+```python
+def _extra_model_paths_config_path() -> str:
+    path = find_extra_model_paths(logger=LOGGER, log_prefix="NL Model Localizer")
+    if not path:
+        raise FileNotFoundError(
+            "extra_model_paths.yaml not found. Set --extra-model-paths-config or place it next to ComfyUI."
+        )
+    return path
+```
+
+2. When the resource is missing, `FileNotFoundError` is raised with a clear user-facing message.
+
+3. API route handlers catch exceptions and return JSON:
+
+```python
+@routes.get("/nl_templates/list")
+async def list_templates(request):
+    try:
+        payload = await run_sync(_list_templates, username)
+        return web.json_response(payload)
+    except Exception as exc:
+        return web.json_response({"error": str(exc)}, status=500)
+```
+
+### JS frontend (`nl_templates.js`)
+
+4. The frontend receives the JSON error, extracts `error` field, and calls a shared `notifyUser()` helper:
+
+```javascript
+function notifyUser(message) {
+    if (app?.ui?.showToast) {
+        app.ui.showToast(message);       // ComfyUI's built-in toast popup
+        return;
+    }
+    void showNlAlertDialog({             // custom dialog fallback
+        title: "NL Templates",
+        message,
+    });
+}
+```
+
+`app.ui.showToast()` is ComfyUI's standard notification popup — it appears as a small toast at the top of the canvas, auto-dismisses. No custom UI needed.
+
+## How To Apply This Pattern To xcp_derp-UI
+
+### The check
+
+At startup (in `__init__.py` or a dedicated startup-check module), verify that `user/derpNodes/` exists relative to the node pack root. If it's missing, raise a descriptive error:
+
+```python
+import os
+
+def _check_user_derpnodes():
+    base = os.path.dirname(os.path.abspath(__file__))
+    path = os.path.join(base, "user", "derpNodes")
+    if not os.path.isdir(path):
+        raise FileNotFoundError(
+            "user/derpNodes folder is missing. "
+            "This folder contains bundled themes, palettes, and assets required by derp-UI. "
+            "Reinstall the node pack or restore the folder from the release archive."
+        )
+```
+
+### Surface to user
+
+Two options:
+
+**Option A — Block node registration (same pattern as NL_Nodes).** Raise the error during `__init__.py` import. ComfyUI prints a warning to console but the node pack fails to load. Simple, but the user only sees it in the terminal/log.
+
+**Option B — Deferred check via API route.** Register a lightweight health-check route that the JS frontend can call on page load. If the folder is missing, return `{"error": "..."}`. The JS side calls `app.ui.showToast("derp-UI: user/derpNodes folder is missing...")` and the user sees a visible toast popup.
+
+Option B is better UX — the toast is visible in the ComfyUI canvas, not buried in terminal logs.
+
+### JS frontend hook
+
+In the node pack's main JS entry point (registered via `WEB_DIRECTORY`), add:
+
+```javascript
+// On ComfyUI page load, check if user/derpNodes is present
+fetch("/xcp/health/derpnodes")
+    .then(r => r.json())
+    .then(data => {
+        if (data.error && app?.ui?.showToast) {
+            app.ui.showToast("derp-UI: " + data.error);
+        }
+    })
+    .catch(() => {}); // silent if route not available
+```
+
+### Files involved
+
+| File | Change |
+|------|--------|
+| `python/xcp_routes/` (new route or existing) | Add `GET /xcp/health/derpnodes` that checks `user/derpNodes/` exists, returns `{"ok":true}` or `{"error":"..."}` |
+| `js/` entry point | Add fetch-on-load health check that calls `app.ui.showToast()` on error |
+| `python/__init__.py` | Optional: early-exit if folder missing (Option A) |
+
+### Key insight
+
+`app.ui.showToast()` is the ComfyUI standard. It's already available in every ComfyUI instance, no dependency needed. The NL_Nodes team uses it for all their user-facing notifications. We should too.

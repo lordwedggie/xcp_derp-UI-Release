@@ -97,7 +97,7 @@ if (!window._xcp_derpLoraStack_Core_Loaded) {
             },
 
             async beforeRegisterNodeDef(nodeType, nodeData) {
-                if (!nodeData.name.toLowerCase().includes("derplorastack")) return;
+                if (nodeData.name !== "DerpLoraStackNode") return;
                 fatha(nodeType, nodeData, 200);
 
                 // THE GHOST SLOT HEIST: Force-suppress native slots during any custom drag interaction to prevent "circle things"

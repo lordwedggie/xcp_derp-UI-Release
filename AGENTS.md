@@ -132,6 +132,7 @@ Reusable task workflows live in `.agents/skills/` as `SKILL.md` files. Each skil
 - **update-palette** — updates many palette JSON entries from one or a few hand-crafted exemplar entries while preserving category-specific behavior and palette structure.
 - **update-theme** — updates many theme JSON keys from one or a few hand-crafted exemplar keys, starting from `canvas` and the main `_ON/_OFF/_DIS` colors before deriving effects.
 - **video-editor** — automates video editing with FFmpeg: trim, cut, concatenate, text overlays, intro/outro cards, speed ramps, and MP4 rendering for tutorial videos.
+- **run-tests** — runs the Vitest test suite (`npm test`). Write or update tests when fixing layout/measurement bugs in pure functions. Covers `interpretLayoutProps`, width/height math, and theme resolution.
 
 To add a skill, create `.agents/skills/<name>/SKILL.md` with YAML frontmatter (`name`, `description`) and a workflow body. Keep skills project-scoped so all agents share them.
 
@@ -272,6 +273,7 @@ To add a skill, create `.agents/skills/<name>/SKILL.md` with YAML frontmatter (`
 - Pure top/bottom vertical stack seam resizing must preserve the stack's starting shared width during the live resize window, growing only to a freshly measured content floor when the start width is genuinely too small. Apparent width creep can come from stale wider member widths being propagated by later normalization, not from the seam resize code directly.
 - Node-local Height Mode normalization must not overwrite docking's live `autoHeight = false` lock while `deckSavedAutoHeight` exists; update the saved standalone preference instead so vertical stack resize handles stay height-capable while docked.
 - Tooltips for content viewport descendants must anchor to displayed viewport coordinates, not raw unscrolled content-space region positions; resolve through viewport state and subtract scroll before pinning Basta overlays.
+- Content viewport pointer clicks should preserve the pre-click scroll target across transient measurement/no-overflow passes; otherwise clipped LoraStack/TriggerWall entries can jump back to the top after a button press in Deck Pressure branches.
 - Left/right vertical Deck Pressure branch seam resizing must preserve the freshly fitted member heights during mouse-up settlement; saved expanded-height preferences should not immediately re-grow a lower active member after release.
 - Internal vertical seam drags in left/right Deck Pressure branches must preserve the canonical Deck frame and immediately rerun Deck Pressure layout; generic vertical normalization can push later branch members outside the side band until idle layout repairs them.
 - Content viewport resize floors must use `_contentViewportMinClipHeight` / `minClipHeight` rather than the current visible clip height, so Fit Node clipped regions can shrink to one visible entry/group during seam resizing.
@@ -281,6 +283,7 @@ To add a skill, create `.agents/skills/<name>/SKILL.md` with YAML frontmatter (`
 
 ### Node-Specific Notes
 
+- Derp-owned frontend `beforeRegisterNodeDef` guards must use exact backend class names. Fuzzy checks like `includes("modelloader")` or `includes("imagedeck")` can hijack third-party nodes with similar class names.
 - `derpSignalOut` refresh can be throttled; force refresh for one-shot source title changes.
 - Indexed wireless transmitter IDs use `${baseId}:${index}` and should write complete signal records into `window.xcpDerpSignals`.
 - Bypassed indexed wireless outputs should emit empty strings.
@@ -323,3 +326,11 @@ When a `canvasShield` EDITOR widget's text must update and the node uses whole-w
 - `el._lastStateHash = null` — forces DOM re-render
 
 This bypasses the whole-wall cache staleness entirely: the next whole-wall render captures the already-updated values, and the DOM resyncs because its state hash is cleared.
+
+---
+
+## Testing
+
+Run `npm test` after touching layout/measurement/theme-resolution code. Write a regression test when fixing a bug in a pure function where the symptom is invisible in common cases but breaks in edge cases (long titles, specific dock arrangements, viewport states).
+
+The test suite targets pure functions (`interpretLayoutProps`, `_calculateReservedWidth`, `resolvePaintData`, `measureTextWidth`, Deck Pressure helpers, string-color pipeline) — not canvas/DOM rendering or gesture handling. See the `run-tests` skill for mock patterns and infrastructure.

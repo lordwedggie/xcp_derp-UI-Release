@@ -138,7 +138,7 @@ function recordFathaOverlayPerf(node, drawMs) {
 
 function isPassiveWholeWallCacheNode(node) {
     const typeName = String(node?.type || "").toLowerCase();
-    return typeName.includes("triggerwall") || typeName.includes("derplorastack") || typeName.includes("imagedeck");
+    return typeName.includes("triggerwall") || typeName.includes("derplorastack");
 }
 
 function suspendPassiveWholeWallCache(node, durationMs = 220) {
@@ -357,62 +357,6 @@ function buildPassiveWholeWallCacheState(node, passiveCacheScale) {
         return { canUse, cacheReg, key, cacheSlot: "_passiveWholeWallCanvasCache" };
     }
 
-    if (typeName.includes("imagedeck")) {
-        const cacheReg = node.layout?.regions?.panelBackground;
-        const suspendUntil = Number(node._passiveWholeWallCacheSuspendUntil || 0);
-        const activeRegion = node._pressedRegionKey ? node.layout?.regions?.[node._pressedRegionKey] : null;
-        const activeRegionType = String(activeRegion?.type || "");
-        const hasOpenPicker = !!(window.__xcpHasActiveDropdown || window.__xcpHasActiveFileBrowser);
-        const hasAwakeDom = !!(node._derpDomElements && Object.values(node._derpDomElements).some(el => el?._isAwake));
-        const hasLiveControlInteraction = activeRegionType === UI_TYPES.DROPDOWN_DERP ||
-            activeRegionType === UI_TYPES.FILEBROWSER ||
-            activeRegionType === UI_TYPES.DROPDOWN ||
-            activeRegionType === UI_TYPES.EDITOR;
-        const canUse = !!(
-            cacheReg &&
-            !node._forceSync &&
-            !node._layoutDirty &&
-            !(Number(node._pendingImageLoads || 0) > 0) &&
-            node._derpImageDeckCrossfading !== true &&
-            performance.now() >= suspendUntil &&
-            !node._dragTrig &&
-            !node._dragThresholdMet &&
-            !hasOpenPicker &&
-            !node._hasVisibleDerpEditorDom &&
-            !hasAwakeDom &&
-            !hasLiveControlInteraction
-        );
-        const imageListHash = Array.isArray(node._derpImageDeckList)
-            ? node._derpImageDeckList.map(item => {
-                if (!item || typeof item !== "object") return String(item || "");
-                return `${item.filename || item.image || ""}|${item.type || "output"}|${item.subfolder || ""}`;
-            }).join("\u0001")
-            : "";
-        const key = canUse ? [
-            Math.max(1, Math.round(cacheReg?.w || node.size?.[0] || 1)),
-            Math.max(1, Math.round(cacheReg?.h || node.size?.[1] || 1)),
-            node._layoutMapHash || "",
-            imageListHash,
-            node._derpImageDeckIndex || 0,
-            node._derpImageDeckDisplayUrl || "",
-            node._derpImageDeckPrevDisplayUrl || "",
-            node._currentThemeCacheKey || node._currentThemeName || "",
-            node.mode || 0,
-            node.properties?.contentCollapsed === true ? 1 : 0,
-            node.properties?.imageDeckFilenamePrefix || "",
-            node.properties?.imageDeckFilenameOverride || "",
-            node.properties?.imageDeckCustomFolder || "",
-            node.properties?.imageDeckSaveFormat || "",
-            node.properties?.toggleModelInfo === false ? 0 : 1,
-            node.properties?.toggleSamplerInfo === false ? 0 : 1,
-            node.properties?.toggleSchedulerInfo === false ? 0 : 1,
-            node.properties?.toggleAutoSave === true ? 1 : 0,
-            node._hoveredRegionKey || "",
-            node._pressedRegionKey || "",
-            passiveCacheScale,
-        ].join("|") : null;
-        return { canUse, cacheReg, key, cacheSlot: "_imageDeckPassiveCanvasCache" };
-    }
 
     return { canUse: false, cacheReg: null, key: null, cacheSlot: null };
 }

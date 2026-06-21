@@ -39,7 +39,7 @@ app.registerExtension({
     },
 
     async beforeRegisterNodeDef(nodeType, nodeData) {
-        if (!nodeData.name.toLowerCase().includes("modelloader")) return;
+        if (nodeData.name !== "DerpModelLoaderNode") return;
         fatha(nodeType, nodeData, 200);
         initDerpModelLoaderCore(nodeType);
 

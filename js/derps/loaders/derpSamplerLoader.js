@@ -26,7 +26,7 @@ app.registerExtension({
     },
 
     async beforeRegisterNodeDef(nodeType, nodeData) {
-        if (!nodeData.name.toLowerCase().includes("samplerloader")) return;
+        if (nodeData.name !== "derpSamplerLoader") return;
 
         fatha(nodeType, nodeData, 200);
         initDerpSamplerLoaderCore(nodeType);

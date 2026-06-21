@@ -206,7 +206,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
         app.registerExtension({
             name: "xcp.derpLoraStack_Layout",
             async beforeRegisterNodeDef(nodeType, nodeData) {
-                if (!nodeData.name.toLowerCase().includes("derplorastack")) return;
+                if (nodeData.name !== "DerpLoraStackNode") return;
 
                 nodeType.prototype.onResize = function(size) {
                     const storedW = Number(this.properties?.nodeSize?.[0]) || 0;

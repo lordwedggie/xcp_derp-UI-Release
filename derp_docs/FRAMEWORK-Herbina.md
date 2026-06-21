@@ -105,6 +105,9 @@ widgets/
 - For signal selection UIs, prefer `FILEBROWSER` with `mode: "signal"` instead of custom ad-hoc picker panels.
 
 
+## <span style="color: #80ffc0">IMAGE_HTML Notes</span>
+- `IMAGE_HTML` may pre-render images into a target-sized canvas for thumbnail-style widgets. Full UI previews such as ImageDeck should set `useRenderCache: false` so the preview draws from the loaded image element instead of a UI-side render cache.
+
 ## <span style="color: #80ffc0">Markdown HTML Notes</span>
 - `UI_TYPES.MARKDOWN_HTML` is an HTML widget backed by `widget_MarkdownHTML.js`.
 - It renders a conservative Markdown subset plus sanitized safe HTML tags. Raw scripts, event handlers, unsafe URL schemes, arbitrary inline styles, and non-explicit remote URLs are stripped.

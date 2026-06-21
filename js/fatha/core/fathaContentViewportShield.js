@@ -5,7 +5,10 @@ import {
     requestContentViewportRedraw,
     scrollContentViewport,
     setContentViewportScroll,
+    getContentViewportScroll,
 } from "./fathaContentViewport.js";
+
+export { preserveContentViewportScrollForInteraction } from "./fathaContentViewport.js";
 
 function numberOr(value, fallback = 0) {
     const num = Number(value);
@@ -20,7 +23,7 @@ function getViewportAtLocalPoint(node, localPoint) {
     }) || null;
 }
 
-function getScrollbarRects(state) {
+function getScrollbarRects(node, state) {
     if (!state?.hasOverflow || !state.rect) return null;
     const rect = state.rect;
     const trackH = Math.max(1, rect.h - 4);
@@ -29,7 +32,8 @@ function getScrollbarRects(state) {
     const trackY = rect.y + 2;
     const thumbH = Math.max(FATHA_CONTENT_SCROLLBAR_MIN_THUMB, trackH * (rect.h / Math.max(rect.h, state.fullHeight)));
     const maxThumbTravel = Math.max(0, trackH - thumbH);
-    const ratio = state.maxScroll > 0 ? state.scrollTop / state.maxScroll : 0;
+    const effectiveScrollTop = getContentViewportScroll(node, state.key);
+    const ratio = state.maxScroll > 0 ? effectiveScrollTop / state.maxScroll : 0;
     const thumbY = trackY + maxThumbTravel * ratio;
     return {
         track: { x: trackX, y: trackY, w: trackW, h: trackH },
@@ -58,7 +62,7 @@ export function handleContentViewportWheel(node, localPoint, event) {
 
 export function tryStartContentViewportScrollbarDrag(node, localPoint, event, getLocalCoords) {
     const state = getViewportAtLocalPoint(node, localPoint);
-    const rects = getScrollbarRects(state);
+    const rects = getScrollbarRects(node, state);
     if (!state || !rects || !pointInRect(localPoint, rects.track)) return false;
 
     event.preventDefault();

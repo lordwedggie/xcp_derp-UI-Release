@@ -74,7 +74,8 @@ export function drawContentViewportScrollbars(ctx, node) {
         const trackCorners = [trackW / 2, trackW / 2, trackW / 2, trackW / 2];
         const thumbH = Math.max(FATHA_CONTENT_SCROLLBAR_MIN_THUMB, trackH * (rect.h / Math.max(rect.h, state.fullHeight)));
         const maxThumbTravel = Math.max(0, trackH - thumbH);
-        const ratio = state.maxScroll > 0 ? state.scrollTop / state.maxScroll : 0;
+        const effectiveScrollTop = getContentViewportScroll(node, state.key);
+        const ratio = state.maxScroll > 0 ? effectiveScrollTop / state.maxScroll : 0;
         const thumbY = trackY + maxThumbTravel * ratio;
         const thumbX = rect.x + rect.w + Math.max(0, (state.gutter - FATHA_CONTENT_SCROLLBAR_WIDTH) / 2);
         const thumbCorners = [FATHA_CONTENT_SCROLLBAR_WIDTH / 2, FATHA_CONTENT_SCROLLBAR_WIDTH / 2, FATHA_CONTENT_SCROLLBAR_WIDTH / 2, FATHA_CONTENT_SCROLLBAR_WIDTH / 2];
