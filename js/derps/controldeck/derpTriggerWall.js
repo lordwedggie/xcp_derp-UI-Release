@@ -337,6 +337,21 @@ function getTriggerWallFooterReserve(regions = {}) {
     return footerBody + footerGap;
 }
 
+function getTriggerWallGroupEntries(regions = {}) {
+    return Object.entries(regions)
+        .filter(([key, reg]) => reg && key.startsWith("triggerRegion_"))
+        .map(([key, reg]) => ({ key, reg }))
+        .sort((a, b) => (Number(a.reg.y) || 0) - (Number(b.reg.y) || 0));
+}
+
+function getTriggerWallGroupSpan(entries, region = null, count = entries.length) {
+    const visible = entries.slice(0, Math.max(0, count));
+    if (!visible.length) return 0;
+    const top = Number(region?.y) || Number(visible[0].reg.y) || 0;
+    const bottom = Math.max(...visible.map(({ reg }) => getRegionBottom(reg)));
+    return bottom > top ? bottom - top : 0;
+}
+
 function resolveTriggerWallAutoClipHeight(node, region, regions = {}, fullContentHeight = 0) {
     const nodeH = Number(node?.size?.[1] || node?.properties?.nodeSize?.[1] || 0);
     const regionY = Number(region?.y) || 0;
@@ -364,17 +379,13 @@ function resolveTriggerWallAutoClipHeight(node, region, regions = {}, fullConten
 }
 
 function resolveTriggerWallGroupsClipHeight(node, region, regions = {}) {
-    const groupKeys = Object.keys(regions).filter((key) => key.startsWith("triggerRegion_"));
-    if (groupKeys.length > 0) {
+    const groupEntries = getTriggerWallGroupEntries(regions);
+    if (groupEntries.length > 0) {
         const pixelClipHeight = getTriggerWallPixelClipHeight(node);
-        const visibleKeys = groupKeys.slice(0, 1);
-        const top = Math.min(...visibleKeys.map((key) => Number(regions[key]?.y) || 0));
-        const bottom = Math.max(...visibleKeys.map((key) => getRegionBottom(regions[key])));
-        if (bottom > top) {
-            const measuredHeight = bottom - top;
+        const measuredHeight = getTriggerWallGroupSpan(groupEntries, region, 1);
+        if (measuredHeight > 0) {
             if (pixelClipHeight !== null) return pixelClipHeight;
-            const fullBottom = Math.max(...groupKeys.map((key) => getRegionBottom(regions[key])));
-            const fullContentHeight = fullBottom > top ? fullBottom - top : measuredHeight;
+            const fullContentHeight = getTriggerWallGroupSpan(groupEntries, region) || measuredHeight;
             const autoHeight = resolveTriggerWallAutoClipHeight(node, region, regions, fullContentHeight);
             if (autoHeight > 0) return Math.max(measuredHeight, autoHeight);
             return measuredHeight;
@@ -386,9 +397,9 @@ function resolveTriggerWallGroupsClipHeight(node, region, regions = {}) {
 function resolveTriggerWallGroupsMinClipHeight(node, region, regions = {}) {
     const pixelClipHeight = getTriggerWallPixelClipHeight(node);
     if (pixelClipHeight !== null) return pixelClipHeight;
-    const firstGroupKey = Object.keys(regions).find((key) => key.startsWith("triggerRegion_"));
-    const firstGroup = firstGroupKey ? regions[firstGroupKey] : null;
-    if (firstGroup) return Math.max(1, getRegionBottom(firstGroup) - (Number(firstGroup.y) || 0));
+    const groupEntries = getTriggerWallGroupEntries(regions);
+    const firstGroupH = getTriggerWallGroupSpan(groupEntries, region, 1);
+    if (firstGroupH > 0) return firstGroupH;
     return Number(region?.h) || 180;
 }
 
