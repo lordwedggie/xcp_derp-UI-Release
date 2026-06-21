@@ -10,6 +10,10 @@ function numberOr(value, fallback = 0) {
     return Number.isFinite(num) ? num : fallback;
 }
 
+function nowMs() {
+    return (typeof performance !== "undefined" && typeof performance.now === "function") ? performance.now() : Date.now();
+}
+
 function normalizeMargin(margin) {
     if (!Array.isArray(margin)) return [0, 0, 0, 0];
     return margin.length === 4
@@ -149,7 +153,7 @@ export function getContentViewportDisplayedGeometry(node, regionKey, geometry = 
     if (!base) return null;
     const state = getContentViewportForRegion(node, regionKey);
     if (!state?.rect || state.key === regionKey) return base;
-    return { ...base, y: numberOr(base.y) - numberOr(state.scrollTop) };
+    return { ...base, y: numberOr(base.y) - getContentViewportScroll(node, state.key) };
 }
 
 export function isContentViewportRegionHitVisible(node, regionKey, localPoint) {
@@ -157,12 +161,14 @@ export function isContentViewportRegionHitVisible(node, regionKey, localPoint) {
     if (!state) return true;
     const rect = state.rect;
     if (!rect || !localPoint) return true;
-    const rawY = numberOr(localPoint.y) - (state.key === regionKey ? 0 : numberOr(state.scrollTop));
+    const rawY = numberOr(localPoint.y) - (state.key === regionKey ? 0 : getContentViewportScroll(node, state.key));
     return rawY >= numberOr(rect.y) && rawY <= numberOr(rect.y) + numberOr(rect.h);
 }
 
 export function getContentViewportScroll(node, viewportKey) {
-    return numberOr(node?._contentViewportScroll?.[viewportKey], 0);
+    const current = numberOr(node?._contentViewportScroll?.[viewportKey], 0);
+    if (!node || !viewportKey || numberOr(node._contentViewportScrollPreserveUntil, 0) <= nowMs()) return current;
+    return Math.max(current, numberOr(node._contentViewportScrollPreserve?.[viewportKey], current));
 }
 
 export function setContentViewportScroll(node, viewportKey, value) {
@@ -172,6 +178,9 @@ export function setContentViewportScroll(node, viewportKey, value) {
     const next = Math.max(0, Math.min(numberOr(value, 0), maxScroll));
     if (!node._contentViewportScroll) node._contentViewportScroll = {};
     node._contentViewportScroll[viewportKey] = next;
+    if (maxScroll > 0 && node._contentViewportScrollPreserve && numberOr(node._contentViewportScrollPreserveUntil, 0) > nowMs()) {
+        node._contentViewportScrollPreserve[viewportKey] = next;
+    }
     if (state) state.scrollTop = next;
     return next;
 }
@@ -179,6 +188,24 @@ export function setContentViewportScroll(node, viewportKey, value) {
 export function scrollContentViewport(node, viewportKey, deltaY) {
     const current = getContentViewportScroll(node, viewportKey);
     return setContentViewportScroll(node, viewportKey, current + numberOr(deltaY, 0));
+}
+
+export function preserveContentViewportScrollForInteraction(node, viewportKey = null, durationMs = 500) {
+    if (!node) return;
+    const scrolls = node._contentViewportScroll || {};
+    const states = node._contentViewportState || {};
+    const keys = viewportKey ? [viewportKey] : Object.keys(scrolls);
+    if (!keys.length) return;
+    if (!node._contentViewportScrollPreserve) node._contentViewportScrollPreserve = {};
+    keys.forEach((key) => {
+        if (!key) return;
+        const current = Math.max(numberOr(scrolls[key], 0), numberOr(states[key]?.scrollTop, 0));
+        node._contentViewportScrollPreserve[key] = Math.max(numberOr(node._contentViewportScrollPreserve[key], 0), current);
+    });
+    node._contentViewportScrollPreserveUntil = Math.max(
+        numberOr(node._contentViewportScrollPreserveUntil, 0),
+        nowMs() + Math.max(0, numberOr(durationMs, 500))
+    );
 }
 
 export function mapPointThroughContentViewport(node, point) {
@@ -292,8 +319,21 @@ export function applyContentViewportLayout(node, regions, layout, options = {}) 
     node._contentViewportCandidate = hasViewport;
     node._contentViewportGutter = 0;
     if (!node._contentViewportScroll) node._contentViewportScroll = {};
+    const preserveScrollActive = numberOr(node._contentViewportScrollPreserveUntil, 0) > nowMs();
+    const preservedScroll = preserveScrollActive
+        ? (node._contentViewportScrollPreserve || (node._contentViewportScrollPreserve = {}))
+        : null;
+    if (!preserveScrollActive) {
+        delete node._contentViewportScrollPreserve;
+        delete node._contentViewportScrollPreserveUntil;
+    }
     Object.entries(nextState).forEach(([key, state]) => {
-        node._contentViewportScroll[key] = Math.max(0, Math.min(numberOr(node._contentViewportScroll[key], 0), state.maxScroll));
+        const currentScroll = numberOr(node._contentViewportScroll[key], 0);
+        const targetScroll = preserveScrollActive
+            ? Math.max(currentScroll, numberOr(preservedScroll[key], currentScroll))
+            : currentScroll;
+        if (preserveScrollActive) preservedScroll[key] = targetScroll;
+        node._contentViewportScroll[key] = Math.max(0, Math.min(targetScroll, state.maxScroll));
         state.scrollTop = node._contentViewportScroll[key];
     });
 
@@ -331,7 +371,7 @@ export function getContentViewportSignature(node) {
         state.key,
         Math.round(numberOr(state.fullHeight)),
         Math.round(numberOr(state.clipHeight)),
-        Math.round(numberOr(state.scrollTop)),
+        Math.round(getContentViewportScroll(node, state.key)),
         state.hasOverflow ? 1 : 0,
         Math.round(numberOr(state.minClipHeight)),
     ].join(":")) .join("|");

@@ -58,7 +58,7 @@ app.registerExtension({
 
     async beforeRegisterNodeDef(nodeType, nodeData) {
         // FLEXIBLE TARGETING: Match Python class name "DerpSliderNode"
-        if (!nodeData.name.toLowerCase().includes("slidernode")) return;
+        if (nodeData.name !== "DerpSliderNode") return;
 
         console.log(`[Fatha] Intercepting Python Node: ${nodeData.name}`);
 

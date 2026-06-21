@@ -4,7 +4,12 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
-  "private": true
+  "private": true,
+  "devDependencies": {
+    "happy-dom": "^20.10.6",
+    "vitest": "^4.1.9"
+  }
 }

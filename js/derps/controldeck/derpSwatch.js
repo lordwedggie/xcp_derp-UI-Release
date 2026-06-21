@@ -229,7 +229,7 @@ app.registerExtension({
     },
 
     async beforeRegisterNodeDef(nodeType, nodeData) {
-        if (!nodeData.name.toLowerCase().includes("swatchnode")) return;
+        if (nodeData.name !== "DerpSwatchNode") return;
 
         console.log(`[Fatha] Intercepting Python Node: ${nodeData.name}`);
 

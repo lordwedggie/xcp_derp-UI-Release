@@ -38,6 +38,7 @@ export function syncImageHTML(ctx, node, app, config, overlayPass = false) {
     const h = Math.floor(config.geometry.h);
 
     const drawMode = config.drawMode || "both";
+    const useRenderCache = config.useRenderCache !== false;
     const strokeOnOverlay = !!config.strokeZIndex;
     const cornerRadius = Number(config.cornerRadius ?? 4);
     const currentImageObj = node._imageInstanceCache?.[config.key];
@@ -225,7 +226,14 @@ export function syncImageHTML(ctx, node, app, config, overlayPass = false) {
                 else cW = targetSize * imgRatio;
                 cW = Math.floor(cW); cH = Math.floor(cH);
 
-                if (imgObj._renderCacheW !== cW || imgObj._renderCacheH !== cH || imgObj._renderCacheGray !== config.grayscale) {
+                if (!useRenderCache && imgObj._renderCache) {
+                    delete imgObj._renderCache;
+                    delete imgObj._renderCacheW;
+                    delete imgObj._renderCacheH;
+                    delete imgObj._renderCacheGray;
+                }
+
+                if (useRenderCache && (imgObj._renderCacheW !== cW || imgObj._renderCacheH !== cH || imgObj._renderCacheGray !== config.grayscale)) {
                     if (!imgObj._renderCache) imgObj._renderCache = document.createElement("canvas");
                     const offCanvas = imgObj._renderCache;
                     offCanvas.width = cW;
@@ -267,8 +275,13 @@ export function syncImageHTML(ctx, node, app, config, overlayPass = false) {
                     }
                 }
 
-                ctx.imageSmoothingQuality = "low";
-                ctx.drawImage(imgObj._renderCache, Math.floor(drawX), Math.floor(drawY), Math.floor(drawW), Math.floor(drawH));
+                ctx.imageSmoothingQuality = config.imageSmoothingQuality || (useRenderCache ? "low" : "high");
+                if (useRenderCache && imgObj._renderCache) {
+                    ctx.drawImage(imgObj._renderCache, Math.floor(drawX), Math.floor(drawY), Math.floor(drawW), Math.floor(drawH));
+                } else {
+                    if (config.grayscale === true) ctx.filter = `grayscale(100%) brightness(${BYPASS_BRIGHTNESS})`;
+                    ctx.drawImage(imgObj, Math.floor(drawX), Math.floor(drawY), Math.floor(drawW), Math.floor(drawH));
+                }
                 ctx.restore();
                 return true;
             };

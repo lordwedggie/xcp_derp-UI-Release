@@ -141,7 +141,7 @@ app.registerExtension({
     },
 
     async beforeRegisterNodeDef(nodeType, nodeData) {
-        if (!nodeData.name.toLowerCase().includes("togglenode")) return;
+        if (nodeData.name !== "DerpToggleNode") return;
 
         fatha(nodeType, nodeData, 50);
 

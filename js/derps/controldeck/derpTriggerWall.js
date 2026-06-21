@@ -452,7 +452,7 @@ app.registerExtension({
     },
 
     async beforeRegisterNodeDef(nodeType, nodeData) {
-        if (!nodeData.name.toLowerCase().includes("triggerwall")) return;
+        if (nodeData.name !== "DerpTriggerWallNode") return;
 
         // --- PROFILE LOGIC (sys panel dropdown) ---
         nodeType.prototype.exportDerpProfile = function() {

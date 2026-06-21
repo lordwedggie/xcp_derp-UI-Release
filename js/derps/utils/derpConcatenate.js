@@ -303,7 +303,7 @@ app.registerExtension({
     },
 
     async beforeRegisterNodeDef(nodeType, nodeData) {
-        if (!nodeData.name.toLowerCase().includes("derpconcatenate")) return;
+        if (nodeData.name !== "derpConcatenate") return;
 
         console.log(`[Fatha] Intercepting Python Node: ${nodeData.name}`);
 

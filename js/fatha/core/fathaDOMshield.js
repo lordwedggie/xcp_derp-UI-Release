@@ -24,7 +24,7 @@ import { beginDeckResizeOptimization, clearEntityTooltip, endDeckResizeOptimizat
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
 import { MASTER_Z, promoteMasterZ } from "./masterZ.js";
 import { isComfyVueNodesMode } from "./fathaNode2Compat.js";
-import { handleContentViewportWheel, mapShieldPointThroughContentViewport, tryStartContentViewportScrollbarDrag } from "./fathaContentViewportShield.js";
+import { handleContentViewportWheel, mapShieldPointThroughContentViewport, preserveContentViewportScrollForInteraction, tryStartContentViewportScrollbarDrag } from "./fathaContentViewportShield.js";
 
 // DEBUG_MODE is now dynamically handled via node.properties.debugMode
 const CORNER_RESIZE_ANCHORS = new Set(["top-left", "top-right", "bottom-left", "bottom-right"]);
@@ -728,6 +728,7 @@ export function createDerpShield(node) {
             const localPos = getLocalCoords(e);
             const viewportLocalPos = mapShieldPointThroughContentViewport(node, localPos);
             const rect = shield.getBoundingClientRect();
+            if (viewportLocalPos?._contentViewportKey) preserveContentViewportScrollForInteraction(node, viewportLocalPos._contentViewportKey);
 
             // Check if node handled the click (e.g., hit a slider). If so, block native selection.
             const handled = node.handleShieldInteraction("click", {
@@ -915,6 +916,7 @@ export function createDerpShield(node) {
         const localPos = getLocalCoords(e);
         if (tryStartContentViewportScrollbarDrag(node, localPos, e, getLocalCoords)) return;
         const viewportLocalPos = mapShieldPointThroughContentViewport(node, localPos);
+        if (viewportLocalPos?._contentViewportKey) preserveContentViewportScrollForInteraction(node, viewportLocalPos._contentViewportKey);
         const rect = shield.getBoundingClientRect();
 
         if (isDblClick) {

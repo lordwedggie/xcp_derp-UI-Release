@@ -111,7 +111,7 @@ app.registerExtension({
     },
 
     async beforeRegisterNodeDef(nodeType, nodeData) {
-        if (!nodeData.name.toLowerCase().includes("derpskunk")) return;
+        if (nodeData.name !== "derpSkunk") return;
 
         console.log(`[Fatha] Intercepting Python Node: ${nodeData.name}`);
 

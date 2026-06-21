@@ -21,7 +21,7 @@ app.registerExtension({
     },
 
     async beforeRegisterNodeDef(nodeType, nodeData) {
-        if (!nodeData.name.toLowerCase().includes("templatev2")) return;
+        if (nodeData.name !== "DerpTemplateV2Node") return;
 
         console.log(`[Fatha] Intercepting Python Node: ${nodeData.name}`);
 

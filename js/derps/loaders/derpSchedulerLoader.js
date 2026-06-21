@@ -26,7 +26,7 @@ app.registerExtension({
     },
 
     async beforeRegisterNodeDef(nodeType, nodeData) {
-        if (!nodeData.name.toLowerCase().includes("schedulerloader")) return;
+        if (nodeData.name !== "derpSchedulerLoader") return;
 
         fatha(nodeType, nodeData, 200);
         initDerpSchedulerLoaderCore(nodeType);

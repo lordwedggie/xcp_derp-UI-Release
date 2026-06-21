@@ -90,6 +90,8 @@ Important Deck Pressure lesson: dirty is not the same as visually changed. A doc
 
 For approved large whole-wall caches, keep backing scale zoom-aware but quantized/capped, and blit only the visible local slice when possible. Avoid huge per-frame bitmap work at high zoom.
 
+- ImageDeck previews must not use passive whole-wall caching. Full image previews should draw directly through `IMAGE_HTML`; whole-node canvas blits can visibly soften the preview.
+
 ## <span style="color: #80ffc0">Fatha Nodes</span>
 
 For full virtual Fatha nodes:

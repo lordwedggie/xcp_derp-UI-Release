@@ -68,7 +68,7 @@ app.registerExtension({
 
     async beforeRegisterNodeDef(nodeType, nodeData) {
         // FLEXIBLE TARGETING: Match Python class name
-        if (!nodeData.name.toLowerCase().includes("promptbook")) return;
+        if (nodeData.name !== "DerpPromptBookNode") return;
 
         console.log(`[Fatha] Intercepting Python Node: ${nodeData.name}`);
 
