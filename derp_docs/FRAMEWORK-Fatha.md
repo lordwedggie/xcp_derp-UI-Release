@@ -139,6 +139,9 @@ A "hybrid" framework combining Fatha's modern engine with legacy node compatibil
 ## Docking / Resize Notes
 - Dock behavior is split across `masterDockEngine.js`, `dockDrag.js`, `dockTargetPicking.js`, `dockDimensions.js`, `dockResize.js`, and `fathaNodeResize.js`. Check all of them before changing docking rules.
 - Horizontal stacks support width resize only from outer stack boundaries. Internal shared seams should only expose width resize when both seam nodes are manual-width (`autoWidth !== true`).
+- Left/right dock attach finalization must refresh the full horizontal line, not just the new seam pair, so 3+ member stacks enter one shared-height recompute pass immediately after attach.
+- Left/right dock attach finalization should run a full horizontal line normalize before the forced refresh pass, so an older shorter member is brought up to the current shared height immediately on attach.
+- Horizontal shared-height / normalize skip logic must include the full member geometry signature. Reusing a previous numeric shared height alone can wrongly suppress the first sync after a new member joins the line.
 - Deck Pressure side-seam width handles are exposed on the `derpImageDeck` hub shield and route the resize gesture to the attached left/right branch member with the branch-facing anchor.
 - Vertical stack seam height resize should not expose handles when either connected node is collapsed or runtime auto-height.
 - During an active vertical stack seam resize, Fatha pins the involved members to the seam-assigned physical height even if a clipped node's normal Height Mode is numeric/auto. The Height Mode resumes normal sizing after pointer-up.
