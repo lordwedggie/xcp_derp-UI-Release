@@ -160,6 +160,11 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 loraData.notes = info.notes || loraData.notes || "";
                 loraData.loraPath = info.loraPath || currentPath;
 
+                // Auto-show settings region if LoRA has custom slider range
+                if (loraData.setup?.sliderStrength?.length > 0) {
+                    basta._showLoraSettings = true;
+                }
+
                 // THE SYNC FIX: Push fetched setup data to the host node cache
                 syncLoraSetupCache(host, loraData, currentPath, loraData.setup);
                 if (host.refreshNodeLayoutMap) host.refreshNodeLayoutMap();
@@ -173,6 +178,11 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
             if (typeof basta.requestDerpSync === "function") basta.requestDerpSync();
             else if (typeof basta.setDirtyCanvas === "function") basta.setDirtyCanvas(true, true);
         });
+    }
+
+    // Auto-show settings region if LoRA already has custom slider range from cache
+    if (!basta._showLoraSettings && loraData.setup?.sliderStrength?.length > 0) {
+        basta._showLoraSettings = true;
     }
 
     const ratingProps = getLoraRatingDropdownProps(host, basta, loraData);
@@ -377,6 +387,36 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                     state: basta._showLoraSettings ? "ON" : "OFF",
                     width: "match", height: "full", spacing: [sW, 0],
                     onPress: () => {
+                        // If custom slider settings are active, confirm deletion to revert to defaults
+                        if (basta._showLoraSettings && loraData.setup?.sliderStrength?.length > 0) {
+                            showBastaFileHandler(basta, "none", "btnSettings", {
+                                title: tLocale("$basta_lora_detail.dialogs.reset_slider.title", "Reset Slider Settings"),
+                                message: tLocale("$basta_lora_detail.dialogs.reset_slider.message", "Delete custom slider range and revert to default settings?"),
+                                confirm: tLocale("$basta_lora_detail.dialogs.reset_slider.confirm", "Reset"),
+                                mode: "delete",
+                                onConfirm: () => {
+                                    if (loraData.setup) {
+                                        loraData.setup.sliderStrength = null;
+                                    }
+                                    basta._showLoraSettings = false;
+
+                                    fetch("/xcp/manage_lora_tag", {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({ name: currentPath, action: "update_setup", setup_data: { sliderStrength: null } })
+                                    });
+
+                                    syncLoraSetupCache(host, loraData, currentPath, loraData.setup);
+                                    if (host.refreshNodeLayoutMap) host.refreshNodeLayoutMap();
+
+                                    basta._layoutDirty = true;
+                                    basta.setDirtyCanvas(true);
+
+                                    showBastaSystemMessage(basta, tLocale("$basta_lora_detail.messages.slider_reset", "Slider settings reset to defaults"), 2600, { fade: true, grow: true }, "btnSettings", "success");
+                                }
+                            });
+                            return;
+                        }
                         basta._showLoraSettings = !basta._showLoraSettings;
                         if (basta._showLoraSettings && !loraData._setupFetched) {
                             fetch(`/xcp/get_lora_info?name=${encodeURIComponent(currentPath)}`)
@@ -384,6 +424,11 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                                 .then(info => {
                                     loraData._setupFetched = true;
                                     loraData.setup = info.setup || {};
+
+                                    // Auto-show settings region if LoRA has custom slider range
+                                    if (loraData.setup?.sliderStrength?.length > 0) {
+                                        basta._showLoraSettings = true;
+                                    }
 
                                     // THE SYNC FIX: Push fetched setup data to the host node cache
                                     syncLoraSetupCache(host, loraData, currentPath, loraData.setup);
