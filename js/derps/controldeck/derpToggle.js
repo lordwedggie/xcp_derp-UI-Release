@@ -8,6 +8,7 @@ import { fatha, initDerpGlobalListener } from "../../fatha/fatha.js";
 import { refreshWirelessSignalConsumers, transmitDerpSignal } from "../../fatha/core/masterSignalEngine.js";
 import { showBastaToggle } from "../../fatha/bastas/bastaToggle.js";
 import { startStackDrag, updateStackDrag, endStackDrag } from "../../fatha/helpers/fathaDragDrop.js";
+import { measureTextHeight, resolvePaintData } from "../../herbina/utils/widgetsUtils.js";
 function tLocale(key, fallback = key) {
     if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
     const path = key.substring(1).split(".");
@@ -105,17 +106,55 @@ function ensureToggleItems(node) {
     return node.properties.toggleItems;
 }
 
+function isToggleInHorizontalDock(node) {
+    const edges = node?.properties?.deckEdges || {};
+    return edges.left !== null && edges.left !== undefined
+        || edges.right !== null && edges.right !== undefined;
+}
+
 function buildToggleLayoutHash(node, vars, toggleItems) {
     const deckHash = toggleItems
         .map((item, index) => `${index}:${item?.signalIndex}:${item?.label || ""}:${item?.value !== false}:${isToggleUsedByRemoteBypass(node, index)}`)
         .join("|");
     const width = (Number(node?.size?.[0]) || 0).toFixed(2);
+    const isHorizontalDocked = isToggleInHorizontalDock(node);
+    const height = isHorizontalDocked ? "hDock" : (Number(node?.size?.[1]) || 0).toFixed(2);
+    const isAutoHeight = node.properties?.autoHeight !== false;
     const mW = Number(vars.mW || 0).toFixed(2);
     const mH = Number(vars.mH || 0).toFixed(2);
     const oY = Number(vars.oY || 0).toFixed(2);
     const dragIndex = node?._dragTrig?.index;
     const dragMouse = Array.isArray(node?._dragMouse) ? node._dragMouse.join(",") : "";
-    return `${deckHash}_${window._xcpDerpSession}_${node.titleLabel || ""}_${width}_${mW}_${mH}_${oY}_${node.properties?.drawHeader !== false}_${node._dropPreviewIdx}_${dragIndex}_${node._dragThresholdMet}_${dragMouse}`;
+    return `${deckHash}_${window._xcpDerpSession}_${node.titleLabel || ""}_${width}_${height}_${isAutoHeight}_${isHorizontalDocked}_${mW}_${mH}_${oY}_${node.properties?.drawHeader !== false}_${node._dropPreviewIdx}_${dragIndex}_${node._dragThresholdMet}_${dragMouse}`;
+}
+
+function resolveToggleAutoRowHeight(node, pH) {
+    const labelPaint = resolvePaintData(node, "t_textNormal") || node?._t_textNormalPaintData || {};
+    const fontSize = Number(labelPaint.fontSize) || 10;
+    const textHeight = measureTextHeight("Hgyj", 0, {
+        fontSize,
+        font: labelPaint.font || "Arial",
+        fontWeight: labelPaint.fontWeight || "normal",
+    }) || fontSize;
+    return Math.ceil(textHeight + ((Number(pH) || 0) * 2));
+}
+
+function resolveToggleManualContentHeight(node, contentMargin, oY) {
+    const nodeHeight = Number(node?.size?.[1]) || 0;
+    if (nodeHeight <= 0) return 0;
+
+    const header = node.layout?.regions?.headerRegion;
+    const headerMargin = header?.margin || [0, 0, 0, 0];
+    const headerBottom = header && !header.hidden
+        ? (Number(header.y) || 0) + (Number(header.h) || 0) + (Number(headerMargin[3]) || 0)
+        : 0;
+    const contentTop = headerBottom + (Number(oY) || 0) + (Number(contentMargin?.[1]) || 0);
+    const contentBottom = Array.isArray(contentMargin) && contentMargin.length === 4
+        ? (Number(contentMargin[3]) || 0)
+        : (Number(contentMargin?.[1]) || 0);
+    const footerMinHeight = Math.max(6, (Number(oY) || 0) + 6);
+
+    return Math.max(1, Math.floor(nodeHeight - contentTop - contentBottom - footerMinHeight));
 }
 
 function toggleDerpToggleItem(node, idx) {
@@ -189,14 +228,37 @@ app.registerExtension({
                 deckItems.splice(pIdx, 0, ghost);
             }
 
+            // Compute row/button heights for manual vs auto height mode
+            const isAutoHeight = this.properties?.autoHeight !== false;
+            const isHorizontalDocked = isToggleInHorizontalDock(this);
+            const fillManualHeight = !isAutoHeight && !isHorizontalDocked;
+            const hasHeader = this.properties?.drawHeader === true;
+            const contentMargin = hasHeader ? [mW, mH] : [mW, 0, mW, 0];
+            const numRows = deckItems.length;
+            // Each row has spacing: [0, sH] AND margin: [0, 0, 0, sH] (except last row: 0 margin)
+            // Total overhead: (numRows-1) * sH (spacing between rows) + (numRows-1) * sH (margins)
+            const totalRowOverhead = Math.max(0, (numRows - 1) * sH * 2);
+            const manualContentHeight = fillManualHeight ? resolveToggleManualContentHeight(this, contentMargin, oY) : 0;
+            const manualMinRowHeight = resolveToggleAutoRowHeight(this, pH);
+            const manualMinContentHeight = Math.max(1, (numRows * manualMinRowHeight) + totalRowOverhead);
+            const manualRowSpace = Math.max(manualMinContentHeight - totalRowOverhead, manualContentHeight - totalRowOverhead);
+            const manualRowBaseHeight = (fillManualHeight && numRows > 0)
+                ? Math.floor(manualRowSpace / numRows)
+                : 0;
+            const manualRowRemainder = (fillManualHeight && numRows > 0)
+                ? Math.max(0, manualRowSpace - (manualRowBaseHeight * numRows))
+                : 0;
+            const contentHeightProp = fillManualHeight ? "full" : "auto";
+
             deckItems.forEach((entry, displayIdx) => {
                 const { item, idx } = entry;
                 const rowKey = `toggleRow_${idx}`;
                 const isPickedUp = !!(this._dragTrig && this._dragThresholdMet && this._dragTrig.index === idx && !entry.isPreviewGhost);
                 const rowMarginBottom = displayIdx < (deckItems.length - 1) ? sH : 0;
-
+                const rowHeightProp = fillManualHeight ? manualRowBaseHeight + (displayIdx < manualRowRemainder ? 1 : 0) : "auto";
+                const btnHeightProp = rowHeightProp;
                 deckRegions[rowKey] = {
-                    dir: "row", width: "full", height: "auto",
+                    dir: "row", width: "full", height: rowHeightProp,
                     spacing: [0, sH],
                     margin: [0, 0, 0, rowMarginBottom],
                     onDragStart: (e, data) => startStackDrag(this, data, idx, rowKey),
@@ -212,7 +274,7 @@ app.registerExtension({
                         visualState: isToggleUsedByRemoteBypass(this, idx) ? undefined : "DIS",
                         alpha: entry.isPreviewGhost ? 0 : 1.0,
                         width: "full",
-                        height: "auto",
+                        height: btnHeightProp,
                         padding: [pW, pH],
                         spacing: [0, sH],
                         labelAlign: ["center", "middle"],
@@ -270,10 +332,11 @@ app.registerExtension({
             this.layoutMap = {
                 sysContentRegion: {
                     anchor: { target: "headerRegion", axis: "y", offset: oY },
-                    width: "full", height: "auto",
+                    width: "full", height: contentHeightProp,
+                    minHeight: fillManualHeight ? manualMinContentHeight : undefined,
                     dir: "col",
                     padding: [0, 0],
-                    margin: this.properties?.drawHeader === true ? [mW, mH] : [mW, 0, mW, 0],
+                    margin: contentMargin,
                     ...deckRegions,
                 },
             };
@@ -467,9 +530,14 @@ app.registerExtension({
             }
 
             const currentW = Math.round(this.size[0]);
-            if (this._lastDerpW !== currentW) {
+            const currentH = Math.round(this.size[1]);
+            const shouldTrackHeight = !isToggleInHorizontalDock(this);
+            if (this._lastDerpW !== currentW || (shouldTrackHeight && this._lastDerpH !== currentH)) {
                 this._lastDerpW = currentW;
                 this.refreshNodeLayoutMap();
+                this._lastDerpH = Math.round(this.size[1]);
+            } else if (!shouldTrackHeight) {
+                this._lastDerpH = currentH;
             }
         };
     }
