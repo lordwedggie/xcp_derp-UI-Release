@@ -559,7 +559,6 @@ function getDeckFrameState(node) {
         deckCacheFrame = frame;
     }
     const nodeFrameKey = `${frame}:${node.id}`;
-    if (deckNodeFrameCache.has(nodeFrameKey)) return deckNodeFrameCache.get(nodeFrameKey);
     if (isDeckPressureHub(node)) {
         deckNodeFrameCache.set(nodeFrameKey, null);
         return null;
@@ -583,6 +582,10 @@ function getDeckFrameState(node) {
     const preserveHeight = shouldPreserveDockHeight(axis);
     const preserveWidth = shouldPreserveDockWidth(axis);
     const cacheKey = getDeckFrameKey(node, members);
+    const cachedNodeState = deckNodeFrameCache.get(nodeFrameKey);
+    if (cachedNodeState && getDeckFrameKey(node, cachedNodeState.members) === cacheKey && cachedNodeState.axis === axis) {
+        return cachedNodeState;
+    }
     let state = deckFrameCache.get(cacheKey);
     if (!state) {
         state = {
@@ -596,9 +599,11 @@ function getDeckFrameState(node) {
             didSync: false,
             syncedHeight: 0,
             syncedWidth: 0,
+            syncedHeightSignature: "",
             didNormalize: false,
             normalizedHeight: 0,
             normalizedWidth: 0,
+            normalizedHeightSignature: "",
             skipState: null,
         };
         state.skipState = getDeckSkipState(state);
@@ -1030,19 +1035,22 @@ export function syncHorizontalDeckHeight(node, targetHeight = 0) {
         if (nextHeight > 0 && isComfyVueNodesMode() && areDockedEdgesAligned(state.members, app.graph || node?.graph || null) && isDeckHeightAligned(state.members, nextHeight)) {
             state.didSync = true;
             state.syncedHeight = nextHeight;
+            state.syncedHeightSignature = signature;
             if (state.skipState) state.skipState.syncSignature = signature;
             return false;
         }
         if (nextHeight > 0 && state.skipState?.syncSignature === signature && isDeckHeightAligned(state.members, nextHeight)) {
             state.didSync = true;
             state.syncedHeight = nextHeight;
+            state.syncedHeightSignature = signature;
             return false;
         }
-        if (state.didSync && Math.abs(nextHeight - (Number(state.syncedHeight) || 0)) < 0.5) {
+        if (state.didSync && state.syncedHeightSignature === signature && Math.abs(nextHeight - (Number(state.syncedHeight) || 0)) < 0.5) {
             return false;
         }
         state.didSync = true;
         state.syncedHeight = nextHeight;
+        state.syncedHeightSignature = signature;
     }
     const graph = app.graph || node?.graph || null;
     const changed = syncHorizontalDeckHeightForGraph(node, graph, targetHeight);
@@ -1118,14 +1126,16 @@ export function normalizeDerpDockedLayout(node) {
         if (state.skipState?.normalizeSignature === signature || (isComfyVueNodesMode() && areDockedEdgesAligned(state.members, graph))) {
             state.didNormalize = true;
             state.normalizedHeight = sharedHeight;
+            state.normalizedHeightSignature = signature;
             if (state.skipState) state.skipState.normalizeSignature = signature;
             return [];
         }
-        if (state.didNormalize && Math.abs(sharedHeight - (Number(state.normalizedHeight) || 0)) < 0.5) {
+        if (state.didNormalize && state.normalizedHeightSignature === signature && Math.abs(sharedHeight - (Number(state.normalizedHeight) || 0)) < 0.5) {
             return [];
         }
         state.didNormalize = true;
         state.normalizedHeight = sharedHeight;
+        state.normalizedHeightSignature = signature;
     }
     if (state?.axis !== "horizontal" || !graph) return [];
     const positionAnchor = isComfyVueNodesMode()

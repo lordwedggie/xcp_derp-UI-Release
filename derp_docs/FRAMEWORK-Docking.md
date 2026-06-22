@@ -50,7 +50,7 @@ Linear dragged stacks use their whole stack bounds for edge-distance checks and 
 - Uses `getDeckMembers` to collect all members in the group
 
 ### <span style="color: #80ffc0">4. Post-Attach Refresh (`forceDockResizeRefresh`)</span>
-After normalizing, triggers a layout recompute for the leader and all members. This is where most bugs live — see "Horizontal Docking Height Collapse" below.
+After normalizing, the attach flow forces a layout recompute for the affected dock members. Horizontal left/right attaches first run a whole-line horizontal normalize, then refresh the whole horizontal line, so older members in a 3+ node stack re-enter the same shared-height pass as the newly attached node.
 
 ## <span style="color: #80ffc0">Size Normalization</span>
 
@@ -65,6 +65,8 @@ During direct outer-edge stack resizing, the resize delta comes from the snapped
 
 ### <span style="color: #80ffc0">Layout-driven horizontal height changes</span>
 When any member of a horizontal dock stack changes height from runtime layout growth or shrinkage, the shared-height pass recomputes from current member layouts and resyncs every docked member to that height. This includes structural row changes such as adding or removing `derpLoraStack` entries. Deck Pressure top/bottom branches must be classified by their branch-only horizontal member list, because the full ImageDeck-owned group is mixed-axis. The per-frame dock maintenance cache must not preserve a previous taller height, or shrinking content can leave the stack uneven or oversized.
+The same whole-line resync must happen immediately after a new left/right attach. Refreshing only the leader/follower pair can leave an older member at the previous shorter height until a later interaction wakes that node.
+The shared-height fast path must key off full horizontal geometry, not only the numeric shared height. A 2-node stack can grow to 3 nodes while keeping the same tallest height, and that attach still requires a fresh whole-line sync/normalize pass.
 
 ### <span style="color: #80ffc0">Theme-driven vertical width growth</span>
 When a member of a vertical dock stack changes theme, its measured content floor can grow while the stack is already width-locked. Runtime dock sizing preserves the current shared width only as a floor, not as a ceiling, and vertical normalization runs after layout so all stack members adopt the new widest measured width.

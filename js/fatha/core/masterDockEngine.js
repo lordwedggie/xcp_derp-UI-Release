@@ -1487,6 +1487,35 @@ function settleNodesAfterDockWidthMatch(nodes = []) {
     });
 }
 
+function getPostAttachRefreshMembers(attachLeader, dockFollower, side, graph) {
+    if (!attachLeader || !dockFollower) return [];
+    if ((side === "left" || side === "right") && graph && isLinearDeckGroup(attachLeader, graph, "horizontal")) {
+        return getDeckMembers(attachLeader, graph);
+    }
+    return [dockFollower, attachLeader];
+}
+
+function normalizePostAttachHorizontalLine(attachLeader, side, graph, snap = DEFAULT_DECK_SNAP) {
+    if (!(side === "left" || side === "right") || !graph || !isLinearDeckGroup(attachLeader, graph, "horizontal")) {
+        return;
+    }
+    const moved = normalizeDockedLayout(attachLeader, graph, snap);
+    moved.forEach((member) => {
+        if (typeof member.syncUncleSlots === "function") member.syncUncleSlots();
+        if (typeof member.setDirtyCanvas === "function") member.setDirtyCanvas(true, true);
+    });
+}
+
+function refreshPostAttachMembers(attachLeader, dockFollower, side, graph, snap = DEFAULT_DECK_SNAP) {
+    normalizePostAttachHorizontalLine(attachLeader, side, graph, snap);
+    const seen = new Set();
+    getPostAttachRefreshMembers(attachLeader, dockFollower, side, graph).forEach((member) => {
+        if (!member || seen.has(member.id)) return;
+        seen.add(member.id);
+        forceDockResizeRefresh(member);
+    });
+}
+
 export function matchDeckNodeSizes(node, leader, side = null) {
     if (!node || !leader) return false;
     const nodeRect = getNodeRect(node);
@@ -1727,8 +1756,7 @@ export function deckNodeToLeader(node, leader, graph, side = null) {
     restoreDeckPressureHubAnchor(hubAnchor);
     normalizeVerticalStackPins(attachLeader, graph, attachLeader?.properties?.pinActive === true ? attachLeader : dockFollower);
     if (!hubAnchor) {
-        forceDockResizeRefresh(dockFollower);
-        forceDockResizeRefresh(attachLeader);
+        refreshPostAttachMembers(attachLeader, dockFollower, side, graph, DEFAULT_DECK_SNAP);
     }
     applyDeckPressureAfterDock(leader, graph, DEFAULT_DECK_SNAP);
     restoreDeckPressureHubAnchor(hubAnchor);
@@ -1779,8 +1807,7 @@ export function finalizeDeck(node, leader, graph, side = null, snap = DEFAULT_DE
     restoreDeckPressureHubAnchor(hubAnchor);
     normalizeVerticalStackPins(attachLeader, graph, attachLeader?.properties?.pinActive === true ? attachLeader : dockFollower);
     if (!hubAnchor) {
-        forceDockResizeRefresh(dockFollower);
-        forceDockResizeRefresh(attachLeader);
+        refreshPostAttachMembers(attachLeader, dockFollower, side, graph, snap);
     }
     applyDeckPressureAfterDock(leader, graph, snap);
     restoreDeckPressureHubAnchor(hubAnchor);
@@ -1875,8 +1902,7 @@ export function finalizeDeckTarget(node, targetInfo, graph, snap = DEFAULT_DECK_
     restoreDeckPressureHubAnchor(hubAnchor);
     normalizeVerticalStackPins(attachLeader, graph, attachLeader?.properties?.pinActive === true ? attachLeader : dockFollower);
     if (!hubAnchor) {
-        forceDockResizeRefresh(dockFollower);
-        forceDockResizeRefresh(attachLeader);
+        refreshPostAttachMembers(attachLeader, dockFollower, side, graph, snap);
     }
     applyDeckPressureAfterDock(targetInfo.targetNode, graph, snap);
     restoreDeckPressureHubAnchor(hubAnchor);
