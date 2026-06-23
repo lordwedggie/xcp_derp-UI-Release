@@ -36,6 +36,9 @@ import {
 import { animateWidgetColors } from "../masterAnimator.js";
 
 const BYPASS_BRIGHTNESS = 0.6;
+const EDITOR_SCROLLBAR_WIDTH = 5;
+const EDITOR_SCROLLBAR_INSET = 3;
+const EDITOR_SCROLLBAR_MIN_THUMB = 18;
 
 function handleDerpEditorOutsidePointer(e) {
     const active = document.activeElement;
@@ -240,6 +243,29 @@ function clampDerpEditorScroll(node, safeConfig) {
     return maxScroll;
 }
 
+function drawDerpEditorCanvasScrollbar(ctx, { x, y, w, h, scrollTop, maxScroll, alpha, trackColor, thumbColor }) {
+    if (!(maxScroll > 0) || !(w > 0) || !(h > 0)) return;
+
+    const trackX = x + w - EDITOR_SCROLLBAR_WIDTH - EDITOR_SCROLLBAR_INSET;
+    const trackY = y + EDITOR_SCROLLBAR_INSET;
+    const trackH = Math.max(0, h - (EDITOR_SCROLLBAR_INSET * 2));
+    if (!(trackH > 0)) return;
+
+    const contentHeight = h + maxScroll;
+    const thumbRatio = Math.max(0, Math.min(1, h / Math.max(h, contentHeight)));
+    const thumbH = Math.min(trackH, Math.max(EDITOR_SCROLLBAR_MIN_THUMB, trackH * thumbRatio));
+    const thumbTravel = Math.max(0, trackH - thumbH);
+    const thumbY = trackY + (thumbTravel * Math.max(0, Math.min(1, scrollTop / maxScroll)));
+
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+    ctx.fillStyle = trackColor;
+    ctx.fillRect(trackX, trackY, EDITOR_SCROLLBAR_WIDTH, trackH);
+    ctx.fillStyle = thumbColor;
+    ctx.fillRect(trackX, thumbY, EDITOR_SCROLLBAR_WIDTH, thumbH);
+    ctx.restore();
+}
+
 /**
  * Creates the HTML portion of the Hybrid Editor.
  */
@@ -301,6 +327,20 @@ export function createDerpEditorHTML(callbacks = {}) {
         });
         // Stop keyup propagation to prevent ComfyUI from reacting to key releases after a paste.
         el.addEventListener("keyup", stopPropagation);
+        el.addEventListener("wheel", (e) => {
+            const config = el._config || {};
+            const node = el._nodeRef;
+            const maxScroll = el._isMultiline
+                ? (node && config.key ? clampDerpEditorScroll(node, config) : Math.max(0, el.scrollHeight - el.clientHeight))
+                : 0;
+            if (maxScroll > 0) return;
+
+            const canvas = comfyApp?.canvas?.canvas;
+            if (!canvas) return;
+            e.preventDefault();
+            e.stopPropagation();
+            canvas.dispatchEvent(new WheelEvent("wheel", e));
+        }, { passive: false });
         el._hasDerpHandlers = true;
     }
 
@@ -444,6 +484,9 @@ export function syncDerpEditor(context, node, app, config) {
         // 2. THE CANVAS SCROLL FIX: Catch wheel events when the HTML overlay is asleep
         app.canvas.canvas.addEventListener("wheel", (e) => {
             if (el._isMultiline && !el._isAwake && node._hoveredRegionKey === safeConfig.key) {
+                const maxScroll = clampDerpEditorScroll(node, safeConfig);
+                if (!(maxScroll > 0)) return;
+
                 e.preventDefault(); // Stop canvas zoom
                 e.stopPropagation();
 
@@ -459,7 +502,7 @@ export function syncDerpEditor(context, node, app, config) {
 
         el._hasScrollSync = true;
     }
-    const currentScroll = isMultiline ? (node._derpScrollOffsets[safeConfig.key] || 0) : 0;
+    let currentScroll = isMultiline ? (node._derpScrollOffsets[safeConfig.key] || 0) : 0;
     const { x, y, w, h } = safeConfig.geometry || { x: 0, y: 0, w: 0, h: 0 };
     const isHovered = (safeConfig.mouseOver !== false && node._hoveredRegionKey === safeConfig.key);
     const valStr = (safeConfig.value !== undefined ? safeConfig.value : (node.properties?.[safeConfig.key] ?? "")).toString();
@@ -626,7 +669,11 @@ export function syncDerpEditor(context, node, app, config) {
     const padX = props.padding?.[0] || 0;
     const padY = props.padding?.[1] || 0;
     const isCutoff = safeConfig.displayMode === "cutoff";
-    const cutoffRightPad = isCutoff ? padX : 0;
+    let cutoffRightPad = isCutoff ? padX : 0;
+    if (isMultiline && requestedCanvasShield) {
+        const editorScrollbarGap = Math.max(0, Number(node.getDerpVars?.(node)?.sW) || 0);
+        cutoffRightPad = Math.max(cutoffRightPad, EDITOR_SCROLLBAR_WIDTH + EDITOR_SCROLLBAR_INSET + editorScrollbarGap);
+    }
     const textPadX = prefixGlyphText ? Math.max(padX, prefixGlyphPad) : padX;
 
     const ds = app?.canvas?.ds || { scale: 1, offset: [0, 0] };
@@ -754,10 +801,12 @@ export function syncDerpEditor(context, node, app, config) {
         node._editorLineCache[safeConfig.key] = { key: cacheKey, lines };
     }
 
+    let maxEditorScroll = 0;
     if (isMultiline) {
         safeConfig._clampScroll = () => clampDerpEditorScroll(node, safeConfig);
         node._derpScrollConfigs[safeConfig.key] = safeConfig;
-        clampDerpEditorScroll(node, safeConfig);
+        maxEditorScroll = clampDerpEditorScroll(node, safeConfig);
+        currentScroll = node._derpScrollOffsets[safeConfig.key] || 0;
     } else if (node._derpScrollConfigs[safeConfig.key]) {
         delete node._derpScrollConfigs[safeConfig.key];
     }
@@ -828,6 +877,14 @@ export function syncDerpEditor(context, node, app, config) {
                         color: animatedFillColor
                     });
                 }
+                drawDerpEditorCanvasScrollbar(ctx, {
+                    x, y, w, h,
+                    scrollTop: currentScroll,
+                    maxScroll: maxEditorScroll,
+                    alpha: sysAlpha,
+                    trackColor: animatedFillColor,
+                    thumbColor: animatedTextColor
+                });
                 ctx.restore();
             }
         }
@@ -928,6 +985,15 @@ export function syncDerpEditor(context, node, app, config) {
                     });
                     ctx.restore();
                 }
+
+                drawDerpEditorCanvasScrollbar(ctx, {
+                    x, y, w, h,
+                    scrollTop: currentScroll,
+                    maxScroll: maxEditorScroll,
+                    alpha: sysAlpha,
+                    trackColor: animatedFillColor,
+                    thumbColor: animatedTextColor
+                });
 
                 ctx.restore();
             }
