@@ -3,6 +3,8 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+
+## [0.7.10] - 2026-06-24
 ### <span style="color: #80ffc0">Added</span>
 - <span style="color: #80ffc0"><strong>ICONBUTTON corner guard</strong></span>: `btnIcon.js` now guards background corners against undersized buttons before both HTML and Canvas rendering. The default guard ratio is 4.0`, using the larger absolute value of top-left/top-right for width checks and top-left/bottom-left for height checks. If the button is too small, each corner magnitude steps toward `0` by `1`, preserving negative chamfer signs while preventing oversize corners from drawing.
 - <span style="color: #80ffc0"><strong>ICONBUTTON palette background entries</strong></span>: Theme-attached palette files can now define `_ICONBTN_<icon>` entries, where `<icon>` matches a `btnIcon.js` `ICON_MAP` key such as `_ICONBTN_add`. Matching ICONBUTTON widgets replace only their background rect paint from the palette entry, including hover/press/pulse animation colors, while keeping glyph color, geometry, and normal icon text styling unchanged.
