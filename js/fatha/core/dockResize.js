@@ -34,7 +34,7 @@ import {
     shouldPreserveDockHeight,
     shouldPreserveDockWidth,
 } from "./dockDimensions.js";
-import { canResizeHorizontalMemberWidth, canResizeHorizontalSeamPair, canResizeHorizontalSharedEdgeWidth, canResizeHorizontalStackWidth, getHorizontalDeckMembersByX, getHorizontalSameRowNeighbor } from "./dockResizeSharedEdges.js";
+import { canResizeHorizontalMemberWidth, canResizeHorizontalSeamPair, canResizeHorizontalSharedEdgeWidth, getHorizontalDeckMembersByX, getHorizontalSameRowNeighbor } from "./dockResizeSharedEdges.js";
 import { dockDebug, isDockDebugEnabled, snapshotDockNode } from "./dockDebugHelpers.js";
 import { getVirtualNodeLayoutMap } from "../helpers/fathaLayoutMaps.js";
 import { setDerpNodeSizeCompat } from "./fathaNode2Compat.js";
@@ -303,7 +303,7 @@ export function settleDerpSizeBeforeDrawImpl(entity, options = {}, deps = {}) {
     const forceAutoHeight = options?.forceAutoHeight === true;
     const rawH = isMinState
         ? (entity.properties?.useCollapsedTotalHeight === true ? (Math.max(layoutContentH, layoutTotalH) || (SNAP * 2)) : (SNAP * 2))
-        : (forceAutoHeight ? (layoutContentH || layoutTotalH || 40) : (layoutTotalH || layoutContentH || 40));
+        : ((forceAutoHeight || autoHeight) ? (layoutContentH || layoutTotalH || 40) : (layoutTotalH || layoutContentH || 40));
     const engineFloorH = isMinState ? rawH : Math.ceil(rawH / SNAP) * SNAP;
     const collapseMinimal = entity.properties?.collapseMinimal === true;
     const currentFrameworkW = Number(entity.size?.[0]) || Number(entity.properties.nodeSize?.[0]) || 0;
@@ -739,7 +739,7 @@ function getVisibleRegionLayoutFloor(config, liveRegions = {}, key = null) {
     const marginBottom = Number(margin?.length === 4 ? margin[3] : margin?.[1]) || 0;
     const heightProp = String(config.height === undefined ? "auto" : config.height).toLowerCase();
     if (config.scrollViewport === true || live?.scrollViewport === true || live?._contentViewport === true) {
-        const viewportHeight = Number(live?._contentViewportClipHeight) || Number(live?.h) || Number(config.minClipHeight) || Number(config.clipHeight) || Number(config.minHeight) || 0;
+        const viewportHeight = Number(config.minClipHeight) || Number(config.clipHeight) || Number(live?._contentViewportClipHeight) || Number(live?.h) || Number(config.minHeight) || 0;
         return marginTop + viewportHeight + marginBottom;
     }
     const childFloors = Object.entries(config)
@@ -968,6 +968,7 @@ function applyCollapsedVerticalBoundaryResize(entity, resizeAnchor, requestedEnt
 
     const targetMember = members[targetIndex];
     targetMember._isDerpResizing = true;
+    targetMember._dockResizePreserveHeight = true;
     if (entity._dockResizeActiveMembers instanceof Set) entity._dockResizeActiveMembers.add(targetMember);
     else entity._dockResizeActiveMembers = new Set([targetMember]);
     const targetStartHeight = Number(session.startHeights?.[targetMember.id]) || getDockNodeHeight(targetMember);
@@ -1026,7 +1027,7 @@ function snapResizeValue(value, snap) {
 
 function reconcileManualWidthsToTarget(nextWidths, manualMembers, originalWidths, targetManualTotal, minW, snap) {
     const unit = Math.max(1, Number(snap) || 10);
-    const mins = new Map(manualMembers.map((member) => [member.id, getDockNodeMinWidth(member, minW, snap)]));
+    const mins = new Map(manualMembers.map((member) => [member.id, getDockNodeMinWidth(member, 0, snap)]));
     const minTotal = manualMembers.reduce((sum, member) => sum + (mins.get(member.id) || 0), 0);
     const targetTotal = Math.max(minTotal, Number(targetManualTotal) || 0);
 
@@ -1121,7 +1122,7 @@ function applyHorizontalStackWidthResize(entity, resizeAnchor, requestedEntityWi
     const fixedWidth = members
         .filter((member) => member?.properties?.autoWidth === true)
         .reduce((sum, member) => sum + (originalWidths.get(member.id) || 0), 0);
-    const manualMinTotal = manualMembers.reduce((sum, member) => sum + getDockNodeMinWidth(member, minW, snap), 0);
+    const manualMinTotal = manualMembers.reduce((sum, member) => sum + getDockNodeMinWidth(member, 0, snap), 0);
     const originalManualTotal = manualMembers.reduce((sum, member) => sum + (originalWidths.get(member.id) || 0), 0);
     const requestedTotalWidth = Math.max(0, originalTotalWidth + snappedRequestedDelta);
     const targetManualTotal = Math.max(manualMinTotal, originalManualTotal + snappedRequestedDelta);
@@ -1215,11 +1216,11 @@ function applyDeckPressureSideWidthResize(entity, resizeAnchor, requestedEntityW
         ? branchMembers.reduce((sum, member) => sum + (Number(startWidths[member.id]) || getDockNodeWidth(member)), 0)
         : Math.max(...branchMembers.map((member) => Number(startWidths[member.id]) || getDockNodeWidth(member)), 0));
     const branchMinWidth = branchAxis === "horizontal"
-        ? branchMembers.reduce((sum, member) => sum + getDockNodeMinWidth(member, minW, snap), 0)
-        : Math.max(...branchMembers.map((member) => getDockNodeMinWidth(member, minW, snap)), 0);
+        ? branchMembers.reduce((sum, member) => sum + getDockNodeMinWidth(member, 0, snap), 0)
+        : Math.max(...branchMembers.map((member) => getDockNodeMinWidth(member, 0, snap)), 0);
     const preservedFrameWidth = Math.max(0, Number(preservedFrame.right) - Number(preservedFrame.left));
     const oppositeSideWidth = Math.max(0, Number(session.oppositeSideWidth) || (preservedFrameWidth - branchStartWidth - hubStartW));
-    const fallbackHubMinWidth = getDockNodeMinWidth(pressureHub, minW, snap);
+    const fallbackHubMinWidth = getDockNodeMinWidth(pressureHub, 0, snap);
     const hubMinWidth = Math.max(fallbackHubMinWidth, getDeckPressureHubMinWidth(pressureHub, graph, snap, fallbackHubMinWidth));
     const topBottomMinWidth = Math.max(0, Number(session.topBottomMinWidth) || 0);
     const hubRequiredWidth = session.arrangement === "vertical_sandwich" ? Math.max(hubMinWidth, topBottomMinWidth) : hubMinWidth;
@@ -1244,7 +1245,7 @@ function applyDeckPressureSideWidthResize(entity, resizeAnchor, requestedEntityW
     };
 
     if (branchAxis === "horizontal") {
-        const minWidths = new Map(branchMembers.map((member) => [member.id, getDockNodeMinWidth(member, minW, snap)]));
+        const minWidths = new Map(branchMembers.map((member) => [member.id, getDockNodeMinWidth(member, 0, snap)]));
         const nextWidths = new Map(branchMembers.map((member) => [
             member.id,
             Math.max(minWidths.get(member.id) || 0, Number(startWidths[member.id]) || getDockNodeWidth(member)),
@@ -1519,8 +1520,8 @@ export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH,
             return result;
         }
 
-        const leftMinW = getDockNodeMinWidth(leftNode, minW, snap);
-        const rightMinW = getDockNodeMinWidth(rightNode, minW, snap);
+        const leftMinW = getDockNodeMinWidth(leftNode, 0, snap);
+        const rightMinW = getDockNodeMinWidth(rightNode, 0, snap);
 
         if (totalWidth < leftMinW + rightMinW) {
             result.handledWidth = true;

@@ -83,7 +83,10 @@ function isDeckPressureHubSeamSideEdge(node, graph, side) {
     if (side !== "left" && side !== "right") return false;
     const pressureHub = graph ? getDeckPressureHubForNode(node, graph) : null;
     if (!pressureHub) return false;
-    if (pressureHub.id === node?.id) return getDeckPressureBranchMembers(pressureHub, graph, side).length > 0;
+    if (pressureHub.id === node?.id) {
+        return getDeckPressureBranchMembers(pressureHub, graph, side)
+            .some((member) => isDeckPressureSideWidthResizeEdge(member, graph, side));
+    }
     return isDeckPressureSideWidthResizeEdge(node, graph, side);
 }
 
@@ -869,11 +872,25 @@ export function createDerpShield(node) {
         if (!graph || !node.interactionShield) return null;
         const rect = node.interactionShield.getBoundingClientRect();
         const edgeWidth = SHARED_HORIZONTAL_SEAM_HITBOX_PX;
+        const vEdgeWidth = SHARED_VERTICAL_SEAM_HITBOX_PX;
+        const padL = (Number(node._padL) || 0) * (Number(app?.canvas?.ds?.scale) || 1);
+        const padR = (Number(node._padR) || 0) * (Number(app?.canvas?.ds?.scale) || 1);
         const localX = e.clientX - rect.left;
-        if (localX <= edgeWidth && resolveDeckPressureSideSeam(node, graph, "left")) return "left";
-        if (localX >= rect.width - edgeWidth && resolveDeckPressureSideSeam(node, graph, "right")) return "right";
-        if (localX <= edgeWidth && canResizeHorizontalSharedEdge(node, graph, "left")) return "left";
-        if (localX >= rect.width - edgeWidth && canResizeHorizontalSharedEdge(node, graph, "right")) return "right";
+        const localY = e.clientY - rect.top;
+        if (localX <= padL + edgeWidth && resolveDeckPressureSideSeam(node, graph, "left")) return "left";
+        if (localX >= rect.width - padR - edgeWidth && resolveDeckPressureSideSeam(node, graph, "right")) return "right";
+        if (localX <= padL + edgeWidth && canResizeHorizontalSharedEdge(node, graph, "left")) return "left";
+        if (localX >= rect.width - padR - edgeWidth && canResizeHorizontalSharedEdge(node, graph, "right")) return "right";
+        const edges = node.properties?.deckEdges || {};
+        const isCollapsed = node.properties?.contentCollapsed === true;
+        if (localY <= vEdgeWidth && edges.top != null) {
+            const neighbor = getNodeOnDeckEdge(node, graph, "top");
+            if (neighbor && !isCollapsed && neighbor.properties?.contentCollapsed !== true) return "top";
+        }
+        if (localY >= rect.height - vEdgeWidth && edges.bottom != null) {
+            const neighbor = getNodeOnDeckEdge(node, graph, "bottom");
+            if (neighbor && !isCollapsed && neighbor.properties?.contentCollapsed !== true) return "bottom";
+        }
         return null;
     };
 
@@ -1396,8 +1413,8 @@ export function syncDerpShield(node) {
         const isPressureMember = !!pressureHub;
         const canResizePressureSeamLeftW = isDeckPressureHubSeamSideEdge(node, graph, "left");
         const canResizePressureSeamRightW = isDeckPressureHubSeamSideEdge(node, graph, "right");
-        const canResizePressureSideHorizontalLeftW = isDeckPressureSideHorizontalHubEdge(node, graph, "left");
-        const canResizePressureSideHorizontalRightW = isDeckPressureSideHorizontalHubEdge(node, graph, "right");
+        const canResizePressureSideHorizontalLeftW = isDeckPressureSideHorizontalHubEdge(node, graph, "left") && isDeckPressureSideWidthResizeEdge(node, graph, "left");
+        const canResizePressureSideHorizontalRightW = isDeckPressureSideHorizontalHubEdge(node, graph, "right") && isDeckPressureSideWidthResizeEdge(node, graph, "right");
         const canResizeStackLeftW = isHorizontalDockStack && canResizeHorizontalStackWidth(node, graph, "left");
         const canResizeStackRightW = isHorizontalDockStack && canResizeHorizontalStackWidth(node, graph, "right");
         const canResizeStackW = canResizeStackLeftW || canResizeStackRightW || canResizePressureSeamLeftW || canResizePressureSeamRightW || canResizePressureSideHorizontalLeftW || canResizePressureSideHorizontalRightW;
@@ -1477,10 +1494,10 @@ export function syncDerpShield(node) {
                 handleStyle.pointerEvents = (node.resizable && allowBottomResizeCorners) ? "auto" : "none";
                 node.interactionShield._resizeHandle._resizeAnchorOverride = canUseRightW ? "right" : null;
             } else {
-                const seamWidth = isPressureMember ? Math.max(1, (visualW * scale) - bottomLeftWidth - bottomRightWidth) : visualW * scale;
+                const seamWidth = Math.max(1, (visualW * scale) - bottomLeftWidth - bottomRightWidth);
                 handleStyle.width = `${seamWidth}px`;
                 handleStyle.height = `${SHARED_VERTICAL_SEAM_HITBOX_PX}px`;
-                handleStyle.right = isPressureMember ? `${bottomRightWidth - (padR * scale)}px` : `-${padR * scale}px`;
+                handleStyle.right = `${bottomRightWidth - (padR * scale)}px`;
                 handleStyle.bottom = "0px";
                 handleStyle.cursor = "ns-resize";
                 handleStyle.display = "block";
@@ -1520,10 +1537,10 @@ export function syncDerpShield(node) {
                     leftStyle.pointerEvents = (node.resizable && allowBottomResizeCorners) ? "auto" : "none";
                     node.interactionShield._resizeHandleLeft._resizeAnchorOverride = canUseLeftW ? "left" : null;
                 } else {
-                    const seamWidth = isPressureMember ? Math.max(1, (visualW * scale) - bottomLeftWidth - bottomRightWidth) : visualW * scale;
+                    const seamWidth = Math.max(1, (visualW * scale) - bottomLeftWidth - bottomRightWidth);
                     leftStyle.width = `${seamWidth}px`;
                     leftStyle.height = `${SHARED_VERTICAL_SEAM_HITBOX_PX}px`;
-                    leftStyle.left = isPressureMember ? `${bottomLeftWidth - (padL * scale)}px` : `-${padL * scale}px`;
+                    leftStyle.left = `${bottomLeftWidth - (padL * scale)}px`;
                     leftStyle.bottom = "0px";
                     leftStyle.cursor = "ns-resize";
                     leftStyle.display = "block";
@@ -1573,10 +1590,10 @@ export function syncDerpShield(node) {
                     topLeftStyle.cursor = canUseLeftW ? "ew-resize" : "default";
                     node.interactionShield._resizeHandleTopLeft._resizeAnchorOverride = canUseLeftW ? "left" : null;
                 } else {
-                    const seamWidth = isPressureMember ? Math.max(1, (visualW * scale) - topLeftWidth - topRightWidth) : visualW * scale;
+                    const seamWidth = Math.max(1, (visualW * scale) - topLeftWidth - topRightWidth);
                     topLeftStyle.width = `${seamWidth}px`;
                     topLeftStyle.height = `${SHARED_VERTICAL_SEAM_HITBOX_PX}px`;
-                    topLeftStyle.left = isPressureMember ? `${topLeftWidth - (padL * scale)}px` : `-${padL * scale}px`;
+                    topLeftStyle.left = `${topLeftWidth - (padL * scale)}px`;
                     topLeftStyle.top = "0px";
                     topLeftStyle.cursor = "ns-resize";
                     topLeftStyle.display = "block";
@@ -1613,10 +1630,10 @@ export function syncDerpShield(node) {
                     topRightStyle.cursor = canUseRightW ? "ew-resize" : "default";
                     node.interactionShield._resizeHandleTopRight._resizeAnchorOverride = canUseRightW ? "right" : null;
                 } else {
-                    const seamWidth = isPressureMember ? Math.max(1, (visualW * scale) - topLeftWidth - topRightWidth) : visualW * scale;
+                    const seamWidth = Math.max(1, (visualW * scale) - topLeftWidth - topRightWidth);
                     topRightStyle.width = `${seamWidth}px`;
                     topRightStyle.height = `${SHARED_VERTICAL_SEAM_HITBOX_PX}px`;
-                    topRightStyle.right = isPressureMember ? `${topRightWidth - (padR * scale)}px` : `-${padR * scale}px`;
+                    topRightStyle.right = `${topRightWidth - (padR * scale)}px`;
                     topRightStyle.top = "0px";
                     topRightStyle.cursor = "ns-resize";
                     topRightStyle.display = "block";

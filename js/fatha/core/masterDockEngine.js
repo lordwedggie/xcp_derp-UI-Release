@@ -1383,15 +1383,15 @@ export function undeckDeckPressureBranches(hub, graph = null) {
         const branchRoot = getPeerDeckNeighbor(hub, activeGraph, side);
         if (!branchRoot) return;
         const branchProps = ensureDeckProps(branchRoot);
+        const allBranchMembers = getDeckPressureBranchMembers(hub, activeGraph, side);
         changed = disconnectPeerDeckEdge(hub, activeGraph, side) || changed;
         if (branchProps.deckParentId === hub.id) {
             branchProps.deckParentId = null;
             branchProps.deckDockSide = null;
-            clearDeckPressureSideHorizontalWidthLock(branchRoot);
             branchProps.pinActive = false;
             changed = true;
         }
-        getDeckPressureBranchMembers(hub, activeGraph, side).forEach(clearDeckPressureSideHorizontalWidthLock);
+        allBranchMembers.forEach(clearDeckPressureSideHorizontalWidthLock);
         if (!isNodeDocked(branchRoot, activeGraph)) {
             restoreDeckNodeAxes(branchRoot);
         }

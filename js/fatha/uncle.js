@@ -16,6 +16,7 @@ import { getVirtualNodeLayoutMap } from "./helpers/fathaLayoutMaps.js";
 import { transmitBypassedDerpSignals, transmitDerpSignal, purgeDerpSignal } from "./core/masterSignalEngine.js";
 import { animateRecoil } from "../herbina/masterAnimator.js";
 import { scheduleNativeVueNodeShellSuppression, suppressNativeVueNodeShell } from "./core/fathaNode2Compat.js";
+import { undeckNode, undeckDeckPressureBranches, isDeckPressureHub } from "./core/masterDockEngine.js";
 
 // THE SQUEEZE CONFIG: Centralized padding values for Uncle link-dots
 const UNCLE_LINK_PAD = { LEFT: 15, RIGHT: 15 };
@@ -426,6 +427,12 @@ export function uncle(nodeType, nodeData, minWidth = 100) {
     nodeType.prototype.onRemoved = function() {
         if (onRemoved) onRemoved.apply(this, arguments);
         if (isHostActive(this.id)) closeDerpSysPanel();
+
+        const graph = this.graph || app.graph;
+        if (graph) {
+            if (isDeckPressureHub(this)) undeckDeckPressureBranches(this, graph);
+            undeckNode(this, graph);
+        }
 
         if (this._derpDomElements) {
             Object.values(this._derpDomElements).forEach(el => {

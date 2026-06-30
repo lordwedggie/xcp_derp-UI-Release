@@ -19,6 +19,7 @@ import { promoteMasterZ, syncMasterZ } from "./core/masterZ.js";
 import { isComfyVueNodesMode, scheduleNativeVueNodeShellSuppression, shouldMutateLegacySelectionForDraw, suppressNativeVueNodeShell } from "./core/fathaNode2Compat.js";
 import { drawContentViewportScrollbars, getContentViewportGeometry, withContentViewportClip } from "./core/fathaContentViewportDraw.js";
 import { getContentViewportSignature } from "./core/fathaContentViewport.js";
+import { undeckNode, undeckDeckPressureBranches, isDeckPressureHub } from "./core/masterDockEngine.js";
 
 const FATHA_OVERLAY_WINDOW_MS = 4000;
 const FATHA_VIEWPORT_CULL_MARGIN_PX = 160;
@@ -976,6 +977,12 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
     nodeType.prototype.onRemoved = function() {
         if (onRemoved) onRemoved.apply(this, arguments);
         if (isHostActive(this.id)) closeDerpSysPanel();
+
+        const graph = this.graph || app.graph;
+        if (graph) {
+            if (isDeckPressureHub(this)) undeckDeckPressureBranches(this, graph);
+            undeckNode(this, graph);
+        }
 
         if (this._derpDomElements) {
             Object.values(this._derpDomElements).forEach(el => { if (el && typeof el.remove === 'function') el.remove(); });
