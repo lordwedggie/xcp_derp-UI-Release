@@ -61,7 +61,6 @@ export function handleNodeResize(entity, data, scale) {
         : (resizeAnchor === "right" || resizeAnchor === "top-right" || resizeAnchor === "bottom-right" ? "right" : null);
     const allowHorizontalStackWidthResize = !!horizontalStackResizeSide
         && axis === "horizontal"
-        && !resizeAxes.allowWidth
         && canResizeHorizontalStackWidth(entity, graph, horizontalStackResizeSide);
     const allowHorizontalSharedEdgeWidthResize = !!horizontalStackResizeSide
         && !resizeAxes.allowWidth
