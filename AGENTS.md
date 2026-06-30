@@ -183,12 +183,14 @@ To add a skill, create `.agents/skills/<name>/SKILL.md` with YAML frontmatter (`
 - Active canvas-shield editors must keep DOM text visible; do not hide editable DOM text behind a canvas-rendered duplicate because caret, selection, IME, and CJK hit-testing depend on the real DOM text metrics.
 - For Inter or other variable fonts, editor DOM/canvas parity requires disabling automatic optical sizing and pinning `opsz` to the unscaled layout font size.
 - Do not solve zoom drift with per-zoom nudges.
+- Focused EDITOR outside-click blur consumes clicks outside the host node, but same-node clicks on another interactive region should blur first and then pass through to that region.
 - Title editing uses the in-place header editor; do not add Basta wrappers for node title editing.
 
 ### FileBrowser and Dropdowns
 
 - Keep FileBrowser refactors under `js/herbina/widgets/helpers/`.
 - Do not decorate persisted dropdown values. Use object items such as `{ value: "canvas", display: "* canvas" }` when display text differs from stored value.
+- Signal picker FILEBROWSER items should carry the stable signal id in `value` and the colorized/user-facing text in `label`; do not parse decorated labels as the data contract.
 - Primitive `"None"` items render as `None`; use object fallback items when the closed label needs custom text.
 - Picker panels should preserve canvas pan and close on pointerup after outside interaction, ignoring completed canvas drags.
 - Picker visuals should use theme corners and draw late/high enough not to be covered.

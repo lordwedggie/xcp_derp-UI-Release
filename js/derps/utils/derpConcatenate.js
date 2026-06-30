@@ -110,11 +110,27 @@ function getConcatSignalItems(node) {
             if (Array.isArray(sig.upstreamIds) && sig.upstreamIds.some(id => String(id) === ownId)) return false;
             return true;
         })
-        .map((sig) => formatConcatSignalLabel(sig.nodeName, sig.nodeId));
+        .map((sig) => ({
+            value: String(sig.nodeId),
+            label: formatConcatSignalLabel(sig.nodeName, sig.nodeId),
+        }));
 }
 
-function getConcatSignalIdFromLabel(label) {
-    const value = String(label || "");
+function getConcatSignalLabelFromSelection(selection) {
+    if (selection && typeof selection === "object") {
+        return String(selection.label || selection.display || selection.name || selection.value || selection.id || "");
+    }
+    const raw = String(selection || "");
+    const signals = window.xcpDerpSignals || {};
+    const signal = signals[raw];
+    return signal ? formatConcatSignalLabel(signal.nodeName, signal.slotName || signal.nodeId) : raw;
+}
+
+function getConcatSignalIdFromSelection(selection) {
+    const value = String((selection && typeof selection === "object")
+        ? (selection.value ?? selection.id ?? selection.nodeId ?? selection.label ?? "")
+        : (selection ?? ""));
+    if (window.xcpDerpSignals?.[value]) return value;
     const match = value.match(/\[([\d:]+)\]/);
     if (match) return match[1];
 
@@ -701,18 +717,19 @@ app.registerExtension({
         };
 
         nodeType.prototype.setDerpSelectedSignal = function(val, idx = 0) {
-            const signalId = getConcatSignalIdFromLabel(val);
+            const signalId = getConcatSignalIdFromSelection(val);
             if (!signalId) return;
+            const label = getConcatSignalLabelFromSelection(val);
             if (!this.properties) this.properties = {};
             if (!this.properties.multiSignalLabels) this.properties.multiSignalLabels = {};
             if (!this.properties.multiSignalIds) this.properties.multiSignalIds = {};
             if (!Array.isArray(this.properties.signalDeck)) this.properties.signalDeck = [];
             this.properties.signalDeck[idx] = {
                 id: signalId,
-                label: val,
+                label,
                 hiddenPreview: this.properties.signalDeck[idx]?.hiddenPreview === true,
             };
-            this.properties.multiSignalLabels[idx] = val;
+            this.properties.multiSignalLabels[idx] = label;
             this.properties.multiSignalIds[idx] = signalId;
             applyConcatSignalDeckOrder(this);
             this._layoutMapHash = null;

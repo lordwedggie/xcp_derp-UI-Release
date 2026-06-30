@@ -40,9 +40,46 @@ const EDITOR_SCROLLBAR_WIDTH = 5;
 const EDITOR_SCROLLBAR_INSET = 3;
 const EDITOR_SCROLLBAR_MIN_THUMB = 18;
 
+function getDerpEditorSameNodeHit(active, e) {
+    const node = active?._nodeRef;
+    const shield = node?.interactionShield;
+    if (!node?.layout?.regions || !shield?.contains?.(e.target)) return null;
+
+    const rect = shield.getBoundingClientRect();
+    const dsScale = Number(comfyApp?.canvas?.ds?.scale || 1) || 1;
+    const localMouse = [
+        (Number(e.clientX) - rect.left) / dsScale,
+        (Number(e.clientY) - rect.top) / dsScale,
+    ];
+
+    const entries = Object.entries(node.layout.regions).reverse();
+    for (const [key, reg] of entries) {
+        if (key === active._config?.key) continue;
+        if (reg.isSpacing || (!reg.type && !reg.onPress && !reg.onClick && !reg.onDblClick && !reg.hoverEffect && !reg.onDragStart && !reg.onDrag && !reg.onDragEnd)) continue;
+        const isInteractive = reg.onPress || reg.onClick || reg.onDblClick || reg.hoverEffect || reg.onChange ||
+            reg.onDragStart || reg.onDrag || reg.onDragEnd ||
+            reg.type === "dropdownDerp" || reg.type === "dropdown" ||
+            reg.type === "simpleBtn" || reg.type === "btnIcon" ||
+            reg.type === "slider" || reg.type === "derpEditor" ||
+            reg.type === "fileBrowser" || reg.type === "derpToggle" ||
+            reg.type === "derpToggleV2" || reg.type === "compositeTrigger";
+        if (!isInteractive) continue;
+        if (reg.state === "DIS" && reg.allowOpenWhenDisabled !== true) continue;
+        if (reg.hitTest ? reg.hitTest(localMouse, reg) : node.layout.hitTest(localMouse, reg)) {
+            return { key, reg };
+        }
+    }
+    return null;
+}
+
 function handleDerpEditorOutsidePointer(e) {
     const active = document.activeElement;
     if (!active?.dataset?.derpEditor || active.contains(e.target)) return;
+    const sameNodeHit = getDerpEditorSameNodeHit(active, e);
+    if (sameNodeHit) {
+        active.blur();
+        return;
+    }
     e.preventDefault();
     e.stopPropagation();
     if (e.stopImmediatePropagation) e.stopImmediatePropagation();
