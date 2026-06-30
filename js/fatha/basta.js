@@ -15,7 +15,7 @@ import { resolvePaintData, parseColorKeyText } from "../herbina/utils/widgetsUti
 import { getBastaBaseMap } from "./helpers/bastaLayoutMaps.js";
 import { ensureScreenRectVisible, isWarping } from "./core/fathaWarp.js";
 import { MASTER_Z } from "./core/masterZ.js";
-import { resolveSystemThemePaint } from "./helpers/fathaSystemTheme.js";
+import { resolveSystemThemePaint, getSystemThemeLayoutVars } from "./helpers/fathaSystemTheme.js";
 import { getContentViewportForRegion } from "./core/fathaContentViewport.js";
 
 const BASTA_FADE_SPEED = 0.4;
@@ -543,6 +543,9 @@ class BastaInstance {
         createDerpShield(this);
         if (this.interactionShield) {
             this.interactionShield.style.zIndex = this.baseZIndex;
+            if (this.properties?.tooltipExpand === true) {
+                this.interactionShield.style.pointerEvents = "none";
+            }
         }
 
         activeBastas.set(this.id, this);
@@ -579,8 +582,10 @@ class BastaInstance {
     // Fatha Interface Requirements
     getDerpVars() {
         const baseVars = this.hostNode?.getDerpVars ? this.hostNode.getDerpVars(this.hostNode) : getDerpVars(this);
+        const layoutOverride = this.properties?.tooltipExpand === true ? getSystemThemeLayoutVars() : null;
         return {
             ...baseVars,
+            ...layoutOverride,
             // THE MIN-WIDTH FIX: Prioritize the Basta's internal minWidth property to override host node inheritance
             minWidth: (this.properties.minWidth !== undefined) ? this.properties.minWidth : baseVars.minWidth,
             autoWidth: this.properties.autoWidth !== false,

@@ -16,7 +16,11 @@ Basta ("Bastard" Child Framework) is a multi-instance, canvas-native replacement
 - Uses same `masterLayoutEngine`, `COMPONENT_BLUEPRINTS`, `handleShieldInteraction`, `handleDrawCTX`
 - Fade animation: `animateAlpha()` with `BASTA_FADE_SPEED = 0.4`
 - Clip chain: `getRegionClipChain()` for nested clipping regions
-- Tooltip animation: `drawAnimatedTooltipLabel()` for expanding labels; tooltip base paint now comes from the system theme `_System/_DK_System` keys `tooltip_background` and `t_tooltip_Text`, while tooltip color overrides still resolve through the host node's category-aware string palette entries `toolTip_background` and `t_toolTip_normal`.
+- Tooltip animation: `drawAnimatedTooltipLabel()` for expanding labels. Tooltip resolution has three layers:
+  1. **System theme (`_System/_DK_System.json`)** provides base settings: `tooltip_background` (corners, shadow) and `t_tooltip_text` (font, fontSize, fontWeight, shadow). These are read via `resolveSystemThemePaint()`.
+  2. **String palette** (`_system/_*_defaultPalette.json` entry `toolTip_background`) overrides the fill color via `mergePaintColorOverrides`. This is the primary source of the tooltip background color — editing `tooltip_background._OFF` in the system theme alone will not change the visible fill because the palette entry wins.
+  3. **Node canvas palette** is skipped for tooltip Bastas (`skipNodePaletteInjection = true` when `tooltipExpand` is set), so the host node's canvas palette cannot override the tooltip background.
+  Tooltip Bastas also use the system theme's `_layout` for margins/spacing/padding (via `getSystemThemeLayoutVars()`), not the host node's theme `_layout`, so tooltip spacing stays consistent across different node themes.
 
 ### Basta Lifecycle
 1. Created via `showBasta*()` functions in panel modules

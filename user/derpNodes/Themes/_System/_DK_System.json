@@ -1454,7 +1454,7 @@
     },
     "t_tooltip_text": {
         "font": "Inter",
-        "fontSize": 28,
+        "fontSize": 12,
         "fontWeight": "200",
         "_ON": [
             217,

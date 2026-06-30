@@ -1286,6 +1286,9 @@ export function syncDerpShield(node) {
         removeDerpShield(node);
         createDerpShield(node);
         if (!node.interactionShield) return;
+        if (node.properties?.tooltipExpand === true) {
+            node.interactionShield.style.pointerEvents = "none";
+        }
     }
     const ds = app.canvas.ds;
     const scale = ds.scale;

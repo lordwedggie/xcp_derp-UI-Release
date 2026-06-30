@@ -129,3 +129,15 @@ export function resolveSystemThemeFill(keyName, fallback = null, state = "OFF") 
     const paint = resolveSystemThemePaint(keyName, state);
     return paint?.fill || fallback;
 }
+
+export function getSystemThemeLayoutVars() {
+    const theme = syncDerpSystemThemeFromConfig(window.xcpDerpSystemThemeName || SYSTEM_THEME_NAME) || window.xcpDerpSystemTheme;
+    const layout = Array.isArray(theme?._layout) ? theme._layout : [4, 2, 2, 2, 2, 4, 2, 4];
+    const lock = (v) => Number(Number(v).toFixed(2));
+    return {
+        mW: lock(layout[0] ?? 4), mH: lock(layout[1] ?? 2),
+        sW: lock(layout[2] ?? 2), sH: lock(layout[3] ?? 2),
+        oX: lock(layout[4] ?? 2), oY: lock(layout[5] ?? 4),
+        pW: lock(layout[6] ?? 2), pH: lock(layout[7] ?? 4),
+    };
+}

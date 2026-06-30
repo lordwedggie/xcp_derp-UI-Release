@@ -1598,7 +1598,7 @@ export function handleDrawCTX(entity, ctx, overlayPass = false) {
         const bgOffSuffix = isBypassed ? "_DIS" : (isOptionalBgKey ? "_DIS" : "");
         const bgOnSuffix  = isBypassed ? "_DIS" : (isOptionalBgKey ? "_DIS" : "_ON");
         const backgroundPalette = getTooltipHostPalette(entity);
-        const skipNodePaletteInjection = entity.properties?.tooltipExpand === true && !!backgroundPalette;
+        const skipNodePaletteInjection = entity.properties?.tooltipExpand === true;
         const canvasPaletteStateOFF = isBypassed ? "_DIS" : "_OFF";
         const canvasPaletteStateON = isBypassed ? "_DIS" : "_ON";
         const resolveTooltipBackgroundPaint = (stateSuffix) => {

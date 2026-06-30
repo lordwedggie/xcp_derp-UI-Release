@@ -5,7 +5,7 @@ import { spawnBasta, activeBastas } from "../basta.js";
 import { UI_TYPES } from "../core/masterLayoutTypes.js";
 import { measureTextWidth, resolvePaintData, parseColorKeyText } from "../../herbina/utils/widgetsUtils.js";
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
-import { resolveSystemThemePaint } from "../helpers/fathaSystemTheme.js";
+import { resolveSystemThemePaint, getSystemThemeLayoutVars } from "../helpers/fathaSystemTheme.js";
 
 export const TOOLTIP_EXPAND_START_WIDTH = 1;
 export const TOOLTIP_EXPAND_ANIMATION_SPEED = 0.22;
@@ -66,7 +66,9 @@ export function showBastaMessage(host, text, duration = 3000, animations = {}, t
     const id = getBastaMessageId(host, targetRegion);
     if (activeBastas.has(id)) return null;
 
-    const vars = host.getDerpVars ? host.getDerpVars(host) : { mW: 4, mH: 2, sW: 2, sH: 2, pW: 2, pH: 4, playSound: true };
+    const hostVars = host.getDerpVars ? host.getDerpVars(host) : { mW: 4, mH: 2, sW: 2, sH: 2, pW: 2, pH: 4, playSound: true };
+    const isTooltipMsg = animations?.tooltipExpand === true;
+    const vars = isTooltipMsg ? { ...hostVars, ...getSystemThemeLayoutVars() } : hostVars;
     const { mW, mH, sH, pW, pH } = vars;
 
     const globalPlaySound = window.DERP_GLOBAL_SETTINGS?.playSound !== false;
