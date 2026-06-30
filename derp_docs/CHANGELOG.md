@@ -3,6 +3,8 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+### <span style="color: #80aaff">Changed</span>
+- <span style="color:#80aaff"><strong>Dock seam resize hitbox thickness</strong></span>: Shared-edge resize detection zones for both horizontal and vertical dock seams (including Deck Pressure side seams) are now 4px total — 2px per adjacent node — down from the previous ~10–20px. This prevents seam hitboxes from bleeding into neighboring button detection zones.
 
 ## [0.7.10] - 2026-06-24
 ### <span style="color: #80ffc0">Added</span>
