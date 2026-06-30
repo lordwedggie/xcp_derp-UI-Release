@@ -6,6 +6,8 @@ import { app } from "../../../../../scripts/app.js";
 import { fatha, initDerpGlobalListener } from "../../fatha/fatha.js";
 import { startStackDrag, updateStackDrag, endStackDrag } from "../../fatha/helpers/fathaDragDrop.js";
 import { measureTextHeight } from "../../herbina/utils/widgetsUtils.js";
+import { settleDerpSizeBeforeDraw } from "../../fatha/core/fathaHandler.js";
+import { resolveDerpRuntimeAutoHeight } from "../../fatha/core/derpHeightPolicy.js";
 
 function tLocale(key, fallback = key) {
     if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
@@ -282,6 +284,11 @@ function buildConcatLayoutHash(node, vars, signalStates) {
     const mH = Number(vars.mH || 0).toFixed(2);
     const oY = Number(vars.oY || 0).toFixed(2);
     const signalItems = getConcatSignalItems(node);
+    const hiddenPreviews = node?.properties?.hiddenSignalPreviews || {};
+    const hiddenPreviewHash = Object.keys(hiddenPreviews)
+        .filter((k) => hiddenPreviews[k] === true)
+        .sort((a, b) => Number(a) - Number(b))
+        .join(",");
     return [
         window._xcpDerpSession || "",
         node?.titleLabel || "",
@@ -296,6 +303,8 @@ function buildConcatLayoutHash(node, vars, signalStates) {
         mH,
         oY,
         node?.properties?.drawHeader !== false,
+        `hp:${hiddenPreviewHash}`,
+        `cc:${node?.properties?.concatContentCollapsed === true ? 1 : 0}`,
     ].join("|");
 }
 
@@ -611,7 +620,16 @@ app.registerExtension({
                         width: "full", height: "auto",
                         onContextMenu: () => {
                             this.properties.concatContentCollapsed = !this.properties.concatContentCollapsed;
+                            this._layoutMapHash = null;
                             this.refreshNodeLayoutMap();
+                            if (resolveDerpRuntimeAutoHeight(this)) {
+                                this._allowDockContentHeightShiftFrames = 4;
+                                settleDerpSizeBeforeDraw(this, {
+                                    forceAutoHeight: true,
+                                    suppressRequestSync: true,
+                                });
+                            }
+                            this.requestDerpSync();
                             return false;
                         },
                         regionConcatHeader: {
@@ -627,7 +645,16 @@ app.registerExtension({
                                 spacing: [0, 0],
                                 onPress: () => {
                                     this.properties.concatContentCollapsed = !this.properties.concatContentCollapsed;
+                                    this._layoutMapHash = null;
                                     this.refreshNodeLayoutMap();
+                                    if (resolveDerpRuntimeAutoHeight(this)) {
+                                        this._allowDockContentHeightShiftFrames = 4;
+                                        settleDerpSizeBeforeDraw(this, {
+                                            forceAutoHeight: true,
+                                            suppressRequestSync: true,
+                                        });
+                                    }
+                                    this.requestDerpSync();
                                 },
                             },
                             lblConcatHeader: {
@@ -735,6 +762,13 @@ app.registerExtension({
             this._layoutMapHash = null;
             if (this.syncDerpOutputs) this.syncDerpOutputs();
             if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
+            if (resolveDerpRuntimeAutoHeight(this)) {
+                this._allowDockContentHeightShiftFrames = 4;
+                settleDerpSizeBeforeDraw(this, {
+                    forceAutoHeight: true,
+                    suppressRequestSync: true,
+                });
+            }
             if (this.requestDerpSync) this.requestDerpSync();
         };
 
@@ -757,6 +791,13 @@ app.registerExtension({
             this._layoutMapHash = null;
             if (this.syncDerpOutputs) this.syncDerpOutputs();
             if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
+            if (resolveDerpRuntimeAutoHeight(this)) {
+                this._allowDockContentHeightShiftFrames = 4;
+                settleDerpSizeBeforeDraw(this, {
+                    forceAutoHeight: true,
+                    suppressRequestSync: true,
+                });
+            }
             if (this.requestDerpSync) this.requestDerpSync();
         };
 
@@ -770,6 +811,13 @@ app.registerExtension({
             applyConcatSignalDeckOrder(this);
             this._layoutMapHash = null;
             if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
+            if (resolveDerpRuntimeAutoHeight(this)) {
+                this._allowDockContentHeightShiftFrames = 4;
+                settleDerpSizeBeforeDraw(this, {
+                    forceAutoHeight: true,
+                    suppressRequestSync: true,
+                });
+            }
             if (this.requestDerpSync) this.requestDerpSync();
         };
 
@@ -840,17 +888,34 @@ app.registerExtension({
             normalizeConcatSignalSelections(this);
             const signalStates = getConcatSignalStates(this);
             const signalHash = signalStates.map((state) => `${state.activeSignalId}|${state.preview}`).join("\u0001");
-            if (this._lastConcatSignalHash !== signalHash) {
-                this._lastConcatSignalHash = signalHash;
+            const hiddenPreviewKeys = Object.keys(this.properties?.hiddenSignalPreviews || {})
+                .filter((k) => this.properties.hiddenSignalPreviews[k] === true).sort((a, b) => Number(a) - Number(b)).join(",");
+            const collapseHash = `${signalHash}\u0002hp:${hiddenPreviewKeys}\u0002cc:${this.properties?.concatContentCollapsed === true ? 1 : 0}`;
+            if (this._lastConcatSignalHash !== collapseHash) {
+                this._lastConcatSignalHash = collapseHash;
                 if (this.syncDerpOutputs) this.syncDerpOutputs();
                 this._layoutMapHash = null;
                 this.refreshNodeLayoutMap();
+                if (resolveDerpRuntimeAutoHeight(this) && !this._isDerpResizing) {
+                    this._allowDockContentHeightShiftFrames = 4;
+                    settleDerpSizeBeforeDraw(this, {
+                        forceAutoHeight: true,
+                        suppressRequestSync: true,
+                    });
+                }
             }
 
             const currentW = Math.round(this.size[0]);
             if (this._lastDerpW !== currentW) {
                 this._lastDerpW = currentW;
                 this.refreshNodeLayoutMap();
+                if (resolveDerpRuntimeAutoHeight(this)) {
+                    this._allowDockContentHeightShiftFrames = 4;
+                    settleDerpSizeBeforeDraw(this, {
+                        forceAutoHeight: true,
+                        suppressRequestSync: true,
+                    });
+                }
             }
         };
     }
