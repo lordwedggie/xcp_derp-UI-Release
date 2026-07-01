@@ -61,6 +61,7 @@ const DERP_SETTING_DEFAULTS = {
     verticalPinnedCollapseUpward: true,
     verticalDeckExpandCount: "auto_fit",
     deckArrangement: "automatic",
+    deckAutoStackMode: "scale",
     deckResizeOptimization: "ghost_layout",
     loraStackWholeWallCacheGate: "3",
     triggerWallWholeWallCacheGate: "10",
@@ -86,6 +87,7 @@ const DERP_SETTING_DEFAULT_IDS = {
     "Derp.VerticalPinnedCollapseUpward": DERP_SETTING_DEFAULTS.verticalPinnedCollapseUpward,
     "Derp.VerticalDeckExpandCount": DERP_SETTING_DEFAULTS.verticalDeckExpandCount,
     "Derp.DeckArrangement": DERP_SETTING_DEFAULTS.deckArrangement,
+    "Derp.DeckAutoStackMode": DERP_SETTING_DEFAULTS.deckAutoStackMode,
     "Derp.DeckResizeOptimization": DERP_SETTING_DEFAULTS.deckResizeOptimization,
     "Derp.LoraStackWholeWallCacheGate": DERP_SETTING_DEFAULTS.loraStackWholeWallCacheGate,
     "Derp.TriggerWallWholeWallCacheGate": DERP_SETTING_DEFAULTS.triggerWallWholeWallCacheGate,
@@ -574,6 +576,26 @@ app.registerExtension({
         });
 
         app.ui.settings.addSetting({
+            id: "Derp.DeckAutoStackMode",
+            name: "Auto stack deck fit mode",
+            category: DERP_GROUPS.docking("Auto stack deck fit mode"),
+            sortOrder: DERP_GROUP_SORT_ORDER.docking,
+            type: "combo",
+            options: [
+                { value: "scale", text: "Scale (auto members absorb deck dimension)" },
+                { value: "manual", text: "Manual (force-convert auto members to manual on attach)" }
+            ],
+            default: "scale",
+            onChange: (v) => {
+                const value = String(v || "scale").trim();
+                window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
+                window.DERP_GLOBAL_SETTINGS.deckAutoStackMode = ["scale", "manual"].includes(value) ? value : "scale";
+                syncDerpGlobalSettingsAlias();
+                if (app.canvas) app.canvas.setDirty(true, true);
+            }
+        });
+
+        app.ui.settings.addSetting({
             id: "Derp.DeckResizeOptimization",
             name: "Deck resize optimization",
             category: DERP_GROUPS.docking("Deck resize optimization"),
@@ -789,6 +811,7 @@ app.registerExtension({
             verticalPinnedCollapseUpward: normalizeBooleanSetting(getStoredSettingValue("Derp.VerticalPinnedCollapseUpward", DERP_SETTING_DEFAULTS.verticalPinnedCollapseUpward), DERP_SETTING_DEFAULTS.verticalPinnedCollapseUpward),
             verticalDeckExpandCount: String(getStoredSettingValue("Derp.VerticalDeckExpandCount", DERP_SETTING_DEFAULTS.verticalDeckExpandCount) || DERP_SETTING_DEFAULTS.verticalDeckExpandCount),
             deckArrangement: String(getStoredSettingValue("Derp.DeckArrangement", DERP_SETTING_DEFAULTS.deckArrangement) || DERP_SETTING_DEFAULTS.deckArrangement),
+            deckAutoStackMode: String(getStoredSettingValue("Derp.DeckAutoStackMode", DERP_SETTING_DEFAULTS.deckAutoStackMode) || DERP_SETTING_DEFAULTS.deckAutoStackMode),
             deckResizeOptimization: String(getStoredSettingValue("Derp.DeckResizeOptimization", DERP_SETTING_DEFAULTS.deckResizeOptimization) || DERP_SETTING_DEFAULTS.deckResizeOptimization),
             loraStackWholeWallCacheGate: String(getStoredSettingValue("Derp.LoraStackWholeWallCacheGate", DERP_SETTING_DEFAULTS.loraStackWholeWallCacheGate) || DERP_SETTING_DEFAULTS.loraStackWholeWallCacheGate).toLowerCase(),
             triggerWallWholeWallCacheGate: String(getStoredSettingValue("Derp.TriggerWallWholeWallCacheGate", DERP_SETTING_DEFAULTS.triggerWallWholeWallCacheGate) || DERP_SETTING_DEFAULTS.triggerWallWholeWallCacheGate).toLowerCase(),

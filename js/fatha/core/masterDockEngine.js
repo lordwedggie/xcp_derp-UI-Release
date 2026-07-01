@@ -9,7 +9,7 @@ import { syncDerpShield } from "./fathaDOMshield.js";
 import { applyDerpPreferredAutoHeight, resolveDerpPreferredAutoHeight } from "./derpHeightPolicy.js";
 import { handleNodeResize } from "./fathaNodeResize.js";
 import { getVirtualNodeLayoutMap } from "../helpers/fathaLayoutMaps.js";
-import { getActiveVerticalDeckWidthLock, getDockNodeMinHeight, getDockNodeMinWidth, getSharedDockMinWidth, getSharedDockWidth, resolveDockAttachDimensions, resolveRuntimeDockSize } from "./dockDimensions.js";
+import { getActiveVerticalDeckWidthLock, getDockGroupAxisFromMembers, getDockNodeMinHeight, getDockNodeMinWidth, getSharedDockMinWidth, getSharedDockWidth, resolveDockAttachDimensions, resolveRuntimeDockSize } from "./dockDimensions.js";
 import { setDerpNodeSizeCompat } from "./fathaNode2Compat.js";
 import { masterPainter } from "../../herbina/masterPainter.js";
 import { DEFAULT_PULSE_SPEED, getPulsedColor, parseColor } from "../../herbina/masterAnimator.js";
@@ -523,6 +523,20 @@ function getDeckArrangementSetting() {
     const stored = globalThis?.app?.ui?.settings?.getSettingValue?.("Derp.DeckArrangement");
     const globalValue = globalThis?.DERP_GLOBAL_SETTINGS?.deckArrangement;
     return normalizeDeckArrangement(stored ?? globalValue, DECK_ARRANGEMENT_AUTOMATIC);
+}
+
+const DECK_AUTO_STACK_SCALE = "scale";
+const DECK_AUTO_STACK_MANUAL = "manual";
+function normalizeDeckAutoStackMode(value, fallback = DECK_AUTO_STACK_SCALE) {
+    if (value === null || value === undefined) return fallback;
+    const raw = String(value || "").trim();
+    if (raw === DECK_AUTO_STACK_SCALE || raw === DECK_AUTO_STACK_MANUAL) return raw;
+    return fallback;
+}
+export function getDeckAutoStackModeSetting() {
+    const stored = globalThis?.app?.ui?.settings?.getSettingValue?.("Derp.DeckAutoStackMode");
+    const globalValue = globalThis?.DERP_GLOBAL_SETTINGS?.deckAutoStackMode;
+    return normalizeDeckAutoStackMode(stored ?? globalValue, DECK_AUTO_STACK_SCALE);
 }
 
 function ensureDeckPressureArrangement(hub, graph, side = null) {
@@ -1466,8 +1480,15 @@ function isWithinDeckSearchRadius(dragRect, targetRect, radius) {
 function lockDeckNodeAxes(node, side = null) {
     if (!node) return;
     if (!node.properties) node.properties = {};
-    const preferredAutoHeight = resolveDerpPreferredAutoHeight(node);
     saveDeckNodeAxes(node);
+    // Use the saved preferred value if it exists (preserves the original across
+    // re-docks and mode switches). Using the current _derpPreferredAutoHeight
+    // is unsafe because Manual mode corrupts it to false; applyDerpPreferredAutoHeight
+    // would then overwrite deckSavedAutoHeight with false, destroying the saved original.
+    const hasSavedHeight = Object.prototype.hasOwnProperty.call(node.properties, "deckSavedAutoHeight");
+    const preferredAutoHeight = hasSavedHeight
+        ? node.properties.deckSavedAutoHeight === true
+        : resolveDerpPreferredAutoHeight(node);
 
     if (side === "left" || side === "right") {
         node.properties.autoHeight = false;
@@ -1478,6 +1499,63 @@ function lockDeckNodeAxes(node, side = null) {
         }
     }
     applyDerpPreferredAutoHeight(node, preferredAutoHeight);
+}
+
+function lockDeckStackMembersForAttach(dockFollower, attachLeader, side, graph) {
+    if (!graph) return;
+    const modeSetting = getDeckAutoStackModeSetting();
+    const attachIds = new Set();
+    if (dockFollower?.id != null) attachIds.add(dockFollower.id);
+    if (attachLeader?.id != null) attachIds.add(attachLeader.id);
+    const members = [...getDeckMembers(dockFollower, graph), ...getDeckMembers(attachLeader, graph)];
+
+    if (modeSetting === DECK_AUTO_STACK_MANUAL) {
+        // Manual mode: force all members to manual on the seam axis.
+        const stackAxis = getDockGroupAxisFromMembers(members.filter((m) => m && !isDeckPressureHub(m)));
+        const forceAutoHeightOff = stackAxis === "vertical";
+        const forceAutoWidthOff = stackAxis === "horizontal";
+        const seen = new Set();
+        members.forEach((member) => {
+            if (!member || seen.has(member.id)) return;
+            seen.add(member.id);
+            if (isDeckPressureHub(member)) return;
+            if (!attachIds.has(member.id)) {
+                lockDeckNodeAxes(member, side);
+            }
+            if (!member.properties) member.properties = {};
+            if (forceAutoHeightOff) {
+                member.properties._derpPreferredAutoHeight = false;
+                member.properties.autoHeight = false;
+            }
+            if (forceAutoWidthOff) {
+                member.properties.autoWidth = false;
+            }
+        });
+    } else {
+        // Scale mode: restore preferred autoHeight and autoWidth from saved
+        // values for members that were previously force-converted by Manual
+        // mode. Attach-point nodes' _derpPreferredAutoHeight is already
+        // restored by lockDeckNodeAxes (which reads from deckSavedAutoHeight),
+        // but autoWidth is NOT handled by lockDeckNodeAxes for side="left"/"right",
+        // so we must restore it here for ALL members. For side="top"/"bottom",
+        // lockDeckNodeAxes forces autoWidth = false (vertical stack width sharing),
+        // so we must NOT restore it.
+        const restoreAutoWidth = side !== "top" && side !== "bottom";
+        const seen = new Set();
+        members.forEach((member) => {
+            if (!member || seen.has(member.id)) return;
+            seen.add(member.id);
+            if (isDeckPressureHub(member)) return;
+            if (!member.properties) return;
+            if (Object.prototype.hasOwnProperty.call(member.properties, "deckSavedAutoHeight")) {
+                member.properties._derpPreferredAutoHeight = member.properties.deckSavedAutoHeight === true;
+            }
+            if (restoreAutoWidth
+                && Object.prototype.hasOwnProperty.call(member.properties, "deckSavedAutoWidth")) {
+                member.properties.autoWidth = member.properties.deckSavedAutoWidth === true;
+            }
+        });
+    }
 }
 
 function settleNodesAfterDockWidthMatch(nodes = []) {
@@ -1739,6 +1817,7 @@ export function deckNodeToLeader(node, leader, graph, side = null) {
     if (typeof attachLeader.settleBeforeDockSnap === "function") attachLeader.settleBeforeDockSnap();
     lockDeckNodeAxes(dockFollower, side);
     lockDeckNodeAxes(attachLeader, side);
+    lockDeckStackMembersForAttach(dockFollower, attachLeader, side, graph);
     matchDeckNodeSizes(dockFollower, attachLeader, side);
     restoreDeckPressureHubSize(hubSize);
     settleNodesAfterDockWidthMatch([dockFollower, attachLeader]);
@@ -1788,6 +1867,7 @@ export function finalizeDeck(node, leader, graph, side = null, snap = DEFAULT_DE
     if (typeof attachLeader.settleBeforeDockSnap === "function") attachLeader.settleBeforeDockSnap();
     lockDeckNodeAxes(dockFollower, side);
     lockDeckNodeAxes(attachLeader, side);
+    lockDeckStackMembersForAttach(dockFollower, attachLeader, side, graph);
     matchDeckNodeSizes(dockFollower, attachLeader, side);
     restoreDeckPressureHubSize(hubSize);
     settleNodesAfterDockWidthMatch([dockFollower, attachLeader]);
@@ -1884,6 +1964,7 @@ export function finalizeDeckTarget(node, targetInfo, graph, snap = DEFAULT_DECK_
     if (typeof attachLeader.settleBeforeDockSnap === "function") attachLeader.settleBeforeDockSnap();
     lockDeckNodeAxes(dockFollower, side);
     lockDeckNodeAxes(attachLeader, side);
+    lockDeckStackMembersForAttach(dockFollower, attachLeader, side, graph);
     matchDeckNodeSizes(dockFollower, attachLeader, side);
     restoreDeckPressureHubSize(hubSize);
     settleNodesAfterDockWidthMatch([dockFollower, attachLeader]);

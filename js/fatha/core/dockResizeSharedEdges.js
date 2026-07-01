@@ -10,7 +10,7 @@ import {
     isDeckPressureSideHorizontalHubEdge,
     isLinearDeckGroup,
 } from "./masterDockEngine.js";
-import { resolveDerpRuntimeAutoHeight } from "./derpHeightPolicy.js";
+import { resolveDerpPreferredAutoHeight } from "./derpHeightPolicy.js";
 
 function getNodeSizeValue(node, index) {
     return Number(node?.size?.[index] ?? node?.properties?.nodeSize?.[index]) || 0;
@@ -102,9 +102,11 @@ export function getHorizontalSameRowNeighbor(node, graph, side) {
 }
 
 export function canResizeHorizontalSeamPair(leftNode, rightNode, graph) {
-    if (canResizeHorizontalMemberWidth(leftNode, graph) && canResizeHorizontalMemberWidth(rightNode, graph)) return true;
-    return isDirectHorizontalNodeSeam(leftNode, rightNode, graph)
-        || areSameRowAdjacentHorizontalMembers(leftNode, rightNode, graph);
+    return canResizeHorizontalMemberWidth(leftNode, graph) && canResizeHorizontalMemberWidth(rightNode, graph);
+}
+
+export function canResizeVerticalSeamPair(topNode, bottomNode, graph) {
+    return canResizeVerticalMemberHeight(topNode, graph) && canResizeVerticalMemberHeight(bottomNode, graph);
 }
 
 export function canResizeHorizontalSharedEdgeWidth(node, graph, side) {
@@ -114,6 +116,15 @@ export function canResizeHorizontalSharedEdgeWidth(node, graph, side) {
     return side === "left"
         ? canResizeHorizontalSeamPair(neighbor, node, graph)
         : canResizeHorizontalSeamPair(node, neighbor, graph);
+}
+
+export function canResizeVerticalSharedEdgeHeight(node, graph, side) {
+    if (!graph || !node || (side !== "top" && side !== "bottom")) return false;
+    const neighbor = getNodeOnDeckEdge(node, graph, side);
+    if (!neighbor || isDeckPressureHub(neighbor)) return false;
+    return side === "top"
+        ? canResizeVerticalSeamPair(neighbor, node, graph)
+        : canResizeVerticalSeamPair(node, neighbor, graph);
 }
 
 export function canResizeHorizontalStackWidth(node, graph, side = null) {
@@ -128,7 +139,7 @@ export function canResizeHorizontalStackWidth(node, graph, side = null) {
 
 export function canResizeVerticalMemberHeight(node, graph) {
     if (node?.properties?.contentCollapsed === true) return false;
-    if (resolveDerpRuntimeAutoHeight(node)) return false;
+    if (resolveDerpPreferredAutoHeight(node)) return false;
     return true;
 }
 

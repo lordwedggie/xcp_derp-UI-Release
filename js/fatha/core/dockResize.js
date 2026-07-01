@@ -34,7 +34,7 @@ import {
     shouldPreserveDockHeight,
     shouldPreserveDockWidth,
 } from "./dockDimensions.js";
-import { canResizeHorizontalMemberWidth, canResizeHorizontalSeamPair, canResizeHorizontalSharedEdgeWidth, canResizeVerticalMemberHeight, getHorizontalDeckMembersByX, getHorizontalSameRowNeighbor } from "./dockResizeSharedEdges.js";
+import { canResizeHorizontalMemberWidth, canResizeHorizontalSeamPair, canResizeHorizontalSharedEdgeWidth, canResizeVerticalMemberHeight, canResizeVerticalSeamPair, getHorizontalDeckMembersByX, getHorizontalSameRowNeighbor } from "./dockResizeSharedEdges.js";
 import { dockDebug, isDockDebugEnabled, snapshotDockNode } from "./dockDebugHelpers.js";
 import { getVirtualNodeLayoutMap } from "../helpers/fathaLayoutMaps.js";
 import { setDerpNodeSizeCompat } from "./fathaNode2Compat.js";
@@ -843,6 +843,8 @@ function applyVerticalStackSharedEdgeResize(entity, resizeAnchor, requestedEntit
         return true;
     }
 
+    if (!canResizeVerticalSeamPair(topNode, bottomNode, graph)) return false;
+
     const sessionSide = "vertical-ordered-seam";
     const currentSession = sessionOwner[sessionKey];
     const sessionMatches = currentSession
@@ -1116,7 +1118,9 @@ function reconcileManualHeightsToTarget(nextHeights, manualMembers, originalHeig
 }
 
 function applyVerticalStackHeightResize(entity, resizeAnchor, requestedEntityHeight, minH, snap, result, addCounterpart, graph) {
-    if (resizeAnchor !== "top" && resizeAnchor !== "bottom") return false;
+    const isTopHandle = resizeAnchor === "top" || resizeAnchor === "top-left" || resizeAnchor === "top-right";
+    const isBottomHandle = resizeAnchor === "bottom" || resizeAnchor === "bottom-left" || resizeAnchor === "bottom-right";
+    if (!isTopHandle && !isBottomHandle) return false;
     if (entity?.properties?.contentCollapsed === true) return false;
     const pressureHub = getDeckPressureHubForNode(entity, graph);
     if (pressureHub && pressureHub.id !== entity.id) return false;
@@ -1125,9 +1129,6 @@ function applyVerticalStackHeightResize(entity, resizeAnchor, requestedEntityHei
 
     const manualMembers = members.filter((member) => canResizeVerticalMemberHeight(member, graph));
     if (manualMembers.length === 0) return false;
-
-    const isTopHandle = resizeAnchor === "top";
-    const isBottomHandle = resizeAnchor === "bottom";
 
     const entityIndex = members.findIndex((member) => member.id === entity.id);
     const isOuterBoundaryResize = isTopHandle ? entityIndex === 0 : entityIndex === members.length - 1;

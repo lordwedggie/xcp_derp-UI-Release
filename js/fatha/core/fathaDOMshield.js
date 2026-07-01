@@ -19,12 +19,13 @@
 import { app } from "../../../../scripts/app.js";
 import { renderHitboxDebug } from "../helpers/debugPainter.js";
 import { computeDeckPressureGeometryPlan, getDeckMembers, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureBranchAxis, getDeckPressureHubForNode, getNodeOnDeckEdge, isDeckPressureHub, isDeckPressureSideHorizontalBranchMember, isDeckPressureSideHorizontalHubEdge, isDeckPressureSideWidthResizeEdge, isLinearDeckGroup } from "./masterDockEngine.js";
-import { canResizeHorizontalSharedEdgeWidth as canResizeHorizontalSharedEdge, canResizeHorizontalStackWidth, getHorizontalSameRowNeighbor } from "./dockResizeSharedEdges.js";
+import { canResizeHorizontalSharedEdgeWidth as canResizeHorizontalSharedEdge, canResizeHorizontalStackWidth, canResizeVerticalSharedEdgeHeight as canResizeVerticalSharedEdge, getHorizontalSameRowNeighbor } from "./dockResizeSharedEdges.js";
 import { beginDeckResizeOptimization, clearEntityTooltip, endDeckResizeOptimization, isSystemButtonHit } from "./fathaHandler.js";
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
 import { MASTER_Z, promoteMasterZ } from "./masterZ.js";
 import { isComfyVueNodesMode } from "./fathaNode2Compat.js";
 import { handleContentViewportWheel, mapShieldPointThroughContentViewport, preserveContentViewportScrollForInteraction, tryStartContentViewportScrollbarDrag } from "./fathaContentViewportShield.js";
+import { resolveDerpPreferredAutoHeight } from "./derpHeightPolicy.js";
 
 // DEBUG_MODE is now dynamically handled via node.properties.debugMode
 const CORNER_RESIZE_ANCHORS = new Set(["top-left", "top-right", "bottom-left", "bottom-right"]);
@@ -842,7 +843,9 @@ export function createDerpShield(node) {
         // THE DYNAMIC CURSOR FIX: Determine the global drag cursor based on auto-resize states
         const vars = activeResizeNode.getDerpVars ? activeResizeNode.getDerpVars(activeResizeNode) : { autoWidth: false, autoHeight: false };
         const canW = !vars.autoWidth;
-        const canH = !vars.autoHeight;
+        // Use preferred autoHeight (not runtime) so docked autoHeight nodes don't
+        // show height-resize cursors that handleNodeResize will reject.
+        const canH = !resolveDerpPreferredAutoHeight(activeResizeNode);
         const activeAnchor = activeResizeNode._resizeAnchor || anchor;
         const isLeftOrRightCorner = activeAnchor === "top-left" || activeAnchor === "top-right" || activeAnchor === "bottom-left" || activeAnchor === "bottom-right";
         let dragCursor = "default";
@@ -884,12 +887,10 @@ export function createDerpShield(node) {
         const edges = node.properties?.deckEdges || {};
         const isCollapsed = node.properties?.contentCollapsed === true;
         if (localY <= vEdgeWidth && edges.top != null) {
-            const neighbor = getNodeOnDeckEdge(node, graph, "top");
-            if (neighbor && !isCollapsed && neighbor.properties?.contentCollapsed !== true) return "top";
+            if (canResizeVerticalSharedEdge(node, graph, "top")) return "top";
         }
         if (localY >= rect.height - vEdgeWidth && edges.bottom != null) {
-            const neighbor = getNodeOnDeckEdge(node, graph, "bottom");
-            if (neighbor && !isCollapsed && neighbor.properties?.contentCollapsed !== true) return "bottom";
+            if (canResizeVerticalSharedEdge(node, graph, "bottom")) return "bottom";
         }
         return null;
     };
@@ -1392,7 +1393,9 @@ export function syncDerpShield(node) {
         const bottomCornerSize = Number.isFinite(themedBottomCornerSize) ? themedBottomCornerSize : defaultBottomCornerSize;
         const topCornerSize = Number.isFinite(themedTopCornerSize) ? themedTopCornerSize : defaultTopCornerSize;
         const canW = !vars.autoWidth;
-        const canH = !vars.autoHeight;
+        // Use preferred autoHeight (not runtime) so docked autoHeight nodes don't
+        // render height-resize handles that handleNodeResize will reject.
+        const canH = !resolveDerpPreferredAutoHeight(node);
         const isBasta = !!node.hostNode;
         const bastaEdgeWidth = Math.max(1, (vars.mW || 0) * scale);
         const bottomRightWidth = isBasta ? bastaEdgeWidth : bottomCornerSize;
@@ -1428,8 +1431,8 @@ export function syncDerpShield(node) {
         const nodeBelow = isVerticalDockStack ? getNodeOnDeckEdge(node, graph, "bottom") : null;
         const isNodeAboveCollapsed = nodeAbove?.properties?.contentCollapsed === true;
         const isNodeBelowCollapsed = nodeBelow?.properties?.contentCollapsed === true;
-        const hasInternalTopResizeEdge = hasSharedTopEdge && !!nodeAbove && !isCollapsed && !isNodeAboveCollapsed;
-        const hasInternalBottomResizeEdge = hasSharedBottomEdge && !!nodeBelow && !isCollapsed && !isNodeBelowCollapsed;
+        const hasInternalTopResizeEdge = hasSharedTopEdge && !!nodeAbove && !isCollapsed && !isNodeAboveCollapsed && canResizeVerticalSharedEdge(node, graph, "top");
+        const hasInternalBottomResizeEdge = hasSharedBottomEdge && !!nodeBelow && !isCollapsed && !isNodeBelowCollapsed && canResizeVerticalSharedEdge(node, graph, "bottom");
         const isTopBoundary = !!isVerticalDockStack && !nodeAbove;
         const isBottomBoundary = !!isVerticalDockStack && !nodeBelow;
         const allowTopResizeCorners = !isVerticalDockStack || isTopBoundary;

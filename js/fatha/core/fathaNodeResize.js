@@ -5,7 +5,7 @@ import { getDockGroupAxisFromMembers, getDockNodeMinHeight, getDockNodeMinWidth,
 import { applyDeckPressureLayout, getDeckMembers, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureBranchAxis, getDeckPressureHubForNode, getDeckPressureHubMinWidth, getNodeOnDeckEdge, isDeckPressureHub, isDeckPressureSideWidthResizeEdge, setDeckNodePos } from "./masterDockEngine.js";
 import { dockDebug, snapshotDockNode } from "./dockDebugHelpers.js";
 import { setDerpNodeSizeCompat } from "./fathaNode2Compat.js";
-import { resolveDerpRuntimeAutoHeight } from "./derpHeightPolicy.js";
+import { resolveDerpPreferredAutoHeight, resolveDerpRuntimeAutoHeight } from "./derpHeightPolicy.js";
 
 function getResizeAxis(entity, graph) {
     if (!graph || !entity || isDeckPressureHub(entity)) return null;
@@ -53,9 +53,13 @@ export function handleNodeResize(entity, data, scale) {
     const { SNAP, autoWidth, autoHeight } = entity.getDerpVars ? entity.getDerpVars(entity) : getDerpVars(entity);
     const resizeAnchor = data.resizeAnchor || "bottom-right";
     const isPureVerticalSharedEdgeResize = resizeAnchor === "top" || resizeAnchor === "bottom";
+    const isTopCorner = resizeAnchor === "top-left" || resizeAnchor === "top-right";
+    const isBottomCorner = resizeAnchor === "bottom-left" || resizeAnchor === "bottom-right";
+    const isVerticalCorner = isTopCorner || isBottomCorner;
     const graph = entity.graph || globalThis?.app?.graph || null;
     const axis = getResizeAxis(entity, graph);
-    const resizeAxes = resolveDockResizeAxes(axis, { autoWidth, autoHeight });
+    const preferredAutoHeight = resolveDerpPreferredAutoHeight(entity);
+    const resizeAxes = resolveDockResizeAxes(axis, { autoWidth, autoHeight: preferredAutoHeight });
     const horizontalStackResizeSide = resizeAnchor === "left" || resizeAnchor === "top-left" || resizeAnchor === "bottom-left"
         ? "left"
         : (resizeAnchor === "right" || resizeAnchor === "top-right" || resizeAnchor === "bottom-right" ? "right" : null);
@@ -65,9 +69,9 @@ export function handleNodeResize(entity, data, scale) {
     const allowHorizontalSharedEdgeWidthResize = !!horizontalStackResizeSide
         && !resizeAxes.allowWidth
         && canResizeHorizontalSharedEdgeWidth(entity, graph, horizontalStackResizeSide);
-    const verticalStackResizeSide = resizeAnchor === "top"
+    const verticalStackResizeSide = (resizeAnchor === "top" || isTopCorner)
         ? "top"
-        : (resizeAnchor === "bottom" ? "bottom" : null);
+        : ((resizeAnchor === "bottom" || isBottomCorner) ? "bottom" : null);
     const allowVerticalStackHeightResize = !!verticalStackResizeSide
         && axis === "vertical"
         && canResizeVerticalStackHeight(entity, graph, verticalStackResizeSide);
@@ -78,10 +82,13 @@ export function handleNodeResize(entity, data, scale) {
     if (allowDeckPressureSideWidthResize) resizeAxes.allowHeight = false;
     if (isPureVerticalSharedEdgeResize) {
         resizeAxes.allowWidth = false;
-        resizeAxes.allowHeight = !autoHeight;
+        resizeAxes.allowHeight = !preferredAutoHeight;
     }
     if (allowVerticalStackHeightResize) {
         resizeAxes.allowHeight = true;
+    }
+    if (axis === "vertical" && isVerticalCorner && !allowVerticalStackHeightResize) {
+        resizeAxes.allowHeight = false;
     }
 
     // Block height resize on corners for collapsed nodes in vertical stacks
