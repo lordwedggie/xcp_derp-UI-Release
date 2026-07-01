@@ -34,7 +34,7 @@ import {
     shouldPreserveDockHeight,
     shouldPreserveDockWidth,
 } from "./dockDimensions.js";
-import { canResizeHorizontalMemberWidth, canResizeHorizontalSeamPair, canResizeHorizontalSharedEdgeWidth, getHorizontalDeckMembersByX, getHorizontalSameRowNeighbor } from "./dockResizeSharedEdges.js";
+import { canResizeHorizontalMemberWidth, canResizeHorizontalSeamPair, canResizeHorizontalSharedEdgeWidth, canResizeVerticalMemberHeight, getHorizontalDeckMembersByX, getHorizontalSameRowNeighbor } from "./dockResizeSharedEdges.js";
 import { dockDebug, isDockDebugEnabled, snapshotDockNode } from "./dockDebugHelpers.js";
 import { getVirtualNodeLayoutMap } from "../helpers/fathaLayoutMaps.js";
 import { setDerpNodeSizeCompat } from "./fathaNode2Compat.js";
@@ -1070,6 +1070,148 @@ function reconcileManualWidthsToTarget(nextWidths, manualMembers, originalWidths
     return manualMembers.reduce((sum, member) => sum + (nextWidths.get(member.id) || 0), 0);
 }
 
+function reconcileManualHeightsToTarget(nextHeights, manualMembers, originalHeights, targetManualTotal, minH, snap) {
+    const unit = Math.max(1, Number(snap) || 10);
+    const mins = new Map(manualMembers.map((member) => [member.id, getVerticalResizeTargetMinHeight(member, snap, { preserveExpandedFloor: true })]));
+    const minTotal = manualMembers.reduce((sum, member) => sum + (mins.get(member.id) || 0), 0);
+    const targetTotal = Math.max(minTotal, Number(targetManualTotal) || 0);
+
+    manualMembers.forEach((member) => {
+        const minHeight = mins.get(member.id) || 0;
+        nextHeights.set(member.id, Math.max(minHeight, originalHeights.get(member.id) || 0));
+    });
+
+    let currentTotal = manualMembers.reduce((sum, member) => sum + (nextHeights.get(member.id) || 0), 0);
+    let diff = targetTotal - currentTotal;
+    let growIndex = 0;
+
+    while (Math.abs(diff) >= unit - 0.5) {
+        const order = diff > 0
+            ? manualMembers
+            : manualMembers
+                .slice()
+                .sort((a, b) => ((nextHeights.get(b.id) || 0) - (mins.get(b.id) || 0)) - ((nextHeights.get(a.id) || 0) - (mins.get(a.id) || 0)));
+        let adjusted = false;
+        for (let i = 0; i < order.length; i += 1) {
+            const member = diff > 0 ? order[(growIndex + i) % order.length] : order[i];
+            const current = nextHeights.get(member.id) || 0;
+            if (diff > 0) {
+                nextHeights.set(member.id, current + unit);
+                diff -= unit;
+                growIndex += i + 1;
+                adjusted = true;
+            } else {
+                const minHeight = mins.get(member.id) || 0;
+                if (current - unit < minHeight - 0.5) continue;
+                nextHeights.set(member.id, current - unit);
+                diff += unit;
+                adjusted = true;
+            }
+            if (Math.abs(diff) < unit - 0.5) break;
+        }
+        if (!adjusted) break;
+    }
+
+    return manualMembers.reduce((sum, member) => sum + (nextHeights.get(member.id) || 0), 0);
+}
+
+function applyVerticalStackHeightResize(entity, resizeAnchor, requestedEntityHeight, minH, snap, result, addCounterpart, graph) {
+    if (resizeAnchor !== "top" && resizeAnchor !== "bottom") return false;
+    if (entity?.properties?.contentCollapsed === true) return false;
+    const pressureHub = getDeckPressureHubForNode(entity, graph);
+    if (pressureHub && pressureHub.id !== entity.id) return false;
+    const members = getVerticalDeckMembersByY(entity, graph);
+    if (members.length <= 1) return false;
+
+    const manualMembers = members.filter((member) => canResizeVerticalMemberHeight(member, graph));
+    if (manualMembers.length === 0) return false;
+
+    const isTopHandle = resizeAnchor === "top";
+    const isBottomHandle = resizeAnchor === "bottom";
+
+    const entityIndex = members.findIndex((member) => member.id === entity.id);
+    const isOuterBoundaryResize = isTopHandle ? entityIndex === 0 : entityIndex === members.length - 1;
+    if (!isOuterBoundaryResize) return false;
+
+    markDockResizeActiveMembers(entity, members, entity, { preserveHeight: true });
+
+    const currentSession = entity._dockResizeSession;
+    const sessionSide = isTopHandle ? "stack-top" : "stack-bottom";
+    const sessionMatches = currentSession
+        && currentSession.side === sessionSide
+        && currentSession.entityId === entity.id;
+    if (!sessionMatches) {
+        entity._dockResizeSession = {
+            side: sessionSide,
+            entityId: entity.id,
+            stackStartHeights: Object.fromEntries(members.map((member) => [member.id, getDockNodeHeight(member)])),
+            stackStartPositions: Object.fromEntries(members.map((member) => [member.id, [Number(member.pos?.[0]) || 0, Number(member.pos?.[1]) || 0]])),
+        };
+    }
+
+    const session = entity._dockResizeSession;
+    const originalHeights = new Map(members.map((member) => [member.id, Number(session.stackStartHeights?.[member.id]) || getDockNodeHeight(member)]));
+    const originalTotalHeight = members.reduce((sum, member) => sum + (originalHeights.get(member.id) || 0), 0);
+    const entityStartHeight = originalHeights.get(entity.id) || getDockNodeHeight(entity);
+    const explicitDelta = Number(entity._dockResizeRequestedDeltaH);
+    const requestedDelta = Number.isFinite(explicitDelta)
+        ? explicitDelta
+        : Number(requestedEntityHeight) - entityStartHeight;
+    if (!Number.isFinite(requestedDelta) || Math.abs(requestedDelta) < 0.5) return false;
+    const snappedRequestedDelta = snapResizeValue(requestedDelta, snap);
+    if (Math.abs(snappedRequestedDelta) < 0.5) return false;
+
+    const anchorY = isTopHandle
+        ? members.reduce((max, member) => {
+            const startPos = session.stackStartPositions?.[member.id] || member.pos || [0, 0];
+            return Math.max(max, (Number(startPos[1]) || 0) + (originalHeights.get(member.id) || 0));
+        }, Number.NEGATIVE_INFINITY)
+        : members.reduce((min, member) => {
+            const startPos = session.stackStartPositions?.[member.id] || member.pos || [0, 0];
+            return Math.min(min, Number(startPos[1]) || 0);
+        }, Number.POSITIVE_INFINITY);
+
+    const fixedHeight = members
+        .filter((member) => !canResizeVerticalMemberHeight(member, graph))
+        .reduce((sum, member) => sum + (originalHeights.get(member.id) || 0), 0);
+    const manualMinTotal = manualMembers.reduce((sum, member) => sum + getVerticalResizeTargetMinHeight(member, snap, { preserveExpandedFloor: true }), 0);
+    const originalManualTotal = manualMembers.reduce((sum, member) => sum + (originalHeights.get(member.id) || 0), 0);
+    const targetManualTotal = Math.max(manualMinTotal, originalManualTotal + snappedRequestedDelta);
+    const nextHeights = new Map(originalHeights);
+
+    members.forEach((member) => {
+        if (canResizeVerticalMemberHeight(member, graph)) return;
+        nextHeights.set(member.id, originalHeights.get(member.id) || getDockNodeHeight(member));
+    });
+
+    const manualTotal = reconcileManualHeightsToTarget(nextHeights, manualMembers, originalHeights, targetManualTotal, minH, snap);
+    const totalHeight = fixedHeight + manualTotal;
+
+    let cursorY = isTopHandle ? anchorY - totalHeight : anchorY;
+    members.forEach((member) => {
+        const height = nextHeights.get(member.id) || getDockNodeHeight(member);
+        const sizeChanged = syncDeckNodeSize(member, getDockNodeWidth(member), height, { silent: true, deferDirty: true, deferSync: true, liveResize: true });
+        const posChanged = setDeckNodePos(member, Number(member.pos?.[0]) || 0, cursorY);
+        cursorY += height;
+        if ((sizeChanged || posChanged) && typeof member.syncUncleSlots === "function") member.syncUncleSlots();
+        rememberExpandedDeckHeight(member, height);
+        addCounterpart(member);
+    });
+
+    result.handledHeight = true;
+    result.handledAll = true;
+    result.appliedHeight = nextHeights.get(entity.id) || getDockNodeHeight(entity);
+    dockDebug("resize-vertical-stack-height", () => ({
+        entity: snapshotDockNode(entity),
+        resizeAnchor,
+        requested: { requestedEntityHeight, requestedDelta, snappedRequestedDelta, requestedTotalHeight: totalHeight },
+        fixedHeight,
+        targetManualTotal,
+        members: members.map(snapshotDockNode),
+    }));
+    return true;
+}
+
 function applyHorizontalStackWidthResize(entity, resizeAnchor, requestedEntityWidth, minW, snap, result, addCounterpart, graph) {
     const members = getHorizontalDeckMembersByX(entity, graph);
     if (members.length <= 1) return false;
@@ -1405,6 +1547,10 @@ export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH,
     }
 
     if (requestsHeightResize && applyVerticalStackSharedEdgeResize(entity, resizeAnchor, newH, snap, result, addCounterpart, graph)) {
+        return result;
+    }
+
+    if (requestsHeightResize && applyVerticalStackHeightResize(entity, resizeAnchor, newH, minH, snap, result, addCounterpart, graph)) {
         return result;
     }
 

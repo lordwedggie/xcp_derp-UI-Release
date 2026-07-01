@@ -10,6 +10,7 @@ import {
     isDeckPressureSideHorizontalHubEdge,
     isLinearDeckGroup,
 } from "./masterDockEngine.js";
+import { resolveDerpRuntimeAutoHeight } from "./derpHeightPolicy.js";
 
 function getNodeSizeValue(node, index) {
     return Number(node?.size?.[index] ?? node?.properties?.nodeSize?.[index]) || 0;
@@ -123,4 +124,25 @@ export function canResizeHorizontalStackWidth(node, graph, side = null) {
     if (side === "left") return nodeIndex === 0;
     if (side === "right") return nodeIndex === members.length - 1;
     return nodeIndex === 0 || nodeIndex === members.length - 1;
+}
+
+export function canResizeVerticalMemberHeight(node, graph) {
+    if (node?.properties?.contentCollapsed === true) return false;
+    if (resolveDerpRuntimeAutoHeight(node)) return false;
+    return true;
+}
+
+export function canResizeVerticalStackHeight(node, graph, side = null) {
+    if (!graph || !node) return false;
+    if (isDeckPressureHub(node)) return false;
+    const pressureHub = getDeckPressureHubForNode(node, graph);
+    if (pressureHub && pressureHub.id !== node.id) return false;
+    const members = getLinearResizeMembers(node, graph, "vertical");
+    if (members.length <= 1) return false;
+    if (!members.some((member) => canResizeVerticalMemberHeight(member, graph))) return false;
+    const hasTopNeighbor = !!getNodeOnDeckEdge(node, graph, "top");
+    const hasBottomNeighbor = !!getNodeOnDeckEdge(node, graph, "bottom");
+    if (side === "top") return !hasTopNeighbor;
+    if (side === "bottom") return !hasBottomNeighbor;
+    return !hasTopNeighbor || !hasBottomNeighbor;
 }
