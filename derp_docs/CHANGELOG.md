@@ -3,6 +3,9 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+### <span style="color: #80ffc0">Added</span>
+- <span style="color:#80ffc0"><strong>Slider V2 foundation and editor</strong></span>: Added the first `UI_TYPES.SLIDER_V2` widget path with shared INT/FLOAT value helpers, horizontal interaction metrics, Canvas/HTML render-path switching through `Derp.SliderV2RenderPath`, preset style normalization, focused tests, and `derpSkunk` lab wiring. Added the pure virtual `derpSliderV2Editor` utility for previewing Slider V2 styles and saving/loading reusable style JSON through the new `sliderV2Styles` backend category.
+
 ### <span style="color: #80aaff">Changed</span>
 - <span style="color:#80aaff"><strong>Dock seam resize hitbox thickness</strong></span>: Shared-edge resize detection zones for both horizontal and vertical dock seams (including Deck Pressure side seams) are now 4px total — 2px per adjacent node — down from the previous ~10–20px. This prevents seam hitboxes from bleeding into neighboring button detection zones.
 

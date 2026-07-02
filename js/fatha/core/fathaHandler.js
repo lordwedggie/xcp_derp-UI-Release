@@ -78,6 +78,10 @@ const DERP_DEFAULT_TITLE_LOCALE_KEYS = [
 ];
 const derpDefaultTitleValues = new Set(["Node", "Virtual Node", "Derp Nodes"]);
 const derpDefaultTitleValuesByKey = new Map();
+
+function isSliderRegionType(type) {
+    return type === UI_TYPES.SLIDER || type === UI_TYPES.SLIDER_V2 || type === UI_TYPES.SLIDER_HTML || type === UI_TYPES.SLIDER_V2_HTML;
+}
 let derpDefaultTitleRegistryPromise = null;
 const deckFrameCache = new Map();
 const deckNodeFrameCache = new Map();
@@ -1268,7 +1272,7 @@ function findHitRegion(layout, localMouse, options = {}) {
             reg.onDragStart || reg.onDrag || reg.onDragEnd ||
             reg.type === UI_TYPES.DROPDOWN_DERP || reg.type === UI_TYPES.DROPDOWN ||
             reg.type === UI_TYPES.BUTTON || reg.type === UI_TYPES.ICONBUTTON ||
-            reg.type === UI_TYPES.SLIDER || reg.type === UI_TYPES.EDITOR ||
+            isSliderRegionType(reg.type) || reg.type === UI_TYPES.EDITOR ||
             reg.type === UI_TYPES.FILEBROWSER || reg.type === UI_TYPES.TOGGLE ||
             reg.type === UI_TYPES.TOGGLE_V2 || reg.type === UI_TYPES.TRIGGER;
         if (!isInteractive) continue;
@@ -1315,7 +1319,7 @@ function handleShieldDragStart(entity, data, localMouse, scale, deckEngine) {
         const hitData = hit.localMouse ? { ...data, localX: hit.localMouse[0], localY: hit.localMouse[1] } : data;
         entity._pressedRegionKey = hit.key;
         entity._pressedRegionType = hit.reg?.type || null;
-        entity._pressedRegionIsDragHandle = !!hit.reg.onDragStart || !!hit.reg.onDrag || hit.reg.type === UI_TYPES.SLIDER;
+        entity._pressedRegionIsDragHandle = !!hit.reg.onDragStart || !!hit.reg.onDrag || isSliderRegionType(hit.reg.type);
         if (hit.reg.onDragStart || hit.reg.onDrag || hit.reg.onDragEnd) entity._dragEndRegionKey = hit.key;
         if (hit.reg.onDragStart) hit.reg.onDragStart(data.originalEvent, hitData);
         entity._derpAwakeFrames = 15;
@@ -1495,7 +1499,7 @@ function handleShieldDblClick(entity, data, localMouse) {
 function handleShieldHover(entity, localMouse, scale) {
     const data = arguments.length > 3 ? arguments[3] : null;
     const displayLocalMouse = [data?.displayLocalX ?? localMouse[0], data?.displayLocalY ?? localMouse[1]];
-    const sliderDragActive = entity._pressedRegionType === UI_TYPES.SLIDER && !!entity._pressedRegionKey;
+    const sliderDragActive = isSliderRegionType(entity._pressedRegionType) && !!entity._pressedRegionKey;
 
     if (sliderDragActive) {
         const lockedKey = entity._pressedRegionKey;

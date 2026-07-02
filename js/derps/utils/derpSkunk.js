@@ -5,6 +5,9 @@
 import { app } from "../../../../scripts/app.js";
 import { fatha, initDerpGlobalListener } from "../../fatha/fatha.js";
 import { UI_TYPES } from "../../fatha/core/masterLayoutTypes.js";
+import { resolveSliderV2Interaction, setSliderV2GlobalRenderPath } from "../../herbina/widgets/helpers/sliderV2Config.js";
+import { listSliderV2StylePresets, normalizeSliderV2StyleId, prepareSliderV2StyleConfig } from "../../herbina/widgets/helpers/sliderV2Styles.js";
+import { normalizeSliderV2RenderPath, normalizeSliderV2Value } from "../../herbina/widgets/helpers/sliderV2Value.js";
 
 const SKUNK_SLIDER_MIN = 0;
 const SKUNK_SLIDER_MAX = 1;
@@ -20,10 +23,13 @@ const SKUNK_TRIGGER_SLIDER_MAP = {
 };
 
 function clampSkunkSliderValue(value) {
-    const numeric = Number(value);
-    if (!Number.isFinite(numeric)) return SKUNK_SLIDER_DEFAULT;
-    const stepped = Math.round(numeric / SKUNK_SLIDER_STEP) * SKUNK_SLIDER_STEP;
-    return Math.max(SKUNK_SLIDER_MIN, Math.min(SKUNK_SLIDER_MAX, Number(stepped.toFixed(SKUNK_SLIDER_DECIMALS))));
+    return normalizeSliderV2Value(value, {
+        min: SKUNK_SLIDER_MIN,
+        max: SKUNK_SLIDER_MAX,
+        step: SKUNK_SLIDER_STEP,
+        decimals: SKUNK_SLIDER_DECIMALS,
+        default: SKUNK_SLIDER_DEFAULT,
+    });
 }
 
 function ensureSkunkSliderValues(node) {
@@ -47,11 +53,34 @@ function setSkunkSliderValue(node, sliderKey, value) {
     node.setDirtyCanvas?.(true, true);
 }
 
-function setSkunkSliderValueFromPointer(node, sliderKey, data) {
+function getSkunkSliderV2Config(node, sliderKey) {
+    const values = ensureSkunkSliderValues(node);
+    const styleConfig = getSkunkSliderStyleConfig(node?.properties?._skunkSliderConfig || {});
+    return {
+        min: SKUNK_SLIDER_MIN,
+        max: SKUNK_SLIDER_MAX,
+        step: SKUNK_SLIDER_STEP,
+        decimals: SKUNK_SLIDER_DECIMALS,
+        default: SKUNK_SLIDER_DEFAULT,
+        value: values[sliderKey],
+        btnLR: ensureSkunkSliderBtnLRStates(node)[sliderKey] === true,
+        sliderType: "horizontal",
+        styleId: styleConfig.styleId,
+        style: styleConfig.style,
+        htmlStyle: styleConfig.htmlStyle,
+        fillbarHeight: styleConfig.fillbarHeight,
+        roundKnob: styleConfig.roundKnob,
+        knobWidthScale: styleConfig.knobWidthScale,
+        knobHeightOffset: styleConfig.knobHeightOffset,
+        knobRadiusOffset: styleConfig.knobRadiusOffset,
+    };
+}
+
+function setSkunkSliderValueFromInteraction(node, sliderKey, data, type = "drag") {
     const reg = node.layout?.computedRegions?.[sliderKey] || node.layout?.regions?.[sliderKey];
     if (!reg || !Number.isFinite(reg.w) || reg.w <= 0) return;
-    const percent = Math.max(0, Math.min(1, ((data?.localX || 0) - reg.x) / reg.w));
-    setSkunkSliderValue(node, sliderKey, SKUNK_SLIDER_MIN + (percent * (SKUNK_SLIDER_MAX - SKUNK_SLIDER_MIN)));
+    const result = resolveSliderV2Interaction(reg, getSkunkSliderV2Config(node, sliderKey), data?.localX, type);
+    if (result.handled && result.value !== undefined) setSkunkSliderValue(node, sliderKey, result.value);
 }
 
 function ensureSkunkSliderBtnLRStates(node) {
@@ -75,6 +104,31 @@ function toggleSkunkSliderBtnLR(node, sliderKey) {
     node.setDirtyCanvas?.(true, true);
 }
 
+function getSkunkSliderStyleConfig(config = {}) {
+    return prepareSliderV2StyleConfig({
+        styleId: config.styleId,
+        fillbarHeight: config.fillbarHeight,
+        roundKnob: config.roundKnob,
+        knobWidthScale: config.knobWidthScale,
+        knobHeightOffset: config.knobHeightOffset,
+        knobRadiusOffset: config.knobRadiusOffset,
+    });
+}
+
+function getSkunkSliderRenderPath() {
+    return normalizeSliderV2RenderPath(window.DERP_GLOBAL_SETTINGS?.sliderV2RenderPath);
+}
+
+function setSkunkSliderRenderPath(node, value) {
+    setSliderV2GlobalRenderPath(value, {
+        nodes: app.graph?._nodes || [node],
+        bastas: window.xcpActiveBastas?.values?.() || [],
+        canvas: app.canvas,
+    }, window);
+    node._layoutMapHash = null;
+    node.refreshNodeLayoutMap?.();
+}
+
 function buildSkunkLayoutHash(node, vars) {
     const width = (Number(node?.size?.[0]) || 0).toFixed(2);
     const mW = Number(vars.mW || 0).toFixed(2);
@@ -88,11 +142,14 @@ function buildSkunkLayoutHash(node, vars) {
     const toggleMultilineState = node?.properties?.toggleMultilineEditorState === true ? 1 : 0;
     const multilineTextKey = node?.properties?.multilineEditorTextKey || "t_textNormal";
     const sc = node?.properties?._skunkSliderConfig || {};
-    const scFH = Number(sc.fillbarHeight ?? 1.0).toFixed(2);
-    const scRK = (sc.roundKnob !== false) ? 1 : 0;
-    const scKW = Number(sc.knobWidthScale ?? 1.0).toFixed(2);
-    const scKH = Number(sc.knobHeightOffset ?? 0).toFixed(2);
-    const scKR = Number(sc.knobRadiusOffset ?? 0).toFixed(2);
+    const effectiveStyle = getSkunkSliderStyleConfig(sc);
+    const scFH = Number(effectiveStyle.fillbarHeight ?? 1.0).toFixed(2);
+    const scRK = (effectiveStyle.roundKnob !== false) ? 1 : 0;
+    const scKW = Number(effectiveStyle.knobWidthScale ?? 1.0).toFixed(2);
+    const scKH = Number(effectiveStyle.knobHeightOffset ?? 0).toFixed(2);
+    const scKR = Number(effectiveStyle.knobRadiusOffset ?? 0).toFixed(2);
+    const scStyle = effectiveStyle.styleId;
+    const scRenderPath = getSkunkSliderRenderPath();
     const bs = node?.properties?._skunkBtnStates || {};
     const btnHash = `${bs.btnBig ? 1 : 0}_${bs.btnNormal ? 1 : 0}_${bs.btnSmall ? 1 : 0}_${bs.btnSystem ? 1 : 0}`;
     const is = node?.properties?._skunkIconStates || {};
@@ -101,7 +158,7 @@ function buildSkunkLayoutHash(node, vars) {
     const sliderHash = SKUNK_SLIDER_KEYS.map(k => clampSkunkSliderValue(sv[k]).toFixed(SKUNK_SLIDER_DECIMALS)).join('_');
     const blr = node?.properties?._skunkSliderBtnLR || {};
     const btnLRHash = SKUNK_SLIDER_KEYS.map(k => blr[k] === true ? 1 : 0).join('_');
-    return `${width}_${mW}_${mH}_${oY}_${toggleBtnState}_${toggleIconState}_${toggleEditorState}_${toggleSliderState}_${toggleToggleState}_${toggleMultilineState}_${multilineTextKey}_${btnHash}_${iconHash}_${sliderHash}_${btnLRHash}_${scFH}_${scRK}_${scKW}_${scKH}_${scKR}`;
+    return `${width}_${mW}_${mH}_${oY}_${toggleBtnState}_${toggleIconState}_${toggleEditorState}_${toggleSliderState}_${toggleToggleState}_${toggleMultilineState}_${multilineTextKey}_${btnHash}_${iconHash}_${sliderHash}_${btnLRHash}_${scFH}_${scRK}_${scKW}_${scKH}_${scKR}_${scStyle}_${scRenderPath}`;
 }
 
 app.registerExtension({
@@ -158,7 +215,6 @@ app.registerExtension({
             const toggleToggleState = this.properties.toggleToggleState === true;
             const toggleMultilineEditorState = this.properties.toggleMultilineEditorState === true;
             const multilineTextKey = this.properties.multilineEditorTextKey || "t_textNormal";
-            const roundKnobEnabled = (this.properties._skunkSliderConfig?.roundKnob !== false);
             const btnStates = this.properties._skunkBtnStates || {};
             const btnOn = (key) => toggleBtnState ? false : (btnStates[key] === true);
             const iconStates = this.properties._skunkIconStates || {};
@@ -166,21 +222,28 @@ app.registerExtension({
             const sliderValues = ensureSkunkSliderValues(this);
             const sliderBtnLR = ensureSkunkSliderBtnLRStates(this);
             const sliderCfg = this.properties._skunkSliderConfig || {};
+            const sliderStyleConfig = getSkunkSliderStyleConfig(sliderCfg);
+            const sliderStyleId = sliderStyleConfig.styleId;
+            const sliderRenderPath = getSkunkSliderRenderPath();
+            const roundKnobEnabled = sliderStyleConfig.roundKnob !== false;
+            const sliderStyleItems = listSliderV2StylePresets().map((preset) => ({ value: preset.id, label: preset.label }));
             const sliderConfig = (key) => ({
                 value: sliderValues[key],
                 min: SKUNK_SLIDER_MIN,
                 max: SKUNK_SLIDER_MAX,
                 step: SKUNK_SLIDER_STEP,
                 btnLR: sliderBtnLR[key] === true,
-                fillbarHeight: sliderCfg.fillbarHeight ?? 1.0,
-                roundKnob: sliderCfg.roundKnob !== false,
-                knobWidthScale: sliderCfg.knobWidthScale ?? 1.0,
-                knobHeightOffset: sliderCfg.knobHeightOffset ?? 0,
-                knobRadiusOffset: sliderCfg.knobRadiusOffset ?? 0,
+                styleId: sliderStyleId,
+                fillbarHeight: sliderCfg.fillbarHeight,
+                roundKnob: sliderCfg.roundKnob,
+                knobWidthScale: sliderCfg.knobWidthScale,
+                knobHeightOffset: sliderCfg.knobHeightOffset,
+                knobRadiusOffset: sliderCfg.knobRadiusOffset,
                 onChange: (value) => setSkunkSliderValue(this, key, value),
-                onPress: (event, data) => setSkunkSliderValueFromPointer(this, key, data),
-                onDragStart: (event, data) => setSkunkSliderValueFromPointer(this, key, data),
-                onDrag: (event, data) => setSkunkSliderValueFromPointer(this, key, data),
+                onPress: (event, data) => setSkunkSliderValueFromInteraction(this, key, data, "click"),
+                onDblClick: (event, reg, data) => setSkunkSliderValueFromInteraction(this, key, data, "dblclick"),
+                onDragStart: (event, data) => setSkunkSliderValueFromInteraction(this, key, data, "dragStart"),
+                onDrag: (event, data) => setSkunkSliderValueFromInteraction(this, key, data, "drag"),
             });
             const triggerConfig = (key, text) => {
                 const sliderKey = SKUNK_TRIGGER_SLIDER_MAP[key];
@@ -927,9 +990,9 @@ app.registerExtension({
                     margin: [mW, mH],
                     spacing: [sW, 0],
                     sliderNormal: {
-                        type: UI_TYPES.SLIDER,
+                        type: UI_TYPES.SLIDER_V2,
                         themeKey: "slider, t_textNormal",
-                        style: "knob",
+                        valueType: "float",
                         ...sliderConfig("sliderNormal"),
                         width: "full", height: "auto",
                         padding: [pW, pH],
@@ -937,9 +1000,9 @@ app.registerExtension({
                         state: toggleSliderState ? "DIS" : "OFF",
                     },
                     sliderSmall: {
-                        type: UI_TYPES.SLIDER,
+                        type: UI_TYPES.SLIDER_V2,
                         themeKey: "slider, t_textSmall",
-                        style: "knob",
+                        valueType: "float",
                         ...sliderConfig("sliderSmall"),
                         width: "full", height: "auto",
                         padding: [pW, pH],
@@ -947,9 +1010,9 @@ app.registerExtension({
                         state: toggleSliderState ? "DIS" : "OFF",
                     },
                     sliderSystem: {
-                        type: UI_TYPES.SLIDER,
+                        type: UI_TYPES.SLIDER_V2,
                         themeKey: "slider, t_textSystem",
-                        style: "knob",
+                        valueType: "float",
                         ...sliderConfig("sliderSystem"),
                         width: "full", height: "auto",
                         padding: [pW, pH],
@@ -983,10 +1046,49 @@ app.registerExtension({
                         text: "Slider Height:",
                         width: "auto", spacing: [sW, 0],
                     },
+                    dropdownSliderStyle: {
+                        type: UI_TYPES.FILEBROWSER,
+                        themeKey: "panel, t_textSystem",
+                        canvasShield: true,
+                        indicator: true,
+                        displayMode: "cutoff",
+                        width: "auto", height: "auto",
+                        minWidth: 70,
+                        padding: [pW, pH],
+                        spacing: [sW, 0],
+                        mode: "file",
+                        items: sliderStyleItems,
+                        value: sliderStyleId,
+                        onChange: (value) => {
+                            const s = { ...(this.properties._skunkSliderConfig || {}), styleId: normalizeSliderV2StyleId(value) };
+                            this.properties._skunkSliderConfig = s;
+                            this._layoutMapHash = null;
+                            this.refreshNodeLayoutMap();
+                            this.requestDerpSync();
+                        },
+                    },
+                    dropdownSliderRenderPath: {
+                        type: UI_TYPES.FILEBROWSER,
+                        themeKey: "panel, t_textSystem",
+                        canvasShield: true,
+                        indicator: true,
+                        displayMode: "cutoff",
+                        width: "auto", height: "auto",
+                        minWidth: 72,
+                        padding: [pW, pH],
+                        spacing: [sW, 0],
+                        mode: "file",
+                        items: [
+                            { value: "canvas", label: "Canvas" },
+                            { value: "html", label: "HTML" },
+                        ],
+                        value: sliderRenderPath,
+                        onChange: (value) => setSkunkSliderRenderPath(this, value),
+                    },
                     editorFillbarHeight: {
                         type: UI_TYPES.EDITOR, canvasShield: true,
                         themeKey: "dialog, t_textSystem", labelAlign: ["center", "middle"],
-                        text: String(this.properties._skunkSliderConfig?.fillbarHeight ?? 1.0), measureText: "9.99",
+                        text: String(sliderStyleConfig.fillbarHeight ?? 1.0), measureText: "9.99",
                         width: "auto", height: "auto", padding: [pW, pH], spacing: [sW, 0],
                         onBlur: (v) => {
                             const raw = parseFloat(v);
@@ -1002,9 +1104,9 @@ app.registerExtension({
                         isTextOnly: true, mouseOver: false,
                         label: "Round Knob",
                         width: "auto", height: "auto", padding: [pW, pH], spacing: [sW, 0],
-                        value: this.properties._skunkSliderConfig?.roundKnob !== false,
+                        value: roundKnobEnabled,
                         onPress: () => {
-                            const s = { ...(this.properties._skunkSliderConfig || {}), roundKnob: !(this.properties._skunkSliderConfig?.roundKnob !== false) };
+                            const s = { ...(this.properties._skunkSliderConfig || {}), roundKnob: !roundKnobEnabled };
                             this.properties._skunkSliderConfig = s;
                             this._layoutMapHash = null;
                             this.refreshNodeLayoutMap();
@@ -1023,7 +1125,7 @@ app.registerExtension({
                         type: UI_TYPES.EDITOR, canvasShield: true,
                         hidden: roundKnobEnabled,
                         themeKey: "dialog, t_textSystem", labelAlign: ["center", "middle"],
-                        text: String(this.properties._skunkSliderConfig?.knobWidthScale ?? 1.0), measureText: "9.99",
+                        text: String(sliderStyleConfig.knobWidthScale ?? 1.0), measureText: "9.99",
                         width: "auto", height: "auto", padding: [pW, pH], spacing: [sW, 0],
                         onBlur: (v) => {
                             const raw = parseFloat(v);
@@ -1046,7 +1148,7 @@ app.registerExtension({
                         type: UI_TYPES.EDITOR, canvasShield: true,
                         hidden: roundKnobEnabled,
                         themeKey: "dialog, t_textSystem", labelAlign: ["center", "middle"],
-                        text: String(this.properties._skunkSliderConfig?.knobHeightOffset ?? 0), measureText: "9.99",
+                        text: String(sliderStyleConfig.knobHeightOffset ?? 0), measureText: "9.99",
                         width: "auto", height: "auto", padding: [pW, pH], spacing: [sW, 0],
                         onBlur: (v) => {
                             const raw = parseFloat(v);
@@ -1069,7 +1171,7 @@ app.registerExtension({
                         type: UI_TYPES.EDITOR, canvasShield: true,
                         hidden: !roundKnobEnabled,
                         themeKey: "dialog, t_textSystem", labelAlign: ["center", "middle"],
-                        text: String(this.properties._skunkSliderConfig?.knobRadiusOffset ?? 0), measureText: "9.99",
+                        text: String(sliderStyleConfig.knobRadiusOffset ?? 0), measureText: "9.99",
                         width: "auto", height: "auto", padding: [pW, pH], spacing: [sW, 0],
                         onBlur: (v) => {
                             const raw = parseFloat(v);

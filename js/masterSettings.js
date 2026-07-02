@@ -4,6 +4,8 @@
  */
 import { app } from "../../../scripts/app.js";
 import { applyDerpBackgroundImage, hydrateDerpBackgroundSetting } from "./fatha/core/fathaHandler.js";
+import { setSliderV2GlobalRenderPath } from "./herbina/widgets/helpers/sliderV2Config.js";
+import { normalizeSliderV2RenderPath, SLIDER_V2_RENDER_PATH_DEFAULT } from "./herbina/widgets/helpers/sliderV2Value.js";
 
 // --- WARP SPEED SETTING ---
 // Warp 5 = current default (1.0). Each level compounds by 20%.
@@ -23,6 +25,7 @@ export function getWarpTravelSpeed() {
 
 const HOTKEY_SETTINGS = [];
 const CANVAS_PALETTE_SETTING_ID = "Derp.CanvasPalette";
+const SLIDER_V2_RENDER_PATH_SETTING_ID = "Derp.SliderV2RenderPath";
 const DERP_DEFAULT_SELECTION = "_default";
 const CANVAS_PALETTE_NONE = "none";
 const DERP_CATEGORY = "🔞 Derp Nodes";
@@ -56,6 +59,7 @@ const DERP_SETTING_DEFAULTS = {
     showToolTips: true,
     backgroundImage: DERP_DEFAULT_SELECTION,
     canvasPalette: CANVAS_PALETTE_NONE,
+    sliderV2RenderPath: SLIDER_V2_RENDER_PATH_DEFAULT,
     verticalDockHeaderCollapse: true,
     syncedCollapse: true,
     verticalPinnedCollapseUpward: true,
@@ -82,6 +86,7 @@ const DERP_SETTING_DEFAULT_IDS = {
     "Derp.ShowToolTips": DERP_SETTING_DEFAULTS.showToolTips,
     "Derp.BackgroundImage": DERP_SETTING_DEFAULTS.backgroundImage,
     [CANVAS_PALETTE_SETTING_ID]: DERP_SETTING_DEFAULTS.canvasPalette,
+    [SLIDER_V2_RENDER_PATH_SETTING_ID]: DERP_SETTING_DEFAULTS.sliderV2RenderPath,
     "Derp.VerticalDockHeaderCollapse": DERP_SETTING_DEFAULTS.verticalDockHeaderCollapse,
     "Derp.SyncedCollapse": DERP_SETTING_DEFAULTS.syncedCollapse,
     "Derp.VerticalPinnedCollapseUpward": DERP_SETTING_DEFAULTS.verticalPinnedCollapseUpward,
@@ -108,6 +113,14 @@ function syncDerpGlobalSettingsAlias() {
     };
     window.DERP_GLOBAL_SETTINGS.useAnimations = window.DERP_GLOBAL_SETTINGS.useAnimation !== false;
     window.xcpDerpSettings = window.DERP_GLOBAL_SETTINGS;
+}
+
+function refreshSliderV2RenderPathSettingTargets() {
+    return {
+        nodes: app.graph?._nodes || [],
+        bastas: window.xcpActiveBastas?.values?.() || [],
+        canvas: app.canvas,
+    };
 }
 
 function getStoredSettingValue(id, fallback) {
@@ -489,6 +502,23 @@ app.registerExtension({
         });
 
         app.ui.settings.addSetting({
+            id: SLIDER_V2_RENDER_PATH_SETTING_ID,
+            name: "Slider V2 Render Path",
+            category: DERP_GROUPS.ui("Slider V2 Render Path"),
+            sortOrder: DERP_GROUP_SORT_ORDER.ui,
+            type: "combo",
+            options: [
+                { value: "canvas", text: "Canvas" },
+                { value: "html", text: "HTML" }
+            ],
+            default: SLIDER_V2_RENDER_PATH_DEFAULT,
+            onChange: (v) => {
+                setSliderV2GlobalRenderPath(v, refreshSliderV2RenderPathSettingTargets(), window, { persist: false });
+                syncDerpGlobalSettingsAlias();
+            }
+        });
+
+        app.ui.settings.addSetting({
             id: "Derp.VerticalDockHeaderCollapse",
             name: "Header Collapse: Clicking on node header to toggle collapsing state of the node.",
             category: DERP_GROUPS.docking("Header Collapse Toggle"),
@@ -806,6 +836,7 @@ app.registerExtension({
             showToolTips: normalizeBooleanSetting(getStoredSettingValue("Derp.ShowToolTips", DERP_SETTING_DEFAULTS.showToolTips), DERP_SETTING_DEFAULTS.showToolTips),
             backgroundImage: String(getStoredSettingValue("Derp.BackgroundImage", DERP_SETTING_DEFAULTS.backgroundImage)),
             canvasPalette: String(getStoredSettingValue(CANVAS_PALETTE_SETTING_ID, DERP_SETTING_DEFAULTS.canvasPalette)),
+            sliderV2RenderPath: normalizeSliderV2RenderPath(getStoredSettingValue(SLIDER_V2_RENDER_PATH_SETTING_ID, DERP_SETTING_DEFAULTS.sliderV2RenderPath)),
             verticalDockHeaderCollapse: normalizeBooleanSetting(getStoredSettingValue("Derp.VerticalDockHeaderCollapse", DERP_SETTING_DEFAULTS.verticalDockHeaderCollapse), DERP_SETTING_DEFAULTS.verticalDockHeaderCollapse),
             syncedCollapse: normalizeBooleanSetting(getStoredSettingValue("Derp.SyncedCollapse", DERP_SETTING_DEFAULTS.syncedCollapse), DERP_SETTING_DEFAULTS.syncedCollapse),
             verticalPinnedCollapseUpward: normalizeBooleanSetting(getStoredSettingValue("Derp.VerticalPinnedCollapseUpward", DERP_SETTING_DEFAULTS.verticalPinnedCollapseUpward), DERP_SETTING_DEFAULTS.verticalPinnedCollapseUpward),

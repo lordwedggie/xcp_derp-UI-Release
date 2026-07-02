@@ -274,6 +274,25 @@
       "refresh": "Refresh the Markdown file list and reload the selected note"
     }
   },
+  "derp_slider_v2_editor": {
+    "title": "Derp Slider V2 Editor",
+    "preview": "Preview",
+    "btn_lr": "btnLR",
+    "round_knob": "Round knob",
+    "fill_height": "Fill",
+    "knob_width": "Knob W",
+    "knob_height": "Knob H",
+    "knob_radius": "Knob R",
+    "style_file": "Style file",
+    "style_name": "Style name",
+    "load_style": "Load style",
+    "save_style": "Save style",
+    "refresh_styles": "Refresh styles",
+    "no_saved_styles": "No saved styles",
+    "system": {
+      "properties": "Slider V2 editor properties:"
+    }
+  },
   "derp_image_deck": {
     "title": "Derp Image Deck",
     "prefix": {

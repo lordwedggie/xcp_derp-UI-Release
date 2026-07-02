@@ -39,7 +39,7 @@ Hard-registered nodes: `DerpImageDeckNode`, `DerpToggleNode` (always in root map
 | `python/derpTemplate.py` | Template node |
 | `python/derpThemeManagerV2.py` | PRIVATE — Theme manager Python node |
 | `python/derpConcatenate.py` | String concatenate utility node |
-| `python/derpUtilities.py` | Utility virtual shells such as `derpSkunk` and `derpNotes` |
+| `python/derpUtilities.py` | Utility virtual shells such as `derpSkunk`, `derpNotes`, and `derpSliderV2Editor` |
 | `python/signalDictionaryDefault.py` | Signal fallback dictionary |
 
 ## <span style="color: #80ffc0">File Server (`xcp_file_server.py`, 184 lines)</span>
@@ -56,6 +56,8 @@ HTTP route wiring for the entire backend API. Uses `safe_post()` / `safe_get()` 
 | `xcp_version_check.py` | Version/check endpoints |
 | `xcp_file_common.py` | `resolve_case_insensitive_path()` utility |
 | `xcp_file_categories.py` | `get_category_dir()` utility |
+
+Generic JSON categories include `settings`, `themes`, `palettes`, `derpPromptBook`, `triggerWall`, and `sliderV2Styles`. `sliderV2Styles` resolves to `user/derpNodes/sliderV2Styles` and is used by the Slider V2 editor utility for reusable style payloads.
 
 ### <span style="color: #80ffc0">LoRA Stack API (`xcp_loraStack.py`)</span>
 | Handler | Endpoint |

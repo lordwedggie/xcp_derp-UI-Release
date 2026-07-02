@@ -38,6 +38,10 @@ function isDerpLoraStackNode(node) {
     return text.includes("derplorastack");
 }
 
+function isSliderRegionType(type) {
+    return type === UI_TYPES.SLIDER || type === UI_TYPES.SLIDER_V2 || type === UI_TYPES.SLIDER_HTML || type === UI_TYPES.SLIDER_V2_HTML;
+}
+
 function getFathaNodeScreenRect(node, canvasDS, canvasEl) {
     if (!node || !canvasDS || !canvasEl) return null;
     const scale = Number(canvasDS.scale) || 1;
@@ -317,7 +321,7 @@ function buildPassiveWholeWallCacheState(node, passiveCacheScale) {
         const activeRegion = node._pressedRegionKey ? node.layout?.regions?.[node._pressedRegionKey] : null;
         const activeRegionType = String(activeRegion?.type || "");
         const hasOpenPicker = !!(window.__xcpHasActiveDropdown || window.__xcpHasActiveFileBrowser);
-        const hasLiveControlInteraction = activeRegionType === UI_TYPES.SLIDER ||
+        const hasLiveControlInteraction = isSliderRegionType(activeRegionType) ||
             activeRegionType === UI_TYPES.DROPDOWN_DERP || activeRegionType === UI_TYPES.FILEBROWSER ||
             activeRegionType === UI_TYPES.DROPDOWN ||
             activeRegionType === UI_TYPES.EDITOR;
@@ -366,7 +370,7 @@ function ensurePassiveCacheInteractionBindings(node, app) {
     if (!node?.layout?.regions) return;
     for (const [key, reg] of Object.entries(node.layout.regions)) {
         if (!reg?.type) continue;
-        if (reg.type === UI_TYPES.SLIDER) {
+        if (isSliderRegionType(reg.type)) {
             if (!reg._xcpPassiveCacheWrappedDragStart) {
                 const originalOnDragStart = reg.onDragStart;
                 reg.onDragStart = (...args) => {

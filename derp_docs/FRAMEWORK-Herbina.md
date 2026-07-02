@@ -22,6 +22,7 @@ Herbina is the UI toolkit layer. All visual widgets — buttons, sliders, toggle
 | `createBtnIcon`, `syncBtnIcon`, `syncBtnIconHTML` | `widgets/btnIcon.js` | Icon button |
 | `createBtnSimple`, `syncBtnSimple`, `syncBtnSimpleHTML` | `widgets/btnSimple.js` | Simple text button |
 | `createDerpSlider`, `syncDerpSliderCanvas`, `syncDerpSliderHTML` | `widgets/widget_Slider.js` | Range slider |
+| `createDerpSliderV2`, `syncDerpSliderV2Canvas`, `syncDerpSliderV2HTML` | `widgets/widget_SliderV2.js` | Slider V2 numeric widget foundation |
 | `createTextLabel`, `syncTextLabel`, `syncTextLabelHTML` | `widgets/textLabel.js` | Text label |
 | `createColorKeyEdit`, `syncColorKeyEdit` | `widgets/widget_ColorKey.js` | Color key editor |
 | `createLineBreak`, `syncLineBreak` | `widgets/widget_LineBreak.js` | Visual separator |
@@ -78,6 +79,7 @@ widgets/
 ├── derpScrollBar.js    — Custom scrollbar
 ├── widget_Slider.js    — Range slider (canvas + HTML)
 ├── widget_SliderHTML.js— HTML-based slider
+├── widget_SliderV2.js  — Slider V2 wrapper with shared numeric value engine
 ├── widget_Toggle.js    — Boolean toggle
 ├── widget_ToggleV2.js  — Toggle v2
 ├── widget_FileBrowser.js— File picker/browser
@@ -172,6 +174,21 @@ Rules:
 ## <span style="color: #80ffc0">Slider Animation Notes</span>
 - Slider track clicks may animate the knob toward the snapped target value. A new drag-start on the visible knob interrupts that position lerp and snaps the animation state to the live value so dragging can take over immediately.
 
+## <span style="color: #80ffc0">Slider V2 Notes</span>
+- `UI_TYPES.SLIDER_V2` and `UI_TYPES.SLIDER_V2_HTML` route through `widget_SliderV2.js`. Canvas rendering still temporarily reuses the mature V1 slider painter, while HTML rendering is V2-owned. All numeric behavior must go through `widgets/helpers/sliderV2Value.js`.
+- `UI_TYPES.SLIDER_V2` is a hybrid widget. Calling nodes should keep using this one type; the widget chooses Canvas or HTML internally from the global `Derp.SliderV2RenderPath` setting (`canvas` by default, `html` optional).
+- Changing `Derp.SliderV2RenderPath` must force existing Fatha/Uncle nodes and active Bastas through a fresh sync so Canvas widgets can remove stale HTML elements and HTML widgets can create their DOM surfaces immediately.
+- `derpSkunk` is the current Slider V2 lab node and may expose FILEBROWSER controls for render path and style selection. Production nodes should keep passing `UI_TYPES.SLIDER_V2` and rely on the shared global setting instead of branching locally.
+- `sliderV2Value.js` owns min/max normalization, int-vs-float typing, step snapping, decimal/display formatting, measure-text fallback, pointer-to-value mapping, btnLR stepping, horizontal interaction resolution, and reset defaults. Canvas and HTML render paths must call the same value helpers instead of duplicating math.
+- INT Slider V2 specs coerce configured steps to whole numbers before snapping/stepping. Fractional INT steps are treated as caller mistakes and normalized to at least `1` so btnLR and keyboard-like step changes never get stuck on rounded `.5` values.
+- `sliderV2Config.js` owns V2 config preparation, callback normalization, default numeric display text, value-setting helpers, and the type-dispatched interaction wrapper. Widget renderers and lab nodes should import these helpers instead of importing `widget_SliderV2.js` for non-rendering behavior.
+- `widget_SliderV2.js` owns the HTML DOM renderer and pointer handlers so track drags, btnLR clicks, dead-gap handling, and reset/commit behavior all go through Slider V2 value helpers.
+- `sliderV2Styles.js` owns the built-in style preset list, maps each `styleId` to Canvas/HTML renderer styles, and applies style-owned visual defaults before rendering. Callers should pass a preset `styleId` such as `knob`; only explicitly exposed caller/lab options should override preset defaults.
+- `sliderV2Styles.js` also owns saved-style payload normalization for `derpSliderV2Editor`. Reusable style JSON travels through the `sliderV2Styles` backend category and should persist preset/shape controls only; color and effect identity remains palette/theme-owned.
+- `sliderV2Types.js` owns the supported type IDs. `horizontal` is the only implemented interaction path for now; `vertical` and `radial` are recognized future presets and must return a clean unsupported interaction until their render/interaction paths are implemented.
+- Calling nodes should use `widget_SliderV2.js` interaction helpers such as `resolveSliderV2Interaction()` rather than reimplementing pointer math locally.
+- Slider V2 style and render-path work should stay presentation-only. Do not put colors/effects or arbitrary caller visual overrides into the value engine.
+
 ## <span style="color: #80ffc0">Global Animation Toggle</span>
 <span style="color: #80aaff"><strong>Setting ID:</strong></span> `Derp.UseAnimation` (boolean, default: `true`)
 
@@ -194,3 +211,4 @@ Rules:
 ## <span style="color: #80ffc0">Maintenance Notes</span>
 - Update this document when widget files are split, new extenders are added, or component blueprint expectations change.
 - Before changing a widget protocol, verify `masterWidgets.js`, `masterLayoutTypes.js`, and the specific widget file together.
+- Horizontal metrics in `sliderV2Value.js` mirror the visible V1 canvas geometry: `fillPadding`, btnLR button width, 1px track gaps, and knob travel are part of the shared contract. If a lab node or wrapper passes Slider V2 interactions around, it should feed the prepared style fields into the helper instead of recalculating pointer math locally.

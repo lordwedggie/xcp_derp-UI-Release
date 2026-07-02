@@ -82,6 +82,16 @@ Current UI pattern:
 | `derpSkunk.js` | — | Skunkworks prototyping/test node |
 
 
+## <span style="color: #80ffc0">Slider V2 Editor Utility</span>
+
+`derpSliderV2Editor` lives in `js/derps/utils/derpSliderV2Editor.js` with a pure virtual backend shell in `python/derpUtilities.py`.
+
+Current behavior:
+- Provides a dedicated lab/editor surface for Slider V2 styles instead of expanding `derpSkunk` forever.
+- Uses `UI_TYPES.SLIDER_V2` for a live preview, so the same global Canvas/HTML render path and V2 value engine are exercised.
+- Exposes the first style controls: style preset, render path, reusable style-file save/load, btnLR preview toggle, fill height, round knob, knob width/height offsets, and knob radius offset.
+- Persists reusable style JSON through the generic `/xcp/list/load/save/sliderV2Styles` routes. Saved style payloads stay narrow and versioned: preset id plus the explicitly exposed shape controls. Palette/theme colors remain outside style files.
+
 ## <span style="color: #80ffc0">Notes Utility</span>
 
 `derpNotes` lives in `js/derps/utils/derpNotes.js` with a pure virtual backend shell in `python/derpUtilities.py`.

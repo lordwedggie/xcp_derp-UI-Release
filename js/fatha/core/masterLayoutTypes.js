@@ -12,6 +12,8 @@ import {
     syncTextLabelHTML,
     syncDerpSliderCanvas,
     syncDerpSliderHTML,
+    syncDerpSliderV2Canvas,
+    syncDerpSliderV2HTML,
     createBtnIcon,
     syncBtnIcon,
     syncBtnIconHTML,
@@ -46,6 +48,8 @@ export const UI_TYPES = {
     TEXT_HTML: "htmlLabel",
     SLIDER: "slider",
     SLIDER_HTML: "sliderHTML",
+    SLIDER_V2: "sliderV2",
+    SLIDER_V2_HTML: "sliderV2HTML",
     ICONBUTTON: "btnIcon",
     ICONBUTTON_HTML: "btnIconHTML",
     COLORKEYEDIT: "colorKeyEdit",
@@ -193,6 +197,27 @@ export const COMPONENT_BLUEPRINTS = {
             return el;
         },
         sync: syncDerpSliderHTML
+    },
+    [UI_TYPES.SLIDER_V2]: {
+        themeKey: "slider, t_textsmall",
+        width: "full", height: "auto",
+        isHtml: false,
+        isHybrid: true,
+        create: () => ({ type: "derpSliderV2" }),
+        sync: syncDerpSliderV2Canvas
+    },
+    [UI_TYPES.SLIDER_V2_HTML]: {
+        themeKey: "slider, t_textsmall",
+        width: "full", height: "auto",
+        isHtml: true,
+        create: () => {
+            const el = document.createElement("div");
+            el.className = "derp-slider-v2-html";
+            el.style.zIndex = String(getNextZIndex());
+            el.style.willChange = "transform, opacity";
+            return el;
+        },
+        sync: syncDerpSliderV2HTML
     },
     [UI_TYPES.EDITOR]: {
         themeKey: "panel, t_textnormal",

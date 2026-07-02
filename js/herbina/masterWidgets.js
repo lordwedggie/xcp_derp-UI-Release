@@ -18,6 +18,7 @@ export { createPopupPrompt, syncPopupPrompt } from "./widgets/popupPrompt.js";
 export { createBtnIcon, syncBtnIcon, syncBtnIconHTML } from "./widgets/btnIcon.js";
 export { createBtnSimple, syncBtnSimple, syncBtnSimpleHTML } from "./widgets/btnSimple.js";
 export { createDerpSlider, syncDerpSliderCanvas, syncDerpSliderHTML } from "./widgets/widget_Slider.js";
+export { createDerpSliderV2, syncDerpSliderV2Canvas, syncDerpSliderV2HTML } from "./widgets/widget_SliderV2.js";
 export { createTextLabel, syncTextLabel, syncTextLabelHTML } from "./widgets/textLabel.js";
 export { createColorKeyEdit, syncColorKeyEdit } from "./widgets/widget_ColorKey.js";
 export { createLineBreak, syncLineBreak } from "./widgets/widget_LineBreak.js";

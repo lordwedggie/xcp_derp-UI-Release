@@ -274,6 +274,25 @@
       "refresh": "\u5237\u65b0 Markdown \u6587\u4ef6\u5217\u8868\u5e76\u91cd\u65b0\u52a0\u8f7d\u5f53\u524d\u7b14\u8bb0"
     }
   },
+  "derp_slider_v2_editor": {
+    "title": "\u8001\u767b\u6ed1\u6746 V2 \u7f16\u8f91\u5668",
+    "preview": "\u9884\u89c8",
+    "btn_lr": "\u5de6\u53f3\u952e",
+    "round_knob": "\u5706\u5f62\u65cb\u94ae",
+    "fill_height": "\u586b\u5145",
+    "knob_width": "\u65cb\u94ae W",
+    "knob_height": "\u65cb\u94ae H",
+    "knob_radius": "\u65cb\u94ae R",
+    "style_file": "\u6837\u5f0f\u6587\u4ef6",
+    "style_name": "\u6837\u5f0f\u540d\u79f0",
+    "load_style": "\u52a0\u8f7d\u6837\u5f0f",
+    "save_style": "\u4fdd\u5b58\u6837\u5f0f",
+    "refresh_styles": "\u5237\u65b0\u6837\u5f0f",
+    "no_saved_styles": "\u6ca1\u6709\u5df2\u4fdd\u5b58\u7684\u6837\u5f0f",
+    "system": {
+      "properties": "\u6ed1\u6746 V2 \u7f16\u8f91\u5668\u5c5e\u6027\uff1a"
+    }
+  },
   "derp_image_deck": {
     "title": "老登图片牌组",
     "prefix": {
