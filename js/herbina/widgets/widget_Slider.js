@@ -275,11 +275,21 @@ function appendCirclePath(ctx, centerX, centerY, radius) {
     ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
 }
 
-function fillCircleWithShadow(ctx, centerX, centerY, radius, shadow, color, blurFactor, alphaFactor, offsetFactor) {
+function getCanvasEffectScale(ctx) {
+    if (!ctx?.getTransform) return 1;
+    const transform = ctx.getTransform();
+    if (!transform) return 1;
+    const scaleX = Math.hypot(Number(transform.a) || 0, Number(transform.b) || 0);
+    const scaleY = Math.hypot(Number(transform.c) || 0, Number(transform.d) || 0);
+    const scale = Math.max(scaleX || 0, scaleY || 0);
+    return Number.isFinite(scale) && scale > 0 ? scale : 1;
+}
+
+function fillCircleWithShadow(ctx, centerX, centerY, radius, shadow, color, blurFactor, alphaFactor, offsetFactor, effectScale = 1) {
     ctx.shadowColor = scaleAlpha(shadow.color, alphaFactor);
-    ctx.shadowBlur = shadow.blur * blurFactor;
-    ctx.shadowOffsetX = shadow.offsetX * offsetFactor;
-    ctx.shadowOffsetY = shadow.offsetY * offsetFactor;
+    ctx.shadowBlur = shadow.blur * blurFactor * effectScale;
+    ctx.shadowOffsetX = shadow.offsetX * offsetFactor * effectScale;
+    ctx.shadowOffsetY = shadow.offsetY * offsetFactor * effectScale;
     ctx.fillStyle = color;
     ctx.beginPath();
     appendCirclePath(ctx, centerX, centerY, radius);
@@ -290,8 +300,9 @@ function drawThemedCircle(ctx, centerX, centerY, radius, paintData, color = "#1a
     const glowClip = paintData?.glowClip || "c_glowNone";
     const shadowClip = paintData?.shadowClip || "c_shadowNone";
     const blurFactor = 2.0;
-    const alphaFactor = 0.7;
+    const alphaFactor = 1.0;
     const offsetFactor = 1.5;
+    const effectScale = getCanvasEffectScale(ctx);
 
     ctx.save();
     ctx.shadowColor = "transparent";
@@ -299,38 +310,34 @@ function drawThemedCircle(ctx, centerX, centerY, radius, paintData, color = "#1a
     ctx.shadowOffsetX = 0;
     ctx.shadowOffsetY = 0;
 
-    if (paintData?.shadow && shadowClip === "c_shadowOutside") {
+    if (paintData?.shadow && (shadowClip === "c_shadowOutside" || shadowClip === "c_shadowNone")) {
         const s = paintData.shadow;
         ctx.save();
         ctx.beginPath();
         ctx.rect(centerX - radius - 5000, centerY - radius - 5000, (radius * 2) + 10000, (radius * 2) + 10000);
         appendCirclePath(ctx, centerX, centerY, radius);
         ctx.clip("evenodd");
-        fillCircleWithShadow(ctx, centerX, centerY, radius, s, "black", blurFactor, alphaFactor, 1);
+        fillCircleWithShadow(ctx, centerX, centerY, radius, s, "black", blurFactor, alphaFactor, offsetFactor, effectScale);
         ctx.restore();
     }
 
     ctx.save();
-    if (paintData?.shadow && shadowClip === "c_shadowNone") {
-        fillCircleWithShadow(ctx, centerX, centerY, radius, paintData.shadow, color, blurFactor, alphaFactor, offsetFactor);
-    } else {
-        ctx.fillStyle = color;
-        ctx.beginPath();
-        appendCirclePath(ctx, centerX, centerY, radius);
-        ctx.fill();
-    }
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    appendCirclePath(ctx, centerX, centerY, radius);
+    ctx.fill();
     ctx.restore();
 
-    if (paintData?.shadow && shadowClip === "c_shadowInside") {
+    if (paintData?.shadow && (shadowClip === "c_shadowInside" || shadowClip === "c_shadowNone")) {
         const s = paintData.shadow;
         ctx.save();
         ctx.beginPath();
         appendCirclePath(ctx, centerX, centerY, radius);
         ctx.clip();
         ctx.shadowColor = scaleAlpha(s.color, alphaFactor);
-        ctx.shadowBlur = s.blur * blurFactor;
-        ctx.shadowOffsetX = s.offsetX * offsetFactor;
-        ctx.shadowOffsetY = s.offsetY * offsetFactor;
+        ctx.shadowBlur = s.blur * blurFactor * effectScale;
+        ctx.shadowOffsetX = s.offsetX * offsetFactor * effectScale;
+        ctx.shadowOffsetY = s.offsetY * offsetFactor * effectScale;
         ctx.beginPath();
         ctx.rect(centerX - radius - 5000, centerY - radius - 5000, (radius * 2) + 10000, (radius * 2) + 10000);
         appendCirclePath(ctx, centerX, centerY, radius);
@@ -353,7 +360,7 @@ function drawThemedCircle(ctx, centerX, centerY, radius, paintData, color = "#1a
             ctx.rect(centerX - radius - 5000, centerY - radius - 5000, (radius * 2) + 10000, (radius * 2) + 10000);
             appendCirclePath(ctx, centerX, centerY, radius);
             ctx.clip("evenodd");
-            fillCircleWithShadow(ctx, centerX, centerY, radius, glowShadow, "black", blurFactor, 1, 1);
+            fillCircleWithShadow(ctx, centerX, centerY, radius, glowShadow, "black", blurFactor, 1, 1, effectScale);
             ctx.restore();
         }
         if (glowClip === "c_glowInside" || glowClip === "c_glowNone") {
@@ -362,9 +369,9 @@ function drawThemedCircle(ctx, centerX, centerY, radius, paintData, color = "#1a
             appendCirclePath(ctx, centerX, centerY, radius);
             ctx.clip();
             ctx.shadowColor = glowShadow.color;
-            ctx.shadowBlur = glowShadow.blur * blurFactor;
-            ctx.shadowOffsetX = glowShadow.offsetX;
-            ctx.shadowOffsetY = glowShadow.offsetY;
+            ctx.shadowBlur = glowShadow.blur * blurFactor * effectScale;
+            ctx.shadowOffsetX = glowShadow.offsetX * effectScale;
+            ctx.shadowOffsetY = glowShadow.offsetY * effectScale;
             ctx.beginPath();
             ctx.rect(centerX - radius - 5000, centerY - radius - 5000, (radius * 2) + 10000, (radius * 2) + 10000);
             appendCirclePath(ctx, centerX, centerY, radius);

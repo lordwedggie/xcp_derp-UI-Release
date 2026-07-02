@@ -40,6 +40,8 @@ Herbina is the UI toolkit layer. All visual widgets — buttons, sliders, toggle
 | `masterPainter.js` | Canvas 2D painting (450 lines). Theme compilation: `compileThemeData()` — resolves fill/shadow/stroke/glow from theme config with palette color references (`@key` syntax). Cache via WeakMap. |
 | `masterPainterHTML.js` | HTML DOM painting for HTML-based widgets |
 
+Canvas and HTML painter effects must keep the same theme semantics: shadow/glow `Outside` draws only outside the shape, `Inside` draws only inset, and `None` draws both passes. Canvas shadow/glow blur and offsets are scaled by the active canvas transform so they match HTML widgets whose DOM geometry is already synced to screen pixels. HTML widgets that need a visible Canvas-like outside glow should use `syncHTMLGlowLayer()` from `masterPainterHTML`; its glow layer intentionally approximates negative chamfer corners without `clip-path` so the blur halo is not clipped away.
+
 ### <span style="color: #80ffc0">Animation Layer</span>
 | File | Role |
 |------|------|
@@ -175,7 +177,7 @@ Rules:
 - Slider track clicks may animate the knob toward the snapped target value. A new drag-start on the visible knob interrupts that position lerp and snaps the animation state to the live value so dragging can take over immediately.
 
 ## <span style="color: #80ffc0">Slider V2 Notes</span>
-- `UI_TYPES.SLIDER_V2` and `UI_TYPES.SLIDER_V2_HTML` route through `widget_SliderV2.js`. Canvas rendering still temporarily reuses the mature V1 slider painter, while HTML rendering is V2-owned. All numeric behavior must go through `widgets/helpers/sliderV2Value.js`.
+- `UI_TYPES.SLIDER_V2` and `UI_TYPES.SLIDER_V2_HTML` route through `widget_SliderV2.js`. Canvas and HTML rendering are both V2-owned and must use the same visual part breakdown: background, fillBar, knob, btnLR, and label. All numeric behavior must go through `widgets/helpers/sliderV2Value.js`.
 - `UI_TYPES.SLIDER_V2` is a hybrid widget. Calling nodes should keep using this one type; the widget chooses Canvas or HTML internally from the global `Derp.SliderV2RenderPath` setting (`canvas` by default, `html` optional).
 - Changing `Derp.SliderV2RenderPath` must force existing Fatha/Uncle nodes and active Bastas through a fresh sync so Canvas widgets can remove stale HTML elements and HTML widgets can create their DOM surfaces immediately.
 - `derpSkunk` is the current Slider V2 lab node and may expose FILEBROWSER controls for render path and style selection. Production nodes should keep passing `UI_TYPES.SLIDER_V2` and rely on the shared global setting instead of branching locally.

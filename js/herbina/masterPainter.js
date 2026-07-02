@@ -106,7 +106,7 @@ export function compileThemeData(themeMain, keyName = "Unknown", state = "OFF") 
         shadow: shadowData,
         border: borderData,
         glow: glowData,
-        // THE FIX: Default both to 'None' if the flag is missing in JSON
+        // Missing clip flags default to bidirectional effect rendering.
         glowClip: themeMain.glowClip || "c_glowNone",
         shadowClip: themeMain.shadowClip || "c_shadowNone"
     };
@@ -196,9 +196,19 @@ function appendStyledRectPath(ctx, x, y, width, height, corners) {
     ctx.closePath();
 }
 
+function getCanvasEffectScale(ctx) {
+    if (!ctx?.getTransform) return 1;
+    const transform = ctx.getTransform();
+    if (!transform) return 1;
+    const scaleX = Math.hypot(Number(transform.a) || 0, Number(transform.b) || 0);
+    const scaleY = Math.hypot(Number(transform.c) || 0, Number(transform.d) || 0);
+    const scale = Math.max(scaleX || 0, scaleY || 0);
+    return Number.isFinite(scale) && scale > 0 ? scale : 1;
+}
+
 /**
  * Herbina Master Painter
- * Fixed: Consolidated Glow Pass with Unclipped 'None' Mode
+ * Draws themed fill, shadow, glow, and border effects.
  */
 export function masterPainter(ctx, options) {
     const { width, height, color = "#1a1a1a", posX = 0, posY = 0, paintData = null } = options;
@@ -208,8 +218,9 @@ export function masterPainter(ctx, options) {
 
     // --- LOCAL TUNING: Adjust Canvas rendering to mimic CSS HTML softness ---
     const CANVAS_BLUR_FACTOR   = 2.0;
-    const CANVAS_ALPHA_FACTOR  = 0.7;
+    const CANVAS_ALPHA_FACTOR  = 1.0;
     const CANVAS_OFFSET_FACTOR = 1.5;
+    const effectScale = getCanvasEffectScale(ctx);
 
     ctx.save();
 
@@ -218,7 +229,7 @@ export function masterPainter(ctx, options) {
     ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
 
     // --- LAYER 1: OUTSIDE SHADOW ---
-    if (paintData?.shadow && shadowClip === "c_shadowOutside") {
+    if (paintData?.shadow && (shadowClip === "c_shadowOutside" || shadowClip === "c_shadowNone")) {
         const s = paintData.shadow;
         ctx.save();
         ctx.beginPath();
@@ -227,8 +238,9 @@ export function masterPainter(ctx, options) {
         ctx.clip("evenodd");
 
         ctx.shadowColor = scaleAlpha(s.color, CANVAS_ALPHA_FACTOR);
-        ctx.shadowBlur = s.blur * CANVAS_BLUR_FACTOR;
-        ctx.shadowOffsetX = s.offsetX; ctx.shadowOffsetY = s.offsetY;
+        ctx.shadowBlur = s.blur * CANVAS_BLUR_FACTOR * effectScale;
+        ctx.shadowOffsetX = s.offsetX * CANVAS_OFFSET_FACTOR * effectScale;
+        ctx.shadowOffsetY = s.offsetY * CANVAS_OFFSET_FACTOR * effectScale;
         ctx.fillStyle = "black";
         ctx.beginPath(); appendStyledRectPath(ctx, posX, posY, width, height, radii); ctx.fill();
         ctx.restore();
@@ -236,13 +248,6 @@ export function masterPainter(ctx, options) {
 
     // --- LAYER 2: BACKGROUND FILL ---
     ctx.save();
-    if (paintData?.shadow && shadowClip === "c_shadowNone") {
-        const s = paintData.shadow;
-        ctx.shadowColor = scaleAlpha(s.color, CANVAS_ALPHA_FACTOR);
-        ctx.shadowBlur = s.blur * CANVAS_BLUR_FACTOR;
-        ctx.shadowOffsetX = s.offsetX * CANVAS_OFFSET_FACTOR;
-        ctx.shadowOffsetY = s.offsetY * CANVAS_OFFSET_FACTOR;
-    }
     ctx.fillStyle = color;
     ctx.beginPath();
     appendStyledRectPath(ctx, posX, posY, width, height, radii);
@@ -250,15 +255,15 @@ export function masterPainter(ctx, options) {
     ctx.restore();
 
     // --- LAYER 3: INSIDE SHADOW ---
-    if (paintData?.shadow && shadowClip === "c_shadowInside") {
+    if (paintData?.shadow && (shadowClip === "c_shadowInside" || shadowClip === "c_shadowNone")) {
         const s = paintData.shadow;
         ctx.save();
         ctx.beginPath(); appendStyledRectPath(ctx, posX, posY, width, height, radii); ctx.clip();
 
         ctx.shadowColor = scaleAlpha(s.color, CANVAS_ALPHA_FACTOR);
-        ctx.shadowBlur = s.blur * CANVAS_BLUR_FACTOR;
-        ctx.shadowOffsetX = s.offsetX * CANVAS_OFFSET_FACTOR;
-        ctx.shadowOffsetY = s.offsetY * CANVAS_OFFSET_FACTOR;
+        ctx.shadowBlur = s.blur * CANVAS_BLUR_FACTOR * effectScale;
+        ctx.shadowOffsetX = s.offsetX * CANVAS_OFFSET_FACTOR * effectScale;
+        ctx.shadowOffsetY = s.offsetY * CANVAS_OFFSET_FACTOR * effectScale;
 
         ctx.beginPath();
         ctx.rect(posX - 5000, posY - 5000, width + 10000, height + 10000);
@@ -269,12 +274,11 @@ export function masterPainter(ctx, options) {
     }
 
     // --- LAYER 4: GLOW PASS (ON TOP OF FILL) ---
-    // THE FIX: Consolidation ensures correct layering and unclipped 'None' behavior.
     if (paintData?.glow) {
         const g = paintData.glow;
-        const blur = g.blur * CANVAS_BLUR_FACTOR;
-        const offX = g.offsetX * CANVAS_OFFSET_FACTOR;
-        const offY = g.offsetY * CANVAS_OFFSET_FACTOR;
+        const blur = g.blur * CANVAS_BLUR_FACTOR * effectScale;
+        const offX = g.offsetX * CANVAS_OFFSET_FACTOR * effectScale;
+        const offY = g.offsetY * CANVAS_OFFSET_FACTOR * effectScale;
         const gColor = scaleAlpha(g.color, CANVAS_ALPHA_FACTOR);
 
         if (glowClip === "c_glowOutside") {
@@ -302,9 +306,8 @@ export function masterPainter(ctx, options) {
             ctx.restore();
         }
         else if (glowClip === "c_glowNone") {
-            // THE FIX: Execute BOTH the inside and outside passes sequentially.
-            // This achieves the bidirectional bleed ("BOTH" effect) while hiding the solid black
-            // source shapes that Canvas requires to cast a shadow.
+            // Execute both passes for bidirectional glow while hiding the solid
+            // source shapes that Canvas needs for shadow casting.
 
             // Pass 1: Outside Glow
             ctx.save();

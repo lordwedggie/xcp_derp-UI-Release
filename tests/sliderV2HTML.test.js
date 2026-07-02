@@ -9,6 +9,11 @@ vi.mock('../js/herbina/utils/widgetsUtils.js', () => {
     if (key?.startsWith?.('#')) return null;
     const direct = node?.[`_${key}PaintData${suffix}`] || node?.[`_${key}PaintData`];
     if (direct) return direct;
+    if (!key?.startsWith?.('#')) {
+      const fallbackKey = key?.toLowerCase?.().includes('text') ? 't_textSystem' : 'region';
+      const fallback = node?.[`_${fallbackKey}PaintData${suffix}`] || node?.[`_${fallbackKey}PaintData`];
+      if (fallback && fallbackKey !== key) return fallback;
+    }
     return overrideColor ? { fill: overrideColor, corners: [0, 0, 0, 0] } : null;
   };
 
@@ -61,7 +66,8 @@ vi.mock('../js/herbina/utils/widgetsUtils.js', () => {
   };
 });
 
-const { syncDerpSliderV2HTML } = await import('../js/herbina/widgets/widget_SliderV2.js');
+const legacySlider = await import('../js/herbina/widgets/widget_Slider.js');
+const { syncDerpSliderV2Canvas, syncDerpSliderV2HTML } = await import('../js/herbina/widgets/widget_SliderV2.js');
 
 function makeNode() {
   return {
@@ -91,13 +97,45 @@ function eventAt(clientX) {
   };
 }
 
-function syncSlider({ value = 0.5, onChange = () => {}, onCommit = () => {}, btnLR = true, styleId = 'knob' } = {}) {
+function makeCanvasContext() {
+  const ops = [];
+  const ctx = {
+    ops,
+    save: () => ops.push({ op: 'save' }),
+    restore: () => ops.push({ op: 'restore' }),
+    beginPath: () => ops.push({ op: 'beginPath' }),
+    closePath: () => ops.push({ op: 'closePath' }),
+    moveTo: (...args) => ops.push({ op: 'moveTo', args }),
+    lineTo: (...args) => ops.push({ op: 'lineTo', args }),
+    arcTo: (...args) => ops.push({ op: 'arcTo', args }),
+    rect: (...args) => ops.push({ op: 'rect', args }),
+    clip: (...args) => ops.push({ op: 'clip', args }),
+    fill: (...args) => ops.push({ op: 'fill', args, fillStyle: ctx.fillStyle }),
+    stroke: () => ops.push({ op: 'stroke' }),
+    fillText: (...args) => ops.push({ op: 'fillText', args, fillStyle: ctx.fillStyle }),
+    measureText: (text) => ({ width: String(text || '').length * 8 }),
+    shadowColor: 'transparent',
+    shadowBlur: 0,
+    shadowOffsetX: 0,
+    shadowOffsetY: 0,
+    fillStyle: '',
+    strokeStyle: '',
+    lineWidth: 1,
+    font: '',
+    textAlign: 'left',
+    textBaseline: 'middle',
+  };
+  return ctx;
+}
+
+function syncSlider({ value = 0.5, onChange = () => {}, onCommit = () => {}, btnLR = true, styleId = 'knob', nodePatch = null } = {}) {
   const el = document.createElement('div');
   el.setPointerCapture = () => {};
   el.releasePointerCapture = () => {};
   el.getBoundingClientRect = () => ({ left: 0, top: 0, width: 120, height: 20, right: 120, bottom: 20 });
 
   const node = makeNode();
+  if (nodePatch) Object.assign(node, nodePatch);
   syncDerpSliderV2HTML(el, node, window.app, {
     key: 'sliderTest',
     geometry: { x: 0, y: 0, w: 120, h: 20 },
@@ -130,6 +168,44 @@ describe('Slider V2 HTML renderer', () => {
     expect(el.querySelector('.derp-slider-v2-btn-left')).toBeTruthy();
     expect(el.querySelector('.derp-slider-v2-btn-right')).toBeTruthy();
     expect(el.querySelector('.derp-slider-v2-label').textContent).toBe('0.50');
+  });
+
+  it('does not clip themed outside glow on HTML btnLR parts', () => {
+    const { el } = syncSlider({
+      value: 0.5,
+      nodePatch: {
+        _sliderPaintData_OFF: {
+          fill: 'rgba(20,20,20,1)',
+          corners: [-2, 1, -2, 1],
+          glow: {
+            color: 'rgba(80, 255, 180, 0.8)',
+            blur: 6,
+            offsetX: 0,
+            offsetY: 0,
+          },
+          glowClip: 'c_glowOutside',
+        },
+        _sliderPaintData_ON: {
+          fill: 'rgba(80,160,240,1)',
+          corners: [-2, 1, -2, 1],
+          glow: {
+            color: 'rgba(80, 255, 180, 0.8)',
+            blur: 6,
+            offsetX: 0,
+            offsetY: 0,
+          },
+          glowClip: 'c_glowOutside',
+        },
+      },
+    });
+
+    expect(el.querySelector('.derp-slider-v2-fill-glow').style.display).toBe('block');
+    expect(el.querySelector('.derp-slider-v2-fill-glow').style.filter).toContain('blur');
+    expect(el.querySelector('.derp-slider-v2-fill-glow').style.clipPath).toBe('none');
+    expect(el.querySelector('.derp-slider-v2-btn-left-glow').style.display).toBe('block');
+    expect(el.querySelector('.derp-slider-v2-btn-right-glow').style.display).toBe('block');
+    expect(el.querySelector('.derp-slider-v2-btn-left').style.overflow).toBe('visible');
+    expect(el.querySelector('.derp-slider-v2-btn-right').style.overflow).toBe('visible');
   });
 
   it('uses the V2 value engine for btnLR, gap, drag, and reset interactions', () => {
@@ -174,5 +250,62 @@ describe('Slider V2 HTML renderer', () => {
     expect(el.querySelector('.derp-slider-v2-knob').style.display).toBe('none');
     expect(el.querySelector('.derp-slider-v2-btn-left')).toBeNull();
     expect(el.querySelector('.derp-slider-v2-btn-right')).toBeNull();
+  });
+
+  it('draws Canvas visuals through the V2 renderer instead of the legacy V1 slider painter', () => {
+    const ctx = makeCanvasContext();
+    const node = makeNode();
+
+    syncDerpSliderV2Canvas(ctx, node, window.app, {
+      key: 'sliderCanvasTest',
+      geometry: { x: 0, y: 0, w: 120, h: 20 },
+      themeKey: 'slider, t_textsmall',
+      value: 0.5,
+      min: 0,
+      max: 1,
+      step: 0.05,
+      decimals: 2,
+      default: 0.5,
+      btnLR: true,
+      styleId: 'knob',
+    });
+
+    expect(legacySlider.syncDerpSliderCanvas).not.toHaveBeenCalled();
+    expect(ctx.ops.filter((op) => op.op === 'fill').length).toBeGreaterThan(3);
+    expect(ctx.ops.some((op) => op.op === 'fillText' && op.args[0] === '0.50')).toBe(true);
+  });
+
+  it('falls missing slider body paint back to button instead of panel or region', () => {
+    const ctx = makeCanvasContext();
+    const node = {
+      ...makeNode(),
+      _buttonPaintData_OFF: { fill: 'rgba(30,40,50,1)', corners: [2, 2, 2, 2] },
+      _panelPaintData_OFF: { fill: 'rgba(10,20,30,1)', corners: [2, 2, 2, 2] },
+      _regionPaintData_OFF: { fill: 'rgba(200,10,10,1)', corners: [2, 2, 2, 2] },
+    };
+    delete node._sliderPaintData_OFF;
+    delete node._sliderPaintData_ON;
+    delete node._sliderPaintData_DIS;
+
+    syncDerpSliderV2Canvas(ctx, node, window.app, {
+      key: 'sliderPanelFallbackTest',
+      geometry: { x: 0, y: 0, w: 120, h: 20 },
+      themeKey: 'slider, t_textsmall',
+      value: 0,
+      min: 0,
+      max: 1,
+      step: 0.05,
+      decimals: 2,
+      default: 0.5,
+      btnLR: false,
+      styleId: 'default',
+    });
+
+    const fillStyles = ctx.ops
+      .filter((op) => op.op === 'fill')
+      .map((op) => String(op.fillStyle || '').replace(/\s+/g, ''));
+    expect(fillStyles.includes('rgba(30,40,50,1)')).toBe(true);
+    expect(fillStyles.includes('rgba(10,20,30,1)')).toBe(false);
+    expect(fillStyles.includes('rgba(200,10,10,1)')).toBe(false);
   });
 });

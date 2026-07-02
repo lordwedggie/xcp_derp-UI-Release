@@ -8,7 +8,7 @@ import { toRGBA } from "./utils/colorMath.js";
 
 export const DERP_HTML_CORNER_SCALE = 1.0;
 export const DERP_HTML_BLUR_FACTOR = 2.0;
-export const DERP_HTML_ALPHA_FACTOR = 0.7;
+export const DERP_HTML_ALPHA_FACTOR = 1.0;
 export const DERP_HTML_OFFSET_FACTOR = 1.5;
 
 function normalizeCornerRadii(corners) {
@@ -101,6 +101,89 @@ function buildDropShadowLayer(effect, scale, alphaFactor, blurFactor, offsetFact
     return `drop-shadow(${offX}px ${offY}px ${blur}px ${color})`;
 }
 
+function buildStrokeDropShadowLayers(width, color) {
+    const w = Math.max(0, Number(width) || 0);
+    if (w <= 0 || !color) return [];
+    return [
+        `drop-shadow(${w}px 0px 0px ${color})`,
+        `drop-shadow(${-w}px 0px 0px ${color})`,
+        `drop-shadow(0px ${w}px 0px ${color})`,
+        `drop-shadow(0px ${-w}px 0px ${color})`,
+    ];
+}
+
+function isVisibleEffectColor(color) {
+    if (!color) return false;
+    const match = String(color).match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+    if (!match) return true;
+    return (match[4] === undefined ? 1 : Number(match[4])) > 0.001;
+}
+
+export function applyHTMLGlowCornerApproximation(el, cornersInput, scale = 1.0) {
+    if (!el) return;
+    const normalize = (value) => {
+        const n = Number(value);
+        return Number.isFinite(n) ? Math.abs(n) * scale : 0;
+    };
+    const corners = Array.isArray(cornersInput)
+        ? cornersInput.slice(0, 4)
+        : [cornersInput, cornersInput, cornersInput, cornersInput];
+    while (corners.length < 4) corners.push(corners[corners.length - 1] ?? 0);
+    const [tl, tr, br, bl] = corners.map(normalize);
+    el.style.borderRadius = `${tl}px ${tr}px ${br}px ${bl}px`;
+    el.style.clipPath = "none";
+    el.style.webkitClipPath = "none";
+}
+
+function ensureHTMLPainterChild(container, className) {
+    let child = container?.querySelector?.(`.${className}`);
+    if (!child && container?.ownerDocument) {
+        child = container.ownerDocument.createElement("div");
+        child.className = className;
+        container.appendChild(child);
+    }
+    return child;
+}
+
+export function syncHTMLGlowLayer(container, className, rect, paintData, options = {}) {
+    const glow = paintData?.glow;
+    const glowClip = paintData?.glowClip || "c_glowNone";
+    const glowEl = (options.ensureChild || ensureHTMLPainterChild)(container, className);
+    if (!glowEl) return null;
+    if (!glow || glowClip === "c_glowInside" || !isVisibleEffectColor(glow.color)) {
+        glowEl.style.display = "none";
+        return glowEl;
+    }
+
+    const scale = Number(options.scale) || 1;
+    const blur = Math.max(0, (Number(glow.blur) || 0) * DERP_HTML_BLUR_FACTOR * scale);
+    const offX = (Number(glow.offsetX) || 0) * DERP_HTML_OFFSET_FACTOR * scale;
+    const offY = (Number(glow.offsetY) || 0) * DERP_HTML_OFFSET_FACTOR * scale;
+    const left = (Number(rect?.left) || 0) + offX;
+    const top = (Number(rect?.top) || 0) + offY;
+    const width = Math.max(0, Number(rect?.width) || 0);
+    const height = Math.max(0, Number(rect?.height) || 0);
+
+    applyHTMLGlowCornerApproximation(glowEl, options.corners ?? paintData?.corners ?? 0, scale);
+    Object.assign(glowEl.style, {
+        position: "absolute",
+        left: `${left}px`,
+        top: `${top}px`,
+        width: `${width}px`,
+        height: `${height}px`,
+        display: "block",
+        pointerEvents: "none",
+        boxSizing: "border-box",
+        backgroundColor: scaleAlpha(glow.color, DERP_HTML_ALPHA_FACTOR),
+        border: "none",
+        boxShadow: "none",
+        filter: blur > 0 ? `blur(${blur}px)` : "none",
+        opacity: "1",
+        zIndex: String(options.zIndex ?? 0),
+    });
+    return glowEl;
+}
+
 function getElementTransformScale(el) {
     if (!el || !el.style) return 1;
     const t = el.style.transform || "";
@@ -178,23 +261,12 @@ export function applyHTMLTheme(el, paintData, scale = 1.0) {
             const layer = buildBoxShadowLayer(glow, effectiveScale, DERP_HTML_ALPHA_FACTOR, DERP_HTML_BLUR_FACTOR, DERP_HTML_OFFSET_FACTOR, true);
             if (layer) shadowLayers.push(layer);
         } else if (glowClip === "c_glowOutside") {
-            if (hasChamfer) {
-                const layer = buildDropShadowLayer(glow, effectiveScale, DERP_HTML_ALPHA_FACTOR, DERP_HTML_BLUR_FACTOR, DERP_HTML_OFFSET_FACTOR);
-                if (layer) dropShadowLayers.push(layer);
-            } else {
-                const layer = buildBoxShadowLayer(glow, effectiveScale, DERP_HTML_ALPHA_FACTOR, DERP_HTML_BLUR_FACTOR, DERP_HTML_OFFSET_FACTOR, false);
-                if (layer) shadowLayers.push(layer);
-            }
+            const layer = buildDropShadowLayer(glow, effectiveScale, DERP_HTML_ALPHA_FACTOR, DERP_HTML_BLUR_FACTOR, DERP_HTML_OFFSET_FACTOR);
+            if (layer) dropShadowLayers.push(layer);
         } else {
-            const outerLayer = hasChamfer
-                ? null
-                : buildBoxShadowLayer(glow, effectiveScale, DERP_HTML_ALPHA_FACTOR, DERP_HTML_BLUR_FACTOR, DERP_HTML_OFFSET_FACTOR, false);
+            const outerLayer = buildDropShadowLayer(glow, effectiveScale, DERP_HTML_ALPHA_FACTOR, DERP_HTML_BLUR_FACTOR, DERP_HTML_OFFSET_FACTOR);
             const innerLayer = buildBoxShadowLayer(glow, effectiveScale, DERP_HTML_ALPHA_FACTOR, DERP_HTML_BLUR_FACTOR, DERP_HTML_OFFSET_FACTOR, true);
-            if (hasChamfer) {
-                const dropLayer = buildDropShadowLayer(glow, effectiveScale, DERP_HTML_ALPHA_FACTOR, DERP_HTML_BLUR_FACTOR, DERP_HTML_OFFSET_FACTOR);
-                if (dropLayer) dropShadowLayers.push(dropLayer);
-            }
-            if (outerLayer) shadowLayers.push(outerLayer);
+            if (outerLayer) dropShadowLayers.push(outerLayer);
             if (innerLayer) shadowLayers.push(innerLayer);
         }
     }
@@ -213,9 +285,9 @@ export function applyHTMLTheme(el, paintData, scale = 1.0) {
         const placement = border.placement ?? 0; // 0=Center, 1=Inside, 2=Outside
 
         if (hasChamfer) {
-            // Chamfer corners: all placements use drop-shadow — CSS border/box-shadow don't follow clip-path
+            // Chamfer corners: all placements use valid drop-shadow filters because CSS border/box-shadow don't follow clip-path.
             el.style.border = "none";
-            dropShadowLayers.push(`0 0 0 ${bW}px ${bColor}`);
+            dropShadowLayers.push(...buildStrokeDropShadowLayers(bW, bColor));
         } else if (placement === 1) { // INSIDE
             el.style.border = "none";
             shadowLayers.push(`inset 0 0 0 ${bW}px ${bColor}`);
