@@ -217,6 +217,8 @@ function buildEditorLayoutHash(node, vars) {
     const width = (Number(node?.size?.[0]) || 0).toFixed(2);
     const mW = Number(vars.mW || 0).toFixed(2);
     const mH = Number(vars.mH || 0).toFixed(2);
+    const sW = Number(vars.sW || 0).toFixed(2);
+    const sH = Number(vars.sH || 0).toFixed(2);
     const oY = Number(vars.oY || 0).toFixed(2);
     const style = getEditorStyleConfig(node);
     const styleFileHash = (Array.isArray(node?._sliderV2StyleFiles) ? node._sliderV2StyleFiles : []).join("|");
@@ -224,6 +226,8 @@ function buildEditorLayoutHash(node, vars) {
         width,
         mW,
         mH,
+        sW,
+        sH,
         oY,
         getEditorRenderPath(),
         props.sliderV2SelectedStyleFile,
@@ -278,8 +282,8 @@ app.registerExtension({
 
         nodeType.prototype.refreshNodeLayoutMap = function() {
             if (this.flags?.collapsed || this.size[0] <= 0) return;
-            const { mW, mH, sW, oY, pW, pH } = this.getDerpVars(this);
-            const structureHash = buildEditorLayoutHash(this, { mW, mH, oY });
+            const { mW, mH, sW, sH, oY, pW, pH } = this.getDerpVars(this);
+            const structureHash = buildEditorLayoutHash(this, { mW, mH, sW, sH, oY });
 
             if (this._layoutMapHash === structureHash && this.layoutMap) {
                 this.requestDerpSync();
@@ -302,7 +306,7 @@ app.registerExtension({
                     width: "full", height: "auto",
                     dir: "col",
                     margin: this.properties?.drawHeader === true ? [mW, mH, mW, 0] : [mW, 0, mW, 0],
-                    spacing: [0, mH],
+                    spacing: [sW, sH],
                     previewHeader: {
                         type: UI_TYPES.TEXT,
                         mouseOver: false,
@@ -311,6 +315,7 @@ app.registerExtension({
                         text: tLocale("$derp_slider_v2_editor.preview", "Preview"),
                         width: "full", height: "auto",
                         padding: [pW, pH],
+                        spacing: [0, sH],
                     },
                     previewSlider: {
                         type: UI_TYPES.SLIDER_V2,
@@ -322,10 +327,11 @@ app.registerExtension({
                         onDrag: (event, data) => handleEditorPreviewSliderInteraction(this, data, "drag"),
                         width: "full", height: "auto",
                         padding: [pW, pH],
+                        spacing: [0, sH],
                     },
                     styleFileRow: {
                         dir: "row", width: "full", height: "auto",
-                        spacing: [sW, 0],
+                        spacing: [0, sH],
                         dropdownStyleFile: {
                             type: UI_TYPES.FILEBROWSER,
                             themeKey: "panel, t_textSystem",
@@ -340,6 +346,7 @@ app.registerExtension({
                             value: props.sliderV2SelectedStyleFile,
                             toolTip: tLocale("$derp_slider_v2_editor.load_style", "Load style"),
                             onChange: (value) => loadSliderV2StyleFile(this, value),
+                            spacing: [sW, 0],
                         },
                         editorStyleName: {
                             type: UI_TYPES.EDITOR,
@@ -351,6 +358,7 @@ app.registerExtension({
                             width: "auto", height: "auto",
                             padding: [pW, pH],
                             toolTip: tLocale("$derp_slider_v2_editor.style_name", "Style name"),
+                            spacing: [sW, 0],
                             onBlur: (rawValue) => {
                                 this.properties.sliderV2StyleName = sanitizeSliderV2StyleFileName(rawValue, SLIDER_V2_STYLE_FILE_DEFAULT_NAME);
                                 refreshEditor(this);
@@ -381,7 +389,7 @@ app.registerExtension({
                     },
                     controlsRow: {
                         dir: "row", width: "full", height: "auto",
-                        spacing: [sW, 0],
+                        spacing: [0, sH],
                         dropdownStyle: {
                             type: UI_TYPES.FILEBROWSER,
                             themeKey: "panel, t_textSystem",
@@ -395,6 +403,7 @@ app.registerExtension({
                             items: styleItems,
                             value: styleConfig.styleId,
                             onChange: (value) => setEditorStyleField(this, "styleId", normalizeSliderV2StyleId(value)),
+                            spacing: [sW, 0],
                         },
                         dropdownRenderPath: {
                             type: UI_TYPES.FILEBROWSER,
@@ -412,11 +421,12 @@ app.registerExtension({
                             ],
                             value: renderPath,
                             onChange: (value) => setEditorRenderPath(this, value),
+                            spacing: [sW, 0],
                         },
                     },
                     togglesRow: {
                         dir: "row", width: "full", height: "auto",
-                        spacing: [sW, 0],
+                        spacing: [0, sH],
                         toggleBtnLR: {
                             type: UI_TYPES.TOGGLE_V2,
                             themeKey: "dialog, button, t_textSystem",
@@ -425,6 +435,7 @@ app.registerExtension({
                             value: props.sliderV2PreviewBtnLR,
                             width: "auto", height: "auto",
                             padding: [pW, pH],
+                            spacing: [sW, 0],
                             onPress: () => {
                                 this.properties.sliderV2PreviewBtnLR = !props.sliderV2PreviewBtnLR;
                                 refreshEditor(this);
@@ -439,13 +450,14 @@ app.registerExtension({
                             value: roundKnobEnabled,
                             width: "auto", height: "auto",
                             padding: [pW, pH],
+                            spacing: [sW, 0],
                             onPress: () => setEditorStyleField(this, "roundKnob", !roundKnobEnabled),
                         },
                         spring: { width: "full", height: 0 },
                     },
                     styleValuesRow: {
                         dir: "row", width: "full", height: "auto",
-                        spacing: [sW, 0],
+                        spacing: [0, sH],
                         lblFillHeight: {
                             type: UI_TYPES.TEXT, mouseOver: false,
                             themeKey: "t_textsystem",
@@ -453,7 +465,10 @@ app.registerExtension({
                             text: tLocale("$derp_slider_v2_editor.fill_height", "Fill"),
                             width: "auto", spacing: [sW, 0],
                         },
-                        editorFillbarHeight: editorValueField(this, "fillbarHeight", styleConfig.fillbarHeight ?? 1, 1, 0.2, 1.0),
+                        editorFillbarHeight: {
+                            ...editorValueField(this, "fillbarHeight", styleConfig.fillbarHeight ?? 1, 1, 0.2, 1.0),
+                            spacing: [sW, 0],
+                        },
                         lblKnobWidth: {
                             type: UI_TYPES.TEXT, mouseOver: false,
                             hidden: !isKnobStyle || roundKnobEnabled,
@@ -465,6 +480,7 @@ app.registerExtension({
                         editorKnobWidthScale: {
                             ...editorValueField(this, "knobWidthScale", styleConfig.knobWidthScale ?? 1, 1, 0.2, 2.0),
                             hidden: !isKnobStyle || roundKnobEnabled,
+                            spacing: [sW, 0],
                         },
                         lblKnobHeight: {
                             type: UI_TYPES.TEXT, mouseOver: false,
@@ -477,6 +493,7 @@ app.registerExtension({
                         editorKnobHeightOffset: {
                             ...editorValueField(this, "knobHeightOffset", styleConfig.knobHeightOffset ?? 0, 0, -5, 5),
                             hidden: !isKnobStyle || roundKnobEnabled,
+                            spacing: [sW, 0],
                         },
                         lblKnobRadius: {
                             type: UI_TYPES.TEXT, mouseOver: false,
@@ -489,6 +506,7 @@ app.registerExtension({
                         editorKnobRadiusOffset: {
                             ...editorValueField(this, "knobRadiusOffset", styleConfig.knobRadiusOffset ?? 0, 0, -3, 3),
                             hidden: !isKnobStyle || !roundKnobEnabled,
+                            spacing: [sW, 0],
                         },
                     },
                 },

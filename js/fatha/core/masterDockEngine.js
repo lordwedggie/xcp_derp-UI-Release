@@ -715,11 +715,24 @@ function normalizeSharedEdgePair(a, b, side, graph, snap = DEFAULT_DECK_SNAP) {
         if (leftColumn.length === 0 || rightColumn.length === 0) return false;
         const leftWidth = getNodeAxisSize(leftSeed, "width");
         const rightWidth = getNodeAxisSize(rightSeed, "width");
+
+        // Preserve heights when any non-hub member in a column is manual-height
+        // (preferred autoHeight = false). Manual members should not be
+        // redistributed by fitSizesToTotal — only autoHeight members (Scale
+        // mode) should scale to match the shared deck height.
+        const columnHasManualMember = (column) =>
+            column.some((member) => !isDeckPressureHub(member) && !resolveDerpPreferredAutoHeight(member));
+        const preserveLeft = columnHasManualMember(leftColumn);
+        const preserveRight = columnHasManualMember(rightColumn);
         const totalHeight = Math.max(
             ...leftColumn.concat(rightColumn).map((node) => getNodeAxisSize(node, "height"))
         );
-        const leftHeights = fitSizesToTotal(leftColumn, "height", totalHeight, snap);
-        const rightHeights = fitSizesToTotal(rightColumn, "height", totalHeight, snap);
+        const leftHeights = preserveLeft
+            ? leftColumn.map((node) => getNodeAxisSize(node, "height"))
+            : fitSizesToTotal(leftColumn, "height", totalHeight, snap);
+        const rightHeights = preserveRight
+            ? rightColumn.map((node) => getNodeAxisSize(node, "height"))
+            : fitSizesToTotal(rightColumn, "height", totalHeight, snap);
         const topY = Math.min(...leftColumn.concat(rightColumn).map((node) => Number(node.pos?.[1]) || 0));
         const leftX = Number(leftSeed.pos?.[0]) || 0;
         const rightX = leftX + leftWidth;
@@ -1209,16 +1222,25 @@ function restoreDeckNodeAxes(node) {
     if (!node?.properties) return false;
     const hasSavedWidth = Object.prototype.hasOwnProperty.call(node.properties, "deckSavedAutoWidth");
     const hasSavedHeight = Object.prototype.hasOwnProperty.call(node.properties, "deckSavedAutoHeight");
-    if (!hasSavedWidth && !hasSavedHeight) return false;
+    const hasPreferredWidth = Object.prototype.hasOwnProperty.call(node.properties, "_derpPreferredAutoWidth");
+    const hasPreferredHeight = Object.prototype.hasOwnProperty.call(node.properties, "_derpPreferredAutoHeight");
+    if (!hasSavedWidth && !hasSavedHeight && !hasPreferredWidth && !hasPreferredHeight) return false;
 
     if (hasSavedWidth) {
         node.properties.autoWidth = node.properties.deckSavedAutoWidth;
-        delete node.properties._derpPreferredAutoWidth;
     }
     if (hasSavedHeight) {
-        node.properties._derpPreferredAutoHeight = node.properties.deckSavedAutoHeight === true;
         node.properties.autoHeight = node.properties.deckSavedAutoHeight === true;
     }
+    // Always clean up preferred overrides set by Manual mode, even if the
+    // corresponding saved value was already deleted by a prior restore.
+    // Otherwise resolveDerpPreferredAutoWidth/AutoHeight would keep returning
+    // false and block resize eligibility on standalone nodes after undock.
+    // autoHeight is restored above from deckSavedAutoHeight, so deleting
+    // _derpPreferredAutoHeight is safe — resolveDerpPreferredAutoHeight falls
+    // back to autoHeight !== false for standalone nodes.
+    delete node.properties._derpPreferredAutoWidth;
+    delete node.properties._derpPreferredAutoHeight;
     delete node.properties.deckSavedAutoWidth;
     delete node.properties.deckSavedAutoHeight;
 

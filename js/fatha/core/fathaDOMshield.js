@@ -898,7 +898,18 @@ export function createDerpShield(node) {
     const updateSharedResizeHoverSession = (e) => {
         const graph = app.graph || node.graph || null;
         const handleAnchor = e.target?._resizeAnchorOverride;
-        const anchor = (handleAnchor === "top" || handleAnchor === "bottom") ? handleAnchor : getSharedResizeAnchorAtPointer(e);
+        let anchor = getSharedResizeAnchorAtPointer(e);
+        // Fallback for repurposed corner handles (vertical stack shared edges):
+        // getSharedResizeAnchorAtPointer may miss the pointer when it's on a
+        // handle that was repurposed from a corner to a full-width seam strip.
+        // Use handleAnchor as fallback, but RE-CHECK pair eligibility because
+        // shield sync may have stale _resizeAnchorOverride if a neighbor's
+        // autoHeight/autoWidth changed since the last sync. Without this,
+        // seam ghosts show on edges where one neighbor is auto, even though
+        // the drag is correctly blocked at pointerdown.
+        if (!anchor && (handleAnchor === "top" || handleAnchor === "bottom")) {
+            if (canResizeVerticalSharedEdge(node, graph, handleAnchor)) anchor = handleAnchor;
+        }
         const neighbor = anchor && graph
             ? (anchor === "top" || anchor === "bottom" ? getVerticalSharedResizeNeighbor(node, graph, anchor) : getHorizontalSameRowNeighbor(node, graph, anchor))
             : null;
