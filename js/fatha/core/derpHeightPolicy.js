@@ -2,6 +2,10 @@ export function hasDerpSavedAutoHeightPreference(node) {
     return Object.prototype.hasOwnProperty.call(node?.properties || {}, "deckSavedAutoHeight");
 }
 
+export function hasDerpSavedAutoWidthPreference(node) {
+    return Object.prototype.hasOwnProperty.call(node?.properties || {}, "deckSavedAutoWidth");
+}
+
 export function resolveDerpPreferredAutoHeight(node) {
     const props = node?.properties || {};
     if (typeof node?.getDerpPreferredAutoHeight === "function") {
@@ -11,6 +15,17 @@ export function resolveDerpPreferredAutoHeight(node) {
         return props._derpPreferredAutoHeight === true;
     }
     return props.autoHeight !== false;
+}
+
+export function resolveDerpPreferredAutoWidth(node) {
+    const props = node?.properties || {};
+    if (props._derpPreferredAutoWidth !== undefined) {
+        return props._derpPreferredAutoWidth === true;
+    }
+    if (hasDerpSavedAutoWidthPreference(node)) {
+        return props.deckSavedAutoWidth === true;
+    }
+    return props.autoWidth === true;
 }
 
 export function resolveDerpRuntimeAutoHeight(node) {

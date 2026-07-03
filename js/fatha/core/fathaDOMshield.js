@@ -25,7 +25,7 @@ import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
 import { MASTER_Z, promoteMasterZ } from "./masterZ.js";
 import { isComfyVueNodesMode } from "./fathaNode2Compat.js";
 import { handleContentViewportWheel, mapShieldPointThroughContentViewport, preserveContentViewportScrollForInteraction, tryStartContentViewportScrollbarDrag } from "./fathaContentViewportShield.js";
-import { resolveDerpPreferredAutoHeight } from "./derpHeightPolicy.js";
+import { resolveDerpPreferredAutoHeight, resolveDerpPreferredAutoWidth } from "./derpHeightPolicy.js";
 
 // DEBUG_MODE is now dynamically handled via node.properties.debugMode
 const CORNER_RESIZE_ANCHORS = new Set(["top-left", "top-right", "bottom-left", "bottom-right"]);
@@ -842,9 +842,9 @@ export function createDerpShield(node) {
 
         // THE DYNAMIC CURSOR FIX: Determine the global drag cursor based on auto-resize states
         const vars = activeResizeNode.getDerpVars ? activeResizeNode.getDerpVars(activeResizeNode) : { autoWidth: false, autoHeight: false };
-        const canW = !vars.autoWidth;
-        // Use preferred autoHeight (not runtime) so docked autoHeight nodes don't
-        // show height-resize cursors that handleNodeResize will reject.
+        // Use preferred autoWidth/autoHeight (not runtime) so docked auto nodes don't
+        // show resize cursors that handleNodeResize will reject.
+        const canW = !resolveDerpPreferredAutoWidth(activeResizeNode);
         const canH = !resolveDerpPreferredAutoHeight(activeResizeNode);
         const activeAnchor = activeResizeNode._resizeAnchor || anchor;
         const isLeftOrRightCorner = activeAnchor === "top-left" || activeAnchor === "top-right" || activeAnchor === "bottom-left" || activeAnchor === "bottom-right";
@@ -1392,7 +1392,7 @@ export function syncDerpShield(node) {
         const themedTopCornerSize = Math.max(6 * scale, Number(vars.mH || 0) * scale);
         const bottomCornerSize = Number.isFinite(themedBottomCornerSize) ? themedBottomCornerSize : defaultBottomCornerSize;
         const topCornerSize = Number.isFinite(themedTopCornerSize) ? themedTopCornerSize : defaultTopCornerSize;
-        const canW = !vars.autoWidth;
+        const canW = !resolveDerpPreferredAutoWidth(node);
         // Use preferred autoHeight (not runtime) so docked autoHeight nodes don't
         // render height-resize handles that handleNodeResize will reject.
         const canH = !resolveDerpPreferredAutoHeight(node);

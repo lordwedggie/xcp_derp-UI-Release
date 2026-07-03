@@ -10,7 +10,7 @@ import {
     isDeckPressureSideHorizontalHubEdge,
     isLinearDeckGroup,
 } from "./masterDockEngine.js";
-import { resolveDerpPreferredAutoHeight } from "./derpHeightPolicy.js";
+import { resolveDerpPreferredAutoHeight, resolveDerpPreferredAutoWidth } from "./derpHeightPolicy.js";
 
 function getNodeSizeValue(node, index) {
     return Number(node?.size?.[index] ?? node?.properties?.nodeSize?.[index]) || 0;
@@ -40,8 +40,10 @@ export function getHorizontalDeckMembersByX(node, graph) {
 }
 
 export function canResizeHorizontalMemberWidth(node, graph) {
-    if (node?.properties?.autoWidth !== true) return true;
-    return isDeckPressureSideHorizontalBranchMember(node, graph);
+    if (resolveDerpPreferredAutoWidth(node)) {
+        return isDeckPressureSideHorizontalBranchMember(node, graph);
+    }
+    return true;
 }
 
 function isDirectHorizontalNodeSeam(leftNode, rightNode, graph) {

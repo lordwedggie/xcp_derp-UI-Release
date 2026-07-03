@@ -1211,7 +1211,10 @@ function restoreDeckNodeAxes(node) {
     const hasSavedHeight = Object.prototype.hasOwnProperty.call(node.properties, "deckSavedAutoHeight");
     if (!hasSavedWidth && !hasSavedHeight) return false;
 
-    if (hasSavedWidth) node.properties.autoWidth = node.properties.deckSavedAutoWidth;
+    if (hasSavedWidth) {
+        node.properties.autoWidth = node.properties.deckSavedAutoWidth;
+        delete node.properties._derpPreferredAutoWidth;
+    }
     if (hasSavedHeight) {
         node.properties._derpPreferredAutoHeight = node.properties.deckSavedAutoHeight === true;
         node.properties.autoHeight = node.properties.deckSavedAutoHeight === true;
@@ -1528,6 +1531,7 @@ function lockDeckStackMembersForAttach(dockFollower, attachLeader, side, graph) 
                 member.properties.autoHeight = false;
             }
             if (forceAutoWidthOff) {
+                member.properties._derpPreferredAutoWidth = false;
                 member.properties.autoWidth = false;
             }
         });
@@ -1539,8 +1543,9 @@ function lockDeckStackMembersForAttach(dockFollower, attachLeader, side, graph) 
         // but autoWidth is NOT handled by lockDeckNodeAxes for side="left"/"right",
         // so we must restore it here for ALL members. For side="top"/"bottom",
         // lockDeckNodeAxes forces autoWidth = false (vertical stack width sharing),
-        // so we must NOT restore it.
-        const restoreAutoWidth = side !== "top" && side !== "bottom";
+        // so we must NOT restore runtime autoWidth. We always restore
+        // _derpPreferredAutoWidth so seam eligibility reflects the original preference.
+        const restoreRuntimeAutoWidth = side !== "top" && side !== "bottom";
         const seen = new Set();
         members.forEach((member) => {
             if (!member || seen.has(member.id)) return;
@@ -1550,9 +1555,11 @@ function lockDeckStackMembersForAttach(dockFollower, attachLeader, side, graph) 
             if (Object.prototype.hasOwnProperty.call(member.properties, "deckSavedAutoHeight")) {
                 member.properties._derpPreferredAutoHeight = member.properties.deckSavedAutoHeight === true;
             }
-            if (restoreAutoWidth
-                && Object.prototype.hasOwnProperty.call(member.properties, "deckSavedAutoWidth")) {
-                member.properties.autoWidth = member.properties.deckSavedAutoWidth === true;
+            if (Object.prototype.hasOwnProperty.call(member.properties, "deckSavedAutoWidth")) {
+                member.properties._derpPreferredAutoWidth = member.properties.deckSavedAutoWidth === true;
+                if (restoreRuntimeAutoWidth) {
+                    member.properties.autoWidth = member.properties.deckSavedAutoWidth === true;
+                }
             }
         });
     }
