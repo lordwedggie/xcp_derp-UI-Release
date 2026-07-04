@@ -263,9 +263,12 @@ export function rebuildFilePickerRows(state, deps) {
     if (mode !== "folder") {
         files.sort((a, b) => a.name.localeCompare(b.name)).forEach((file) => {
             const item = file.item;
+            const displayName = (item && typeof item === "object" && item._triggerDisplay)
+                ? item._triggerDisplay
+                : file.name;
             scrollRows.push({
                 id: `file:${file.path}`,
-                name: file.name,
+                name: displayName,
                 path: file.path,
                 type: "file",
                 item,

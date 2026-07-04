@@ -536,14 +536,21 @@ export const getLoraLoaderProps = (host, basta, loraData) => ({
     disabled: false,
     ratingsList: host._loraRatings || {},
     ratingsPalette: host._ratingsPalette || loraData.ratingsPalette,
-    items: (host._loraList || []).map((p) => ({
-        name: p,
-        path: p,
-        value: p,
-        imageUrl: (host._loraPreviewList || []).includes(p)
-            ? `/xcp/get_lora_preview?name=${encodeURIComponent(p)}&v=${window._xcpDerpSession || Date.now()}`
-            : null
-    })),
+    items: (host._loraList || []).map((p) => {
+        const normalizedP = String(p || "").replace(/\\/g, "/");
+        const normalizedSelected = String(loraData.loraPath || "").replace(/\\/g, "/");
+        const isSelected = normalizedP === normalizedSelected && !!normalizedSelected;
+        const leafName = normalizedP.split("/").pop().replace(/\.(safetensors|pt|pth|ckpt|bin|gguf|json)$/i, "");
+        return {
+            name: p,
+            path: p,
+            value: p,
+            imageUrl: (host._loraPreviewList || []).includes(p)
+                ? `/xcp/get_lora_preview?name=${encodeURIComponent(p)}&v=${window._xcpDerpSession || Date.now()}`
+                : null,
+            ...(isSelected ? { _triggerDisplay: `{{t_text_accent:_ON::${leafName}}}` } : {})
+        };
+    }),
     imageUrl: loraData.previewUrl || null,
     previewList: host._loraPreviewList || [],
     onChange: (newPath) => {
