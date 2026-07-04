@@ -2547,6 +2547,18 @@ function fitDeckPressureSideHeights(members, targetHeight, snap) {
     if (hasFreshManualFit && Math.abs(collapsedClampedTotal - resolvedTarget) <= 0.5 && collapsedClampedCurrent.every((value, index) => value >= mins[index])) {
         return collapsedClampedCurrent;
     }
+    // Manual-height members preserve their user-dragged height; only auto-height
+    // members (Scale mode) should absorb spare deck height. If any expanded
+    // member is manual (Manual deck-fit mode or user-toggled individual member),
+    // preserve current heights clamped to mins — members may grow to their
+    // recomputed min but never shrink or absorb extra. This mirrors the
+    // normalizeSharedEdgePair LEFT/RIGHT guard and prevents SNAP-quantized
+    // height creep on manual-min members (e.g., DerpLatent) when a neighboring
+    // loader's content change destabilizes the Deck Pressure geometry signature.
+    const hasManualExpanded = expandedIndexes.some((index) => !resolveDerpPreferredAutoHeight(members[index]));
+    if (hasManualExpanded) {
+        return collapsedClampedCurrent.map((value, index) => Math.max(mins[index], value));
+    }
     const freshActive = getDeckPressureFreshActiveMember(members);
     const freshActiveIndex = expandedIndexes.find((index) => members[index]?.id === freshActive?.id);
     const hasFreshActiveSavedHeight = freshActiveIndex >= 0 && Number(members[freshActiveIndex]?.properties?._savedExpandedHeight || 0) > 0;

@@ -643,7 +643,7 @@ export class masterLayoutEngine {
             if (hPropResolved === "fill" || hPropResolved === "full" || hPropResolved === "fit") {
                 isFillHeight = true;
                 if (isParentRow) {
-                    regH = props.minHeight || 12; // Temporary floor
+                    regH = (props.minHeight ?? 12);
                 } else if (parent) {
                     const usedHeight = baseY - parent.y;
 
@@ -672,12 +672,14 @@ export class masterLayoutEngine {
                         } else if (sibHProp === "auto") {
                             estimatedSibH = (sibP.baseHeight || 12);
                         } else if (sibHProp === "fill" || sibHProp === "full" || sibHProp === "fit") {
-                            estimatedSibH = sibP.minHeight || 12;
+                            estimatedSibH = (sibP.minHeight ?? 12);
                         } else if (sibHProp === "match") {
                             estimatedSibH = (sibP.baseHeight || 12) + (sibP.padding?.[1] * 2 || 0);
                         }
 
-                        reservedBySiblings += estimatedSibH + (sibP.margin?.[1] * 2 || 0);
+                        const sibM = sibP.margin;
+                        const sibMY = sibM?.length === 4 ? (sibM[1] + sibM[3]) : ((sibM?.[1] || 0) * 2);
+                        reservedBySiblings += estimatedSibH + sibMY;
 
                         // Accumulate spacings of subsequent siblings (except the last)
                         if (j < siblings.length - 1) {
@@ -691,7 +693,7 @@ export class masterLayoutEngine {
                     }
 
                     const remaining = parent.h - usedHeight - reservedBySiblings - siblingSpacingBuffer - footerBuffer - margin[1];
-                    const floorH = config.minHeight || props.minHeight || 12;
+                    const floorH = (config.minHeight ?? props.minHeight ?? 12);
                     regH = Math.max(floorH, remaining);
                 } else {
                     regH = (props.baseHeight || 12);
@@ -853,7 +855,9 @@ export class masterLayoutEngine {
                 const childRegs = Object.keys(children).map(ck => this.regions[ck]).filter(r => r && !r.ignoreLayout);
                 if (childRegs.length > 0) {
                     // 1. Height Expansion
-                    if (currentRegion.isAutoHeight) {
+                    const needsContentExpansion = currentRegion.isAutoHeight
+                        || (currentRegion.dir !== "row" && currentRegion.isFillHeight && !currentRegion.scrollViewport);
+                    if (needsContentExpansion) {
                         const childBottoms = childRegs.map(r => {
                             if (currentRegion.dir === "row" && r.hPropStr.startsWith("match") && (!r.anchor || !r.anchor.target)) {
                                 return 0;
@@ -901,7 +905,8 @@ export class masterLayoutEngine {
                                 });
                                 const sharedSpace = Math.max(0, currentRegion.h - reserved - spacingBuffer);
                                 const childMY = (childReg.margin?.length === 4) ? (childReg.margin[1] + childReg.margin[3]) : (childReg.margin?.[1] * 2 || 0);
-                                childReg.h = Math.max(12, (sharedSpace / Math.max(1, fillCount)) - childMY);
+                                const fillFloor = (childReg.minHeight ?? 12);
+                                childReg.h = Math.max(fillFloor, (sharedSpace / Math.max(1, fillCount)) - childMY);
                             } else {
                                 const childMY = (childReg.margin?.length === 4) ? (childReg.margin[1] + childReg.margin[3]) : (childReg.margin?.[1] * 2 || 0);
                                 childReg.h = currentRegion.h - childMY;
@@ -1060,6 +1065,79 @@ export class masterLayoutEngine {
                             }
                         }
                     }
+                }
+            }
+        }
+
+        // Final fill rebalance: after ALL siblings at this level are fully measured
+        // (including auto-height children whose heights were estimated during the
+        // initial fill calculation), recalculate fill heights using actual measured
+        // dimensions and shift later siblings to correct positions.
+        if (parent && parent.h > 0 && !parent.scrollViewport && parent.dir === "col") {
+            const levelChildRegs = entries.map(([k]) => this.regions[k]).filter(r => r && !r.ignoreLayout);
+            if (levelChildRegs.length > 0) {
+                let reserved = 0;
+                let fillCount = 0;
+                let spacingBuffer = 0;
+                levelChildRegs.forEach((r, idx) => {
+                    if (r.anchor) return;
+                    if (r.isFillHeight) {
+                        fillCount++;
+                    } else {
+                        const mY = (r.margin?.length === 4) ? (r.margin[1] + r.margin[3]) : ((r.margin?.[1] || 0) * 2);
+                        reserved += r.h + mY;
+                    }
+                    if (idx < levelChildRegs.length - 1) {
+                        spacingBuffer += (r.spacing?.[1] || (parent.spacing?.[1] || 0));
+                    }
+                });
+
+                let footerBuffer = 0;
+                if (!isChild && this.owner?.properties?.footerHeight) {
+                    footerBuffer = this.owner.properties.footerHeight;
+                }
+
+                if (fillCount > 0) {
+                    const sharedSpace = Math.max(0, parent.h - reserved - spacingBuffer - footerBuffer);
+                    let cumulativeShiftY = 0;
+
+                    const shiftRegionTree = (reg, dy) => {
+                        if (Math.abs(dy) < 0.01) return;
+                        reg.y += dy;
+                        for (const ck of Object.keys(reg)) {
+                            if (!RESERVED_KEYWORDS.includes(ck) && typeof reg[ck] === 'object' && reg[ck] !== null && !Array.isArray(reg[ck])) {
+                                const childReg = this.regions[ck];
+                                if (childReg) shiftRegionTree(childReg, dy);
+                            }
+                        }
+                    };
+
+                    levelChildRegs.forEach((r) => {
+                        if (Math.abs(cumulativeShiftY) > 0.5) {
+                            shiftRegionTree(r, cumulativeShiftY);
+                        }
+
+                        if (r.isFillHeight) {
+                            const mY = (r.margin?.length === 4) ? (r.margin[1] + r.margin[3]) : ((r.margin?.[1] || 0) * 2);
+                            const fillFloor = (r.minHeight ?? 12);
+                            const newH = Math.max(fillFloor, (sharedSpace / fillCount) - mY);
+                            const deltaH = newH - r.h;
+
+                            if (Math.abs(deltaH) > 0.5) {
+                                r.h = newH;
+                                const subChildren = {};
+                                for (const ck of Object.keys(r)) {
+                                    if (!RESERVED_KEYWORDS.includes(ck) && typeof r[ck] === 'object' && r[ck] !== null && !Array.isArray(r[ck])) {
+                                        subChildren[ck] = r[ck];
+                                    }
+                                }
+                                if (Object.keys(subChildren).length > 0) {
+                                    this.processRecursive(subChildren, r, scopedContext, true);
+                                }
+                            }
+                            cumulativeShiftY += deltaH;
+                        }
+                    });
                 }
             }
         }

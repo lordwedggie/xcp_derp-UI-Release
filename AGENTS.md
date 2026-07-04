@@ -164,6 +164,7 @@ To add a skill, create `.agents/skills/<name>/SKILL.md` with YAML frontmatter (`
 - System panel height selection is one shared Height Mode FILEBROWSER. Standard nodes expose Auto/Manual; clipped nodes should provide `getDerpHeightModeConfig()` instead of adding separate viewport-height controls.
 - Use `_forceSync`, `_layoutDirty`, and `_derpAwakeFrames` deliberately for recompute and animation wakeups.
 - Whole-wall/passive caches can hide correct widget state; inspect cache keys when visuals revert unexpectedly.
+- Vertical springs use `height: "fill", minHeight: 0` in a column parent. Place fill siblings between auto-height top content and auto-height bottom content; the engine's final fill-rebalance pass recalculates fill heights from actual sibling dimensions after all children are measured, so no `baseHeight` or estimated values are needed. Reserve footer gap space with `this.properties.footerHeight = 6 + mH` before building the layout map (matching `derpNotes` pattern) so the system button does not overlap bottom content. Fill-height column parents (non-`scrollViewport`) expand to contain their children during measurement like CSS `min-content`; do not work around this by wrapping fill regions in extra auto-height wrappers.
 
 ### Widget Patterns
 

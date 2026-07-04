@@ -44,7 +44,7 @@ Every frame:
 ### 4. Core Engines
 | File | Role |
 |------|------|
-| `core/masterLayoutEngine.js` | Recursive layout computation (1065 lines). Computes region positions/sizes from layout map declarative config. Handles anchors, flex directions, auto-sizing, text measurement, component blueprints. |
+| `core/masterLayoutEngine.js` | Recursive layout computation (~1150 lines). Computes region positions/sizes from layout map declarative config. Handles anchors, flex directions, auto-sizing, fill-height rebalance, text measurement, component blueprints. |
 | `core/masterDockEngine.js` | Docking system (1610 lines). Drag-to-dock, deck snapping, dock member management, resize propagation. |
 | `core/masterSignalEngine.js` | Wireless signal transmission (357 lines). `transmitDerpSignal()`, `transmitBypassedDerpSignals()`, `purgeDerpSignal()`. Color palette registry (`xcpDerpTypeColors`). |
 | `core/fathaHandler.js` | Node lifecycle: shield interaction routing, draw CTX dispatch, theme update, global listener init, `getDerpVars()`, sync, compute size, collapse anim, deck preview. |
@@ -114,6 +114,7 @@ A "hybrid" framework combining Fatha's modern engine with legacy node compatibil
 - **Layout Dirty:** `node._layoutDirty = true` triggers layout recompute
 - **Awake Frames:** `node._derpAwakeFrames` countdown for post-interaction animation frames
 - **Visual Press:** Recoil animation via `animateRecoil()` for press feedback
+- **Vertical Springs / Fill-Height Regions:** A `height: "fill"` region in a column-direction parent absorbs remaining vertical space after auto-height siblings, acting as a CSS flex spring. To push trailing content to the node bottom (e.g., model loader → LINEBREAK + picker row pinned to footer), place the spring as a `height: "fill", minHeight: 0` sibling between the top content and the bottom-pinned content. The layout engine now runs a final fill-rebalance pass after all siblings at each level are fully measured, so fill heights are calculated from **actual** sibling dimensions rather than 12px estimates — no `baseHeight` or fixed values needed. Fill-height column parents (non-`scrollViewport`) expand to contain their children during measurement (like CSS `min-height: min-content`), ensuring auto-height mode measures children correctly without overflow. Reserve footer gap space by setting `this.properties.footerHeight = 6 + mH` before building the layout map; this adds a bottom buffer so the system button (6px tall + `footerGap`) does not overlap content.
 
 ## Localized Default Titles
 - Default derp node titles are synchronized by `syncDerpLocalizedDefaultTitle()` in `core/fathaHandler.js`.
