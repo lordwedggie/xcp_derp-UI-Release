@@ -428,7 +428,6 @@ export class masterLayoutEngine {
         this.regions.panelBackground = {
             key: "panelBackground",
             ...bounds,
-            dir: "col",
             margin: [0, 0],
             padding: [0, 0],
             spacing: [0, 0]
@@ -441,7 +440,7 @@ export class masterLayoutEngine {
         this.processRecursive(mainMap, this.regions.panelBackground, fullContext);
 
         if (footerRegion) {
-            this.processRecursive({ footerRegion }, this.regions.panelBackground, fullContext);
+            this.processRecursive({ footerRegion }, this.regions.panelBackground, context);
         }
 
         const allRegions = Object.values(this.regions).filter(r => r.key !== "panelBackground" && !r.ignoreLayout);
@@ -644,7 +643,7 @@ export class masterLayoutEngine {
             if (hPropResolved === "fill" || hPropResolved === "full" || hPropResolved === "fit") {
                 isFillHeight = true;
                 if (isParentRow) {
-                    regH = (props.minHeight ?? 12);
+                    regH = props.minHeight || 12; // Temporary floor
                 } else if (parent) {
                     const usedHeight = baseY - parent.y;
 
@@ -673,14 +672,12 @@ export class masterLayoutEngine {
                         } else if (sibHProp === "auto") {
                             estimatedSibH = (sibP.baseHeight || 12);
                         } else if (sibHProp === "fill" || sibHProp === "full" || sibHProp === "fit") {
-                            estimatedSibH = (sibP.minHeight ?? 12);
+                            estimatedSibH = sibP.minHeight || 12;
                         } else if (sibHProp === "match") {
                             estimatedSibH = (sibP.baseHeight || 12) + (sibP.padding?.[1] * 2 || 0);
                         }
 
-                        const sibM = sibP.margin;
-                        const sibMY = sibM?.length === 4 ? (sibM[1] + sibM[3]) : ((sibM?.[1] || 0) * 2);
-                        reservedBySiblings += estimatedSibH + sibMY;
+                        reservedBySiblings += estimatedSibH + (sibP.margin?.[1] * 2 || 0);
 
                         // Accumulate spacings of subsequent siblings (except the last)
                         if (j < siblings.length - 1) {
@@ -694,7 +691,7 @@ export class masterLayoutEngine {
                     }
 
                     const remaining = parent.h - usedHeight - reservedBySiblings - siblingSpacingBuffer - footerBuffer - margin[1];
-                    const floorH = (config.minHeight ?? props.minHeight ?? 12);
+                    const floorH = config.minHeight || props.minHeight || 12;
                     regH = Math.max(floorH, remaining);
                 } else {
                     regH = (props.baseHeight || 12);
@@ -850,16 +847,13 @@ export class masterLayoutEngine {
             for (const [ck, cv] of Object.entries(config)) {
                 if (!RESERVED_KEYWORDS.includes(ck) && typeof cv === 'object' && cv !== null && !Array.isArray(cv)) children[ck] = cv;
             }
-            currentRegion._childConfigs = children;
 
             if (Object.keys(children).length > 0) {
                 this.processRecursive(children, currentRegion, scopedContext, true);
                 const childRegs = Object.keys(children).map(ck => this.regions[ck]).filter(r => r && !r.ignoreLayout);
                 if (childRegs.length > 0) {
                     // 1. Height Expansion
-                    const needsContentExpansion = currentRegion.isAutoHeight
-                        || (currentRegion.dir !== "row" && currentRegion.isFillHeight && !currentRegion.scrollViewport);
-                    if (needsContentExpansion) {
+                    if (currentRegion.isAutoHeight) {
                         const childBottoms = childRegs.map(r => {
                             if (currentRegion.dir === "row" && r.hPropStr.startsWith("match") && (!r.anchor || !r.anchor.target)) {
                                 return 0;
@@ -907,8 +901,7 @@ export class masterLayoutEngine {
                                 });
                                 const sharedSpace = Math.max(0, currentRegion.h - reserved - spacingBuffer);
                                 const childMY = (childReg.margin?.length === 4) ? (childReg.margin[1] + childReg.margin[3]) : (childReg.margin?.[1] * 2 || 0);
-                                const fillFloor = (childReg.minHeight ?? 12);
-                                childReg.h = Math.max(fillFloor, (sharedSpace / Math.max(1, fillCount)) - childMY);
+                                childReg.h = Math.max(12, (sharedSpace / Math.max(1, fillCount)) - childMY);
                             } else {
                                 const childMY = (childReg.margin?.length === 4) ? (childReg.margin[1] + childReg.margin[3]) : (childReg.margin?.[1] * 2 || 0);
                                 childReg.h = currentRegion.h - childMY;
@@ -934,7 +927,12 @@ export class masterLayoutEngine {
 
                         // we must re-process its children so they can update their own 'fill' or 'match' dimensions.
                         if (childReg.h !== oldH || childReg.w !== oldW) {
-                            const subChildren = childReg._childConfigs || {};
+                            const subChildren = {};
+                            Object.keys(childReg).forEach(ck => {
+                                if (!RESERVED_KEYWORDS.includes(ck) && typeof childReg[ck] === 'object' && childReg[ck] !== null && !Array.isArray(childReg[ck])) {
+                                    subChildren[ck] = childReg[ck];
+                                }
+                            });
                             if (Object.keys(subChildren).length > 0) {
                                 this.processRecursive(subChildren, childReg, scopedContext, true);
                             }
@@ -1025,7 +1023,12 @@ export class masterLayoutEngine {
                                     }
 
                                     if (needsReflow) {
-                                        const subChildren = childReg._childConfigs || {};
+                                        const subChildren = {};
+                                        Object.keys(childReg).forEach(ck => {
+                                            if (!RESERVED_KEYWORDS.includes(ck) && typeof childReg[ck] === 'object' && childReg[ck] !== null && !Array.isArray(childReg[ck])) {
+                                                subChildren[ck] = childReg[ck];
+                                            }
+                                        });
                                         if (Object.keys(subChildren).length > 0) {
                                             this.processRecursive(subChildren, childReg, scopedContext, true);
                                         }
@@ -1057,114 +1060,6 @@ export class masterLayoutEngine {
                             }
                         }
                     }
-                }
-            }
-        }
-
-        // Final fill rebalance: after ALL siblings at this level are fully measured
-        // (including auto-height children whose heights were estimated during the
-        // initial fill calculation), recalculate fill heights using actual measured
-        // dimensions and shift later siblings to correct positions.
-        // Skip when processing footerRegion alone — it's extracted from the main map
-        // and processed separately; its own initial fill calculation (with minHeight
-        // floor) is sufficient, and rebalancing it would extend it past the panel.
-        const isFooterOnlyPass = entries.length === 1 && entries[0][0] === "footerRegion";
-        if (parent && parent.h > 0 && !parent.scrollViewport && parent.dir === "col" && !isFooterOnlyPass) {
-            const levelChildRegs = entries.map(([k]) => this.regions[k]).filter(r => r && !r.ignoreLayout);
-            if (levelChildRegs.length > 0) {
-                let reserved = 0;
-                let fillCount = 0;
-                let spacingBuffer = 0;
-                levelChildRegs.forEach((r, idx) => {
-                    if (r.anchor) return;
-                    if (r.isFillHeight) {
-                        fillCount++;
-                    } else {
-                        const mY = (r.margin?.length === 4) ? (r.margin[1] + r.margin[3]) : ((r.margin?.[1] || 0) * 2);
-                        reserved += r.h + mY;
-                    }
-                    if (idx < levelChildRegs.length - 1) {
-                        spacingBuffer += (r.spacing?.[1] || (parent.spacing?.[1] || 0));
-                    }
-                });
-
-                let footerBuffer = 0;
-                if (!isChild && this.owner?.properties?.footerHeight) {
-                    footerBuffer = this.owner.properties.footerHeight;
-                }
-
-                const anchoredFillRegs = levelChildRegs.filter(r => r.anchor && r.isFillHeight);
-
-                if (fillCount > 0) {
-                    const sharedSpace = Math.max(0, parent.h - reserved - spacingBuffer - footerBuffer);
-                    let cumulativeShiftY = 0;
-
-                    const shiftRegionTree = (reg, dy) => {
-                        if (Math.abs(dy) < 0.01) return;
-                        reg.y += dy;
-                        const childCfg = reg._childConfigs || {};
-                        for (const ck of Object.keys(childCfg)) {
-                            const childReg = this.regions[ck];
-                            if (childReg) shiftRegionTree(childReg, dy);
-                        }
-                    };
-
-                    levelChildRegs.forEach((r) => {
-                        if (r.anchor) return;
-
-                        if (Math.abs(cumulativeShiftY) > 0.5) {
-                            shiftRegionTree(r, cumulativeShiftY);
-                        }
-
-                        if (r.isFillHeight) {
-                            const mY = (r.margin?.length === 4) ? (r.margin[1] + r.margin[3]) : ((r.margin?.[1] || 0) * 2);
-                            const fillFloor = (r.minHeight ?? 12);
-                            const newH = Math.max(fillFloor, (sharedSpace / fillCount) - mY);
-                            const deltaH = newH - r.h;
-
-                            if (Math.abs(deltaH) > 0.5) {
-                                r.h = newH;
-                                const subChildren = r._childConfigs || {};
-                                if (Object.keys(subChildren).length > 0) {
-                                    this.processRecursive(subChildren, r, scopedContext, true);
-                                }
-                            }
-                            cumulativeShiftY += deltaH;
-                        }
-                    });
-
-                    anchoredFillRegs.forEach((r) => {
-                        if (r.anchor && this.regions[r.anchor.target]) {
-                            const target = this.regions[r.anchor.target];
-                            const tM = target.margin || [0, 0, 0, 0];
-                            const newY = target.y + target.h + tM[3] + (r.anchor.offset || 0) + (r.margin?.[1] || 0);
-                            if (Math.abs(newY - r.y) > 0.5) {
-                                const dy = newY - r.y;
-                                const shiftTree = (reg) => {
-                                    reg.y += dy;
-                                    const childCfg = reg._childConfigs || {};
-                                    for (const ck of Object.keys(childCfg)) {
-                                        const childReg = this.regions[ck];
-                                        if (childReg) shiftTree(childReg);
-                                    }
-                                };
-                                shiftTree(r);
-                            }
-                            const bottomMargin = r.margin?.length === 4 ? r.margin[3] : (r.margin?.[1] || 0);
-                            let aFooterBuffer = 0;
-                            if (!isChild && this.owner?.properties?.footerHeight) {
-                                aFooterBuffer = this.owner.properties.footerHeight;
-                            }
-                            const newH = Math.max((r.minHeight ?? 12), parent.h - (r.y - parent.y) - bottomMargin - aFooterBuffer);
-                            if (Math.abs(newH - r.h) > 0.5) {
-                                r.h = newH;
-                            }
-                        }
-                        const anchorChildren = r._childConfigs || {};
-                        if (Object.keys(anchorChildren).length > 0) {
-                            this.processRecursive(anchorChildren, r, scopedContext, true);
-                        }
-                    });
                 }
             }
         }

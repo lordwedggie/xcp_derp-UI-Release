@@ -55,8 +55,6 @@ app.registerExtension({
             ].map(v => Number(v.toFixed(2)));
             const t_textNormal_size = vars.t_textNormal_size;
 
-            this.properties.footerHeight = 6 + mH;
-
             const deck = this.properties.modelDeck || [];
             const deckHash = deck.map(m => `${m.name}:${m.active}`).join("|");
 
@@ -226,21 +224,17 @@ app.registerExtension({
                 };
             }
 
-            const hasModels = deck.length > 0;
             this.layoutMap = {
-                regionModelDeck: {
+                sysContentRegion: {
+                    anchor: { target: "headerRegion", axis: "y" },
                     width: "full", height: "auto", dir: "col",
-                    margin: [mW, mH, mW, 0],
-                    hidden: !hasModels,
-                    ...deckRegions
-                },
-                springRegion: {
-                    width: "full", height: "fill", minHeight: 0,
-                    hidden: !hasModels,
-                },
-                loaderRegion: {
-                    width: "full", height: "auto", dir: "col",
-                    margin: [mW, hasModels ? 0 : mH, mW, 0],
+                    margin: [mW, mH, mW, mH],
+                    regionModelDeck: {
+                        width: "full", height: "auto", dir: "col", spacing: [sW, sH],
+                        hidden: deck.length === 0,
+                        margin: [0, 0, 0, mH],
+                        ...deckRegions
+                    },
                     modelDeckBreak: {
                         type: this.UI_TYPES.LINEBREAK,
                         margin: [-mW, 0],
@@ -248,7 +242,7 @@ app.registerExtension({
                         hidden: deck.length === 0,
                     },
                     regionModelLoader: {
-                        dir: "row", width: "full", height: "auto",
+                        dir: "row", width: "full", height: "auto", 
                         spacing: [0, 0],
                         margin: [0, mH, 0, 0],
                         btnClear: {
