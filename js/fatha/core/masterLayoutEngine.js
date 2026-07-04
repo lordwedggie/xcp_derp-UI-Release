@@ -369,7 +369,22 @@ export class masterLayoutEngine {
             const rootRegsMeasure = Object.entries(this.regions)
                 .filter(([k, r]) => !r.isChild && k !== "panelBackground" && !r.ignoreLayout)
                 .map(([k, r]) => r);
-            this.contentMinHeight = rootRegsMeasure.length > 0 ? Math.max(...rootRegsMeasure.map(r => r.y + r.h + (r.margin?.length === 4 ? r.margin[3] : (r.margin?.[1] || 0)))) - bounds.y : 40;
+            const maxBottom = (regs) => {
+                let maxY = 0;
+                const visit = (reg) => {
+                    if (!reg || reg.ignoreLayout) return;
+                    const mBot = reg.margin?.length === 4 ? reg.margin[3] : (reg.margin?.[1] || 0);
+                    const bot = reg.y + reg.h + mBot;
+                    if (bot > maxY) maxY = bot;
+                    const children = reg._childConfigs || {};
+                    for (const ck of Object.keys(children)) {
+                        visit(this.regions[ck]);
+                    }
+                };
+                regs.forEach(visit);
+                return maxY;
+            };
+            this.contentMinHeight = rootRegsMeasure.length > 0 ? maxBottom(rootRegsMeasure) - bounds.y : 40;
         }
         const rigidMinWidth = this.contentMinWidth;
 
@@ -405,8 +420,8 @@ export class masterLayoutEngine {
             rawHeight = Math.ceil(rawHeight / SNAP) * SNAP;
         }
 
-        this.totalHeight = rawHeight;
-        this.regions.panelBackground.h = this.totalHeight;
+        this.totalHeight = this.contentMinHeight || rawHeight;
+        this.regions.panelBackground.h = rawHeight;
 
         this.totalWidth = finalWidth;
         applyContentViewportLayout(this.owner, this.regions, this);
@@ -643,7 +658,7 @@ export class masterLayoutEngine {
             if (hPropResolved === "fill" || hPropResolved === "full" || hPropResolved === "fit") {
                 isFillHeight = true;
                 if (isParentRow) {
-                    regH = props.minHeight || 12; // Temporary floor
+                    regH = props.minHeight !== undefined ? Number(props.minHeight) : 12;
                 } else if (parent) {
                     const usedHeight = baseY - parent.y;
 
@@ -672,7 +687,7 @@ export class masterLayoutEngine {
                         } else if (sibHProp === "auto") {
                             estimatedSibH = (sibP.baseHeight || 12);
                         } else if (sibHProp === "fill" || sibHProp === "full" || sibHProp === "fit") {
-                            estimatedSibH = sibP.minHeight || 12;
+                            estimatedSibH = sibP.minHeight !== undefined ? Number(sibP.minHeight) : 12;
                         } else if (sibHProp === "match") {
                             estimatedSibH = (sibP.baseHeight || 12) + (sibP.padding?.[1] * 2 || 0);
                         }
@@ -691,7 +706,7 @@ export class masterLayoutEngine {
                     }
 
                     const remaining = parent.h - usedHeight - reservedBySiblings - siblingSpacingBuffer - footerBuffer - margin[1];
-                    const floorH = config.minHeight || props.minHeight || 12;
+                    const floorH = config.minHeight !== undefined ? Number(config.minHeight) : (props.minHeight !== undefined ? Number(props.minHeight) : 12);
                     regH = Math.max(floorH, remaining);
                 } else {
                     regH = (props.baseHeight || 12);
@@ -847,6 +862,7 @@ export class masterLayoutEngine {
             for (const [ck, cv] of Object.entries(config)) {
                 if (!RESERVED_KEYWORDS.includes(ck) && typeof cv === 'object' && cv !== null && !Array.isArray(cv)) children[ck] = cv;
             }
+            currentRegion._childConfigs = children;
 
             if (Object.keys(children).length > 0) {
                 this.processRecursive(children, currentRegion, scopedContext, true);
@@ -927,12 +943,7 @@ export class masterLayoutEngine {
 
                         // we must re-process its children so they can update their own 'fill' or 'match' dimensions.
                         if (childReg.h !== oldH || childReg.w !== oldW) {
-                            const subChildren = {};
-                            Object.keys(childReg).forEach(ck => {
-                                if (!RESERVED_KEYWORDS.includes(ck) && typeof childReg[ck] === 'object' && childReg[ck] !== null && !Array.isArray(childReg[ck])) {
-                                    subChildren[ck] = childReg[ck];
-                                }
-                            });
+                            const subChildren = childReg._childConfigs || {};
                             if (Object.keys(subChildren).length > 0) {
                                 this.processRecursive(subChildren, childReg, scopedContext, true);
                             }
@@ -1023,12 +1034,7 @@ export class masterLayoutEngine {
                                     }
 
                                     if (needsReflow) {
-                                        const subChildren = {};
-                                        Object.keys(childReg).forEach(ck => {
-                                            if (!RESERVED_KEYWORDS.includes(ck) && typeof childReg[ck] === 'object' && childReg[ck] !== null && !Array.isArray(childReg[ck])) {
-                                                subChildren[ck] = childReg[ck];
-                                            }
-                                        });
+                                        const subChildren = childReg._childConfigs || {};
                                         if (Object.keys(subChildren).length > 0) {
                                             this.processRecursive(subChildren, childReg, scopedContext, true);
                                         }
@@ -1062,6 +1068,108 @@ export class masterLayoutEngine {
                     }
                 }
             }
+        }
+
+        // Top-level fill rebalance: recalculate fill heights using actual sibling
+        // dimensions instead of 12px estimates. Only runs at the top level
+        // (panelBackground children) so nested fills in deck-pressure-sized nodes
+        // don't get inflated. totalHeight uses contentMinHeight as an additional guard.
+        // Handles both anchored fills (e.g. derpNotes, model loader) and flow fills.
+        if (!isChild && parent.h > 0 && !parent.scrollViewport) {
+            const levelChildRegs = entries.map(([k]) => this.regions[k]).filter(r => r && !r.ignoreLayout);
+            if (levelChildRegs.length === 0) return;
+            const hasAnyFill = levelChildRegs.some(r => r.isFillHeight);
+            if (!hasAnyFill) return;
+
+            let footerBuffer = 0;
+            if (!isChild && this.owner?.properties?.footerHeight) {
+                footerBuffer = this.owner.properties.footerHeight + (this.owner.properties.spacing?.[1] || 0) + (this.owner.properties.margin?.[1] || 0);
+            }
+
+            const shiftRegionTree = (reg, dy) => {
+                if (Math.abs(dy) < 0.01) return;
+                reg.y += dy;
+                const subChildren = reg._childConfigs || {};
+                for (const ck of Object.keys(subChildren)) {
+                    const childReg = this.regions[ck];
+                    if (childReg) shiftRegionTree(childReg, dy);
+                }
+            };
+
+            let cumulativeShiftY = 0;
+
+            levelChildRegs.forEach((r, idx) => {
+                if (Math.abs(cumulativeShiftY) > 0.5 && !r.anchor) {
+                    shiftRegionTree(r, cumulativeShiftY);
+                }
+
+                if (r.isFillHeight) {
+                    const rMarginY = (r.margin?.length === 4) ? (r.margin[1] + r.margin[3]) : ((r.margin?.[1] || 0) * 2);
+
+                    if (r.anchor && r.anchor.target && this.regions[r.anchor.target]) {
+                        // Anchored fill: height = parent.h - anchor_below_header - subsequent_siblings - footer
+                        const target = this.regions[r.anchor.target];
+                        const targetMarginBottom = target.margin?.length === 4 ? target.margin[3] : (target.margin?.[1] || 0);
+                        const anchorBottom = target.y + target.h + targetMarginBottom + (r.anchor.offset || 0);
+                        const usedFromTop = anchorBottom - parent.y + (r.margin?.[1] || 0);
+
+                        let subsequentReserved = 0;
+                        let subsequentSpacing = 0;
+                        for (let j = idx + 1; j < levelChildRegs.length; j++) {
+                            const sib = levelChildRegs[j];
+                            if (sib.anchor) continue;
+                            const sMY = (sib.margin?.length === 4) ? (sib.margin[1] + sib.margin[3]) : ((sib.margin?.[1] || 0) * 2);
+                            subsequentReserved += sib.h + sMY;
+                            if (j < levelChildRegs.length - 1) {
+                                subsequentSpacing += (sib.spacing?.[1] || (parent.spacing?.[1] || 0));
+                            }
+                        }
+
+                        const newH = Math.max(r.minHeight || 0, parent.h - usedFromTop - subsequentReserved - subsequentSpacing - footerBuffer);
+                        const deltaH = newH - r.h;
+
+                        if (Math.abs(deltaH) > 0.5) {
+                            r.h = newH;
+                            const subChildren = r._childConfigs || {};
+                            if (Object.keys(subChildren).length > 0) {
+                                this.processRecursive(subChildren, r, scopedContext, true);
+                            }
+                        }
+                        cumulativeShiftY += deltaH;
+                    } else if (!r.anchor) {
+                        // Non-anchored (flow) fill: divide remaining space equally among flow fills
+                        let reserved = 0;
+                        let fillCount = 0;
+                        let spacingBuffer = 0;
+                        levelChildRegs.forEach((sib, sIdx) => {
+                            if (sib.anchor) return;
+                            if (sib.isFillHeight) {
+                                fillCount++;
+                            } else {
+                                const sMY = (sib.margin?.length === 4) ? (sib.margin[1] + sib.margin[3]) : ((sib.margin?.[1] || 0) * 2);
+                                reserved += sib.h + sMY;
+                            }
+                            if (sIdx < levelChildRegs.length - 1) {
+                                spacingBuffer += (sib.spacing?.[1] || (parent.spacing?.[1] || 0));
+                            }
+                        });
+
+                        const sharedSpace = Math.max(0, parent.h - reserved - spacingBuffer - footerBuffer);
+                        const fillFloor = r.minHeight || 0;
+                        const newH = Math.max(fillFloor, (sharedSpace / Math.max(1, fillCount)) - rMarginY);
+                        const deltaH = newH - r.h;
+
+                        if (Math.abs(deltaH) > 0.5) {
+                            r.h = newH;
+                            const subChildren = r._childConfigs || {};
+                            if (Object.keys(subChildren).length > 0) {
+                                this.processRecursive(subChildren, r, scopedContext, true);
+                            }
+                        }
+                        cumulativeShiftY += deltaH;
+                    }
+                }
+            });
         }
     }
 

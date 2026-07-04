@@ -745,21 +745,30 @@ function getVisibleRegionLayoutFloor(config, liveRegions = {}, key = null) {
     const childFloors = Object.entries(config)
         .filter(([childKey, childConfig]) => !LAYOUT_RESERVED_KEYS.has(childKey) && childConfig && typeof childConfig === "object" && !Array.isArray(childConfig))
         .map(([childKey, childConfig]) => getVisibleRegionLayoutFloor(childConfig, liveRegions, childKey));
+    const visibleChildCount = childFloors.filter(h => h > 0).length;
+    const spacingY = Number(config.spacing?.[1]) || 0;
+    const spacingBuffer = config.dir === "row" ? 0 : Math.max(0, visibleChildCount - 1) * spacingY;
     const childTotal = childFloors.length === 0
         ? 0
-        : (config.dir === "row" ? Math.max(...childFloors) : childFloors.reduce((sum, value) => sum + value, 0));
+        : (config.dir === "row" ? Math.max(...childFloors) : childFloors.reduce((sum, value) => sum + value, 0) + spacingBuffer);
     let height = 0;
 
     if (heightProp === "fill" || heightProp === "full" || heightProp === "fit") {
-        height = Number(config.minHeight) || Number(live?.minHeight) || Number(live?.baseHeight) || childTotal || 12;
+        const minH = config.minHeight !== undefined ? Number(config.minHeight) : NaN;
+        const liveMinH = live?.minHeight !== undefined ? Number(live.minHeight) : NaN;
+        const liveBaseH = live?.baseHeight !== undefined ? Number(live.baseHeight) : NaN;
+        height = !isNaN(minH) ? minH : (!isNaN(liveMinH) ? liveMinH : (!isNaN(liveBaseH) ? liveBaseH : (childTotal > 0 ? childTotal : 12)));
     } else if (typeof config.height === "number") {
         height = Number(config.height) || 0;
     } else {
+        const minH = config.minHeight !== undefined ? Number(config.minHeight) : NaN;
+        const liveMinH = live?.minHeight !== undefined ? Number(live.minHeight) : NaN;
+        const liveBaseH = live?.baseHeight !== undefined ? Number(live.baseHeight) : NaN;
         height = Math.max(
             Number(live?.h) || 0,
-            Number(config.minHeight) || 0,
-            Number(live?.minHeight) || 0,
-            Number(live?.baseHeight) || 0,
+            !isNaN(minH) ? minH : 0,
+            !isNaN(liveMinH) ? liveMinH : 0,
+            !isNaN(liveBaseH) ? liveBaseH : 0,
             childTotal,
             12
         );
@@ -775,6 +784,11 @@ export function getVerticalResizeTargetMinHeight(node, snap, options = {}) {
     const liveRegions = node?.layout?.regions || {};
     const compactFloor = rootEntries.reduce((sum, [key, config]) => sum + getVisibleRegionLayoutFloor(config, liveRegions, key), 0);
 
+    const headerReg = liveRegions.headerRegion;
+    const headerH = headerReg ? (headerReg.h + (headerReg.margin?.[1] || 0) + (headerReg.margin?.length === 4 ? headerReg.margin[3] : (headerReg.margin?.[1] || 0))) : 0;
+    const footerH = Number(node?.properties?.footerHeight) || 0;
+    const totalCompactFloor = compactFloor + headerH + footerH;
+
     const currentMin = getDockNodeMinHeight(node, 0, snap);
     if (compactFloor <= 0) return currentMin;
     const hasContentViewport = Object.values(node?._contentViewportState || {}).length > 0;
@@ -782,7 +796,7 @@ export function getVerticalResizeTargetMinHeight(node, snap, options = {}) {
     const layoutFloor = hasContentViewport
         ? (Number(node?.layout?.contentMinHeight) || Number(node?.layout?.totalHeight) || 0)
         : 0;
-    const compactMin = Math.ceil(Math.max(compactFloor, layoutFloor, snap * 4) / snap) * snap;
+    const compactMin = Math.ceil(Math.max(totalCompactFloor, layoutFloor, snap * 4) / snap) * snap;
     return options.preserveExpandedFloor === true
         ? Math.max(currentMin, compactMin)
         : Math.min(currentMin, compactMin);
