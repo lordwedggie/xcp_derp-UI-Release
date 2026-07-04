@@ -228,20 +228,19 @@ app.registerExtension({
 
             const hasModels = deck.length > 0;
             this.layoutMap = {
-                deckAndSpringRegion: {
-                    width: "full", height: "fill", dir: "col",
-                    margin: [mW, 0, mW, 0],
+                regionModelDeck: {
+                    width: "full", height: "auto", dir: "col",
+                    margin: [mW, mH, mW, 0],
                     hidden: !hasModels,
-                    regionModelDeck: {
-                        width: "full", height: "auto", dir: "col",
-                        margin: [0, mH, 0, 0],
-                        ...deckRegions
-                    },
-                    spring: { width: "full", height: "fill", minHeight: 0 }
+                    ...deckRegions
+                },
+                springRegion: {
+                    width: "full", height: "fill", minHeight: 0,
+                    hidden: !hasModels,
                 },
                 loaderRegion: {
                     width: "full", height: "auto", dir: "col",
-                    margin: [mW, mH, mW, 0],
+                    margin: [mW, hasModels ? 0 : mH, mW, 0],
                     modelDeckBreak: {
                         type: this.UI_TYPES.LINEBREAK,
                         margin: [-mW, 0],
