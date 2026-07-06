@@ -43,6 +43,23 @@ import { resolveDerpRuntimeAutoHeight } from "./derpHeightPolicy.js";
 globalThis.DERP_DOCK_RESIZE_DEBUG = globalThis.DERP_DOCK_RESIZE_DEBUG === true;
 if (globalThis.DERP_DOCK_RESIZE_DEBUG) globalThis.DERP_DOCK_RESIZE_LOGS = globalThis.DERP_DOCK_RESIZE_LOGS || [];
 
+const pendingLiveResizeShieldSync = new Set();
+let pendingLiveResizeShieldFrame = null;
+
+function scheduleLiveResizeShieldSync(nodes = []) {
+    nodes.forEach((node) => {
+        if (node) pendingLiveResizeShieldSync.add(node);
+    });
+    if (pendingLiveResizeShieldFrame !== null) return;
+    const raf = globalThis.requestAnimationFrame || ((callback) => setTimeout(callback, 0));
+    pendingLiveResizeShieldFrame = raf(() => {
+        pendingLiveResizeShieldFrame = null;
+        const queued = Array.from(pendingLiveResizeShieldSync);
+        pendingLiveResizeShieldSync.clear();
+        queued.forEach((node) => syncDerpShield(node));
+    });
+}
+
 const LAYOUT_RESERVED_KEYS = new Set([
     "margin", "padding", "spacing", "width", "height",
     "minWidth", "minHeight",
@@ -1038,7 +1055,24 @@ function applyCollapsedVerticalBoundaryResize(entity, resizeAnchor, requestedEnt
 
 function snapResizeValue(value, snap) {
     const unit = Math.max(1, Number(snap) || 10);
-    return Math.round((Number(value) || 0) / unit) * unit;
+    return Math.floor((Number(value) || 0) / unit) * unit;
+}
+
+function snapResizeStartWidth(value, minWidth, snap) {
+    return Math.max(Number(minWidth) || 0, snapResizeValue(value, snap));
+}
+
+export function resolveHorizontalSeamResizeWidths(draggedStartWidth, counterpartStartWidth, requestedDraggedWidth, draggedMinW, counterpartMinW, snap = 10) {
+    const minTotal = Math.max(0, Number(draggedMinW) || 0) + Math.max(0, Number(counterpartMinW) || 0);
+    const snappedDraggedStartWidth = snapResizeStartWidth(draggedStartWidth, draggedMinW, snap);
+    const snappedCounterpartStartWidth = snapResizeStartWidth(counterpartStartWidth, counterpartMinW, snap);
+    const snappedTotalWidth = snappedDraggedStartWidth + snappedCounterpartStartWidth;
+    if (snappedTotalWidth < minTotal) return null;
+    const maxDraggedWidth = Math.max(draggedMinW, snappedTotalWidth - counterpartMinW);
+    const clampedRequestedWidth = Math.min(maxDraggedWidth, Math.max(draggedMinW, requestedDraggedWidth));
+    const draggedWidth = Math.min(maxDraggedWidth, Math.max(draggedMinW, snapResizeValue(clampedRequestedWidth, snap)));
+    const counterpartWidth = Math.max(counterpartMinW, snappedTotalWidth - draggedWidth);
+    return { draggedWidth, counterpartWidth, totalWidth: snappedTotalWidth };
 }
 
 function reconcileManualWidthsToTarget(nextWidths, manualMembers, originalWidths, targetManualTotal, minW, snap) {
@@ -1308,6 +1342,7 @@ function applyHorizontalStackWidthResize(entity, resizeAnchor, requestedEntityWi
 
     result.handledWidth = true;
     result.handledAll = true;
+    result.liveResize = true;
     result.appliedWidth = nextWidths.get(entity.id) || getDockNodeWidth(entity);
     dockDebug("resize-horizontal-stack-width", () => ({
         entity: snapshotDockNode(entity),
@@ -1462,6 +1497,7 @@ function applyDeckPressureSideWidthResize(entity, resizeAnchor, requestedEntityW
 
     result.handledWidth = true;
     result.handledAll = true;
+    result.liveResize = true;
     result.appliedWidth = nextBranchWidth;
     return true;
 }
@@ -1479,6 +1515,7 @@ export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH,
         appliedHeight: null,
         counterparts: [],
         pinnedAnchor: null,
+        liveResize: false,
     };
     const counterpartIds = new Set();
     const addCounterpart = (node) => {
@@ -1668,8 +1705,6 @@ export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH,
     const session = entity._dockResizeSession;
 
     if (side === "left" || side === "right") {
-        const totalWidth = session.leaderStartW + session.dockedStartW;
-
         const leftNode = side === "left" ? docked : leader;
         const rightNode = side === "left" ? leader : docked;
         if (!canResizeHorizontalSeamPair(leftNode, rightNode, graph)) {
@@ -1683,8 +1718,18 @@ export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH,
 
         const leftMinW = getDockNodeMinWidth(leftNode, 0, snap);
         const rightMinW = getDockNodeMinWidth(rightNode, 0, snap);
-
-        if (totalWidth < leftMinW + rightMinW) {
+        const leftStartW = leftNode.id === leader.id ? session.leaderStartW : session.dockedStartW;
+        const rightStartW = rightNode.id === leader.id ? session.leaderStartW : session.dockedStartW;
+        const draggedMinW = entity.id === leftNode.id ? leftMinW : rightMinW;
+        const counterpartMinW = entity.id === leftNode.id ? rightMinW : leftMinW;
+        const draggedStartW = entity.id === leftNode.id ? leftStartW : rightStartW;
+        const counterpartStartW = entity.id === leftNode.id ? rightStartW : leftStartW;
+        const explicitDelta = Number(entity._dockResizeRequestedDeltaW);
+        const requestedDraggedWidth = Number.isFinite(explicitDelta)
+            ? snapResizeStartWidth(draggedStartW, draggedMinW, snap) + explicitDelta
+            : newW;
+        const pairWidths = resolveHorizontalSeamResizeWidths(draggedStartW, counterpartStartW, requestedDraggedWidth, draggedMinW, counterpartMinW, snap);
+        if (!pairWidths) {
             result.handledWidth = true;
             result.handledAll = true;
             result.appliedWidth = getDockNodeWidth(entity);
@@ -1692,12 +1737,7 @@ export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH,
             addCounterpart(rightNode);
             return result;
         }
-
-        const draggedMinW = entity.id === leftNode.id ? leftMinW : rightMinW;
-        const counterpartMinW = entity.id === leftNode.id ? rightMinW : leftMinW;
-        const maxDraggedWidth = Math.max(draggedMinW, totalWidth - counterpartMinW);
-        const draggedWidth = Math.min(maxDraggedWidth, Math.max(draggedMinW, newW));
-        const counterpartWidth = Math.max(counterpartMinW, totalWidth - draggedWidth);
+        const { draggedWidth, counterpartWidth } = pairWidths;
         const adjustedLeftW = leftNode.id === entity.id ? draggedWidth : counterpartWidth;
         const adjustedRightW = rightNode.id === entity.id ? draggedWidth : counterpartWidth;
         [leftNode, rightNode].forEach((member) => {
@@ -1721,6 +1761,7 @@ export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH,
         if ((rightSizeChanged || rightPosChanged) && typeof rightNode.syncUncleSlots === "function") rightNode.syncUncleSlots();
         result.handledWidth = true;
         result.handledAll = true;
+        result.liveResize = true;
         result.appliedWidth = entity.id === leftNode.id ? adjustedLeftW : adjustedRightW;
         addCounterpart(leftNode);
         addCounterpart(rightNode);
@@ -1803,8 +1844,9 @@ export function applyDockResizeResult(entity, dockResizeResult) {
 
     if (dockResizeResult.handledAll) {
         entity.setDirtyCanvas(true, true);
-        syncDerpShield(entity);
-        dockResizeResult.counterparts.forEach((node) => syncDerpShield(node));
+        const syncNodes = [entity, ...dockResizeResult.counterparts];
+        if (dockResizeResult.liveResize) scheduleLiveResizeShieldSync(syncNodes);
+        else syncNodes.forEach((node) => syncDerpShield(node));
         return { applied: true, handledAll: true };
     }
 

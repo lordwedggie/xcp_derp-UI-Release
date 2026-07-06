@@ -165,7 +165,7 @@ export function handleNodeResize(entity, data, scale) {
 
     let dockResizeResult;
     entity._dockResizeAllowHeight = allowHeightResize;
-    if (allowHorizontalStackWidthResize || allowDeckPressureSideWidthResize) entity._dockResizeRequestedDeltaW = snappedStackDeltaW;
+    if (allowHorizontalStackWidthResize || allowHorizontalSharedEdgeWidthResize || allowDeckPressureSideWidthResize || (axis === "horizontal" && horizontalStackResizeSide)) entity._dockResizeRequestedDeltaW = snappedStackDeltaW;
     if (allowVerticalStackHeightResize) entity._dockResizeRequestedDeltaH = snappedStackDeltaH;
     try {
         dockResizeResult = isPressureHubResize

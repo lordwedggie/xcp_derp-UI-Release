@@ -233,7 +233,8 @@ app.registerExtension({
                     width: "full", height: "fill", dir: "col",
                     margin: [mW, mH, mW, 0],
                     regionModelDeck: {
-                        width: "full", height: "auto", dir: "col", spacing: [sW, sH],
+                        width: "full", height: "auto", dir: "col",
+                        spacing: [sW, sH],
                         hidden: deck.length === 0,
                         margin: [0, 0, 0, mH],
                         ...deckRegions

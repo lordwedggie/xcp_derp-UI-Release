@@ -361,7 +361,9 @@ export class masterLayoutEngine {
         if (!canSkipPass1) {
             this.originalWidth = SQUISH_WIDTH;
             const measureBounds = { ...bounds, x: isSys ? bounds.x : 0, w: SQUISH_WIDTH, h: 0 };
+            this._measurePass = true;
             this.runLayoutPass(measureBounds, profileMap, context);
+            this._measurePass = false;
             const measuredMinWidth = this.contentMinWidth;
             applyContentViewportLayout(this.owner, this.regions, this, { publishState: false });
             this.contentMinWidth = measuredMinWidth;
@@ -882,8 +884,23 @@ export class masterLayoutEngine {
 
                         currentRegion.h = Math.max(currentRegion.h || 0, maxContentBottom + paddingB);
 
-                        if (!isParentRow && !anchor) {
+                        if (!isParentRow && (!anchor || this._measurePass)) {
                             currentLevelMaxY = currentRegion.y + currentRegion.h + margin[3] + (isLastItem ? 0 : (spacing[1] || 0));
+                        }
+                    }
+                    // During measure pass, anchored fill regions with overflowing content
+                    // must also advance the flow cursor so subsequent flow siblings
+                    // are correctly stacked below the content for contentMinHeight.
+                    if (this._measurePass && !isParentRow && anchor && currentRegion.isFillHeight) {
+                        const childBottoms = childRegs.map(r => {
+                            const marginY = r.margin?.length === 4 ? r.margin[3] : (r.margin?.[1] || 0);
+                            return (r.y - currentRegion.y) + r.h + marginY;
+                        });
+                        const maxContentBottom = Math.max(...childBottoms);
+                        const paddingB = currentRegion.padding ? (currentRegion.padding.length === 4 ? currentRegion.padding[3] : (currentRegion.padding[1] || 0)) : 0;
+                        const contentH = maxContentBottom + paddingB;
+                        if (contentH > currentRegion.h) {
+                            currentLevelMaxY = currentRegion.y + contentH + margin[3] + (isLastItem ? 0 : (spacing[1] || 0));
                         }
                     }
                     let shiftX = 0;
@@ -917,7 +934,8 @@ export class masterLayoutEngine {
                                 });
                                 const sharedSpace = Math.max(0, currentRegion.h - reserved - spacingBuffer);
                                 const childMY = (childReg.margin?.length === 4) ? (childReg.margin[1] + childReg.margin[3]) : (childReg.margin?.[1] * 2 || 0);
-                                childReg.h = Math.max(12, (sharedSpace / Math.max(1, fillCount)) - childMY);
+                                const fillFloor = childReg.minHeight !== undefined ? Number(childReg.minHeight) : 12;
+                                childReg.h = Math.max(fillFloor, (sharedSpace / Math.max(1, fillCount)) - childMY);
                             } else {
                                 const childMY = (childReg.margin?.length === 4) ? (childReg.margin[1] + childReg.margin[3]) : (childReg.margin?.[1] * 2 || 0);
                                 childReg.h = currentRegion.h - childMY;
