@@ -1,6 +1,6 @@
 import { sysPanel } from "../helpers/fathaSysPanel.js";
 import { applyDockResizeResult, getVerticalResizeTargetMinHeight, syncDockResizePair } from "./dockResize.js";
-import { canResizeHorizontalSharedEdgeWidth, canResizeHorizontalStackWidth, canResizeVerticalStackHeight } from "./dockResizeSharedEdges.js";
+import { canResizeDeckPressureSideWidthMember, canResizeHorizontalSharedEdgeWidth, canResizeHorizontalStackWidth, canResizeVerticalStackHeight } from "./dockResizeSharedEdges.js";
 import { getDockGroupAxisFromMembers, getDockNodeMinHeight, getDockNodeMinWidth, resolveDockResizeAxes } from "./dockDimensions.js";
 import { applyDeckPressureLayout, getDeckMembers, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureBranchAxis, getDeckPressureHubForNode, getDeckPressureHubMinWidth, getNodeOnDeckEdge, isDeckPressureHub, isDeckPressureSideWidthResizeEdge, setDeckNodePos } from "./masterDockEngine.js";
 import { dockDebug, snapshotDockNode } from "./dockDebugHelpers.js";
@@ -76,7 +76,8 @@ export function handleNodeResize(entity, data, scale) {
     const allowVerticalStackHeightResize = !!verticalStackResizeSide
         && axis === "vertical"
         && canResizeVerticalStackHeight(entity, graph, verticalStackResizeSide);
-    const allowDeckPressureSideWidthResize = isDeckPressureSideWidthResize(entity, graph, resizeAnchor);
+    const allowDeckPressureSideWidthResize = isDeckPressureSideWidthResize(entity, graph, resizeAnchor)
+        && canResizeDeckPressureSideWidthMember(entity, graph);
     if (allowHorizontalStackWidthResize || allowHorizontalSharedEdgeWidthResize || allowDeckPressureSideWidthResize) {
         resizeAxes.allowWidth = true;
     }

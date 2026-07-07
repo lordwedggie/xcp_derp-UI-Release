@@ -19,7 +19,7 @@
 import { app } from "../../../../scripts/app.js";
 import { renderHitboxDebug } from "../helpers/debugPainter.js";
 import { computeDeckPressureGeometryPlan, getDeckMembers, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureBranchAxis, getDeckPressureHubForNode, getNodeOnDeckEdge, isDeckPressureHub, isDeckPressureSideHorizontalBranchMember, isDeckPressureSideHorizontalHubEdge, isDeckPressureSideWidthResizeEdge, isLinearDeckGroup } from "./masterDockEngine.js";
-import { canResizeHorizontalSharedEdgeWidth as canResizeHorizontalSharedEdge, canResizeHorizontalStackWidth, canResizeVerticalSharedEdgeHeight as canResizeVerticalSharedEdge, getHorizontalSameRowNeighbor } from "./dockResizeSharedEdges.js";
+import { canResizeDeckPressureSideWidthMember, canResizeHorizontalSharedEdgeWidth as canResizeHorizontalSharedEdge, canResizeHorizontalStackWidth, canResizeVerticalSharedEdgeHeight as canResizeVerticalSharedEdge, getHorizontalSameRowNeighbor } from "./dockResizeSharedEdges.js";
 import { beginDeckResizeOptimization, clearEntityTooltip, endDeckResizeOptimization, isSystemButtonHit } from "./fathaHandler.js";
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
 import { MASTER_Z, promoteMasterZ } from "./masterZ.js";
@@ -1427,8 +1427,8 @@ export function syncDerpShield(node) {
         const isPressureMember = !!pressureHub;
         const canResizePressureSeamLeftW = isDeckPressureHubSeamSideEdge(node, graph, "left");
         const canResizePressureSeamRightW = isDeckPressureHubSeamSideEdge(node, graph, "right");
-        const canResizePressureSideHorizontalLeftW = isDeckPressureSideHorizontalHubEdge(node, graph, "left") && isDeckPressureSideWidthResizeEdge(node, graph, "left");
-        const canResizePressureSideHorizontalRightW = isDeckPressureSideHorizontalHubEdge(node, graph, "right") && isDeckPressureSideWidthResizeEdge(node, graph, "right");
+        const canResizePressureSideHorizontalLeftW = isDeckPressureSideHorizontalHubEdge(node, graph, "left") && isDeckPressureSideWidthResizeEdge(node, graph, "left") && canResizeDeckPressureSideWidthMember(node, graph);
+        const canResizePressureSideHorizontalRightW = isDeckPressureSideHorizontalHubEdge(node, graph, "right") && isDeckPressureSideWidthResizeEdge(node, graph, "right") && canResizeDeckPressureSideWidthMember(node, graph);
         const canResizeStackLeftW = isHorizontalDockStack && canResizeHorizontalStackWidth(node, graph, "left");
         const canResizeStackRightW = isHorizontalDockStack && canResizeHorizontalStackWidth(node, graph, "right");
         const canResizeStackW = canResizeStackLeftW || canResizeStackRightW || canResizePressureSeamLeftW || canResizePressureSeamRightW || canResizePressureSideHorizontalLeftW || canResizePressureSideHorizontalRightW;

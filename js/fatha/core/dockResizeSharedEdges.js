@@ -40,10 +40,15 @@ export function getHorizontalDeckMembersByX(node, graph) {
 }
 
 export function canResizeHorizontalMemberWidth(node, graph) {
-    if (resolveDerpPreferredAutoWidth(node)) {
-        return isDeckPressureSideHorizontalBranchMember(node, graph);
-    }
+    const props = node?.properties || {};
+    if (props.deckSavedAutoWidth === true || props.autoWidth === true) return false;
+    if (resolveDerpPreferredAutoWidth(node)) return false;
     return true;
+}
+
+export function canResizeDeckPressureSideWidthMember(node, graph) {
+    if (!isDeckPressureSideHorizontalBranchMember(node, graph)) return true;
+    return canResizeHorizontalMemberWidth(node, graph);
 }
 
 function isDirectHorizontalNodeSeam(leftNode, rightNode, graph) {

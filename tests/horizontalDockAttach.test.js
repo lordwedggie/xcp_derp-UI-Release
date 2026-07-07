@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { syncHorizontalDeckHeight } from '../js/fatha/core/fathaHandler.js';
-import { deckNodeToLeader } from '../js/fatha/core/masterDockEngine.js';
+import { getDeckPressureSideHorizontalLockedWidth, shouldLockDeckPressureSideHorizontalWidth, syncHorizontalDeckHeight } from '../js/fatha/core/fathaHandler.js';
+import { resolveDerpPreferredAutoWidth } from '../js/fatha/core/derpHeightPolicy.js';
+import { canResizeDeckPressureSideWidthMember, canResizeHorizontalMemberWidth } from '../js/fatha/core/dockResizeSharedEdges.js';
+import { deckNodeToLeader, getDeckPressureSideHorizontalWidthLock } from '../js/fatha/core/masterDockEngine.js';
 
 function makeNode(id, x, width, height) {
   return {
@@ -25,6 +27,13 @@ function makeNode(id, x, width, height) {
     settleAfterDockWidthMatch: () => {},
     getDerpVars: () => ({ SNAP: 10, autoWidth: false, autoHeight: false }),
   };
+}
+
+function makeImageDeck(id, x, width, height) {
+  const node = makeNode(id, x, width, height);
+  node.type = 'xcpDerpImageDeck';
+  node._isDerpImageDeckNode = true;
+  return node;
 }
 
 describe('syncHorizontalDeckHeight', () => {
@@ -58,6 +67,9 @@ describe('syncHorizontalDeckHeight', () => {
     const a = makeNode(11, 0, 100, 80);
     const b = makeNode(12, 100, 100, 120);
     const c = makeNode(13, 200, 100, 120);
+    a.properties.autoHeight = true;
+    b.properties.autoHeight = true;
+    c.properties.autoHeight = true;
 
     a.properties.deckEdges.right = b.id;
     b.properties.deckEdges.left = a.id;
@@ -72,5 +84,73 @@ describe('syncHorizontalDeckHeight', () => {
     expect(attached).toBe(true);
     expect(a.size[1]).toBe(120);
     expect(a.properties.nodeSize[1]).toBe(120);
+  });
+
+  it('keeps row-width fallback separate from side-horizontal Deck Pressure autoWidth locks', () => {
+    const hub = makeImageDeck(20, 200, 300, 220);
+    const a = makeNode(21, 0, 80, 90);
+    const b = makeNode(22, 80, 120, 90);
+    a.properties.autoWidth = true;
+    b.properties.autoWidth = true;
+    a.properties.deckEdges.right = b.id;
+    b.properties.deckEdges.left = a.id;
+
+    const graph = { _nodes: [hub, a, b] };
+    window.app.graph = graph;
+    window.app.canvas.frame = 3;
+    globalThis.app = window.app;
+
+    expect(deckNodeToLeader(b, hub, graph, 'left')).toBe(true);
+    expect(a.properties.autoWidth).toBe(true);
+    expect(b.properties.autoWidth).toBe(true);
+    expect(getDeckPressureSideHorizontalWidthLock(a, graph)).toBe(80);
+    expect(getDeckPressureSideHorizontalWidthLock(b, graph)).toBe(120);
+    expect(getDeckPressureSideHorizontalLockedWidth(a)).toBe(0);
+    expect(getDeckPressureSideHorizontalLockedWidth(b)).toBe(0);
+    expect(shouldLockDeckPressureSideHorizontalWidth(a)).toBe(false);
+    expect(shouldLockDeckPressureSideHorizontalWidth(b)).toBe(false);
+
+    a._deckPressureSideHorizontalWidth = 140;
+    expect(getDeckPressureSideHorizontalWidthLock(a, graph)).toBe(140);
+    expect(getDeckPressureSideHorizontalLockedWidth(a)).toBe(140);
+    expect(shouldLockDeckPressureSideHorizontalWidth(a)).toBe(true);
+  });
+
+  it('preserves runtime autoWidth in manual mode for side-horizontal Deck Pressure branches', () => {
+    const originalGetSettingValue = window.app.ui.settings.getSettingValue;
+    window.app.ui.settings.getSettingValue = (id) => (
+      id === 'Derp.DeckAutoStackMode' ? 'manual' : originalGetSettingValue(id)
+    );
+
+    try {
+      const hub = makeImageDeck(30, 200, 300, 220);
+      const a = makeNode(31, 0, 80, 90);
+      const b = makeNode(32, 80, 120, 90);
+      a.properties.autoWidth = true;
+      b.properties.autoWidth = true;
+      a.properties.deckEdges.right = b.id;
+      b.properties.deckEdges.left = a.id;
+
+      const graph = { _nodes: [hub, a, b] };
+      window.app.graph = graph;
+      window.app.canvas.frame = 4;
+      globalThis.app = window.app;
+
+      expect(deckNodeToLeader(b, hub, graph, 'left')).toBe(true);
+      expect(a.properties.deckSavedAutoWidth).toBe(true);
+      expect(b.properties.deckSavedAutoWidth).toBe(true);
+      expect(a.properties.autoWidth).toBe(true);
+      expect(b.properties.autoWidth).toBe(true);
+      expect(resolveDerpPreferredAutoWidth(a)).toBe(false);
+      expect(resolveDerpPreferredAutoWidth(b)).toBe(false);
+      expect(canResizeHorizontalMemberWidth(a, graph)).toBe(false);
+      expect(canResizeHorizontalMemberWidth(b, graph)).toBe(false);
+      expect(canResizeDeckPressureSideWidthMember(a, graph)).toBe(false);
+      expect(canResizeDeckPressureSideWidthMember(b, graph)).toBe(false);
+      expect(getDeckPressureSideHorizontalLockedWidth(a)).toBe(0);
+      expect(getDeckPressureSideHorizontalLockedWidth(b)).toBe(0);
+    } finally {
+      window.app.ui.settings.getSettingValue = originalGetSettingValue;
+    }
   });
 });
