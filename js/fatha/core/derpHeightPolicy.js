@@ -41,6 +41,15 @@ export function resolveDerpPreferredAutoWidth(node) {
         }
         return props.deckSavedAutoWidth === true;
     }
+    // Fallback for non-attach-point stack members: lockDeckStackMembersForAttach
+    // sets _derpPreferredAutoWidth on all members but saveDeckNodeAxes only
+    // saves deckSavedAutoWidth for the two attach-point nodes. Honor the
+    // explicit override even without a saved preference.
+    // Safe for standalone nodes: restoreDeckNodeAxes deletes _derpPreferredAutoWidth
+    // on undock, so stale overrides don't survive detachment.
+    if (props._derpPreferredAutoWidth !== undefined) {
+        return props._derpPreferredAutoWidth === true;
+    }
     return props.autoWidth === true;
 }
 
