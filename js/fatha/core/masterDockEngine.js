@@ -1279,7 +1279,6 @@ function restoreDeckPressureSideHorizontalUndockWidths(snapshot) {
     snapshot.forEach(({ node, width, height }) => {
         if (!node || !(width > 0)) return;
         if (!node.properties) node.properties = {};
-        node.properties.autoWidth = false;
         node._horizontalDeckWidthResizeLock = true;
         changed = syncDeckNodeSize(node, width, height > 0 ? height : getNodeSizeValue(node, 1), { silent: true }) || changed;
         node._horizontalDeckWidthBalanceObserved = width;
@@ -1810,8 +1809,10 @@ function restoreDeckPressureHorizontalStackSnapshot(snapshot) {
     snapshot.members.forEach(({ node, x, y, w }) => {
         if (!node) return;
         node._horizontalDeckWidthResizeLock = true;
-        node._deckPressureSideHorizontalWidth = w;
-        if (node.properties) node.properties._deckPressureSideHorizontalWidth = w;
+        if (node.properties?.autoWidth !== true) {
+            node._deckPressureSideHorizontalWidth = w;
+            if (node.properties) node.properties._deckPressureSideHorizontalWidth = w;
+        }
         changed = syncDeckNodeSize(node, w, getNodeSizeValue(node, 1), { silent: true }) || changed;
         changed = setDeckNodePos(node, x + dx, y + dy) || changed;
         node._horizontalDeckWidthBalanceObserved = w;
