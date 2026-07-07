@@ -1431,9 +1431,11 @@ export function undeckDeckPressureBranches(hub, graph = null) {
             changed = true;
         }
         allBranchMembers.forEach(clearDeckPressureSideHorizontalWidthLock);
-        if (!isNodeDocked(branchRoot, activeGraph)) {
-            restoreDeckNodeAxes(branchRoot);
-        }
+        allBranchMembers.forEach((member) => {
+            if (member && !isNodeDocked(member, activeGraph)) {
+                restoreDeckNodeAxes(member);
+            }
+        });
     });
 
     if (changed) {
