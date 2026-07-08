@@ -273,6 +273,7 @@ To add a skill, create `.agents/skills/<name>/SKILL.md` with YAML frontmatter (`
 - Top/bottom vertical Deck Pressure branches preserve their own member heights during ImageDeck hub resize; do not distribute hub height/frame deltas into those branch columns.
 - Horizontal stacks attached to Deck Pressure left/right sides must stay expanded; hide/guard collapse controls and reopen already-collapsed members during pressure layout.
 - For horizontal stacks attached to Deck Pressure left/right sides, the hub-facing seam is a hub/deck width resize only; do not expose the branch stack's outer-edge width resize on that connected edge.
+- For horizontal stacks attached to Deck Pressure left/right sides, `_deckPressureSideHorizontalWidth` is an explicit lock only. Branch membership alone must not make draw-time autoWidth code reuse the current width as a lock.
 - For horizontal stacks attached to Deck Pressure left/right sides, the branch shield must expose the hub-facing mid-edge hitbox and route it to the ImageDeck hub resize, or the middle of the seam can be covered while only top/bottom portions respond.
 - Horizontal stacks attached to Deck Pressure left/right sides must grow their own row height; attach sizing and pressure layout must never shrink or pressure-grow the ImageDeck hub height for that branch.
 - Pressed non-drag widget regions must absorb pointer movement; otherwise a small click twitch can fall through to `updateDockDrag()` and move a deck root using a child node's press-start position.
@@ -289,6 +290,7 @@ To add a skill, create `.agents/skills/<name>/SKILL.md` with YAML frontmatter (`
 - Deck Pressure side-branch active-resize and fresh manual seam-fit preservation must never preserve live heights whose total exceeds the canonical side band; over-tall live totals push lower members outside the frame at clamp/release.
 - Deck Pressure internal vertical seam drags should snapshot all branch member heights after the seam fit; otherwise subsequent pressure passes can redistribute spare height into unrelated siblings and make Slider/LoraStack change height during another seam's resize.
 - TriggerWall's trigger groups are width-wrapping content, so its measured `layout.contentMinWidth` can be stale or temporarily inflated during resize. Do not let that measured width become the framework resize floor; during resize preflight reset the floor to the explicit node minimum, and let active framework-owned passes draw from the live frame width without forcing physical node width.
+- Vertical stack width locks need different semantics by resize type: vertical seam height drags should exact-lock to the starting stack width, while outer stack height drags should floor-aware lock to the shared current min-width so min-width boundary resizing does not make members alternately render wider then snap back. Corner drags that also handle width must refresh the lock to the newly applied width each pass; only height-only corner drags should keep the starting width pinned.
 
 ### Node-Specific Notes
 

@@ -74,7 +74,7 @@ function snapshotDockMembers(node, graph) {
     return graph && node ? getDeckMembers(node, graph).map(snapshotDockNode) : [];
 }
 
-function markVerticalStackWidthLock(members = []) {
+function markVerticalStackWidthLock(members = [], options = {}) {
     const validMembers = members.filter(Boolean);
     if (validMembers.length <= 1) return;
     const now = performance.now?.() || Date.now();
@@ -82,17 +82,22 @@ function markVerticalStackWidthLock(members = []) {
         .map((member) => ({ width: Number(member?._verticalDeckWidthLock) || 0, until: Number(member?._verticalDeckWidthLockUntil) || 0 }))
         .filter((lock) => lock.width > 0 && lock.until > now);
     const isContinuingResize = activeLocks.length === validMembers.length;
-    const width = isContinuingResize
-        ? Math.min(...activeLocks.map((lock) => lock.width))
-        : Math.max(...validMembers.map((member) => getDockNodeWidth(member)), 0);
+    const requestedWidth = Number(options.width) || 0;
+    let width = Math.max(...validMembers.map((member) => getDockNodeWidth(member)), 0);
+    if (requestedWidth > 0) width = requestedWidth;
+    if (isContinuingResize && options.updateExisting !== true) width = Math.min(...activeLocks.map((lock) => lock.width));
     if (width <= 0) return;
     const activeUntil = now + 1200;
+    const floor = Number(options.floor) || 0;
+    const freezeFloor = options.freezeFloor === true;
     validMembers.forEach((member) => {
         member._verticalDeckWidthLock = width;
         member._verticalDeckWidthLockUntil = activeUntil;
+        member._verticalDeckWidthLockExact = options.exact === true;
+        member._verticalDeckWidthLockFreezeFloor = freezeFloor;
         if (!isContinuingResize) {
-            member._verticalDeckWidthLockFloor = 0;
-            member._verticalDeckWidthLockFloorUntil = 0;
+            member._verticalDeckWidthLockFloor = floor;
+            member._verticalDeckWidthLockFloorUntil = floor > 0 ? activeUntil : 0;
         }
     });
 }
@@ -102,10 +107,25 @@ function getActiveVerticalNodeWidthLock(node, minWidth = 0) {
     const until = Number(node?._verticalDeckWidthLockUntil) || 0;
     const now = performance.now?.() || Date.now();
     if (width <= 0 || until <= now) return 0;
-    const target = Math.max(width, Number(minWidth) || 0);
-    node._verticalDeckWidthLockFloor = Math.max(Number(node._verticalDeckWidthLockFloor) || 0, target);
-    node._verticalDeckWidthLockFloorUntil = until;
+    if (node?._verticalDeckWidthLockExact === true) return width;
+    const floor = node?._verticalDeckWidthLockFreezeFloor === true
+        ? Number(node?._verticalDeckWidthLockFloor) || 0
+        : Number(minWidth) || 0;
+    const target = Math.max(width, floor);
+    if (node?._verticalDeckWidthLockFreezeFloor !== true) {
+        node._verticalDeckWidthLockFloor = Math.max(Number(node._verticalDeckWidthLockFloor) || 0, target);
+        node._verticalDeckWidthLockFloorUntil = until;
+    }
     return target;
+}
+
+function getVerticalStackLiveResizeWidth(node, minWidth = 0) {
+    const width = Number(node?._verticalDeckWidthLock) || 0;
+    const until = Number(node?._verticalDeckWidthLockUntil) || 0;
+    const now = performance.now?.() || Date.now();
+    return width > 0 && until > now
+        ? getActiveVerticalNodeWidthLock(node, minWidth)
+        : getDockNodeWidth(node);
 }
 
 export function resolveCollapseShiftDirection(node, graph) {
@@ -324,9 +344,14 @@ export function settleDerpSizeBeforeDrawImpl(entity, options = {}, deps = {}) {
     const engineFloorH = isMinState ? rawH : Math.ceil(rawH / SNAP) * SNAP;
     const collapseMinimal = entity.properties?.collapseMinimal === true;
     const currentFrameworkW = Number(entity.size?.[0]) || Number(entity.properties.nodeSize?.[0]) || 0;
-    const targetW = preserveFrameworkWidth && currentFrameworkW > 0
-        ? (lockedFrameworkW > 0 ? lockedFrameworkW : currentFrameworkW)
-        : (autoWidth || (isMinState && collapseMinimal)) ? engineFloorW : Math.max(entity.properties.nodeSize?.[0] || 0, engineFloorW);
+    // Height-preserving vertical stack drags own width until release; live
+    // measurement can briefly report a wider floor while height is changing.
+    const isHeightOnlyResize = entity?._isDerpResizing === true && entity?._dockResizePreserveHeight === true;
+    const targetW = isHeightOnlyResize && currentFrameworkW > 0
+        ? currentFrameworkW
+        : (preserveFrameworkWidth && currentFrameworkW > 0
+            ? (lockedFrameworkW > 0 ? lockedFrameworkW : currentFrameworkW)
+            : (autoWidth || (isMinState && collapseMinimal)) ? engineFloorW : Math.max(entity.properties.nodeSize?.[0] || 0, engineFloorW));
     const preserveCurrentHeight = options?.preserveCurrentHeight === true;
     const currentH = Number(entity.size?.[1]) || Number(entity.properties.nodeSize?.[1]) || 0;
     const targetH = preserveCurrentHeight
@@ -471,7 +496,10 @@ export function resolveHorizontalDeckSharedHeightImpl(node, deps = {}) {
 }
 
 export function handleDerpComputeSizeImpl(entity, out, minWidth = 100) {
-    const minW = entity.layout?.contentMinWidth || minWidth;
+    const layoutMinW = entity.layout?.contentMinWidth || minWidth;
+    const minW = (entity?._isDerpResizing === true && entity?._dockResizePreserveHeight === true)
+        ? Math.min(layoutMinW, Number(entity?.size?.[0]) || layoutMinW)
+        : layoutMinW;
     const minH = entity.layout?.totalHeight || 40;
     if (out) {
         out[0] = minW;
@@ -920,8 +948,8 @@ function applyVerticalStackSharedEdgeResize(entity, resizeAnchor, requestedEntit
     const adjustedTopH = topNode.id === entity.id ? draggedHeight : counterpartHeight;
     const adjustedBottomH = bottomNode.id === entity.id ? draggedHeight : counterpartHeight;
 
-    syncDeckNodeSize(topNode, getDockNodeWidth(topNode), adjustedTopH, { silent: true });
-    syncDeckNodeSize(bottomNode, getDockNodeWidth(bottomNode), adjustedBottomH, { silent: true });
+    syncDeckNodeSize(topNode, getVerticalStackLiveResizeWidth(topNode), adjustedTopH, { silent: true, deferDirty: true, deferSync: true, liveResize: true });
+    syncDeckNodeSize(bottomNode, getVerticalStackLiveResizeWidth(bottomNode), adjustedBottomH, { silent: true, deferDirty: true, deferSync: true, liveResize: true });
     rememberExpandedDeckHeight(topNode, adjustedTopH);
     rememberExpandedDeckHeight(bottomNode, adjustedBottomH);
     markManualDeckPressureBranchFit(members);
@@ -931,6 +959,7 @@ function applyVerticalStackSharedEdgeResize(entity, resizeAnchor, requestedEntit
 
     result.handledHeight = true;
     result.handledAll = true;
+    result.liveResize = true;
     result.appliedHeight = entity.id === topNode.id ? adjustedTopH : adjustedBottomH;
     members.forEach(addCounterpart);
     return true;
@@ -1190,15 +1219,34 @@ function applyVerticalStackHeightResize(entity, resizeAnchor, requestedEntityHei
         && currentSession.side === sessionSide
         && currentSession.entityId === entity.id;
     if (!sessionMatches) {
+        const measuredMinWidth = members.reduce((maxWidth, member) => Math.max(maxWidth, getDockNodeMinWidth(member, 0, snap)), 0);
+        const liveStartWidth = Math.max(...members.map((member) => getDockNodeWidth(member)), 0);
+        const stackStartWidth = liveStartWidth || measuredMinWidth;
+        const stackStartMinWidth = Math.min(measuredMinWidth, stackStartWidth);
         entity._dockResizeSession = {
             side: sessionSide,
             entityId: entity.id,
             stackStartHeights: Object.fromEntries(members.map((member) => [member.id, getDockNodeHeight(member)])),
             stackStartPositions: Object.fromEntries(members.map((member) => [member.id, [Number(member.pos?.[0]) || 0, Number(member.pos?.[1]) || 0]])),
+            stackStartWidth,
+            stackStartMinWidth,
         };
     }
 
     const session = entity._dockResizeSession;
+    const isOuterHeightResize = isTopHandle || isBottomHandle;
+    if (isOuterHeightResize) {
+        const stackStartWidth = Number(session.stackStartWidth) || 0;
+        const liveWidth = Math.max(...members.map((member) => getDockNodeWidth(member)), 0);
+        const widthLock = result.handledWidth === true ? liveWidth : stackStartWidth;
+        const stackStartMinWidth = Math.min(Number(session.stackStartMinWidth) || 0, widthLock || stackStartWidth);
+        markVerticalStackWidthLock(members, {
+            width: widthLock || stackStartWidth,
+            floor: stackStartMinWidth,
+            freezeFloor: true,
+            updateExisting: result.handledWidth === true,
+        });
+    }
     const originalHeights = new Map(members.map((member) => [member.id, Number(session.stackStartHeights?.[member.id]) || getDockNodeHeight(member)]));
     const originalTotalHeight = members.reduce((sum, member) => sum + (originalHeights.get(member.id) || 0), 0);
     const entityStartHeight = originalHeights.get(entity.id) || getDockNodeHeight(entity);
@@ -1239,7 +1287,10 @@ function applyVerticalStackHeightResize(entity, resizeAnchor, requestedEntityHei
     let cursorY = isTopHandle ? anchorY - totalHeight : anchorY;
     members.forEach((member) => {
         const height = nextHeights.get(member.id) || getDockNodeHeight(member);
-        const sizeChanged = syncDeckNodeSize(member, getDockNodeWidth(member), height, { silent: true, deferDirty: true, deferSync: true, liveResize: true });
+        const width = isOuterHeightResize
+            ? getVerticalStackLiveResizeWidth(member, Number(session.stackStartMinWidth) || 0)
+            : getDockNodeWidth(member);
+        const sizeChanged = syncDeckNodeSize(member, width, height, { silent: true, deferDirty: true, deferSync: true, liveResize: true });
         const posChanged = setDeckNodePos(member, Number(member.pos?.[0]) || 0, cursorY);
         cursorY += height;
         if ((sizeChanged || posChanged) && typeof member.syncUncleSlots === "function") member.syncUncleSlots();
@@ -1249,6 +1300,7 @@ function applyVerticalStackHeightResize(entity, resizeAnchor, requestedEntityHei
 
     result.handledHeight = true;
     result.handledAll = true;
+    result.liveResize = true;
     result.appliedHeight = nextHeights.get(entity.id) || getDockNodeHeight(entity);
     dockDebug("resize-vertical-stack-height", () => ({
         entity: snapshotDockNode(entity),
@@ -1529,9 +1581,16 @@ export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH,
     const isTopHandle = resizeAnchor === "top" || resizeAnchor === "top-left" || resizeAnchor === "top-right";
     const isBottomHandle = resizeAnchor === "bottom" || resizeAnchor === "bottom-left" || resizeAnchor === "bottom-right";
     const requestsWidthResize = (isLeftHandle || isRightHandle) && newW !== getDockNodeWidth(entity);
-    const isPureVerticalSeamResize = (resizeAnchor === "top" || resizeAnchor === "bottom") && getLinearResizeMembers(entity, graph, "vertical").length > 1;
-    const verticalSeamMembers = isPureVerticalSeamResize ? getVerticalDeckMembersByY(entity, graph) : [];
-    if (isPureVerticalSeamResize) markVerticalStackWidthLock(verticalSeamMembers);
+    const isPureVerticalEdgeResize = resizeAnchor === "top" || resizeAnchor === "bottom";
+    const verticalSeamMembers = isPureVerticalEdgeResize ? getVerticalDeckMembersByY(entity, graph) : [];
+    const verticalSeamEntityIndex = verticalSeamMembers.findIndex((member) => member.id === entity.id);
+    const isPureVerticalSeamResize = isPureVerticalEdgeResize
+        && verticalSeamMembers.length > 1
+        && (
+            (resizeAnchor === "top" && verticalSeamEntityIndex > 0)
+            || (resizeAnchor === "bottom" && verticalSeamEntityIndex >= 0 && verticalSeamEntityIndex < verticalSeamMembers.length - 1)
+        );
+    if (isPureVerticalSeamResize) markVerticalStackWidthLock(verticalSeamMembers, { exact: true });
 
     if ((isLeftHandle || isRightHandle) && applyDeckPressureSideWidthResize(entity, resizeAnchor, newW, minW, snap, result, addCounterpart, graph)) {
         return result;
@@ -1547,12 +1606,19 @@ export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH,
             members: verticalResizeMembers.map(snapshotDockNode),
         }));
         const dockSize = resolveDockResizeDimensions("vertical", verticalResizeMembers, { width: newW }, { minWidth: minW, height: getDockNodeHeight(entity) }, snap);
-        const snappedWidth = dockSize.width;
+        // Live contentMinWidth can exceed the stable resize floor during height drags.
+        const snappedWidth = Math.min(dockSize.width, Math.max(newW, minW));
         verticalResizeMembers.forEach((node) => {
             const nodeH = getVerticalResizeStartHeight(node, snap);
             syncDeckNodeSize(node, snappedWidth, nodeH, { silent: true });
             if (typeof node.syncUncleSlots === "function") node.syncUncleSlots();
             addCounterpart(node);
+        });
+        markVerticalStackWidthLock(verticalResizeMembers, {
+            width: snappedWidth,
+            floor: Math.min(snappedWidth, minW),
+            freezeFloor: true,
+            updateExisting: true,
         });
         result.handledWidth = true;
         result.appliedWidth = snappedWidth;
@@ -1818,8 +1884,8 @@ export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH,
         const adjustedTopH = topNode.id === entity.id ? draggedHeight : counterpartHeight;
         const adjustedBottomH = bottomNode.id === entity.id ? draggedHeight : counterpartHeight;
 
-        syncDeckNodeSize(topNode, getDockNodeWidth(topNode), adjustedTopH, { silent: true });
-        syncDeckNodeSize(bottomNode, getDockNodeWidth(bottomNode), adjustedBottomH, { silent: true });
+        syncDeckNodeSize(topNode, getVerticalStackLiveResizeWidth(topNode), adjustedTopH, { silent: true, deferDirty: true, deferSync: true, liveResize: true });
+        syncDeckNodeSize(bottomNode, getVerticalStackLiveResizeWidth(bottomNode), adjustedBottomH, { silent: true, deferDirty: true, deferSync: true, liveResize: true });
         rememberExpandedDeckHeight(topNode, adjustedTopH);
         rememberExpandedDeckHeight(bottomNode, adjustedBottomH);
         markManualDeckPressureBranchFit(verticalMembers);
@@ -1829,6 +1895,7 @@ export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH,
         if (typeof bottomNode.syncUncleSlots === "function") bottomNode.syncUncleSlots();
         result.handledHeight = true;
         result.handledAll = true;
+        result.liveResize = true;
         result.appliedHeight = entity.id === topNode.id ? adjustedTopH : adjustedBottomH;
         verticalMembers.forEach(addCounterpart);
         return result;

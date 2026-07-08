@@ -821,6 +821,33 @@ export function createDerpShield(node) {
         node._dockResizeHoverSession = null;
         activeResizeNode._dockResizeHoverSession = null;
         activeResizeNode._isDerpResizing = true; // THE FIX: Pause Fatha's auto-enforcer during drag
+
+        // For vertical-stack height resizes (top/bottom edges or corners), mark all
+        // stack members immediately so the draw loop preserves widths on the first frame.
+        // Without this, there's a one-frame gap before applyVerticalStackHeightResize
+        // runs (first pointermove) during which auto-width nodes recalculate from content
+        // and drift wider than the shared stack width.
+        const _resizeStartAnchor = activeResizeNode._resizeAnchor || anchor;
+        const _isVerticalResizeStart = _resizeStartAnchor === "top" || _resizeStartAnchor === "bottom" ||
+            _resizeStartAnchor === "top-left" || _resizeStartAnchor === "top-right" ||
+            _resizeStartAnchor === "bottom-left" || _resizeStartAnchor === "bottom-right";
+        if (_isVerticalResizeStart && isLinearDeckGroup(activeResizeNode, graph, "vertical")) {
+            const _vMembers = getDeckMembers(activeResizeNode, graph);
+            if (_vMembers && _vMembers.length > 1) {
+                if (!(activeResizeNode._dockResizeActiveMembers instanceof Set)) {
+                    activeResizeNode._dockResizeActiveMembers = new Set();
+                }
+                _vMembers.forEach((m) => {
+                    if (!m) return;
+                    m._isDerpResizing = true;
+                    m._dockResizePreserveHeight = true;
+                    if (m !== activeResizeNode) {
+                        activeResizeNode._dockResizeActiveMembers.add(m);
+                    }
+                });
+            }
+        }
+
         startMouseX = e.clientX;
         startMouseY = e.clientY; // THE FIX: Capture Y for vertical resizing
 

@@ -775,7 +775,7 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
         const lockedDeckPressureSideW = getDeckPressureSideHorizontalLockedWidth(this);
         const liveTargetW = lockedDeckPressureSideW > 0
             ? lockedDeckPressureSideW
-            : ((this._isDerpResizing && !autoWidth) || lockHorizontalDeckResize ? this.size[0] : targetW);
+            : ((this._isDerpResizing && (!autoWidth || this._dockResizePreserveHeight === true)) || lockHorizontalDeckResize ? this.size[0] : targetW);
         const preserveResizeHeight = this._isDerpResizing && (!autoHeight || this._dockResizePreserveHeight === true);
         const liveTargetH = preserveResizeHeight || lockHorizontalDeckResize ? this.size[1] : targetH;
         const preAnimateW = Number(this.size?.[0]) || 0;

@@ -122,9 +122,13 @@ export function handleNodeResize(entity, data, scale) {
         ? verticalStackMembersForMinW.reduce((max, m) => Math.max(max, getDockNodeMinWidth(m, 0, SNAP)), 0)
         : 0;
     const fallbackMinW = Math.max(getDockNodeMinWidth(entity, 0, SNAP), stackMaxMinWidth);
+    // Corner height drags use the starting width as the stable width floor.
+    const startWForMinClamp = Number(entity._startSize?.[0]) || 0;
+    const isVStackCornerHeightResize = axis === "vertical" && allowVerticalStackHeightResize
+        && (resizeAnchor === "top-left" || resizeAnchor === "top-right" || resizeAnchor === "bottom-left" || resizeAnchor === "bottom-right");
     const minW = isPressureHubResize
         ? getResizeSessionPressureMinWidth(entity, graph, SNAP, fallbackMinW)
-        : fallbackMinW;
+        : (isVStackCornerHeightResize && startWForMinClamp > 0 ? Math.min(fallbackMinW, startWForMinClamp) : fallbackMinW);
     const minH = isPressureHubResize ? SNAP * 8 : getVerticalResizeTargetMinHeight(entity, SNAP, { preserveExpandedFloor: true });
 
     const deltaX = data.dx / scale;

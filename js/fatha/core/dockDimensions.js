@@ -211,11 +211,18 @@ export function getActiveVerticalDeckWidthLock(members = [], minWidth = 0) {
             until: Number(member?._verticalDeckWidthLockUntil) || 0,
             floor: Number(member?._verticalDeckWidthLockFloor) || 0,
             floorUntil: Number(member?._verticalDeckWidthLockFloorUntil) || 0,
+            exact: member?._verticalDeckWidthLockExact === true,
+            freezeFloor: member?._verticalDeckWidthLockFreezeFloor === true,
         }))
         .filter((lock) => lock.width > 0 && lock.until > now);
     if (locks.length !== members.length || locks.length === 0) return 0;
     const width = Math.min(...locks.map((lock) => lock.width));
-    const floor = Math.max(...locks.map((lock) => lock.floorUntil > now ? lock.floor : 0), Number(minWidth) || 0);
+    if (locks.every((lock) => lock.exact)) return width;
+    const freezeFloor = locks.every((lock) => lock.freezeFloor);
+    const floor = Math.max(
+        ...locks.map((lock) => lock.floorUntil > now ? lock.floor : 0),
+        freezeFloor ? 0 : Number(minWidth) || 0
+    );
     return Math.max(width, floor);
 }
 

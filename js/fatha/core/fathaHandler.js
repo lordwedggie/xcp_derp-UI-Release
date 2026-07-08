@@ -22,7 +22,7 @@ import {
     handleDerpCollapseImpl,
     handleHorizontalDeckTitleToggleImpl,
 } from "./dockResize.js";
-import { masterDockEngine, getDeckMembers, getDeckCornerOverride, getNodeOnDeckEdge, isDeckPressureSideHorizontalBranchMember, isLinearDeckGroup, normalizeDockedLayout, setDeckNodePos, syncDeckNodeSize, isDeckPressureHub, getDeckPressureHubForNode, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureBranchAxis, applyDeckPressureLayout, getDeckPressureSideHorizontalWidthLock, drawSharedResizeSeamGhosts } from "./masterDockEngine.js";
+import { masterDockEngine, getDeckMembers, getDeckCornerOverride, getNodeOnDeckEdge, isDeckPressureSideHorizontalBranchMember, isLinearDeckGroup, normalizeDockedLayout, setDeckNodePos, syncDeckNodeSize, isDeckPressureHub, getDeckPressureHubForNode, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureBranchAxis, applyDeckPressureLayout, getDeckPressureSideHorizontalExplicitWidthLock, drawSharedResizeSeamGhosts } from "./masterDockEngine.js";
 import { getActiveVerticalDeckWidthLock, getDockGroupAxisFromMembers, getDockNodeHeight, getDockNodeMinWidth, getDockNodeWidth, getSharedDockMinWidth, getSharedDockWidth, shouldPreserveDockHeight, shouldPreserveDockWidth } from "./dockDimensions.js";
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
 import {
@@ -1010,7 +1010,7 @@ export function shouldPreserveHorizontalDeckHeight(node) {
 
 export function getDeckPressureSideHorizontalLockedWidth(node) {
     const graph = app.graph || node?.graph || null;
-    return getDeckPressureSideHorizontalWidthLock(node, graph);
+    return getDeckPressureSideHorizontalExplicitWidthLock(node, graph);
 }
 
 export function shouldLockDeckPressureSideHorizontalWidth(node) {
@@ -1067,6 +1067,7 @@ export function syncHorizontalDeckHeight(node, targetHeight = 0) {
 export function normalizeDerpDockedLayout(node) {
     const state = getDeckFrameState(node);
     const graph = app.graph || node?.graph || null;
+
     const pressureHub = isDeckPressureHub(node) ? node : getDeckPressureHubForNode(node, graph);
     if (pressureHub) {
         const frame = Number(app.canvas?.frame ?? app.canvas?.drawCount) || 0;
@@ -1108,6 +1109,18 @@ export function normalizeDerpDockedLayout(node) {
         }
         state.didNormalize = true;
         state.normalizedWidth = Math.max(Number(state.normalizedWidth) || 0, sharedWidth);
+
+        // During active vertical-stack resize, the resize handler owns width and
+        // position. normalizeDockedLayout → applyColumnLayout would overwrite
+        // both via sharedWidth, which oscillates at min-width because
+        // contentMinWidth fluctuates during layout recompute. Skip it; the
+        // draw-loop width-preservation guard (fatha.js) keeps auto-width nodes
+        // stable while the resize handler sets the canonical size/position.
+        const anyResizing = state.members.some((member) => member?._isDerpResizing === true);
+        if (anyResizing) {
+            return [];
+        }
+
         const positionAnchor = isComfyVueNodesMode()
             ? getPinnedVerticalDeckAnchor(node, graph)
             : null;

@@ -1534,12 +1534,21 @@ function lockDeckStackMembersForAttach(dockFollower, attachLeader, side, graph) 
     if (dockFollower?.id != null) attachIds.add(dockFollower.id);
     if (attachLeader?.id != null) attachIds.add(attachLeader.id);
     const members = [...getDeckMembers(dockFollower, graph), ...getDeckMembers(attachLeader, graph)];
+    const seenSaved = new Set();
+    members.forEach((member) => {
+        if (!member || seenSaved.has(member.id) || isDeckPressureHub(member)) return;
+        seenSaved.add(member.id);
+        saveDeckNodeAxes(member);
+    });
 
     if (modeSetting === DECK_AUTO_STACK_MANUAL) {
-        // Manual mode: force all members to manual on the seam axis.
+        // Manual mode: force preferred seam eligibility to manual. Runtime
+        // autoWidth is restored for left/right side rows so layout sizing stays
+        // content-driven unless an explicit Deck Pressure width lock exists.
         const stackAxis = getDockGroupAxisFromMembers(members.filter((m) => m && !isDeckPressureHub(m)));
         const forceAutoHeightOff = stackAxis === "vertical";
         const forceAutoWidthOff = stackAxis === "horizontal";
+        const restoreRuntimeAutoWidth = side !== "top" && side !== "bottom";
         const seen = new Set();
         members.forEach((member) => {
             if (!member || seen.has(member.id)) return;
@@ -1556,6 +1565,9 @@ function lockDeckStackMembersForAttach(dockFollower, attachLeader, side, graph) 
             if (forceAutoWidthOff) {
                 member.properties._derpPreferredAutoWidth = false;
                 member.properties.autoWidth = false;
+                if (restoreRuntimeAutoWidth && Object.prototype.hasOwnProperty.call(member.properties, "deckSavedAutoWidth")) {
+                    member.properties.autoWidth = member.properties.deckSavedAutoWidth === true;
+                }
             }
         });
     } else {
@@ -2411,14 +2423,24 @@ function getDeckPressureRowCurrentSpan(members, snap) {
     }, 0);
 }
 
-function getDeckPressureSideHorizontalLockedWidth(member) {
+function getDeckPressureSideHorizontalExplicitWidth(member) {
     const locked = Number(member?._deckPressureSideHorizontalWidth || member?.properties?._deckPressureSideHorizontalWidth);
+    return locked > 0 ? locked : 0;
+}
+
+function getDeckPressureSideHorizontalLockedWidth(member) {
+    const locked = getDeckPressureSideHorizontalExplicitWidth(member);
     return locked > 0 ? locked : getNodeSizeValue(member, 0);
 }
 
 export function getDeckPressureSideHorizontalWidthLock(node, graph) {
     if (!isDeckPressureSideHorizontalBranchMember(node, graph)) return 0;
     return getDeckPressureSideHorizontalLockedWidth(node);
+}
+
+export function getDeckPressureSideHorizontalExplicitWidthLock(node, graph) {
+    if (!isDeckPressureSideHorizontalBranchMember(node, graph)) return 0;
+    return getDeckPressureSideHorizontalExplicitWidth(node);
 }
 
 function getDeckPressureRowCurrentWidths(members) {
