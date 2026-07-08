@@ -7,7 +7,7 @@ import { fatha, initDerpGlobalListener } from "../../../fatha/fatha.js";
 import { activeBastas } from "../../../fatha/basta.js";
 import { showBastaSystemMessage } from "../../../fatha/bastas/bastaSystemMessage.js";
 import { fetchLoraTriggers, fetchLoraRating, syncRatingColorsCache, fetchLoraData, regionBelongsToRow } from "../helpers/loraComponents.js";
-import { getStackDragFloatingTransform, startStackDrag, updateStackDrag, endStackDrag } from "../../../fatha/helpers/fathaDragDrop.js";
+import { getStackDragFloatingTransform, updateStackDrag, endStackDrag } from "../../../fatha/helpers/fathaDragDrop.js";
 import { COMPONENT_BLUEPRINTS } from "../../../fatha/core/masterLayoutTypes.js";
 import { isContentViewportRegionHitVisible } from "../../../fatha/core/fathaContentViewport.js";
 import { applyDerpPreferredAutoHeight, resolveDerpRuntimeAutoHeight } from "../../../fatha/core/derpHeightPolicy.js";

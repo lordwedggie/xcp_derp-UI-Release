@@ -12,7 +12,7 @@ import { getLoraDetailId, handleBastaLoraDetail, cleanTriggerText,
     openCivitAI, openCivArchive, getLoraTriggerEditorProps, renameLoraBundle,
     getLoraNotesEditorPropsWrapped, getLoraTriggerDropdownProps } from "./core/bastaLoraDetail_core.js";
 import { manageLoraTrigger, getRatingColor, getLoraRatingDropdownProps, getLoraLoaderProps, processTriggerData, isLoraNoTriggerRequired, setLoraNoTriggerRequired } from "../../derps/controldeck/helpers/loraComponents.js";
-import { colorPulse2, parseColor, animateAlpha } from "../../herbina/masterAnimator.js";
+import { parseColor } from "../../herbina/masterAnimator.js";
 import { resolvePaintData, measureTextHeight } from "../../herbina/utils/widgetsUtils.js";
 import { calculatePreviewDisplayHeight, switchLoraImage, setLoraCover, calculatePreviewAspectRatio, deleteLoraDetailImage } from "../../derps/controldeck/helpers/loraImages.js";
 
@@ -243,7 +243,6 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
             if (stack[idx] && (isNewSelection || !stack[idx][4])) {
                 stack[idx][3] = activeEntry.key;
                 stack[idx][4] = activeEntry.tag;
-                loraData.tags = (activeEntry.tag || "").split(',').map(t => t.trim()).filter(t => t !== "");
                 if (host.syncDerpOutputs) host.syncDerpOutputs();
             }
         }
@@ -873,7 +872,6 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                         if (stack[idx]) {
                             const cleaned = cleanTriggerText(stack[idx][4]);
                             stack[idx][4] = cleaned;
-                            loraData.tags = cleaned.split(',').map(t => t.trim()).filter(t => t !== "");
                             if (host.syncDerpOutputs) host.syncDerpOutputs();
                             basta._forceSync = true;
                             basta.requestDerpSync();

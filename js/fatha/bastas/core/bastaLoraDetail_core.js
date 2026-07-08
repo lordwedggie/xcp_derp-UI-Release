@@ -8,7 +8,6 @@ import { animateAlpha, getPulsedColor } from "../../../herbina/masterAnimator.js
 
 const IMAGE_NAV_ALPHA_SPEED = 0.15;
 import { showBastaMessage } from "../bastaMessage.js";
-import { showBastaFileHandler } from "../bastaFileHandler.js";
 import { resolvePaintData, measureTextHeight } from "../../../herbina/utils/widgetsUtils.js";
 import { initLoraImageHandlers, calculatePreviewAspectRatio, refreshLoraImageList } from "../../../derps/controldeck/helpers/loraImages.js";
 import { getLoraDetailTitle, isLoraNoTriggerRequired } from "../../../derps/controldeck/helpers/loraComponents.js";
@@ -515,7 +514,6 @@ export const getEditorProps = (host, basta, loraData, initialTr, vars) => {
             }
             if (currentLora) {
                 currentLora[4] = val;
-                loraData.tags = val.split(',').map(t => t.trim()).filter(t => t !== "");
 
                 if (host.syncDerpOutputs) host.syncDerpOutputs();
 
@@ -559,7 +557,6 @@ export const getEditorProps = (host, basta, loraData, initialTr, vars) => {
                 const finalValue = (val !== undefined) ? val : (el ? el.value : (stack[idx][4] || ""));
 
                 stack[idx][4] = finalValue || "";
-                loraData.tags = (finalValue || "").split(',').map(t => t.trim()).filter(t => t !== "");
                 if (host.syncDerpOutputs) host.syncDerpOutputs();
                 if (host.refreshNodeLayoutMap) host.refreshNodeLayoutMap();
                 bumpBLDPerf(basta, "syncReq");
@@ -612,7 +609,6 @@ export const getLoraTriggerEditorProps = (host, basta, loraData, currentPath, va
         const liveLora = liveStack[loraData.slotIndex];
         if (liveLora) {
             liveLora[4] = val;
-            loraData.tags = val.split(',').map(t => t.trim()).filter(t => t !== "");
             if (host.syncDerpOutputs) host.syncDerpOutputs();
 
             const livePath = liveLora[0] || currentPath;
@@ -637,7 +633,6 @@ export const getLoraTriggerEditorProps = (host, basta, loraData, currentPath, va
         if (liveLora) {
             const finalValue = (val !== undefined) ? val : (el ? el.value : (liveLora[4] || ""));
             liveLora[4] = finalValue || "";
-            loraData.tags = (finalValue || "").split(',').map(t => t.trim()).filter(t => t !== "");
             if (host.syncDerpOutputs) host.syncDerpOutputs();
             if (host.refreshNodeLayoutMap) host.refreshNodeLayoutMap();
             bumpBLDPerf(basta, "syncReq");
@@ -689,7 +684,6 @@ export const getLoraTriggerDropdownProps = (host, basta, loraData, triggerItems,
                     }
                     stack[idx][3] = matched.key;
                     stack[idx][4] = tagContent || "";
-                    loraData.tags = (tagContent || "").split(',').map(t => t.trim()).filter(t => t !== "");
 
                     // THE DOM SYNC FIX: Force editor to show new content immediately on dropdown change
                     const editorEl = basta.dynamicElements?.loraTriggersEditor;
@@ -790,8 +784,6 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
                 if (typeof rawMeta === "string") { try { rawMeta = JSON.parse(rawMeta); } catch(e) { rawMeta = { Raw: rawMeta }; } }
                 const metaEntries = (typeof rawMeta === "object" && rawMeta !== null) ? Object.entries(rawMeta) : [];
 
-                loraData.baseModel = (data.baseModel && data.baseModel !== "Unknown") ? data.baseModel : (rawMeta.ss_base_model_version || loraData.baseModel || tLocale("$basta_lora_detail.labels.unknown", "Unknown"));
-
                 const potentialHashes = [
                     data.full_hash, data.auto_hash, data.hash
                 ].filter(h => h && typeof h === 'string' && h.length === 64)
@@ -891,7 +883,6 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
                     fallbackToMeta();
                 }
             }).catch(() => {
-            loraData.baseModel = tLocale("$basta_lora_detail.labels.unknown", "Unknown");
             loraData.metadataString = tLocale("$basta_lora_detail.metadata.failed", "Failed to fetch metadata.");
             const b = window.xcpActiveBastas?.get(id);
             if (b) {
@@ -903,29 +894,6 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
             }
         });
     }
-
-    const onScanTags = (purge = false) => {
-        showBastaMessage(host, purge ? tLocale("$basta_lora_detail.messages.purging_syncing", "Purging & Syncing Triggers...") : tLocale("$basta_lora_detail.messages.scanning", "Scanning for Triggers..."), 2000, {fade:true}, null, false, "info", "shuffle");
-        fetch("/xcp/extract_lora_tags", {
-            method: "POST",
-            body: JSON.stringify({ name: loraData.name, remove_txt: purge })
-        })
-            .then(r => r.json())
-            .then(data => {
-                if (data.success) {
-                    showBastaMessage(host, `${tLocale("$basta_lora_detail.messages.success_prefix", "Success!")} ${data.count} ${tLocale("$basta_lora_detail.messages.triggers_processed", "Triggers processed.")}`, 3000, {fade:true}, null, false, "success", "success");
-                    if (host.refreshNodeLayoutMap) host.refreshNodeLayoutMap();
-                }
-            });
-    };
-
-    const onManageTags = () => {
-        const category = `lora_triggers?name=${encodeURIComponent(loraData.name)}`;
-        showBastaFileHandler(host, category, targetRegion, {
-            title: `${tLocale("$basta_lora_detail.dialogs.manage.title", "Manage")}: ${loraData.name.replace(/\.safetensors$/i, "")}`,
-            mode: "rename"
-        });
-    };
 
     const config = {
         host: host,
@@ -1079,7 +1047,6 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
                     needsVisualDirty = true;
                 }
                 const hKey = this._hoveredRegionKey;
-                const hasImages = (loraData.images ? loraData.images.length : (loraData.imageCount || 0)) >= 1;
 
                 // Startup readiness gate: reveal externalRow only after nav geometry exists,
                 // so position is correct before first hover interaction.
@@ -1126,7 +1093,6 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
                 const targetAlpha = isHoveringNav ? 1.0 : 0.0;
                 if (this._navAlpha === undefined) this._navAlpha = 0;
 
-                const prevAlpha = this._navAlpha;
                 const alphaRes = animateAlpha(this._navAlpha, targetAlpha, IMAGE_NAV_ALPHA_SPEED, this.properties.useAnimations !== false);
                 this._navAlpha = alphaRes.value;
 

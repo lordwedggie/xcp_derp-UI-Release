@@ -19,21 +19,6 @@ export function getLoraDetailTitle(loraPath, rating = 0, hasPreview = false) {
     return icon + (getLoraDisplayName(loraPath) || "LoRA Detail");
 }
 
-export function detectLoraBaseModel(loraPath) {
-    const path = String(loraPath || "").toLowerCase();
-    if (path.includes("pony")) return "Pony Diffusion V6";
-    if (path.includes("illustrious")) return "Illustrious XL";
-    if (path.includes("1.5") || path.includes("v1-5")) return "SD 1.5";
-    return "SDXL";
-}
-
-export function normalizeLoraTags(rawValue) {
-    const rawTags = (typeof rawValue === "object") ? (rawValue?.tag || "") : (rawValue || "");
-    return rawTags.trim() !== ""
-        ? rawTags.split(",").map(t => t.trim()).filter(Boolean)
-        : ["None"];
-}
-
 export function buildLoraDetailPayload(node, lora, slotIndex) {
     return {
         name: getLoraDisplayName(lora?.[0]),
@@ -41,8 +26,6 @@ export function buildLoraDetailPayload(node, lora, slotIndex) {
         slotIndex,
         rawFileName: (lora?.[0] || "").replace(/\//g, "\\"),
         previewUrl: (node?._loraPreviewList?.includes(lora?.[0])) ? getPreviewImageUrl(lora[0], false) : null,
-        baseModel: detectLoraBaseModel(lora?.[0]),
-        tags: normalizeLoraTags(lora?.[4]),
         loraList: node?._loraList || [],
         loraPreviewList: node?._loraPreviewList || [],
         ratingsPalette: node?._ratingsPalette
@@ -477,55 +460,6 @@ export function getLoraRatingDropdownProps(node, basta, loraData) {
 }
 
 /**
- * getLoraTriggerDropdownProps: Generates props for the trigger selection dropdown in the detail panel.
- */
-export function getLoraTriggerDropdownProps(node, basta, loraData) {
-    const lName = loraData.rawFileName || loraData.name;
-    const triggers = node._loraTriggerArrayCache?.[lName] || [];
-    const items = triggers.length > 0 ? triggers : [{ key: "None", display: "None", tag: "" }];
-
-    const stack = node.properties.stackData || [];
-    const slotIdx = loraData.slotIndex;
-    const currentKey = stack[slotIdx]?.[3] || "None";
-
-    return {
-        items: items,
-        value: currentKey,
-        text: items.find(i => i.key === currentKey)?.display || "None",
-        onChange: (newKey) => {
-            if (!stack[slotIdx]) return;
-            const entry = items.find(i => i.key === newKey);
-
-            stack[slotIdx][3] = newKey;
-            stack[slotIdx][4] = entry ? (entry.tag || "") : "";
-
-            // THE SELECTION SYNC FIX: Force immediate refresh of all UI layers and signal transmission
-            if (node.refreshNodeLayoutMap) node.refreshNodeLayoutMap();
-            if (node.refreshDerpLoraStackSysMap) node.refreshDerpLoraStackSysMap();
-            if (node.syncDerpOutputs) node.syncDerpOutputs();
-            if (node.requestDerpSync) node.requestDerpSync();
-            node._forceSync = true;
-
-            if (basta) {
-                basta._activeTagKey = newKey;
-                basta._activeTagName = entry ? entry.display : "None";
-                if (basta.requestDerpSync) basta.requestDerpSync();
-                basta._forceSync = true;
-
-                // Update the tag editor value if it exists
-                const editorEl = basta.dynamicElements?.loraTriggersEditor;
-                if (editorEl) {
-                    editorEl.value = stack[slotIdx][4];
-                    editorEl.text = stack[slotIdx][4];
-                }
-            }
-
-            if (node.setDirtyCanvas) node.setDirtyCanvas(true, true);
-        }
-    };
-}
-
-/**
  * getLoraLoaderProps: Logic for the file browser within the detail panel.
  */
 export const getLoraLoaderProps = (host, basta, loraData) => ({
@@ -567,8 +501,6 @@ export const getLoraLoaderProps = (host, basta, loraData) => ({
             loraData.loraPath = normalizedPath;
             loraData.rawFileName = normalizedPath.replace(/\//g, "\\");
             loraData.name = getLoraDisplayName(normalizedPath);
-            loraData.baseModel = detectLoraBaseModel(normalizedPath);
-            loraData.tags = [];
             loraData.metadataString = null;
             loraData.notes = "";
             loraData.setup = null;
