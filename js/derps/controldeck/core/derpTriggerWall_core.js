@@ -567,6 +567,7 @@ export function triggerWall_itemDragStart(node, e, data, gIdx, tIdx) {
     const key = `triggerItem_${gIdx}_${tIdx}`;
     startStackDrag(node, data, tIdx, key, {
         payload: { key, gIdx, tIdx },
+        holdOnly: false,
     });
 }
 
@@ -575,7 +576,20 @@ export function triggerWall_itemDrag(node, e, data) {
     if (!node._dragThresholdMet) {
         const driftX = Math.abs(data.localX - node._dragMouse[0]);
         const driftY = Math.abs(data.localY - node._dragMouse[1]);
-        if (driftX > 2.5 || driftY > 2.5) cancelStackDragHold(node);
+        if (driftX > 2.5 || driftY > 2.5) {
+            if (node._dragTrig?.holdOnly) {
+                cancelStackDragHold(node);
+            } else {
+                if (node._dragHoldTimer) {
+                    clearTimeout(node._dragHoldTimer);
+                    node._dragHoldTimer = null;
+                }
+                node._dragThresholdMet = true;
+                if (!Number.isInteger(node._dropPreviewIdx) && Number.isInteger(node._dragTrig?.tIdx)) {
+                    node._dropPreviewIdx = node._dragTrig.tIdx;
+                }
+            }
+        }
         return;
     }
 
