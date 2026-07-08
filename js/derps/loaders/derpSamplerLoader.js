@@ -43,6 +43,9 @@ app.registerExtension({
             ].map(v => Number(v.toFixed(2)));
             const t_textNormal_size = vars.t_textNormal_size;
 
+            // Reserve space for the system button + mH gap (derpNotes pattern).
+            this.properties.footerHeight = 6 + mH;
+
             const deck = this.properties.samplerDeck || [];
             const samplerList = this._samplerList || [];
             const deckHash = deck.map(m => `${m.name}:${m.active}`).join("|");
@@ -215,16 +218,24 @@ app.registerExtension({
             }
 
             this.layoutMap = {
-                sysContentRegion: {
-                    anchor: { target: "headerRegion", axis: "y", },
-                    width: "full", height: "auto", dir: "col",
-                    margin: [mW, mH, mW, mH],
+                deckAndSpringRegion: {
+                    anchor: { target: "headerRegion", axis: "y" },
+                    width: "full", height: "fill", dir: "col",
+                    margin: [mW, mH, mW, 0],
                     regionSamplerDeck: {
                         width: "full", height: "auto", dir: "col", spacing: [0, sH],
                         hidden: deck.length === 0,
-                        margin: [0, mH, 0, mH],
+                        margin: [0, 0, 0, mH],
                         ...deckRegions
                     },
+                    springRegion: {
+                        width: "full", height: "fill", minHeight: 0,
+                        hidden: deck.length === 0,
+                    },
+                },
+                loaderRegion: {
+                    width: "full", height: "auto", dir: "col",
+                    margin: [mW, 0, mW, 0],
                     samplerDeckBreak: {
                         type: this.UI_TYPES.LINEBREAK,
                         margin: [-mW, 0],

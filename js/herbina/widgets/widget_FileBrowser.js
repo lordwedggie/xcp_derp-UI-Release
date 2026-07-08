@@ -91,15 +91,19 @@ import {
     clampPickerScroll,
     ensurePickerSelectionVisible,
     getFileBrowserCurrentDisplay,
+    getFileBrowserDirFromValue,
     getFileBrowserRootBreadcrumbName,
     getFileBrowserRootDisplayName,
     getFileBrowserItemValue,
     getFileRowPrefix as getFileRowPrefixHelper,
+    isFileBrowserDirUsable,
+    normalizeFileBrowserDir,
     getPickerScrollMetrics,
     getPickerSearchMatch,
     getSearchMatchScrollTarget,
     refreshActiveFilePickerState,
     rebuildFilePickerRows as rebuildFilePickerRowsHelper,
+    resolveUsableFileBrowserDir,
     syncActiveFilePickerSearch,
 } from "./helpers/fileBrowserHelpers.js";
 import {
@@ -443,6 +447,31 @@ function forceFileBrowserResync(node, config) {
     }
 }
 
+function shouldRememberFileBrowserDir(config, mode = getFileBrowserMode(config)) {
+    return !!config?.key && mode !== "signal" && !isDropdownFileBrowser(config);
+}
+
+function readLastFileBrowserDir(node, config, mode = getFileBrowserMode(config)) {
+    if (!node || !shouldRememberFileBrowserDir(config, mode)) return null;
+    if (!node._fileBrowserLastDirs || !Object.prototype.hasOwnProperty.call(node._fileBrowserLastDirs, config.key)) return null;
+    return normalizeFileBrowserDir(node._fileBrowserLastDirs[config.key]);
+}
+
+function rememberFileBrowserDir(node, config, mode, dir) {
+    if (!node || !shouldRememberFileBrowserDir(config, mode)) return;
+    const memory = node._fileBrowserLastDirs || (node._fileBrowserLastDirs = {});
+    memory[config.key] = normalizeFileBrowserDir(dir);
+}
+
+function avoidTemplateAutoDir(dir) {
+    const normalizedDir = normalizeFileBrowserDir(dir);
+    if (!normalizedDir) return "";
+    if (normalizedDir === "_Template" || normalizedDir === "_Templates" || normalizedDir.startsWith("_Template/") || normalizedDir.startsWith("_Templates/")) {
+        return "";
+    }
+    return normalizedDir;
+}
+
 function computePickerPrefixSlotWidth(state, ctx, labelPaint) {
     if (!state || !ctx) return 0;
     const fontSize = state.rowPaintOFF?.fontSize || labelPaint?.fontSize || 10;
@@ -515,6 +544,17 @@ function computeLabelPartColumnWidths(state, ctx, labelPaint) {
 }
 
 function rebuildFilePickerRows(state) {
+    const mode = getFileBrowserMode(state?.config);
+    if (state && shouldRememberFileBrowserDir(state.config, mode) && !isFileBrowserDirUsable(state.currentDir, state.config.items || [])) {
+        const selectedDir = avoidTemplateAutoDir(getFileBrowserDirFromValue(state.config.value, mode));
+        const repairedDir = resolveUsableFileBrowserDir(selectedDir, "", state.config.items || []);
+        if (normalizeFileBrowserDir(state.currentDir) !== repairedDir) {
+            state.currentDir = repairedDir;
+            state.scrollOffset = 0;
+            rememberFileBrowserDir(state.node, state.config, mode, repairedDir);
+        }
+    }
+
     const result = rebuildFilePickerRowsHelper(state, {
         getFileBrowserMode,
         isDropdownFileBrowser,
@@ -541,18 +581,12 @@ function openFilePicker(config, node) {
     const rowHeight = measureTextHeight("Hgyj", 0, theme.rowPaintOFF) + ((config.padding?.[1] || 2) * 2);
     const glyphs = getFileBrowserGlyphs(config?.icon);
 
-    let currentDir = "";
-    if (config.value && typeof config.value === "string") {
-        const normalized = config.value.replace(/[\\]/g, "/");
-        if (mode === "folder") {
-            currentDir = normalized === "/" ? "" : normalized;
-        } else if (normalized.includes("/")) {
-            currentDir = normalized.substring(0, normalized.lastIndexOf("/"));
-        }
-    }
-    // If the resolved directory is the _Template folder, start at root instead
-    if (currentDir && (currentDir === "_Template" || currentDir === "_Templates" || currentDir.startsWith("_Template/"))) {
-        currentDir = "";
+    const selectedDir = avoidTemplateAutoDir(getFileBrowserDirFromValue(config.value, mode));
+    const storedDirRaw = readLastFileBrowserDir(node, config, mode);
+    const storedDir = storedDirRaw == null ? null : avoidTemplateAutoDir(storedDirRaw);
+    const currentDir = resolveUsableFileBrowserDir(storedDir ?? selectedDir, selectedDir, config.items || []);
+    if (storedDirRaw != null && normalizeFileBrowserDir(storedDirRaw) !== currentDir) {
+        rememberFileBrowserDir(node, config, mode, currentDir);
     }
 
     activeFilePicker = {
@@ -748,10 +782,13 @@ function handlePickerRowAction(row) {
     if (!state || !row) return;
 
     if (row.type === "dir") {
+        const mode = getFileBrowserMode(state.config);
         state.currentDir = state.currentDir ? `${state.currentDir}/${row.name}` : row.name;
+        state.currentDir = normalizeFileBrowserDir(state.currentDir);
+        rememberFileBrowserDir(state.node, state.config, mode, state.currentDir);
         state.scrollOffset = 0;
         rebuildFilePickerRows(state);
-        if (getFileBrowserMode(state.config) === "folder" && state.callbacks.onChange) state.callbacks.onChange(state.currentDir || "/");
+        if (mode === "folder" && state.callbacks.onChange) state.callbacks.onChange(state.currentDir || "/");
         state.viewportFollowFrames = 8;
         state.lastViewportWarpHash = "";
         markPickerDirty(state.node);
@@ -759,6 +796,9 @@ function handlePickerRowAction(row) {
     }
 
     if (row.type === "file") {
+        const mode = getFileBrowserMode(state.config);
+        const rowDir = getFileBrowserDirFromValue(String(row.path ?? ""), mode) || state.currentDir;
+        rememberFileBrowserDir(state.node, state.config, mode, rowDir);
         forceFileBrowserResync(state.node, state.config);
         state.config.value = String(row.path ?? row.name ?? "");
         if (state.callbacks.onChange) state.callbacks.onChange(state.config.value);
@@ -767,7 +807,9 @@ function handlePickerRowAction(row) {
     }
 
     if (row.type === "select_folder") {
+        const mode = getFileBrowserMode(state.config);
         const finalPath = state.currentDir || "/";
+        rememberFileBrowserDir(state.node, state.config, mode, finalPath);
         if (state.callbacks.onFolderConfirm) {
             state.callbacks.onFolderConfirm(finalPath);
             closeFilePicker();
@@ -782,10 +824,12 @@ function handlePickerRowAction(row) {
 function handleBreadcrumbRowAction(path) {
     const state = activeFilePicker;
     if (!state) return;
-    state.currentDir = path || "";
+    const mode = getFileBrowserMode(state.config);
+    state.currentDir = normalizeFileBrowserDir(path);
+    rememberFileBrowserDir(state.node, state.config, mode, state.currentDir);
     state.scrollOffset = 0;
     rebuildFilePickerRows(state);
-    if (getFileBrowserMode(state.config) === "folder" && state.callbacks.onChange) state.callbacks.onChange(state.currentDir || "/");
+    if (mode === "folder" && state.callbacks.onChange) state.callbacks.onChange(state.currentDir || "/");
     state.viewportFollowFrames = 8;
     state.lastViewportWarpHash = "";
     markPickerDirty(state.node);

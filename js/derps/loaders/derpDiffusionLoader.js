@@ -213,6 +213,10 @@ app.registerExtension({
             const vars = this.getDerpVars(this);
             const [mW, mH, pW, pH, sH, sW, oY] = [vars.mW, vars.mH, vars.pW, vars.pH, vars.sH, vars.sW, vars.oY].map(v => Number(v.toFixed(2)));
             const t_textNormal_size = vars.t_textNormal_size;
+
+            // Reserve space for the system button + mH gap (derpNotes pattern).
+            this.properties.footerHeight = 6 + mH;
+
             const diffusionDeck = this.properties.diffusionDeck || [];
             const diffusionList = this._diffusionList || [];
             const deckHash = diffusionDeck.map(m => `${m.name}:${m.active}`).join("|");
@@ -230,18 +234,24 @@ app.registerExtension({
             const diffusionRegions = buildDeckRegions(this, diffusionDeck, "diffusionDeck", "diffusionRow_", "diffusionToggle_", "btnRemoveDiffusion_", "$derp_diffusion_loader.dialogs.remove_diffusion");
 
             this.layoutMap = {
-                sysContentRegion: {
-                    anchor: { target: "headerRegion", axis: "y", offset: mH },
-                    scrollViewport: true,
-                    clipHeight: this.properties.contentClipHeight || this.properties.loaderClipHeight || 180,
-                    width: "full", height: "auto", dir: "col",
-                    margin: [mW, mH, mW, mH],
+                deckAndSpringRegion: {
+                    anchor: { target: "headerRegion", axis: "y" },
+                    width: "full", height: "fill", dir: "col",
+                    margin: [mW, mH, mW, 0],
                     regionDiffusionDeck: {
                         width: "full", height: "auto", dir: "col", spacing: [0, sH],
                         hidden: diffusionDeck.length === 0,
                         margin: [0, 0, 0, mH],
                         ...diffusionRegions
                     },
+                    springRegion: {
+                        width: "full", height: "fill", minHeight: 0,
+                        hidden: diffusionDeck.length === 0,
+                    },
+                },
+                loaderRegion: {
+                    width: "full", height: "auto", dir: "col",
+                    margin: [mW, 0, mW, 0],
                     diffusionDeckBreak: {
                         type: this.UI_TYPES.LINEBREAK,
                         margin: [-mW, 0],
@@ -346,7 +356,7 @@ app.registerExtension({
                             }
                         }
                     },
-                }
+                },
             };
             if (this.layout) this.layout._lastCacheKey = "";
             this.requestDerpSync();

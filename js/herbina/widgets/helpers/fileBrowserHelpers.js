@@ -4,6 +4,38 @@ export function getFileBrowserItemValue(item) {
     return typeof item === "string" ? item : (item?.path ?? item?.value ?? item?.key ?? item?.id ?? item?.name ?? item?.title ?? "");
 }
 
+export function normalizeFileBrowserDir(value) {
+    return String(value || "").replace(/[\\]/g, "/").replace(/^\/+|\/+$/g, "");
+}
+
+export function getFileBrowserDirFromValue(value, mode) {
+    if (!value || typeof value !== "string") return "";
+    const normalized = value.replace(/[\\]/g, "/");
+    if (mode === "folder") return normalizeFileBrowserDir(normalized);
+    const lastSlash = normalized.lastIndexOf("/");
+    if (lastSlash <= 0) return "";
+    return normalizeFileBrowserDir(normalized.substring(0, lastSlash));
+}
+
+export function isFileBrowserDirUsable(dir, items) {
+    const normalizedDir = normalizeFileBrowserDir(dir);
+    if (!normalizedDir) return true;
+    if (!Array.isArray(items) || items.length === 0) return false;
+    return items.some((item) => {
+        if (item && typeof item === "object" && item.alwaysVisible) return false;
+        const normalizedPath = normalizeFileBrowserDir(getFileBrowserItemValue(item));
+        return normalizedPath === normalizedDir || normalizedPath.startsWith(`${normalizedDir}/`);
+    });
+}
+
+export function resolveUsableFileBrowserDir(preferredDir, fallbackDir, items) {
+    const normalizedPreferred = normalizeFileBrowserDir(preferredDir);
+    if (isFileBrowserDirUsable(normalizedPreferred, items)) return normalizedPreferred;
+    const normalizedFallback = normalizeFileBrowserDir(fallbackDir);
+    if (isFileBrowserDirUsable(normalizedFallback, items)) return normalizedFallback;
+    return "";
+}
+
 export function getFileBrowserLeafDisplay(value) {
     return String(value || "")
         .replace(/[\\]/g, "/")
