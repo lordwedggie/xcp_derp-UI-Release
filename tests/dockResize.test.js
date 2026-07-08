@@ -39,6 +39,24 @@ function makeVerticalPair() {
   return { top, bottom, graph };
 }
 
+function makeHorizontalPair() {
+  const left = makeNode(1, 0);
+  const right = makeNode(2, 0);
+  right.pos[0] = 100;
+  left.properties.deckEdges.right = right.id;
+  right.properties.deckEdges.left = left.id;
+  const graph = { _nodes: [left, right] };
+  window.app.graph = graph;
+  globalThis.app = window.app;
+  return { left, right, graph };
+}
+
+function getHorizontalSpan(nodes) {
+  const left = Math.min(...nodes.map((node) => node.pos[0]));
+  const right = Math.max(...nodes.map((node) => node.pos[0] + node.size[0]));
+  return right - left;
+}
+
 describe('dock resize pair math', () => {
   it('snaps the preserved horizontal seam total before calculating the counterpart width', () => {
     const result = resolveHorizontalSeamResizeWidths(105, 100, 90, 60, 60, 10);
@@ -217,5 +235,31 @@ describe('dock resize live shield sync', () => {
     expect(top.size[0]).toBe(140);
     expect(bottom.size[0]).toBe(140);
     expect(top.size[1] + bottom.size[1]).toBe(230);
+  });
+
+  it('uses full snap thresholds for horizontal stack corner width resize at zoomed-out scale', () => {
+    const { left, right } = makeHorizontalPair();
+    right._startPos = [100, 0];
+    right._startSize = [100, 100];
+
+    handleNodeResize(right, { dx: 7.5, dy: 0, resizeAnchor: 'bottom-right' }, 0.5);
+
+    expect(getHorizontalSpan([left, right])).toBe(210);
+    expect(left.size[0] + right.size[0]).toBe(210);
+  });
+
+  it('restores horizontal stack widths when a corner drag returns to the zero-snap band', () => {
+    const { left, right } = makeHorizontalPair();
+    right._startPos = [100, 0];
+    right._startSize = [100, 100];
+
+    handleNodeResize(right, { dx: -15, dy: 0, resizeAnchor: 'bottom-right' }, 1);
+    expect(getHorizontalSpan([left, right])).toBe(190);
+
+    handleNodeResize(right, { dx: -9, dy: 0, resizeAnchor: 'bottom-right' }, 1);
+    expect(getHorizontalSpan([left, right])).toBe(200);
+
+    handleNodeResize(right, { dx: 10, dy: 0, resizeAnchor: 'bottom-right' }, 1);
+    expect(getHorizontalSpan([left, right])).toBe(210);
   });
 });

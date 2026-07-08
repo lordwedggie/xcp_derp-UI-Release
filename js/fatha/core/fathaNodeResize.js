@@ -49,6 +49,12 @@ function getResizeSessionPressureMinWidth(entity, graph, snap, fallbackMinWidth)
     return value;
 }
 
+function snapResizeDeltaTowardZero(value, snap) {
+    const unit = Math.max(1, Number(snap) || 10);
+    const raw = Number(value) || 0;
+    return Math.trunc(raw / unit) * unit;
+}
+
 export function handleNodeResize(entity, data, scale) {
     const { SNAP, autoWidth, autoHeight } = entity.getDerpVars ? entity.getDerpVars(entity) : getDerpVars(entity);
     const resizeAnchor = data.resizeAnchor || "bottom-right";
@@ -154,7 +160,9 @@ export function handleNodeResize(entity, data, scale) {
         ? getDockNodeMinHeight(entity, 0, SNAP)
         : (Number(entity._startSize?.[1]) || Number(entity.size?.[1]) || 0);
     const rawDeltaW = deltaX * anchorMode.wSign;
-    const snappedStackDeltaW = Math.round(rawDeltaW / SNAP) * SNAP;
+    const snappedStackDeltaW = allowHorizontalStackWidthResize
+        ? snapResizeDeltaTowardZero(rawDeltaW, SNAP)
+        : Math.round(rawDeltaW / SNAP) * SNAP;
     const rawW = startW + rawDeltaW;
     const newW = allowWidthResize
         ? (allowHorizontalStackWidthResize ? startW + snappedStackDeltaW : Math.max(minW, Math.round(rawW / SNAP) * SNAP))

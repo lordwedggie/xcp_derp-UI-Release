@@ -66,6 +66,8 @@ Relevant framework call sites:
 
 <span style="color: #ffc680"><strong>Note:</strong></span> `minClipHeight` is separate from `clipHeight`. `clipHeight` controls the current visible height. `minClipHeight` controls how much the viewport contributes to manual resize floors through `_contentViewportState[viewportKey].minClipHeight` and `layout.contentMinHeight`.
 
+<span style="color: #ffc680"><strong>Note:</strong></span> Scrollbar gutter width is a published layout adjustment, not intrinsic content width. `masterLayoutEngine` keeps PASS 1 intrinsic width in `layout.intrinsicContentMinWidth` and applies the viewport gutter after that baseline is captured, so cached layout passes cannot add the same gutter repeatedly. This prevents clipped `Fit Node` members in horizontal stacks from growing wider after each refresh.
+
 ## <span style="color: #80ffc0">Drawing</span>
 
 <span style="color: #80aaff"><strong>Clipped draw remap:</strong></span> `fathaContentViewportDraw.js` exposes helpers that convert normal region drawing into viewport-aware drawing.

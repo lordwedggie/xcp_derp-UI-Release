@@ -171,6 +171,7 @@ To add a skill, create `.agents/skills/<name>/SKILL.md` with YAML frontmatter (`
 - `_childConfigs` must be stored on every region during processing (`currentRegion._childConfigs = children`). Never iterate `Object.keys(region)` to find children — you'll pick up computed props like `x`, `y`, `w`, `h`, `_config`, etc. All reflow, rebalance, and contentMinHeight recursion must use `_childConfigs`.
 - `contentMinHeight` must recursively walk into ALL children (including fill-height parents) because auto-height children inside collapsed fill parents still overflow below the fill region's tiny height. The true minimum node height is the maximum bottom of all nested content, not just the parent's direct children.
 - Resize min-height (`getVerticalResizeTargetMinHeight`) must include header height and `footerHeight` in the compact floor calculation. Anchored fills in PASS 1 don't push flow siblings down, so just summing direct children misses header/footer and allows shrinking into content.
+- Content viewport scrollbar gutter is not intrinsic content width. Keep PASS 1 rigid width in `layout.intrinsicContentMinWidth`, then publish gutter-adjusted `layout.contentMinWidth` afterward. Otherwise cached clipped viewport passes can add the same gutter repeatedly and make horizontal `Fit Node` stacks grow wider after each refresh.
 
 ### Widget Patterns
 
@@ -258,6 +259,9 @@ To add a skill, create `.agents/skills/<name>/SKILL.md` with YAML frontmatter (`
 - Deck Pressure idle optimization should use a stable geometry signature cache; do not rerun pressure reflow every frame when all members are idle and unchanged.
 - Deck Pressure branch member order must follow deck topology, not live x/y sorting; shared-edge resize can temporarily overlap positions and would otherwise swap nodes.
 - Horizontal stack width compensation must ignore the first observed edge-member width after load/dock; first-pass autoWidth settling is baseline hydration, not a runtime delta to rebalance.
+- Horizontal stack outer-corner width resize must snap pointer delta toward zero from the gesture start, not nearest-snap round it. At low canvas zoom, nearest rounding turns a 15px graph-space drag into a premature 20px stack jump.
+- Horizontal stack outer-corner width resize must treat explicit snapped delta `0` as "restore session baseline", not as no-op. Crossing `-10 -> 0 -> +10` inside one gesture should visually step 10px at a time, not leave the stack at `-10` then jump straight to `+10`.
+- Horizontal stack corner affordance must use side-specific resize gates. Internal shared sides require `canResizeHorizontalSharedEdgeWidth()`; outer stack boundaries use `canResizeHorizontalStackWidth()`. Horizontal-stack corners are width-only, so the DOM shield cursor should be `ew-resize` when active and hidden/default when blocked, not diagonal just because the node itself is manual-width.
 - Deck Pressure collapsed side-branch heights must be measured from a recomputed collapsed layout, not stale expanded layout caches; collapsed members must never receive spare frame height.
 - Deck Pressure side branches must keep at least one member expanded as the filler; if every member is collapsed, uncollapse the active member before distributing spare height.
 - Deck Pressure min-span measurement is hot-path code; cache per node by axis/collapsed state/snap/width/layout hash, not current height, because pressure reflow changes height continuously.

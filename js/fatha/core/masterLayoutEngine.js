@@ -151,6 +151,7 @@ export class masterLayoutEngine {
         this.totalHeight = 0;
         this.originalWidth = 0; // Stores the initial node width (before expansion)
         this.contentMinWidth = 0; // Tracks the absolute minimum width required by content
+        this.intrinsicContentMinWidth = 0; // PASS 1 width before viewport gutter publishing
         this.contentMinHeight = 0;
         this._lastCacheKey = ""; // Optimization: Tracks the previous state hash
         this._cachedMapHash = ""; // Optimization: Cached _hashMap result to avoid per-frame recursion
@@ -348,7 +349,7 @@ export class masterLayoutEngine {
             return;
         }
 
-        const canSkipPass1 = this._lastStructureHash === structureHash && this.contentMinWidth > 0 && !isForced;
+        const canSkipPass1 = this._lastStructureHash === structureHash && (this.intrinsicContentMinWidth || this.contentMinWidth) > 0 && !isForced;
 
         this._lastCacheKey = cacheKey;
         this._lastStructureHash = structureHash;
@@ -365,6 +366,7 @@ export class masterLayoutEngine {
             this.runLayoutPass(measureBounds, profileMap, context);
             this._measurePass = false;
             const measuredMinWidth = this.contentMinWidth;
+            this.intrinsicContentMinWidth = measuredMinWidth;
             applyContentViewportLayout(this.owner, this.regions, this, { publishState: false });
             this.contentMinWidth = measuredMinWidth;
 
@@ -388,7 +390,7 @@ export class masterLayoutEngine {
             };
             this.contentMinHeight = rootRegsMeasure.length > 0 ? maxBottom(rootRegsMeasure) - bounds.y : 40;
         }
-        const rigidMinWidth = this.contentMinWidth;
+        const rigidMinWidth = this.intrinsicContentMinWidth || this.contentMinWidth;
 
         // PASS 2: Content Alignment.
         const padL = this.owner?._padL || 0;

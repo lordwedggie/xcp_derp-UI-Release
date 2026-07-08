@@ -1335,12 +1335,28 @@ function applyHorizontalStackWidthResize(entity, resizeAnchor, requestedEntityWi
     const originalTotalWidth = members.reduce((sum, member) => sum + (originalWidths.get(member.id) || 0), 0);
     const entityStartWidth = originalWidths.get(entity.id) || getDockNodeWidth(entity);
     const explicitDelta = Number(entity._dockResizeRequestedDeltaW);
+    const hasExplicitDelta = Number.isFinite(explicitDelta);
     const requestedDelta = Number.isFinite(explicitDelta)
         ? explicitDelta
         : Number(requestedEntityWidth) - entityStartWidth;
-    if (!Number.isFinite(requestedDelta) || Math.abs(requestedDelta) < 0.5) return false;
+    if (!Number.isFinite(requestedDelta) || (!hasExplicitDelta && Math.abs(requestedDelta) < 0.5)) return false;
     const snappedRequestedDelta = snapResizeValue(requestedDelta, snap);
-    if (Math.abs(snappedRequestedDelta) < 0.5) return false;
+    if (Math.abs(snappedRequestedDelta) < 0.5) {
+        members.forEach((member) => {
+            const width = originalWidths.get(member.id) || getDockNodeWidth(member);
+            const startPos = session.stackStartPositions?.[member.id] || member.pos || [0, 0];
+            member._horizontalDeckWidthResizeValue = width;
+            const sizeChanged = syncDeckNodeSize(member, width, getDockNodeHeight(member), { silent: true, deferDirty: true, deferSync: true, liveResize: true });
+            const posChanged = setDeckNodePos(member, Number(startPos[0]) || 0, Number(startPos[1]) || 0);
+            if ((sizeChanged || posChanged) && typeof member.syncUncleSlots === "function") member.syncUncleSlots();
+            addCounterpart(member);
+        });
+        result.handledWidth = true;
+        result.handledAll = true;
+        result.liveResize = true;
+        result.appliedWidth = originalWidths.get(entity.id) || getDockNodeWidth(entity);
+        return true;
+    }
 
     const anchorX = isLeftHandle
         ? members.reduce((max, member) => {
