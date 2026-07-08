@@ -150,6 +150,20 @@ export function canResizeVerticalMemberHeight(node, graph) {
     return true;
 }
 
+export function canResizeHorizontalMemberHeight(node, graph) {
+    if (node?.properties?.contentCollapsed === true) return false;
+    if (resolveDerpPreferredAutoHeight(node)) return false;
+    return true;
+}
+
+export function canResizeHorizontalStackHeight(node, graph) {
+    if (!graph || !node) return false;
+    if (isDeckPressureHub(node)) return false;
+    const members = getHorizontalDeckMembersByX(node, graph);
+    if (members.length <= 1) return false;
+    return members.some((member) => canResizeHorizontalMemberHeight(member, graph));
+}
+
 export function canResizeVerticalStackHeight(node, graph, side = null) {
     if (!graph || !node) return false;
     if (isDeckPressureHub(node)) return false;

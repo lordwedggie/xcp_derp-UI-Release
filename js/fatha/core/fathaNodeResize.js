@@ -1,6 +1,6 @@
 import { sysPanel } from "../helpers/fathaSysPanel.js";
 import { applyDockResizeResult, getVerticalResizeTargetMinHeight, syncDockResizePair } from "./dockResize.js";
-import { canResizeDeckPressureSideWidthMember, canResizeHorizontalSharedEdgeWidth, canResizeHorizontalStackWidth, canResizeVerticalStackHeight } from "./dockResizeSharedEdges.js";
+import { canResizeDeckPressureSideWidthMember, canResizeHorizontalSharedEdgeWidth, canResizeHorizontalStackHeight, canResizeHorizontalStackWidth, canResizeVerticalStackHeight, getHorizontalDeckMembersByX } from "./dockResizeSharedEdges.js";
 import { getDockGroupAxisFromMembers, getDockNodeMinHeight, getDockNodeMinWidth, resolveDockResizeAxes } from "./dockDimensions.js";
 import { applyDeckPressureLayout, getDeckMembers, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureBranchAxis, getDeckPressureHubForNode, getDeckPressureHubMinWidth, getNodeOnDeckEdge, isDeckPressureHub, isDeckPressureSideWidthResizeEdge, setDeckNodePos } from "./masterDockEngine.js";
 import { dockDebug, snapshotDockNode } from "./dockDebugHelpers.js";
@@ -55,6 +55,12 @@ function snapResizeDeltaTowardZero(value, snap) {
     return Math.trunc(raw / unit) * unit;
 }
 
+function getHorizontalStackHeightMin(entity, graph, snap) {
+    const members = getHorizontalDeckMembersByX(entity, graph);
+    const targets = members.length > 1 ? members : [entity];
+    return targets.reduce((max, member) => Math.max(max, getVerticalResizeTargetMinHeight(member, snap)), 0);
+}
+
 export function handleNodeResize(entity, data, scale) {
     const { SNAP, autoWidth, autoHeight } = entity.getDerpVars ? entity.getDerpVars(entity) : getDerpVars(entity);
     const resizeAnchor = data.resizeAnchor || "bottom-right";
@@ -76,6 +82,9 @@ export function handleNodeResize(entity, data, scale) {
     const allowHorizontalSharedEdgeWidthResize = !!horizontalStackResizeSide
         && !resizeAxes.allowWidth
         && canResizeHorizontalSharedEdgeWidth(entity, graph, horizontalStackResizeSide);
+    const allowHorizontalStackHeightResize = isVerticalCorner
+        && axis === "horizontal"
+        && canResizeHorizontalStackHeight(entity, graph);
     const verticalStackResizeSide = (resizeAnchor === "top" || isTopCorner)
         ? "top"
         : ((resizeAnchor === "bottom" || isBottomCorner) ? "bottom" : null);
@@ -93,6 +102,9 @@ export function handleNodeResize(entity, data, scale) {
         resizeAxes.allowHeight = !preferredAutoHeight;
     }
     if (allowVerticalStackHeightResize) {
+        resizeAxes.allowHeight = true;
+    }
+    if (allowHorizontalStackHeightResize) {
         resizeAxes.allowHeight = true;
     }
     if (axis === "vertical" && isVerticalCorner && !allowVerticalStackHeightResize) {
@@ -135,7 +147,9 @@ export function handleNodeResize(entity, data, scale) {
     const minW = isPressureHubResize
         ? getResizeSessionPressureMinWidth(entity, graph, SNAP, fallbackMinW)
         : (isVStackCornerHeightResize && startWForMinClamp > 0 ? Math.min(fallbackMinW, startWForMinClamp) : fallbackMinW);
-    const minH = isPressureHubResize ? SNAP * 8 : getVerticalResizeTargetMinHeight(entity, SNAP, { preserveExpandedFloor: true });
+    const minH = isPressureHubResize
+        ? SNAP * 8
+        : (allowHorizontalStackHeightResize ? getHorizontalStackHeightMin(entity, graph, SNAP) : getVerticalResizeTargetMinHeight(entity, SNAP, { preserveExpandedFloor: true }));
 
     const deltaX = data.dx / scale;
     const deltaY = data.dy / scale;
@@ -173,7 +187,7 @@ export function handleNodeResize(entity, data, scale) {
     const rawH = startH + rawDeltaH;
     const isCollapsedVerticalBoundaryHeightResize = collapsedInVertical && allowHeightResize;
     const newH = allowHeightResize
-        ? (allowVerticalStackHeightResize ? startH + snappedStackDeltaH : (isCollapsedVerticalBoundaryHeightResize ? Math.round(rawH / SNAP) * SNAP : Math.max(minH, Math.round(rawH / SNAP) * SNAP)))
+        ? ((allowVerticalStackHeightResize || allowHorizontalStackHeightResize) ? startH + snappedStackDeltaH : (isCollapsedVerticalBoundaryHeightResize ? Math.round(rawH / SNAP) * SNAP : Math.max(minH, Math.round(rawH / SNAP) * SNAP)))
         : (collapsedInVertical ? getDockNodeMinHeight(entity, 0, SNAP) : entity.size[1]);
 
     let dockResizeResult;

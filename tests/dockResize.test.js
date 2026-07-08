@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { handleDerpComputeSizeImpl, resolveHorizontalSeamResizeWidths, syncDockResizePair } from '../js/fatha/core/dockResize.js';
+import { handleDerpComputeSizeImpl, resolveHorizontalDeckSharedHeightImpl, resolveHorizontalSeamResizeWidths, syncDockResizePair } from '../js/fatha/core/dockResize.js';
 import { getActiveVerticalDeckWidthLock, getActiveVerticalNodeWidthLock } from '../js/fatha/core/dockDimensions.js';
 import { handleNodeResize } from '../js/fatha/core/fathaNodeResize.js';
 
@@ -49,6 +49,17 @@ function makeHorizontalPair() {
   window.app.graph = graph;
   globalThis.app = window.app;
   return { left, right, graph };
+}
+
+function markFixedHeight(node) {
+  node.properties.autoHeight = true;
+  node.getDerpVars = () => ({ SNAP: 10, autoWidth: false, autoHeight: true });
+}
+
+function markFitHeight(node, minHeight = 40) {
+  node.properties.autoHeight = false;
+  node.layout.contentMinHeight = minHeight;
+  node.layout.totalHeight = Math.max(node.size[1], minHeight);
 }
 
 function getHorizontalSpan(nodes) {
@@ -261,5 +272,97 @@ describe('dock resize live shield sync', () => {
 
     handleNodeResize(right, { dx: 10, dy: 0, resizeAnchor: 'bottom-right' }, 1);
     expect(getHorizontalSpan([left, right])).toBe(210);
+  });
+
+  it('blocks horizontal stack corner height resize when every member is fixed-height', () => {
+    const { left, right } = makeHorizontalPair();
+    markFixedHeight(left);
+    markFixedHeight(right);
+    right._startPos = [100, 0];
+    right._startSize = [100, 100];
+
+    handleNodeResize(right, { dx: 0, dy: 40, resizeAnchor: 'bottom-right' }, 1);
+
+    expect(left.size[1]).toBe(100);
+    expect(right.size[1]).toBe(100);
+  });
+
+  it('allows horizontal stack corner height resize when one member is Fit Node height', () => {
+    const { left, right } = makeHorizontalPair();
+    markFixedHeight(left);
+    markFitHeight(right, 70);
+    right._startPos = [100, 0];
+    right._startSize = [100, 100];
+
+    handleNodeResize(right, { dx: 0, dy: 40, resizeAnchor: 'bottom-right' }, 1);
+
+    expect(left.size[1]).toBe(140);
+    expect(right.size[1]).toBe(140);
+    expect(left.pos[1]).toBe(0);
+    expect(right.pos[1]).toBe(0);
+  });
+
+  it('clamps horizontal stack height resize to the Fit Node compact floor', () => {
+    const { left, right } = makeHorizontalPair();
+    markFixedHeight(left);
+    markFitHeight(right, 70);
+    right._startPos = [100, 0];
+    right._startSize = [100, 100];
+
+    handleNodeResize(right, { dx: 0, dy: -100, resizeAnchor: 'bottom-right' }, 1);
+
+    expect(left.size[1]).toBe(70);
+    expect(right.size[1]).toBe(70);
+  });
+
+  it('keeps the bottom edge pinned for top-corner horizontal stack height resize', () => {
+    const { left, right } = makeHorizontalPair();
+    markFixedHeight(left);
+    markFitHeight(right, 70);
+    right._startPos = [100, 0];
+    right._startSize = [100, 100];
+
+    handleNodeResize(right, { dx: 0, dy: -30, resizeAnchor: 'top-right' }, 1);
+
+    expect(left.size[1]).toBe(130);
+    expect(right.size[1]).toBe(130);
+    expect(left.pos[1]).toBe(-30);
+    expect(right.pos[1]).toBe(-30);
+  });
+
+  it('does not undo horizontal stack top-corner y when width delta returns to zero', () => {
+    const { left, right } = makeHorizontalPair();
+    markFixedHeight(left);
+    markFitHeight(right, 70);
+    right._startPos = [100, 0];
+    right._startSize = [100, 100];
+
+    handleNodeResize(right, { dx: 10, dy: -30, resizeAnchor: 'top-right' }, 1);
+    handleNodeResize(right, { dx: 0, dy: -40, resizeAnchor: 'top-right' }, 1);
+
+    expect(left.size[1]).toBe(140);
+    expect(right.size[1]).toBe(140);
+    expect(left.pos[1]).toBe(-40);
+    expect(right.pos[1]).toBe(-40);
+  });
+
+  it('keeps manual Fit Node row height after horizontal stack resize release', () => {
+    const { left, right } = makeHorizontalPair();
+    markFixedHeight(left);
+    markFitHeight(right, 70);
+    right._startPos = [100, 0];
+    right._startSize = [100, 100];
+
+    handleNodeResize(right, { dx: 0, dy: 40, resizeAnchor: 'bottom-right' }, 1);
+    left._isDerpResizing = false;
+    right._isDerpResizing = false;
+    left._dockResizePreserveHeight = false;
+    right._dockResizePreserveHeight = false;
+
+    const sharedHeight = resolveHorizontalDeckSharedHeightImpl(right, {
+      getDerpVars: (node) => node.getDerpVars(node),
+    });
+
+    expect(sharedHeight).toBe(140);
   });
 });
