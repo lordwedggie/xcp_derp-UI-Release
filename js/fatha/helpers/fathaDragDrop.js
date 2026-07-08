@@ -124,7 +124,7 @@ function getInsertionAfter(candidateIndex, dragIndex) {
     return candidateIndex < dragIndex ? candidateIndex + 1 : candidateIndex;
 }
 
-function activateStackDrag(node) {
+export function activateStackDrag(node) {
     if (!node?._dragTrig || node._dragThresholdMet) return;
 
     if (node._dragHoldTimer) {

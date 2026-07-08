@@ -408,8 +408,10 @@ function buildTriggerWallStructuralHash(node, params) {
         widthBucket,
         selectedIdx,
         dropPreviewIdx,
+        dropPreviewGroupIdx,
         dragTIdx,
         dragIndex,
+        dragKind,
         dragThreshold,
         showWeight,
         toggleAddAlways,
@@ -436,15 +438,19 @@ function buildTriggerWallStructuralHash(node, params) {
 
     const useDragFields = !!dragThreshold;
     const hashDropPreviewIdx = useDragFields ? (dropPreviewIdx ?? "u") : "u";
+    const hashDropPreviewGroupIdx = useDragFields ? (dropPreviewGroupIdx ?? "u") : "u";
     const hashDragTIdx = useDragFields ? (dragTIdx ?? "u") : "u";
     const hashDragIndex = useDragFields ? (dragIndex ?? "u") : "u";
+    const hashDragKind = useDragFields ? (dragKind || "u") : "u";
 
     return [
         widthBucket,
         selectedIdx,
         hashDropPreviewIdx,
+        hashDropPreviewGroupIdx,
         hashDragTIdx,
         hashDragIndex,
+        hashDragKind,
         dragThreshold ? 1 : 0,
         showWeight ? 1 : 0,
         toggleAddAlways ? 1 : 0,
@@ -557,8 +563,10 @@ app.registerExtension({
                 widthBucket: hashWidthBucket,
                 selectedIdx: selectedIdxForHash,
                 dropPreviewIdx: this._dropPreviewIdx,
+                dropPreviewGroupIdx: this._dropPreviewGroupIdx,
                 dragTIdx: this._dragTrig?.tIdx,
                 dragIndex: this._dragTrig?.index,
+                dragKind: this._dragTrig?.dragKind,
                 dragThreshold: !!this._dragThresholdMet,
                 showWeight: this.properties.showWeight !== false,
                 toggleAddAlways: !!this.properties.toggleAddAlways,
@@ -614,15 +622,16 @@ app.registerExtension({
             const visibleGroupIndices = visibleGroupEntriesBase.map(({ gIdx }) => gIdx);
             const visibleGroupEntries = [...visibleGroupEntriesBase];
             let floatingGroupEntry = null;
+            const isGroupDragPreviewActive = this._dragTrig?.dragKind === "group" && this._dragThresholdMet && this._dragTrig.index !== undefined;
 
-            if (this._dragTrig && this._dragThresholdMet && this._dragTrig.index !== undefined && this._dragTrig.regionKey && !this._floatingPreviewSnapshot) {
+            if (isGroupDragPreviewActive && this._dragTrig.regionKey && !this._floatingPreviewSnapshot) {
                 this._floatingPreviewSnapshot = {
                     rootKey: this._dragTrig.regionKey,
                     regions: captureFloatingPreviewRegions(this, this._dragTrig.regionKey)
                 };
             }
 
-            if (this._dragTrig && this._dragThresholdMet && this._dragTrig.index !== undefined) {
+            if (isGroupDragPreviewActive) {
                 const d = this._dragTrig;
                 const pIdx = (this._dropPreviewIdx !== undefined) ? this._dropPreviewIdx : d.index;
                 [floatingGroupEntry] = visibleGroupEntries.splice(d.index, 1);
@@ -653,12 +662,30 @@ app.registerExtension({
                     ...(group.triggers || []).map((trig, idx) => ({ type: "trig", trig, idx })).filter(i => !i.trig.hidden),
                     { type: "add" }
                 ];
-                if (itemDragEnabled && this._dragTrig && this._dragThresholdMet && this._dragTrig.gIdx === gIdx) {
+                if (itemDragEnabled && this._dragTrig?.dragKind === "trigger" && this._dragThresholdMet) {
                     const d = this._dragTrig;
-                    const pIdx = (this._dropPreviewIdx !== undefined) ? this._dropPreviewIdx : d.tIdx;
-                    const [moved] = items.splice(d.tIdx, 1);
-                    moved.isTriggerPreviewGhost = true;
-                    items.splice(pIdx, 0, moved);
+                    const targetGIdx = this._dropPreviewGroupIdx ?? d.gIdx;
+                    if (targetGIdx === d.gIdx && d.gIdx === gIdx) {
+                        const pIdx = (this._dropPreviewIdx !== undefined) ? this._dropPreviewIdx : d.tIdx;
+                        const movedIdx = items.findIndex(item => item.type === "trig" && item.idx === d.tIdx);
+                        if (movedIdx !== -1) {
+                            const [moved] = items.splice(movedIdx, 1);
+                            moved.isTriggerPreviewGhost = true;
+                            const addSlot = Math.max(0, items.length - 1);
+                            items.splice(Math.max(0, Math.min(pIdx, addSlot)), 0, moved);
+                        }
+                    } else if (targetGIdx === gIdx) {
+                        const sourceTrig = this._triggerGroupData?.[d.gIdx]?.triggers?.[d.tIdx];
+                        if (sourceTrig) {
+                            const pIdx = (this._dropPreviewIdx !== undefined) ? this._dropPreviewIdx : (items.length - 1);
+                            const addSlot = Math.max(0, items.length - 1);
+                            items.splice(Math.max(0, Math.min(pIdx, addSlot)), 0, {
+                                type: "dropPreview",
+                                trig: sourceTrig,
+                                idx: `dropPreview_${d.gIdx}_${d.tIdx}`,
+                            });
+                        }
+                    }
                 }
 
                 const triggerFontSize = (this._t_textSmallPaintData?.fontSize || this._t_textNormalPaintData?.fontSize || 10);
@@ -681,7 +708,7 @@ app.registerExtension({
 
                 const trigGroups = items.reduce((acc, item) => {
                     let tw = 0;
-                    if (item.type === "trig") {
+                    if (item.type === "trig" || item.type === "dropPreview") {
                         bumpTWPerfCounter(this, "measure");
                         const trigWeight = Number(item.trig.weight ?? 1.0);
                         const showWeight = this.properties.showWeight !== false;
@@ -729,8 +756,24 @@ app.registerExtension({
                             if (renderGhostPlaceholders) {
                                 const placeholderKey = item.type === "trig"
                                     ? (rowAnchorPrefix === "triggerRow" ? `triggerItem_${gIdx}_${item.idx}` : `${rowAnchorPrefix}Item_${gIdx}_${item.idx}`)
+                                    : item.type === "dropPreview"
+                                        ? `${rowAnchorPrefix === "triggerRow" ? "triggerDropPreview" : `${rowAnchorPrefix}DropPreview`}_${gIdx}_${item.idx}`
                                     : (rowAnchorPrefix === "triggerRow" ? `btnAdd_${gIdx}` : `${rowAnchorPrefix}Add_${gIdx}`);
                                 return [placeholderKey, {
+                                    type: this.UI_TYPES.REGION,
+                                    themeKey: "region",
+                                    alpha: 0,
+                                    hoverEffect: false,
+                                    width: item.measuredW || trigHeight,
+                                    height: trigHeight,
+                                    margin: [0, 0],
+                                    padding: [0, 0]
+                                }];
+                            }
+
+                            if (item.type === "dropPreview") {
+                                const previewKey = `${rowAnchorPrefix === "triggerRow" ? "triggerDropPreview" : `${rowAnchorPrefix}DropPreview`}_${gIdx}_${item.idx}`;
+                                return [previewKey, {
                                     type: this.UI_TYPES.REGION,
                                     themeKey: "region",
                                     alpha: 0,
@@ -965,7 +1008,10 @@ app.registerExtension({
                     firstRowAnchorTarget: (!this.properties.settingActive && !isSelected) ? regionKey : `lineBreak_${gIdx}`,
                     regionProps: {
                         anchor: { target: lastRegionKey, axis: "y", offset: isFirstGroup ? 0 : -mH },
-                        onDragStart: (e, data) => startStackDrag(this, data, visibleGroupIndices.indexOf(gIdx), regionKey),
+                        onDragStart: (e, data) => startStackDrag(this, data, visibleGroupIndices.indexOf(gIdx), regionKey, {
+                            holdOnly: false,
+                            payload: { dragKind: "group" }
+                        }),
                         onDrag: (e, data) => {
                             triggerWall_groupDrag(this, data, visibleGroupIndices);
                         },

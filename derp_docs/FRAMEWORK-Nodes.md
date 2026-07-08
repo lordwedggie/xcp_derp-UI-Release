@@ -151,6 +151,7 @@ if (this._layoutMapHash === structureHash && this.layoutMap) {
 - Cache key includes: size, layout hash, theme name, mode, collapsed, settings active, header visibility, hover/press region, device pixel ratio
 - Cache invalidated on: dropdown open, file browser open, drag, modal open, force sync, layout dirty
 - `_triggerWallCacheSuspendUntil` — temporary cache suspension timestamp
+- Trigger item drag-and-drop is distinct from trigger group drag-and-drop. Trigger drags use `_dragTrig.dragKind = "trigger"` plus `_dropPreviewGroupIdx` for the destination group; group drags use `dragKind = "group"` and may ghost/reorder whole regions. Cross-group trigger previews reserve an empty measured `dropPreview` spacer in the destination group while the source trigger remains the active floating widget until pointer-up commits the move.
 
 ## <span style="color: #80ffc0">LoraStack Special Behavior</span>
 - Also uses Passive Whole Wall Cache

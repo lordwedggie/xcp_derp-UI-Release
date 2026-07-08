@@ -7,7 +7,7 @@ import { showTriggerWall } from "../../../fatha/bastas/bastaTriggerWall.js";
 import { showBastaFileHandler } from "../../../fatha/bastas/bastaFileHandler.js";
 import { showBastaMessage } from "../../../fatha/bastas/bastaMessage.js";
 import { showBastaSystemMessage } from "../../../fatha/bastas/bastaSystemMessage.js";
-import { cancelStackDragHold, clearStackDragState, endStackDrag, startStackDrag, updateStackDragPointerState } from "../../../fatha/helpers/fathaDragDrop.js";
+import { activateStackDrag, cancelStackDragHold, clearStackDragState, endStackDrag, startStackDrag, updateStackDragPointerState } from "../../../fatha/helpers/fathaDragDrop.js";
 import { settleDerpSizeBeforeDraw } from "../../../fatha/core/fathaHandler.js";
 import { applyDerpPreferredAutoHeight } from "../../../fatha/core/derpHeightPolicy.js";
 import { getContentViewportForRegion } from "../../../fatha/core/fathaContentViewport.js";
@@ -465,15 +465,16 @@ export function triggerWall_addGroup(node) {
 }
 
 export function triggerWall_groupDrag(node, data, visibleGroupIndices = []) {
-    if (!node._dragTrig || node._dragTrig.index === undefined) return;
+    if (!node._dragTrig || node._dragTrig.index === undefined || node._dragTrig.dragKind !== "group") return;
 
     if (!node._dragThresholdMet) {
         const driftX = Math.abs(data.localX - node._dragMouse[0]);
         const driftY = Math.abs(data.localY - node._dragMouse[1]);
         if (driftX > 2.5 || driftY > 2.5) {
-            cancelStackDragHold(node);
+            if (node._dragTrig?.holdOnly) cancelStackDragHold(node);
+            else activateStackDrag(node);
         }
-        return;
+        if (!node._dragThresholdMet) return;
     }
 
     updateStackDragPointerState(node, data);
@@ -553,10 +554,12 @@ export function triggerWall_reorderGroups(node, fromVisibleIdx, toVisibleIdx) {
 }
 
 export function triggerWall_groupDragEnd(node) {
+    if (node._dragTrig?.dragKind !== "group") return;
     const fromVisibleIdx = node._dragTrig?.index;
     const toVisibleIdx = node._dropPreviewIdx;
     endStackDrag(node, "");
     node._floatingPreviewSnapshot = null;
+    node._dropPreviewGroupIdx = undefined;
 
     if (fromVisibleIdx !== undefined && toVisibleIdx !== undefined && fromVisibleIdx !== toVisibleIdx) {
         triggerWall_reorderGroups(node, fromVisibleIdx, toVisibleIdx);
@@ -566,38 +569,70 @@ export function triggerWall_groupDragEnd(node) {
 export function triggerWall_itemDragStart(node, e, data, gIdx, tIdx) {
     const key = `triggerItem_${gIdx}_${tIdx}`;
     startStackDrag(node, data, tIdx, key, {
-        payload: { key, gIdx, tIdx },
+        payload: { key, gIdx, tIdx, dragKind: "trigger" },
+        holdOnly: false,
     });
+    if (node._dragTrig?.dragKind === "trigger") node._dropPreviewGroupIdx = gIdx;
 }
 
 export function triggerWall_itemDrag(node, e, data) {
-    if (!node._dragTrig) return;
+    if (!node._dragTrig || node._dragTrig.dragKind !== "trigger") return;
     if (!node._dragThresholdMet) {
         const driftX = Math.abs(data.localX - node._dragMouse[0]);
         const driftY = Math.abs(data.localY - node._dragMouse[1]);
-        if (driftX > 2.5 || driftY > 2.5) cancelStackDragHold(node);
-        return;
+        if (driftX > 2.5 || driftY > 2.5) {
+            if (node._dragTrig?.holdOnly) cancelStackDragHold(node);
+            else activateStackDrag(node);
+        }
+        if (!node._dragThresholdMet) return;
     }
 
     updateStackDragPointerState(node, data);
     const mouseX = data.localX;
     const mouseY = data.localY;
-    const group = node._triggerGroupData[node._dragTrig.gIdx];
-    if (!group || !group.triggers || group.triggers.length === 0) return;
+    const drag = node._dragTrig;
+    const sourceGroup = node._triggerGroupData[drag.gIdx];
+    if (!sourceGroup || !sourceGroup.triggers || sourceGroup.triggers.length === 0) return;
 
     const regions = node.layout?.regions;
     if (!regions) return;
 
+    const visibleGroupTargets = (node._triggerGroupData || [])
+        .map((group, gIdx) => ({ group, gIdx, reg: regions[`triggerRegion_${gIdx}`] }))
+        .filter(({ group, reg }) => !group?.hidden && reg && isTriggerWallDragRegionDisplayed(node, reg));
+    let targetGroupIdx = drag.gIdx;
+    if (visibleGroupTargets.length > 0) {
+        let best = visibleGroupTargets[0];
+        let bestDistance = Infinity;
+        for (const target of visibleGroupTargets) {
+            const top = numberOr(target.reg.y);
+            const bottom = top + numberOr(target.reg.h);
+            if (mouseY >= top && mouseY <= bottom) {
+                best = target;
+                break;
+            }
+            const distance = Math.min(Math.abs(mouseY - top), Math.abs(mouseY - bottom));
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                best = target;
+            }
+        }
+        targetGroupIdx = best.gIdx;
+    }
+    const targetGroup = node._triggerGroupData[targetGroupIdx];
+    if (!targetGroup || !Array.isArray(targetGroup.triggers)) return;
+
     const stableRegs = [];
-    for (let i = 0; i < group.triggers.length; i++) {
-        if (i === node._dragTrig.tIdx) continue;
-        const r = regions[`triggerItem_${node._dragTrig.gIdx}_${i}`];
+    for (let i = 0; i < targetGroup.triggers.length; i++) {
+        if (targetGroupIdx === drag.gIdx && i === drag.tIdx) continue;
+        const r = regions[`triggerItem_${targetGroupIdx}_${i}`];
         if (r && isTriggerWallDragRegionDisplayed(node, r)) stableRegs.push({ reg: r, index: i });
     }
 
     if (stableRegs.length === 0) {
-        if (node._dropPreviewIdx !== 0) {
+        if (node._dropPreviewIdx !== 0 || node._dropPreviewGroupIdx !== targetGroupIdx) {
             node._dropPreviewIdx = 0;
+            node._dropPreviewGroupIdx = targetGroupIdx;
             node.refreshNodeLayoutMap();
         }
         node.setDirtyCanvas(true);
@@ -621,26 +656,34 @@ export function triggerWall_itemDrag(node, e, data) {
         }
     }
 
-    let targetIdx = stableRegs.length ? getInsertionBefore(stableRegs[0].index, node._dragTrig.tIdx) : node._dragTrig.tIdx;
+    const insertionBefore = (candidateIndex) => (
+        targetGroupIdx === drag.gIdx ? getInsertionBefore(candidateIndex, drag.tIdx) : candidateIndex
+    );
+    const insertionAfter = (candidateIndex) => (
+        targetGroupIdx === drag.gIdx ? getInsertionAfter(candidateIndex, drag.tIdx) : candidateIndex + 1
+    );
+
+    let targetIdx = stableRegs.length ? insertionBefore(stableRegs[0].index) : 0;
     let foundRow = -1;
     for (let i = 0; i < rows.length; i++) {
         const r = rows[i], next = rows[i+1];
         const splitY = next ? (r.y + r.h + next.y) / 2 : Infinity;
         if (mouseY < splitY) { foundRow = i; break; }
         const lastItem = r.items[r.items.length - 1];
-        targetIdx = getInsertionAfter(lastItem.index, node._dragTrig.tIdx);
+        targetIdx = insertionAfter(lastItem.index);
     }
 
     if (foundRow !== -1) {
         const rowItems = rows[foundRow].items;
         for (let i = 0; i < rowItems.length; i++) {
             const { reg, index } = rowItems[i];
-            if (mouseX > (reg.x + (reg.w / 2))) targetIdx = getInsertionAfter(index, node._dragTrig.tIdx);
+            if (mouseX > (reg.x + (reg.w / 2))) targetIdx = insertionAfter(index);
         }
     }
 
-    if (node._dropPreviewIdx !== targetIdx) {
+    if (node._dropPreviewIdx !== targetIdx || node._dropPreviewGroupIdx !== targetGroupIdx) {
         node._dropPreviewIdx = targetIdx;
+        node._dropPreviewGroupIdx = targetGroupIdx;
         node.refreshNodeLayoutMap();
     }
     node.setDirtyCanvas(true);
@@ -648,18 +691,32 @@ export function triggerWall_itemDrag(node, e, data) {
 
 export function triggerWall_itemDragEnd(node, e, data) {
     const drag = node._dragTrig;
-    const finalTarget = node._dropPreviewIdx;
     const thresholdMet = node._dragThresholdMet;
+    if (drag && thresholdMet && data && typeof data.localX === "number" && typeof data.localY === "number") {
+        triggerWall_itemDrag(node, e, data);
+    }
+    const finalTarget = node._dropPreviewIdx;
+    const finalGroupIdx = node._dropPreviewGroupIdx ?? drag?.gIdx;
     if (thresholdMet) node._suppressClickAfterDrag = true;
     clearStackDragState(node);
     node._floatingPreviewSnapshot = null;
+    node._dropPreviewGroupIdx = undefined;
 
     if (!drag || !thresholdMet) return;
 
-    if (finalTarget !== undefined && finalTarget !== drag.tIdx) {
-        const group = node._triggerGroupData[drag.gIdx];
-        const [moved] = group.triggers.splice(drag.tIdx, 1);
-        group.triggers.splice(finalTarget, 0, moved);
+    if (finalTarget !== undefined && (finalGroupIdx !== drag.gIdx || finalTarget !== drag.tIdx)) {
+        const sourceGroup = node._triggerGroupData[drag.gIdx];
+        const targetGroup = node._triggerGroupData[finalGroupIdx];
+        if (!sourceGroup?.triggers || !targetGroup?.triggers) {
+            refreshAndSync(node, false, false);
+            return;
+        }
+        const [moved] = sourceGroup.triggers.splice(drag.tIdx, 1);
+        if (!moved) {
+            refreshAndSync(node, false, false);
+            return;
+        }
+        targetGroup.triggers.splice(finalTarget, 0, moved);
         refreshAndSync(node, true, false);
     } else {
         refreshAndSync(node, false, false);
@@ -668,6 +725,7 @@ export function triggerWall_itemDragEnd(node, e, data) {
 
 export function triggerWall_itemPress(node, e, data, gIdx, tIdx, group, isBypassed) {
     endStackDrag(node, "");
+    node._dropPreviewGroupIdx = undefined;
     const item = { idx: tIdx, trig: group.triggers[tIdx] };
     if (isBypassed || item.trig.disabled === true) return;
     const key = `triggerItem_${gIdx}_${item.idx}`;
