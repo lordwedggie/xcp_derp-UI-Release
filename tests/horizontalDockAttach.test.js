@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { getDeckPressureSideHorizontalLockedWidth, shouldLockDeckPressureSideHorizontalWidth, syncHorizontalDeckHeight } from '../js/fatha/core/fathaHandler.js';
 import { resolveDerpPreferredAutoWidth } from '../js/fatha/core/derpHeightPolicy.js';
 import { canResizeDeckPressureSideWidthMember, canResizeHorizontalMemberWidth } from '../js/fatha/core/dockResizeSharedEdges.js';
-import { deckNodeToLeader, getDeckPressureSideHorizontalWidthLock } from '../js/fatha/core/masterDockEngine.js';
+import { applyDeckPressureLayout, deckNodeToLeader, getDeckPressureSideHorizontalWidthLock } from '../js/fatha/core/masterDockEngine.js';
 
 function makeNode(id, x, width, height) {
   return {
@@ -19,6 +19,8 @@ function makeNode(id, x, width, height) {
       deckDockSide: null,
       deckEdges: { left: null, right: null, top: null, bottom: null },
     },
+    layout: { regions: {}, contentMinWidth: 0, contentMinHeight: 0, totalHeight: height },
+    layoutMap: {},
     setDirtyCanvas: () => {},
     refreshNodeLayoutMap: () => {},
     requestDerpSync: () => {},
@@ -152,5 +154,37 @@ describe('syncHorizontalDeckHeight', () => {
     } finally {
       window.app.ui.settings.getSettingValue = originalGetSettingValue;
     }
+  });
+
+  it('keeps side-vertical Deck Pressure branch width from growing on transient content min width', () => {
+    const hub = makeImageDeck(40, 200, 300, 220);
+    const top = makeNode(41, 100, 100, 90);
+    const bottom = makeNode(42, 100, 100, 130);
+
+    hub.properties.deckEdges.left = top.id;
+    top.properties.deckParentId = hub.id;
+    top.properties.deckDockSide = 'left';
+    top.properties.deckEdges.right = hub.id;
+    top.properties.deckEdges.bottom = bottom.id;
+    bottom.properties.deckParentId = top.id;
+    bottom.properties.deckDockSide = 'bottom';
+    bottom.properties.deckEdges.top = top.id;
+
+    const graph = { _nodes: [hub, top, bottom] };
+    window.app.graph = graph;
+    window.app.canvas.frame = 5;
+    globalThis.app = window.app;
+
+    applyDeckPressureLayout(hub, graph, 10);
+
+    top.size[0] = 150;
+    top.properties.nodeSize[0] = 150;
+    top.layout.contentMinWidth = 150;
+
+    applyDeckPressureLayout(hub, graph, 10);
+
+    expect(top.size[0]).toBe(100);
+    expect(bottom.size[0]).toBe(100);
+    expect(hub.pos[0]).toBe(200);
   });
 });

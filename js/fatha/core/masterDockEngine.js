@@ -836,6 +836,10 @@ function disconnectPeerDeckEdge(node, graph, side) {
         setPeerDeckNeighbor(node, side, null);
         changed = true;
     }
+    if (changed) {
+        if (isDeckPressureHub(node)) clearDeckPressureSideVerticalWidthCache(node, side);
+        if (isDeckPressureHub(neighbor)) clearDeckPressureSideVerticalWidthCache(neighbor, oppositeSide);
+    }
     return changed;
 }
 
@@ -2452,6 +2456,51 @@ function getDeckPressureRowCurrentWidthTotal(members) {
     return getDeckPressureRowCurrentWidths(members).reduce((sum, width) => sum + width, 0);
 }
 
+function getDeckPressureSideVerticalWidthCache(hub, side) {
+    const width = Number(hub?._deckPressureSideVerticalWidths?.[side]) || 0;
+    return width > 0 ? width : 0;
+}
+
+function setDeckPressureSideVerticalWidthCache(hub, side, width) {
+    if (!isDeckPressureHub(hub) || (side !== "left" && side !== "right")) return;
+    const nextWidth = Number(width) || 0;
+    if (nextWidth <= 0) return;
+    if (!hub._deckPressureSideVerticalWidths) hub._deckPressureSideVerticalWidths = {};
+    hub._deckPressureSideVerticalWidths[side] = nextWidth;
+}
+
+function clearDeckPressureSideVerticalWidthCache(hub, side = null) {
+    if (!hub?._deckPressureSideVerticalWidths) return;
+    if (side === "left" || side === "right") delete hub._deckPressureSideVerticalWidths[side];
+    else delete hub._deckPressureSideVerticalWidths;
+}
+
+function getDeckPressureSideVerticalStableMinWidth(branch, snap) {
+    if (!branch?.members?.length) return 0;
+    const unit = Math.max(1, snap);
+    return Math.max(...branch.members.map((member) => quantizeSize(Math.max(Number(member?.properties?.minWidth) || 0, 60), unit)), 0);
+}
+
+function getDeckPressureSideVerticalCurrentWidth(branch, snap) {
+    if (!branch?.members?.length) return 0;
+    const unit = Math.max(1, snap);
+    return Math.max(...branch.members.map((member) => quantizeSize(getNodeSizeValue(member, 0), unit)), getDeckPressureSideVerticalStableMinWidth(branch, snap), 0);
+}
+
+function ensureDeckPressureSideVerticalWidthCaches(hub, branches = [], snap = DEFAULT_DECK_SNAP) {
+    if (!isDeckPressureHub(hub)) return;
+    ["left", "right"].forEach((side) => {
+        const branch = branches.find((entry) => entry.side === side && entry.axis === "vertical");
+        if (!branch) {
+            clearDeckPressureSideVerticalWidthCache(hub, side);
+            return;
+        }
+        if (getDeckPressureSideVerticalWidthCache(hub, side) <= 0) {
+            setDeckPressureSideVerticalWidthCache(hub, side, getDeckPressureSideVerticalCurrentWidth(branch, snap));
+        }
+    });
+}
+
 function getDeckPressureColumnCurrentHeights(members, snap) {
     if (!Array.isArray(members) || members.length === 0) return [];
     const unit = Math.max(1, snap);
@@ -2481,6 +2530,10 @@ function getDeckPressureBranchWidth(branch, snap) {
             ? getDeckPressureRowCurrentWidthTotal(branch.members)
             : getDeckPressureRowCurrentSpan(branch.members, snap);
     }
+    if ((branch.side === "left" || branch.side === "right") && branch.axis === "vertical") {
+        const cachedWidth = getDeckPressureSideVerticalWidthCache(branch.hub, branch.side);
+        return Math.max(cachedWidth || getDeckPressureSideVerticalCurrentWidth(branch, snap), getDeckPressureSideVerticalStableMinWidth(branch, snap));
+    }
     return Math.max(...branch.members.map((member) => getNodeSizeValue(member, 0)), ...branch.members.map((member) => getNodeMinWidth(member, snap)), 0);
 }
 
@@ -2504,7 +2557,7 @@ export function getDeckPressureHubMinWidth(hub, graph, snap = DEFAULT_DECK_SNAP,
         return Math.max(fallbackMinWidth, topBottomMinWidth);
     }
     const sideWidth = ["left", "right"].reduce((sum, side) => {
-        const branch = { side, members: getDeckPressureBranchMembers(hub, graph, side), axis: getDeckPressureBranchAxis(hub, graph, side) };
+        const branch = { side, hub, members: getDeckPressureBranchMembers(hub, graph, side), axis: getDeckPressureBranchAxis(hub, graph, side) };
         return sum + getDeckPressureBranchWidth(branch, snap);
     }, 0);
     return Math.max(fallbackMinWidth, topBottomMinWidth - sideWidth);
@@ -2616,7 +2669,7 @@ function fitDeckPressureSideHeights(members, targetHeight, snap) {
 
 function getDeckPressureBranchRecords(hub, graph) {
     return ["left", "right", "top", "bottom"]
-        .map((side) => ({ side, members: getDeckPressureBranchMembers(hub, graph, side), axis: getDeckPressureBranchAxis(hub, graph, side) }))
+        .map((side) => ({ side, hub, members: getDeckPressureBranchMembers(hub, graph, side), axis: getDeckPressureBranchAxis(hub, graph, side) }))
         .filter((branch) => branch.members.length > 0);
 }
 
@@ -2731,6 +2784,7 @@ export function applyDeckPressureLayout(hub, graph, snap = DEFAULT_DECK_SNAP) {
     const hubAnchor = { x: rawHubRect.x, y: rawHubRect.y };
     const branches = getDeckPressureBranchRecords(hub, graph);
     const arrangement = ensureDeckPressureArrangement(hub, graph);
+    ensureDeckPressureSideVerticalWidthCaches(hub, branches, snap);
     const preliminaryPlan = computeDeckPressureGeometryPlan(hub, graph, snap, { frameBounds: hub._deckPressurePreserveFrameBounds || null });
     if (!preliminaryPlan) return [];
 
@@ -2758,6 +2812,9 @@ export function applyDeckPressureLayout(hub, graph, snap = DEFAULT_DECK_SNAP) {
     if (syncDeckNodeSize(hub, hubRect.width, hubRect.height, { silent: true, deferDirty: true, deferSync: true })) markChanged(hub);
 
     plan.branches.forEach((branch) => {
+        if ((branch.side === "left" || branch.side === "right") && branch.axis === "vertical") {
+            setDeckPressureSideVerticalWidthCache(hub, branch.side, branch.band.width);
+        }
         branch.memberRects.forEach(({ node, rect }) => {
             const sizeChanged = syncDeckNodeSize(node, rect.width, rect.height, { silent: true, deferDirty: true, deferSync: true });
             const posChanged = setDeckNodePos(node, rect.left, rect.top);

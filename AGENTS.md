@@ -293,6 +293,7 @@ To add a skill, create `.agents/skills/<name>/SKILL.md` with YAML frontmatter (`
 - Vertical stack width locks need different semantics by resize type: vertical seam height drags should exact-lock to the starting stack width, while outer stack height drags should floor-aware lock to the shared current min-width so min-width boundary resizing does not make members alternately render wider then snap back. Corner drags that also handle width must refresh the lock to the newly applied width each pass; only height-only corner drags should keep the starting width pinned.
 - Vertical stack resize start must prime every member to a stable shared width before the first pointermove; otherwise a top member with transiently wider `contentMinWidth` can flash wider for one frame before the dock resize pass corrects it.
 - Active stack resize pointer-move paths should use `syncDeckNodeSize(..., { silent: true, deferDirty: true, deferSync: true, liveResize: true })` and batched live shield sync. Immediate dirty/layout/shield sync inside every pointermove can make vertical and horizontal stack resizing feel rough and can surface one-frame flicker.
+- Left/right vertical Deck Pressure branches need a hub-owned side-width cache. Do not derive their idle branch width from live `layout.contentMinWidth`; transient widget/content measurement can otherwise widen the branch and shift the ImageDeck frame.
 
 ### Node-Specific Notes
 
