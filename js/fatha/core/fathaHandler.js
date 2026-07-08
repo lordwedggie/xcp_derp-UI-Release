@@ -46,7 +46,7 @@ import {
 import { resolveSystemThemePaint } from "../helpers/fathaSystemTheme.js";
 import { isComfyVueNodesMode } from "./fathaNode2Compat.js";
 import { getContentViewportForRegion, isContentViewportRegionHitVisible } from "./fathaContentViewport.js";
-import { resolveDerpRuntimeAutoHeight } from "./derpHeightPolicy.js";
+import { resolveDerpPreferredAutoWidth, resolveDerpRuntimeAutoHeight } from "./derpHeightPolicy.js";
 import { consumeSuppressedDragClick } from "./derpInteractionPolicy.js";
 
 const COLLAPSED_NODE_MAX_CORNER = 5;
@@ -1171,6 +1171,29 @@ export function normalizeDerpDockedLayout(node) {
     return moved;
 }
 
+function resolveDerpRuntimeAutoWidth(node) {
+    const props = node?.properties || {};
+    const preferred = resolveDerpPreferredAutoWidth(node);
+    if (!Object.prototype.hasOwnProperty.call(props, "deckSavedAutoWidth")) return preferred;
+
+    const graph = app.graph || node?.graph || null;
+    if (!graph) return props.autoWidth === true;
+
+    const pressureHub = getDeckPressureHubForNode(node, graph);
+    const branchSide = pressureHub && pressureHub.id !== node?.id ? getDeckPressureBranchSideForNode(pressureHub, graph, node) : null;
+    const branchAxis = getDeckPressureBranchAxis(pressureHub, graph, branchSide);
+    const axis = branchAxis || getDockGroupAxisFromMembers(getDeckMembers(node, graph));
+    if (axis === "horizontal") {
+        props.autoWidth = props.deckSavedAutoWidth === true;
+        return props.autoWidth === true;
+    }
+    if (axis === "vertical") {
+        props.autoWidth = false;
+        return false;
+    }
+    return props.autoWidth === true;
+}
+
 export const getDerpVars = (node) => {
     let tLayout = [4, 2, 2, 2, 2, 4, 2, 4];
     const cfg = window.xcpDerpThemeConfig;
@@ -1208,7 +1231,7 @@ export const getDerpVars = (node) => {
         SNAP: 10,
         MIN_FOOTER_H: 6,
         collapseToMinWidth: true,
-        autoWidth: safeNode.properties?.autoWidth === true,
+        autoWidth: resolveDerpRuntimeAutoWidth(safeNode),
         autoHeight: resolveDerpRuntimeAutoHeight(safeNode),
     };
 };

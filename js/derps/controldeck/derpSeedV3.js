@@ -268,7 +268,7 @@ app.registerExtension({
             const minWidth = getSeedV3MinWidth(this, vars);
             const currentW = Number(this.size?.[0] || this.properties?.nodeSize?.[0] || 0);
             const currentH = Number(this.size?.[1] || this.properties?.nodeSize?.[1] || 100) || 100;
-            const autoWidth = this.properties?.autoWidth === true;
+            const autoWidth = vars.autoWidth === true;
             const nextW = autoWidth ? minWidth : Math.max(minWidth, currentW || minWidth);
 
             if (!this.properties) this.properties = {};

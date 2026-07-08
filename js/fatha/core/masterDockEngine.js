@@ -1581,10 +1581,11 @@ function lockDeckStackMembersForAttach(dockFollower, attachLeader, side, graph) 
         // restored by lockDeckNodeAxes (which reads from deckSavedAutoHeight),
         // but autoWidth is NOT handled by lockDeckNodeAxes for side="left"/"right",
         // so we must restore it here for ALL members. For side="top"/"bottom",
-        // lockDeckNodeAxes forces autoWidth = false (vertical stack width sharing),
-        // so we must NOT restore runtime autoWidth. We always restore
+        // lockDeckNodeAxes forces autoWidth = false for vertical stack width sharing,
+        // so only horizontal stacks may restore runtime autoWidth there. We always restore
         // _derpPreferredAutoWidth so seam eligibility reflects the original preference.
-        const restoreRuntimeAutoWidth = side !== "top" && side !== "bottom";
+        const stackAxis = getDockGroupAxisFromMembers(members.filter((m) => m && !isDeckPressureHub(m)));
+        const restoreRuntimeAutoWidth = stackAxis === "horizontal" || (side !== "top" && side !== "bottom");
         const seen = new Set();
         members.forEach((member) => {
             if (!member || seen.has(member.id)) return;

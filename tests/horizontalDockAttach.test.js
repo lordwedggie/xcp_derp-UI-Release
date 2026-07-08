@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { getDeckPressureSideHorizontalLockedWidth, shouldLockDeckPressureSideHorizontalWidth, syncHorizontalDeckHeight } from '../js/fatha/core/fathaHandler.js';
+import { getDeckPressureSideHorizontalLockedWidth, getDerpVars, shouldLockDeckPressureSideHorizontalWidth, syncHorizontalDeckHeight } from '../js/fatha/core/fathaHandler.js';
 import { resolveDerpPreferredAutoWidth } from '../js/fatha/core/derpHeightPolicy.js';
 import { canResizeDeckPressureSideWidthMember, canResizeHorizontalMemberWidth } from '../js/fatha/core/dockResizeSharedEdges.js';
 import { applyDeckPressureLayout, deckNodeToLeader, getDeckPressureSideHorizontalWidthLock } from '../js/fatha/core/masterDockEngine.js';
@@ -118,6 +118,62 @@ describe('syncHorizontalDeckHeight', () => {
     expect(shouldLockDeckPressureSideHorizontalWidth(a)).toBe(true);
   });
 
+  it('restores runtime autoWidth for top Deck Pressure horizontal branches', () => {
+    const hub = makeImageDeck(25, 200, 300, 220);
+    const a = makeNode(26, 0, 80, 90);
+    const b = makeNode(27, 80, 120, 90);
+    a.properties.autoWidth = true;
+    b.properties.autoWidth = true;
+    a.properties.deckEdges.right = b.id;
+    b.properties.deckEdges.left = a.id;
+
+    const graph = { _nodes: [hub, a, b] };
+    window.app.graph = graph;
+    window.app.canvas.frame = 6;
+    globalThis.app = window.app;
+
+    expect(deckNodeToLeader(b, hub, graph, 'top')).toBe(true);
+    expect(a.properties.autoWidth).toBe(true);
+    expect(b.properties.autoWidth).toBe(true);
+    expect(getDerpVars(b).autoWidth).toBe(true);
+  });
+
+  it('hydrates saved horizontal-stack autoWidth back to runtime autoWidth', () => {
+    const a = makeNode(35, 0, 180, 90);
+    const b = makeNode(36, 180, 120, 90);
+    a.properties.autoWidth = false;
+    a.properties.deckSavedAutoWidth = true;
+    a.properties._derpPreferredAutoWidth = true;
+    a.properties.deckEdges.right = b.id;
+    b.properties.deckEdges.left = a.id;
+
+    const graph = { _nodes: [a, b] };
+    window.app.graph = graph;
+    window.app.canvas.frame = 7;
+    globalThis.app = window.app;
+
+    expect(getDerpVars(a).autoWidth).toBe(true);
+    expect(a.properties.autoWidth).toBe(true);
+  });
+
+  it('keeps saved vertical-stack autoWidth forced off for shared width', () => {
+    const top = makeNode(38, 0, 180, 90);
+    const bottom = makeNode(39, 0, 120, 90);
+    top.properties.autoWidth = false;
+    top.properties.deckSavedAutoWidth = true;
+    top.properties._derpPreferredAutoWidth = true;
+    top.properties.deckEdges.bottom = bottom.id;
+    bottom.properties.deckEdges.top = top.id;
+
+    const graph = { _nodes: [top, bottom] };
+    window.app.graph = graph;
+    window.app.canvas.frame = 8;
+    globalThis.app = window.app;
+
+    expect(getDerpVars(top).autoWidth).toBe(false);
+    expect(top.properties.autoWidth).toBe(false);
+  });
+
   it('preserves runtime autoWidth in manual mode for side-horizontal Deck Pressure branches', () => {
     const originalGetSettingValue = window.app.ui.settings.getSettingValue;
     window.app.ui.settings.getSettingValue = (id) => (
@@ -145,6 +201,8 @@ describe('syncHorizontalDeckHeight', () => {
       expect(b.properties.autoWidth).toBe(true);
       expect(resolveDerpPreferredAutoWidth(a)).toBe(false);
       expect(resolveDerpPreferredAutoWidth(b)).toBe(false);
+      expect(getDerpVars(a).autoWidth).toBe(true);
+      expect(getDerpVars(b).autoWidth).toBe(true);
       expect(canResizeHorizontalMemberWidth(a, graph)).toBe(false);
       expect(canResizeHorizontalMemberWidth(b, graph)).toBe(false);
       expect(canResizeDeckPressureSideWidthMember(a, graph)).toBe(false);
