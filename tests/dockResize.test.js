@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { resolveHorizontalSeamResizeWidths, syncDockResizePair } from '../js/fatha/core/dockResize.js';
-import { getActiveVerticalDeckWidthLock } from '../js/fatha/core/dockDimensions.js';
+import { handleDerpComputeSizeImpl, resolveHorizontalSeamResizeWidths, syncDockResizePair } from '../js/fatha/core/dockResize.js';
+import { getActiveVerticalDeckWidthLock, getActiveVerticalNodeWidthLock } from '../js/fatha/core/dockDimensions.js';
 import { handleNodeResize } from '../js/fatha/core/fathaNodeResize.js';
 
 function makeNode(id, y, width = 100, height = 100) {
@@ -187,6 +187,22 @@ describe('dock resize live shield sync', () => {
     expect(top.size[0]).toBe(140);
     expect(bottom.size[0]).toBe(140);
     expect(getActiveVerticalDeckWidthLock([top, bottom], 40)).toBe(140);
+  });
+
+  it('uses active vertical width locks instead of transient node width during resize measurement', () => {
+    const node = makeNode(3, 0, 160, 100);
+    node.layout.contentMinWidth = 180;
+    node._isDerpResizing = true;
+    node._dockResizePreserveHeight = true;
+    node._verticalDeckWidthLock = 100;
+    node._verticalDeckWidthLockUntil = (performance.now?.() || Date.now()) + 1200;
+    node._verticalDeckWidthLockExact = true;
+
+    const out = [];
+    handleDerpComputeSizeImpl(node, out, 40);
+
+    expect(getActiveVerticalNodeWidthLock(node, 180)).toBe(100);
+    expect(out[0]).toBe(100);
   });
 
   it('lets vertical stack corner drags change width and height in the same pass', () => {

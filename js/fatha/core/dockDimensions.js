@@ -226,6 +226,23 @@ export function getActiveVerticalDeckWidthLock(members = [], minWidth = 0) {
     return Math.max(width, floor);
 }
 
+export function getActiveVerticalNodeWidthLock(node, minWidth = 0) {
+    const width = Number(node?._verticalDeckWidthLock) || 0;
+    const until = Number(node?._verticalDeckWidthLockUntil) || 0;
+    const now = performance.now?.() || Date.now();
+    if (width <= 0 || until <= now) return 0;
+    if (node?._verticalDeckWidthLockExact === true) return width;
+    const floor = node?._verticalDeckWidthLockFreezeFloor === true
+        ? Number(node?._verticalDeckWidthLockFloor) || 0
+        : Number(minWidth) || 0;
+    const target = Math.max(width, floor);
+    if (node?._verticalDeckWidthLockFreezeFloor !== true) {
+        node._verticalDeckWidthLockFloor = Math.max(Number(node?._verticalDeckWidthLockFloor) || 0, target);
+        node._verticalDeckWidthLockFloorUntil = until;
+    }
+    return target;
+}
+
 export function getSharedDockHeight(members = [], fallback = 0) {
     const heights = (Array.isArray(members) ? members : [])
         .map(getDockNodeHeight)

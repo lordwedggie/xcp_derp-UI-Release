@@ -20,6 +20,7 @@ import { isComfyVueNodesMode, scheduleNativeVueNodeShellSuppression, shouldMutat
 import { drawContentViewportScrollbars, getContentViewportGeometry, withContentViewportClip } from "./core/fathaContentViewportDraw.js";
 import { getContentViewportSignature } from "./core/fathaContentViewport.js";
 import { undeckNode, undeckDeckPressureBranches, isDeckPressureHub } from "./core/masterDockEngine.js";
+import { getActiveVerticalNodeWidthLock } from "./core/dockDimensions.js";
 
 const FATHA_OVERLAY_WINDOW_MS = 4000;
 const FATHA_VIEWPORT_CULL_MARGIN_PX = 160;
@@ -773,9 +774,12 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
         // secondary axis respond immediately (e.g. width shrink causing auto-height growth).
         const lockHorizontalDeckResize = this._horizontalDeckWidthResizeLock === true || shouldLockDeckPressureSideHorizontalWidth(this);
         const lockedDeckPressureSideW = getDeckPressureSideHorizontalLockedWidth(this);
+        const lockedVerticalStackW = this._dockResizePreserveHeight === true ? getActiveVerticalNodeWidthLock(this, 0) : 0;
         const liveTargetW = lockedDeckPressureSideW > 0
             ? lockedDeckPressureSideW
-            : ((this._isDerpResizing && (!autoWidth || this._dockResizePreserveHeight === true)) || lockHorizontalDeckResize ? this.size[0] : targetW);
+            : lockedVerticalStackW > 0
+                ? lockedVerticalStackW
+                : ((this._isDerpResizing && (!autoWidth || this._dockResizePreserveHeight === true)) || lockHorizontalDeckResize ? this.size[0] : targetW);
         const preserveResizeHeight = this._isDerpResizing && (!autoHeight || this._dockResizePreserveHeight === true);
         const liveTargetH = preserveResizeHeight || lockHorizontalDeckResize ? this.size[1] : targetH;
         const preAnimateW = Number(this.size?.[0]) || 0;

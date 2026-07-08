@@ -18,7 +18,7 @@
  */
 import { app } from "../../../../scripts/app.js";
 import { renderHitboxDebug } from "../helpers/debugPainter.js";
-import { computeDeckPressureGeometryPlan, getDeckMembers, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureBranchAxis, getDeckPressureHubForNode, getNodeOnDeckEdge, isDeckPressureHub, isDeckPressureSideHorizontalBranchMember, isDeckPressureSideHorizontalHubEdge, isDeckPressureSideWidthResizeEdge, isLinearDeckGroup } from "./masterDockEngine.js";
+import { computeDeckPressureGeometryPlan, getDeckMembers, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureBranchAxis, getDeckPressureHubForNode, getNodeOnDeckEdge, isDeckPressureHub, isDeckPressureSideHorizontalBranchMember, isDeckPressureSideHorizontalHubEdge, isDeckPressureSideWidthResizeEdge, isLinearDeckGroup, syncDeckNodeSize } from "./masterDockEngine.js";
 import { canResizeDeckPressureSideWidthMember, canResizeHorizontalSharedEdgeWidth as canResizeHorizontalSharedEdge, canResizeHorizontalStackWidth, canResizeVerticalSharedEdgeHeight as canResizeVerticalSharedEdge, getHorizontalSameRowNeighbor } from "./dockResizeSharedEdges.js";
 import { beginDeckResizeOptimization, clearEntityTooltip, endDeckResizeOptimization, isSystemButtonHit } from "./fathaHandler.js";
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
@@ -822,28 +822,59 @@ export function createDerpShield(node) {
         activeResizeNode._dockResizeHoverSession = null;
         activeResizeNode._isDerpResizing = true; // THE FIX: Pause Fatha's auto-enforcer during drag
 
-        // For vertical-stack height resizes (top/bottom edges or corners), mark all
-        // stack members immediately so the draw loop preserves widths on the first frame.
-        // Without this, there's a one-frame gap before applyVerticalStackHeightResize
-        // runs (first pointermove) during which auto-width nodes recalculate from content
-        // and drift wider than the shared stack width.
-        const _resizeStartAnchor = activeResizeNode._resizeAnchor || anchor;
-        const _isVerticalResizeStart = _resizeStartAnchor === "top" || _resizeStartAnchor === "bottom" ||
-            _resizeStartAnchor === "top-left" || _resizeStartAnchor === "top-right" ||
-            _resizeStartAnchor === "bottom-left" || _resizeStartAnchor === "bottom-right";
-        if (_isVerticalResizeStart && isLinearDeckGroup(activeResizeNode, graph, "vertical")) {
-            const _vMembers = getDeckMembers(activeResizeNode, graph);
-            if (_vMembers && _vMembers.length > 1) {
-                if (!(activeResizeNode._dockResizeActiveMembers instanceof Set)) {
-                    activeResizeNode._dockResizeActiveMembers = new Set();
-                }
-                _vMembers.forEach((m) => {
+        // Prime stack members before the first pointermove, so draw-time
+        // normalization cannot flash a stale size for one frame.
+        const resizeStartAnchor = activeResizeNode._resizeAnchor || anchor;
+        const isVerticalResizeStart = resizeStartAnchor === "top" || resizeStartAnchor === "bottom" ||
+            resizeStartAnchor === "top-left" || resizeStartAnchor === "top-right" ||
+            resizeStartAnchor === "bottom-left" || resizeStartAnchor === "bottom-right";
+        const isHorizontalResizeStart = resizeStartAnchor === "left" || resizeStartAnchor === "right" ||
+            resizeStartAnchor === "top-left" || resizeStartAnchor === "top-right" ||
+            resizeStartAnchor === "bottom-left" || resizeStartAnchor === "bottom-right";
+        const ensureActiveMembers = () => {
+            if (!(activeResizeNode._dockResizeActiveMembers instanceof Set)) {
+                activeResizeNode._dockResizeActiveMembers = new Set();
+            }
+            return activeResizeNode._dockResizeActiveMembers;
+        };
+        const rememberActiveMember = (member) => {
+            if (member && member !== activeResizeNode) ensureActiveMembers().add(member);
+        };
+        if (isVerticalResizeStart && isLinearDeckGroup(activeResizeNode, graph, "vertical")) {
+            const verticalMembers = getDeckMembers(activeResizeNode, graph);
+            if (verticalMembers && verticalMembers.length > 1) {
+                const memberWidths = verticalMembers
+                    .map((member) => Number(member?.size?.[0] ?? member?.properties?.nodeSize?.[0]) || 0)
+                    .filter((width) => width > 0);
+                const resizeStartWidth = memberWidths.length ? Math.min(...memberWidths) : 0;
+                const lockUntil = (performance.now?.() || Date.now()) + 1200;
+                verticalMembers.forEach((m) => {
                     if (!m) return;
                     m._isDerpResizing = true;
                     m._dockResizePreserveHeight = true;
-                    if (m !== activeResizeNode) {
-                        activeResizeNode._dockResizeActiveMembers.add(m);
+                    if (resizeStartWidth > 0) {
+                        m._verticalDeckWidthLock = resizeStartWidth;
+                        m._verticalDeckWidthLockUntil = lockUntil;
+                        m._verticalDeckWidthLockExact = true;
+                        m._verticalDeckWidthLockFreezeFloor = true;
+                        m._verticalDeckWidthLockFloor = 0;
+                        m._verticalDeckWidthLockFloorUntil = 0;
+                        const memberHeight = Number(m?.size?.[1] ?? m?.properties?.nodeSize?.[1]) || 0;
+                        if (memberHeight > 0) syncDeckNodeSize(m, resizeStartWidth, memberHeight, { silent: true, deferDirty: true, deferSync: true, liveResize: true });
                     }
+                    rememberActiveMember(m);
+                });
+            }
+        }
+        if (isHorizontalResizeStart && isLinearDeckGroup(activeResizeNode, graph, "horizontal")) {
+            const horizontalMembers = getDeckMembers(activeResizeNode, graph);
+            if (horizontalMembers && horizontalMembers.length > 1) {
+                horizontalMembers.forEach((m) => {
+                    if (!m) return;
+                    const memberWidth = Number(m?.size?.[0] ?? m?.properties?.nodeSize?.[0]) || 0;
+                    m._horizontalDeckWidthResizeLock = true;
+                    m._horizontalDeckWidthResizeValue = memberWidth;
+                    rememberActiveMember(m);
                 });
             }
         }
