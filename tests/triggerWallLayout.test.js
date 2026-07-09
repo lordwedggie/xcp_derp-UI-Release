@@ -210,6 +210,230 @@ describe('derpTriggerWall layout', () => {
     });
   });
 
+  it('uses sH as the only spacing between trigger group entries', async () => {
+    const NodeType = await registerTriggerWallNodeType();
+    const node = await makeTriggerWallNode(NodeType, {
+      autoHeight: false,
+      size: [300, 260],
+      properties: { triggerWallClipVisibleLimit: 'Auto' },
+    });
+    node._triggerGroupData.push(
+      {
+        id: 'group_loaded_2',
+        title: 'Loaded Group 2',
+        isExclusive: false,
+        triggers: [{ id: 'trigger_b', label: 'B', active: true, weight: 1 }],
+      },
+      {
+        id: 'group_loaded_3',
+        title: 'Loaded Group 3',
+        isExclusive: false,
+        triggers: [{ id: 'trigger_c', label: 'C', active: true, weight: 1 }],
+      },
+    );
+
+    node.refreshNodeLayoutMap();
+
+    const { getVirtualNodeLayoutMap } = await import('../js/fatha/helpers/fathaLayoutMaps.js');
+    const { masterLayoutEngine } = await import('../js/fatha/core/masterLayoutEngine.js');
+    const fullMap = getVirtualNodeLayoutMap(node);
+    const layout = new masterLayoutEngine(node);
+    layout.compute({ x: 0, y: 0, w: 300, h: 260 }, fullMap, { isVirtual: true }, true);
+
+    const first = layout.regions.triggerRegion_0;
+    const middle = layout.regions.triggerRegion_1;
+    const last = layout.regions.triggerRegion_2;
+    const firstGap = middle.y - (first.y + first.h);
+    const secondGap = last.y - (middle.y + middle.h);
+
+    expect(first.margin[1]).toBe(6);
+    expect(first.margin[3]).toBe(0);
+    expect(middle.margin[1]).toBe(3);
+    expect(middle.margin[3]).toBe(0);
+    expect(last.margin[1]).toBe(3);
+    expect(last.margin[3]).toBe(6);
+    expect(first.anchor.offset).toBe(0);
+    expect(middle.anchor.offset).toBe(0);
+    expect(last.anchor.offset).toBe(0);
+    expect(firstGap).toBe(3);
+    expect(secondGap).toBe(3);
+  });
+
+  it('keeps trigger rows evenly inset inside every trigger group', async () => {
+    const NodeType = await registerTriggerWallNodeType();
+    const node = await makeTriggerWallNode(NodeType, {
+      autoHeight: false,
+      size: [620, 300],
+      properties: { triggerWallClipVisibleLimit: 'Auto' },
+    });
+    node._triggerGroupData.push(
+      {
+        id: 'group_loaded_2',
+        title: 'Loaded Group 2',
+        isExclusive: false,
+        triggers: [{ id: 'trigger_b', label: 'New Trigger', active: true, weight: 1 }],
+      },
+      {
+        id: 'group_loaded_3',
+        title: 'Loaded Group 3',
+        isExclusive: false,
+        triggers: [
+          { id: 'trigger_c', label: 'New Trigger', active: true, weight: 1 },
+          { id: 'trigger_d', label: 'New Trigger', active: true, weight: 1 },
+          { id: 'trigger_e', label: 'New Trigger', active: true, weight: 1 },
+          { id: 'trigger_f', label: 'New Trigger', active: true, weight: 1 },
+          { id: 'trigger_g', label: 'New Trigger', active: true, weight: 1 },
+          { id: 'trigger_h', label: 'New Trigger', active: true, weight: 1 },
+        ],
+      },
+    );
+
+    node.refreshNodeLayoutMap();
+
+    const { getVirtualNodeLayoutMap } = await import('../js/fatha/helpers/fathaLayoutMaps.js');
+    const { masterLayoutEngine } = await import('../js/fatha/core/masterLayoutEngine.js');
+    const fullMap = getVirtualNodeLayoutMap(node);
+    const layout = new masterLayoutEngine(node);
+    layout.compute({ x: 0, y: 0, w: 620, h: 300 }, fullMap, { isVirtual: true }, true);
+
+    const getInsets = (groupIdx) => {
+      const group = layout.regions[`triggerRegion_${groupIdx}`];
+      const rows = Object.entries(layout.regions)
+        .filter(([key]) => key.startsWith(`triggerRow_${groupIdx}_`))
+        .map(([, row]) => row)
+        .sort((a, b) => a.y - b.y);
+      const firstRow = rows[0];
+      const lastRow = rows[rows.length - 1];
+      return {
+        top: firstRow.y - group.y,
+        bottom: group.y + group.h - (lastRow.y + lastRow.h),
+      };
+    };
+
+    const referenceInset = getInsets(2).top;
+
+    expect(layout.regions.triggerRow_0_0.margin[0]).toBe(-8);
+    expect(layout.regions.triggerRow_0_0.margin[2]).toBe(-8);
+    expect(layout.regions.triggerRow_2_0.margin[0]).toBe(-8);
+    expect(layout.regions.triggerRow_2_0.margin[2]).toBe(-8);
+    expect(layout.regions.triggerRow_2_1.x).toBe(layout.regions.triggerRow_2_0.x);
+    expect(layout.regions.triggerRow_2_1.x + layout.regions.triggerRow_2_1.w).toBe(layout.regions.triggerRow_2_0.x + layout.regions.triggerRow_2_0.w);
+    expect(getInsets(0)).toEqual({ top: referenceInset, bottom: referenceInset });
+    expect(getInsets(1)).toEqual({ top: referenceInset, bottom: referenceInset });
+    expect(getInsets(2)).toEqual({ top: referenceInset, bottom: referenceInset });
+  });
+
+  it('changes the visual hash when same-looking trigger groups are reordered', async () => {
+    const NodeType = await registerTriggerWallNodeType();
+    const node = await makeTriggerWallNode(NodeType, {
+      autoHeight: false,
+      size: [620, 300],
+      properties: { triggerWallClipVisibleLimit: 'Auto' },
+    });
+    node._triggerGroupData = [
+      {
+        id: 'group_a',
+        title: 'Group A',
+        isExclusive: false,
+        triggers: [{ id: 'trigger_a', label: 'New Trigger', active: true, weight: 1 }],
+      },
+      {
+        id: 'group_b',
+        title: 'Group B',
+        isExclusive: false,
+        triggers: [{ id: 'trigger_b', label: 'New Trigger', active: true, weight: 1 }],
+      },
+      {
+        id: 'group_c',
+        title: 'Group C',
+        isExclusive: false,
+        triggers: [{ id: 'trigger_c', label: 'New Trigger', active: true, weight: 1 }],
+      },
+    ];
+
+    node.refreshNodeLayoutMap();
+    const originalHash = node._triggerWallVisualHash;
+
+    const { triggerWall_reorderGroups } = await import('../js/derps/controldeck/core/derpTriggerWall_core.js');
+    triggerWall_reorderGroups(node, 0, 2);
+    node.refreshNodeLayoutMap();
+
+    expect(node._triggerGroupData.map((group) => group.id)).toEqual(['group_b', 'group_c', 'group_a']);
+    expect(node._triggerWallVisualHash).not.toBe(originalHash);
+  });
+
+  it('keeps trigger rows evenly inset after moving a wrapped trigger group to the middle', async () => {
+    const NodeType = await registerTriggerWallNodeType();
+    const node = await makeTriggerWallNode(NodeType, {
+      autoHeight: false,
+      size: [520, 500],
+      properties: { triggerWallClipVisibleLimit: 'Auto' },
+    });
+    node._triggerGroupData = [
+      {
+        id: 'group_a',
+        title: 'Group A',
+        isExclusive: false,
+        triggers: [
+          { id: 'trigger_a1', label: 'Test', active: true, weight: 1 },
+          { id: 'trigger_a2', label: 'New Trigger', active: true, weight: 1 },
+        ],
+      },
+      {
+        id: 'group_b',
+        title: 'Group B',
+        isExclusive: false,
+        triggers: [{ id: 'trigger_b1', label: 'New Trigger', active: true, weight: 1 }],
+      },
+      {
+        id: 'group_c',
+        title: 'Group C',
+        isExclusive: false,
+        triggers: [
+          { id: 'trigger_c1', label: 'New Trigger', active: true, weight: 1 },
+          { id: 'trigger_c2', label: 'New Trigger', active: true, weight: 1 },
+          { id: 'trigger_c3', label: 'New Trigger', active: true, weight: 1 },
+          { id: 'trigger_c4', label: 'New Trigger', active: true, weight: 1 },
+          { id: 'trigger_c5', label: 'New Trigger', active: true, weight: 1 },
+          { id: 'trigger_c6', label: 'New Trigger', active: true, weight: 1 },
+        ],
+      },
+    ];
+
+    const computeLayout = async () => {
+      node.refreshNodeLayoutMap();
+      const { getVirtualNodeLayoutMap } = await import('../js/fatha/helpers/fathaLayoutMaps.js');
+      const { masterLayoutEngine } = await import('../js/fatha/core/masterLayoutEngine.js');
+      const fullMap = getVirtualNodeLayoutMap(node);
+      const layout = new masterLayoutEngine(node);
+      layout.compute({ x: 0, y: 0, w: 520, h: 500 }, fullMap, { isVirtual: true }, true);
+      return layout;
+    };
+    const getInsets = (layout, groupIdx) => {
+      const group = layout.regions[`triggerRegion_${groupIdx}`];
+      const rows = Object.entries(layout.regions)
+        .filter(([key]) => key.startsWith(`triggerRow_${groupIdx}_`))
+        .map(([, row]) => row)
+        .sort((a, b) => a.y - b.y);
+      const firstRow = rows[0];
+      const lastRow = rows[rows.length - 1];
+      return {
+        top: firstRow.y - group.y,
+        bottom: group.y + group.h - (lastRow.y + lastRow.h),
+      };
+    };
+
+    const { triggerWall_reorderGroups } = await import('../js/derps/controldeck/core/derpTriggerWall_core.js');
+    triggerWall_reorderGroups(node, 2, 1);
+    const layout = await computeLayout();
+    const referenceInset = getInsets(layout, 1).top;
+
+    expect(node._triggerGroupData.map((group) => group.id)).toEqual(['group_a', 'group_c', 'group_b']);
+    expect(getInsets(layout, 0)).toEqual({ top: referenceInset, bottom: referenceInset });
+    expect(getInsets(layout, 1)).toEqual({ top: referenceInset, bottom: referenceInset });
+    expect(getInsets(layout, 2)).toEqual({ top: referenceInset, bottom: referenceInset });
+  });
+
   it('clips wrapped bottom trigger groups before the selector in squeezed manual height', async () => {
     const NodeType = await registerTriggerWallNodeType();
     const node = await makeTriggerWallNode(NodeType, {
@@ -324,8 +548,9 @@ describe('derpTriggerWall layout', () => {
     const gapBetweenGroups = layout.regions.triggerRegion_1.y
       - (layout.regions.triggerRegion_0.y + layout.regions.triggerRegion_0.h);
     const lastGroupBottom = layout.regions.triggerRegion_2.y + layout.regions.triggerRegion_2.h;
-    const gapAboveLinebreak = layout.regions.linebreakBeforeSelectTriggerGroup.y - lastGroupBottom;
     const viewportBottom = layout.regions.triggerGroupsViewportRegion.y + layout.regions.triggerGroupsViewportRegion.h;
+    const visibleGroupBottom = Math.min(lastGroupBottom, viewportBottom);
+    const gapAboveLinebreak = layout.regions.linebreakBeforeSelectTriggerGroup.y - visibleGroupBottom;
 
     expect(gapBetweenGroups).toBe(3);
     expect(gapAboveLinebreak).toBe(6);

@@ -440,7 +440,9 @@ function buildTriggerWallStructuralHash(node, params) {
                 return `${tActive}:${tDisabled}:${tWeight}:${tLabel}`;
             })
             .join(",");
-        return `${g.isExclusive ? 1 : 0}:[${trigParts}]`;
+        const groupId = String(g.id ?? "");
+        const groupTitle = String(g.title ?? "");
+        return `${groupId}:${groupTitle}:${g.isExclusive ? 1 : 0}:[${trigParts}]`;
     }).join("|");
 
     const useDragFields = !!dragThreshold;
@@ -657,6 +659,7 @@ app.registerExtension({
                     renderGhostPlaceholders = false,
                     rowAnchorPrefix = "triggerRow",
                     firstRowAnchorTarget = `lineBreak_${gIdx}`,
+                    groupRegionKey = null,
                     itemPressEnabled = true,
                     itemDragEnabled = true,
                     addPressEnabled = true
@@ -724,7 +727,7 @@ app.registerExtension({
                         const trigWeight = Number(item.trig.weight ?? 1.0);
                         const showWeight = this.properties.showWeight !== false;
                         const weightVisible = showWeight && Number.isFinite(trigWeight) && Math.abs(trigWeight - 1.0) > 1e-6;
-                        const trigMeasureKey = `trig|${item.trig.label || "Trigger Test"}|${weightVisible ? trigWeight.toFixed(2) : "1.00"}|${showWeight ? 1 : 0}|${triggerPadW}|${triggerPadH}|${sW}|${triggerFontSize}|${triggerFont}|${triggerWeightFont}`;
+                        const trigMeasureKey = `trig|${item.trig.label || tLocale("$derp_trigger_wall.trigger.placeholder", "New Trigger")}|${weightVisible ? trigWeight.toFixed(2) : "1.00"}|${showWeight ? 1 : 0}|${triggerPadW}|${triggerPadH}|${sW}|${triggerFontSize}|${triggerFont}|${triggerWeightFont}`;
                         const cachedTrigWidth = this._triggerMeasureCache.get(trigMeasureKey);
                         if (Number.isFinite(cachedTrigWidth)) {
                             measureCacheHits += 1;
@@ -733,7 +736,7 @@ app.registerExtension({
                             measureCacheMisses += 1;
                             tw = Math.ceil(this.layout.measure({
                                 type: this.UI_TYPES.COMPOSITE_TRIGGER, themeKey: "button, panel, t_textsmall",
-                                text: item.trig.label || tLocale("$derp_trigger_wall.trigger.placeholder", "Trigger Test"), width: "auto", height: "auto",
+                                text: item.trig.label || tLocale("$derp_trigger_wall.trigger.placeholder", "New Trigger"), width: "auto", height: "auto",
                                 padding: [triggerPadW, triggerPadH, triggerPadW, triggerPadH], margin: [0, 0], spacing: [sW, 0],
                                 showWeight: this.properties.showWeight, weight: trigWeight
                             }, { textTheme: measureTextTheme }));
@@ -759,10 +762,16 @@ app.registerExtension({
                 }, [[]]);
 
                 trigGroups.forEach((gItems, rIdx) => {
+                    const isFirstRow = rIdx === 0;
                     const isLastRow = rIdx === trigGroups.length - 1;
+                    const triggerGroupInnerInset = mH + sH;
+                    const firstRowAnchorsToGroup = isFirstRow && firstRowAnchorTarget === groupRegionKey;
+                    const rowAnchor = firstRowAnchorsToGroup || !isFirstRow
+                        ? undefined
+                        : { target: firstRowAnchorTarget, axis: "y", offset: sH };
                     triggerRows[`${rowAnchorPrefix}_${gIdx}_${rIdx}`] = {
-                        anchor: { target: rIdx === 0 ? firstRowAnchorTarget : `${rowAnchorPrefix}_${gIdx}_${rIdx - 1}`, axis: "y", offset: sH },
-                        dir: "row", width: "full", height: "auto", spacing: [sW, 0], minWidth: 0, margin: [-mW / 2, 0, -mW / 2, isLastRow ? mH + 2 : 0],
+                        anchor: rowAnchor,
+                        dir: "row", width: "full", height: "auto", spacing: [sW, 0], minWidth: 0, margin: [-mW, firstRowAnchorsToGroup ? triggerGroupInnerInset : (!isFirstRow ? sH : 0), -mW, isLastRow ? triggerGroupInnerInset + sH : 0],
                         ...Object.fromEntries(gItems.map(item => {
                             if (renderGhostPlaceholders) {
                                 const placeholderKey = item.type === "trig"
@@ -807,7 +816,7 @@ app.registerExtension({
                                 const triggerItemKey = rowAnchorPrefix === "triggerRow" ? `triggerItem_${gIdx}_${item.idx}` : `${rowAnchorPrefix}Item_${gIdx}_${item.idx}`;
                                 return [triggerItemKey, {
                                     type: this.UI_TYPES.COMPOSITE_TRIGGER, themeKey: "button, panel, t_textsmall",
-                                    text: item.trig.label || tLocale("$derp_trigger_wall.trigger.placeholder", "Trigger Test"), mouseOver: false,
+                                    text: item.trig.label || tLocale("$derp_trigger_wall.trigger.placeholder", "New Trigger"), mouseOver: false,
                                     toolTip: tLocale("$derp_trigger_wall.tooltips.trigger", "Left click to toggle. Shift+click to toggle all triggers in the group. Right click to open detail panel"),
                                     width: "auto", height: "auto", padding: [triggerPadW, triggerPadH, triggerPadW, triggerPadH], margin: [0, 0], spacing: [sW, 0],
                                     showWeight: this.properties.showWeight, weight: item.trig.weight ?? 1.0,
@@ -864,6 +873,7 @@ app.registerExtension({
                     renderGhostPlaceholders,
                     rowAnchorPrefix,
                     firstRowAnchorTarget,
+                    groupRegionKey: regionKey,
                     itemPressEnabled,
                     itemDragEnabled,
                     addPressEnabled
@@ -1005,20 +1015,21 @@ app.registerExtension({
             if (useGroupsViewport) topContentRegion.triggerGroupsViewportRegion = groupRegionHost;
             let lastRegionKey = useGroupsViewport ? "triggerGroupsViewportRegion" : "groupControlRow1";
 
-            visibleGroupEntries.forEach((entry) => {
+            visibleGroupEntries.forEach((entry, visibleIdx) => {
                 const { group, gIdx, isPreviewGhost } = entry;
                 const isGroupPreviewGhost = !!isPreviewGhost;
                 const regionKey = `triggerRegion_${gIdx}`;
                 const isSelected = !!this._selectedRegions?.[regionKey];
-                const isFirstGroup = Object.keys(groupRegionHost).filter(k => k.startsWith("triggerRegion_")).length === 0;
+                const isFirstGroup = visibleIdx === 0;
+                const isLastGroup = visibleIdx === visibleGroupEntries.length - 1;
                 groupRegionHost[regionKey] = buildGroupRegion(group, gIdx, regionKey, isSelected, {
-                    groupMarginOverride: isFirstGroup ? [mW * 2, mH, mW * 2, mH] : undefined,
+                    groupMarginOverride: [mW * 2, isFirstGroup ? mH : sH, mW * 2, isLastGroup ? mH : 0],
                     isPreviewGhost: isGroupPreviewGhost,
                     childKeyPrefix: "",
                     rowAnchorPrefix: "triggerRow",
                     firstRowAnchorTarget: (!this.properties.settingActive && !isSelected) ? regionKey : `lineBreak_${gIdx}`,
                     regionProps: {
-                        anchor: { target: lastRegionKey, axis: "y", offset: isFirstGroup ? 0 : -mH },
+                        anchor: { target: lastRegionKey, axis: "y", offset: 0 },
                         onDragStart: (e, data) => startStackDrag(this, data, visibleGroupIndices.indexOf(gIdx), regionKey, {
                             holdOnly: false,
                             payload: { dragKind: "group" }
