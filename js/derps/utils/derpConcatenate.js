@@ -278,11 +278,10 @@ function cancelConcatStackDrag(node) {
     applyConcatSignalDeckOrder(node);
 }
 
-function buildConcatLayoutHash(node, vars, signalStates) {
+function buildConcatLayoutHash(node, vars, signalStates, isRuntimeAutoHeight = resolveDerpRuntimeAutoHeight(node)) {
     const width = (Number(node?.size?.[0]) || 0).toFixed(2);
     const mW = Number(vars.mW || 0).toFixed(2);
     const mH = Number(vars.mH || 0).toFixed(2);
-    const oY = Number(vars.oY || 0).toFixed(2);
     const signalItems = getConcatSignalItems(node);
     const hiddenPreviews = node?.properties?.hiddenSignalPreviews || {};
     const hiddenPreviewHash = Object.keys(hiddenPreviews)
@@ -301,8 +300,8 @@ function buildConcatLayoutHash(node, vars, signalStates) {
         node?._dragThresholdMet && Array.isArray(node?._dragMouse) ? node._dragMouse.join(",") : "",
         mW,
         mH,
-        oY,
         node?.properties?.drawHeader !== false,
+        `hm:${isRuntimeAutoHeight ? "auto" : "manual"}`,
         `hp:${hiddenPreviewHash}`,
         `cc:${node?.properties?.concatContentCollapsed === true ? 1 : 0}`,
     ].join("|");
@@ -355,7 +354,10 @@ app.registerExtension({
             if (this.flags?.collapsed || this.properties?.contentCollapsed === true || this.size[0] <= 0) return;
             normalizeConcatSignalSelections(this);
             const vars = this.getDerpVars(this);
-            const { mW, mH, sW, sH, oY, pW, pH, t_textNormal_size, t_textSmall_size } = vars;
+            const { mW, mH, sW, sH, pW, pH, t_textNormal_size, t_textSmall_size } = vars;
+
+            // Reserve space for the system button (6px) + mH gap (derpNotes pattern).
+            this.properties.footerHeight = 6 + mH;
             const signalStates = getConcatSignalStates(this);
             const signalItems = getConcatSignalItems(this);
             const previewFontSize = Number(t_textSmall_size || this._t_textSmallPaintData?.fontSize || 12);
@@ -364,7 +366,8 @@ app.registerExtension({
             const previewInnerWidth = getConcatPreviewInnerWidth(this, vars);
             const combinedValue = getConcatCombinedValue(signalStates);
             const combinedPreviewHeight = measureConcatPreviewHeight(combinedValue || " ", previewInnerWidth, previewFontSize, previewFont, previewFontWeight, pH);
-            const structureHash = buildConcatLayoutHash(this, vars, signalStates);
+            const isRuntimeAutoHeight = resolveDerpRuntimeAutoHeight(this);
+            const structureHash = buildConcatLayoutHash(this, vars, signalStates, isRuntimeAutoHeight);
 
             this._concatActiveSignalIds = signalStates.map((state) => state.activeSignalId);
             this._concatSignalPreview = signalStates.map((state) => state.preview).join("");
@@ -396,8 +399,8 @@ app.registerExtension({
                 const previousKey = displayIndex === 0 ? "lblStatus" : `regionSignalEntry_${signalItemsForLayout[displayIndex - 1].index}`;
                 const isPickedUp = !!(this._dragTrig && this._dragThresholdMet && this._dragTrig.index === index && !item.isPreviewGhost);
                 acc[entryKey] = {
-                    anchor: { target: previousKey, axis: "y", offset: displayIndex === 0 ? 0 : sH },
                     type: this.UI_TYPES.REGION,
+                    margin: [0, 0, 0, sH],
                     onContextMenu: () => {
                         this.toggleDerpSignalPreview(index);
                         return false;
@@ -571,54 +574,59 @@ app.registerExtension({
                 };
             }
 
-            const lastLayoutItem = signalItemsForLayout[signalItemsForLayout.length - 1];
-            const lastEntryKey = lastLayoutItem ? `regionSignalEntry_${lastLayoutItem.index}` : "lblStatus";
             this._layoutMapHash = structureHash;
-            this.layoutMap = {
-                sysContentRegion: {
-                    anchor: { target: "headerRegion", axis: "y", offset: oY },
+            const regionSignals = {
+                width: "full", height: "auto", dir: "col",
+                lblStatus: {
+                    hidden: signalStates.length > 0,
+                    type: this.UI_TYPES.TEXT,
+                    themeKey: "t_textSystem",
+                    text: tLocale("$derp_concatenate.select_signal", "Select a STRING signal."),
+                    width: "full",
+                    padding: [pW, pH],
+                    labelAlign: ["left", "middle"],
+                    displayMode: "cutoff",
+                    pulseStates: true,
+                },
+                ...signalEntryRegions,
+                linebreakBeforeConcat: {
+                    type: this.UI_TYPES.LINEBREAK,
+                    themeKey: "line",
+                    width: "full",
+                    height: 1,
+                    margin: [-mW, mH, -mW, mH],
+                },
+            };
+            const regionConcatenated = {
+                type: this.UI_TYPES.REGION,
+                dir: "col",
+                width: "full", height: "auto",
+                onContextMenu: () => {
+                    this.properties.concatContentCollapsed = !this.properties.concatContentCollapsed;
+                    this._layoutMapHash = null;
+                    this.refreshNodeLayoutMap();
+                    if (resolveDerpRuntimeAutoHeight(this)) {
+                        this._allowDockContentHeightShiftFrames = 4;
+                        settleDerpSizeBeforeDraw(this, {
+                            forceAutoHeight: true,
+                            suppressRequestSync: true,
+                        });
+                    }
+                    this.requestDerpSync();
+                    return false;
+                },
+                regionConcatHeader: {
+                    dir: "row",
                     width: "full", height: "auto",
-                    padding: [0, 0],
-                    margin: this.properties?.drawHeader === true ? [mW, mH] : [0, 0],
-                    lblStatus: {
-                        hidden: signalStates.length > 0,
-                        type: this.UI_TYPES.TEXT,
-                        themeKey: "t_textSystem",
-                        text: tLocale("$derp_concatenate.select_signal", "Select a STRING signal."),
-                        width: "full",
-                        padding: [pW, pH],
-                        labelAlign: ["left", "middle"],
-                        displayMode: "cutoff",
-                        pulseStates: true,
-                    },
-                    ...signalEntryRegions,
-                    dropdownSignalAdd: {
-                        anchor: { target: lastEntryKey, axis: "y", offset: sH },
-                        type: this.UI_TYPES.FILEBROWSER,
-                        icon: "signal",
-                        themeKey: "dialog, t_textNormal",
-                        fontSize: t_textNormal_size,
-                        canvasShield: true,
-                        bypassHashOptimization: true,
-                        mouseOver: signalItems.length > 0,
-                        canOpenPicker: signalItems.length > 0,
-                        width: "full", height: "auto",
-                        padding: [pW, pH],
-                        mode: "signal",
-                        rootName: "signals",
-                        items: signalItems,
-                        value: tLocale("$derp_concatenate.add_signal", "Add new STRING signal..."),
-                        state: (this.mode === 4 || this.mode === 2 || signalItems.length === 0) ? "DIS" : "OFF",
-                        onChange: (val) => {
-                            this.addDerpSelectedSignal(val);
-                        },
-                    },
-                    regionConcatenated: {
-                        anchor: { target: "dropdownSignalAdd", axis: "y", offset: sH },
-                        type: this.UI_TYPES.REGION,
-                        dir: "col",
-                        width: "full", height: "auto",
-                        onContextMenu: () => {
+                    spacing: [0, 0],
+                    btnCollapseConcat: {
+                        type: this.UI_TYPES.ICONBUTTON,
+                        margin: [sW, 0, 0, 0],
+                        icon: this.properties.concatContentCollapsed ? "add" : "subtract",
+                        themeKey: "button, t_textSystem",
+                        width: "match", height: "auto",
+                        spacing: [0, 0],
+                        onPress: () => {
                             this.properties.concatContentCollapsed = !this.properties.concatContentCollapsed;
                             this._layoutMapHash = null;
                             this.refreshNodeLayoutMap();
@@ -630,67 +638,98 @@ app.registerExtension({
                                 });
                             }
                             this.requestDerpSync();
-                            return false;
                         },
-                        regionConcatHeader: {
-                            dir: "row",
-                            width: "full", height: "auto",
-                            spacing: [0, 0],
-                            btnCollapseConcat: {
-                                type: this.UI_TYPES.ICONBUTTON,
-                                margin: [sW, 0, 0, 0],
-                                icon: this.properties.concatContentCollapsed ? "add" : "subtract",
-                                themeKey: "button, t_textSystem",
-                                width: "match", height: "auto",
-                                spacing: [0, 0],
-                                onPress: () => {
-                                    this.properties.concatContentCollapsed = !this.properties.concatContentCollapsed;
-                                    this._layoutMapHash = null;
-                                    this.refreshNodeLayoutMap();
-                                    if (resolveDerpRuntimeAutoHeight(this)) {
-                                        this._allowDockContentHeightShiftFrames = 4;
-                                        settleDerpSizeBeforeDraw(this, {
-                                            forceAutoHeight: true,
-                                            suppressRequestSync: true,
-                                        });
-                                    }
-                                    this.requestDerpSync();
-                                },
-                            },
-                            lblConcatHeader: {
-                                type: this.UI_TYPES.TEXT,
-                                themeKey: "t_textNormal",
-                                text: tLocale("$derp_concatenate.concatenated_text", "{{t_text_highlight::Concatenated text:}}"),
-                                width: "full", height: "auto",
-                                padding: [pW, pH],
-                                margin: [0, 0, sW, 0],
-                                labelAlign: ["left", "middle"],
-                                displayMode: "cutoff",
-                                mouseOver: false,
-                            },
-                        },
-                        linebreakConcat: {
-                            type: this.UI_TYPES.LINEBREAK,
-                            hidden: this.properties.concatContentCollapsed,
-                            themeKey: "line",
-                            width: "full",
-                            height: 1,
-                            margin: [0, 0, 0, sH],
-                        },
-                        lbelConcatContent: {
-                            hidden: this.properties.concatContentCollapsed,
-                            type: this.UI_TYPES.TEXT,
-                            themeKey: "t_textSmall",
-                            text: combinedValue || " ",
-                            width: "full", height: combinedPreviewHeight,
-                            padding: [pW, pH],
-                            labelAlign: ["left", "top"],
-                            wrap: true,
-                            mouseOver: false,
-                        },
+                    },
+                    lblConcatHeader: {
+                        type: this.UI_TYPES.TEXT,
+                        themeKey: "t_textNormal",
+                        text: tLocale("$derp_concatenate.concatenated_text", "{{t_text_highlight::Concatenated text:}}"),
+                        width: "full", height: "auto",
+                        padding: [pW, pH],
+                        margin: [0, 0, sW, 0],
+                        labelAlign: ["left", "middle"],
+                        displayMode: "cutoff",
+                        mouseOver: false,
+                    },
+                },
+                linebreakConcat: {
+                    type: this.UI_TYPES.LINEBREAK,
+                    hidden: this.properties.concatContentCollapsed,
+                    themeKey: "line",
+                    width: "full",
+                    height: 1,
+                    margin: [0, 0, 0, sH],
+                },
+                lbelConcatContent: {
+                    hidden: this.properties.concatContentCollapsed,
+                    type: this.UI_TYPES.TEXT,
+                    themeKey: "t_textSmall",
+                    text: combinedValue || " ",
+                    width: "full", height: combinedPreviewHeight,
+                    padding: [pW, pH],
+                    labelAlign: ["left", "top"],
+                    wrap: true,
+                    mouseOver: false,
+                },
+            };
+            const addSignalControls = {
+                linebreakBeforeAdd: {
+                    type: this.UI_TYPES.LINEBREAK,
+                    themeKey: "line",
+                    width: "full",
+                    height: 1,
+                    margin: [-mW, mH, -mW, 0],
+                },
+                dropdownSignalAdd: {
+                    type: this.UI_TYPES.FILEBROWSER,
+                    icon: "signal",
+                    themeKey: "dialog, t_textNormal",
+                    fontSize: t_textNormal_size,
+                    canvasShield: true,
+                    bypassHashOptimization: true,
+                    mouseOver: signalItems.length > 0,
+                    canOpenPicker: signalItems.length > 0,
+                    width: "full", height: "auto",
+                    margin: [0, mH, 0, 0],
+                    padding: [pW, pH],
+                    mode: "signal",
+                    rootName: "signals",
+                    items: signalItems,
+                    value: tLocale("$derp_concatenate.add_signal", "Add new STRING signal..."),
+                    state: (this.mode === 4 || this.mode === 2 || signalItems.length === 0) ? "DIS" : "OFF",
+                    onChange: (val) => {
+                        this.addDerpSelectedSignal(val);
                     },
                 },
             };
+            this.layoutMap = isRuntimeAutoHeight
+                ? {
+                    contentRegion: {
+                        anchor: { target: "headerRegion", axis: "y" },
+                        width: "full", height: "auto", dir: "col",
+                        margin: [mW, mH, mW, 0],
+                        regionSignals,
+                        regionConcatenated,
+                        ...addSignalControls,
+                    },
+                }
+                : {
+                    contentAndSpringRegion: {
+                        anchor: { target: "headerRegion", axis: "y" },
+                        width: "full", height: "fill", dir: "col",
+                        margin: [mW, mH, mW, 0],
+                        regionSignals,
+                        regionConcatenated,
+                        springRegion: {
+                            width: "full", height: "fill", minHeight: 0,
+                        },
+                    },
+                    addSignalRegion: {
+                        width: "full", height: "auto", dir: "col",
+                        margin: [mW, 0, mW, 0],
+                        ...addSignalControls,
+                    },
+                };
             if (this.layout) this.layout._lastCacheKey = "";
             this.requestDerpSync();
         };

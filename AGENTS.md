@@ -163,6 +163,7 @@ To add a skill, create `.agents/skills/<name>/SKILL.md` with YAML frontmatter (`
 - PASS 1 measures at `SQUISH_WIDTH = 10`; high `minWidth` values can inflate the whole layout.
 - Derp nodes default to manual width; only explicit `properties.autoWidth = true` opts into auto width. Missing `autoWidth` must be treated like `false` in layout, docking, and resize paths.
 - Height Mode ownership now has two layers: node preference and dock-aware runtime behavior. Child nodes should write Height Mode changes through the shared Fatha height-policy helper, while docking/resize code decides when vertical stacks temporarily force manual runtime height.
+- If Auto height must stay tightly packed but Manual height must bottom-pin a trailing control group, branch the node layout map on `resolveDerpRuntimeAutoHeight(node)` and include that runtime mode in the layout hash. A single spring layout cannot satisfy both surplus-ownership rules without moving the visible gap between sections.
 - System panel height selection is one shared Height Mode FILEBROWSER. Standard nodes expose Auto/Manual; clipped nodes should provide `getDerpHeightModeConfig()` instead of adding separate viewport-height controls.
 - Use `_forceSync`, `_layoutDirty`, and `_derpAwakeFrames` deliberately for recompute and animation wakeups.
 - Whole-wall/passive caches can hide correct widget state; inspect cache keys when visuals revert unexpectedly.
