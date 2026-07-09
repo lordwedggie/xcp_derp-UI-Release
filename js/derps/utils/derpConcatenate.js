@@ -7,7 +7,7 @@ import { fatha, initDerpGlobalListener } from "../../fatha/fatha.js";
 import { startStackDrag, updateStackDrag, endStackDrag } from "../../fatha/helpers/fathaDragDrop.js";
 import { measureTextHeight } from "../../herbina/utils/widgetsUtils.js";
 import { settleDerpSizeBeforeDraw } from "../../fatha/core/fathaHandler.js";
-import { resolveDerpRuntimeAutoHeight } from "../../fatha/core/derpHeightPolicy.js";
+import { resolveDerpPreferredAutoHeight, resolveDerpRuntimeAutoHeight } from "../../fatha/core/derpHeightPolicy.js";
 
 function tLocale(key, fallback = key) {
     if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
@@ -276,6 +276,10 @@ function applyConcatSignalDeckOrder(node) {
 function cancelConcatStackDrag(node) {
     endStackDrag(node, "signalDeck");
     applyConcatSignalDeckOrder(node);
+}
+
+function shouldSettleConcatAutoHeight(node) {
+    return resolveDerpRuntimeAutoHeight(node) || resolveDerpPreferredAutoHeight(node);
 }
 
 function buildConcatLayoutHash(node, vars, signalStates, isRuntimeAutoHeight = resolveDerpRuntimeAutoHeight(node)) {
@@ -605,7 +609,7 @@ app.registerExtension({
                     this.properties.concatContentCollapsed = !this.properties.concatContentCollapsed;
                     this._layoutMapHash = null;
                     this.refreshNodeLayoutMap();
-                    if (resolveDerpRuntimeAutoHeight(this)) {
+                    if (shouldSettleConcatAutoHeight(this)) {
                         this._allowDockContentHeightShiftFrames = 4;
                         settleDerpSizeBeforeDraw(this, {
                             forceAutoHeight: true,
@@ -630,7 +634,7 @@ app.registerExtension({
                             this.properties.concatContentCollapsed = !this.properties.concatContentCollapsed;
                             this._layoutMapHash = null;
                             this.refreshNodeLayoutMap();
-                            if (resolveDerpRuntimeAutoHeight(this)) {
+                            if (shouldSettleConcatAutoHeight(this)) {
                                 this._allowDockContentHeightShiftFrames = 4;
                                 settleDerpSizeBeforeDraw(this, {
                                     forceAutoHeight: true,
@@ -801,7 +805,7 @@ app.registerExtension({
             this._layoutMapHash = null;
             if (this.syncDerpOutputs) this.syncDerpOutputs();
             if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
-            if (resolveDerpRuntimeAutoHeight(this)) {
+            if (shouldSettleConcatAutoHeight(this)) {
                 this._allowDockContentHeightShiftFrames = 4;
                 settleDerpSizeBeforeDraw(this, {
                     forceAutoHeight: true,
@@ -830,7 +834,7 @@ app.registerExtension({
             this._layoutMapHash = null;
             if (this.syncDerpOutputs) this.syncDerpOutputs();
             if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
-            if (resolveDerpRuntimeAutoHeight(this)) {
+            if (shouldSettleConcatAutoHeight(this)) {
                 this._allowDockContentHeightShiftFrames = 4;
                 settleDerpSizeBeforeDraw(this, {
                     forceAutoHeight: true,
@@ -850,7 +854,7 @@ app.registerExtension({
             applyConcatSignalDeckOrder(this);
             this._layoutMapHash = null;
             if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
-            if (resolveDerpRuntimeAutoHeight(this)) {
+            if (shouldSettleConcatAutoHeight(this)) {
                 this._allowDockContentHeightShiftFrames = 4;
                 settleDerpSizeBeforeDraw(this, {
                     forceAutoHeight: true,
@@ -935,7 +939,7 @@ app.registerExtension({
                 if (this.syncDerpOutputs) this.syncDerpOutputs();
                 this._layoutMapHash = null;
                 this.refreshNodeLayoutMap();
-                if (resolveDerpRuntimeAutoHeight(this) && !this._isDerpResizing) {
+                if (shouldSettleConcatAutoHeight(this) && !this._isDerpResizing) {
                     this._allowDockContentHeightShiftFrames = 4;
                     settleDerpSizeBeforeDraw(this, {
                         forceAutoHeight: true,
@@ -948,7 +952,7 @@ app.registerExtension({
             if (this._lastDerpW !== currentW) {
                 this._lastDerpW = currentW;
                 this.refreshNodeLayoutMap();
-                if (resolveDerpRuntimeAutoHeight(this)) {
+                if (shouldSettleConcatAutoHeight(this)) {
                     this._allowDockContentHeightShiftFrames = 4;
                     settleDerpSizeBeforeDraw(this, {
                         forceAutoHeight: true,

@@ -41,6 +41,7 @@ Current UI pattern:
 - Signal row reordering uses `fathaDragDrop.js` hold-first DnD; all normal click actions inside a draggable row must call `endStackDrag(node, "signalDeck")` to cancel the pending hold timer before toggling/removing/selecting.
 - Follow the stack drag-and-hold DnD rules in `FRAMEWORK-Fatha.md` for layout hash gating, click cancellation, and `onDragEnd` cleanup.
 - Layout branches on `resolveDerpRuntimeAutoHeight(node)`: runtime Auto height uses one packed `contentRegion` with no node-local spring, while runtime Manual height uses `contentAndSpringRegion` plus trailing `addSignalRegion` so surplus height appears between the concatenated text display and the add-signal LINEBREAK/dropdown group.
+- Content-height settlement uses preferred Auto height as well as runtime Auto height, so a Concatenate node docked in a vertical stack still shrinks after signal previews or concatenated text are collapsed while the user's saved Height Mode is Auto.
 - Keep Concatenate footer spacing explicit: `footerHeight = 6 + mH`, no `footerGapHeight`, and no `oY`-based vertical spacing.
 
 ## <span style="color: #80ffc0">Node Inventory</span>

@@ -4,6 +4,14 @@ vi.mock('../js/fatha/bastas/bastaSystemMessage.js', () => ({
   showBastaSystemMessage: vi.fn(),
 }));
 
+vi.mock('../js/fatha/core/fathaHandler.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    settleDerpSizeBeforeDraw: vi.fn(),
+  };
+});
+
 async function registerConcatenateNodeType() {
   const extensions = [];
   window.app.registerExtension = (extension) => {
@@ -144,5 +152,25 @@ describe('derpConcatenate layout', () => {
       520 - fixedFooterSpace + 1,
     );
     expect(layout.regions.footerRegion.h).toBeLessThanOrEqual(fixedFooterSpace);
+  });
+
+  it('settles preferred-auto height changes while docked in a vertical stack', async () => {
+    const NodeType = await registerConcatenateNodeType();
+    const node = makeConcatenateNode(NodeType);
+    const { settleDerpSizeBeforeDraw } = await import('../js/fatha/core/fathaHandler.js');
+
+    node.properties.autoHeight = false;
+    node.properties.deckSavedAutoHeight = true;
+    node.properties._derpPreferredAutoHeight = true;
+    node.refreshNodeLayoutMap();
+    vi.mocked(settleDerpSizeBeforeDraw).mockClear();
+
+    node.toggleDerpSignalPreview(0);
+
+    expect(settleDerpSizeBeforeDraw).toHaveBeenCalledWith(node, {
+      forceAutoHeight: true,
+      suppressRequestSync: true,
+    });
+    expect(node._allowDockContentHeightShiftFrames).toBe(4);
   });
 });

@@ -118,6 +118,8 @@ A "hybrid" framework combining Fatha's modern engine with legacy node compatibil
 
 - **Runtime Height Mode Layout Branching:** If runtime Auto height must stay tightly packed but runtime Manual height must bottom-pin a trailing control group, branch the node layout map on `resolveDerpRuntimeAutoHeight(node)`. Use no node-local spring in runtime Auto, use the two-sibling fill-plus-auto pattern only in runtime Manual, and include the runtime mode in the node's layout hash so Height Mode switches rebuild the structure.
 
+- **Preferred-Auto Settlement While Docked:** Vertical stacks may force runtime `autoHeight = false` while preserving the user's preferred Height Mode as Auto. Node-local content changes that should resize an Auto-height node, such as hiding rows or collapsing previews, should request settlement when either runtime Auto or preferred Auto is true. Otherwise content pressure can grow the stack member, but hidden content may not shrink the stack-owned physical height.
+
 ## Localized Default Titles
 - Default derp node titles are synchronized by `syncDerpLocalizedDefaultTitle()` in `core/fathaHandler.js`.
 - The registry tracks known default title translations from all available locale files so a workflow saved in one language can relocalize after switching languages or reloading ComfyUI.
