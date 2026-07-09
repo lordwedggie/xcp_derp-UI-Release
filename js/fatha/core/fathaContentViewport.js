@@ -256,12 +256,9 @@ export function applyContentViewportLayout(node, regions, layout, options = {}) 
             if (!isViewportClipDisabled(child, key, regions)) restoreViewportDescendantWidth(child);
         });
         const contentBottom = descendants.length
-            ? Math.max(...descendants.map((child) => {
-                const margin = normalizeMargin(child.margin);
-                return (numberOr(child.y) - numberOr(region.y)) + numberOr(child.h) + margin[3];
-            }))
+            ? Math.max(...descendants.map((child) => (numberOr(child.y) - numberOr(region.y)) + numberOr(child.h)))
             : numberOr(region.h);
-        const fullHeight = Math.max(numberOr(region.h), contentBottom);
+        const fullHeight = descendants.length ? Math.max(1, contentBottom) : numberOr(region.h);
         const visibleHeight = Math.min(fullHeight, clipHeight);
         const minVisibleHeight = rawMinClipHeight > 0 ? Math.min(visibleHeight, rawMinClipHeight) : visibleHeight;
         const overflow = fullHeight > visibleHeight + 0.5;
@@ -284,6 +281,7 @@ export function applyContentViewportLayout(node, regions, layout, options = {}) 
         region._contentViewport = true;
         region._contentViewportFullHeight = fullHeight;
         region._contentViewportClipHeight = visibleHeight;
+        region._contentViewportMinClipHeight = minVisibleHeight;
         region._contentViewportHasOverflow = effectiveOverflow;
         const heightDelta = numberOr(region.h) - visibleHeight;
         region.h = visibleHeight;
@@ -351,7 +349,11 @@ export function applyContentViewportLayout(node, regions, layout, options = {}) 
         const nextHeight = Math.max(1, bottomPoint - numberOr(regions.panelBackground?.y));
         layout.totalHeight = nextHeight;
         const minDelta = viewportMinHeightDeltas.reduce((sum, delta) => sum + delta, 0);
-        layout.contentMinHeight = Math.max(1, nextHeight - minDelta);
+        const compactContentMinHeight = Math.max(1, nextHeight - minDelta);
+        const existingContentMinHeight = numberOr(layout.contentMinHeight);
+        layout.contentMinHeight = existingContentMinHeight > 0
+            ? Math.min(existingContentMinHeight, compactContentMinHeight)
+            : compactContentMinHeight;
         if (regions.panelBackground) regions.panelBackground.h = nextHeight;
         layout.contentViewportGutter = maxGutter;
         node._contentViewportGutter = maxGutter;

@@ -327,6 +327,11 @@ function getRegionBottom(reg) {
     return (Number(reg.y) || 0) + (Number(reg.h) || 0) + marginB;
 }
 
+function getRegionVisualBottom(reg) {
+    if (!reg) return 0;
+    return (Number(reg.y) || 0) + (Number(reg.h) || 0);
+}
+
 function getTriggerWallFooterReserve(regions = {}) {
     const footer = regions.footerRegion;
     const systemBtn = regions.systemBtn;
@@ -348,7 +353,7 @@ function getTriggerWallGroupSpan(entries, region = null, count = entries.length)
     const visible = entries.slice(0, Math.max(0, count));
     if (!visible.length) return 0;
     const top = Number(region?.y) || Number(visible[0].reg.y) || 0;
-    const bottom = Math.max(...visible.map(({ reg }) => getRegionBottom(reg)));
+    const bottom = Math.max(...visible.map(({ reg }) => getRegionVisualBottom(reg)));
     return bottom > top ? bottom - top : 0;
 }
 
@@ -357,21 +362,22 @@ function resolveTriggerWallAutoClipHeight(node, region, regions = {}, fullConten
     const regionY = Number(region?.y) || 0;
     if (nodeH <= 0 || regionY <= 0) return 0;
 
-    const belowRegions = [regions.regionSelectTriggerGroup, regions.regionOption1, regions.bottomSpacer].filter(Boolean);
+    const belowRegions = [regions.linebreakBeforeSelectTriggerGroup, regions.regionSelectTriggerGroup, regions.regionOption1, regions.bottomSpacer].filter(Boolean);
+    const firstBelowY = belowRegions.reduce((min, reg) => Math.min(min, Number(reg.y) || min), Infinity);
+    const vars = typeof node?.getDerpVars === "function" ? node.getDerpVars(node) : null;
+    const viewportGap = Math.max(0, Number(vars?.mH || 0));
     if (fullContentHeight > 0) {
         const fullContentBottom = regionY + fullContentHeight;
         const fullLayoutBottom = belowRegions.reduce((max, reg) => Math.max(max, getRegionBottom(reg)), fullContentBottom);
-        if (fullLayoutBottom + getTriggerWallFooterReserve(regions) <= nodeH + 0.5) return fullContentHeight;
+        const hasBelowClearance = !Number.isFinite(firstBelowY) || fullContentBottom + viewportGap <= firstBelowY + 0.5;
+        if (hasBelowClearance && fullLayoutBottom + getTriggerWallFooterReserve(regions) <= nodeH + 0.5) return fullContentHeight;
     }
-    const firstBelowY = belowRegions.reduce((min, reg) => Math.min(min, Number(reg.y) || min), Infinity);
     let fixedBelow = 0;
     if (Number.isFinite(firstBelowY)) {
         const lastBelowBottom = belowRegions.reduce((max, reg) => Math.max(max, getRegionBottom(reg)), firstBelowY);
         fixedBelow = Math.max(0, lastBelowBottom - firstBelowY);
     }
     const footerReserve = getTriggerWallFooterReserve(regions);
-    const vars = typeof node?.getDerpVars === "function" ? node.getDerpVars(node) : null;
-    const viewportGap = Math.max(0, Number(vars?.mH || 0));
     const available = nodeH - regionY - viewportGap - fixedBelow - viewportGap - footerReserve;
     if (!Number.isFinite(available) || available <= 0) return 0;
     const resolved = fullContentHeight > 0 ? Math.min(available, fullContentHeight) : available;
@@ -419,6 +425,7 @@ function buildTriggerWallStructuralHash(node, params) {
         settingActive,
         useGroupsViewport,
         clipVisibleLimit,
+        isRuntimeAutoHeight,
     } = params;
 
     const groupsForHash = (node._triggerGroupData || []).filter((g) => !g.hidden);
@@ -458,6 +465,7 @@ function buildTriggerWallStructuralHash(node, params) {
         settingActive ? 1 : 0,
         useGroupsViewport ? 1 : 0,
         clipVisibleLimit,
+        isRuntimeAutoHeight ? 1 : 0,
         groupParts,
     ].join("#");
 }
@@ -559,6 +567,7 @@ app.registerExtension({
             const clipVisibleLimit = getTriggerWallClipVisibleLimit(this);
             const pixelClipHeight = getTriggerWallPixelClipHeight(this);
             const useGroupsViewport = pixelClipHeight !== null ? visibleGroupCountForHash > 0 : visibleGroupCountForHash > 1;
+            const isRuntimeAutoHeight = resolveDerpRuntimeAutoHeight(this);
             const currentHash = buildTriggerWallStructuralHash(this, {
                 widthBucket: hashWidthBucket,
                 selectedIdx: selectedIdxForHash,
@@ -574,6 +583,7 @@ app.registerExtension({
                 settingActive: !!this.properties.settingActive,
                 useGroupsViewport,
                 clipVisibleLimit,
+                isRuntimeAutoHeight,
             });
             this._triggerWallVisualHash = currentHash;
 
@@ -589,6 +599,7 @@ app.registerExtension({
             const [mW, mH, sW, sH, pW, pH] = [
                 vars.mW, vars.mH, vars.sW, vars.sH, vars.pW, vars.pH
             ].map(v => Number(v.toFixed(2)));
+            this.properties.footerHeight = 6 + mH;
             const triggerPadW = pW;
             const triggerPadH = pH;
             const isBypassed = this.mode === 4 || this.mode === 2 || this._derpSpoofedBypass;
@@ -940,7 +951,7 @@ app.registerExtension({
                 this._sortedPresetItems = [...presetItems].sort((a, b) => String(a).localeCompare(String(b)));
             }
 
-            const layoutMap = {
+            const topContentRegion = {
                 contentRegion: {
                     anchor: { target: "headerRegion", axis: "y", },
                     width: "full", height: "auto", dir: "col", padding: [0, 0], minWidth: 0,
@@ -948,7 +959,7 @@ app.registerExtension({
                 }
             };
 
-            layoutMap.groupControlRow1 = {
+            topContentRegion.groupControlRow1 = {
                 anchor: { target: "contentRegion", axis: "y" },
                 dir: "row", width: "full", height: "auto", margin: [mW, mH, mW, mH],
                 addGroup: {
@@ -990,8 +1001,8 @@ app.registerExtension({
                 minClipHeight: resolveTriggerWallGroupsMinClipHeight,
                 width: "full", height: "auto", dir: "col", minWidth: 0,
                 margin: [0, 0, sW, 0],
-            } : layoutMap;
-            if (useGroupsViewport) layoutMap.triggerGroupsViewportRegion = groupRegionHost;
+            } : topContentRegion;
+            if (useGroupsViewport) topContentRegion.triggerGroupsViewportRegion = groupRegionHost;
             let lastRegionKey = useGroupsViewport ? "triggerGroupsViewportRegion" : "groupControlRow1";
 
             visibleGroupEntries.forEach((entry) => {
@@ -1043,30 +1054,48 @@ app.registerExtension({
                 .sort((a, b) => (a.title || "").localeCompare(b.title || ""))
                 .map(g => g.title || tLocale("$derp_trigger_wall.groups.default", "Trigger Group"));
 
-            layoutMap.regionSelectTriggerGroup = {
-                anchor: { target: lastRegionKey, axis: "y", offset: mH },
-                dir: "row", width: "full", height: "auto", margin: [mW, 0, mW, 0],
-                spacing: [sW, 0],
-                dropdownTriggerGroup: {
-                    type: this.UI_TYPES.FILEBROWSER,
-                    icon: "dropdown",
-                    themeKey: "panel, t_textNormal", skipBackground: true,
-                    canvasShield: true, mouseOver: false,
-                    width: "full", height: "auto", spacing: [sW, 0],
-                    mode: "file",
-                    rootName: "triggergroup",
-                    padding: [pW, pH],
-                    value: tLocale("$derp_trigger_wall.groups.select", "Select Trigger Group"),
-                    items: cachedTriggerGroupItems,
-                    state: isBypassed ? "DIS" : (cachedTriggerGroupItems.length > 0 ? "OFF" : "DIS"),
-                    onChange: (v) => {
-                        if (typeof triggerWall_addGroupTemplate === "function") triggerWall_addGroupTemplate(this, v);
+            if (!isRuntimeAutoHeight) {
+                topContentRegion.springRegion = {
+                    anchor: { target: lastRegionKey, axis: "y" },
+                    width: "full", height: "fill", minHeight: 0,
+                };
+            }
+
+            const selectTriggerGroupRegion = {
+                ...(isRuntimeAutoHeight ? { anchor: { target: lastRegionKey, axis: "y" } } : {}),
+                width: "full", height: "auto", dir: "col",
+                margin: [mW, 0, mW, 0],
+                linebreakBeforeSelectTriggerGroup: {
+                    type: this.UI_TYPES.LINEBREAK,
+                    themeKey: "line",
+                    width: "full",
+                    height: 1,
+                    margin: [-mW, mH, -mW, 0],
+                },
+                regionSelectTriggerGroup: {
+                    dir: "row", width: "full", height: "auto", margin: [0, mH, 0, 0],
+                    spacing: [sW, 0],
+                    dropdownTriggerGroup: {
+                        type: this.UI_TYPES.FILEBROWSER,
+                        icon: "dropdown",
+                        themeKey: "panel, t_textNormal", skipBackground: true,
+                        canvasShield: true, mouseOver: false,
+                        width: "full", height: "auto", spacing: [sW, 0],
+                        mode: "file",
+                        rootName: "triggergroup",
+                        padding: [pW, pH],
+                        value: tLocale("$derp_trigger_wall.groups.select", "Select Trigger Group"),
+                        items: cachedTriggerGroupItems,
+                        state: isBypassed ? "DIS" : (cachedTriggerGroupItems.length > 0 ? "OFF" : "DIS"),
+                        onChange: (v) => {
+                            if (typeof triggerWall_addGroupTemplate === "function") triggerWall_addGroupTemplate(this, v);
+                        }
                     }
                 }
             };
             lastRegionKey = "regionSelectTriggerGroup";
 
-            layoutMap.regionOption1 = {
+            selectTriggerGroupRegion.regionOption1 = {
                 hidden: !anySelected,
                 anchor: { target: lastRegionKey, axis: "y", offset: sH },
                 dir: "row", width: "full", height: "auto", margin: [mW, 0, mW, mH],
@@ -1091,12 +1120,25 @@ app.registerExtension({
             };
             if (anySelected) lastRegionKey = "regionOption1";
 
-            layoutMap.bottomSpacer = {
+            selectTriggerGroupRegion.bottomSpacer = {
                 anchor: { target: lastRegionKey, axis: "y" },
                 width: "full", height: 0
             };
 
-            this.layoutMap = layoutMap;
+            this.layoutMap = isRuntimeAutoHeight
+                ? {
+                    ...topContentRegion,
+                    selectTriggerGroupRegion,
+                }
+                : {
+                    triggerWallContentAndSpringRegion: {
+                        anchor: { target: "headerRegion", axis: "y" },
+                        width: "full", height: "fill", dir: "col",
+                        padding: [0, 0], minWidth: 0,
+                        ...topContentRegion,
+                    },
+                    selectTriggerGroupRegion,
+                };
 
             if (this.layout) this.layout._lastCacheKey = "";
             {
@@ -1123,8 +1165,8 @@ app.registerExtension({
                 groupCount: groups.length,
                 selectedGroupOriginalIdx,
                 lastRegionKey,
-                selectRegion: layoutMap.regionSelectTriggerGroup,
-                bottomSpacer: layoutMap.bottomSpacer,
+                selectRegion: selectTriggerGroupRegion.regionSelectTriggerGroup,
+                bottomSpacer: selectTriggerGroupRegion.bottomSpacer,
             });
             const graph = this.graph || globalThis?.app?.graph || null;
             const suppressDockedVerticalSync = !!(graph && this.properties?.contentCollapsed !== true && resolveDerpRuntimeAutoHeight(this) && isNodeDocked(this, graph) && isLinearDeckGroup(this, graph, "vertical"));

@@ -57,6 +57,7 @@ Relevant framework call sites:
 - `region._contentViewport = true`
 - `region._contentViewportFullHeight`
 - `region._contentViewportClipHeight`
+- `region._contentViewportMinClipHeight`
 - `region._contentViewportHasOverflow`
 
 <span style="color: #80aaff"><strong>Shared constants:</strong></span>
@@ -64,15 +65,21 @@ Relevant framework call sites:
 - `FATHA_CONTENT_SCROLLBAR_WIDTH`
 - `FATHA_CONTENT_SCROLLBAR_MIN_THUMB`
 
-<span style="color: #ffc680"><strong>Note:</strong></span> `minClipHeight` is separate from `clipHeight`. `clipHeight` controls the current visible height. `minClipHeight` controls how much the viewport contributes to manual resize floors through `_contentViewportState[viewportKey].minClipHeight` and `layout.contentMinHeight`.
+<span style="color: #ffc680"><strong>Note:</strong></span> `minClipHeight` is separate from `clipHeight`. `clipHeight` controls the current visible height. `minClipHeight` controls how much the viewport contributes to manual resize floors through `_contentViewportState[viewportKey].minClipHeight`, live `region._contentViewportMinClipHeight`, and `layout.contentMinHeight`.
 
 <span style="color: #ffc680"><strong>Note:</strong></span> Horizontal stack corner height resize uses that compact `minClipHeight` / `layout.contentMinHeight` contribution as the row floor. Fit Node clipped nodes can therefore shrink to one visible entry/group while still keeping hidden content behind the viewport.
+
+<span style="color: #ffc680"><strong>Note:</strong></span> When a content viewport sits above a vertical spring, viewport layout must preserve the smaller PASS 1 compact `layout.contentMinHeight`. Do not overwrite it with a value derived from the expanded manual-height frame, or resize floors will preserve the spring gap instead of allowing it to collapse.
+
+<span style="color: #ffc680"><strong>Note:</strong></span> Viewport overflow is based on descendant visual bottoms, not trailing bottom margins or the viewport region's pre-clip stretched height. A bottom margin can be the desired gap to a footer/sibling control and must not create a scrollbar by itself.
 
 <span style="color: #ffc680"><strong>Note:</strong></span> Scrollbar gutter width is a published layout adjustment, not intrinsic content width. `masterLayoutEngine` keeps PASS 1 intrinsic width in `layout.intrinsicContentMinWidth` and applies the viewport gutter after that baseline is captured, so cached layout passes cannot add the same gutter repeatedly. This prevents clipped `Fit Node` members in horizontal stacks from growing wider after each refresh.
 
 ## <span style="color: #80ffc0">Drawing</span>
 
 <span style="color: #80aaff"><strong>Clipped draw remap:</strong></span> `fathaContentViewportDraw.js` exposes helpers that convert normal region drawing into viewport-aware drawing.
+
+<span style="color: #ffc680"><strong>Note:</strong></span> Viewport descendants are clipped whenever a viewport state/rect exists, even if `hasOverflow` is false. `hasOverflow` controls scrollbar drawing, not whether descendants are allowed to paint outside the viewport.
 
 <span style="color: #ffc680"><strong>Note:</strong></span> Viewport descendant `LINEBREAK` widgets still clip vertically to the viewport, but their clip rect may extend left to their own geometry `x` so separators can keep reaching the node's left edge while still ending before the scrollbar on the right.
 

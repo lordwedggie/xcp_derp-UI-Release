@@ -18,7 +18,7 @@ export const FATHA_CONTENT_SCROLLBAR_MARGIN_BOTTOM = 0;
 
 export function getContentViewportDrawInfo(node, regionKey, geometry) {
     const state = getContentViewportForRegion(node, regionKey);
-    if (!state?.hasOverflow || !geometry) return null;
+    if (!state?.rect || !geometry) return null;
     const scrollTop = getContentViewportScroll(node, state.key);
     const clip = state.rect;
     const regionTop = numberOr(geometry.y);

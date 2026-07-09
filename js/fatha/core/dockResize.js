@@ -781,7 +781,7 @@ function getVisibleRegionLayoutFloor(config, liveRegions = {}, key = null) {
     const marginBottom = Number(margin?.length === 4 ? margin[3] : margin?.[1]) || 0;
     const heightProp = String(config.height === undefined ? "auto" : config.height).toLowerCase();
     if (config.scrollViewport === true || live?.scrollViewport === true || live?._contentViewport === true) {
-        const viewportHeight = Number(config.minClipHeight) || Number(config.clipHeight) || Number(live?._contentViewportClipHeight) || Number(live?.h) || Number(config.minHeight) || 0;
+        const viewportHeight = Number(config.minClipHeight) || Number(config.clipHeight) || Number(live?._contentViewportMinClipHeight) || Number(live?._contentViewportClipHeight) || Number(live?.h) || Number(config.minHeight) || 0;
         return marginTop + viewportHeight + marginBottom;
     }
     const childFloors = Object.entries(config)
