@@ -142,6 +142,8 @@ To add a skill, create `.agents/skills/<name>/SKILL.md` with YAML frontmatter (`
 
 ## Lessons Learned
 
+Lessons here are agent-facing reminders and sharp-edge indexes. Keep them short, operational, and linked to the authoritative `derp_docs/FRAMEWORK-*.md` docs instead of re-explaining full framework contracts here.
+
 ### Project Memory and Communication
 
 - `AGENTS.md` is the primary project memory for Codex in this repo.
@@ -244,68 +246,18 @@ To add a skill, create `.agents/skills/<name>/SKILL.md` with YAML frontmatter (`
 
 ### Docking and Node 2.0
 
-- Isolate Node 2.0/Vue compatibility behind `isComfyVueNodesMode()` or dedicated compatibility helpers.
-- Do not regress legacy mode when fixing Node 2.0 behavior.
-- For real graph nodes in Vue mode, use size setters or `setDerpNodeSizeCompat(node, w, h)` rather than mutating `node.size[0]` / `node.size[1]` directly.
-- Basta overlays are not graph nodes; do not apply graph-node size rules blindly to them.
-- Vertical docking free-height mode uses `autoHeight = false` unless `properties.deckForceAutoHeight = true`.
-- Ordinary vertical stack boundary resize must not stretch a collapsed boundary header; route boundary growth into the nearest expanded member and keep collapsed headers compact.
-- Vertical stack resize sessions must snapshot collapsed members at compact minimum height, not stale live `nodeSize`, before distributing growth to expanded members.
-- Expanded filler members changed by collapsed boundary resize must stay marked as actively resizing until pointer-up, or draw-time auto sizing can fight live shrink drags.
-- Collapsed vertical stack boundary corners should only trigger height growth for clear vertical drags; horizontal drags should stay width-only.
-- Normal collapsed node height is the compact collapsed header (`SNAP * 2`); do not derive it from width-dependent layout measurements unless `useCollapsedTotalHeight` is explicitly set.
-- Vertical stack reflow should run once over topology-ordered members (`collectDeckLineOrdered`) and preserve the pinned member anchor; recursive neighbor snapping can leave gaps or jump the top member after collapse changes.
-- Deck Pressure layout should only dirty/sync members whose size or position actually changed; marking every branch member dirty can cause idle FPS drops.
-- Horizontal dock maintenance must be gated by geometry signatures/indexes; do not normalize all deck members every frame.
-- Deck Pressure is ImageDeck-owned in V1. Pressure attaches must let `applyDeckPressureLayout()` own branch reflow; avoid generic `normalizeDockPair()` / `forceDockResizeRefresh()` on hub seams because they can move the anchored hub.
-- Deck Pressure branches live inside a mixed-axis hub group. Shared-edge resize code must query the branch members/axis, not the full deck group axis, or branch stacks look non-resizable.
-- Horizontal Deck-branch resize position normalization must use the branch member list, not `getDeckMembers()`, or dragging an internal vertical seam can move the entire Deck group sideways.
-- ImageDeck lower-left hub resize must clamp against top/bottom branch minimum width and preserve the right edge when pressure layout enforces that minimum, or repeated drags can ratchet the whole Deck rightward.
-- Deck Pressure idle optimization should use a stable geometry signature cache; do not rerun pressure reflow every frame when all members are idle and unchanged.
-- Deck Pressure branch member order must follow deck topology, not live x/y sorting; shared-edge resize can temporarily overlap positions and would otherwise swap nodes.
-- Horizontal stack width compensation must ignore the first observed edge-member width after load/dock; first-pass autoWidth settling is baseline hydration, not a runtime delta to rebalance.
-- Runtime autoWidth restore is dock-axis aware: horizontal stacks, including Deck Pressure top/bottom branches, restore runtime `autoWidth` from `deckSavedAutoWidth`; vertical stacks keep runtime `autoWidth = false` for shared-width ownership.
-- Horizontal stack outer-corner width resize must snap pointer delta toward zero from the gesture start, not nearest-snap round it. At low canvas zoom, nearest rounding turns a 15px graph-space drag into a premature 20px stack jump.
-- Horizontal stack outer-corner width resize must treat explicit snapped delta `0` as "restore session baseline", not as no-op. Crossing `-10 -> 0 -> +10` inside one gesture should visually step 10px at a time, not leave the stack at `-10` then jump straight to `+10`.
-- Horizontal stack corner affordance must use side-specific width gates and an independent height gate. Internal shared sides require `canResizeHorizontalSharedEdgeWidth()`; outer stack boundaries use `canResizeHorizontalStackWidth()`. Height is allowed only when `canResizeHorizontalStackHeight()` finds at least one non-collapsed preferred-manual/Fit Node member. Cursors should be `ew`, `ns`, or diagonal based on the axes actually live, not just the grabbed node's own width/height flags.
-- Horizontal stack height resize is allowed only when at least one row member can absorb height (`preferred autoHeight = false`, e.g. clipped Fit Node). All fixed/numeric-height rows stay height-locked. The row height clamp must use each member's viewport-aware compact floor (`getVerticalResizeTargetMinHeight(..., preserveExpandedFloor: false)`), so clipped LoRA/Seed Fit Node rows can shrink to one visible entry instead of their full expanded content height.
-- Horizontal shared-height recompute after mouse release must treat preferred-manual/Fit Node row members as manual height owners. Use current/stored height clamped to the compact floor; do not force those members through auto-height content measurement or the row can snap back to min-height and kick width compensation.
-- Deck Pressure collapsed side-branch heights must be measured from a recomputed collapsed layout, not stale expanded layout caches; collapsed members must never receive spare frame height.
-- Deck Pressure side branches must keep at least one member expanded as the filler; if every member is collapsed, uncollapse the active member before distributing spare height.
-- Deck Pressure min-span measurement is hot-path code; cache per node by axis/collapsed state/snap/width/layout hash, not current height, because pressure reflow changes height continuously.
-- Deck Pressure filler selection must not use hover alone; prefer the active timeout, pressed node, selected expanded node, then already-expanded member. Hover-only promotion can uncollapse nodes just by moving the mouse.
-- Deck Pressure collapsed height must use the recomputed collapsed virtual layout (`layout.contentMinHeight`/`totalHeight`) and must not include raw hidden `layoutMap` minHeight from expanded custom content.
-- Deck Pressure collapsed height fallback is the compact collapsed header (`DEFAULT_DECK_SNAP * 2`, currently 20px), not the generic node fallback of 40px.
-- Deck Pressure layout must preserve the hub node position during collapse/un-collapse pressure passes unless the hub is actively being resized.
-- Nodes inside Deck Pressure branches should skip generic `reflowChildren()` during collapse/un-collapse size changes; Deck Pressure layout must be the single source of branch positions to avoid one-frame flicker.
-- Ordinary dock normalization, draw-time frame state, and resize-axis helpers must skip ImageDeck hub seams; Deck Pressure layout is the single source for hub-to-branch sizing.
-- Deck Pressure arrangement must resolve before writing the first branch member's `deckParentId` / `deckDockSide`; resolving after that makes the empty hub look like it already has branches and can freeze new decks into the legacy vertical sandwich fallback.
-- Saved Deck Pressure arrangement only locks hubs with active branches; empty/detached hubs must resolve from the current `Derp.DeckArrangement` setting on their next first attach.
-- Deck Pressure left branch X must mirror the right branch from the hub edge (`hub.x - branchWidth`), not reuse the Deck frame left; in vertical sandwich the frame left can equal hub X for top/bottom alignment and would overlay the left branch on the hub.
-- Top/bottom vertical Deck Pressure branches preserve their own member heights during ImageDeck hub resize; do not distribute hub height/frame deltas into those branch columns.
-- Horizontal stacks attached to Deck Pressure left/right sides must stay expanded; hide/guard collapse controls and reopen already-collapsed members during pressure layout.
-- For horizontal stacks attached to Deck Pressure left/right sides, the hub-facing seam is a hub/deck width resize only; do not expose the branch stack's outer-edge width resize on that connected edge.
-- For horizontal stacks attached to Deck Pressure left/right sides, `_deckPressureSideHorizontalWidth` is an explicit lock only. Branch membership alone must not make draw-time autoWidth code reuse the current width as a lock.
-- For horizontal stacks attached to Deck Pressure left/right sides, the branch shield must expose the hub-facing mid-edge hitbox and route it to the ImageDeck hub resize, or the middle of the seam can be covered while only top/bottom portions respond.
-- Horizontal stacks attached to Deck Pressure left/right sides must grow their own row height; attach sizing and pressure layout must never shrink or pressure-grow the ImageDeck hub height for that branch.
-- Pressed non-drag widget regions must absorb pointer movement; otherwise a small click twitch can fall through to `updateDockDrag()` and move a deck root using a child node's press-start position.
-- Deck target picking for dragged linear stacks must use the stack bounding rect, not only the drag root's node rect, so side/top/bottom attach detection follows the moving stack's outer edge.
-- Shared-edge DOM hitboxes and resize handlers must use the same seam eligibility helpers; duplicated seam predicates between `fathaDOMshield.js` and `dockResize.js` can show a handle that the resize path later rejects, or hide a seam that would resize correctly.
-- Vertical stack seam resizing must pin active members to the seam-assigned physical height during the live gesture, even when a clipped node's Height Mode normally resolves through numeric/auto sizing. Otherwise viewport-backed nodes can redraw taller than the stack frame while the seam is dragged.
-- Pure top/bottom vertical stack seam resizing must preserve the stack's starting shared width during the live resize window, growing only to a freshly measured content floor when the start width is genuinely too small. Apparent width creep can come from stale wider member widths being propagated by later normalization, not from the seam resize code directly.
-- Node-local Height Mode normalization must not overwrite docking's live `autoHeight = false` lock while `deckSavedAutoHeight` exists; update the saved standalone preference instead so vertical stack resize handles stay height-capable while docked.
-- Tooltips for content viewport descendants must anchor to displayed viewport coordinates, not raw unscrolled content-space region positions; resolve through viewport state and subtract scroll before pinning Basta overlays.
-- Content viewport pointer clicks should preserve the pre-click scroll target across transient measurement/no-overflow passes; otherwise clipped LoraStack/TriggerWall entries can jump back to the top after a button press in Deck Pressure branches.
-- Left/right vertical Deck Pressure branch seam resizing must preserve the freshly fitted member heights during mouse-up settlement; saved expanded-height preferences should not immediately re-grow a lower active member after release.
-- Internal vertical seam drags in left/right Deck Pressure branches must preserve the canonical Deck frame and immediately rerun Deck Pressure layout; generic vertical normalization can push later branch members outside the side band until idle layout repairs them.
-- Content viewport resize floors must use `_contentViewportMinClipHeight` / `minClipHeight` rather than the current visible clip height, so Fit Node clipped regions can shrink to one visible entry/group during seam resizing.
-- Deck Pressure side-branch active-resize and fresh manual seam-fit preservation must never preserve live heights whose total exceeds the canonical side band; over-tall live totals push lower members outside the frame at clamp/release.
-- Deck Pressure internal vertical seam drags should snapshot all branch member heights after the seam fit; otherwise subsequent pressure passes can redistribute spare height into unrelated siblings and make Slider/LoraStack change height during another seam's resize.
-- TriggerWall's trigger groups are width-wrapping content, so its measured `layout.contentMinWidth` can be stale or temporarily inflated during resize. Do not let that measured width become the framework resize floor; during resize preflight reset the floor to the explicit node minimum, and let active framework-owned passes draw from the live frame width without forcing physical node width.
-- Vertical stack width locks need different semantics by resize type: vertical seam height drags should exact-lock to the starting stack width, while outer stack height drags should floor-aware lock to the shared current min-width so min-width boundary resizing does not make members alternately render wider then snap back. Corner drags that also handle width must refresh the lock to the newly applied width each pass; only height-only corner drags should keep the starting width pinned.
-- Vertical stack resize start must prime every member to a stable shared width before the first pointermove; otherwise a top member with transiently wider `contentMinWidth` can flash wider for one frame before the dock resize pass corrects it.
-- Active stack resize pointer-move paths should use `syncDeckNodeSize(..., { silent: true, deferDirty: true, deferSync: true, liveResize: true })` and batched live shield sync. Immediate dirty/layout/shield sync inside every pointermove can make vertical and horizontal stack resizing feel rough and can surface one-frame flicker.
-- Left/right vertical Deck Pressure branches need a hub-owned side-width cache. Do not derive their idle branch width from live `layout.contentMinWidth`; transient widget/content measurement can otherwise widen the branch and shift the ImageDeck frame.
+For docking, stack resize, Deck Pressure, and Node 2.0 compatibility work, read `derp_docs/FRAMEWORK-Docking.md` first and keep the full behavior contract there. Keep this section as an operational index of the sharp edges agents most often trip over.
+
+- Isolate Node 2.0/Vue compatibility behind `isComfyVueNodesMode()` or dedicated compatibility helpers; use `setDerpNodeSizeCompat(node, w, h)` for real graph nodes and do not apply graph-node size rules to Basta overlays.
+- Treat ImageDeck Deck Pressure as the owner of hub/branch geometry. Avoid generic normalization, resize-axis helpers, or `forceDockResizeRefresh()` on hub seams; `applyDeckPressureLayout()` is the source of truth.
+- Resolve branch operations from branch topology and branch-only member lists, not mixed Deck group membership or transient live x/y ordering. This applies to shared-edge resize, collapse/uncollapse, pressure fitting, and horizontal/vertical normalization.
+- Keep resize affordances and resize execution in sync. DOM shield hitboxes, cursors, seam ghosts, and JS resize handlers should share the same eligibility helpers so handles do not appear for rejected resize paths.
+- Preserve user-owned size intent during live stack resize: collapsed headers stay compact, active seam members stay pinned to seam-assigned dimensions, vertical width locks use the resize-type-specific rules, and manual/Fit Node members must not be forced through auto-height settlement.
+- Deck Pressure side branches need stable frame ownership: preserve the hub frame during side seams, cache left/right vertical branch widths on the hub, keep horizontal side branches expanded, and do not let transient `layout.contentMinWidth` or scrollbar gutters resize the whole Deck.
+- Manual-height Deck Pressure side stacks should preserve current member heights during idle pressure layout when they already fit the side band; pressure fitting may clamp/refit over-tall stacks but must not distribute spare height into manual members after harmless refreshes.
+- Content viewport and clipped-node resize floors belong in `derp_docs/FRAMEWORK-Clipping.md`; use `minClipHeight` / `_contentViewportMinClipHeight` for viewport-backed floors and preserve viewport scroll targets across transient measurement passes.
+- Active pointer paths should avoid per-move dirty/layout/shield churn. Prefer live size sync with silent/deferred options and batched shield sync; otherwise stack resizing becomes jumpy and one-frame flicker is easy to reintroduce.
+- If a docking lesson needs more than one or two sentences, move the full rule to `FRAMEWORK-Docking.md` and keep only a short pointer here.
 
 ### Node-Specific Notes
 
