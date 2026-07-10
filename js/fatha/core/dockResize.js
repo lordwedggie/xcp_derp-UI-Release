@@ -951,6 +951,11 @@ function applyVerticalStackSharedEdgeResize(entity, resizeAnchor, requestedEntit
     rememberExpandedDeckHeight(bottomNode, adjustedBottomH);
     markManualDeckPressureBranchFit(members);
     normalizeVerticalMemberPositions(topNode, graph);
+    if (pressureContext) {
+        pressureContext.pressureHub._deckPressurePreserveFrameBounds = session.frameBounds || frameBefore;
+        pressureContext.pressureHub._deckPressureActiveUntil = (performance.now?.() || Date.now()) + 1200;
+        applyDeckPressureLayout(pressureContext.pressureHub, graph, snap);
+    }
     if (typeof topNode.syncUncleSlots === "function") topNode.syncUncleSlots();
     if (typeof bottomNode.syncUncleSlots === "function") bottomNode.syncUncleSlots();
 

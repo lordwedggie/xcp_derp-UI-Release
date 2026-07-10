@@ -17,6 +17,7 @@ import { transmitBypassedDerpSignals, transmitDerpSignal, purgeDerpSignal } from
 import { animateRecoil } from "../herbina/masterAnimator.js";
 import { scheduleNativeVueNodeShellSuppression, suppressNativeVueNodeShell } from "./core/fathaNode2Compat.js";
 import { undeckNode, undeckDeckPressureBranches, isDeckPressureHub } from "./core/masterDockEngine.js";
+import { getActiveVerticalNodeWidthLock } from "./core/dockDimensions.js";
 
 // THE SQUEEZE CONFIG: Centralized padding values for Uncle link-dots
 const UNCLE_LINK_PAD = { LEFT: 15, RIGHT: 15 };
@@ -280,16 +281,20 @@ export function uncle(nodeType, nodeData, minWidth = 100) {
         // secondary axis respond immediately (e.g. width shrink causing auto-height growth).
         const lockHorizontalDeckResize = this._horizontalDeckWidthResizeLock === true || shouldLockDeckPressureSideHorizontalWidth(this);
         const lockedDeckPressureSideW = getDeckPressureSideHorizontalLockedWidth(this);
+        const lockedVerticalStackW = this._dockResizePreserveHeight === true ? getActiveVerticalNodeWidthLock(this, 0) : 0;
         const liveTargetW = lockedDeckPressureSideW > 0
             ? lockedDeckPressureSideW
-            : ((this._isDerpResizing && !autoWidth) || lockHorizontalDeckResize ? this.size[0] : targetW);
+            : lockedVerticalStackW > 0
+                ? lockedVerticalStackW
+                : ((this._isDerpResizing && (!autoWidth || this._dockResizePreserveHeight === true)) || lockHorizontalDeckResize ? this.size[0] : targetW);
         // A freshly seam-/pressure-fit member (e.g. a clipped autoHeight LoRA Stack in numeric
         // Height Mode) must keep the seam-assigned height; without this, the autoHeight path
         // recomputes the clipped content floor each frame and snaps the node back, fighting the
         // Deck Pressure reflow. The manual-fit flag is time-bounded and shared with the reflow
         // guard, so normal autoHeight growth resumes once the seam session ends.
         const manualHeightFitActive = Number(this._deckPressureManualBranchFitUntil || 0) > (performance.now?.() || Date.now());
-        const liveTargetH = (this._isDerpResizing && (!autoHeight || manualHeightFitActive)) || lockHorizontalDeckResize ? this.size[1] : targetH;
+        const preserveResizeHeight = this._isDerpResizing && (!autoHeight || manualHeightFitActive || this._dockResizePreserveHeight === true);
+        const liveTargetH = preserveResizeHeight || lockHorizontalDeckResize ? this.size[1] : targetH;
         const preAnimateW = Number(this.size?.[0]) || 0;
         animateDerpSize(this, liveTargetW, liveTargetH, useAnim);
         balanceHorizontalDeckWidthChange(this, preAnimateW);
@@ -318,8 +323,10 @@ export function uncle(nodeType, nodeData, minWidth = 100) {
 
         if (this.properties.nodeSize && !isMinState) {
             if (lockedDeckPressureSideW > 0) this.properties.nodeSize[0] = lockedDeckPressureSideW;
+            else if (lockedVerticalStackW > 0) this.properties.nodeSize[0] = lockedVerticalStackW;
             else if (autoWidth && !shouldPreserveVerticalDeckWidth(this) && !lockHorizontalDeckResize) this.properties.nodeSize[0] = targetW;
-            if (autoHeight) this.properties.nodeSize[1] = preserveHorizontalDeckHeight
+            if (preserveResizeHeight) this.properties.nodeSize[1] = Number(this.size?.[1]) || targetH;
+            else if (autoHeight) this.properties.nodeSize[1] = preserveHorizontalDeckHeight
                 ? (Number(this.size?.[1]) || targetH)
                 : targetH;
         }

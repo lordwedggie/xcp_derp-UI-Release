@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { handleDerpComputeSizeImpl, resolveHorizontalDeckSharedHeightImpl, resolveHorizontalSeamResizeWidths, syncDockResizePair } from '../js/fatha/core/dockResize.js';
 import { getActiveVerticalDeckWidthLock, getActiveVerticalNodeWidthLock } from '../js/fatha/core/dockDimensions.js';
 import { handleNodeResize } from '../js/fatha/core/fathaNodeResize.js';
+import { uncle } from '../js/fatha/uncle.js';
 
 function makeNode(id, y, width = 100, height = 100) {
   return {
@@ -66,6 +67,35 @@ function getHorizontalSpan(nodes) {
   const left = Math.min(...nodes.map((node) => node.pos[0]));
   const right = Math.max(...nodes.map((node) => node.pos[0] + node.size[0]));
   return right - left;
+}
+
+function makeDrawCtx() {
+  return {
+    save: () => {},
+    restore: () => {},
+    translate: () => {},
+    scale: () => {},
+    rotate: () => {},
+    beginPath: () => {},
+    closePath: () => {},
+    moveTo: () => {},
+    lineTo: () => {},
+    arc: () => {},
+    rect: () => {},
+    clip: () => {},
+    fill: () => {},
+    stroke: () => {},
+    fillRect: () => {},
+    strokeRect: () => {},
+    clearRect: () => {},
+    fillText: () => {},
+    strokeText: () => {},
+    measureText: (text) => ({ width: String(text || '').length * 8 }),
+    setLineDash: () => {},
+    drawImage: () => {},
+    createLinearGradient: () => ({ addColorStop: () => {} }),
+    createRadialGradient: () => ({ addColorStop: () => {} }),
+  };
 }
 
 describe('dock resize pair math', () => {
@@ -232,6 +262,52 @@ describe('dock resize live shield sync', () => {
 
     expect(getActiveVerticalNodeWidthLock(node, 180)).toBe(100);
     expect(out[0]).toBe(100);
+  });
+
+  it('keeps Uncle nodes pinned to vertical stack live resize dimensions during draw', () => {
+    class TestUncleNode {}
+    uncle(TestUncleNode, {}, 40);
+    const node = new TestUncleNode();
+    node.id = 30;
+    node.type = 'xcpDerpUncleTest';
+    node.mode = 0;
+    node.pos = [0, 0];
+    node.size = [100, 120];
+    node.properties = {
+      autoWidth: true,
+      autoHeight: true,
+      contentCollapsed: false,
+      nodeSize: [100, 120],
+      showInputs: false,
+      showOutputs: false,
+      useAnimations: false,
+    };
+    node.inputs = [];
+    node.outputs = [];
+    node.layout = {
+      contentMinWidth: 180,
+      contentMinHeight: 160,
+      totalHeight: 160,
+      regions: {},
+      compute: () => {},
+    };
+    node.getDerpVars = () => ({ SNAP: 10, autoWidth: true, autoHeight: true });
+    node.setDirtyCanvas = () => {};
+    node.requestDerpSync = () => {};
+    node.suppressDefaultWidgets = () => {};
+    node.syncUncleSlots = () => {};
+    node.drawUncleSlots = () => {};
+    node.refreshNodeLayoutMap = () => {};
+    node._isDerpResizing = true;
+    node._dockResizePreserveHeight = true;
+    node._verticalDeckWidthLock = 100;
+    node._verticalDeckWidthLockUntil = (performance.now?.() || Date.now()) + 1200;
+    node._verticalDeckWidthLockExact = true;
+
+    node.onDrawForeground(makeDrawCtx());
+
+    expect(node.size).toEqual([100, 120]);
+    expect(node.properties.nodeSize).toEqual([100, 120]);
   });
 
   it('lets vertical stack corner drags change width and height in the same pass', () => {

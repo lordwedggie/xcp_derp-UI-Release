@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { getDeckPressureSideHorizontalLockedWidth, getDerpVars, shouldLockDeckPressureSideHorizontalWidth, syncHorizontalDeckHeight } from '../js/fatha/core/fathaHandler.js';
 import { resolveDerpPreferredAutoWidth } from '../js/fatha/core/derpHeightPolicy.js';
 import { canResizeDeckPressureSideWidthMember, canResizeHorizontalMemberWidth } from '../js/fatha/core/dockResizeSharedEdges.js';
-import { applyDeckPressureLayout, deckNodeToLeader, getDeckPressureSideHorizontalWidthLock } from '../js/fatha/core/masterDockEngine.js';
+import { syncDockResizePair } from '../js/fatha/core/dockResize.js';
+import { applyDeckPressureLayout, deckNodeToLeader, getDeckPressureSideHorizontalWidthLock, normalizeDockPair } from '../js/fatha/core/masterDockEngine.js';
 
 function makeNode(id, x, width, height) {
   return {
@@ -174,6 +175,29 @@ describe('syncHorizontalDeckHeight', () => {
     expect(top.properties.autoWidth).toBe(false);
   });
 
+  it('normalizes vertical stacks by deck topology instead of transient y order', () => {
+    const top = makeNode(43, 0, 100, 80);
+    const middle = makeNode(44, 0, 100, 100);
+    const bottom = makeNode(45, 0, 100, 120);
+    top.pos[1] = 160;
+    middle.pos[1] = 0;
+    bottom.pos[1] = 80;
+    top.properties.deckEdges.bottom = middle.id;
+    middle.properties.deckEdges.top = top.id;
+    middle.properties.deckEdges.bottom = bottom.id;
+    bottom.properties.deckEdges.top = middle.id;
+
+    const graph = { _nodes: [top, middle, bottom] };
+    window.app.graph = graph;
+    globalThis.app = window.app;
+
+    normalizeDockPair(middle, bottom, 'bottom', graph, 10);
+
+    expect(top.pos[1]).toBe(0);
+    expect(middle.pos[1]).toBe(80);
+    expect(bottom.pos[1]).toBe(180);
+  });
+
   it('preserves runtime autoWidth in manual mode for side-horizontal Deck Pressure branches', () => {
     const originalGetSettingValue = window.app.ui.settings.getSettingValue;
     window.app.ui.settings.getSettingValue = (id) => (
@@ -243,6 +267,39 @@ describe('syncHorizontalDeckHeight', () => {
 
     expect(top.size[0]).toBe(100);
     expect(bottom.size[0]).toBe(100);
+    expect(hub.pos[0]).toBe(200);
+  });
+
+  it('reapplies Deck Pressure layout during side-vertical internal seam resize', () => {
+    const hub = makeImageDeck(46, 200, 300, 220);
+    const top = makeNode(47, 100, 100, 90);
+    const bottom = makeNode(48, 100, 100, 130);
+
+    hub.properties.deckEdges.left = top.id;
+    top.properties.deckParentId = hub.id;
+    top.properties.deckDockSide = 'left';
+    top.properties.deckEdges.right = hub.id;
+    top.properties.deckEdges.bottom = bottom.id;
+    bottom.properties.deckParentId = top.id;
+    bottom.properties.deckDockSide = 'bottom';
+    bottom.properties.deckEdges.top = top.id;
+
+    const graph = { _nodes: [hub, top, bottom] };
+    window.app.graph = graph;
+    window.app.canvas.frame = 9;
+    globalThis.app = window.app;
+
+    applyDeckPressureLayout(hub, graph, 10);
+    top.size[0] = 150;
+    top.properties.nodeSize[0] = 150;
+
+    const result = syncDockResizePair(top, 'bottom', 150, 120, 40, 40, 10);
+
+    expect(result.handledAll).toBe(true);
+    expect(top.size[0]).toBe(100);
+    expect(bottom.size[0]).toBe(100);
+    expect(top.pos[0]).toBe(100);
+    expect(bottom.pos[0]).toBe(100);
     expect(hub.pos[0]).toBe(200);
   });
 });

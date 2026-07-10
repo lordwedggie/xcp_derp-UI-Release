@@ -745,7 +745,7 @@ function normalizeSharedEdgePair(a, b, side, graph, snap = DEFAULT_DECK_SNAP) {
     if (side === "top" || side === "bottom") {
         const topSeed = side === "bottom" ? a : b;
         const bottomSeed = side === "bottom" ? b : a;
-        const column = sortDeckNodesByAxis(collectDeckLine(topSeed, graph, "top", "bottom"), "y");
+        const column = collectDeckLineOrdered(topSeed, graph, "top", "bottom");
         if (column.length === 0) return false;
         const fallbackWidth = getNodeAxisSize(topSeed, "width") || getNodeAxisSize(bottomSeed, "width");
         const minWidth = getSharedDockMinWidth(column, fallbackWidth, snap);
