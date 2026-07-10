@@ -248,6 +248,22 @@ describe('dock resize live shield sync', () => {
     expect(top.size[1] + bottom.size[1]).toBe(230);
   });
 
+  it('keeps the right edge pinned for diagonal left-corner vertical stack resize', () => {
+    const { top, bottom } = makeVerticalPair();
+    bottom._startPos = [0, 100];
+    bottom._startSize = [100, 100];
+
+    handleNodeResize(bottom, { dx: -40, dy: 30, resizeAnchor: 'bottom-left' }, 1);
+
+    expect(top.pos[0]).toBe(-40);
+    expect(bottom.pos[0]).toBe(-40);
+    expect(top.size[0]).toBe(140);
+    expect(bottom.size[0]).toBe(140);
+    expect(top.pos[0] + top.size[0]).toBe(100);
+    expect(bottom.pos[0] + bottom.size[0]).toBe(100);
+    expect(top.size[1] + bottom.size[1]).toBe(230);
+  });
+
   it('uses full snap thresholds for horizontal stack corner width resize at zoomed-out scale', () => {
     const { left, right } = makeHorizontalPair();
     right._startPos = [100, 0];

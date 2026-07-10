@@ -1622,10 +1622,14 @@ export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH,
         const dockSize = resolveDockResizeDimensions("vertical", verticalResizeMembers, { width: newW }, { minWidth: minW, height: getDockNodeHeight(entity) }, snap);
         // Live contentMinWidth can exceed the stable resize floor during height drags.
         const snappedWidth = Math.min(dockSize.width, Math.max(newW, minW));
+        const stackX = isLeftHandle
+            ? (Number(entity._startPos?.[0]) || Number(entity.pos?.[0]) || 0) + (Number(entity._startSize?.[0]) || getDockNodeWidth(entity)) - snappedWidth
+            : (Number(entity.pos?.[0]) || 0);
         verticalResizeMembers.forEach((node) => {
             const nodeH = getVerticalResizeStartHeight(node, snap);
-            syncDeckNodeSize(node, snappedWidth, nodeH, { silent: true, deferDirty: true, deferSync: true, liveResize: true });
-            if (typeof node.syncUncleSlots === "function") node.syncUncleSlots();
+            const sizeChanged = syncDeckNodeSize(node, snappedWidth, nodeH, { silent: true, deferDirty: true, deferSync: true, liveResize: true });
+            const posChanged = setDeckNodePos(node, stackX, Number(node.pos?.[1]) || 0);
+            if ((sizeChanged || posChanged) && typeof node.syncUncleSlots === "function") node.syncUncleSlots();
             addCounterpart(node);
         });
         markVerticalStackWidthLock(verticalResizeMembers, {
