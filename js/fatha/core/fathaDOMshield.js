@@ -840,8 +840,8 @@ export function createDerpShield(node) {
         const rememberActiveMember = (member) => {
             if (member && member !== activeResizeNode) ensureActiveMembers().add(member);
         };
-        if (isVerticalResizeStart && isLinearDeckGroup(activeResizeNode, graph, "vertical")) {
-            const verticalMembers = getDeckMembers(activeResizeNode, graph);
+        if (isVerticalResizeStart) {
+            const verticalMembers = getLinearResizeMembers(activeResizeNode, graph, "vertical");
             if (verticalMembers && verticalMembers.length > 1) {
                 const memberWidths = verticalMembers
                     .map((member) => Number(member?.size?.[0] ?? member?.properties?.nodeSize?.[0]) || 0)

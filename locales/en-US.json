@@ -58,6 +58,8 @@
     "title": "Derp Latent",
     "output": "Latent",
     "select": "Select",
+    "batch_label": "Batch size:",
+    "mp_label": "MP:",
     "mode": {
       "landscape": "Landscape",
       "portrait": "Portrait"
@@ -68,7 +70,8 @@
     "tooltips": {
       "mode": "Click to switch between portrait and landscape mode",
       "selector": "Click to choose available resolutions from the profile",
-      "batch": "Click to change batch size"
+      "batch": "Click to change batch size",
+      "mp": "Click to change megapixel multiplier (1.0-4.0)"
     }
   },
   "derp_slider": {

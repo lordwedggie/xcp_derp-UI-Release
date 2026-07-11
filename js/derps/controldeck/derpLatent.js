@@ -145,7 +145,7 @@ app.registerExtension({
                 vars.mW, vars.mH, vars.sW, vars.sH, vars.oX, vars.oY, vars.pW, vars.pH
             ].map(v => Number(v.toFixed(2)));
 
-            const structureHash = `${mode}_${this.properties.selectedLatent}_${this.properties.batchSize}_${presets.length}_${mW}_${mH}_${sW}_${sH}_${window._xcpDerpSession}_${this.properties.drawHeader}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}`;
+            const structureHash = `${mode}_${this.properties.selectedLatent}_${this.properties.batchSize}_${this.properties.editorMP}_${presets.length}_${mW}_${mH}_${sW}_${sH}_${window._xcpDerpSession}_${this.properties.drawHeader}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}`;
 
             if (this._lastMapStructure === structureHash && this.layoutMap) {
                 this.requestDerpSync();
@@ -181,83 +181,132 @@ app.registerExtension({
             const currentAr = currentFull.includes(" - ") ? currentFull.split(" - ")[0] : selectLabel;
             const currentRes = currentFull.includes(" - ") ? " - " + currentFull.split(" - ")[1] : "...";
 
+            const mp = this.properties.editorMP ?? 1;
+            const scaleFactor = Math.sqrt(mp);
+            let displayValue = currentFull;
+            if (currentFull.includes(" - ") && currentFull.includes(" x ")) {
+                const resParts = currentFull.split(" - ")[1].split(" x ");
+                const sw = Math.round(parseInt(resParts[0]) * scaleFactor);
+                const sh = Math.round(parseInt(resParts[1]) * scaleFactor);
+                displayValue = `${currentAr} - ${sw} x ${sh}`;
+            }
+
             this.layoutMap = {
                 sysContentRegion: {
                     anchor: { target: "headerRegion", axis: "y"},
-                    width: "full", height: "auto", dir: "row",
+                    width: "full", height: "auto", dir: "col",
                     padding: [0, 0],
                     margin: this.properties?.drawHeader !== false ? [mW, mH] : [mW, 0],
                     spacing: [0, sH],
+                    row1: {
+                        dir: "row", width: "full", height: "auto", spacing: [sW, sH],
+                        latentMode: {
+                            type: this.UI_TYPES.BUTTON,
+                            themeKey: "Button, t_textNormal", labelAlign: ["center", "middle"],
+                            state: isPortrait,
+                            text: mode === "Portrait" ? portraitLabel : landscapeLabel, measureText: `${landscapeLabel} `,
+                            width: "auto", height: "fill",
+                            padding: [pW, pH], spacing: [sW, 0],
+                            toolTip: tLocale("$derp_latent.tooltips.mode", "Click to switch between portrait and landscape modes"),
+                            onPress: () => {
+                                const oldMode = normalizeLatentMode(this.properties.mode);
+                                const newMode = oldMode === "Portrait" ? "Landscape" : "Portrait";
+                                this.properties.mode = newMode;
 
-                    latentMode: {
-                        type: this.UI_TYPES.BUTTON,
-                        themeKey: "Button, t_textNormal", labelAlign: ["center", "middle"],
-                        state: isPortrait,
-                        text: mode === "Portrait" ? portraitLabel : landscapeLabel, measureText: `${landscapeLabel} `,
-                        width: "auto", height: "fill",
-                        padding: [pW, pH], spacing: [sW, 0],
-                        toolTip: tLocale("$derp_latent.tooltips.mode", "Click to switch between portrait and landscape modes"),
-                        onPress: () => {
-                            const oldMode = normalizeLatentMode(this.properties.mode);
-                            const newMode = oldMode === "Portrait" ? "Landscape" : "Portrait";
-                            this.properties.mode = newMode;
+                                const tempW = this.properties.width;
+                                this.properties.width = this.properties.height;
+                                this.properties.height = tempW;
 
-                            const tempW = this.properties.width;
-                            this.properties.width = this.properties.height;
-                            this.properties.height = tempW;
+                                const currentPreset = presets.find(p => getLabel(p, oldMode) === this.properties.selectedLatent);
+                                if (currentPreset) {
+                                    this.properties.selectedLatent = getLabel(currentPreset, newMode);
+                                }
 
-                            const currentPreset = presets.find(p => getLabel(p, oldMode) === this.properties.selectedLatent);
-                            if (currentPreset) {
-                                this.properties.selectedLatent = getLabel(currentPreset, newMode);
+                                this.refreshNodeLayoutMap();
+                                this.broadcastLatentState();
+                                this.requestDerpSync();
                             }
-
-                            this.refreshNodeLayoutMap();
-                            this.broadcastLatentState();
-                            this.requestDerpSync();
-                        }
-                    },
-                    latentSelector: {
-                        type: this.UI_TYPES.FILEBROWSER,
-                        icon: "dropdown",
-                        themeKey: "panel, t_textNormal",
-                        canvasShield: true,
-                        width: "full", height: "auto",
-                        padding: [pW, pH], spacing: [sW, 0],
-                        mode: "file",
-                        rootName: "latents",
-                        value: currentFull,
-                        items: dropdownItems,
-                        toolTip: tLocale("$derp_latent.tooltips.selector", "Click to select available resolutions in the profile"),
-                        onChange: (val) => {
-                            this.properties.selectedLatent = val;
-                            const found = presets.find(p => getLabel(p, mode) === val);
-                            if (found) {
-                                this.properties.width = isPortrait ? found.height : found.width;
-                                this.properties.height = isPortrait ? found.width : found.height;
+                        },
+                        latentSelector: {
+                            type: this.UI_TYPES.FILEBROWSER,
+                            icon: "dropdown",
+                            themeKey: "panel, t_textNormal",
+                            canvasShield: true,
+                            width: "full", height: "auto",
+                            padding: [pW, pH], spacing: [sW, 0],
+                            mode: "file",
+                            rootName: "latents",
+                            value: displayValue,
+                            items: dropdownItems,
+                            toolTip: tLocale("$derp_latent.tooltips.selector", "Click to select available resolutions in the profile"),
+                            onChange: (val) => {
+                                this.properties.selectedLatent = val;
+                                const found = presets.find(p => getLabel(p, mode) === val);
+                                if (found) {
+                                    this.properties.width = isPortrait ? found.height : found.width;
+                                    this.properties.height = isPortrait ? found.width : found.height;
+                                }
+                                this.broadcastLatentState();
+                                this.refreshNodeLayoutMap();
+                                this.requestDerpSync();
                             }
-                            this.broadcastLatentState();
-                            this.refreshNodeLayoutMap();
-                            this.requestDerpSync();
-                        }
-                    },
-                    batchCount: {
-                        type: this.UI_TYPES.EDITOR,
-                        themeKey: "dialog, t_textNormal",
-                        width: 30, height: "fill",
-                        padding: [pW, pH],
-                        labelAlign: ["center", "middle"],
-                        text: (this.properties.batchSize || 1).toString(),
-                        value: (this.properties.batchSize || 1).toString(),
-                        toolTip: tLocale("$derp_latent.tooltips.batch", "Click to change batch number"),
-                        onBlur: (val) => {
-                            const intVal = parseInt(val);
-                            if (!isNaN(intVal) && intVal >= 1) {
-                                this.properties.batchSize = intVal;
+                        },
+                        mpLabel: {
+                            type: this.UI_TYPES.TEXT, mouseOver: false,
+                            themeKey: "t_textNormal",
+                            labelAlign: ["left", "middle"],
+                            text: tLocale("$derp_latent.mp_label", "MP:"),
+                            width: "auto", height: "auto", spacing: [sW, 0],
+                        },
+                            editorMP: {
+                            type: this.UI_TYPES.EDITOR,
+                            themeKey: "dialog, t_textNormal",
+                            width: 30, height: "auto",
+                            padding: [pW, pH],
+                            labelAlign: ["center", "middle"],
+                            text: (this.properties.editorMP ?? 1).toFixed(1),
+                            value: (this.properties.editorMP ?? 1).toFixed(1),
+                            toolTip: tLocale("$derp_latent.tooltips.mp", "Click to change megapixel multiplier (1.0-4.0)"),
+                            onBlur: (val) => {
+                                let floatVal = parseFloat(val);
+                                if (isNaN(floatVal)) floatVal = 1;
+                                floatVal = Math.max(1.0, Math.min(4.0, floatVal));
+                                floatVal = Math.round(floatVal * 10) / 10;
+                                this.properties.editorMP = floatVal;
                                 this.broadcastLatentState();
                                 this.refreshNodeLayoutMap();
                                 this.requestDerpSync();
                             }
                         }
+                    },
+                    row2: {
+                        dir: "row", width: "full", height: "auto", spacing: [sW, sH],
+                        batchLabel: {
+                            type: this.UI_TYPES.TEXT, mouseOver: false,
+                            themeKey: "t_textNormal",
+                            labelAlign: ["left", "middle"],
+                            text: tLocale("$derp_latent.batch_label", "Batch size:"),
+                            width: "auto", height: "auto", spacing: [sW, 0],
+                        },
+                        batchCount: {
+                            type: this.UI_TYPES.EDITOR,
+                            themeKey: "dialog, t_textNormal",
+                            width: 30, height: "auto",
+                            padding: [pW, pH],
+                            labelAlign: ["center", "middle"],
+                            text: (this.properties.batchSize || 1).toString(),
+                            value: (this.properties.batchSize || 1).toString(),
+                            toolTip: tLocale("$derp_latent.tooltips.batch", "Click to change batch number"),
+                            onBlur: (val) => {
+                                const intVal = parseInt(val);
+                                if (!isNaN(intVal) && intVal >= 1) {
+                                    this.properties.batchSize = intVal;
+                                    this.broadcastLatentState();
+                                    this.refreshNodeLayoutMap();
+                                    this.requestDerpSync();
+                                }
+                            }
+                        },
                     }
                 },
             };
@@ -289,13 +338,19 @@ app.registerExtension({
         nodeType.prototype.broadcastLatentState = function() {
             if (this.id === -1 || this.mode === 4 || this.mode === 2) return;
 
+            const mp = this.properties.editorMP ?? 1;
+            const scaleFactor = Math.sqrt(mp);
+            const baseW = this.properties.width || 512;
+            const baseH = this.properties.height || 512;
+
             const state = {
-                width: this.properties.width || 512,
-                height: this.properties.height || 512,
-                batch_size: this.properties.batchSize || 1
+                width: Math.round(baseW * scaleFactor),
+                height: Math.round(baseH * scaleFactor),
+                batch_size: this.properties.batchSize || 1,
+                editor_mp: mp
             };
 
-            const fingerprint = `${state.width}_${state.height}_${state.batch_size}_${this.titleLabel}_${this.id}`;
+            const fingerprint = `${state.width}_${state.height}_${state.batch_size}_${state.editor_mp}_${this.titleLabel}_${this.id}`;
             if (this._lastSignalFingerprint === fingerprint) return;
             this._lastSignalFingerprint = fingerprint;
 
@@ -353,6 +408,7 @@ app.registerExtension({
             this.properties.width = 400;
             this.properties.height = 100;
             this.properties.batchSize = 1;
+            this.properties.editorMP = 1;
             this.properties.mode = "Landscape";
             this.properties.autoWidth = false;
             this.properties.latentPresets = [];

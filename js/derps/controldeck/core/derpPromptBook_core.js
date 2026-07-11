@@ -96,7 +96,7 @@ export function syncDerpPromptBookEditorDisplay(node, content, options = {}) {
     const widget = node.widgets?.find(x => x.name === "prompt");
     if (widget) widget.value = storedValue;
 
-    const mapEditor = node.layoutMap?.contentRegion?.editorMain;
+    const mapEditor = node.layoutMap?.mainRegion?.contentRegion?.editorMain;
     if (mapEditor) {
         mapEditor.value = displayValue;
         mapEditor.text = displayValue;

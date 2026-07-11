@@ -103,7 +103,8 @@ app.registerExtension({
             const currentIndex = this.properties.currentPageIndex || 0;
             const safeIndex = Math.max(0, Math.min(currentIndex, Math.max(0, book.length - 1)));
 
-            const structureHash = `${book.length}_${safeIndex}_${this.properties.bookName}_${this.properties.coverPage}_${this.properties.showTotalPage}_${this.properties.drawHeader}_${(this._availableBooks || []).length}_${editorPaddingHash}_${window._xcpDerpSession}`;
+            const contentFp = book.reduce((acc, p) => acc + (p.content || "").length, 0);
+            const structureHash = `${book.length}_${safeIndex}_${this.properties.bookName}_${this.properties.coverPage}_${this.properties.showTotalPage}_${this.properties.drawHeader}_${(this._availableBooks || []).length}_${editorPaddingHash}_${contentFp}_${window._xcpDerpSession}`;
             this._layoutMapHash = structureHash;
 
             const activePage = book[safeIndex] || { title: tLocale("$derp_prompt_book.page.empty", "Empty"), content: "" };
@@ -197,8 +198,14 @@ app.registerExtension({
                         },
                     } : {})
                 },
-                mainRegion: {
+                bookBreak: {
+                    type: this.UI_TYPES.LINEBREAK,
                     anchor: { target: "bookRegion", axis: "y" },
+                    margin: [0, mH],
+                    width: "full", height: 1,
+                },
+                mainRegion: {
+                    anchor: { target: "bookBreak", axis: "y" },
                     width: "full", height: "fill", dir: "col",
                     margin: [mW, mH, mW, 0],
                     contentRegion: {
@@ -213,6 +220,7 @@ app.registerExtension({
                         width: "full", height: "fill", padding: editorPadding,
                         onBlur: () => {
                             const pIndex = this.properties.currentPageIndex || 0;
+                            const book = this.properties.derpBook || [];
                             if (book[pIndex]) {
                                 const content = normalizePromptBookEditorStoredValue(this._derpDomElements?.editorMain?.innerText ?? book[pIndex].content);
                                 book[pIndex].content = content;
@@ -229,6 +237,7 @@ app.registerExtension({
                         }),
                         onInput: (val) => {
                             const pIndex = this.properties.currentPageIndex || 0;
+                            const book = this.properties.derpBook || [];
                             if (book[pIndex]) {
                                 const cleanVal = normalizePromptBookEditorStoredValue(val);
                                 if (book[pIndex].content === cleanVal) return;

@@ -4,6 +4,7 @@ import { getDeckPressureSideHorizontalLockedWidth, getDerpVars, shouldLockDeckPr
 import { resolveDerpPreferredAutoWidth } from '../js/fatha/core/derpHeightPolicy.js';
 import { canResizeDeckPressureSideWidthMember, canResizeHorizontalMemberWidth } from '../js/fatha/core/dockResizeSharedEdges.js';
 import { syncDockResizePair } from '../js/fatha/core/dockResize.js';
+import { createDerpShield, removeDerpShield, syncDerpShield } from '../js/fatha/core/fathaDOMshield.js';
 import { applyDeckPressureLayout, deckNodeToLeader, getDeckPressureSideHorizontalWidthLock, normalizeDockPair } from '../js/fatha/core/masterDockEngine.js';
 
 function makeNode(id, x, width, height) {
@@ -24,6 +25,7 @@ function makeNode(id, x, width, height) {
     layoutMap: {},
     setDirtyCanvas: () => {},
     refreshNodeLayoutMap: () => {},
+    handleShieldInteraction: () => false,
     requestDerpSync: () => {},
     syncUncleSlots: () => {},
     settleBeforeDockSnap: () => {},
@@ -301,5 +303,109 @@ describe('syncHorizontalDeckHeight', () => {
     expect(top.pos[0]).toBe(100);
     expect(bottom.pos[0]).toBe(100);
     expect(hub.pos[0]).toBe(200);
+  });
+
+  it('preserves side-vertical branch live heights during active seam resize', () => {
+    const hub = makeImageDeck(49, 200, 300, 320);
+    const top = makeNode(50, 100, 100, 120);
+    const middle = makeNode(51, 100, 100, 100);
+    const bottom = makeNode(52, 100, 100, 90);
+
+    hub.properties.deckEdges.left = top.id;
+    top.properties.deckParentId = hub.id;
+    top.properties.deckDockSide = 'left';
+    top.properties.deckEdges.right = hub.id;
+    top.properties.deckEdges.bottom = middle.id;
+    middle.properties.deckParentId = top.id;
+    middle.properties.deckDockSide = 'bottom';
+    middle.properties.deckEdges.top = top.id;
+    middle.properties.deckEdges.bottom = bottom.id;
+    bottom.properties.deckParentId = middle.id;
+    bottom.properties.deckDockSide = 'bottom';
+    bottom.properties.deckEdges.top = middle.id;
+
+    top.size[1] = 130;
+    top.properties.nodeSize[1] = 130;
+    middle.size[1] = 80;
+    middle.properties.nodeSize[1] = 80;
+    bottom.size[1] = 110;
+    bottom.properties.nodeSize[1] = 110;
+    [top, middle, bottom].forEach((member) => {
+      member._isDerpResizing = true;
+      member._dockResizePreserveHeight = true;
+    });
+
+    const graph = { _nodes: [hub, top, middle, bottom] };
+    window.app.graph = graph;
+    window.app.canvas.frame = 10;
+    globalThis.app = window.app;
+
+    applyDeckPressureLayout(hub, graph, 10);
+
+    expect(top.size[1]).toBe(130);
+    expect(middle.size[1]).toBe(80);
+    expect(bottom.size[1]).toBe(110);
+  });
+
+  it('primes every side-vertical branch member when lower seam resize starts', () => {
+    const originalCanvas = window.app.canvas.canvas;
+    const canvas = document.createElement('canvas');
+    canvas.getBoundingClientRect = () => ({ left: 0, top: 0, width: 800, height: 600 });
+    Object.defineProperty(canvas, 'clientWidth', { value: 800, configurable: true });
+    Object.defineProperty(canvas, 'clientHeight', { value: 600, configurable: true });
+    window.app.canvas.canvas = canvas;
+    let middle = null;
+
+    try {
+      const hub = makeImageDeck(53, 200, 300, 320);
+      const top = makeNode(54, 100, 100, 120);
+      middle = makeNode(55, 100, 100, 100);
+      const bottom = makeNode(56, 100, 100, 90);
+
+      hub.properties.deckEdges.left = top.id;
+      top.properties.deckParentId = hub.id;
+      top.properties.deckDockSide = 'left';
+      top.properties.deckEdges.right = hub.id;
+      top.properties.deckEdges.bottom = middle.id;
+      middle.properties.deckParentId = top.id;
+      middle.properties.deckDockSide = 'bottom';
+      middle.properties.deckEdges.top = top.id;
+      middle.properties.deckEdges.bottom = bottom.id;
+      bottom.properties.deckParentId = middle.id;
+      bottom.properties.deckDockSide = 'bottom';
+      bottom.properties.deckEdges.top = middle.id;
+
+      const graph = { _nodes: [hub, top, middle, bottom] };
+      window.app.graph = graph;
+      window.app.canvas.frame = 11;
+      globalThis.app = window.app;
+
+      applyDeckPressureLayout(hub, graph, 10);
+      createDerpShield(middle);
+      syncDerpShield(middle);
+
+      const handle = middle.interactionShield._resizeHandle;
+      expect(handle._resizeAnchorOverride).toBe('bottom');
+
+      handle.onpointerdown({
+        button: 0,
+        currentTarget: handle,
+        pointerId: 1,
+        clientX: 140,
+        clientY: 220,
+        stopPropagation: () => {},
+        preventDefault: () => {},
+      });
+
+      expect(top._isDerpResizing).toBe(true);
+      expect(middle._isDerpResizing).toBe(true);
+      expect(bottom._isDerpResizing).toBe(true);
+      expect(top._dockResizePreserveHeight).toBe(true);
+      expect(middle._dockResizePreserveHeight).toBe(true);
+      expect(bottom._dockResizePreserveHeight).toBe(true);
+    } finally {
+      if (middle) removeDerpShield(middle);
+      window.app.canvas.canvas = originalCanvas;
+    }
   });
 });

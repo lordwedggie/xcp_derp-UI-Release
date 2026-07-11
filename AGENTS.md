@@ -257,6 +257,7 @@ For docking, stack resize, Deck Pressure, and Node 2.0 compatibility work, read 
 - Manual-height Deck Pressure side stacks should preserve current member heights during idle pressure layout when they already fit the side band; pressure fitting may clamp/refit over-tall stacks but must not distribute spare height into manual members after harmless refreshes.
 - Content viewport and clipped-node resize floors belong in `derp_docs/FRAMEWORK-Clipping.md`; use `minClipHeight` / `_contentViewportMinClipHeight` for viewport-backed floors and preserve viewport scroll targets across transient measurement passes.
 - Active pointer paths should avoid per-move dirty/layout/shield churn. Prefer live size sync with silent/deferred options and batched shield sync; otherwise stack resizing becomes jumpy and one-frame flicker is easy to reintroduce.
+- Deck Pressure side-branch resize-start priming must use branch-aware member lists, not ordinary `isLinearDeckGroup()` checks against the mixed ImageDeck group. Keep DOM-shield helper changes local and avoid exporting shield internals just to test branch resize behavior.
 - If a docking lesson needs more than one or two sentences, move the full rule to `FRAMEWORK-Docking.md` and keep only a short pointer here.
 
 ### Node-Specific Notes

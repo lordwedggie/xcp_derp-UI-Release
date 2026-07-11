@@ -58,6 +58,8 @@
     "title": "老登潜空间",
     "output": "潜空间",
     "select": "选择",
+    "batch_label": "批次数量：",
+    "mp_label": "MP：",
     "mode": {
       "landscape": "横向",
       "portrait": "纵向"
@@ -68,7 +70,8 @@
     "tooltips": {
       "mode": "点击切换纵向和横向模式",
       "selector": "点击选择当前配置文件中的可用分辨率",
-      "batch": "点击修改批次数量"
+      "batch": "点击修改批次数量",
+      "mp": "点击修改百万像素倍率（1.0-4.0）"
     }
   },
   "derp_slider": {
