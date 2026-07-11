@@ -272,6 +272,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                     const [mW, mH, oY, pW, pH, sH, sW] = [
                         vars.mW, vars.mH, vars.oY, vars.pW, vars.pH, vars.sH, vars.sW
                     ].map(v => Number(v.toFixed(2)));
+                    this.properties.footerHeight = 6 + mH;
                     const { t_textNormal_size, t_textSmall_size } = vars;
 
                     const stack = this.properties.stackData || [];
@@ -873,9 +874,14 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                 },
                                 ...stackRows,
                             },
+                            loraAddBreak: {
+                                type: this.UI_TYPES.LINEBREAK, width: "full", height: 1,
+                                anchor: { target: "loraEntriesRegion", axis: "y", offset: sH },
+                                margin: [-lineBreakMarginL, 0, -mW, mH],
+                            },
                             footerControls: {
                                 anchor: {
-                                    target: "loraEntriesRegion",
+                                    target: "loraAddBreak",
                                     axis: "y",
                                     offset: sH
                                 },
