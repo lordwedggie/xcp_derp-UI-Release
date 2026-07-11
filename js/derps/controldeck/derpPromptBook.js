@@ -113,7 +113,7 @@ app.registerExtension({
 
             if (this._lastBookStructure === structureHash && this.layoutMap) {
                 // RE-HYDRATE VISUALS: Update page selection and editor content in-place without rebuilding the map
-                const pReg = this.layoutMap.pageRegion;
+                const pReg = this.layoutMap.mainRegion?.pageRegion;
                 if (pReg && pReg.dropdownPages) {
                     pReg.dropdownPages.value = String(safeIndex);
                 }
@@ -123,7 +123,7 @@ app.registerExtension({
                     bReg.dropdownBooks.value = this.properties.bookName || tLocale("$derp_prompt_book.book.untitled_name", "Untitled Book");
                 }
 
-                const cReg = this.layoutMap.contentRegion;
+                const cReg = this.layoutMap.mainRegion?.contentRegion;
                 if (cReg && cReg.editorMain) {
                     cReg.editorMain.padding = editorPadding;
                     const bName = this.properties.bookName || tLocale("$derp_prompt_book.book.untitled_name", "Untitled Book");
@@ -197,11 +197,15 @@ app.registerExtension({
                         },
                     } : {})
                 },
-                contentRegion: {
-                    anchor: { target: "bookRegion", axis: "y", },
-                    dir: "col", width: "full", height: "fill", margin: [mW, sH, mW, sH], padding: [0,0],
-                    minHeight: 100,
-                    editorMain: {
+                mainRegion: {
+                    anchor: { target: "bookRegion", axis: "y" },
+                    width: "full", height: "fill", dir: "col",
+                    margin: [mW, mH, mW, 0],
+                    contentRegion: {
+                        width: "full", height: "fill", dir: "col",
+                        margin: [0, 0, 0, mH], padding: [0, 0],
+                        minHeight: 100,
+                        editorMain: {
                         type: this.UI_TYPES.EDITOR, multiline: true, noHover: true, canvasShield: true, switchOnEditing: true,
                         richImageContent: true,
                         themeKey: "dialog, t_textNormal", mouseOver: false, 
@@ -239,8 +243,13 @@ app.registerExtension({
                         },
                     }
                 },
+                pageBreak: {
+                    type: this.UI_TYPES.LINEBREAK,
+                    margin: [-mW, mH],
+                    width: "full", height: 1,
+                },
                 pageRegion: {
-                    anchor: { target: "contentRegion", axis: "y", },
+                    anchor: { target: "pageBreak", axis: "y", },
                     dir: "row", width: "full", height: "auto", margin: [mW, mH, mW, mH], padding: [0, 0],
                     btnPageLeft: {
                         type: this.UI_TYPES.ICONBUTTON, icon: "leftarrow", themeKey: "button, t_textNormal",
@@ -285,7 +294,8 @@ app.registerExtension({
                         onPress: () => handlePageChange(this, 1)
                     }
                 },
-            };
+            },
+        };
 
             this.requestDerpSync();
         };
