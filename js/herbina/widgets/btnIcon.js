@@ -76,6 +76,7 @@ const ICON_MAP = {
     file: "🗀",
     clean: "⌬", //⏚,
     folder: "🗁",
+    "folder-open": "📂",
     settings: "⛯", // ⛯, ⛭, ⚙
     warpto: "⤳", // ⤏, ➔, ➛, ⮚, ➲, ⧴, ⇱,
     ratingglyph: ["", "🆂", "🅰", "🅱", "🅲", "🅳", "🅴", "🅵"] // ☐, ☑, ▢, ▣, ◻, ◼, ☐, ☒, ⭘, ⦿, ⭘, ●,

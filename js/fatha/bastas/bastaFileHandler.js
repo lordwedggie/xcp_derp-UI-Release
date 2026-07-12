@@ -312,6 +312,22 @@ export function showBastaFileHandler(host, category = "settings", targetRegion =
                             mouseOver: true,
                             state: "OFF",
                             onPress: () => refreshFileList(basta, true, true)
+                        },
+                        btnOpenFolder: {
+                            type: UI_TYPES.ICONBUTTON,
+                            themeKey: "buttonNode, t_textSystem",
+                            icon: "folder-open",
+                            width: "match", height: "fill", objectAlign: ["left", "middle"],
+                            minWidth: 20,
+                            spacing: [sW, sH],
+                            mouseOver: true,
+                            state: "OFF",
+                            onPress: () => {
+                                const cat = basta.properties.category;
+                                const folder = basta.properties.selectedFolder || "/";
+                                fetch(`/xcp/open_category_folder?category=${encodeURIComponent(cat)}&folder=${encodeURIComponent(folder)}`)
+                                    .catch(e => console.error("[File Handler] Open folder failed:", e));
+                            }
                         }
                     },
                     infoRegion: {
