@@ -180,9 +180,16 @@ export function setupDerpSliderCore(nodeType) {
 
         let dataChanged = false;
         while (data.length < count) {
+            const visualSource = data[0] || {};
             data.push({
                 name: `Slider_${(data.length + 1).toString().padStart(2, '0')}`,
-                min: 0, max: 1, step: 0.05, default: 0.5, decimal: 2, value: 0.5, btnLR: false, fillbarHeight: 1.0, roundKnob: true, knobRadiusOffset: 0.8, knobWidthScale: 1.0, knobHeightOffset: 0
+                min: 0, max: 1, step: 0.05, default: 0.5, decimal: 2, value: 0.5,
+                btnLR: visualSource.btnLR ?? false,
+                fillbarHeight: visualSource.fillbarHeight ?? 1.0,
+                roundKnob: visualSource.roundKnob !== false,
+                knobRadiusOffset: visualSource.knobRadiusOffset ?? 0.8,
+                knobWidthScale: visualSource.knobWidthScale ?? 1.0,
+                knobHeightOffset: visualSource.knobHeightOffset ?? 0
             });
             dataChanged = true;
         }

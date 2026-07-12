@@ -8,7 +8,7 @@ import { showBastaMessage } from "../../fatha/bastas/bastaMessage.js";
 import { showBastaFileHandler } from "../../fatha/bastas/bastaFileHandler.js";
 import { startStackDrag, updateStackDrag, endStackDrag } from "../../fatha/helpers/fathaDragDrop.js";
 import { isComfyVueNodesMode } from "../../fatha/core/fathaNode2Compat.js";
-import { applyDerpPreferredAutoHeight } from "../../fatha/core/derpHeightPolicy.js";
+import { applyDerpPreferredAutoHeight, resolveDerpRuntimeAutoHeight } from "../../fatha/core/derpHeightPolicy.js";
 import {
     resolveRatingColor,
     buildLoraDetailPayload,
@@ -186,7 +186,7 @@ function resolveLoraStackMinClipHeight(node, region, regions = {}) {
 function resolveLoraStackOneEntryHeight(node) {
     const regions = node?.layout?.regions || {};
     const header = regions.headerRegion;
-    const main = regions.mainContentRegion;
+    const main = regions.mainContentRegion || regions.loraBodyAndSpringRegion;
     const row = regions.loraRow_0;
     const footer = regions.footerControls || regions.regionWarning;
     const panel = regions.panelBackground;
@@ -323,10 +323,11 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                     const signalSelectionHash = `${modelSignalId || ""}_${clipSignalId || ""}`;
 
                     const dragIdxHash = (this._dragTrig) ? `drag_${this._dragTrig.index}_${this._dragThresholdMet}_${this._dropPreviewIdx}` : "no-drag";
+                    const isRuntimeAutoHeight = resolveDerpRuntimeAutoHeight(this);
                     const clipVisibleLimit = getLoraStackClipVisibleLimit(this);
                     const numericClipLimit = getLoraStackNumericClipVisibleLimit(this);
                     const useEntryViewport = this.properties.loraStackClipEntries === true || (numericClipLimit !== null ? stack.length > numericClipLimit : stack.length > 1);
-                    const structureHash = `${stack.length}_${stack.map(l => `${l[0]}_${l[5]}`).join('|')}_${trigHash}_${this.properties.nameDisplay}_${this.properties.showCLIP}_${this.properties.attentionMode}_${this.properties.toggleLR}_${signalSelectionHash}_${window._xcpDerpSession}_${activeSlot}_${mW}_${mH}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}_${(this.size?.[1] || 0).toFixed(2)}_${dragIdxHash}_${useEntryViewport ? 1 : 0}_${clipVisibleLimit}`;
+                    const structureHash = `${stack.length}_${stack.map(l => `${l[0]}_${l[5]}`).join('|')}_${trigHash}_${this.properties.nameDisplay}_${this.properties.showCLIP}_${this.properties.attentionMode}_${this.properties.toggleLR}_${signalSelectionHash}_${window._xcpDerpSession}_${activeSlot}_${mW}_${mH}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}_${(this.size?.[1] || 0).toFixed(2)}_${dragIdxHash}_${useEntryViewport ? 1 : 0}_${clipVisibleLimit}_${isRuntimeAutoHeight ? 1 : 0}`;
 
                     // ZERO-INFERENCE VALUE GATE: Block redundant property hydration on idle nodes
                     // Hover already has a dedicated visual invalidation path in Fatha.
@@ -343,7 +344,11 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
 
                         // RE-HYDRATE VISUALS: Update icons, colors, and animations in-place on the cached structure
                         stack.forEach((lora, i) => {
-                            const loraRow = this.layoutMap.mainContentRegion?.loraEntriesRegion?.[`loraRow_${i}`] || this.layoutMap.mainContentRegion?.[`loraRow_${i}`];
+                            const loraEntriesMap = this.layoutMap.mainContentRegion?.loraEntriesRegion
+                                || this.layoutMap.loraBodyAndSpringRegion?.loraEntriesRegion;
+                            const loraRow = loraEntriesMap?.[`loraRow_${i}`]
+                                || this.layoutMap.mainContentRegion?.[`loraRow_${i}`]
+                                || this.layoutMap.loraBodyAndSpringRegion?.[`loraRow_${i}`];
                             if (loraRow) {
                                 // THE BYPASS SYNC: Detect if the entire node (mode 2/4, properties, or bypass widget) or just this LoRA entry is bypassed
                                 const nodeBypassed = this.mode === 2 || this.mode === 4 || this.properties.isBypassed || (this.widgets && this.widgets[0] && this.widgets[0].value === "bypass");
@@ -463,8 +468,6 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                     const isDetailOpen = !!(window.xcpActiveBastas?.get(detailBastaId)?.hostNode === this);
                     if (!isDetailOpen) this._activeDetailSlot = -1;
 
-                    const lineBreakMarginL = mW;
-
                     const dropGapHeight = estimateLoraDropGapHeight(this, "loraRow_");
                     const dropGapWithTrailingSeparatorHeight = dropGapHeight + 1 + mH + oY;
 
@@ -500,7 +503,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                         if (prev && (!isDragged || shouldPlaceGapBeforeThisRow)) {
                             acc[`loraSep_${i}`] = {
                                 anchor: { target: prev, axis: "y", offset: oY },
-                                type: this.UI_TYPES.LINEBREAK, width: "full", height: 1, margin: [-lineBreakMarginL, 0, -mW, mH],
+                                type: this.UI_TYPES.LINEBREAK, width: "full", height: 1, margin: [0, 0, 0, mH],
                             };
                             prev = `loraSep_${i}`;
                         }
@@ -851,7 +854,8 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                         };
                     }
 
-                    this.layoutMap = {
+                    this.layoutMap = isRuntimeAutoHeight
+                        ? {
                         mainContentRegion: {
                             anchor: { target: "headerRegion", axis: "y", offset: oY },
                             // THE MARGIN FIX: Remove internal padding and use mW margin to align with header buttons
@@ -877,7 +881,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                             loraAddBreak: {
                                 type: this.UI_TYPES.LINEBREAK, width: "full", height: 1,
                                 anchor: { target: "loraEntriesRegion", axis: "y", offset: sH },
-                                margin: [-lineBreakMarginL, 0, -mW, mH],
+                                margin: [-mW, 0, -mW, mH],
                             },
                             footerControls: {
                                 anchor: {
@@ -888,7 +892,7 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                 contentViewportClip: false,
                                 hidden: !hasRequiredSignals,
                                 dir: "row", width: "full", height: "auto", spacing: [0, 0],
-                                margin: [0, mH, 0, mH],
+                                margin: [0, 0, 0, mH],
                                 btnClear: {
                                     type: this.UI_TYPES.BUTTON,
                                     text: "Clear",
@@ -993,6 +997,145 @@ if (!window._xcp_derpLoraStack_Layout_Loaded) {
                                 }
                             }
                         },
+                    }
+                        // ── MANUAL MODE: two-sibling fill+spring / auto footer ──
+                        : {
+                            loraBodyAndSpringRegion: {
+                                anchor: { target: "headerRegion", axis: "y", offset: oY },
+                                dir: "col", width: "full", height: "fill",
+                                margin: [mW, mH, mW, 0],
+                                minWidth: 0,
+                                regionWarning: {
+                                    contentViewportClip: false,
+                                    hidden: hasRequiredSignals,
+                                    dir: "col",
+                                    width: "full",
+                                    height: "auto",
+                                    margin: [0, mH, 0, mH],
+                                    lblWarningCrossAttention: { pulseStates: true,
+                                        type: this.UI_TYPES.TEXT,
+                                        themeKey: "t_textSystem",
+                                        text: tLocale("$derp_lora_stack.warnings.cross_attention", "MODEL and CLIP signals required, click the wireless button in the header."),
+                                        hidden: hasRequiredSignals || isJointAttention,
+                                        width: "full",
+                                        padding: [pW, pH],
+                                        labelAlign: ["left", "middle"],
+                                    },
+                                    lblWarningJointAttention: { pulseStates: true,
+                                        type: this.UI_TYPES.TEXT,
+                                        themeKey: "t_textSystem",
+                                        text: tLocale("$derp_lora_stack.warnings.joint_attention", "MODEL signal required, click the wireless button in the header."),
+                                        hidden: hasRequiredSignals || !isJointAttention,
+                                        width: "full",
+                                        padding: [pW, pH],
+                                        labelAlign: ["left", "middle"],
+                                    }
+                                },
+                                loraEntriesRegion: {
+                                    scrollViewport: useEntryViewport,
+                                    clipHeight: resolveLoraStackClipHeight,
+                                    minClipHeight: resolveLoraStackMinClipHeight,
+                                    width: "full", height: "auto", dir: "col",
+                                    margin: [0, 0, 0, 0],
+                                    loraViewportTopPad: {
+                                        hidden: !useEntryViewport,
+                                        type: this.UI_TYPES.REGION,
+                                        hoverEffect: false,
+                                        alpha: 0,
+                                        width: "full",
+                                        height: 2,
+                                        margin: [0, 0, 0, 0],
+                                    },
+                                    ...stackRows,
+                                },
+                                springFill: {
+                                    width: "full", height: "fill", minHeight: 0,
+                                },
+                            },
+                            loraFooterRegion: {
+                                dir: "col", width: "full", height: "auto",
+                                loraAddBreak: {
+                                    type: this.UI_TYPES.LINEBREAK, width: "full", height: 1,
+                                    margin: [0, 0, 0, mH],
+                                },
+                                footerControls: {
+                                    contentViewportClip: false,
+                                    hidden: !hasRequiredSignals,
+                                    dir: "row", width: "full", height: "auto", spacing: [0, 0],
+                                    margin: [mW, 0, mW, mH],
+                                    btnClear: {
+                                        type: this.UI_TYPES.BUTTON,
+                                        text: "Clear",
+                                        corners: [3, 0, 0, 3],
+                                        width: "auto", height: "fill", padding: [pW, pH],
+                                        labelAlign: ["center", "middle"],
+                                        state: stack.length > 0 ? "OFF" : "DIS",
+                                        pulseStates: true,
+                                        themeKey: "button, t_textSmall",
+                                        onPress: () => {
+                                            showBastaFileHandler(this, "none", "btnClear", {
+                                                title: tLocale("$derp_lora_stack.dialogs.clear_deck.title", "Clear LoRA Stack"),
+                                                message: tLocale("$derp_lora_stack.dialogs.clear_deck.message", "Clear the LoRA stack?"),
+                                                confirm: tLocale("$derp_lora_stack.dialogs.clear_deck.confirm", "Clear"),
+                                                mode: "delete",
+                                                playSound: "delete",
+                                                properties: { bastaMovalbe: false },
+                                                onConfirm: () => {
+                                                    const bId = "basta_lora_detail_global_unique_id";
+                                                    if (window.xcpActiveBastas?.has(bId)) window.xcpActiveBastas.get(bId).close();
+                                                    this.properties.stackData = [];
+                                                    if (this.syncDerpOutputs) this.syncDerpOutputs();
+                                                    this.refreshNodeLayoutMap();
+                                                    if (this.syncLoraStackStructureHeight) this.syncLoraStackStructureHeight();
+                                                }
+                                            });
+                                        }
+                                    },
+                                    loraSelector: {
+                                        type: this.UI_TYPES.FILEBROWSER, items: this._loraList || [],
+                                        corners: [0, 0, 0, 0],
+                                        mode: "file", mouseOver: false, searchTab: true,
+                                        rootName: "loras", skipBackground: true,
+                                        previewList: this._loraPreviewList,
+                                        ratingsList: this._loraRatings || {},
+                                        ratingsPalette: this._ratingsPalette,
+                                        fileType: "lora",
+                                        value: `{{t_text_accent::${tLocale("$derp_lora_stack.browser.add", "Add Lora to Stack...")}}}`, width: "full", height: "auto",
+                                        triggerIconColorKey: "t_text_warning",
+                                        themeKey: "dialog, t_textNormal", canvasShield: true,
+                                        searchThemeKey: "panel, t_textSystem",
+                                        padding: [pW, pH],
+                                        onChange: (val) => {
+                                            if (!this.properties.stackData) this.properties.stackData = [];
+                                            const sliderDefault = parseFloat(this.properties.sliderDefault);
+                                            const clipDefault = parseFloat(this.properties.clipDefault);
+                                            const defVal = Number.isFinite(sliderDefault) ? sliderDefault : 1.0;
+                                            const defClip = Number.isFinite(clipDefault) ? clipDefault : 1.0;
+                                            this.properties.stackData.push([val, defVal, defClip, "None", "", false, false, false]);
+                                            if (this.fetchDerpLoraTriggers) this.fetchDerpLoraTriggers(val, this.properties.stackData.length - 1);
+                                            if (this.syncDerpOutputs) this.syncDerpOutputs();
+                                            this.refreshNodeLayoutMap();
+                                            if (this.syncLoraStackStructureHeight) this.syncLoraStackStructureHeight();
+                                            if (app.graph && app.graph.change) app.graph.change();
+                                        }
+                                    },
+                                    btnRefresh: {
+                                        type: this.UI_TYPES.ICONBUTTON,
+                                        icon: "refresh",
+                                        corners: [0, 3, 3, 0],
+                                        width: "match", height: "fill", objectAlign: ["left", "middle"],
+                                        themeKey: "button, t_textNormal",
+                                        onPress: () => {
+                                            const bId = "basta_lora_detail_global_unique_id";
+                                            if (window.xcpActiveBastas?.has(bId)) window.xcpActiveBastas.get(bId).close();
+
+                                            window._xcpDerpSession = Date.now();
+                                            if (this.fetchDerpLoraData) this.fetchDerpLoraData(true);
+
+                                        }
+                                    }
+                                },
+                            },
                     };
 
                     this.requestDerpSync();
