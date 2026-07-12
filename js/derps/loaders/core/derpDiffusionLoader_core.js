@@ -210,23 +210,30 @@ export function initDerpDiffusionLoaderCore(nodeType) {
 
         const diffusionName = isBypassed ? null : activeDiffusion?.name;
         const weightDtype = this.properties.weightDtype || "default";
-        const modelPayload = diffusionName ? {
+        const modelPayload = isBypassed ? null : (diffusionName ? {
             diffusion_name: diffusionName,
             weight_dtype: weightDtype,
             model_name_prefix: diffusionName,
             model_name: diffusionName,
             model_id: `${this.id}:0`,
             signal_role: "model"
-        } : null;
-        const aggregatePayload = modelPayload ? {
+        } : {
+            diffusion_name: "N/A",
+            weight_dtype: weightDtype,
+            model_name_prefix: "N/A",
+            model_name: "N/A",
+            model_id: `${this.id}:0`,
+            signal_role: "model"
+        });
+        const aggregatePayload = isBypassed ? null : {
             ...modelPayload,
-            diffusion_name: diffusionName,
+            diffusion_name: diffusionName || "N/A",
             weight_dtype: this.properties.weightDtype || "default"
-        } : null;
+        };
 
         const nodeName = this.titleLabel || this.title || tLocale("$derp_diffusion_loader.title", "Derp Diffusion Loader");
         const modelPortLabel = tLocale("$derp_diffusion_loader.ports.model", "Model");
-        const fingerprint = JSON.stringify([isBypassed, diffusionName, weightDtype, this.id, nodeName, modelPortLabel, (this.properties.diffusionDeck || []).length]);
+        const fingerprint = JSON.stringify([isBypassed, diffusionName || "N/A", weightDtype, this.id, nodeName, modelPortLabel, (this.properties.diffusionDeck || []).length]);
         if (this._lastSignalFingerprint === fingerprint) return;
         this._lastSignalFingerprint = fingerprint;
 
@@ -250,13 +257,13 @@ export function initDerpDiffusionLoaderCore(nodeType) {
             }
 
             const baseId = String(this.id);
-            pushDiffusionSignalToRegistry(this, `${baseId}:0`, nodeName, modelPortLabel, modelPayload ? "model" : "null", modelPayload);
+            pushDiffusionSignalToRegistry(this, `${baseId}:0`, nodeName, modelPortLabel, diffusionName ? "model" : "null", modelPayload);
 
             const savedOutputs = this.outputs;
             if (this._xcpTrueOutputs && this._xcpTrueOutputs.length > 0) {
                 this.outputs = this._xcpTrueOutputs;
             }
-            if (aggregatePayload) transmitDerpSignal(this, aggregatePayload);
+            transmitDerpSignal(this, aggregatePayload);
             this.outputs = savedOutputs;
         };
 
