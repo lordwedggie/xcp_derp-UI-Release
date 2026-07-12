@@ -1,53 +1,64 @@
-## BSA Spec: Extract shared tLocale() from derpSignalOut
+## BSA Spec: Move clipped links to output 0 position
 
-### Goal
-Eliminate duplicated `tLocale()` function from `js/derpSignalOut.js` (lines 16-25) and `js/derpSignalOut_core.js` (lines 9-18) into a shared importable helper.
+### Problem
 
-### Finding: Broader Duplication
-`tLocale()` is copy-pasted in **15+ files** across the project (`js/derps/loaders/*.js`, `js/derps/controldeck/*.js`, `js/derps/utils/*.js`, `js/fatha/helpers/fathaLayoutMaps.js`, `js/fatha/helpers/fathaSysPanel.js`, etc.). One file (`derpSeedV3_core.js`) already uses `export function tLocale(...)` — the only existing named export.
+In `js/fatha/helpers/uncleSlotHelper.js`, the `syncUncleSlots()` function hides output slots that are scrolled out of view by setting their position to `[-1000, -1000]` (lines 149-157). This hides both:
 
-**Scope for this ticket**: the two `derpSignalOut` files only. The broader consolidation is a separate cleanup.
+1. **LiteGraph physical link rendering** (slots at `[-1000,-1000]` means wires disappear into the void)
+2. **The slot dot itself** (the orphan guard in `drawUncleSlots` skips `[-1000,-1000]`)
 
-### Target files (derpSignalOut pair)
+For Derp Router nodes with scrollable content viewports, this means physical wires to scrolled-out slots vanish entirely instead of stacking at output 0's position.
 
-| File | Lines | Pattern |
-|------|-------|---------|
-| `js/derpSignalOut.js` | 16-25 | `function tLocale(key, fallback = key)` (private function) |
-| `js/derpSignalOut_core.js` | 9-18 | `function tLocale(key, fallback = key)` (private function, identical body) |
+### Files Touched
 
-### Landing file: `js/herbina/utils/localeUtils.js` (NEW)
-**Rationale**: Both source files can reach `./herbina/utils/localeUtils.js` from their `js/` location with a clean relative import. Herbina utils is the existing shared utility zone (alongside `widgetsUtils.js`). No existing file that both already import from is a natural home — fathaHandler is imported by `_core.js` but not `derpSignalOut.js`.
+| File | Role | Change |
+|------|------|--------|
+| `js/fatha/helpers/uncleSlotHelper.js` | **Primary fix** | Instead of `[-1000,-1000]`, move scrolled-out slots to output 0's computed position |
+| `js/derpSignalOut_core.js` | **Audit only** | The global virtual wire renderer (`drawDerpSignalOutGlobalWires`, lines 916-958) derives endpoint Y from `node.layout.regions[...].y + h/2`, NOT from `slot.pos`. Virtual wires are unaffected. The deprecated local renderer (lines 874-903) is disabled (`if(false)`). **No change needed** in this file. |
 
-### Implementation plan
+### Approach — uncleSlotHelper.js
 
-1. **Create** `js/herbina/utils/localeUtils.js`:
-   ```js
-   /**
-    * Path: ./js/herbina/utils/localeUtils.js
-    * ROLE: Shared locale/i18n helpers.
-    */
-   export function tLocale(key, fallback = key) {
-       if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
-       const path = key.substring(1).split(".");
-       let target = window.xcpDerpLocaleData || {};
-       for (const segment of path) {
-           target = target?.[segment];
-           if (target === undefined) return fallback;
-       }
-       return target;
-   }
-   ```
+**Before** (line 155):
+```js
+slot.pos = [-1000, -1000];
+```
 
-2. **In `js/derpSignalOut.js`**:
-   - Add import: `import { tLocale } from "./herbina/utils/localeUtils.js";`
-   - Delete lines 16-25 (the private `function tLocale`)
+**After** (collapsed for the fix):
+```js
+if (!this._slot0FallbackPos) {
+  const slot0Region = regionsArray.find(r => r.outSlotIdx === 0);
+  if (slot0Region) {
+    this._slot0FallbackPos = [outputX, slot0Region.y + (slot0Region.h / 2)];
+  }
+}
+slot.pos = this._slot0FallbackPos || [outputX, targetRegion.y + (targetRegion.h / 2)];
+```
 
-3. **In `js/derpSignalOut_core.js`**:
-   - Add import: `import { tLocale } from "./herbina/utils/localeUtils.js";`
-   - Delete lines 9-18 (the private `function tLocale`)
+**Detailed logic**:
 
-4. **Verify**: `npm test` passes; no `tLocale is not defined` runtime errors.
+1. Before the output loop (line 138), compute output slot 0's position: `[outputX, slot0Region.y + slot0Region.h/2]`. Store it as `slot0FallbackPos`.
+2. Inside the loop, where the scroll-clip check fires (line 154-155), replace `[-1000, -1000]` with `slot0FallbackPos`.
+3. This makes physical LiteGraph wires stack at output 0's vertical position.
+4. The `drawUncleSlots` orphan guard (line 202) must also skip `slot0FallbackPos` — no, actually we WANT the slot dot drawn there so connected wires have an anchor.
 
-### Not in scope
-- The other 13+ duplicated `tLocale()` instances across loaders, controldecks, utils, and fatha helpers.
-- The `export function tLocale` in `derpSeedV3_core.js` (already exported; this new file would be the canonical source going forward, but migrating consumers is a separate task).
+### LiteGraph Link Rendering Path
+
+- `LiteGraph.getConnectionPos(node, slot_type, slot_index)` returns `node.outputs[slot_index].pos` for outputs (source: LiteGraph source).
+- When `slot.pos` is `[-1000, -1000]`, the Bezier curve control points extend off-canvas into the upper-left void.
+- When `slot.pos` is set to output 0's Y-coordinate, the wire from the connected input terminates at the output column X, aligned with output 0's Y. The wire overlaps output 0's wire, which is acceptable — the user sees the wire terminates on the node.
+
+### DrawUncleSlots Guard
+
+`drawUncleSlots` (line 202) has:
+```js
+if (x === -1000 || y === -1000) return; // THE ORPHAN GUARD
+```
+
+After the fix, scrolled-out slots will have real coordinates, so they will draw their slot dot at the fallback position. This is correct — a connected slot should still show its anchor dot even when the underlying region is scrolled out.
+
+### Verification
+
+1. Create a Derp Router with 5+ signals, viewport tall enough to scroll.
+2. Scroll signal 5 out of view.
+3. Physical wire to signal 5 should terminate at the Router's output column, same Y as output 0, rather than disappearing.
+4. Signal 0's slot dot should not move; the stack of wires is visually acceptable.

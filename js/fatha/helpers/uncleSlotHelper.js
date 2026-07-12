@@ -5,6 +5,7 @@
  * while maintaining logical slot integrity.
  */
 import { lerpTo, animateAlpha, parseColor } from "../../herbina/masterAnimator.js";
+import { getContentViewportForRegion, getContentViewportScroll } from "../core/fathaContentViewport.js";
 
 const UNCLE_SLOT_FADE_IN_SPEED = 0.30;
 const UNCLE_SLOT_FADE_OUT_SPEED = 0.40;
@@ -136,13 +137,26 @@ export function syncUncleSlots(node) {
 
     if (outputs) {
         const bypass = regions.btnBypass;
+        const slot0Region = regionsArray.find(r => r.outSlotIdx === 0);
+        const slot0FallbackPos = slot0Region ? [outputX, slot0Region.y + (slot0Region.h / 2)] : null;
         outputs.forEach((slot, i) => {
             if (isCollapsed && bypass) {
                 slot.pos = [outputX, bypass.y + (bypass.h / 2)];
             } else {
                 const targetRegion = regionsArray.find(r => r.outSlotIdx === i);
                 if (targetRegion) {
-                    slot.pos = [outputX, targetRegion.y + (targetRegion.h / 2)];
+                    const rawSlotY = targetRegion.y + (targetRegion.h / 2);
+                    slot.pos = [outputX, rawSlotY];
+                    const viewportState = getContentViewportForRegion(node, targetRegion.key);
+                    if (viewportState && viewportState.rect) {
+                        const scrollTop = getContentViewportScroll(node, viewportState.key);
+                        const displayY = rawSlotY - scrollTop;
+                        const clipTop = viewportState.rect.y;
+                        const clipBottom = clipTop + viewportState.rect.h;
+                        if (displayY < clipTop - 0.5 || displayY > clipBottom + 0.5) {
+                            slot.pos = slot0FallbackPos || [outputX, targetRegion.y + (targetRegion.h / 2)];
+                        }
+                    }
                 } else {
                     slot.pos = [-1000, -1000];
                 }

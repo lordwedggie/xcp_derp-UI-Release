@@ -1,67 +1,52 @@
-## Architect Review: Extract shared tLocale() from derpSignalOut
+## Architect Review: Move clipped links to output 0
 
-**Date**: 2026-07-12  
-**Spec**: `.hermes/team/spec.md`  
-**Verdict**: **PASS**
+**Verdict: PASS** (with one recommendation)
 
----
+### Analysis
 
-### STEP 1 — Placeholder
+**1. drawUncleSlots guard (line 202): NO CHANGE NEEDED**
 
-Written at start.
+The orphan guard `if (x === -1000 || y === -1000) return;` will naturally stop catching scrolled-out slots once they receive real coordinates. This is correct — per spec §52-57, connected slots *should* draw their anchor dot at the fallback position. Multiple slot dots stacking at output 0's Y is the intended visual.
 
-### STEP 2 — Spec Summary
+**2. Slot 0 existence: SAFE**
 
-- Spec targets exactly 2 files: `js/derpSignalOut.js` (lines 16-25) and `js/derpSignalOut_core.js` (lines 9-18).
-- Both define identical `function tLocale(key, fallback = key)` private to their module scope.
-- New shared file: `js/herbina/utils/localeUtils.js` — an `export function tLocale`.
-- Broader 15+ file duplication is noted as out-of-scope; this ticket is the derpSignalOut pair only.
+- `outputs` empty → line 138 `if (outputs)` short-circuits.
+- `outputs` non-empty but no region with `outSlotIdx === 0` → `slot0FallbackPos` stays undefined, the `|| targetRegion.y + ...` fallback chain activates (existing non-clipped behavior). No regression.
+- 0 slots → same as empty outputs, guard at line 138 handles it.
 
-### STEP 3 — Path and Directory Verification
+**3. LiteGraph wire rendering: CORRECT**
 
-| Check | Result |
-|-------|--------|
-| `js/herbina/utils/` exists? | ✅ Yes — contains `colorMath.js`, `singletonController.js`, `widgetsUtils.js` |
-| `derpSignalOut.js` → `./herbina/utils/localeUtils.js` | ✅ Resolves to `js/herbina/utils/localeUtils.js` (both source files live at `js/`) |
-| `derpSignalOut_core.js` → `./herbina/utils/localeUtils.js` | ✅ Same resolution |
-| Pattern confirmation from another file | ✅ `js/fatha/basta.js` line 14: `import { resolvePaintData, parseColorKeyText } from "../herbina/utils/widgetsUtils.js"` — confirms `herbina/utils/` is used as a shared import zone with the `../herbina/utils/` pattern from `fatha/`, equivalent to `./herbina/utils/` from `js/` |
+`LiteGraph.getConnectionPos()` reads `slot.pos` directly. Setting clipped slots to output 0's Y means wires from connected inputs terminate at the output column X, aligned with output 0. Wires stack visually — acceptable per spec §48.
 
-### STEP 4 — tLocale() Caller Validation
+**4. Virtual wires (derpSignalOut_core.js): UNAFFECTED**
 
-**derpSignalOut.js** (8 call sites):
+The global virtual wire renderer derives endpoint Y from `node.layout.regions[...].y + h/2`, not from `slot.pos`. No change needed in that file.
 
-| Line | Context | Post-import |
-|------|---------|-------------|
-| 29 | `getLocalizedSortModeLabel()` — module-level function | ✅ accessible |
-| 30 | Same function | ✅ accessible |
-| 31 | Same function | ✅ accessible |
-| 37 | `normalizeSortModeLabel()` — module-level function | ✅ accessible |
-| 38 | Same function | ✅ accessible |
-| 39 | Same function | ✅ accessible |
-| 268 | `refreshNodeLayoutMap()` — inside registered extension | ✅ accessible |
-| 269 | Same method | ✅ accessible |
-| 301 | Same method | ✅ accessible |
-| 351 | Same method | ✅ accessible |
-| 397 | Same method | ✅ accessible |
-| 532 | Same method | ✅ accessible |
+### Recommendation: Drop the cache guard
 
-**derpSignalOut_core.js** (4 call sites):
+The spec caches `slot0FallbackPos` once via `if (!this._slot0FallbackPos)`. Layout regions are rebuilt fresh each `syncUncleSlots` call (line 130), but the cached position survives layout changes. If the node resizes or content shifts, clipped slots go to a stale Y.
 
-| Line | Context | Post-import |
-|------|---------|-------------|
-| 22 | `syncDerpRouterLocaleLabels()` — module-level function | ✅ accessible |
-| 24 | Same function | ✅ accessible |
-| 66 | `syncDerpRouterDisplayLabels()` — module-level function | ✅ accessible |
-| 489 | Inside `app.registerExtension()` setup block | ✅ accessible |
+`regionsArray.find()` is O(n) on ~5-20 elements — negligible. Compute fresh each call:
 
-**Function signature match**: `(key, fallback = key)` — identical in both source files and in the proposed `localeUtils.js`. All callers pass 1 or 2 string arguments; fallback defaults to `key` in single-arg calls, preserving current behavior exactly.
+```js
+// Before the output loop (line 138):
+const slot0Region = regionsArray.find(r => r.outSlotIdx === 0);
+const slot0FallbackPos = slot0Region
+    ? [outputX, slot0Region.y + (slot0Region.h / 2)]
+    : null;
 
-### Risk Assessment
+// Inside the clip check (replaces line 155):
+slot.pos = slot0FallbackPos || [outputX, targetRegion.y + (targetRegion.h / 2)];
+```
 
-- **Circular imports**: None — `localeUtils.js` imports nothing (`window.xcpDerpLocaleData` is global), and neither source file currently imports from `herbina/utils/` (they import from `fatha/` paths only).
-- **Scope leakage**: None — both files delete the private definition, the import replaces it exactly.
-- **Test impact**: Neither file is covered by Vitest tests (test suite covers pure layout/measurement functions). `npm test` remains a smoke check only.
+This eliminates the staleness concern entirely with no meaningful perf cost.
 
-### Recommendation
+### Edge cases covered
 
-**PASS** — spec is clean, paths check out, all callers survive the import, no risk of circular deps or scope breakage. Proceed to implement.
+| Case | Behavior |
+|------|----------|
+| 0 outputs | Guard at line 138, no-op |
+| 0 layout regions | `slot0FallbackPos` null, falls through to `targetRegion` check → `[-1000,-1000]` (existing) |
+| Slot 0 itself scrolled out | Slot 0 stays at its own layout position (harmless self-reference) |
+| Node collapsed | Bypass path (line 141) fires first, never reaches clip check |
+| No viewport on region | `getContentViewportForRegion` returns null, clip check skipped |
