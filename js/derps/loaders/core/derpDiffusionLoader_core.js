@@ -215,24 +215,24 @@ export function initDerpDiffusionLoaderCore(nodeType) {
             weight_dtype: weightDtype,
             model_name_prefix: diffusionName,
             model_name: diffusionName,
-            model_id: `${this.id}:0`,
+            model_id: null,
             signal_role: "model"
         } : {
-            diffusion_name: "N/A",
+            diffusion_name: null,
             weight_dtype: weightDtype,
-            model_name_prefix: "N/A",
-            model_name: "N/A",
-            model_id: `${this.id}:0`,
+            model_name_prefix: "None",
+            model_name: "None",
+            model_id: null,
             signal_role: "model"
         });
         const aggregatePayload = isBypassed ? null : {
             ...modelPayload,
-            diffusion_name: diffusionName || "N/A",
+            diffusion_name: diffusionName || null,
             weight_dtype: this.properties.weightDtype || "default"
         };
 
         const nodeName = this.titleLabel || this.title || tLocale("$derp_diffusion_loader.title", "Derp Diffusion Loader");
-        const modelPortLabel = tLocale("$derp_diffusion_loader.ports.model", "Model");
+        const modelPortLabel = diffusionName ? tLocale("$derp_diffusion_loader.ports.model", "Model") : "None";
         const fingerprint = JSON.stringify([isBypassed, diffusionName || "N/A", weightDtype, this.id, nodeName, modelPortLabel, (this.properties.diffusionDeck || []).length]);
         if (this._lastSignalFingerprint === fingerprint) return;
         this._lastSignalFingerprint = fingerprint;
@@ -257,7 +257,7 @@ export function initDerpDiffusionLoaderCore(nodeType) {
             }
 
             const baseId = String(this.id);
-            pushDiffusionSignalToRegistry(this, `${baseId}:0`, nodeName, modelPortLabel, diffusionName ? "model" : "null", modelPayload);
+            pushDiffusionSignalToRegistry(this, `${baseId}:0`, nodeName, modelPortLabel, isBypassed ? "null" : "model", modelPayload);
 
             const savedOutputs = this.outputs;
             if (this._xcpTrueOutputs && this._xcpTrueOutputs.length > 0) {

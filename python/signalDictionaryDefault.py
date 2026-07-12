@@ -3,6 +3,7 @@ import torch
 import os
 import numpy as np
 import glob
+import json
 from PIL import Image, ImageOps
 import folder_paths
 import comfy.lora
@@ -349,7 +350,38 @@ def apply_joint_attention_lora_stack(model, stack_data):
 
     return current
 
-def process_signal_fallback(val, sig_type, registry):
+def process_signal_fallback(val, sig_type, registry, _seen=None):
+    if _seen is None:
+        _seen = set()
+
+    if isinstance(val, dict) and "stack" in val:
+        descriptor_key = (
+            "stack",
+            sig_type,
+            val.get("model_id"),
+            val.get("clip_id"),
+            json.dumps(val.get("stack", []), sort_keys=True, default=str),
+        )
+        if descriptor_key in _seen:
+            return None
+        _seen.add(descriptor_key)
+
+    def resolve_registry_entry(entry_id, entry_type):
+        if not entry_id:
+            return None
+        entry_val = registry.get(entry_id)
+        comparable_payload = isinstance(entry_val, (dict, list, str)) and isinstance(val, (dict, list, str))
+        if entry_val is val or (comparable_payload and entry_val == val):
+            return None
+        seen_key = (entry_type, entry_id)
+        if seen_key in _seen:
+            return None
+        _seen.add(seen_key)
+        try:
+            return process_signal_fallback(entry_val, entry_type, registry, _seen)
+        finally:
+            _seen.discard(seen_key)
+
     # IMAGE FALLBACK
     if "IMAGE" in sig_type:
         filename = val if isinstance(val, str) else (val.get("image") if isinstance(val, dict) else None)
@@ -382,9 +414,9 @@ def process_signal_fallback(val, sig_type, registry):
 
             # If m or c are strings or dicts, we need to resolve them via fallback
             if m is None or isinstance(m, (str, dict)):
-                m = process_signal_fallback(registry.get(m_id) if m_id else None, "MODEL", registry) if m_id else None
+                m = resolve_registry_entry(m_id, "MODEL")
             if needs_clip_for_stack and (c is None or isinstance(c, (str, dict))):
-                c = process_signal_fallback(registry.get(c_id) if c_id else None, "CLIP", registry) if c_id else None
+                c = resolve_registry_entry(c_id, "CLIP")
 
             need_m = m is None or isinstance(m, (str, dict))
             need_c = needs_clip_for_stack and (c is None or isinstance(c, (str, dict)))
@@ -393,9 +425,9 @@ def process_signal_fallback(val, sig_type, registry):
                 m_fallback = val.get("model_fallback")
                 c_fallback = val.get("clip_fallback")
                 if need_m and m_fallback is not None:
-                    m = process_signal_fallback(m_fallback, "MODEL", registry)
+                    m = process_signal_fallback(m_fallback, "MODEL", registry, _seen)
                 if need_c and c_fallback is not None:
-                    c = process_signal_fallback(c_fallback, "CLIP", registry)
+                    c = process_signal_fallback(c_fallback, "CLIP", registry, _seen)
 
                 still_need_m = m is None or isinstance(m, (str, dict))
                 still_need_c = need_c and (c is None or isinstance(c, (str, dict)))
@@ -517,7 +549,7 @@ def process_signal_fallback(val, sig_type, registry):
         if "samples" in val or "waveform" in val:
             return val
         if "ckpt_name" in val and sig_type in ["MODEL", "CLIP", "VAE"]:
-            return process_signal_fallback(val["ckpt_name"], sig_type, registry)
+            return process_signal_fallback(val["ckpt_name"], sig_type, registry, _seen)
         return None
 
     if any(x in sig_type for x in ["MODEL", "CLIP", "VAE", "IMAGE", "LATENT", "MASK", "CONDITIONING", "AUDIO"]):

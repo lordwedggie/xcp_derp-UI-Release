@@ -267,6 +267,8 @@ For docking, stack resize, Deck Pressure, and Node 2.0 compatibility work, read 
 - `derpSignalOut` refresh can be throttled; force refresh for one-shot source title changes.
 - Indexed wireless transmitter IDs use `${baseId}:${index}` and should write complete signal records into `window.xcpDerpSignals`.
 - Bypassed indexed wireless outputs should emit empty strings.
+- LoRA stack signal descriptors can reference upstream `model_id` / `clip_id` entries in `DERP_LIVE_REGISTRY`; backend fallback resolution must guard against descriptor cycles instead of relying on Python recursion depth.
+- Base loader descriptors should not set `model_id` / `clip_id` to their own wireless output id. Those fields mean upstream source ids for composed descriptors; self-references make chained LoRAStack fallback resolution cyclic.
 - LoRA no-trigger-required state is per-row persisted in `properties.stackData[i][7]`.
 - TriggerWall active visual state belongs in whole-wall cache keys.
 - `COMPOSITE_TRIGGER` `bodyPaint` overrides normal `themeKey` state resolution; use only when intentionally decoupling visual and functional state.
