@@ -11,7 +11,7 @@ derpNodes contains the JS widget implementations for every derp node type, organ
 The signal router lives at the top level rather than in derps/:
 | File | Role |
 |------|------|
-| `js/derpSignalOut.js` | Layout maps for signal router UI (515 lines) |
+| `js/derpSignalOut.js` | Layout maps for signal router UI (751 lines) |
 | `js/derpSignalOut_core.js` | Core logic: signal scanning, output management, remote bypass (1074 lines) |
 
 ### <span style="color: #80ffc0">Signal Out Features</span>
@@ -22,6 +22,8 @@ The signal router lives at the top level rather than in derps/:
 - Per-signal display options: show IDs, names, types
 - Output slot management: creates virtual outputs for each received signal
 - Remote bypass: other nodes can listen to a signal and bypass based on it
+- Layout branches on `resolveDerpRuntimeAutoHeight(node)`: runtime Auto height keeps the detected/added count, output rows, LINEBREAK, and selector packed in one content region; runtime Manual height moves output rows into `outputsViewportRegion` (`scrollViewport: true`) with the selector outside the viewport.
+- Manual-height Router surplus belongs in the spring between `outputsViewportRegion` and the selector LINEBREAK; output rows must never overflow into the selector/footer area.
 - `updateReceivedSignals()` — scan graph for transmitting nodes
 - `manageDerpOutputs()` — create/remove virtual output slots
 - `syncDerpRouterDisplayLabels()` — update display labels with localization

@@ -179,6 +179,7 @@ Lessons here are agent-facing reminders and sharp-edge indexes. Keep them short,
 - `contentMinHeight` must recursively walk into ALL children (including fill-height parents) because auto-height children inside collapsed fill parents still overflow below the fill region's tiny height. The true minimum node height is the maximum bottom of all nested content, not just the parent's direct children.
 - Resize min-height (`getVerticalResizeTargetMinHeight`) must include header height and `footerHeight` in the compact floor calculation. Anchored fills in PASS 1 don't push flow siblings down, so just summing direct children misses header/footer and allows shrinking into content.
 - Content viewport scrollbar gutter is not intrinsic content width. Keep PASS 1 rigid width in `layout.intrinsicContentMinWidth`, then publish gutter-adjusted `layout.contentMinWidth` afterward. Otherwise cached clipped viewport passes can add the same gutter repeatedly and make horizontal `Fit Node` stacks grow wider after each refresh.
+- `scrollViewport` support has both a layout half and a renderer half. Full Fatha and Uncle both use `masterLayoutEngine`, but Uncle has its own draw loop; when viewport clipping works in Fatha but not an Uncle node, check `js/fatha/uncle.js` for `getContentViewportGeometry(...)`, `withContentViewportClip(...)`, and `drawContentViewportScrollbars(...)` wiring before patching the child node.
 
 ### Widget Patterns
 

@@ -18,7 +18,8 @@
 | `js/fatha/core/masterLayoutEngine.js` | Calls viewport layout during layout passes. |
 | `js/fatha/core/fathaDOMshield.js` | Routes pointer and wheel events into the viewport shield helpers. |
 | `js/fatha/core/fathaHandler.js` | Filters hit testing so clipped-off descendants do not receive interaction. |
-| `js/fatha/fatha.js` | Calls the shared scrollbar draw pass during node rendering. |
+| `js/fatha/fatha.js` | Uses shared viewport draw remapping/clipping and calls the shared scrollbar draw pass during full Fatha node rendering. |
+| `js/fatha/uncle.js` | Uses the same viewport draw remapping/clipping and scrollbar pass for Uncle hybrid nodes. |
 
 ## <span style="color: #80ffc0">Core Model</span>
 
@@ -92,7 +93,7 @@ Main helpers:
 
 <span style="color: #80aaff"><strong>Scrollbar rendering:</strong></span> The shared scrollbar track and thumb are drawn in `drawContentViewportScrollbars()` using `masterPainter()`.
 
-<span style="color: #80aaff"><strong>Render owner:</strong></span> `js/fatha/fatha.js` calls `drawContentViewportScrollbars(activeCtx, this)` after the main region draw pass. Nodes do not draw their own viewport scrollbars.
+<span style="color: #80aaff"><strong>Render owner:</strong></span> `js/fatha/fatha.js` and `js/fatha/uncle.js` wrap canvas/hybrid descendants through `getContentViewportGeometry(...)` and `withContentViewportClip(...)`, then call `drawContentViewportScrollbars(...)` after the main region draw pass. Nodes do not draw their own viewport scrollbars.
 
 <span style="color: #ffc680"><strong>Note:</strong></span> Scrollbar visuals are currently centralized but still hardcoded in this framework layer with simple neutral fills. If theme-driven viewport scrollbars are ever added, the shared draw path belongs here, not in individual node files.
 
@@ -193,7 +194,7 @@ Node-local only:
 - whether Height Mode options need node-specific labels, measured entry/group counts, or pixel presets
 - whether a descendant subtree should opt out through `contentViewportClip: false`
 
-<span style="color: #ffc680"><strong>Maintenance rule:</strong></span> Any future scrollbar visual, interaction, overflow, or clipped hit-test fix belongs in `fathaContentViewport*.js`, `fathaDOMshield.js`, `masterLayoutEngine.js`, `fatha.js`, or `dockResize.js` as appropriate. Do not fork viewport behavior per node unless there is a proven framework gap.
+<span style="color: #ffc680"><strong>Maintenance rule:</strong></span> Any future scrollbar visual, interaction, overflow, or clipped hit-test fix belongs in `fathaContentViewport*.js`, `fathaDOMshield.js`, `masterLayoutEngine.js`, `fatha.js`, `uncle.js`, or `dockResize.js` as appropriate. Do not fork viewport behavior per node unless there is a proven framework gap.
 
 ## <span style="color: #80ffc0">Debugging</span>
 

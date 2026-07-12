@@ -80,12 +80,13 @@ Every frame:
 | `helpers/headerPaletteIdentity.js` | Header palette identity resolution |
 | `helpers/uncleSlotHelper.js` | Uncle node slot management |
 
-### 6. Uncle Framework (`js/fatha/uncle.js`, 490 lines)
+### 6. Uncle Framework (`js/fatha/uncle.js`, 575 lines)
 A "hybrid" framework combining Fatha's modern engine with legacy node compatibility. Used by nodes that need both Fatha rendering AND native LiteGraph slots visible. Key differences from full Fatha:
 - Keeps real input/output slots for LiteGraph connections
 - Uses `syncUncleSlots()` to manage slot visibility
 - Has UNCLE_LINK_PAD (LEFT:15, RIGHT:15) for link-dot spacing
 - Ghosts unselected nodes (`_xcpGhosted`)
+- Uses the same content viewport draw helpers as full Fatha nodes; `scrollViewport` regions must clip/remap canvas and hybrid descendants and draw the shared scrollbar in Uncle too.
 
 ## Key Patterns
 - **Ghost Slots:** Heist caches inputs/outputs as `_xcpTrueInputs`/`_xcpTrueOutputs`, sets real arrays to `[]` during draw
