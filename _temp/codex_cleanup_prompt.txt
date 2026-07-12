@@ -1,0 +1,16 @@
+Clean up and finalize the current working tree changes in the derp-UI project. Do NOT delete files - the doc cleanup is already done.
+
+Code cleanup tasks:
+1. Review ALL changed files for consistency - ensure minHeight checks use the same !== undefined pattern everywhere
+2. Remove any leftover debug prints, console.log, commented-out code, or dead variables
+3. Check for unused imports in the test file
+4. Verify no duplicate logic between the new top-level fill rebalance pass and existing nested fill allocation
+
+Knowledge base update:
+5. Update D:\_AI_KnowledgeBase\derp-UI\ - add a note about today's fixes (horizontal stack SNAP, nested minHeight fix, fill rebalance improvements). Use Obsidian markdown.
+
+After cleanup:
+6. Run npm test - all 52 tests must pass
+7. Report what was cleaned up
+
+Do NOT commit anything - the human will commit separately.

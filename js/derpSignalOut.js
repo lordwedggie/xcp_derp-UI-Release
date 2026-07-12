@@ -6,22 +6,13 @@ import { app } from "../../../scripts/app.js";
 import { UI_TYPES } from "./fatha/core/masterLayoutTypes.js";
 import { startStackDrag, updateStackDrag, endStackDrag } from "./fatha/helpers/fathaDragDrop.js";
 import { showBastaFileHandler } from "./fatha/bastas/bastaFileHandler.js";
+import { resolveDerpRuntimeAutoHeight } from "./fatha/core/derpHeightPolicy.js";
 import { isComfyVueNodesMode } from "./fatha/core/fathaNode2Compat.js";
 import { warpToPoint } from "./fatha/core/fathaWarp.js";
+import { tLocale } from "./herbina/utils/localeUtils.js";
 
 // Orphaned signal pulse animation speed
 const ORPHAN_PULSE_SPEED = 0.004;
-
-function tLocale(key, fallback = key) {
-    if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
-    const path = key.substring(1).split(".");
-    let target = window.xcpDerpLocaleData || {};
-    for (const segment of path) {
-        target = target?.[segment];
-        if (target === undefined) return fallback;
-    }
-    return target;
-}
 
 function getLocalizedSortModeLabel(mode) {
     const normalized = String(mode || "Type");
@@ -60,6 +51,90 @@ function finishSignalOutRowDrag(node) {
     }
 }
 
+function getRegionBottom(reg) {
+    if (!reg) return 0;
+    const marginB = Array.isArray(reg.margin) ? (reg.margin.length === 4 ? reg.margin[3] : (reg.margin[1] || 0)) : 0;
+    return (Number(reg.y) || 0) + (Number(reg.h) || 0) + marginB;
+}
+
+function getRegionVisualBottom(reg) {
+    if (!reg) return 0;
+    return (Number(reg.y) || 0) + (Number(reg.h) || 0);
+}
+
+function getSignalOutFooterReserve(regions = {}) {
+    const footer = regions.footerRegion;
+    const systemBtn = regions.systemBtn;
+    const footerMin = Number(footer?.minHeight || 0);
+    const footerGap = Number(regions.footerGap?.h || 0);
+    const systemBtnH = systemBtn ? Math.max(0, getRegionBottom(systemBtn) - (Number(systemBtn.y) || 0)) : 0;
+    const footerBody = Math.max(footerMin, footerGap + systemBtnH, 0);
+    return footerBody + footerGap;
+}
+
+function getSignalOutOutputEntries(regions = {}) {
+    return Object.entries(regions)
+        .filter(([key, reg]) => reg && key.startsWith("outputsRegion_display_"))
+        .map(([key, reg]) => ({ key, reg }))
+        .sort((a, b) => (Number(a.reg.y) || 0) - (Number(b.reg.y) || 0));
+}
+
+function getSignalOutOutputSpan(entries, region = null, count = entries.length) {
+    const visible = entries.slice(0, Math.max(0, count));
+    if (!visible.length) return 0;
+    const top = Number(region?.y) || Number(visible[0].reg.y) || 0;
+    const bottom = Math.max(...visible.map(({ reg }) => getRegionVisualBottom(reg)));
+    return bottom > top ? bottom - top : 0;
+}
+
+function resolveSignalOutAutoClipHeight(node, region, regions = {}, fullContentHeight = 0) {
+    const nodeH = Number(node?.size?.[1] || node?.properties?.nodeSize?.[1] || 0);
+    const regionY = Number(region?.y) || 0;
+    if (nodeH <= 0 || regionY <= 0) return 0;
+
+    const belowRegions = [regions.signalBreak, regions.signalRegion, regions.layoutSpacer].filter(Boolean);
+    const firstBelowY = belowRegions.reduce((min, reg) => Math.min(min, Number(reg.y) || min), Infinity);
+    const vars = typeof node?.getDerpVars === "function" ? node.getDerpVars(node) : null;
+    const viewportGap = Math.max(0, Number(vars?.mH || 0));
+    if (fullContentHeight > 0) {
+        const fullContentBottom = regionY + fullContentHeight;
+        const fullLayoutBottom = belowRegions.reduce((max, reg) => Math.max(max, getRegionBottom(reg)), fullContentBottom);
+        const hasBelowClearance = !Number.isFinite(firstBelowY) || fullContentBottom + viewportGap <= firstBelowY + 0.5;
+        if (hasBelowClearance && fullLayoutBottom + getSignalOutFooterReserve(regions) <= nodeH + 0.5) return fullContentHeight;
+    }
+
+    let fixedBelow = 0;
+    if (Number.isFinite(firstBelowY)) {
+        const lastBelowBottom = belowRegions.reduce((max, reg) => Math.max(max, getRegionBottom(reg)), firstBelowY);
+        fixedBelow = Math.max(0, lastBelowBottom - firstBelowY);
+    }
+    const footerReserve = getSignalOutFooterReserve(regions);
+    const available = nodeH - regionY - viewportGap - fixedBelow - viewportGap - footerReserve;
+    if (!Number.isFinite(available) || available <= 0) return 0;
+    return fullContentHeight > 0 ? Math.min(available, fullContentHeight) : available;
+}
+
+function resolveSignalOutOutputsClipHeight(node, region, regions = {}) {
+    const outputEntries = getSignalOutOutputEntries(regions);
+    if (outputEntries.length > 0) {
+        const measuredHeight = getSignalOutOutputSpan(outputEntries, region, 1);
+        if (measuredHeight > 0) {
+            const fullContentHeight = getSignalOutOutputSpan(outputEntries, region) || measuredHeight;
+            const autoHeight = resolveSignalOutAutoClipHeight(node, region, regions, fullContentHeight);
+            if (autoHeight > 0) return Math.max(measuredHeight, autoHeight);
+            return measuredHeight;
+        }
+    }
+    return Number(region?.h) || 120;
+}
+
+function resolveSignalOutOutputsMinClipHeight(node, region, regions = {}) {
+    const outputEntries = getSignalOutOutputEntries(regions);
+    const firstOutputH = getSignalOutOutputSpan(outputEntries, region, 1);
+    if (firstOutputH > 0) return firstOutputH;
+    return Number(region?.h) || 120;
+}
+
 if (!window._xcp_derpSignalOut_Layout_Loaded) {
     window._xcp_derpSignalOut_Layout_Loaded = true;
     try {
@@ -74,6 +149,7 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                 nodeType.prototype.refreshNodeLayoutMap = function() {
                     if (this.flags?.collapsed || this.size?.[0] <= 0) return;
                     const { mW, mH, sW, sH, oX, oY, pW, pH } = this.getDerpVars(this);
+                    this.properties.footerHeight = 6 + mH;
                     const callerId = String(this.id);
                     const isPlainWrapperSignalId = (signalId) => /^\d+$/.test(String(signalId || ""));
                     const showSignalIds = this.properties.showSignalIds !== false;
@@ -185,7 +261,8 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                     const activeHash = activeOuts.map((sig, idx) => `${idx}:${sig?.nodeId || ""}:${sig?.type || ""}:${sig?.nodeName || ""}:${!!sig?.isOrphaned}`).join("|");
                     const signalHash = (this.receivedSignals || []).map((sig) => `${sig?.nodeId || ""}:${sig?.type || ""}:${sig?.nodeName || ""}`).join("|");
                     const keepNativeSignalOutSlots = this.type === "xcpDerpSignalOut" && isComfyVueNodesMode();
-                    const structureHash = `${activeHash}_${signalHash}_${this.properties.settingActive}_${this.properties.showSignalIds}_${this.properties.showSlotNames}_${this.properties.showSlotTypes}_${this.properties.showVirtualLinks}_${this.properties.hideLinkSlots}_${this.properties.signalSortMode}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}_${mW}_${mH}_${this._dropPreviewIdx}_${this._dragTrig?.index}_${this._dragThresholdMet}_${this._dragMouse?.join(",")}_${this.mode}_${keepNativeSignalOutSlots ? 1 : 0}`;
+                    const isRuntimeAutoHeight = resolveDerpRuntimeAutoHeight(this);
+                    const structureHash = `${activeHash}_${signalHash}_${this.properties.settingActive}_${this.properties.showSignalIds}_${this.properties.showSlotNames}_${this.properties.showSlotTypes}_${this.properties.showVirtualLinks}_${this.properties.hideLinkSlots}_${this.properties.signalSortMode}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}_${mW}_${mH}_${this._dropPreviewIdx}_${this._dragTrig?.index}_${this._dragThresholdMet}_${this._dragMouse?.join(",")}_${this.mode}_${keepNativeSignalOutSlots ? 1 : 0}_${isRuntimeAutoHeight ? 1 : 0}`;
 
                     if (this._layoutMapHash === structureHash && this.layoutMap) {
                         this.requestDerpSync();
@@ -209,260 +286,318 @@ if (!window._xcp_derpSignalOut_Layout_Loaded) {
                         outputItems.splice(previewIdx, 0, ghost);
                     }
 
-                    this.layoutMap = {
-                        contentRegion: {
-                            anchor: { target: "headerRegion", axis: "y", offset: oY },
-                            dir: "col", width: "full", height: "auto",
-                            margin: [mW, mW, mW, 0], padding: [pW, pH], 
-                            lblContent: {
-                                type: UI_TYPES.TEXT, themeKey: "t_textsystem",
-                                text: `${tLocale("$derp_router.signals.signals_detected", "{count} signals detected.").replace("{count}", selectableSignals.length)} ${tLocale("$derp_router.signals.signals_added", "{count} added.").replace("{count}", activeOuts.length)}`,
-                                labelAlign: ["left", "middle"], width: "full", height: "auto", 
-                            },
-                            // THE DYNAMIC REPETITION: Generate indexed regions to repeat the outputsRegion
-                            outputsRegion: {
-                                anchor: { target: "lblContent", axis: "y"}, 
-                                dir: "row", width: "full", height: 0, margin: [0, sH],
-                                hidden: activeOuts.length === 0,
-                                outSlotIdx: -1, // THE TAG FIX: Recognize base anchor as a slot container
-                                onDragEnd: () => finishSignalOutRowDrag(this),
-                            },
-                            ...outputItems.reduce((acc, item, displayIdx) => {
-                                const { sig, idx } = item;
-                                const prevItem = outputItems[displayIdx - 1];
-                                const prev = displayIdx === 0 ? "outputsRegion" : `outputsRegion_display_${prevItem.idx}`;
-                                const rowKey = `outputsRegion_display_${idx}`;
+                    const lblContentRegion = {
+                        type: UI_TYPES.TEXT, themeKey: "t_textsystem",
+                        text: `${tLocale("$derp_router.signals.signals_detected", "{count} signals detected.").replace("{count}", selectableSignals.length)} ${tLocale("$derp_router.signals.signals_added", "{count} added.").replace("{count}", activeOuts.length)}`,
+                        labelAlign: ["left", "middle"], width: "full", height: "auto",
+                    };
+                    const outputRows = outputItems.reduce((acc, item, displayIdx) => {
+                        const { sig, idx } = item;
+                        const prevItem = outputItems[displayIdx - 1];
+                        const prev = displayIdx === 0 ? "outputsRegion" : `outputsRegion_display_${prevItem.idx}`;
+                        const rowKey = `outputsRegion_display_${idx}`;
 
-                                // THE GHOST FIX: Check the 'True' slot cache from the Heist instead of the native array
-                                const outputs = this._xcpTrueOutputs || this.outputs;
-                                const slotLinks = outputs?.[idx]?.links || [];
-                                const hasSlotLinks = slotLinks.some((linkId) => !!app.graph?.links?.[linkId]);
-                                const hasGraphLinks = Object.values(app.graph?.links || {}).some((link) => String(link?.origin_id ?? link?.source_id) === callerId && Number(link?.origin_slot ?? link?.source_slot) === idx);
-                                const isConnected = hasSlotLinks || hasGraphLinks;
-                                const isBypassed = this.mode === 4 || this.mode === 2 || this._derpSpoofedBypass;
-                                const isPickedUp = !!(this._dragTrig && this._dragThresholdMet && this._dragTrig.index === idx && !item.isPreviewGhost);
-                                const isHiddenGhost = item.isPreviewGhost === true;
-                                const isPickupOriginRow = !!(hasDragPickup && !hasDropPreview && dragIndex === idx && !item.isPreviewGhost);
-                                const shouldGhostHideChildren = isHiddenGhost;
-                                const rowAlpha = (isHiddenGhost || isPickupOriginRow) ? 0 : 1.0;
-                                const beginOutputRowDrag = (e, data) => {
-                                    startStackDrag(this, data, idx, rowKey, { holdOnly: true });
-                                    this._dragEndRegionKey = "outputsRegion";
-                                };
-                                const updateOutputRowDrag = (e, data) => { updateStackDrag(this, data, "outputsRegion_display_", activeOuts.length); this.refreshNodeLayoutMap(); };
-                                const endOutputRowDrag = () => finishSignalOutRowDrag(this);
+                        // THE GHOST FIX: Check the 'True' slot cache from the Heist instead of the native array
+                        const outputs = this._xcpTrueOutputs || this.outputs;
+                        const slotLinks = outputs?.[idx]?.links || [];
+                        const hasSlotLinks = slotLinks.some((linkId) => !!app.graph?.links?.[linkId]);
+                        const hasGraphLinks = Object.values(app.graph?.links || {}).some((link) => String(link?.origin_id ?? link?.source_id) === callerId && Number(link?.origin_slot ?? link?.source_slot) === idx);
+                        const isConnected = hasSlotLinks || hasGraphLinks;
+                        const isBypassed = this.mode === 4 || this.mode === 2 || this._derpSpoofedBypass;
+                        const isPickedUp = !!(this._dragTrig && this._dragThresholdMet && this._dragTrig.index === idx && !item.isPreviewGhost);
+                        const isHiddenGhost = item.isPreviewGhost === true;
+                        const isPickupOriginRow = !!(hasDragPickup && !hasDropPreview && dragIndex === idx && !item.isPreviewGhost);
+                        const shouldGhostHideChildren = isHiddenGhost;
+                        const rowAlpha = (isHiddenGhost || isPickupOriginRow) ? 0 : 1.0;
+                        const beginOutputRowDrag = (e, data) => {
+                            startStackDrag(this, data, idx, rowKey, { holdOnly: true });
+                            this._dragEndRegionKey = "outputsRegion";
+                        };
+                        const updateOutputRowDrag = (e, data) => { updateStackDrag(this, data, "outputsRegion_display_", activeOuts.length); this.refreshNodeLayoutMap(); };
+                        const endOutputRowDrag = () => finishSignalOutRowDrag(this);
 
-                                acc[rowKey] = {
-                                    anchor: { target: prev, axis: "y", offset: displayIdx === 0 ? 0 : sH },
-                                    dir: "row", width: "full", height: item.isPreviewGhost ? dragPlaceholderHeight : "auto",
-                                    outSlotIdx: idx, // GENERIC SLOT TAG: Allows uncleSlotHelper to find this region
-                                    state: item.isPreviewGhost ? "DIS" : (isPickedUp ? "ON" : "OFF"),
-                                    pulseStates: isPickedUp,
-                                    pulseFromState: "_ON",
-                                    pulseToState: "_DIS",
-                                    alpha: rowAlpha,
-                                    onDragStart: beginOutputRowDrag,
-                                    onDrag: updateOutputRowDrag,
-                                    onDragEnd: endOutputRowDrag,
-                                    onPress: () => handleSignalOutEntryPress(this),
-                                    [`btnWarpto_${idx}`]: {
-                                        type: UI_TYPES.ICONBUTTON,
-                                        icon: "warpto", iconScale: 0.72,
-                                        themeKey: "button, t_textSmall",
-                                        width: "match", height: "fill",
-                                        padding: [pW, pH], spacing: [sW, 0],
-                                        hidden: shouldGhostHideChildren || !this.properties.settingActive,
-                                        state: "OFF",
-                                        alpha: rowAlpha,
-                                        toolTip: tLocale("$signal_out.tooltips.warp_to_source", "Warps to the {{t_toolTip_highlight::Signal Source Node}} position"),
-                                        onPress: () => {
-                                            const srcId = String(sig.nodeId || "").split(":")[0];
-                                            const srcNode = app.graph?.getNodeById(srcId);
-                                            if (!srcNode) return;
-                                            if (app.canvas?.selectNode) app.canvas.selectNode(srcNode);
-                                            const nx = Number(srcNode?.pos?.[0]);
-                                            const ny = Number(srcNode?.pos?.[1]);
-                                            const nw = Number(srcNode?.size?.[0] ?? srcNode?.properties?.nodeSize?.[0]);
-                                            const nh = Number(srcNode?.size?.[1] ?? srcNode?.properties?.nodeSize?.[1]);
-                                            if (!Number.isFinite(nx) || !Number.isFinite(ny)) return;
-                                            const targetX = nx + ((Number.isFinite(nw) ? nw : 0) * 0.5);
-                                            const targetY = ny + ((Number.isFinite(nh) ? nh : 0) * 0.5);
-                                            const warpZoom = 1.5;
-                                            warpToPoint({ worldX: targetX, worldY: targetY, zoom: warpZoom }, {
-                                                zoomMode: "absolute",
-                                                targetZoom: warpZoom,
-                                                durationMs: 600,
-                                                easing: "easeOutQuad",
-                                            });
-                                        },
-                                    },
-                                    [`lblOutputInfo_${idx}`]: {
-                                        type: UI_TYPES.BUTTON,
-                                        themeKey: "panel, t_textNormal",
-                                        mouseOver: true,
-                                        hidden: shouldGhostHideChildren,
-                                        text: formatSignalFaceLabel(sig),
-                                        width: "full", padding: [pW, pH], spacing: [sW, 0],
-                                        state: isPickedUp ? "ON" : ((isBypassed || !isConnected) ? "DIS" : "OFF"),
-                                        alpha: rowAlpha,
-                                        onDragStart: beginOutputRowDrag,
-                                        onDrag: updateOutputRowDrag,
-                                        onDragEnd: endOutputRowDrag,
-                                        onPress: () => handleSignalOutEntryPress(this),
-                                        pulse: sig.isOrphaned === true,
-                                        pulseStates: sig.isOrphaned === true,
-                                        pulseFromState: "_DIS",
-                                        pulseToState: "_ON",
-                                        pulseSpeed: ORPHAN_PULSE_SPEED,
-                                    },
-                                    [`btnOutputDelete_${idx}`]: {
-                                        type: UI_TYPES.ICONBUTTON, themeKey: "buttonNode, t_textSystem",
-                                        hidden: shouldGhostHideChildren || !this.properties.settingActive,
-                                        icon: "trash", width: "match", height: "fill", spacing: [sW, 0],
-                                        alpha: rowAlpha,
-                                        toolTip: tLocale("$signal_out.tooltips.remove_signal", "{{t_toolTip_warning::Remove}} signal from the node's deck"),
-                                    onPress: () => {
-                                            cancelSignalOutRowDrag(this);
-                                            showBastaFileHandler(this, "none", `btnOutputDelete_${idx}`, {
-                                                title: "Remove Signal",
-                                                message: `Remove signal ${formatSignalLabel(sig)}?`,
-                                                confirm: "Remove",
-                                                mode: "delete",
-                                                playSound: "delete",
-                                                onConfirm: () => {
-                                                    this.removeDerpOutput(idx);
-                                                }
-                                            });
-                                        }
-                                    },
-
-                                };
-                                return acc;
-                            }, {}),
-                            ...(floatingItem && this._dragThresholdMet && this._dragMouse && this._dragOffset ? (() => {
-                                const { sig, idx } = floatingItem;
-                                const sourceRow = this.layout?.regions?.[`outputsRegion_display_${idx}`];
-                                const sourceRowHeight = Number.isFinite(sourceRow?.h) ? sourceRow.h : "auto";
-                                const dragX = this._dragMouse[0] - this._dragOffset[0];
-                                const dragY = this._dragMouse[1] - this._dragOffset[1];
-                                return {
-                                    floatingSignalOutRow: {
-                                        type: UI_TYPES.REGION,
-                                        themeKey: "region",
-                                        dir: "row",
-                                        width: sourceRow?.w || (this.size[0] - (mW * 2)),
-                                        height: sourceRowHeight,
-                                        ignoreLayout: true,
-                                        x: dragX,
-                                        y: dragY,
-                                        zIndex: 100,
-                                        state: "ON",
-                                        pulseStates: true,
-                                        pulseFromState: "_ON",
-                                        pulseToState: "_DIS",
-                                        ignoreNodeBoundsClamp: true,
-                                        corners: sourceRow?.corners,
-                                        regionOffset: [0, 0],
-                                        floatingSignalOutWarp: {
-                                            type: UI_TYPES.ICONBUTTON,
-                                            icon: "warpto", iconScale: 0.72,
-                                            themeKey: "button, t_textSmall",
-                                            width: "match", height: sourceRowHeight,
-                                            padding: [pW, pH],
-                                            spacing: [sW, 0],
-                                            hidden: !this.properties.settingActive,
-                                            onPress: () => {
-                                                const srcId = String(sig.nodeId || "").split(":")[0];
-                                                const srcNode = app.graph?.getNodeById(srcId);
-                                                if (!srcNode) return;
-                                                if (app.canvas?.selectNode) app.canvas.selectNode(srcNode);
-                                                const nx = Number(srcNode?.pos?.[0]);
-                                                const ny = Number(srcNode?.pos?.[1]);
-                                                const nw = Number(srcNode?.size?.[0] ?? srcNode?.properties?.nodeSize?.[0]);
-                                                const nh = Number(srcNode?.size?.[1] ?? srcNode?.properties?.nodeSize?.[1]);
-                                                if (!Number.isFinite(nx) || !Number.isFinite(ny)) return;
-                                                const targetX = nx + ((Number.isFinite(nw) ? nw : 0) * 0.5);
-                                                const targetY = ny + ((Number.isFinite(nh) ? nh : 0) * 0.5);
-                                                warpToPoint({ worldX: targetX, worldY: targetY, zoom: 1.5 }, {
-                                                    zoomMode: "absolute", targetZoom: 1.5,
-                                                    durationMs: 600, easing: "easeOutQuad",
-                                                });
-                                            },
-                                        },
-                                        floatingSignalOutLabel: {
-                                            type: UI_TYPES.BUTTON,
-                                            themeKey: "panel, t_textNormal",
-                                            mouseOver: false,
-                                            text: formatSignalFaceLabel(sig),
-                                            width: "full",
-                                            height: "auto",
-                                            padding: [pW, pH],
-                                            spacing: [sW, 0],
-                                            state: "ON",
-                                            pulse: sig.isOrphaned === true,
-                                            pulseStates: sig.isOrphaned === true,
-                                            pulseFromState: "_DIS",
-                                            pulseToState: "_ON",
-                                            pulseSpeed: ORPHAN_PULSE_SPEED,
-                                        },
-                                        floatingSignalOutDelete: {
-                                            type: UI_TYPES.ICONBUTTON,
-                                            themeKey: "buttonNode, t_textSystem",
-                                            icon: "trash",
-                                            width: "match", height: sourceRowHeight,
-                                            spacing: [sW, 0],
-                                            hidden: !this.properties.settingActive,
-                                        }
-                                    }
-                                };
-                            })() : {}),
-                            signalRegion: {
-                                anchor: { target: outputItems.length > 0 ? `outputsRegion_display_${outputItems[outputItems.length - 1].idx}` : "lblContent", axis: "y", offset: mH },
-                                dir: "row", width: "full", height: "auto",
-                                spacing: [0, sH],
-                                dropdownSignalSelect: {
-                                    type: UI_TYPES.FILEBROWSER, searchTab: true,
-                                    icon: "dropdown",
-                                    themeKey: "dialog, t_textNormal",
-                                    canvasShield: true,
-                                    bypassHashOptimization: true,
-                                    mouseOver: true,
-                                    canOpenPicker: signalItems.length > 0,
-                                    width: "full", height: "auto", padding: [pW, pH], spacing: [sW, 0],
-                                    mode: "file",
-                                    rootName: "signals",
-                                    items: signalItems,
-                                    value: signalItems.length === 0 ? signalEmptyLabel : (this.properties.selectedSignalLabel || signalPromptLabel),
-                                    state: (this.mode === 4 || this.mode === 2 || !signalItems?.length) ? "DIS" : "OFF",
-                                    onChange: (val) => {
-                                        const signalId = resolveSignalIdFromLabel(val);
-                                        if (signalId) {
-                                            this.properties.selectedSignalId = signalId;
-                                            this.addDerpOutput();
-                                        }
-                                    }
+                        acc[rowKey] = {
+                            anchor: { target: prev, axis: "y", offset: displayIdx === 0 ? 0 : sH },
+                            dir: "row", width: "full", height: item.isPreviewGhost ? dragPlaceholderHeight : "auto",
+                            outSlotIdx: idx, // GENERIC SLOT TAG: Allows uncleSlotHelper to find this region
+                            state: item.isPreviewGhost ? "DIS" : (isPickedUp ? "ON" : "OFF"),
+                            pulseStates: isPickedUp,
+                            pulseFromState: "_ON",
+                            pulseToState: "_DIS",
+                            alpha: rowAlpha,
+                            onDragStart: beginOutputRowDrag,
+                            onDrag: updateOutputRowDrag,
+                            onDragEnd: endOutputRowDrag,
+                            onPress: () => handleSignalOutEntryPress(this),
+                            [`btnWarpto_${idx}`]: {
+                                type: UI_TYPES.ICONBUTTON,
+                                icon: "warpto", iconScale: 0.72,
+                                themeKey: "button, t_textSmall",
+                                width: "match", height: "fill",
+                                padding: [pW, pH], spacing: [sW, 0],
+                                hidden: shouldGhostHideChildren || !this.properties.settingActive,
+                                state: "OFF",
+                                alpha: rowAlpha,
+                                toolTip: tLocale("$signal_out.tooltips.warp_to_source", "Warps to the {{t_toolTip_highlight::Signal Source Node}} position"),
+                                onPress: () => {
+                                    const srcId = String(sig.nodeId || "").split(":")[0];
+                                    const srcNode = app.graph?.getNodeById(srcId);
+                                    if (!srcNode) return;
+                                    if (app.canvas?.selectNode) app.canvas.selectNode(srcNode);
+                                    const nx = Number(srcNode?.pos?.[0]);
+                                    const ny = Number(srcNode?.pos?.[1]);
+                                    const nw = Number(srcNode?.size?.[0] ?? srcNode?.properties?.nodeSize?.[0]);
+                                    const nh = Number(srcNode?.size?.[1] ?? srcNode?.properties?.nodeSize?.[1]);
+                                    if (!Number.isFinite(nx) || !Number.isFinite(ny)) return;
+                                    const targetX = nx + ((Number.isFinite(nw) ? nw : 0) * 0.5);
+                                    const targetY = ny + ((Number.isFinite(nh) ? nh : 0) * 0.5);
+                                    const warpZoom = 1.5;
+                                    warpToPoint({ worldX: targetX, worldY: targetY, zoom: warpZoom }, {
+                                        zoomMode: "absolute",
+                                        targetZoom: warpZoom,
+                                        durationMs: 600,
+                                        easing: "easeOutQuad",
+                                    });
                                 },
-                                btnRefreshSignals: {
-                                    type: UI_TYPES.ICONBUTTON,
-                                    icon: "refresh", toolTip: tLocale("$signal_out.tooltips.refresh_registry", "Forces manual refresh of the Signal Registry"),
-                                    width: "match", height: "fill", objectAlign: ["left", "middle"], spacing: [sW, 0],
-                                    themeKey: "button, t_textNormal",
-                                    onPress: () => {
-                                        if (this.forceSignalRefresh) this.forceSignalRefresh();
-                                        else {
-                                            this._lastSignalStructureHash = null;
-                                            if (this.updateReceivedSignals) this.updateReceivedSignals();
-                                            if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
-                                            this.requestDerpSync();
+                            },
+                            [`lblOutputInfo_${idx}`]: {
+                                type: UI_TYPES.BUTTON,
+                                themeKey: "panel, t_textNormal",
+                                mouseOver: true,
+                                hidden: shouldGhostHideChildren,
+                                text: formatSignalFaceLabel(sig),
+                                width: "full", padding: [pW, pH], spacing: [sW, 0],
+                                state: isPickedUp ? "ON" : ((isBypassed || !isConnected) ? "DIS" : "OFF"),
+                                alpha: rowAlpha,
+                                onDragStart: beginOutputRowDrag,
+                                onDrag: updateOutputRowDrag,
+                                onDragEnd: endOutputRowDrag,
+                                onPress: () => handleSignalOutEntryPress(this),
+                                pulse: sig.isOrphaned === true,
+                                pulseStates: sig.isOrphaned === true,
+                                pulseFromState: "_DIS",
+                                pulseToState: "_ON",
+                                pulseSpeed: ORPHAN_PULSE_SPEED,
+                            },
+                            [`btnOutputDelete_${idx}`]: {
+                                type: UI_TYPES.ICONBUTTON, themeKey: "buttonNode, t_textSystem",
+                                hidden: shouldGhostHideChildren || !this.properties.settingActive,
+                                icon: "trash", width: "match", height: "fill", spacing: [sW, 0],
+                                alpha: rowAlpha,
+                                toolTip: tLocale("$signal_out.tooltips.remove_signal", "{{t_toolTip_warning::Remove}} signal from the node's deck"),
+                                onPress: () => {
+                                    cancelSignalOutRowDrag(this);
+                                    showBastaFileHandler(this, "none", `btnOutputDelete_${idx}`, {
+                                        title: "Remove Signal",
+                                        message: `Remove signal ${formatSignalLabel(sig)}?`,
+                                        confirm: "Remove",
+                                        mode: "delete",
+                                        playSound: "delete",
+                                        onConfirm: () => {
+                                            this.removeDerpOutput(idx);
                                         }
-                                    }
+                                    });
                                 }
                             },
-                            layoutSpacer: {
-                                anchor: { target: "signalRegion", axis: "y", offset: oY },
+
+                        };
+                        return acc;
+                    }, {});
+                    const outputListRegion = {
+                        outputsRegion: {
+                            anchor: { target: "lblContent", axis: "y"},
+                            dir: "row", width: "full", height: 0, margin: [0, sH],
+                            hidden: activeOuts.length === 0,
+                            outSlotIdx: -1, // THE TAG FIX: Recognize base anchor as a slot container
+                            onDragEnd: () => finishSignalOutRowDrag(this),
+                        },
+                        ...outputRows,
+                    };
+                    const floatingSignalOutRow = floatingItem && this._dragThresholdMet && this._dragMouse && this._dragOffset ? (() => {
+                        const { sig, idx } = floatingItem;
+                        const sourceRow = this.layout?.regions?.[`outputsRegion_display_${idx}`];
+                        const sourceRowHeight = Number.isFinite(sourceRow?.h) ? sourceRow.h : "auto";
+                        const dragX = this._dragMouse[0] - this._dragOffset[0];
+                        const dragY = this._dragMouse[1] - this._dragOffset[1];
+                        return {
+                            floatingSignalOutRow: {
+                                type: UI_TYPES.REGION,
+                                themeKey: "region",
+                                dir: "row",
+                                width: sourceRow?.w || (this.size[0] - (mW * 2)),
+                                height: sourceRowHeight,
+                                ignoreLayout: true,
+                                x: dragX,
+                                y: dragY,
+                                zIndex: 100,
+                                state: "ON",
+                                pulseStates: true,
+                                pulseFromState: "_ON",
+                                pulseToState: "_DIS",
+                                ignoreNodeBoundsClamp: true,
+                                contentViewportClip: false,
+                                corners: sourceRow?.corners,
+                                regionOffset: [0, 0],
+                                floatingSignalOutWarp: {
+                                    type: UI_TYPES.ICONBUTTON,
+                                    icon: "warpto", iconScale: 0.72,
+                                    themeKey: "button, t_textSmall",
+                                    width: "match", height: sourceRowHeight,
+                                    padding: [pW, pH],
+                                    spacing: [sW, 0],
+                                    hidden: !this.properties.settingActive,
+                                    onPress: () => {
+                                        const srcId = String(sig.nodeId || "").split(":")[0];
+                                        const srcNode = app.graph?.getNodeById(srcId);
+                                        if (!srcNode) return;
+                                        if (app.canvas?.selectNode) app.canvas.selectNode(srcNode);
+                                        const nx = Number(srcNode?.pos?.[0]);
+                                        const ny = Number(srcNode?.pos?.[1]);
+                                        const nw = Number(srcNode?.size?.[0] ?? srcNode?.properties?.nodeSize?.[0]);
+                                        const nh = Number(srcNode?.size?.[1] ?? srcNode?.properties?.nodeSize?.[1]);
+                                        if (!Number.isFinite(nx) || !Number.isFinite(ny)) return;
+                                        const targetX = nx + ((Number.isFinite(nw) ? nw : 0) * 0.5);
+                                        const targetY = ny + ((Number.isFinite(nh) ? nh : 0) * 0.5);
+                                        warpToPoint({ worldX: targetX, worldY: targetY, zoom: 1.5 }, {
+                                            zoomMode: "absolute", targetZoom: 1.5,
+                                            durationMs: 600, easing: "easeOutQuad",
+                                        });
+                                    },
+                                },
+                                floatingSignalOutLabel: {
+                                    type: UI_TYPES.BUTTON,
+                                    themeKey: "panel, t_textNormal",
+                                    mouseOver: false,
+                                    text: formatSignalFaceLabel(sig),
+                                    width: "full",
+                                    height: "auto",
+                                    padding: [pW, pH],
+                                    spacing: [sW, 0],
+                                    state: "ON",
+                                    pulse: sig.isOrphaned === true,
+                                    pulseStates: sig.isOrphaned === true,
+                                    pulseFromState: "_DIS",
+                                    pulseToState: "_ON",
+                                    pulseSpeed: ORPHAN_PULSE_SPEED,
+                                },
+                                floatingSignalOutDelete: {
+                                    type: UI_TYPES.ICONBUTTON,
+                                    themeKey: "buttonNode, t_textSystem",
+                                    icon: "trash",
+                                    width: "match", height: sourceRowHeight,
+                                    spacing: [sW, 0],
+                                    hidden: !this.properties.settingActive,
+                                }
+                            }
+                        };
+                    })() : {};
+                    const signalRegion = {
+                        dir: "row", width: "full", height: "auto",
+                        margin: [0, mH, 0, 0],
+                        spacing: [0, sH],
+                        dropdownSignalSelect: {
+                            type: UI_TYPES.FILEBROWSER, searchTab: true,
+                            icon: "dropdown",
+                            themeKey: "dialog, t_textNormal",
+                            canvasShield: true,
+                            bypassHashOptimization: true,
+                            mouseOver: true,
+                            canOpenPicker: signalItems.length > 0,
+                            width: "full", height: "auto", padding: [pW, pH], spacing: [sW, 0],
+                            mode: "file",
+                            rootName: "signals",
+                            items: signalItems,
+                            value: signalItems.length === 0 ? signalEmptyLabel : (this.properties.selectedSignalLabel || signalPromptLabel),
+                            state: (this.mode === 4 || this.mode === 2 || !signalItems?.length) ? "DIS" : "OFF",
+                            onChange: (val) => {
+                                const signalId = resolveSignalIdFromLabel(val);
+                                if (signalId) {
+                                    this.properties.selectedSignalId = signalId;
+                                    this.addDerpOutput();
+                                }
                             }
                         },
+                        btnRefreshSignals: {
+                            type: UI_TYPES.ICONBUTTON,
+                            icon: "refresh", toolTip: tLocale("$signal_out.tooltips.refresh_registry", "Forces manual refresh of the Signal Registry"),
+                            width: "match", height: "fill", objectAlign: ["left", "middle"], spacing: [sW, 0],
+                            themeKey: "button, t_textNormal",
+                            onPress: () => {
+                                if (this.forceSignalRefresh) this.forceSignalRefresh();
+                                else {
+                                    this._lastSignalStructureHash = null;
+                                    if (this.updateReceivedSignals) this.updateReceivedSignals();
+                                    if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap();
+                                    this.requestDerpSync();
+                                }
+                            }
+                        }
                     };
+                    const buildSignalPickerChildren = (signalBreakAnchorTarget = null) => ({
+                        signalBreak: {
+                            type: this.UI_TYPES.LINEBREAK,
+                            themeKey: "line",
+                            ...(signalBreakAnchorTarget ? { anchor: { target: signalBreakAnchorTarget, axis: "y" } } : {}),
+                            width: "full", height: 1,
+                            margin: [-mW, mH, -mW, 0],
+                        },
+                        signalRegion,
+                        layoutSpacer: {
+                            anchor: { target: "signalRegion", axis: "y", offset: oY },
+                            width: "full", height: 0,
+                        }
+                    });
+                    const autoSignalBreakAnchor = outputItems.length > 0
+                        ? `outputsRegion_display_${outputItems[outputItems.length - 1].idx}`
+                        : "lblContent";
+                    const signalPickerChildren = buildSignalPickerChildren();
+                    const autoSignalPickerChildren = buildSignalPickerChildren(autoSignalBreakAnchor);
+                    const signalPickerRegion = {
+                        width: "full", height: "auto", dir: "col",
+                        margin: [mW, 0, mW, 0],
+                        ...signalPickerChildren,
+                    };
+                    const manualOutputsViewport = activeOuts.length > 0 ? {
+                        outputsViewportRegion: {
+                            anchor: { target: "lblContent", axis: "y" },
+                            scrollViewport: true,
+                            clipHeight: resolveSignalOutOutputsClipHeight,
+                            minClipHeight: resolveSignalOutOutputsMinClipHeight,
+                            width: "full", height: "auto", dir: "col", minWidth: 0,
+                            margin: [0, 0, 0, 0],
+                            ...outputListRegion,
+                        }
+                    } : {};
+
+                    this.layoutMap = isRuntimeAutoHeight
+                        ? {
+                            contentRegion: {
+                                anchor: { target: "headerRegion", axis: "y", offset: oY },
+                                dir: "col", width: "full", height: "auto",
+                                margin: [mW, mW, mW, 0],
+                                lblContent: lblContentRegion,
+                                ...outputListRegion,
+                                ...floatingSignalOutRow,
+                                ...autoSignalPickerChildren,
+                            },
+                        }
+                        : {
+                            routerContentAndSpringRegion: {
+                                anchor: { target: "headerRegion", axis: "y", offset: oY },
+                                dir: "col", width: "full", height: "fill",
+                                margin: [mW, mW, mW, 0],
+                                padding: [0, 0],
+                                minWidth: 0,
+                                lblContent: lblContentRegion,
+                                ...manualOutputsViewport,
+                                ...floatingSignalOutRow,
+                                springRegion: {
+                                    anchor: { target: activeOuts.length > 0 ? "outputsViewportRegion" : "lblContent", axis: "y" },
+                                    width: "full", height: "fill", minHeight: 0,
+                                },
+                            },
+                            selectSignalRegion: signalPickerRegion,
+                        };
 
                     if (this.layout) this.layout._lastCacheKey = "";
                     this.requestDerpSync();

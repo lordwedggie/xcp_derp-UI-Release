@@ -5,17 +5,7 @@
 import { app } from "../../../scripts/app.js";
 import { uncle } from "./fatha/uncle.js";
 import { handleInitDerpGlobalListener } from "./fatha/core/fathaHandler.js";
-
-function tLocale(key, fallback = key) {
-    if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
-    const path = key.substring(1).split(".");
-    let target = window.xcpDerpLocaleData || {};
-    for (const segment of path) {
-        target = target?.[segment];
-        if (target === undefined) return fallback;
-    }
-    return target;
-}
+import { tLocale } from "./herbina/utils/localeUtils.js";
 
 function syncDerpRouterLocaleLabels(node) {
     if (!node?.properties) return;

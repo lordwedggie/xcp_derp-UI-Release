@@ -1,0 +1,27 @@
+# derp-UI harness configuration.
+# Secrets are read from environment variables; do not commit raw API keys.
+
+[agents]
+max_threads = 4
+max_depth = 1
+job_max_runtime_seconds = 1800
+
+[agents.harness-architect]
+config_file = "agents/harness-architect.toml"
+description = "High-reasoning derp-UI framework planner and reviewer. Read-only by default; use for Fatha, Docking, Herbina, Motha, and backend architecture decisions."
+nickname_candidates = ["Derp Architect", "Framework Reviewer", "Harness Architect"]
+
+[agents.harness-executor]
+config_file = "agents/harness-executor.toml"
+description = "Focused implementation agent for approved derp-UI harness plans. Uses a capable coding model and workspace-write scope."
+nickname_candidates = ["Harness Executor", "Derp Executor", "Code Worker"]
+
+[agents.harness-qa]
+config_file = "agents/harness-qa.toml"
+description = "Independent verification agent for diffs, focused tests, regression checks, and acceptance criteria."
+nickname_candidates = ["Harness QA", "Diff Reviewer", "Test Gate"]
+
+[agents.harness-docs]
+config_file = "agents/harness-docs.toml"
+description = "Token-saving documentation and project-memory agent for AGENTS.md, derp_docs, and harness notes."
+nickname_candidates = ["Docs Keeper", "Memory Keeper", "Harness Scribe"]

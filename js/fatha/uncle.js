@@ -13,6 +13,7 @@ import { drawDerpSysPanelGlobal, isHostActive, closeDerpSysPanel, sysPanel } fro
 import { drawBastaLayer } from "./basta.js";
 import { UI_TYPES, COMPONENT_BLUEPRINTS } from "./core/masterLayoutTypes.js";
 import { getVirtualNodeLayoutMap } from "./helpers/fathaLayoutMaps.js";
+import { drawContentViewportScrollbars, getContentViewportGeometry, withContentViewportClip } from "./core/fathaContentViewportDraw.js";
 import { transmitBypassedDerpSignals, transmitDerpSignal, purgeDerpSignal } from "./core/masterSignalEngine.js";
 import { animateRecoil } from "../herbina/masterAnimator.js";
 import { scheduleNativeVueNodeShellSuppression, suppressNativeVueNodeShell } from "./core/fathaNode2Compat.js";
@@ -365,6 +366,9 @@ export function uncle(nodeType, nodeData, minWidth = 100) {
                 if (!COMPONENT_BLUEPRINTS) break;
                 const blueprint = COMPONENT_BLUEPRINTS[reg.type];
                 if (!blueprint) continue;
+                const viewportDraw = getContentViewportGeometry(this, key, { x: reg.x, y: reg.y, w: reg.w, h: reg.h });
+                if (viewportDraw.hidden) continue;
+                const drawGeometry = viewportDraw.geometry;
 
                 if (!blueprint.isHtml && !blueprint.isHybrid && this._derpDomElements?.[key]) {
                     this._derpDomElements[key].remove();
@@ -381,22 +385,25 @@ export function uncle(nodeType, nodeData, minWidth = 100) {
                         isNewElement = true;
                     }
                     if (this._shouldSync || collapseStateChanged || isNewElement) {
-                        blueprint.sync(this._derpDomElements[key], this, app, { ...reg, key, geometry: { x: reg.x, y: reg.y, w: reg.w, h: reg.h } });
+                        blueprint.sync(this._derpDomElements[key], this, app, { ...reg, key, geometry: drawGeometry });
                     }
                 } else if (blueprint.isHybrid) {
-                    blueprint.sync(ctx, this, app, { ...reg, key, useAnim, geometry: { x: reg.x, y: reg.y, w: reg.w, h: reg.h } });
+                    withContentViewportClip(ctx, this, key, drawGeometry, (drawCtx, geometry) => blueprint.sync(drawCtx, this, app, { ...reg, key, useAnim, geometry }));
                 } else {
-                    blueprint.sync(ctx, this, { ...reg, key, geometry: { x: reg.x, y: reg.y, w: reg.w, h: reg.h } });
+                    withContentViewportClip(ctx, this, key, drawGeometry, (drawCtx, geometry) => blueprint.sync(drawCtx, this, { ...reg, key, geometry }));
                 }
             }
 
             handleDrawCTX(this, ctx, true);
+            drawContentViewportScrollbars(ctx, this);
 
             for (const [key, reg] of Object.entries(this.layout.regions)) {
                 if (reg.strokeZIndex) {
                     const blueprint = COMPONENT_BLUEPRINTS[reg.type];
                     if (blueprint && blueprint.isHybrid) {
-                        blueprint.sync(ctx, this, app, { ...reg, key, useAnim, geometry: { x: reg.x, y: reg.y, w: reg.w, h: reg.h } }, true);
+                        const viewportDraw = getContentViewportGeometry(this, key, { x: reg.x, y: reg.y, w: reg.w, h: reg.h });
+                        if (viewportDraw.hidden) continue;
+                        withContentViewportClip(ctx, this, key, viewportDraw.geometry, (drawCtx, geometry) => blueprint.sync(drawCtx, this, app, { ...reg, key, useAnim, geometry }, true));
                     }
                 }
             }

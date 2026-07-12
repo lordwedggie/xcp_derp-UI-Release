@@ -301,10 +301,12 @@ app.registerExtension({
                                 const intVal = parseInt(val);
                                 if (!isNaN(intVal) && intVal >= 1) {
                                     this.properties.batchSize = intVal;
-                                    this.broadcastLatentState();
-                                    this.refreshNodeLayoutMap();
-                                    this.requestDerpSync();
+                                } else {
+                                    this.properties.batchSize = this.properties.batchSize || 1;
                                 }
+                                this.broadcastLatentState();
+                                this.refreshNodeLayoutMap();
+                                this.requestDerpSync();
                             }
                         },
                     }
@@ -331,7 +333,6 @@ app.registerExtension({
                     }
                 }
             };
-            this._lastMapStructure = undefined;
         };
 
         // --- WIRELESS BROADCAST ---
