@@ -331,7 +331,7 @@ export function calculatePickerPanelLayout(state, config, anchorRect, scale, dep
 
     const panelX = config.geometry.x;
     const panelY = openUpward ? (config.geometry.y + config.geometry.h - state.currentSize[1]) : config.geometry.y;
-    const panelW = config.geometry.w;
+    const panelW = state.currentSize[0];
     const panelH = state.currentSize[1];
     const panelScreenRect = {
         left: anchorRect.left,

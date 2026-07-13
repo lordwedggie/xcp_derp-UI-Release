@@ -1,52 +1,55 @@
-## Architect Review: Move clipped links to output 0
+## Architect Review: FILEBROWSER min-width
 
-**Verdict: PASS** (with one recommendation)
+### Vitals
+- **Date**: 2026-07-13
+- **Turn**: 1
+- **Reviewer**: CodeWhale
+- **Verdict**: PASS
 
 ### Analysis
 
-**1. drawUncleSlots guard (line 202): NO CHANGE NEEDED**
+**Single enforcement point — correct.**
+`currentSize[0]` is set once in `openFilePicker` (line 608) and never mutated for width after initialization. Only `currentSize[1]` is animated for height (line 1114). Clamping at the source propagates the guarantee everywhere.
 
-The orphan guard `if (x === -1000 || y === -1000) return;` will naturally stop catching scrolled-out slots once they receive real coordinates. This is correct — per spec §52-57, connected slots *should* draw their anchor dot at the fallback position. Multiple slot dots stacking at output 0's Y is the intended visual.
+**Math.max won't break fallback logic.**
+`Math.max(config.geometry?.w || 200, FILEBROWSER_MIN_TRIGGER_WIDTH)` (constant = 200):
+- `w = 120` → `Math.max(120, 200)` → 200 ✓
+- `w = 300` → `Math.max(300, 200)` → 300 ✓
+- `geometry` undefined → `Math.max(200, 200)` → 200 ✓
 
-**2. Slot 0 existence: SAFE**
+The `|| 200` fallback is subsumed but harmless.
 
-- `outputs` empty → line 138 `if (outputs)` short-circuits.
-- `outputs` non-empty but no region with `outSlotIdx === 0` → `slot0FallbackPos` stays undefined, the `|| targetRegion.y + ...` fallback chain activates (existing non-clipped behavior). No regression.
-- 0 slots → same as empty outputs, guard at line 138 handles it.
+**Downstream propagation — complete.**
+After both spec changes, all width consumers flow through `calculatePickerPanelLayout` return:
 
-**3. LiteGraph wire rendering: CORRECT**
+| Consumer | Current source | New source | Status |
+|---|---|---|---|
+| `panelW` (line 334) | `config.geometry.w` | `state.currentSize[0]` | Changed ✓ |
+| `panelScreenRect.width` (line 339) | `anchorRect.width` | `state.currentSize[0] * scale` | Changed ✓ |
+| `drawPickerRows` geometry.w (line 365) | From `panelW` return | Same path — clamped | Propagated ✓ |
+| `drawPickerSeparator` panelW (line 393) | From `panelW` return | Same path — clamped | Propagated ✓ |
+| `calculatePickerScrollViewport` panelW (line 408) | From `panelW` return | Same path — clamped | Propagated ✓ |
+| `scrollScreenRect.width` (line 415) | `state.panelScreenRect.width` | Same state — clamped | Propagated ✓ |
+| `panelEventRect` (line 1127) | From `panelW` return | Same path — clamped | Propagated ✓ |
+| `masterPainter` width (line 1139) | From `panelW` return | Same path — clamped | Propagated ✓ |
 
-`LiteGraph.getConnectionPos()` reads `slot.pos` directly. Setting clipped slots to output 0's Y means wires from connected inputs terminate at the output column X, aligned with output 0. Wires stack visually — acceptable per spec §48.
+**`anchorRect` decoupling — safe.**
+`computeScreenAnchorRect` (line 294) bases `anchorRect.width` on `geometry.w` for the original trigger width. After the spec change, `panelScreenRect.width` reads `state.currentSize[0] * scale` directly, so the anchor's width is no longer consumed for picker sizing. `anchorRect.left` is still used for positioning (line 337) and is correct regardless of width expansion — min-width expands rightward from trigger left edge.
 
-**4. Virtual wires (derpSignalOut_core.js): UNAFFECTED**
+**Search tab — intentionally excluded.**
+Search tab (line 658) is a separate `bastaSearchTab` overlay bound to trigger width. Spec rationale confirms this is intentional.
 
-The global virtual wire renderer derives endpoint Y from `node.layout.regions[...].y + h/2`, not from `slot.pos`. No change needed in that file.
-
-### Recommendation: Drop the cache guard
-
-The spec caches `slot0FallbackPos` once via `if (!this._slot0FallbackPos)`. Layout regions are rebuilt fresh each `syncUncleSlots` call (line 130), but the cached position survives layout changes. If the node resizes or content shifts, clipped slots go to a stale Y.
-
-`regionsArray.find()` is O(n) on ~5-20 elements — negligible. Compute fresh each call:
-
-```js
-// Before the output loop (line 138):
-const slot0Region = regionsArray.find(r => r.outSlotIdx === 0);
-const slot0FallbackPos = slot0Region
-    ? [outputX, slot0Region.y + (slot0Region.h / 2)]
-    : null;
-
-// Inside the clip check (replaces line 155):
-slot.pos = slot0FallbackPos || [outputX, targetRegion.y + (targetRegion.h / 2)];
-```
-
-This eliminates the staleness concern entirely with no meaningful perf cost.
+**No unaddressed consumers.**
+Every picker width path — render geometry, hitboxes, event shield, scrollbar, screen-space rects — derives from `calculatePickerPanelLayout` return. All will receive the clamped width.
 
 ### Edge cases covered
+- `geometry.w < 200` → clamped up
+- `geometry.w ≥ 200` → preserved
+- `geometry` undefined → fallback to 200, then clamp to 200 (no-op)
+- `geometry.w = 0` → `Math.max(0, 200)` → 200 ✓
+- Picker positioned from `geometry.x` with rightward expansion — matches existing scrollbar behavior (scrollbar always consumes right-side space)
 
-| Case | Behavior |
-|------|----------|
-| 0 outputs | Guard at line 138, no-op |
-| 0 layout regions | `slot0FallbackPos` null, falls through to `targetRegion` check → `[-1000,-1000]` (existing) |
-| Slot 0 itself scrolled out | Slot 0 stays at its own layout position (harmless self-reference) |
-| Node collapsed | Bypass path (line 141) fires first, never reaches clip check |
-| No viewport on region | `getContentViewportForRegion` returns null, clip check skipped |
+### Recommendation
+PASS. Apply exactly as specified. No additional changes, no missed consumers, no fallback breakage.
+
+HEARTBEAT OK | TURNS_USED: 1 | TOKENS: ~4800

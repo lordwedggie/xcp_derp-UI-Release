@@ -163,6 +163,7 @@ const PICKER_PREFIX_GAP_PX = 0;
 const PICKER_BREADCRUMB_PADDING = [4, 1];
 const PICKER_BREADCRUMB_TEXT_KEY = "t_textSystem";
 const PICKER_FIRST_ROW_MARGIN = [0, 0, 0, 0];
+const FILEBROWSER_MIN_TRIGGER_WIDTH = 200;
 
 const DROPDOWN_ANIM_SETTINGS = {
     lerpFactor: 0.325,
@@ -605,7 +606,7 @@ function openFilePicker(config, node) {
         rowHeight,
         visibleLimit: node.properties?.dropdownVisibleLimit || 20,
         currentDir,
-        currentSize: [config.geometry?.w || 200, 4],
+        currentSize: [Math.max(config.geometry?.w || 200, FILEBROWSER_MIN_TRIGGER_WIDTH), 4],
         itemAlpha: 0,
         scrollOffset: 0,
         hoverRowId: null,
@@ -655,7 +656,7 @@ function openFilePicker(config, node) {
     if (mode !== "folder" && config.searchTab === true) {
         showBastaSearchTab(node, config.key, {
             value: activeFilePicker.searchQuery,
-            width: config.geometry?.w || 180,
+            width: activeFilePicker.currentSize[0] || 180,
             height: config.geometry?.h || 20,
             themeKey: config.searchThemeKey || "dialog, t_textSmall",
             backgroundThemeKey: "dialog",

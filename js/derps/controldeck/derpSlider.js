@@ -185,10 +185,10 @@ app.registerExtension({
                             padding: [0, 0], spacing: [0, sH],
                             [`dynamicTitle_${i}`]: {
                                 type: this.UI_TYPES.EDITOR, canvasShield: true,
-                                themeKey: "t_textNormal",
                                 hidden: this.properties.nameDisplay !== "Left",
                                 labelAlign: ["left", "middle"],
                                 text: this.properties.sliderContainer?.[i]?.name || `Slider_${i + 1}`,
+                                themeKey: "t_textSmall",
                                 width: labelWidthNormal, padding: [0, 0], spacing: [sW, 0],
                                 onBlur: (v) => {
                                     if (this.properties.sliderContainer?.[i]) {

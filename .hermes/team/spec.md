@@ -1,64 +1,72 @@
-## BSA Spec: Move clipped links to output 0 position
+## BSA Spec: Add FILEBROWSER picker min-width
 
-### Problem
+### Goal
+Enforce a minimum width of 200px for the FILEBROWSER picker dropdown panel. Currently the width is driven solely by `config.geometry.w`, which callers can set arbitrarily small — nodes like LoRAStack or tiny loaders may pass a geometry narrower than usable for the picker contents.
 
-In `js/fatha/helpers/uncleSlotHelper.js`, the `syncUncleSlots()` function hides output slots that are scrolled out of view by setting their position to `[-1000, -1000]` (lines 149-157). This hides both:
+### Files to change
 
-1. **LiteGraph physical link rendering** (slots at `[-1000,-1000]` means wires disappear into the void)
-2. **The slot dot itself** (the orphan guard in `drawUncleSlots` skips `[-1000,-1000]`)
+1. `js/herbina/widgets/widget_FileBrowser.js`
+2. `js/herbina/widgets/helpers/fileBrowserDraw.js`
 
-For Derp Router nodes with scrollable content viewports, this means physical wires to scrolled-out slots vanish entirely instead of stacking at output 0's position.
+### Exact changes
 
-### Files Touched
+#### File 1: widget_FileBrowser.js
 
-| File | Role | Change |
-|------|------|--------|
-| `js/fatha/helpers/uncleSlotHelper.js` | **Primary fix** | Instead of `[-1000,-1000]`, move scrolled-out slots to output 0's computed position |
-| `js/derpSignalOut_core.js` | **Audit only** | The global virtual wire renderer (`drawDerpSignalOutGlobalWires`, lines 916-958) derives endpoint Y from `node.layout.regions[...].y + h/2`, NOT from `slot.pos`. Virtual wires are unaffected. The deprecated local renderer (lines 874-903) is disabled (`if(false)`). **No change needed** in this file. |
+**A. Add module-level constant** (after line 165, after `PICKER_FIRST_ROW_MARGIN`):
 
-### Approach — uncleSlotHelper.js
-
-**Before** (line 155):
-```js
-slot.pos = [-1000, -1000];
+```
+const FILEBROWSER_MIN_TRIGGER_WIDTH = 200;
 ```
 
-**After** (collapsed for the fix):
+**B. Enforce in `openFilePicker`** — line 608:
+
+Before:
 ```js
-if (!this._slot0FallbackPos) {
-  const slot0Region = regionsArray.find(r => r.outSlotIdx === 0);
-  if (slot0Region) {
-    this._slot0FallbackPos = [outputX, slot0Region.y + (slot0Region.h / 2)];
-  }
-}
-slot.pos = this._slot0FallbackPos || [outputX, targetRegion.y + (targetRegion.h / 2)];
+currentSize: [config.geometry?.w || 200, 4],
 ```
 
-**Detailed logic**:
-
-1. Before the output loop (line 138), compute output slot 0's position: `[outputX, slot0Region.y + slot0Region.h/2]`. Store it as `slot0FallbackPos`.
-2. Inside the loop, where the scroll-clip check fires (line 154-155), replace `[-1000, -1000]` with `slot0FallbackPos`.
-3. This makes physical LiteGraph wires stack at output 0's vertical position.
-4. The `drawUncleSlots` orphan guard (line 202) must also skip `slot0FallbackPos` — no, actually we WANT the slot dot drawn there so connected wires have an anchor.
-
-### LiteGraph Link Rendering Path
-
-- `LiteGraph.getConnectionPos(node, slot_type, slot_index)` returns `node.outputs[slot_index].pos` for outputs (source: LiteGraph source).
-- When `slot.pos` is `[-1000, -1000]`, the Bezier curve control points extend off-canvas into the upper-left void.
-- When `slot.pos` is set to output 0's Y-coordinate, the wire from the connected input terminates at the output column X, aligned with output 0's Y. The wire overlaps output 0's wire, which is acceptable — the user sees the wire terminates on the node.
-
-### DrawUncleSlots Guard
-
-`drawUncleSlots` (line 202) has:
+After:
 ```js
-if (x === -1000 || y === -1000) return; // THE ORPHAN GUARD
+currentSize: [Math.max(config.geometry?.w || 200, FILEBROWSER_MIN_TRIGGER_WIDTH), 4],
 ```
 
-After the fix, scrolled-out slots will have real coordinates, so they will draw their slot dot at the fallback position. This is correct — a connected slot should still show its anchor dot even when the underlying region is scrolled out.
+This ensures `state.currentSize[0]` (the stored picker width) always ≥ 200.
+
+#### File 2: fileBrowserDraw.js — `calculatePickerPanelLayout`
+
+**C. Use `state.currentSize[0]` for `panelW`** — line 334:
+
+Before:
+```js
+const panelW = config.geometry.w;
+```
+
+After:
+```js
+const panelW = state.currentSize[0];
+```
+
+**D. Use `state.currentSize[0] * scale` for `panelScreenRect.width`** — line 339:
+
+Before:
+```js
+width: anchorRect.width,
+```
+
+After:
+```js
+width: state.currentSize[0] * scale,
+```
+
+### Rationale
+
+- **`currentSize[0]` is the canonical width source.** It's set once in `openFilePicker` and never mutated (only `currentSize[1]` is animated for height). Enforcing the min-width there propagates naturally to the panel layout and the screen-space hitbox rect.
+- **No need to change search tab width** (line 658). The search Basta is a separate overlay — bounding it to the trigger width is intentional.
+- **No need to center/offset wider panels.** The panel starts at `config.geometry.x` (trigger left) and extends right. Min-width expansion to the right is acceptable and matches existing scrollbar behavior (which always takes space from the right).
 
 ### Verification
 
-1. Create a Derp Router with 5+ signals, viewport tall enough to scroll.
-2. Scroll signal 5 out of view.
-3. Physical wire to signal 5 should terminate at the Router's output column, same Y as output 0, rather than disappearing.
-4. Signal 0's slot dot should not move; the stack of wires is visually acceptable.
+1. Supply a config geometry with `w < 200` (e.g., `{ x: 0, y: 0, w: 120, h: 24 }`).
+2. Open picker — panel width must be ≥ 200 (not 120).
+3. Supply `w: 300` — panel width must be 300 (unchanged, no hard clamp).
+4. Supply no geometry (`config.geometry` undefined) — falls back to `200` from `|| 200`, then `Math.max(200, 200)` → 200.
