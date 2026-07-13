@@ -1,6 +1,6 @@
 ---
 name: docs-md
-description: Maintain and repair README.md, CHANGELOG.md, and derp_docs markdown display formatting, including FRAMEWORK-*.md documents. Clean control characters, sync authoritative copies between derp_docs/ and root, fix broken arrows and paths, and preserve the ControlDeck-style colored document format. Use when the user mentions corrupted docs, broken CHANGELOG characters, FF/BS diamonds, syncing docs for publishing, or wants derp_docs markdown reformatted.
+description: Maintain and repair README.md, CHANGELOG.md, and end-user derp_docs markdown display formatting. Clean control characters, sync authoritative copies between derp_docs/ and root, fix broken arrows and paths, and preserve the ControlDeck-style colored document format. Use when the user mentions corrupted docs, broken CHANGELOG characters, FF/BS diamonds, syncing docs for publishing, or wants derp_docs markdown reformatted.
 ---
 
 # Docs MD — derp_docs Display Maintenance
@@ -33,7 +33,7 @@ Use byte-level replacement — PowerShell `[IO.File]::ReadAllBytes` / `WriteAllB
 
 Use the same inline HTML color style already established in the ControlDeck node docs. Stay with inline `<span style="color: ...">` formatting, not CSS blocks.
 
-This style applies to `README.md`, `CHANGELOG.md`, and all `FRAMEWORK-*.md` docs under `derp_docs/`.
+This style applies to `README.md`, `CHANGELOG.md`, and end-user docs under `derp_docs/`. Framework docs live in `D:\_AI_KnowledgeBase\derp-UI\framework\`.
 
 - Document titles should use the two-tone pattern when it fits the document name: `# <span style="color: #ff8080">Primary</span> <span style="color: #ffffff">Rest</span>`
 - Framework major sections may use teal H2 or H3 headings depending on the existing document depth: `## <span style="color: #80ffc0">Section</span>` or `### <span style="color: #80ffc0">Section</span>`
@@ -44,7 +44,7 @@ This style applies to `README.md`, `CHANGELOG.md`, and all `FRAMEWORK-*.md` docs
 
 ## Framework Usage Report Priority
 
-For `derp_docs/_development/` usage reports and framework analysis docs:
+For usage reports and framework analysis docs in `D:\_AI_KnowledgeBase\derp-UI\dev-notes\`:
 
 - put the concrete files currently used by the live runtime at the top of the document
 - list actual active palette/theme/assets before broad inventories, legacy files, or speculative cleanup notes

@@ -292,7 +292,7 @@ When working without source access, use this order of thought:
 
 ## Safe Workflow
 
-1. Read `derp_docs/FRAMEWORK-Motha.md` and `derp_docs/FRAMEWORK-ThemePalette.md` if needed.
+1. Read `D:\_AI_KnowledgeBase\derp-UI\framework\FRAMEWORK-Motha.md` and `D:\_AI_KnowledgeBase\derp-UI\framework\FRAMEWORK-ThemePalette.md` if needed.
 2. Confirm the category direction and visual intensity goal if they are not already explicit.
 3. Read the exemplar key or keys the user crafted by hand.
 4. Start with `canvas` if the request affects the overall theme language.

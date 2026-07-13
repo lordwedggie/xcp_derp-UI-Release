@@ -9,7 +9,17 @@ This section is the top-priority project memory for coding behavior. Follow it b
 3. **Surgical changes.** Touch only files and lines tied to the task. Match existing style. Do not refactor adjacent code unless the task requires it.
 4. **Goal-driven execution.** Define the success check, implement, then verify with the narrowest useful command or inspection.
 5. **Report changed files.** At the bottom of every response, include a **Files Changed** section listing only files changed during the current turn. Use full paths.
-6. **Review relevant framework docs before edits.** Read the matching `derp_docs/FRAMEWORK-*.md` file before changing Fatha, Herbina, Basta, Motha, backend, docking, node, or theme-palette code.
+6. **Review relevant reference docs before pattern-sensitive edits.** These documents encode known pitfalls and correct patterns. Read them BEFORE making structural layout changes, dock resize fixes, or drag-and-drop edits:
+
+| When editing... | Read... |
+|----------------|---------|
+| Layout maps (regions, anchors, margins, LINEBREAKs) | `.agents/references/layout-engine-pitfalls.md`, `.agents/references/linebreak-layout-pattern.md` |
+| Dock resize / seam drags | `.agents/references/dock-live-resize-shield-sync.md`, `.agents/references/vertical-stack-height-min-width-lock.md` |
+| Drag-and-drop handlers | `.agents/references/triggerwall-drag-holdonly-regression.md` |
+| Deck Pressure autoWidth | `.agents/references/deck-pressure-autowidth-seam-resize.md` |
+| derpPromptBook / stale closures | `.agents/references/derppromptbook-stale-closure-audit.md` |
+
+For architecture overview, see `D:\_AI_KnowledgeBase\derp-UI\framework\FRAMEWORK-*.md` (layout, docking, widgets, themes, etc.) and load the `derp-ui-dev` skill when available.
 7. **Self-maintain this file.** When a durable project lesson is learned, add it under **Lessons Learned** without being asked.
 8. **NEVER use destructive git commands.** `git reset --hard`, `git clean -fd`, `git checkout -- .`, or any command that discards uncommitted work is FORBIDDEN unless the user explicitly types the exact command themselves. Use `git stash` only with explicit approval.
 9. **Do not blindly agree.** If a requested implementation seems illogical, risky, or there is a clearly better approach, stop and explain the concern before editing.
@@ -43,25 +53,17 @@ Spend time on thinking; you do not need to use the commentary channel to report 
 | `js/herbina/` | Widget/painter/animation library. |
 | `js/motha/` | Motha theme manager, theme runtime, helpers, and templates. |
 | `locales/` | Locale JSON files. Current repo has `en-US.json` and `zh-CN.json`. |
-| `derp_docs/` | Framework and node documentation. |
+| `derp_docs/` | End-user documentation only. Developer notes and framework docs live in `D:\_AI_KnowledgeBase\derp-UI\`. |
 | `user/derpNodes/` | Bundled/user-facing assets, palettes, themes, and theme weights. |
 
-### Framework Docs
+### Developer Knowledge Base
 
-There are ten authoritative framework docs:
+Canonical framework docs and developer notes live outside the workspace:
 
-- `derp_docs/FRAMEWORK-Backend.md`
-- `derp_docs/FRAMEWORK-Basta.md`
-- `derp_docs/FRAMEWORK-Clipping.md`
-- `derp_docs/FRAMEWORK-Docking.md`
-- `derp_docs/FRAMEWORK-Fatha.md`
-- `derp_docs/FRAMEWORK-Herbina.md`
-- `derp_docs/FRAMEWORK-Motha.md`
-- `derp_docs/FRAMEWORK-Nodes.md`
-- `derp_docs/FRAMEWORK-Optimization.md`
-- `derp_docs/FRAMEWORK-ThemePalette.md`
+- `D:\_AI_KnowledgeBase\derp-UI\framework\FRAMEWORK-*.md`
+- `D:\_AI_KnowledgeBase\derp-UI\dev-notes\`
 
-Docs must stay synced with framework behavior. Stale docs are treated as bugs.
+Use the `derp-ui-dev` skill when it is available. Docs must stay synced with framework behavior. Stale docs are treated as bugs.
 
 ---
 
@@ -142,7 +144,7 @@ To add a skill, create `.agents/skills/<name>/SKILL.md` with YAML frontmatter (`
 
 ## Lessons Learned
 
-Lessons here are agent-facing reminders and sharp-edge indexes. Keep them short, operational, and linked to the authoritative `derp_docs/FRAMEWORK-*.md` docs instead of re-explaining full framework contracts here.
+Lessons here are agent-facing reminders and sharp-edge indexes. Keep them short, operational, and linked to the authoritative `D:\_AI_KnowledgeBase\derp-UI\framework\FRAMEWORK-*.md` docs instead of re-explaining full framework contracts here.
 
 ### Project Memory and Communication
 
@@ -153,9 +155,9 @@ Lessons here are agent-facing reminders and sharp-edge indexes. Keep them short,
 
 ### Framework Docs First
 
-- Read the relevant `FRAMEWORK-*.md` before touching framework code.
+- Read the relevant `D:\_AI_KnowledgeBase\derp-UI\framework\FRAMEWORK-*.md` before touching framework code.
 - Update the same doc when changing framework contracts, widget APIs, palette resolution, layout behavior, docking, Basta lifecycle, or backend routes.
-- Treat `derp_docs/FRAMEWORK-Clipping.md` as the authoritative doc for `scrollViewport`, clipped-region behavior, shared scrollbar drawing, viewport wheel/drag handling, and viewport-aware resize floors.
+- Treat `D:\_AI_KnowledgeBase\derp-UI\framework\FRAMEWORK-Clipping.md` as the authoritative doc for `scrollViewport`, clipped-region behavior, shared scrollbar drawing, viewport wheel/drag handling, and viewport-aware resize floors.
 
 ### Layout Engine
 
@@ -247,7 +249,7 @@ Lessons here are agent-facing reminders and sharp-edge indexes. Keep them short,
 
 ### Docking and Node 2.0
 
-For docking, stack resize, Deck Pressure, and Node 2.0 compatibility work, read `derp_docs/FRAMEWORK-Docking.md` first and keep the full behavior contract there. Keep this section as an operational index of the sharp edges agents most often trip over.
+For docking, stack resize, Deck Pressure, and Node 2.0 compatibility work, read `D:\_AI_KnowledgeBase\derp-UI\framework\FRAMEWORK-Docking.md` first and keep the full behavior contract there. Keep this section as an operational index of the sharp edges agents most often trip over.
 
 - Isolate Node 2.0/Vue compatibility behind `isComfyVueNodesMode()` or dedicated compatibility helpers; use `setDerpNodeSizeCompat(node, w, h)` for real graph nodes and do not apply graph-node size rules to Basta overlays.
 - Treat ImageDeck Deck Pressure as the owner of hub/branch geometry. Avoid generic normalization, resize-axis helpers, or `forceDockResizeRefresh()` on hub seams; `applyDeckPressureLayout()` is the source of truth.
@@ -257,7 +259,11 @@ For docking, stack resize, Deck Pressure, and Node 2.0 compatibility work, read 
 - Deck Pressure side branches need stable frame ownership: preserve the hub frame during side seams, cache left/right vertical branch widths on the hub, keep horizontal side branches expanded, and do not let transient `layout.contentMinWidth` or scrollbar gutters resize the whole Deck.
 - Manual-height Deck Pressure side stacks should preserve current member heights during idle pressure layout when they already fit the side band; pressure fitting may clamp/refit over-tall stacks but must not distribute spare height into manual members after harmless refreshes.
 - Active ImageDeck/Deck Pressure frame height resize must fit left/right vertical side branches to the live frame height both up and down from current heights; non-height active hub resize should still preserve branch heights against accidental compression.
-- Content viewport and clipped-node resize floors belong in `derp_docs/FRAMEWORK-Clipping.md`; use `minClipHeight` / `_contentViewportMinClipHeight` for viewport-backed floors and preserve viewport scroll targets across transient measurement passes.
+- Fresh manual seam-fit preservation in Deck Pressure side branches must compare against the raw side-band target before pressure-min expansion; otherwise a valid seam-resized child below pressure min can bounce back on mouse release.
+- Live Deck Pressure side-width seam resize is width-only for left/right vertical branches: preserve raw pixel member heights through the live drag and release-time idle pressure pass, clamping only to real per-member minimums. Do not snap-round this height snapshot; a tiny raw-frame edge correction (<= half a snap) may be applied so non-snap ImageDeck frame heights keep lower Deck corner handles active. Larger spare height must not be redistributed. Frame height resize clears the side-height snapshot.
+- In `vertical_sandwich`, top/bottom Deck Pressure branch height is structural frame height. If a preserved left/right side-height snapshot is short by exactly that top/bottom contribution, absorb that difference into the side stack so lower outer corners and frame resize handles stay attached to the composed Deck frame.
+- Deck Pressure side stacks may distribute heights on the snap grid, but their final physical edge must match the raw frame edge. A fractional frame such as `741.59` cannot leave the last side node ending at `740`, because the 1px corner tolerance then flattens theme corners and hides lower frame resize handles.
+- Content viewport and clipped-node resize floors belong in `D:\_AI_KnowledgeBase\derp-UI\framework\FRAMEWORK-Clipping.md`; use `minClipHeight` / `_contentViewportMinClipHeight` for viewport-backed floors and preserve viewport scroll targets across transient measurement passes.
 - Active pointer paths should avoid per-move dirty/layout/shield churn. Prefer live size sync with silent/deferred options and batched shield sync; otherwise stack resizing becomes jumpy and one-frame flicker is easy to reintroduce.
 - Deck Pressure side-branch resize-start priming must use branch-aware member lists, not ordinary `isLinearDeckGroup()` checks against the mixed ImageDeck group. Keep DOM-shield helper changes local and avoid exporting shield internals just to test branch resize behavior.
 - If a docking lesson needs more than one or two sentences, move the full rule to `FRAMEWORK-Docking.md` and keep only a short pointer here.
@@ -284,7 +290,7 @@ For docking, stack resize, Deck Pressure, and Node 2.0 compatibility work, read 
 - Syncthing device identity comes from `cert.pem` and `key.pem` under `/root/.config/syncthing-xcp/`; if the workspace is rebuilt, back up and restore that directory to keep the same device ID.
 
 - For layout anomalies, inspect `masterLayoutEngine` and `widget_Region` before patching symptoms.
-- For node optimization work, read `derp_docs/FRAMEWORK-Optimization.md` first, then the matching framework docs for Fatha, Uncle, Basta, Herbina, docking, clipping, or node-specific behavior.
+- For node optimization work, read `D:\_AI_KnowledgeBase\derp-UI\framework\FRAMEWORK-Optimization.md` first, then the matching framework docs for Fatha, Uncle, Basta, Herbina, docking, clipping, or node-specific behavior.
 - Bitmap/offscreen-canvas draw caching is a last-resort optimization for potentially extremely heavy nodes. It can be fast, but it may look less sharp and can flicker; do not add it unless explicitly requested or after simpler rendering optimizations are exhausted.
 - When asking the user to enable debug logs, provide exact console commands in the same response.
 - Investigate root causes before broad FileBrowser pointer/hover punch-through fixes.

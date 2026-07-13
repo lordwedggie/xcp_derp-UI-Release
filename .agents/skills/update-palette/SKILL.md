@@ -331,7 +331,7 @@ When using this skill, report:
 
 ## Typical Execution Pattern
 
-1. Read `derp_docs/FRAMEWORK-ThemePalette.md` and `derp_docs/FRAMEWORK-Motha.md` if the agent has not already done so in the session.
+1. Read `D:\_AI_KnowledgeBase\derp-UI\framework\FRAMEWORK-ThemePalette.md` and `D:\_AI_KnowledgeBase\derp-UI\framework\FRAMEWORK-Motha.md` if the agent has not already done so in the session.
 2. Read the exemplar palette entries and the matching target files.
 3. Edit the smallest set of entries necessary.
 4. Re-read the modified sections for verification.

@@ -1,17 +1,18 @@
 ---
 name: bookkeeper
-description: Maintain and refine `derp_docs/` markdown with the project's established voice and compatibility rules. Use when editing README, node docs, framework docs, or other Obsidian-backed project documentation.
+description: Maintain and refine end-user `derp_docs/` markdown with the project's established voice and compatibility rules. Use when editing README, CHANGELOG, node docs, or other user-facing Obsidian-backed project documentation.
 ---
 
 # Bookkeeper
 
-`bookkeeper` is a docs-only skill for `derp_docs/`.
+`bookkeeper` is a docs-only skill for end-user documentation in `derp_docs/`.
 
 ## Scope
 
-- Edit markdown under `derp_docs/`.
+- Edit user-facing markdown under `derp_docs/`.
 - Preserve the existing structure and formatting conventions used by the node instruction docs.
 - Keep root publication mirrors aligned only when the task explicitly calls for release or publication sync.
+- Do not add framework docs or developer notes to `derp_docs/`; those live in `D:\_AI_KnowledgeBase\derp-UI\`.
 
 ## Writing Rules
 
@@ -31,7 +32,7 @@ description: Maintain and refine `derp_docs/` markdown with the project's establ
 
 - Make surgical doc edits that match the surrounding style.
 - Keep examples, paths, and framework names accurate to current repo structure.
-- Treat stale framework docs as bugs; update the relevant framework doc when framework behavior changes.
+- Treat stale framework docs as bugs, but update them in `D:\_AI_KnowledgeBase\derp-UI\framework\`, not under `derp_docs/`.
 - Avoid turning docs into boilerplate product copy. Keep them useful to real users working in the graph.
 
 ## Trigger Hints
@@ -40,6 +41,5 @@ Use this skill when work involves:
 
 - `derp_docs/README.md`
 - `derp_docs/CHANGELOG.md`
-- framework docs such as `derp_docs/FRAMEWORK-Fatha.md`
 - node instruction docs under `derp_docs/`
 - voice, formatting, or compatibility cleanup for project markdown
