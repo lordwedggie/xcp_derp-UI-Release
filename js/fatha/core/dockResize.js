@@ -17,6 +17,7 @@ import {
     isDeckPressureSideHorizontalBranchMember,
     isDeckPressureSideWidthResizeEdge,
     isLinearDeckGroup,
+    setDeckPressureSideVerticalHeightCache,
     isNodeDocked,
     syncDeckNodeSize,
     setDeckNodePos,
@@ -1546,6 +1547,7 @@ function applyDeckPressureSideWidthResize(entity, resizeAnchor, requestedEntityW
         });
         markDockResizeActiveMembers(entity, branchMembers, entity, { markResizing: false });
     } else {
+        setDeckPressureSideVerticalHeightCache(pressureHub, branchSide, branchMembers);
         branchMembers.forEach((member) => {
             member._horizontalDeckWidthResizeLock = true;
             member._horizontalDeckWidthResizeValue = nextBranchWidth;
