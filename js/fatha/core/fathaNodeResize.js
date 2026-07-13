@@ -247,6 +247,7 @@ export function handleNodeResize(entity, data, scale) {
     if (entity.properties) entity.properties.nodeSize = [appliedW, appliedH];
 
     if (isPressureHubResize && graph) {
+        entity._deckPressureFrameHeightResizeActive = allowHeightResize && Math.abs(appliedH - startH) > 0.5;
         entity._deckPressureActiveUntil = (performance.now?.() || Date.now()) + 1200;
         applyDeckPressureLayout(entity, graph, SNAP);
     }

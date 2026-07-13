@@ -347,6 +347,121 @@ describe('syncHorizontalDeckHeight', () => {
     expect(bottom.size[1]).toBe(110);
   });
 
+  it('preserves side-vertical branch live heights when active Deck resize is not changing height', () => {
+    const hub = makeImageDeck(57, 200, 300, 300);
+    const top = makeNode(58, 100, 100, 140);
+    const middle = makeNode(59, 100, 100, 110);
+    const bottom = makeNode(60, 100, 100, 90);
+
+    hub.properties.deckEdges.left = top.id;
+    top.properties.deckParentId = hub.id;
+    top.properties.deckDockSide = 'left';
+    top.properties.deckEdges.right = hub.id;
+    top.properties.deckEdges.bottom = middle.id;
+    middle.properties.deckParentId = top.id;
+    middle.properties.deckDockSide = 'bottom';
+    middle.properties.deckEdges.top = top.id;
+    middle.properties.deckEdges.bottom = bottom.id;
+    bottom.properties.deckParentId = middle.id;
+    bottom.properties.deckDockSide = 'bottom';
+    bottom.properties.deckEdges.top = middle.id;
+
+    [top, middle, bottom].forEach((member) => {
+      member.layout.contentMinHeight = 40;
+      member.layout.totalHeight = 40;
+    });
+    hub._isDerpResizing = true;
+
+    const graph = { _nodes: [hub, top, middle, bottom] };
+    window.app.graph = graph;
+    window.app.canvas.frame = 11;
+    globalThis.app = window.app;
+
+    applyDeckPressureLayout(hub, graph, 10);
+
+    expect(top.size[1]).toBe(140);
+    expect(middle.size[1]).toBe(110);
+    expect(bottom.size[1]).toBe(90);
+  });
+
+  it('grows side-vertical branch live heights during active Deck frame resize', () => {
+    const hub = makeImageDeck(61, 200, 300, 380);
+    const top = makeNode(62, 100, 100, 140);
+    const middle = makeNode(63, 100, 100, 110);
+    const bottom = makeNode(64, 100, 100, 90);
+
+    hub.properties.deckEdges.left = top.id;
+    top.properties.deckParentId = hub.id;
+    top.properties.deckDockSide = 'left';
+    top.properties.deckEdges.right = hub.id;
+    top.properties.deckEdges.bottom = middle.id;
+    middle.properties.deckParentId = top.id;
+    middle.properties.deckDockSide = 'bottom';
+    middle.properties.deckEdges.top = top.id;
+    middle.properties.deckEdges.bottom = bottom.id;
+    bottom.properties.deckParentId = middle.id;
+    bottom.properties.deckDockSide = 'bottom';
+    bottom.properties.deckEdges.top = middle.id;
+
+    [top, middle, bottom].forEach((member) => {
+      member.layout.contentMinHeight = 40;
+      member.layout.totalHeight = 40;
+    });
+    hub._isDerpResizing = true;
+    hub._deckPressureFrameHeightResizeActive = true;
+
+    const graph = { _nodes: [hub, top, middle, bottom] };
+    window.app.graph = graph;
+    window.app.canvas.frame = 12;
+    globalThis.app = window.app;
+
+    applyDeckPressureLayout(hub, graph, 10);
+
+    expect(top.size[1] + middle.size[1] + bottom.size[1]).toBe(380);
+    expect(top.size[1]).toBeGreaterThan(140);
+    expect(middle.size[1]).toBeGreaterThan(110);
+    expect(bottom.size[1]).toBeGreaterThan(90);
+  });
+
+  it('shrinks side-vertical branch live heights during active Deck frame height resize', () => {
+    const hub = makeImageDeck(65, 200, 300, 300);
+    const top = makeNode(66, 100, 100, 140);
+    const middle = makeNode(67, 100, 100, 110);
+    const bottom = makeNode(68, 100, 100, 90);
+
+    hub.properties.deckEdges.left = top.id;
+    top.properties.deckParentId = hub.id;
+    top.properties.deckDockSide = 'left';
+    top.properties.deckEdges.right = hub.id;
+    top.properties.deckEdges.bottom = middle.id;
+    middle.properties.deckParentId = top.id;
+    middle.properties.deckDockSide = 'bottom';
+    middle.properties.deckEdges.top = top.id;
+    middle.properties.deckEdges.bottom = bottom.id;
+    bottom.properties.deckParentId = middle.id;
+    bottom.properties.deckDockSide = 'bottom';
+    bottom.properties.deckEdges.top = middle.id;
+
+    [top, middle, bottom].forEach((member) => {
+      member.layout.contentMinHeight = 40;
+      member.layout.totalHeight = 40;
+    });
+    hub._isDerpResizing = true;
+    hub._deckPressureFrameHeightResizeActive = true;
+
+    const graph = { _nodes: [hub, top, middle, bottom] };
+    window.app.graph = graph;
+    window.app.canvas.frame = 13;
+    globalThis.app = window.app;
+
+    applyDeckPressureLayout(hub, graph, 10);
+
+    expect(top.size[1] + middle.size[1] + bottom.size[1]).toBe(300);
+    expect(top.size[1]).toBeLessThan(140);
+    expect(middle.size[1]).toBeLessThan(110);
+    expect(bottom.size[1]).toBeLessThan(90);
+  });
+
   it('primes every side-vertical branch member when lower seam resize starts', () => {
     const originalCanvas = window.app.canvas.canvas;
     const canvas = document.createElement('canvas');

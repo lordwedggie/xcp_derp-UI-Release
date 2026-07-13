@@ -346,6 +346,7 @@ export function createDerpShield(node) {
             if (pressureHub) {
                 pressureHub._deckPressureVerticalSeamSession = null;
                 pressureHub._deckPressureSideResizeSession = null;
+                delete pressureHub._deckPressureFrameHeightResizeActive;
                 delete pressureHub._deckPressurePreserveFrameBounds;
                 delete pressureHub._deckPressureSideWidthOverrides;
             }
@@ -367,6 +368,7 @@ export function createDerpShield(node) {
             resizeNode._horizontalDeckWidthResizeLock = false;
             resizeNode._horizontalDeckWidthResizeValue = null;
             resizeNode._deckPressureSideResizeMember = false;
+            delete resizeNode._deckPressureFrameHeightResizeActive;
             resizeNode._dockResizePreserveHeight = false;
             resizeNode._dockResizeActiveMembers = null;
         }

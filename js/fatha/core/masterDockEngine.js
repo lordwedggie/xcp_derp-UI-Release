@@ -2605,7 +2605,49 @@ function fitDeckPressureRowWidths(members, targetWidth, snap) {
     return members.map((member) => widths.get(member.id) || quantizeSize(getNodeSizeValue(member, 0), unit));
 }
 
-function fitDeckPressureSideHeights(members, targetHeight, snap) {
+function fitDeckPressureLiveSideHeights(current, mins, expandedIndexes, targetHeight, unit) {
+    const sizes = [...mins];
+    const recipients = expandedIndexes.length > 0 ? expandedIndexes : sizes.map((_, index) => index);
+    const minTotal = mins.reduce((sum, value) => sum + value, 0);
+    const resolvedTarget = Math.max(Number(targetHeight) || 0, minTotal);
+    const flexibleTotal = Math.max(0, resolvedTarget - minTotal);
+    if (flexibleTotal <= 0 || recipients.length === 0) return sizes;
+
+    const currentExtras = recipients.map((index) => Math.max(0, (Number(current[index]) || 0) - (Number(mins[index]) || 0)));
+    const currentExtraTotal = currentExtras.reduce((sum, value) => sum + value, 0);
+    let assignedExtra = 0;
+    recipients.forEach((index, recipientIndex) => {
+        const isLast = recipientIndex === recipients.length - 1;
+        const weight = currentExtraTotal > 0 ? currentExtras[recipientIndex] / currentExtraTotal : 1 / recipients.length;
+        const extra = isLast ? flexibleTotal - assignedExtra : Math.max(0, quantizeSize(flexibleTotal * weight, unit));
+        sizes[index] += extra;
+        assignedExtra += extra;
+    });
+
+    let diff = resolvedTarget - sizes.reduce((sum, value) => sum + value, 0);
+    while (diff !== 0) {
+        const step = diff > 0 ? unit : -unit;
+        let updated = false;
+        for (let i = recipients.length - 1; i >= 0; i -= 1) {
+            const index = recipients[i];
+            const nextValue = sizes[index] + step;
+            if (nextValue < mins[index]) continue;
+            sizes[index] = nextValue;
+            diff -= step;
+            updated = true;
+            if (Math.abs(diff) < unit) {
+                sizes[index] += diff;
+                diff = 0;
+            }
+            if (diff === 0) break;
+        }
+        if (!updated) break;
+    }
+
+    return sizes;
+}
+
+function fitDeckPressureSideHeights(members, targetHeight, snap, options = {}) {
     if (!Array.isArray(members) || members.length === 0) return [];
     const unit = Math.max(1, snap);
     const mins = members.map((member) => quantizeSize(getDeckPressureMinSpanForState(member, "vertical", snap, member.properties?.contentCollapsed === true), unit));
@@ -2618,8 +2660,11 @@ function fitDeckPressureSideHeights(members, targetHeight, snap) {
     const collapsedClampedCurrent = current.map((value, index) => members[index].properties?.contentCollapsed === true ? mins[index] : value);
     const collapsedClampedTotal = collapsedClampedCurrent.reduce((sum, value) => sum + value, 0);
     if (expandedIndexes.length === 0) return mins;
-    if (members.some((member) => member?._isDerpResizing === true) && collapsedClampedTotal <= resolvedTarget + 0.5) {
-        return collapsedClampedCurrent;
+    const preserveLiveHeights = options.preserveLiveHeights === true || members.some((member) => member?._isDerpResizing === true);
+    if (preserveLiveHeights) {
+        if (options.fitLiveTarget === true) return fitDeckPressureLiveSideHeights(collapsedClampedCurrent, mins, expandedIndexes, resolvedTarget, unit);
+        if (collapsedClampedTotal >= resolvedTarget - 0.5) return collapsedClampedCurrent;
+        return fitDeckPressureLiveSideHeights(collapsedClampedCurrent, mins, expandedIndexes, resolvedTarget, unit);
     }
     const now = performance.now?.() || Date.now();
     const hasFreshManualFit = members.some((member) => Number(member?._deckPressureManualBranchFitUntil || 0) > now);
@@ -2744,6 +2789,8 @@ export function computeDeckPressureGeometryPlan(hub, graph, snap = DEFAULT_DECK_
     const centerHeight = arrangement === DECK_ARRANGEMENT_HORIZONTAL ? Math.max(rawHubRect.height, sideMinHeight) : Math.max(rawHubRect.height, sideMinHeight - topHeight - bottomHeight);
     const preservedFrame = normalizeFrameBounds(options.frameBounds || null);
     const frame = preservedFrame || rectFromEdges(rawHubRect.left - leftWidth, rawHubRect.top - topHeight, rawHubRect.left + centerWidth + rightWidth, rawHubRect.top + centerHeight + bottomHeight);
+    const preserveLiveSideHeights = hub?._isDerpResizing === true;
+    const fitLiveSideHeightTarget = hub?._deckPressureFrameHeightResizeActive === true;
     const hubTop = arrangement === DECK_ARRANGEMENT_HORIZONTAL ? rawHubRect.top : frame.top + topHeight;
     const hubBottom = arrangement === DECK_ARRANGEMENT_HORIZONTAL ? rawHubRect.top + rawHubRect.height : frame.bottom - bottomHeight;
     const hubRect = preservedFrame ? rectFromEdges(frame.left + leftWidth, hubTop, frame.right - rightWidth, hubBottom) : rectFromEdges(rawHubRect.left, rawHubRect.top, rawHubRect.left + centerWidth, rawHubRect.top + centerHeight);
@@ -2759,7 +2806,7 @@ export function computeDeckPressureGeometryPlan(hub, graph, snap = DEFAULT_DECK_
         const band = bands[branch.side];
         let memberRects = [];
         if ((branch.side === "left" || branch.side === "right") && branch.axis === "vertical") {
-            memberRects = makeDeckPressureMemberRects(branch.members, band, "vertical", fitDeckPressureSideHeights(branch.members, band.height, snap));
+            memberRects = makeDeckPressureMemberRects(branch.members, band, "vertical", fitDeckPressureSideHeights(branch.members, band.height, snap, { preserveLiveHeights: preserveLiveSideHeights, fitLiveTarget: fitLiveSideHeightTarget }));
         } else if (branch.side === "left" || branch.side === "right") {
             memberRects = makeDeckPressureMemberRects(branch.members, band, "horizontal", fitDeckPressureRowWidths(branch.members, band.width, snap));
         } else if (branch.axis === "horizontal") {
