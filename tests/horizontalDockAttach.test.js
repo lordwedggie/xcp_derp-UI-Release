@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { getDeckPressureSideHorizontalLockedWidth, getDerpVars, shouldLockDeckPressureSideHorizontalWidth, syncHorizontalDeckHeight } from '../js/fatha/core/fathaHandler.js';
 import { resolveDerpPreferredAutoHeight, resolveDerpPreferredAutoWidth } from '../js/fatha/core/derpHeightPolicy.js';
-import { canResizeDeckPressureSideWidthMember, canResizeHorizontalMemberWidth } from '../js/fatha/core/dockResizeSharedEdges.js';
+import { canResizeDeckPressureSideWidthMember, canResizeHorizontalMemberWidth, canResizeVerticalSharedEdgeHeight } from '../js/fatha/core/dockResizeSharedEdges.js';
 import { syncDockResizePair } from '../js/fatha/core/dockResize.js';
 import { createDerpShield, removeDerpShield, syncDerpShield } from '../js/fatha/core/fathaDOMshield.js';
 import { applyDeckPressureLayout, computeDeckPressureGeometryPlan, deckNodeToLeader, getDeckCornerOverride, getDeckPressureSideHorizontalWidthLock, normalizeDockPair } from '../js/fatha/core/masterDockEngine.js';
@@ -440,6 +440,44 @@ describe('syncHorizontalDeckHeight', () => {
     expect(top.size[1]).toBe(90);
     expect(middle.size[1]).toBe(80);
     expect(bottom.size[1]).toBe(70);
+  });
+
+  it('allows side-vertical Deck Pressure internal seams for preferred auto-height branch nodes', () => {
+    const hub = makeImageDeck(92, 200, 300, 240);
+    const top = makeNode(93, 100, 100, 140);
+    const bottom = makeNode(94, 100, 100, 100);
+
+    hub.properties.deckEdges.left = top.id;
+    top.properties.deckParentId = hub.id;
+    top.properties.deckDockSide = 'left';
+    top.properties.deckEdges.right = hub.id;
+    top.properties.deckEdges.bottom = bottom.id;
+    bottom.properties.deckParentId = top.id;
+    bottom.properties.deckDockSide = 'bottom';
+    bottom.properties.deckEdges.top = top.id;
+
+    [top, bottom].forEach((member) => {
+      member.properties.autoHeight = false;
+      member.properties.deckSavedAutoHeight = true;
+      member.properties._derpPreferredAutoHeight = true;
+    });
+
+    const graph = { _nodes: [hub, top, bottom] };
+    window.app.graph = graph;
+    globalThis.app = window.app;
+
+    expect(canResizeVerticalSharedEdgeHeight(top, graph, 'bottom')).toBe(true);
+    expect(canResizeVerticalSharedEdgeHeight(bottom, graph, 'top')).toBe(true);
+
+    const ordinaryTop = makeNode(95, 0, 100, 120);
+    const ordinaryBottom = makeNode(96, 0, 100, 80);
+    ordinaryTop.properties.autoHeight = true;
+    ordinaryBottom.properties.autoHeight = true;
+    ordinaryTop.properties.deckEdges.bottom = ordinaryBottom.id;
+    ordinaryBottom.properties.deckEdges.top = ordinaryTop.id;
+    const ordinaryGraph = { _nodes: [ordinaryTop, ordinaryBottom] };
+
+    expect(canResizeVerticalSharedEdgeHeight(ordinaryTop, ordinaryGraph, 'bottom')).toBe(false);
   });
 
   it('keeps fractional side-vertical branch height aligned to the Deck frame after side width resize', () => {

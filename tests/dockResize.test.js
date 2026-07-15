@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { handleDerpComputeSizeImpl, resolveHorizontalDeckSharedHeightImpl, resolveHorizontalSeamResizeWidths, syncDockResizePair } from '../js/fatha/core/dockResize.js';
 import { getActiveVerticalDeckWidthLock, getActiveVerticalNodeWidthLock } from '../js/fatha/core/dockDimensions.js';
 import { handleNodeResize } from '../js/fatha/core/fathaNodeResize.js';
+import { fatha } from '../js/fatha/fatha.js';
 import { uncle } from '../js/fatha/uncle.js';
 
 function makeNode(id, y, width = 100, height = 100) {
@@ -297,6 +298,50 @@ describe('dock resize live shield sync', () => {
     node.suppressDefaultWidgets = () => {};
     node.syncUncleSlots = () => {};
     node.drawUncleSlots = () => {};
+    node.refreshNodeLayoutMap = () => {};
+    node._isDerpResizing = true;
+    node._dockResizePreserveHeight = true;
+    node._verticalDeckWidthLock = 100;
+    node._verticalDeckWidthLockUntil = (performance.now?.() || Date.now()) + 1200;
+    node._verticalDeckWidthLockExact = true;
+
+    node.onDrawForeground(makeDrawCtx());
+
+    expect(node.size).toEqual([100, 120]);
+    expect(node.properties.nodeSize).toEqual([100, 120]);
+  });
+
+  it('keeps Fatha nodes pinned to vertical stack live resize dimensions during draw', () => {
+    class TestFathaNode {}
+    fatha(TestFathaNode, {}, 40);
+    const node = new TestFathaNode();
+    node.id = 31;
+    node.type = 'xcpDerpFathaTest';
+    node.mode = 0;
+    node.pos = [0, 0];
+    node.size = [100, 120];
+    node.flags = {};
+    node.properties = {
+      autoWidth: true,
+      autoHeight: true,
+      contentCollapsed: false,
+      nodeSize: [100, 120],
+      showInputs: false,
+      showOutputs: false,
+      useAnimations: false,
+    };
+    node.inputs = [];
+    node.outputs = [];
+    node.layout = {
+      contentMinWidth: 180,
+      contentMinHeight: 160,
+      totalHeight: 160,
+      regions: {},
+      compute: () => {},
+    };
+    node.getDerpVars = () => ({ SNAP: 10, autoWidth: true, autoHeight: true });
+    node.setDirtyCanvas = () => {};
+    node.requestDerpSync = () => {};
     node.refreshNodeLayoutMap = () => {};
     node._isDerpResizing = true;
     node._dockResizePreserveHeight = true;

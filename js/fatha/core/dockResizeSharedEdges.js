@@ -116,6 +116,15 @@ export function canResizeVerticalSeamPair(topNode, bottomNode, graph) {
     return canResizeVerticalMemberHeight(topNode, graph) && canResizeVerticalMemberHeight(bottomNode, graph);
 }
 
+function isDeckPressureSideVerticalBranchMember(node, graph) {
+    if (!node || !graph) return false;
+    const pressureHub = getDeckPressureHubForNode(node, graph);
+    if (!pressureHub || pressureHub.id === node.id) return false;
+    const branchSide = getDeckPressureBranchSideForNode(pressureHub, graph, node);
+    if (branchSide !== "left" && branchSide !== "right") return false;
+    return getDeckPressureBranchAxis(pressureHub, graph, branchSide) === "vertical";
+}
+
 export function canResizeHorizontalSharedEdgeWidth(node, graph, side) {
     if (!graph || !node || (side !== "left" && side !== "right")) return false;
     const neighbor = getHorizontalSameRowNeighbor(node, graph, side);
@@ -146,6 +155,7 @@ export function canResizeHorizontalStackWidth(node, graph, side = null) {
 
 export function canResizeVerticalMemberHeight(node, graph) {
     if (node?.properties?.contentCollapsed === true) return false;
+    if (isDeckPressureSideVerticalBranchMember(node, graph)) return true;
     if (resolveDerpPreferredAutoHeight(node)) return false;
     return true;
 }

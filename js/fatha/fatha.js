@@ -780,7 +780,8 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
             : lockedVerticalStackW > 0
                 ? lockedVerticalStackW
                 : ((this._isDerpResizing && (!autoWidth || this._dockResizePreserveHeight === true)) || lockHorizontalDeckResize ? this.size[0] : targetW);
-        const preserveResizeHeight = this._isDerpResizing && (!autoHeight || this._dockResizePreserveHeight === true);
+        const manualHeightFitActive = Number(this._deckPressureManualBranchFitUntil || 0) > (performance.now?.() || Date.now());
+        const preserveResizeHeight = this._isDerpResizing && (!autoHeight || manualHeightFitActive || this._dockResizePreserveHeight === true);
         const liveTargetH = preserveResizeHeight || lockHorizontalDeckResize ? this.size[1] : targetH;
         const preAnimateW = Number(this.size?.[0]) || 0;
         const preAnimateH = Number(this.size?.[1]) || 0;
@@ -811,8 +812,10 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
 
         if (this.properties.nodeSize && !isMinState) {
             if (lockedDeckPressureSideW > 0) this.properties.nodeSize[0] = lockedDeckPressureSideW;
+            else if (lockedVerticalStackW > 0) this.properties.nodeSize[0] = lockedVerticalStackW;
             else if (autoWidth && !shouldPreserveVerticalDeckWidth(this) && !lockHorizontalDeckResize) this.properties.nodeSize[0] = targetW;
-            if (autoHeight) this.properties.nodeSize[1] = preserveHorizontalDeckHeight
+            if (preserveResizeHeight) this.properties.nodeSize[1] = Number(this.size?.[1]) || targetH;
+            else if (autoHeight) this.properties.nodeSize[1] = preserveHorizontalDeckHeight
                 ? (Number(this.size?.[1]) || targetH)
                 : targetH;
         }
