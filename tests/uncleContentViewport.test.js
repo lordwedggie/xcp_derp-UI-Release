@@ -117,4 +117,28 @@ describe('Uncle content viewport drawing', () => {
     expect(node._contentViewportState?.viewportRegion?.hasOverflow).toBe(true);
     expect(ctx.clip).toHaveBeenCalled();
   });
+
+  it('keeps one horizontal pixel of clip bleed on both sides of full-width stroked descendants', async () => {
+    const { withContentViewportClip } = await import('../js/fatha/core/fathaContentViewportDraw.js');
+    const ctx = makeDrawCtx();
+    const node = {
+      _contentViewportState: {
+        viewportRegion: {
+          key: 'viewportRegion',
+          rect: { x: 10, y: 20, w: 100, h: 30 },
+        },
+      },
+      layout: {
+        regions: {
+          viewportRegion: { key: 'viewportRegion' },
+          rowRegion: { key: 'rowRegion', parentKey: 'viewportRegion' },
+        },
+      },
+      _contentViewportScroll: {},
+    };
+
+    withContentViewportClip(ctx, node, 'rowRegion', { x: 10, y: 20, w: 100, h: 20 }, () => {});
+
+    expect(ctx.rect).toHaveBeenCalledWith(9, 20, 102, 30);
+  });
 });

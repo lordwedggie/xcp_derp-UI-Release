@@ -13,6 +13,8 @@ function numberOr(value, fallback = 0) {
     return Number.isFinite(num) ? num : fallback;
 }
 
+const FATHA_CONTENT_VIEWPORT_CLIP_BLEED_X = 1;
+
 export const FATHA_CONTENT_SCROLLBAR_MARGIN_TOP = 0;
 export const FATHA_CONTENT_SCROLLBAR_MARGIN_BOTTOM = 0;
 
@@ -35,10 +37,10 @@ export function withContentViewportClip(ctx, node, regionKey, geometry, drawFn) 
     if (info.hidden) return undefined;
     const region = node?.layout?.regions?.[regionKey];
     const isLineBreak = String(region?.type || "").toLowerCase() === "linebreak";
-    const clipX = isLineBreak ? Math.min(info.clip.x, numberOr(geometry?.x)) : info.clip.x;
+    const clipX = isLineBreak ? Math.min(info.clip.x, numberOr(geometry?.x)) : info.clip.x - FATHA_CONTENT_VIEWPORT_CLIP_BLEED_X;
     const clipW = isLineBreak
         ? Math.max(1, (numberOr(info.clip.x) + numberOr(info.clip.w)) - clipX)
-        : info.clip.w;
+        : info.clip.w + (FATHA_CONTENT_VIEWPORT_CLIP_BLEED_X * 2);
     ctx.save();
     ctx.beginPath();
     ctx.rect(clipX, info.clip.y, clipW, info.clip.h);
