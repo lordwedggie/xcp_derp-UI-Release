@@ -384,6 +384,61 @@ describe('syncHorizontalDeckHeight', () => {
     expect(bottom.size[1]).toBe(40);
   });
 
+  it('keeps lower side-vertical seam heights after the fresh-fit window expires', () => {
+    const hub = makeImageDeck(61, 200, 300, 300);
+    const top = makeNode(62, 100, 100, 140);
+    const middle = makeNode(63, 100, 100, 80);
+    const bottom = makeNode(64, 100, 100, 80);
+
+    hub.properties.deckEdges.left = top.id;
+    top.properties.deckParentId = hub.id;
+    top.properties.deckDockSide = 'left';
+    top.properties.deckEdges.right = hub.id;
+    top.properties.deckEdges.bottom = middle.id;
+    middle.properties.deckParentId = top.id;
+    middle.properties.deckDockSide = 'bottom';
+    middle.properties.deckEdges.top = top.id;
+    middle.properties.deckEdges.bottom = bottom.id;
+    bottom.properties.deckParentId = middle.id;
+    bottom.properties.deckDockSide = 'bottom';
+    bottom.properties.deckEdges.top = middle.id;
+
+    [top, middle, bottom].forEach((member) => {
+      member.layout.contentMinHeight = 40;
+      member.layout.totalHeight = 40;
+      member.refreshNodeLayoutMap = () => {
+        if (member._deckPressureMeasuringMinSpan === true) {
+          member.layout.contentMinHeight = 100;
+          member.layout.totalHeight = 100;
+        }
+      };
+    });
+
+    const graph = { _nodes: [hub, top, middle, bottom] };
+    window.app.graph = graph;
+    window.app.canvas.frame = 12;
+    globalThis.app = window.app;
+
+    const result = syncDockResizePair(middle, 'bottom', middle.size[0], 120, 40, 40, 10);
+
+    expect(result.handledAll).toBe(true);
+    expect(top.size[1]).toBe(140);
+    expect(middle.size[1]).toBe(120);
+    expect(bottom.size[1]).toBe(40);
+
+    [top, middle, bottom].forEach((member) => {
+      member._deckPressureManualBranchFitUntil = 0;
+      member._isDerpResizing = false;
+      member._dockResizePreserveHeight = false;
+    });
+
+    applyDeckPressureLayout(hub, graph, 10);
+
+    expect(top.size[1]).toBe(140);
+    expect(middle.size[1]).toBe(120);
+    expect(bottom.size[1]).toBe(40);
+  });
+
   it('preserves side-vertical branch auto-height preference and heights during Deck side width resize', () => {
     const hub = makeImageDeck(69, 200, 300, 320);
     const top = makeNode(70, 100, 100, 90);

@@ -953,6 +953,12 @@ function applyVerticalStackSharedEdgeResize(entity, resizeAnchor, requestedEntit
     markManualDeckPressureBranchFit(members);
     normalizeVerticalMemberPositions(topNode, graph);
     if (pressureContext) {
+        setDeckPressureSideVerticalHeightCache(
+            pressureContext.pressureHub,
+            pressureContext.branchSide,
+            members,
+            { allowBelowPressureMin: true }
+        );
         pressureContext.pressureHub._deckPressurePreserveFrameBounds = session.frameBounds || frameBefore;
         pressureContext.pressureHub._deckPressureActiveUntil = (performance.now?.() || Date.now()) + 1200;
         applyDeckPressureLayout(pressureContext.pressureHub, graph, snap);

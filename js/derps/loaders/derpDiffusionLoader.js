@@ -3,6 +3,9 @@ import { fatha, initDerpGlobalListener } from "../../fatha/fatha.js";
 import { initDerpDiffusionLoaderCore } from "./core/derpDiffusionLoader_core.js";
 import { showBastaFileHandler } from "../../fatha/bastas/bastaFileHandler.js";
 import { startStackDrag, updateStackDrag, endStackDrag } from "../../fatha/helpers/fathaDragDrop.js";
+import { resolveDerpPreferredAutoHeight } from "../../fatha/core/derpHeightPolicy.js";
+
+export const DIFFUSION_LOADER_MIN_DISPLAYED_MODEL_ENTRIES = 1;
 
 function tLocale(key, fallback = key) {
     if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
@@ -30,6 +33,60 @@ function stripModelName(name, showFolderNames) {
 
 function getWeightDtypeItems() {
     return ["default", "fp8_e4m3fn", "fp8_e4m3fn_fast", "fp8_e5m2"];
+}
+
+function getRegionBottom(reg) {
+    if (!reg) return 0;
+    const marginB = Array.isArray(reg.margin) ? (reg.margin.length === 4 ? (reg.margin[3] || 0) : (reg.margin[1] || 0)) : 0;
+    return (Number(reg.y) || 0) + (Number(reg.h) || 0) + marginB;
+}
+
+export function getDiffusionLoaderDeckRows(regions = {}) {
+    return Object.entries(regions)
+        .filter(([key, reg]) => reg && reg.parentKey === "regionDiffusionDeck" && key.startsWith("diffusionRow_"))
+        .map(([key, reg]) => ({ key, reg }))
+        .sort((a, b) => (Number(a.reg.y) || 0) - (Number(b.reg.y) || 0));
+}
+
+export function getDiffusionLoaderDeckRowsSpan(entries, region = null, count = entries.length) {
+    const visible = entries.slice(0, Math.max(0, count));
+    if (!visible.length) return 0;
+    const top = Number(region?.y) || Number(visible[0].reg.y) || 0;
+    const bottom = Math.max(...visible.map(({ reg }) => getRegionBottom(reg)));
+    return bottom > top ? bottom - top : 0;
+}
+
+export function resolveDiffusionLoaderDeckMinClipHeight(node, region, regions = {}) {
+    const deckRows = getDiffusionLoaderDeckRows(regions);
+    if (!deckRows.length) return 0;
+    const floorRows = Math.min(deckRows.length, DIFFUSION_LOADER_MIN_DISPLAYED_MODEL_ENTRIES);
+    return getDiffusionLoaderDeckRowsSpan(deckRows, region, floorRows) || Number(region?.h) || 0;
+}
+
+export function resolveDiffusionLoaderDeckClipHeight(node, region, regions = {}) {
+    const deckRows = getDiffusionLoaderDeckRows(regions);
+    if (!deckRows.length) return 0;
+
+    const minClipHeight = resolveDiffusionLoaderDeckMinClipHeight(node, region, regions);
+    const fullContentHeight = getDiffusionLoaderDeckRowsSpan(deckRows, region);
+    const regionY = Number(region?.y) || 0;
+    const loaderTop = Number(regions.loaderRegion?.y);
+    const vars = typeof node?.getDerpVars === "function" ? node.getDerpVars(node) : null;
+    const viewportGap = Math.max(0, Number(vars?.mH || 0));
+    const nodeH = Number(node?.size?.[1] || node?.properties?.nodeSize?.[1] || 0);
+    const footer = regions.footerRegion || regions.systemBtn;
+    const footerH = footer ? Math.max(0, getRegionBottom(footer) - (Number(footer.y) || 0)) : 0;
+    const physicalAvailable = nodeH > 0 ? nodeH - regionY - footerH - viewportGap : 0;
+    let available = loaderTop > regionY ? loaderTop - regionY - viewportGap : 0;
+    if (physicalAvailable > 0) available = available > 0 ? Math.min(available, physicalAvailable) : physicalAvailable;
+
+    if (!(available > 0)) {
+        available = physicalAvailable;
+    }
+
+    if (!(available > 0)) return minClipHeight;
+    const clipped = fullContentHeight > 0 ? Math.min(fullContentHeight, available) : available;
+    return Math.max(minClipHeight, clipped);
 }
 
 function buildDeckRegions(node, deck, deckKey, rowPrefix, togglePrefix, removePrefix, removeDialogKey) {
@@ -220,7 +277,9 @@ app.registerExtension({
             const diffusionDeck = this.properties.diffusionDeck || [];
             const diffusionList = this._diffusionList || [];
             const deckHash = diffusionDeck.map(m => `${m.name}:${m.active}`).join("|");
-            const structureHash = `${deckHash}_${diffusionList.join("|")}_${this.properties.weightDtype}_${this.properties.settingActive ? 1 : 0}_${this.properties.showFolderNames}_${window._xcpDerpSession}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}_${mW}_${mH}_${this._dropPreviewIdx}_${this._dragTrig?.index}_${this._dragThresholdMet}_${this._dragMouse?.join(",")}_${this._dragDeckKey}`;
+            const isManualHeightMode = !resolveDerpPreferredAutoHeight(this);
+            const useDiffusionDeckViewport = isManualHeightMode && diffusionDeck.length > 0;
+            const structureHash = `${deckHash}_${diffusionList.join("|")}_${this.properties.weightDtype}_${this.properties.settingActive ? 1 : 0}_${this.properties.showFolderNames}_${isManualHeightMode ? 1 : 0}_${window._xcpDerpSession}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}_${mW}_${mH}_${this._dropPreviewIdx}_${this._dragTrig?.index}_${this._dragThresholdMet}_${this._dragMouse?.join(",")}_${this._dragDeckKey}`;
             if (this._layoutMapHash === structureHash && this.layoutMap) {
                 this.requestDerpSync();
                 return;
@@ -240,6 +299,9 @@ app.registerExtension({
                     margin: [mW, mH, mW, 0],
                     regionDiffusionDeck: {
                         width: "full", height: "auto", dir: "col", spacing: [0, sH],
+                        scrollViewport: useDiffusionDeckViewport,
+                        clipHeight: resolveDiffusionLoaderDeckClipHeight,
+                        minClipHeight: resolveDiffusionLoaderDeckMinClipHeight,
                         hidden: diffusionDeck.length === 0,
                         margin: [0, 0, 0, mH],
                         ...diffusionRegions

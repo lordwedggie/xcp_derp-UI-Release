@@ -2478,7 +2478,8 @@ function clearDeckPressureSideVerticalWidthCache(hub, side = null) {
 
 function getDeckPressureSideVerticalHeightCache(hub, side, members = []) {
     if (!isDeckPressureHub(hub) || (side !== "left" && side !== "right")) return null;
-    const cached = hub?._deckPressureSideVerticalHeights?.[side];
+    const rawCache = hub?._deckPressureSideVerticalHeights?.[side];
+    const cached = Array.isArray(rawCache) ? rawCache : rawCache?.entries;
     if (!Array.isArray(cached) || cached.length !== members.length) return null;
     const heights = [];
     for (let index = 0; index < members.length; index += 1) {
@@ -2489,17 +2490,23 @@ function getDeckPressureSideVerticalHeightCache(hub, side, members = []) {
         if (!(height > 0)) return null;
         heights.push(height);
     }
-    return heights;
+    return {
+        heights,
+        allowBelowPressureMin: rawCache?.allowBelowPressureMin === true,
+    };
 }
 
-export function setDeckPressureSideVerticalHeightCache(hub, side, members = []) {
+export function setDeckPressureSideVerticalHeightCache(hub, side, members = [], options = {}) {
     if (!isDeckPressureHub(hub) || (side !== "left" && side !== "right") || !Array.isArray(members) || members.length === 0) return;
     const heights = members
         .filter(Boolean)
         .map((member) => ({ id: member.id, height: getNodeSizeValue(member, 1) }));
     if (heights.length !== members.length || heights.some((entry) => !(entry.height > 0))) return;
     if (!hub._deckPressureSideVerticalHeights) hub._deckPressureSideVerticalHeights = {};
-    hub._deckPressureSideVerticalHeights[side] = heights;
+    hub._deckPressureSideVerticalHeights[side] = {
+        entries: heights,
+        allowBelowPressureMin: options.allowBelowPressureMin === true,
+    };
 }
 
 function clearDeckPressureSideVerticalHeightCache(hub, side = null) {
@@ -2717,7 +2724,11 @@ function fitDeckPressureSideHeights(members, targetHeight, snap, options = {}) {
         const exactHeights = Array.isArray(options.exactHeights) && options.exactHeights.length === members.length
             ? options.exactHeights.map((value) => Number(value) || 0)
             : collapsedClampedCurrent;
-        const sizes = exactHeights.map((value, index) => Math.max(value, mins[index]));
+        const allowBelowPressureMin = options.allowExactBelowPressureMin === true;
+        const sizes = exactHeights.map((value, index) => {
+            const floor = allowBelowPressureMin && members[index]?.properties?.contentCollapsed !== true ? 1 : mins[index];
+            return Math.max(value, floor);
+        });
         const exactTotal = sizes.reduce((sum, value) => sum + value, 0);
         const exactTarget = Number(targetHeight) || rawTarget;
         const edgeDiff = exactTarget - exactTotal;
@@ -2885,9 +2896,18 @@ export function computeDeckPressureGeometryPlan(hub, graph, snap = DEFAULT_DECK_
         const band = bands[branch.side];
         let memberRects = [];
         if ((branch.side === "left" || branch.side === "right") && branch.axis === "vertical") {
-            const cachedHeights = fitLiveSideHeightTarget ? null : getDeckPressureSideVerticalHeightCache(hub, branch.side, branch.members);
+            const cachedHeightState = fitLiveSideHeightTarget ? null : getDeckPressureSideVerticalHeightCache(hub, branch.side, branch.members);
+            const cachedHeights = cachedHeightState?.heights || null;
             const structuralExtraHeight = arrangement === DECK_ARRANGEMENT_VERTICAL ? topHeight + bottomHeight : 0;
-            memberRects = makeDeckPressureMemberRects(branch.members, band, "vertical", fitDeckPressureSideHeights(branch.members, band.height, snap, { preserveLiveHeights: preserveLiveSideHeights, preserveExactLiveHeights: preserveExactLiveSideHeights || !!cachedHeights, exactHeights: cachedHeights, structuralExtraHeight, fitLiveTarget: fitLiveSideHeightTarget }));
+            const heights = fitDeckPressureSideHeights(branch.members, band.height, snap, {
+                preserveLiveHeights: preserveLiveSideHeights,
+                preserveExactLiveHeights: preserveExactLiveSideHeights || !!cachedHeights,
+                exactHeights: cachedHeights,
+                allowExactBelowPressureMin: cachedHeightState?.allowBelowPressureMin === true,
+                structuralExtraHeight,
+                fitLiveTarget: fitLiveSideHeightTarget,
+            });
+            memberRects = makeDeckPressureMemberRects(branch.members, band, "vertical", heights);
         } else if (branch.side === "left" || branch.side === "right") {
             memberRects = makeDeckPressureMemberRects(branch.members, band, "horizontal", fitDeckPressureRowWidths(branch.members, band.width, snap));
         } else if (branch.axis === "horizontal") {
