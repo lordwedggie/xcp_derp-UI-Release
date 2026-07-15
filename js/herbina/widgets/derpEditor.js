@@ -34,11 +34,15 @@ import {
     snapToScreenGrid
 } from "../utils/widgetsUtils.js";
 import { animateWidgetColors } from "../masterAnimator.js";
+import { DERP_SCROLLBAR_WIDTH, DERP_SCROLLBAR_MIN_THUMB } from "../../fatha/core/fathaContentViewportDraw.js";
 
 const BYPASS_BRIGHTNESS = 0.6;
-const EDITOR_SCROLLBAR_WIDTH = 5;
-const EDITOR_SCROLLBAR_INSET = 3;
-const EDITOR_SCROLLBAR_MIN_THUMB = 18;
+// Right-side inset for the editor scrollbar (inside the widget bounds).
+// The viewport scrollbar sits in an external gutter; the editor has no gutter,
+// so it needs a small right-side offset. Top/bottom margins are 0 to match
+// the viewport scrollbar.
+const EDITOR_SCROLLBAR_RIGHT_INSET = 2;
+const EDITOR_SCROLLBAR_LEFT_MARGIN = 4;
 
 function getDerpEditorSameNodeHit(active, e) {
     const node = active?._nodeRef;
@@ -283,23 +287,28 @@ function clampDerpEditorScroll(node, safeConfig) {
 function drawDerpEditorCanvasScrollbar(ctx, { x, y, w, h, scrollTop, maxScroll, alpha, trackColor, thumbColor }) {
     if (!(maxScroll > 0) || !(w > 0) || !(h > 0)) return;
 
-    const trackX = x + w - EDITOR_SCROLLBAR_WIDTH - EDITOR_SCROLLBAR_INSET;
-    const trackY = y + EDITOR_SCROLLBAR_INSET;
-    const trackH = Math.max(0, h - (EDITOR_SCROLLBAR_INSET * 2));
+    const trackX = x + w - DERP_SCROLLBAR_WIDTH - EDITOR_SCROLLBAR_RIGHT_INSET;
+    const trackY = y;
+    const trackH = Math.max(0, h);
     if (!(trackH > 0)) return;
 
     const contentHeight = h + maxScroll;
     const thumbRatio = Math.max(0, Math.min(1, h / Math.max(h, contentHeight)));
-    const thumbH = Math.min(trackH, Math.max(EDITOR_SCROLLBAR_MIN_THUMB, trackH * thumbRatio));
+    const thumbH = Math.min(trackH, Math.max(DERP_SCROLLBAR_MIN_THUMB, trackH * thumbRatio));
     const thumbTravel = Math.max(0, trackH - thumbH);
     const thumbY = trackY + (thumbTravel * Math.max(0, Math.min(1, scrollTop / maxScroll)));
+    const corners = [DERP_SCROLLBAR_WIDTH / 2, DERP_SCROLLBAR_WIDTH / 2, DERP_SCROLLBAR_WIDTH / 2, DERP_SCROLLBAR_WIDTH / 2];
 
     ctx.save();
     ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
-    ctx.fillStyle = trackColor;
-    ctx.fillRect(trackX, trackY, EDITOR_SCROLLBAR_WIDTH, trackH);
-    ctx.fillStyle = thumbColor;
-    ctx.fillRect(trackX, thumbY, EDITOR_SCROLLBAR_WIDTH, thumbH);
+    masterPainter(ctx, {
+        posX: trackX, posY: trackY, width: DERP_SCROLLBAR_WIDTH, height: trackH,
+        color: trackColor, paintData: { fill: trackColor, corners },
+    });
+    masterPainter(ctx, {
+        posX: trackX, posY: thumbY, width: DERP_SCROLLBAR_WIDTH, height: thumbH,
+        color: thumbColor, paintData: { fill: thumbColor, corners },
+    });
     ctx.restore();
 }
 
@@ -709,7 +718,7 @@ export function syncDerpEditor(context, node, app, config) {
     let cutoffRightPad = isCutoff ? padX : 0;
     if (isMultiline && requestedCanvasShield) {
         const editorScrollbarGap = Math.max(0, Number(node.getDerpVars?.(node)?.sW) || 0);
-        cutoffRightPad = Math.max(cutoffRightPad, EDITOR_SCROLLBAR_WIDTH + EDITOR_SCROLLBAR_INSET + editorScrollbarGap);
+        cutoffRightPad = Math.max(cutoffRightPad, DERP_SCROLLBAR_WIDTH + EDITOR_SCROLLBAR_LEFT_MARGIN + EDITOR_SCROLLBAR_RIGHT_INSET + editorScrollbarGap);
     }
     const textPadX = prefixGlyphText ? Math.max(padX, prefixGlyphPad) : padX;
 

@@ -33,6 +33,7 @@ import {
 } from "../helpers/headerPaletteIdentity.js";
 import { getPulseAlpha } from "../../herbina/masterAnimator.js";
 import { showBastaMessage, closeBastaMessage } from "../bastas/bastaMessage.js";
+import { getContentViewportSignature } from "./fathaContentViewport.js";
 import {
     applyDerpBackgroundImageImpl,
     hydrateDerpBackgroundSettingImpl,
@@ -213,14 +214,35 @@ function getDeckFrameKey(node, members) {
 
 function getDeckGeometrySignature(members = [], value = 0, axis = "horizontal") {
     return (Array.isArray(members) ? members : [])
-        .map((member) => [
-            member?.id,
-            Math.round(Number(member?.pos?.[0]) || 0),
-            Math.round(Number(member?.pos?.[1]) || 0),
-            Math.round(Number(member?.size?.[0] ?? member?.properties?.nodeSize?.[0]) || 0),
-            Math.round(Number(member?.size?.[1] ?? member?.properties?.nodeSize?.[1]) || 0),
-            member?.properties?.contentCollapsed === true ? 1 : 0,
-        ].join(":"))
+        .map((member) => {
+            const pressureExtras = axis === "deck-pressure"
+                ? (() => {
+                    const edges = member?.properties?.deckEdges || {};
+                    return [
+                        member?.properties?.deckParentId ?? "",
+                        member?.properties?.deckDockSide || "",
+                        edges.left ?? "",
+                        edges.right ?? "",
+                        edges.top ?? "",
+                        edges.bottom ?? "",
+                        member?.properties?.deckArrangement || "",
+                        member?._layoutMapHash || "",
+                        Math.round(Number(member?.layout?.contentMinHeight) || 0),
+                        Math.round(Number(member?.layout?.totalHeight) || 0),
+                        getContentViewportSignature(member),
+                    ];
+                })()
+                : [];
+            return [
+                member?.id,
+                Math.round(Number(member?.pos?.[0]) || 0),
+                Math.round(Number(member?.pos?.[1]) || 0),
+                Math.round(Number(member?.size?.[0] ?? member?.properties?.nodeSize?.[0]) || 0),
+                Math.round(Number(member?.size?.[1] ?? member?.properties?.nodeSize?.[1]) || 0),
+                member?.properties?.contentCollapsed === true ? 1 : 0,
+                ...pressureExtras,
+            ].join(":");
+        })
         .join("|") + `|${axis === "vertical" ? "w" : "h"}:${Math.round(Number(value) || 0)}`;
 }
 

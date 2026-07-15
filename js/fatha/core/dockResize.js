@@ -42,6 +42,7 @@ import { dockDebug, isDockDebugEnabled, snapshotDockNode } from "./dockDebugHelp
 import { getVirtualNodeLayoutMap } from "../helpers/fathaLayoutMaps.js";
 import { setDerpNodeSizeCompat } from "./fathaNode2Compat.js";
 import { resolveDerpRuntimeAutoHeight } from "./derpHeightPolicy.js";
+import { preserveContentViewportClipHeightsForResize } from "./fathaContentViewport.js";
 
 globalThis.DERP_DOCK_RESIZE_DEBUG = globalThis.DERP_DOCK_RESIZE_DEBUG === true;
 if (globalThis.DERP_DOCK_RESIZE_DEBUG) globalThis.DERP_DOCK_RESIZE_LOGS = globalThis.DERP_DOCK_RESIZE_LOGS || [];
@@ -840,6 +841,7 @@ export function getVerticalResizeTargetMinHeight(node, snap, options = {}) {
     const hasContentViewport = Object.values(node?._contentViewportState || {}).length > 0;
     // Viewport min floors let Fit Node clipped regions shrink to their declared entry/group minimum.
     const layoutFloor = hasContentViewport
+        && options.ignoreViewportLayoutFloor !== true
         ? (Number(node?.layout?.contentMinHeight) || Number(node?.layout?.totalHeight) || 0)
         : 0;
     const compactMin = Math.ceil(Math.max(totalCompactFloor, layoutFloor, snap * 4) / snap) * snap;
@@ -871,13 +873,17 @@ function getDeckPressureVerticalSideBranchContext(node, graph) {
     const branchSide = getDeckPressureBranchSideForNode(pressureHub, graph, node);
     if (branchSide !== "left" && branchSide !== "right") return null;
     if (getDeckPressureBranchAxis(pressureHub, graph, branchSide) !== "vertical") return null;
-    return { pressureHub, branchSide };
+    const branchMembers = getDeckPressureBranchMembers(pressureHub, graph, branchSide);
+    return { pressureHub, branchSide, branchMembers };
 }
 
 function applyVerticalStackSharedEdgeResize(entity, resizeAnchor, requestedEntityHeight, snap, result, addCounterpart, graph) {
     if (resizeAnchor !== "top" && resizeAnchor !== "bottom") return false;
 
-    const members = getVerticalDeckMembersByY(entity, graph);
+    const pressureContext = getDeckPressureVerticalSideBranchContext(entity, graph);
+    const members = pressureContext?.branchMembers?.length > 1
+        ? pressureContext.branchMembers
+        : getVerticalDeckMembersByY(entity, graph);
     if (members.length <= 1) return false;
 
     const entityIndex = members.findIndex((member) => member.id === entity.id);
@@ -886,8 +892,6 @@ function applyVerticalStackSharedEdgeResize(entity, resizeAnchor, requestedEntit
     const topNode = resizeAnchor === "top" ? members[entityIndex - 1] : entity;
     const bottomNode = resizeAnchor === "top" ? entity : members[entityIndex + 1];
     if (!topNode || !bottomNode) return false;
-    const pressureContext = getDeckPressureVerticalSideBranchContext(entity, graph);
-    const frameBefore = pressureContext ? getDockFrameBounds(getDeckMembers(pressureContext.pressureHub, graph)) : null;
     const sessionOwner = pressureContext?.pressureHub || entity;
     const sessionKey = pressureContext ? "_deckPressureVerticalSeamSession" : "_dockResizeSession";
 
@@ -923,15 +927,18 @@ function applyVerticalStackSharedEdgeResize(entity, resizeAnchor, requestedEntit
             bottomNodeId: bottomNode.id,
             topStartH: getDockNodeHeight(topNode),
             bottomStartH: getDockNodeHeight(bottomNode),
-            frameBounds: frameBefore,
+            frameBounds: null,
             memberIds: members.map((member) => member.id),
         };
     }
 
     const session = sessionOwner[sessionKey];
     const totalHeight = (Number(session.topStartH) || getDockNodeHeight(topNode)) + (Number(session.bottomStartH) || getDockNodeHeight(bottomNode));
-    const topMinH = getVerticalResizeTargetMinHeight(topNode, snap, { preserveExpandedFloor: true });
-    const bottomMinH = getVerticalResizeTargetMinHeight(bottomNode, snap, { preserveExpandedFloor: true });
+    const minHeightOptions = pressureContext
+        ? { preserveExpandedFloor: false, ignoreViewportLayoutFloor: true }
+        : { preserveExpandedFloor: true };
+    const topMinH = getVerticalResizeTargetMinHeight(topNode, snap, minHeightOptions);
+    const bottomMinH = getVerticalResizeTargetMinHeight(bottomNode, snap, minHeightOptions);
     if (totalHeight < topMinH + bottomMinH) {
         result.handledHeight = true;
         result.handledAll = true;
@@ -949,6 +956,11 @@ function applyVerticalStackSharedEdgeResize(entity, resizeAnchor, requestedEntit
     const adjustedTopH = topNode.id === entity.id ? draggedHeight : counterpartHeight;
     const adjustedBottomH = bottomNode.id === entity.id ? draggedHeight : counterpartHeight;
 
+    if (pressureContext && !session.frameBounds) {
+        const pressurePlanBefore = computeDeckPressureGeometryPlan(pressureContext.pressureHub, graph, snap);
+        session.frameBounds = pressurePlanBefore?.frame || getDockFrameBounds(getDeckMembers(pressureContext.pressureHub, graph));
+    }
+
     syncDeckNodeSize(topNode, getVerticalStackLiveResizeWidth(topNode), adjustedTopH, { silent: true, deferDirty: true, deferSync: true, liveResize: true });
     syncDeckNodeSize(bottomNode, getVerticalStackLiveResizeWidth(bottomNode), adjustedBottomH, { silent: true, deferDirty: true, deferSync: true, liveResize: true });
     rememberExpandedDeckHeight(topNode, adjustedTopH);
@@ -962,7 +974,7 @@ function applyVerticalStackSharedEdgeResize(entity, resizeAnchor, requestedEntit
             members,
             { allowBelowPressureMin: true }
         );
-        pressureContext.pressureHub._deckPressurePreserveFrameBounds = session.frameBounds || frameBefore;
+        pressureContext.pressureHub._deckPressurePreserveFrameBounds = session.frameBounds || getDockFrameBounds(getDeckMembers(pressureContext.pressureHub, graph));
         pressureContext.pressureHub._deckPressureActiveUntil = (performance.now?.() || Date.now()) + 1200;
         applyDeckPressureLayout(pressureContext.pressureHub, graph, snap);
     }
@@ -1453,6 +1465,7 @@ function applyDeckPressureSideWidthResize(entity, resizeAnchor, requestedEntityW
 
     const branchMembers = getDeckPressureBranchMembers(pressureHub, graph, branchSide);
     if (!branchMembers.length) return false;
+    branchMembers.forEach((member) => preserveContentViewportClipHeightsForResize(member));
 
     const planBefore = computeDeckPressureGeometryPlan(pressureHub, graph, snap);
     const frameBefore = planBefore?.frame || null;

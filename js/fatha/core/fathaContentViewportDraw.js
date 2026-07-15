@@ -1,4 +1,5 @@
 import { masterPainter } from "../../herbina/masterPainter.js";
+import { resolvePaintData } from "../../herbina/utils/widgetsUtils.js";
 import {
     FATHA_CONTENT_SCROLLBAR_BACKGROUND_WIDTH,
     FATHA_CONTENT_SCROLLBAR_MIN_THUMB,
@@ -17,6 +18,23 @@ const FATHA_CONTENT_VIEWPORT_CLIP_BLEED_X = 1;
 
 export const FATHA_CONTENT_SCROLLBAR_MARGIN_TOP = 0;
 export const FATHA_CONTENT_SCROLLBAR_MARGIN_BOTTOM = 0;
+
+// Unified scrollbar visual constants — shared with derpEditor.js
+// These match the original viewport scrollbar geometry.
+export const DERP_SCROLLBAR_WIDTH = FATHA_CONTENT_SCROLLBAR_WIDTH; // 2
+export const DERP_SCROLLBAR_MIN_THUMB = FATHA_CONTENT_SCROLLBAR_MIN_THUMB; // 14
+
+// Fallback colors when theme resolution is unavailable
+const DERP_SCROLLBAR_FALLBACK_TRACK = "rgba(0,0,0,0.24)";
+const DERP_SCROLLBAR_FALLBACK_THUMB = "rgba(255,255,255,0.45)";
+
+function resolveScrollbarThemeColors(node) {
+    const regionPaint = resolvePaintData(node, "region", "");
+    const textPaint = resolvePaintData(node, "t_textSystem", "");
+    const trackColor = regionPaint?.fill || DERP_SCROLLBAR_FALLBACK_TRACK;
+    const thumbColor = textPaint?.textColor || textPaint?.fill || DERP_SCROLLBAR_FALLBACK_THUMB;
+    return { trackColor, thumbColor };
+}
 
 export function getContentViewportDrawInfo(node, regionKey, geometry) {
     const state = getContentViewportForRegion(node, regionKey);
@@ -66,6 +84,7 @@ export function getContentViewportGeometry(node, regionKey, geometry) {
 export function drawContentViewportScrollbars(ctx, node) {
     const states = Object.values(node?._contentViewportState || {});
     if (!states.length || !ctx) return;
+    const { trackColor, thumbColor } = resolveScrollbarThemeColors(node);
     states.forEach((state) => {
         if (!state?.hasOverflow || !state.rect) return;
         const rect = state.rect;
@@ -87,16 +106,16 @@ export function drawContentViewportScrollbars(ctx, node) {
             posY: trackY,
             width: trackW,
             height: trackH,
-            color: "rgba(0,0,0,0.24)",
-            paintData: { fill: "rgba(0,0,0,0.24)", corners: trackCorners },
+            color: trackColor,
+            paintData: { fill: trackColor, corners: trackCorners },
         });
         masterPainter(ctx, {
             posX: thumbX,
             posY: thumbY,
             width: FATHA_CONTENT_SCROLLBAR_WIDTH,
             height: thumbH,
-            color: "rgba(255,255,255,0.45)",
-            paintData: { fill: "rgba(255,255,255,0.45)", corners: thumbCorners },
+            color: thumbColor,
+            paintData: { fill: thumbColor, corners: thumbCorners },
         });
 
         if (isContentViewportDebugEnabled()) {

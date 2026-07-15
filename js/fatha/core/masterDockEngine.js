@@ -14,6 +14,7 @@ import { setDerpNodeSizeCompat } from "./fathaNode2Compat.js";
 import { masterPainter } from "../../herbina/masterPainter.js";
 import { DEFAULT_PULSE_SPEED, getPulsedColor, parseColor } from "../../herbina/masterAnimator.js";
 import { resolveSystemThemeFill, resolveSystemThemePaint } from "../helpers/fathaSystemTheme.js";
+import { getContentViewportSignature } from "./fathaContentViewport.js";
 
 const DEFAULT_DECK_SNAP = 10;
 const DEFAULT_DECK_RADIUS = 48;
@@ -1767,6 +1768,10 @@ function forceDockResizeRefresh(node) {
 function applyDeckPressureAfterDock(hubCandidate, graph, snap = DEFAULT_DECK_SNAP) {
     const pressureHub = getDeckPressureHubForNode(hubCandidate, graph);
     if (!pressureHub) return [];
+    pressureHub._deckPressureActiveUntil = Math.max(
+        Number(pressureHub._deckPressureActiveUntil) || 0,
+        (performance.now?.() || Date.now()) + 800
+    );
     return applyDeckPressureLayout(pressureHub, graph, snap);
 }
 
@@ -2315,6 +2320,9 @@ function getDeckPressureMinSpanForState(node, axis, snap, collapsed) {
         collapsed ? 1 : 0,
         snap,
         Math.round(getNodeSizeValue(node, 0)),
+        Math.round(Number(node?.layout?.contentMinHeight) || 0),
+        Math.round(Number(node?.layout?.totalHeight) || 0),
+        getContentViewportSignature(node),
         node._layoutMapHash || "",
     ].join(":");
     if (!(node._deckPressureMinCache instanceof Map)) node._deckPressureMinCache = new Map();
@@ -2712,6 +2720,52 @@ function applyDeckPressureSideEdgeRemainder(sizes, mins, expandedIndexes, target
     return sizes;
 }
 
+function hasScrollViewportConfig(config, seen = new Set()) {
+    if (!config || typeof config !== "object" || seen.has(config)) return false;
+    seen.add(config);
+    if (config.scrollViewport === true) return true;
+    return Object.values(config).some((value) => (
+        value && typeof value === "object" && !Array.isArray(value) && hasScrollViewportConfig(value, seen)
+    ));
+}
+
+function hasDeckPressureViewportHeightLock(member) {
+    if (!member || member.properties?.contentCollapsed === true) return false;
+    if (member._contentViewportCandidate === true) return true;
+    const states = Object.values(member._contentViewportState || {});
+    if (states.some((state) => Number(state?.clipHeight) > 0 || Number(state?.minClipHeight) > 0)) return true;
+    if (Object.values(member.layout?.regions || {}).some((region) => region?._contentViewport === true || region?.scrollViewport === true)) return true;
+    return hasScrollViewportConfig(member.layoutMap);
+}
+
+function fitDeckPressureExactSideHeightsToTarget(sizes, mins, expandedIndexes, targetHeight, viewportLockedIndexSet) {
+    const target = Number(targetHeight) || 0;
+    const adjusted = [...sizes];
+    let diff = target - adjusted.reduce((sum, value) => sum + (Number(value) || 0), 0);
+    if (Math.abs(diff) <= 0.5 || !expandedIndexes.length) return adjusted;
+
+    const preferredRecipients = expandedIndexes.filter((index) => !viewportLockedIndexSet.has(index));
+    const growRecipients = preferredRecipients.length > 0 ? preferredRecipients : expandedIndexes;
+    if (diff > 0) {
+        adjusted[growRecipients[growRecipients.length - 1]] += diff;
+        return adjusted;
+    }
+
+    const shrinkFrom = (indexes) => {
+        for (let i = indexes.length - 1; i >= 0 && diff < -0.5; i -= 1) {
+            const index = indexes[i];
+            const removable = Math.max(0, adjusted[index] - (mins[index] || 0));
+            if (removable <= 0) continue;
+            const delta = Math.min(removable, -diff);
+            adjusted[index] -= delta;
+            diff += delta;
+        }
+    };
+    shrinkFrom(preferredRecipients);
+    if (diff < -0.5) shrinkFrom(expandedIndexes);
+    return adjusted;
+}
+
 function fitDeckPressureSideHeights(members, targetHeight, snap, options = {}) {
     if (!Array.isArray(members) || members.length === 0) return [];
     const unit = Math.max(1, snap);
@@ -2726,6 +2780,11 @@ function fitDeckPressureSideHeights(members, targetHeight, snap, options = {}) {
     const collapsedClampedCurrent = current.map((value, index) => members[index].properties?.contentCollapsed === true ? mins[index] : value);
     const collapsedClampedTotal = collapsedClampedCurrent.reduce((sum, value) => sum + value, 0);
     if (expandedIndexes.length === 0) return mins;
+    const viewportLockedIndexSet = new Set(
+        options.fitLiveTarget === true
+            ? []
+            : expandedIndexes.filter((index) => hasDeckPressureViewportHeightLock(members[index]))
+    );
     const alignSideEdge = (sizes) => applyDeckPressureSideEdgeRemainder(sizes, mins, expandedIndexes, targetHeight, unit);
     if (options.preserveExactLiveHeights === true) {
         const exactHeights = Array.isArray(options.exactHeights) && options.exactHeights.length === members.length
@@ -2743,13 +2802,20 @@ function fitDeckPressureSideHeights(members, targetHeight, snap, options = {}) {
         const structuralExtra = Math.max(0, Number(options.structuralExtraHeight) || 0);
         const shouldFillStructuralExtra = edgeDiff > 0.5 && structuralExtra > 0 && Math.abs(edgeDiff - structuralExtra) <= edgeCorrectionLimit;
         if (Math.abs(edgeDiff) > 0.5 && (Math.abs(edgeDiff) <= edgeCorrectionLimit || shouldFillStructuralExtra)) {
-            for (let i = expandedIndexes.length - 1; i >= 0; i -= 1) {
-                const index = expandedIndexes[i];
+            const edgeRecipients = viewportLockedIndexSet.size > 0
+                ? expandedIndexes.filter((index) => !viewportLockedIndexSet.has(index))
+                : expandedIndexes;
+            const recipients = edgeRecipients.length ? edgeRecipients : expandedIndexes;
+            for (let i = recipients.length - 1; i >= 0; i -= 1) {
+                const index = recipients[i];
                 const nextHeight = sizes[index] + edgeDiff;
                 if (nextHeight < mins[index]) continue;
                 sizes[index] = nextHeight;
                 break;
             }
+        }
+        if (viewportLockedIndexSet.size > 0) {
+            return fitDeckPressureExactSideHeightsToTarget(sizes, mins, expandedIndexes, exactTarget, viewportLockedIndexSet);
         }
         return sizes;
     }
@@ -2776,10 +2842,13 @@ function fitDeckPressureSideHeights(members, targetHeight, snap, options = {}) {
     const wantsFreshActiveGrowth = freshActiveIndex >= 0 && hasFreshActiveSavedHeight;
     if (!wantsFreshActiveGrowth && Math.abs(collapsedClampedTotal - resolvedTarget) <= 0.5 && collapsedClampedCurrent.every((value, index) => value >= mins[index])) return alignSideEdge(collapsedClampedCurrent);
     const sizes = [...mins];
-    let extra = resolvedTarget - minTotal;
+    viewportLockedIndexSet.forEach((index) => {
+        sizes[index] = Math.max(collapsedClampedCurrent[index], mins[index]);
+    });
+    let extra = resolvedTarget - sizes.reduce((sum, value) => sum + value, 0);
     if (extra <= 0) return alignSideEdge(sizes);
 
-    if (freshActiveIndex >= 0) {
+    if (freshActiveIndex >= 0 && !viewportLockedIndexSet.has(freshActiveIndex)) {
         const preferredHeight = quantizeSize(getDeckPressurePreferredExpandedHeight(members[freshActiveIndex], mins[freshActiveIndex]), unit);
         const preferredExtra = Math.max(0, preferredHeight - mins[freshActiveIndex]);
         const activeExtra = Math.min(extra, hasFreshActiveSavedHeight ? preferredExtra : (preferredExtra > 0 ? preferredExtra : extra));
@@ -2788,9 +2857,10 @@ function fitDeckPressureSideHeights(members, targetHeight, snap, options = {}) {
         if (extra <= 0.5) return alignSideEdge(sizes);
     }
 
-    const recipients = expandedIndexes.filter((index) => index !== freshActiveIndex);
+    const recipients = expandedIndexes.filter((index) => index !== freshActiveIndex && !viewportLockedIndexSet.has(index));
     if (recipients.length === 0) {
-        if (freshActiveIndex >= 0) sizes[freshActiveIndex] += extra;
+        const fallbackIndex = freshActiveIndex >= 0 ? freshActiveIndex : expandedIndexes[expandedIndexes.length - 1];
+        if (fallbackIndex >= 0) sizes[fallbackIndex] += extra;
         return alignSideEdge(sizes);
     }
     const currentExtras = recipients.map((index) => Math.max(0, getNodeSizeValue(members[index], 1) - mins[index]));

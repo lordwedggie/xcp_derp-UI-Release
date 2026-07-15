@@ -7,6 +7,9 @@ import { fatha, initDerpGlobalListener } from "../../fatha/fatha.js";
 import { initDerpSamplerLoaderCore } from "./core/derpSamplerLoader_core.js";
 import { showBastaFileHandler } from "../../fatha/bastas/bastaFileHandler.js";
 import { startStackDrag, updateStackDrag, endStackDrag } from "../../fatha/helpers/fathaDragDrop.js";
+import { resolveDerpPreferredAutoHeight } from "../../fatha/core/derpHeightPolicy.js";
+
+export const SAMPLER_LOADER_MIN_DISPLAYED_SAMPLER_ENTRIES = 1;
 
 function tLocale(key, fallback = key) {
     if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
@@ -17,6 +20,60 @@ function tLocale(key, fallback = key) {
         if (target === undefined) return fallback;
     }
     return target;
+}
+
+function getRegionBottom(reg) {
+    if (!reg) return 0;
+    const marginB = Array.isArray(reg.margin) ? (reg.margin.length === 4 ? (reg.margin[3] || 0) : (reg.margin[1] || 0)) : 0;
+    return (Number(reg.y) || 0) + (Number(reg.h) || 0) + marginB;
+}
+
+export function getSamplerLoaderDeckRows(regions = {}) {
+    return Object.entries(regions)
+        .filter(([key, reg]) => reg && reg.parentKey === "regionSamplerDeck" && key.startsWith("samplerRow_"))
+        .map(([key, reg]) => ({ key, reg }))
+        .sort((a, b) => (Number(a.reg.y) || 0) - (Number(b.reg.y) || 0));
+}
+
+export function getSamplerLoaderDeckRowsSpan(entries, region = null, count = entries.length) {
+    const visible = entries.slice(0, Math.max(0, count));
+    if (!visible.length) return 0;
+    const top = Number(region?.y) || Number(visible[0].reg.y) || 0;
+    const bottom = Math.max(...visible.map(({ reg }) => getRegionBottom(reg)));
+    return bottom > top ? bottom - top : 0;
+}
+
+export function resolveSamplerLoaderDeckMinClipHeight(node, region, regions = {}) {
+    const deckRows = getSamplerLoaderDeckRows(regions);
+    if (!deckRows.length) return 0;
+    const floorRows = Math.min(deckRows.length, SAMPLER_LOADER_MIN_DISPLAYED_SAMPLER_ENTRIES);
+    return getSamplerLoaderDeckRowsSpan(deckRows, region, floorRows) || Number(region?.h) || 0;
+}
+
+export function resolveSamplerLoaderDeckClipHeight(node, region, regions = {}) {
+    const deckRows = getSamplerLoaderDeckRows(regions);
+    if (!deckRows.length) return 0;
+
+    const minClipHeight = resolveSamplerLoaderDeckMinClipHeight(node, region, regions);
+    const fullContentHeight = getSamplerLoaderDeckRowsSpan(deckRows, region);
+    const regionY = Number(region?.y) || 0;
+    const loaderTop = Number(regions.loaderRegion?.y);
+    const vars = typeof node?.getDerpVars === "function" ? node.getDerpVars(node) : null;
+    const viewportGap = Math.max(0, Number(vars?.mH || 0));
+    const nodeH = Number(node?.size?.[1] || node?.properties?.nodeSize?.[1] || 0);
+    const footer = regions.footerRegion || regions.systemBtn;
+    const footerH = footer ? Math.max(0, getRegionBottom(footer) - (Number(footer.y) || 0)) : 0;
+    const physicalAvailable = nodeH > 0 ? nodeH - regionY - footerH - viewportGap : 0;
+    let available = loaderTop > regionY ? loaderTop - regionY - viewportGap : 0;
+    if (physicalAvailable > 0) available = available > 0 ? Math.min(available, physicalAvailable) : physicalAvailable;
+
+    if (!(available > 0)) {
+        available = physicalAvailable;
+    }
+
+    if (!(available > 0)) return minClipHeight;
+    const clipped = fullContentHeight > 0 ? Math.min(fullContentHeight, available) : available;
+    return Math.max(minClipHeight, clipped);
 }
 
 app.registerExtension({
@@ -49,7 +106,9 @@ app.registerExtension({
             const deck = this.properties.samplerDeck || [];
             const samplerList = this._samplerList || [];
             const deckHash = deck.map(m => `${m.name}:${m.active}`).join("|");
-            const structureHash = `${deckHash}_${samplerList.join("|")}_${window._xcpDerpSession}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}_${mW}_${mH}_${this._dropPreviewIdx}_${this._dragTrig?.index}_${this._dragThresholdMet}_${this._dragMouse?.join(",")}`;
+            const isManualHeightMode = !resolveDerpPreferredAutoHeight(this);
+            const useSamplerDeckViewport = isManualHeightMode && deck.length > 0;
+            const structureHash = `${deckHash}_${samplerList.join("|")}_${isManualHeightMode ? 1 : 0}_${window._xcpDerpSession}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}_${mW}_${mH}_${this._dropPreviewIdx}_${this._dragTrig?.index}_${this._dragThresholdMet}_${this._dragMouse?.join(",")}`;
 
             if (this._layoutMapHash === structureHash && this.layoutMap) {
                 this.requestDerpSync();
@@ -224,6 +283,9 @@ app.registerExtension({
                     margin: [mW, mH, mW, 0],
                     regionSamplerDeck: {
                         width: "full", height: "auto", dir: "col", spacing: [0, sH],
+                        scrollViewport: useSamplerDeckViewport,
+                        clipHeight: resolveSamplerLoaderDeckClipHeight,
+                        minClipHeight: resolveSamplerLoaderDeckMinClipHeight,
                         hidden: deck.length === 0,
                         margin: [0, 0, 0, mH],
                         ...deckRegions
