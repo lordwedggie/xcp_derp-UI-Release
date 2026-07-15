@@ -4,3 +4,7 @@ python/__pycache__/
 *.pyc
 %SystemDrive%/
 .agents/
+.hermes/
+_external/
+node_modules/
+derp_docs/.obsidian/
