@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { getDeckPressureSideHorizontalLockedWidth, getDerpVars, shouldLockDeckPressureSideHorizontalWidth, syncHorizontalDeckHeight } from '../js/fatha/core/fathaHandler.js';
+import { getDeckPressureSideHorizontalLockedWidth, getDerpVars, resolveDerpRuntimeSize, shouldLockDeckPressureSideHorizontalWidth, syncHorizontalDeckHeight } from '../js/fatha/core/fathaHandler.js';
 import { resolveDerpPreferredAutoHeight, resolveDerpPreferredAutoWidth } from '../js/fatha/core/derpHeightPolicy.js';
 import { canResizeDeckPressureSideWidthMember, canResizeHorizontalMemberWidth, canResizeVerticalSharedEdgeHeight } from '../js/fatha/core/dockResizeSharedEdges.js';
 import { syncDockResizePair } from '../js/fatha/core/dockResize.js';
@@ -272,6 +272,37 @@ describe('syncHorizontalDeckHeight', () => {
     expect(hub.pos[0]).toBe(200);
   });
 
+  it('keeps side-vertical runtime width pinned to the Deck side band after clipped content widens', () => {
+    const hub = makeImageDeck(43, 200, 300, 220);
+    const top = makeNode(44, 100, 100, 90);
+    const bottom = makeNode(45, 100, 100, 130);
+
+    hub.properties.deckEdges.left = top.id;
+    top.properties.deckParentId = hub.id;
+    top.properties.deckDockSide = 'left';
+    top.properties.deckEdges.right = hub.id;
+    top.properties.deckEdges.bottom = bottom.id;
+    bottom.properties.deckParentId = top.id;
+    bottom.properties.deckDockSide = 'bottom';
+    bottom.properties.deckEdges.top = top.id;
+
+    const graph = { _nodes: [hub, top, bottom] };
+    window.app.graph = graph;
+    window.app.canvas.frame = 6;
+    globalThis.app = window.app;
+
+    applyDeckPressureLayout(hub, graph, 10);
+
+    top.layout.contentMinWidth = 180;
+    const resolved = resolveDerpRuntimeSize(top, {
+      contentMinWidth: top.layout.contentMinWidth,
+      contentMinHeight: top.layout.contentMinHeight,
+      totalHeight: top.layout.totalHeight,
+    }, { SNAP: 10, autoWidth: false, autoHeight: false });
+
+    expect(resolved.width).toBe(100);
+  });
+
   it('reapplies Deck Pressure layout during side-vertical internal seam resize', () => {
     const hub = makeImageDeck(46, 200, 300, 220);
     const top = makeNode(47, 100, 100, 90);
@@ -382,6 +413,44 @@ describe('syncHorizontalDeckHeight', () => {
     expect(top.size[1]).toBe(140);
     expect(middle.size[1]).toBe(120);
     expect(bottom.size[1]).toBe(40);
+  });
+
+  it('does not redistribute side-vertical branch heights from a pressed loader row', () => {
+    const hub = makeImageDeck(73, 200, 300, 300);
+    const top = makeNode(74, 100, 100, 100);
+    const middle = makeNode(75, 100, 100, 100);
+    const bottom = makeNode(76, 100, 100, 100);
+
+    hub.properties.deckEdges.left = top.id;
+    top.properties.deckParentId = hub.id;
+    top.properties.deckDockSide = 'left';
+    top.properties.deckEdges.right = hub.id;
+    top.properties.deckEdges.bottom = middle.id;
+    middle.properties.deckParentId = top.id;
+    middle.properties.deckDockSide = 'bottom';
+    middle.properties.deckEdges.top = top.id;
+    middle.properties.deckEdges.bottom = bottom.id;
+    bottom.properties.deckParentId = middle.id;
+    bottom.properties.deckDockSide = 'bottom';
+    bottom.properties.deckEdges.top = middle.id;
+
+    [top, middle, bottom].forEach((member) => {
+      member.layout.contentMinHeight = 40;
+      member.layout.totalHeight = 40;
+    });
+    middle._pressedRegionKey = 'modelEntry:1';
+    middle.properties._savedExpandedHeight = 180;
+
+    const graph = { _nodes: [hub, top, middle, bottom] };
+    window.app.graph = graph;
+    window.app.canvas.frame = 12;
+    globalThis.app = window.app;
+
+    applyDeckPressureLayout(hub, graph, 10);
+
+    expect(top.size[1]).toBe(100);
+    expect(middle.size[1]).toBe(100);
+    expect(bottom.size[1]).toBe(100);
   });
 
   it('keeps lower side-vertical seam heights after the fresh-fit window expires', () => {

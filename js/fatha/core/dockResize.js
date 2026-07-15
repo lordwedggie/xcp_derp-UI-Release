@@ -10,6 +10,7 @@ import {
     getDeckPressureBranchAxis,
     getDeckPressureHubMinWidth,
     getDeckPressureHubForNode,
+    getDeckPressureSideVerticalWidthLock,
     getNodeOnDeckEdge,
     applyDeckPressureLayout,
     isDeckPressureHub,
@@ -445,8 +446,10 @@ export function resolveDerpRuntimeSizeImpl(node, measured, vars = {}) {
     const branchAxis = getDeckPressureBranchAxis(pressureHub, graph, branchSide);
     const axis = branchAxis || (graph && node ? getDockGroupAxisFromMembers(getDeckMembers(node, graph)) : null);
     const resolved = resolveRuntimeDockSize(node, axis, measured, vars);
+    const sideVerticalWidthLock = getDeckPressureSideVerticalWidthLock(node, graph);
     const widthLock = axis === "vertical" ? getActiveVerticalNodeWidthLock(node, resolved.engineFloorW) : 0;
-    if (widthLock > 0) resolved.width = widthLock;
+    if (sideVerticalWidthLock > 0) resolved.width = sideVerticalWidthLock;
+    else if (widthLock > 0) resolved.width = widthLock;
     const minExpandedHeight = Number(node?.properties?._derpMeasuredMinExpandedHeight || node?.properties?._minExpandedHeight) || 0;
     if (node?.properties?.contentCollapsed !== true && vars?.autoHeight === true && minExpandedHeight > 0) {
         resolved.height = Math.max(Number(resolved.height) || 0, minExpandedHeight);

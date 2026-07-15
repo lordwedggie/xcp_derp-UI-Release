@@ -2281,9 +2281,7 @@ function getDeckPressureActiveMember(members = []) {
 }
 
 function getDeckPressureFreshActiveMember(members = [], now = performance.now?.() || Date.now()) {
-    return members.find((member) => Number(member?._deckPressureActiveUntil || 0) > now)
-        || members.find((member) => member?._pressedRegionKey)
-        || null;
+    return members.find((member) => Number(member?._deckPressureActiveUntil || 0) > now) || null;
 }
 
 function getDeckPressurePreferredExpandedHeight(member, minimum = 0) {
@@ -2460,6 +2458,15 @@ function getDeckPressureRowCurrentWidthTotal(members) {
 function getDeckPressureSideVerticalWidthCache(hub, side) {
     const width = Number(hub?._deckPressureSideVerticalWidths?.[side]) || 0;
     return width > 0 ? width : 0;
+}
+
+export function getDeckPressureSideVerticalWidthLock(node, graph) {
+    const pressureHub = getDeckPressureHubForNode(node, graph);
+    if (!pressureHub || pressureHub.id === node?.id) return 0;
+    const side = getDeckPressureBranchSideForNode(pressureHub, graph, node);
+    if (side !== "left" && side !== "right") return 0;
+    if (getDeckPressureBranchAxis(pressureHub, graph, side) !== "vertical") return 0;
+    return getDeckPressureSideVerticalWidthCache(pressureHub, side);
 }
 
 function setDeckPressureSideVerticalWidthCache(hub, side, width) {
