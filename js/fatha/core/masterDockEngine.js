@@ -189,6 +189,7 @@ function getNodeMinHeight(node, snap = DEFAULT_DECK_SNAP) {
 }
 
 function getNodeCollapsedPressureHeight(node) {
+    if (node?.properties?.useCollapsedTotalHeight !== true) return DEFAULT_DECK_SNAP * 2;
     const contentMinH = Number(node?.layout?.contentMinHeight) || 0;
     const totalH = Number(node?.layout?.totalHeight) || 0;
     return totalH || contentMinH || (DEFAULT_DECK_SNAP * 2);
@@ -2769,7 +2770,11 @@ function fitDeckPressureExactSideHeightsToTarget(sizes, mins, expandedIndexes, t
 function fitDeckPressureSideHeights(members, targetHeight, snap, options = {}) {
     if (!Array.isArray(members) || members.length === 0) return [];
     const unit = Math.max(1, snap);
-    const mins = members.map((member) => quantizeSize(getDeckPressureMinSpanForState(member, "vertical", snap, member.properties?.contentCollapsed === true), unit));
+    const useLooseExactFloors = options.preserveExactLiveHeights === true && options.allowExactBelowPressureMin === true;
+    const mins = members.map((member) => {
+        if (useLooseExactFloors && member?.properties?.contentCollapsed !== true) return 1;
+        return quantizeSize(getDeckPressureMinSpanForState(member, "vertical", snap, member.properties?.contentCollapsed === true), unit);
+    });
     const expandedIndexes = members
         .map((member, index) => member.properties?.contentCollapsed === true ? -1 : index)
         .filter((index) => index >= 0);
@@ -2846,7 +2851,9 @@ function fitDeckPressureSideHeights(members, targetHeight, snap, options = {}) {
         sizes[index] = Math.max(collapsedClampedCurrent[index], mins[index]);
     });
     let extra = resolvedTarget - sizes.reduce((sum, value) => sum + value, 0);
-    if (extra <= 0) return alignSideEdge(sizes);
+    if (extra <= 0) {
+        return alignSideEdge(fitDeckPressureExactSideHeightsToTarget(sizes, mins, expandedIndexes, resolvedTarget, viewportLockedIndexSet));
+    }
 
     if (freshActiveIndex >= 0 && !viewportLockedIndexSet.has(freshActiveIndex)) {
         const preferredHeight = quantizeSize(getDeckPressurePreferredExpandedHeight(members[freshActiveIndex], mins[freshActiveIndex]), unit);
@@ -2949,11 +2956,12 @@ export function computeDeckPressureGeometryPlan(hub, graph, snap = DEFAULT_DECK_
     const sideWidthOverrides = options.sideWidths || hub._deckPressureSideWidthOverrides || {};
     const leftWidth = Math.max(0, Number(sideWidthOverrides.left) || getDeckPressureBranchWidth(leftBranch, snap));
     const rightWidth = Math.max(0, Number(sideWidthOverrides.right) || getDeckPressureBranchWidth(rightBranch, snap));
-    const sideMinHeight = Math.max(...branches.filter((branch) => (branch.side === "left" || branch.side === "right") && branch.axis === "vertical").map((branch) => getDeckPressureBranchEdgeMinSpan(branch, snap)), 0);
+    const preservedFrame = normalizeFrameBounds(options.frameBounds || null);
+    const skipSideVerticalPressureMins = options.liveResize === true && !!preservedFrame;
+    const sideMinHeight = skipSideVerticalPressureMins ? 0 : Math.max(...branches.filter((branch) => (branch.side === "left" || branch.side === "right") && branch.axis === "vertical").map((branch) => getDeckPressureBranchEdgeMinSpan(branch, snap)), 0);
     const topBottomMinWidth = Math.max(...branches.filter((branch) => branch.side === "top" || branch.side === "bottom").map((branch) => getDeckPressureBranchEdgeMinSpan(branch, snap)), 0);
     const centerWidth = arrangement === DECK_ARRANGEMENT_HORIZONTAL ? Math.max(rawHubRect.width, topBottomMinWidth - leftWidth - rightWidth) : Math.max(rawHubRect.width, topBottomMinWidth);
     const centerHeight = arrangement === DECK_ARRANGEMENT_HORIZONTAL ? Math.max(rawHubRect.height, sideMinHeight) : Math.max(rawHubRect.height, sideMinHeight - topHeight - bottomHeight);
-    const preservedFrame = normalizeFrameBounds(options.frameBounds || null);
     const frame = preservedFrame || rectFromEdges(rawHubRect.left - leftWidth, rawHubRect.top - topHeight, rawHubRect.left + centerWidth + rightWidth, rawHubRect.top + centerHeight + bottomHeight);
     const preserveLiveSideHeights = hub?._isDerpResizing === true;
     const fitLiveSideHeightTarget = hub?._deckPressureFrameHeightResizeActive === true;
@@ -2999,8 +3007,11 @@ export function computeDeckPressureGeometryPlan(hub, graph, snap = DEFAULT_DECK_
     });
     return { arrangement, frame, hubRect, branches: plannedBranches, bands, constraints: { sideMinHeight, topBottomMinWidth, leftWidth, rightWidth, topHeight, bottomHeight } };
 }
-export function applyDeckPressureLayout(hub, graph, snap = DEFAULT_DECK_SNAP) {
+export function applyDeckPressureLayout(hub, graph, snap = DEFAULT_DECK_SNAP, options = {}) {
     if (!isDeckPressureHub(hub) || !graph) return [];
+    const liveResize = options.liveResize === true;
+    const preserveSideVerticalCollapseSide = options.preserveSideVerticalCollapseSide || null;
+    const syncOptions = { silent: true, deferDirty: true, deferSync: true, liveResize };
     const changed = new Set();
     const markChanged = (nodes) => {
         if (Array.isArray(nodes)) nodes.forEach((node) => { if (node) changed.add(node); });
@@ -3014,7 +3025,8 @@ export function applyDeckPressureLayout(hub, graph, snap = DEFAULT_DECK_SNAP) {
         clearDeckPressureSideVerticalHeightCache(hub);
     }
     ensureDeckPressureSideVerticalWidthCaches(hub, branches, snap);
-    const preliminaryPlan = computeDeckPressureGeometryPlan(hub, graph, snap, { frameBounds: hub._deckPressurePreserveFrameBounds || null });
+    const pressurePlanOptions = { frameBounds: hub._deckPressurePreserveFrameBounds || null, liveResize };
+    const preliminaryPlan = computeDeckPressureGeometryPlan(hub, graph, snap, pressurePlanOptions);
     if (!preliminaryPlan) return [];
 
     branches.forEach(({ side, members, axis }) => {
@@ -3030,22 +3042,23 @@ export function applyDeckPressureLayout(hub, graph, snap = DEFAULT_DECK_SNAP) {
     branches.forEach(({ side, members, axis }) => {
         if (side !== "left" && side !== "right") return;
         if (axis !== "vertical") return;
+        if (preserveSideVerticalCollapseSide === side) return;
         if (ensureDeckPressureFillerMember(members)) markChanged(members);
         if (applyDeckPressureCollapse(members, sideCollapseTargetHeight, "vertical", snap)) markChanged(members);
     });
 
-    const plan = computeDeckPressureGeometryPlan(hub, graph, snap, { frameBounds: hub._deckPressurePreserveFrameBounds || null });
+    const plan = computeDeckPressureGeometryPlan(hub, graph, snap, pressurePlanOptions);
     if (!plan) return [];
     const hubRect = plan.hubRect;
     if (setDeckNodePos(hub, hubRect.left, hubRect.top)) markChanged(hub);
-    if (syncDeckNodeSize(hub, hubRect.width, hubRect.height, { silent: true, deferDirty: true, deferSync: true })) markChanged(hub);
+    if (syncDeckNodeSize(hub, hubRect.width, hubRect.height, syncOptions)) markChanged(hub);
 
     plan.branches.forEach((branch) => {
         if ((branch.side === "left" || branch.side === "right") && branch.axis === "vertical") {
             setDeckPressureSideVerticalWidthCache(hub, branch.side, branch.band.width);
         }
         branch.memberRects.forEach(({ node, rect }) => {
-            const sizeChanged = syncDeckNodeSize(node, rect.width, rect.height, { silent: true, deferDirty: true, deferSync: true });
+            const sizeChanged = syncDeckNodeSize(node, rect.width, rect.height, syncOptions);
             const posChanged = setDeckNodePos(node, rect.left, rect.top);
             if (sizeChanged || posChanged) markChanged(node);
         });
@@ -3059,8 +3072,8 @@ export function applyDeckPressureLayout(hub, graph, snap = DEFAULT_DECK_SNAP) {
     changed.forEach((node) => {
         if (node?.properties?.contentCollapsed !== true) delete node._deckPressureSkipFillerUntil;
         if (typeof node.syncUncleSlots === "function") node.syncUncleSlots();
-        if (typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, true);
-        syncDerpShield(node);
+        if (!liveResize && typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, true);
+        if (!liveResize) syncDerpShield(node);
     });
     return [...changed];
 }

@@ -26,6 +26,17 @@ function isDeckPressureSideWidthResize(entity, graph, resizeAnchor) {
     return isDeckPressureSideWidthResizeEdge(entity, graph, resizeAnchor);
 }
 
+function isDeckPressureSideVerticalSeamResize(entity, graph, resizeAnchor) {
+    if (resizeAnchor !== "top" && resizeAnchor !== "bottom") return false;
+    const neighbor = getNodeOnDeckEdge(entity, graph, resizeAnchor);
+    if (!neighbor || isDeckPressureHub(neighbor)) return false;
+    const pressureHub = getDeckPressureHubForNode(entity, graph);
+    if (!pressureHub || pressureHub.id === entity?.id) return false;
+    const branchSide = getDeckPressureBranchSideForNode(pressureHub, graph, entity);
+    if (branchSide !== "left" && branchSide !== "right") return false;
+    return getDeckPressureBranchAxis(pressureHub, graph, branchSide) === "vertical";
+}
+
 function getResizeSessionPressureMinWidth(entity, graph, snap, fallbackMinWidth) {
     if (!isDeckPressureHub(entity)) return fallbackMinWidth;
     const members = getDeckMembers(entity, graph);
@@ -147,9 +158,14 @@ export function handleNodeResize(entity, data, scale) {
     const minW = isPressureHubResize
         ? getResizeSessionPressureMinWidth(entity, graph, SNAP, fallbackMinW)
         : (isVStackCornerHeightResize && startWForMinClamp > 0 ? Math.min(fallbackMinW, startWForMinClamp) : fallbackMinW);
+    const useCompactSideVerticalSeamFloor = isDeckPressureSideVerticalSeamResize(entity, graph, resizeAnchor);
     const minH = isPressureHubResize
         ? SNAP * 8
-        : (allowHorizontalStackHeightResize ? getHorizontalStackHeightMin(entity, graph, SNAP) : getVerticalResizeTargetMinHeight(entity, SNAP, { preserveExpandedFloor: true }));
+        : (allowHorizontalStackHeightResize
+            ? getHorizontalStackHeightMin(entity, graph, SNAP)
+            : getVerticalResizeTargetMinHeight(entity, SNAP, useCompactSideVerticalSeamFloor
+                ? { preserveExpandedFloor: false, ignoreViewportLayoutFloor: true }
+                : { preserveExpandedFloor: true }));
 
     const deltaX = data.dx / scale;
     const deltaY = data.dy / scale;

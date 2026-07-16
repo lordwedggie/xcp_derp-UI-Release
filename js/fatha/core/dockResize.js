@@ -902,6 +902,7 @@ function applyVerticalStackSharedEdgeResize(entity, resizeAnchor, requestedEntit
     if (topCollapsed || bottomCollapsed) {
         result.handledHeight = true;
         result.handledAll = true;
+        result.liveResize = true;
         result.appliedHeight = getDockNodeHeight(entity);
         members.forEach(addCounterpart);
         return true;
@@ -937,11 +938,20 @@ function applyVerticalStackSharedEdgeResize(entity, resizeAnchor, requestedEntit
     const minHeightOptions = pressureContext
         ? { preserveExpandedFloor: false, ignoreViewportLayoutFloor: true }
         : { preserveExpandedFloor: true };
-    const topMinH = getVerticalResizeTargetMinHeight(topNode, snap, minHeightOptions);
-    const bottomMinH = getVerticalResizeTargetMinHeight(bottomNode, snap, minHeightOptions);
+    // Freeze min-heights into the session so viewport-clipped nodes (whose
+    // contentMinHeight changes when their height changes) don't create a
+    // feedback loop: height change → contentMinHeight change → min-height
+    // change → different clamped height → oscillation/flicker.
+    if (!session.topMinH || !session.bottomMinH) {
+        session.topMinH = getVerticalResizeTargetMinHeight(topNode, snap, minHeightOptions);
+        session.bottomMinH = getVerticalResizeTargetMinHeight(bottomNode, snap, minHeightOptions);
+    }
+    const topMinH = session.topMinH;
+    const bottomMinH = session.bottomMinH;
     if (totalHeight < topMinH + bottomMinH) {
         result.handledHeight = true;
         result.handledAll = true;
+        result.liveResize = true;
         result.appliedHeight = getDockNodeHeight(entity);
         normalizeVerticalMemberPositions(topNode, graph);
         members.forEach(addCounterpart);
@@ -957,8 +967,9 @@ function applyVerticalStackSharedEdgeResize(entity, resizeAnchor, requestedEntit
     const adjustedBottomH = bottomNode.id === entity.id ? draggedHeight : counterpartHeight;
 
     if (pressureContext && !session.frameBounds) {
-        const pressurePlanBefore = computeDeckPressureGeometryPlan(pressureContext.pressureHub, graph, snap);
-        session.frameBounds = pressurePlanBefore?.frame || getDockFrameBounds(getDeckMembers(pressureContext.pressureHub, graph));
+        const currentFrame = getDockFrameBounds(getDeckMembers(pressureContext.pressureHub, graph));
+        const pressurePlanBefore = currentFrame ? null : computeDeckPressureGeometryPlan(pressureContext.pressureHub, graph, snap);
+        session.frameBounds = currentFrame || pressurePlanBefore?.frame || null;
     }
 
     syncDeckNodeSize(topNode, getVerticalStackLiveResizeWidth(topNode), adjustedTopH, { silent: true, deferDirty: true, deferSync: true, liveResize: true });
@@ -976,7 +987,11 @@ function applyVerticalStackSharedEdgeResize(entity, resizeAnchor, requestedEntit
         );
         pressureContext.pressureHub._deckPressurePreserveFrameBounds = session.frameBounds || getDockFrameBounds(getDeckMembers(pressureContext.pressureHub, graph));
         pressureContext.pressureHub._deckPressureActiveUntil = (performance.now?.() || Date.now()) + 1200;
-        applyDeckPressureLayout(pressureContext.pressureHub, graph, snap);
+        const changed = applyDeckPressureLayout(pressureContext.pressureHub, graph, snap, {
+            liveResize: true,
+            preserveSideVerticalCollapseSide: pressureContext.branchSide,
+        });
+        changed.forEach(addCounterpart);
     }
     if (typeof topNode.syncUncleSlots === "function") topNode.syncUncleSlots();
     if (typeof bottomNode.syncUncleSlots === "function") bottomNode.syncUncleSlots();
@@ -1582,7 +1597,7 @@ function applyDeckPressureSideWidthResize(entity, resizeAnchor, requestedEntityW
     addCounterpart(pressureHub);
     pressureHub._deckPressureSideWidthOverrides = sideWidths;
     try {
-        applyDeckPressureLayout(pressureHub, graph, snap);
+        applyDeckPressureLayout(pressureHub, graph, snap, { liveResize: true });
     } finally {
         if (!pressureHub._deckPressureSideResizeSession) {
             delete pressureHub._deckPressurePreserveFrameBounds;
@@ -1677,7 +1692,9 @@ export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH,
         }));
     }
 
-    const requestsHeightResize = allowHeightIntent && (isTopHandle || isBottomHandle) && newH !== getVerticalResizeStartHeight(entity, snap);
+    const requestsHeightResize = allowHeightIntent
+        && (isTopHandle || isBottomHandle)
+        && (newH !== getVerticalResizeStartHeight(entity, snap) || isPureVerticalSeamResize);
 
     const horizontalResizeMembers = getLinearResizeMembers(entity, graph, "horizontal");
     if (horizontalResizeMembers.length > 1 && requestsHeightResize && canResizeHorizontalStackHeight(entity, graph)) {

@@ -145,6 +145,27 @@ describe('dock resize live shield sync', () => {
     expect(bottom.size[1]).toBe(70);
   });
 
+  it('keeps saturated vertical seam drags on the live resize path', () => {
+    const { top, bottom } = makeVerticalPair();
+    top.size[1] = 60;
+    top.properties.nodeSize[1] = 60;
+    top.layout.contentMinHeight = 100;
+    top.layout.totalHeight = 100;
+    bottom.pos[1] = 60;
+    bottom.size[1] = 60;
+    bottom.properties.nodeSize[1] = 60;
+    bottom.layout.contentMinHeight = 100;
+    bottom.layout.totalHeight = 100;
+
+    const result = syncDockResizePair(top, 'bottom', 100, 80, 40, 40, 10);
+
+    expect(result.handledHeight).toBe(true);
+    expect(result.handledAll).toBe(true);
+    expect(result.liveResize).toBe(true);
+    expect(top.size[1]).toBe(60);
+    expect(bottom.size[1]).toBe(60);
+  });
+
   it('keeps vertical seam height drags pinned to the starting stack width', () => {
     const { top, bottom } = makeVerticalPair();
 
