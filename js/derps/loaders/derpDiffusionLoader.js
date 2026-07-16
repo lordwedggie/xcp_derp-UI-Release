@@ -92,6 +92,7 @@ export function resolveDiffusionLoaderDeckClipHeight(node, region, regions = {})
 function buildDeckRegions(node, deck, deckKey, rowPrefix, togglePrefix, removePrefix, removeDialogKey) {
     const vars = node.getDerpVars(node);
     const [pW, pH, sH, sW] = [vars.pW, vars.pH, vars.sH, vars.sW].map(v => Number(v.toFixed(2)));
+    const deckButtonSize = pH * 2 + 12;
     const sendSignal = () => {
         if (node.broadcastWirelessSignal) node.broadcastWirelessSignal();
     };
@@ -145,7 +146,7 @@ function buildDeckRegions(node, deck, deckKey, rowPrefix, togglePrefix, removePr
             onPress: () => activateDeckEntry(m, idx),
             regionOffset: [0, 0],
             [`${togglePrefix}${idx}`]: {
-                type: node.UI_TYPES.TOGGLE_V2, iconAlign: "left", isTextOnly: true, mouseOver: true, cutoff: true, cutoffMargin: (pH * 2 + 12),
+                type: node.UI_TYPES.TOGGLE_V2, iconAlign: "left", isTextOnly: true, mouseOver: true, cutoff: true, cutoffMargin: deckButtonSize,
                 text: stripModelName(m.name, node.properties.showFolderNames !== false),
                 value: m.active,
                 playSound: m.active ? null : "powerUp",
@@ -182,7 +183,7 @@ function buildDeckRegions(node, deck, deckKey, rowPrefix, togglePrefix, removePr
                 type: node.UI_TYPES.ICONBUTTON, icon: "close",
                 hidden: !m.active,
                 alpha: item.isPreviewGhost ? 0 : 1.0,
-                width: "match", height: "fill", objectAlign: ["left", "middle"], spacing: [sW, 0], margin: [1, 1, 1, 1],
+                width: "match", height: deckButtonSize, objectAlign: ["left", "middle"], spacing: [sW, 0], margin: [1, 1, 1, 1],
                 themeKey: "button, t_textNormal",
                 onPress: () => {
                     showBastaFileHandler(node, "none", `${removePrefix}${idx}`, {

@@ -2,11 +2,10 @@ import { app } from "../../../../scripts/app.js";
 
 export const FATHA_CONTENT_SCROLLBAR_WIDTH = 2;
 export const FATHA_CONTENT_SCROLLBAR_BACKGROUND_WIDTH = 2;
-export const FATHA_CONTENT_SCROLLBAR_GUTTER_WIDTH = 6;
+export const FATHA_CONTENT_SCROLLBAR_MARGIN_LEFT = 4;
+export const FATHA_CONTENT_SCROLLBAR_MARGIN_RIGHT = 0;
 export const FATHA_CONTENT_SCROLLBAR_MIN_THUMB = 14;
 export const FATHA_CONTENT_VIEWPORT_DEBUG_FLAG = "xcpDerpDebugContentViewports";
-
-const FATHA_CONTENT_SCROLLBAR_MAX_OUTER_MARGIN_WIDTH = 24;
 
 function numberOr(value, fallback = 0) {
     const num = Number(value);
@@ -58,10 +57,56 @@ function shiftRegionSubtree(regions, rootKey, dy, seen = new Set()) {
     }
 }
 
+function shiftRegionSubtreeX(regions, rootKey, dx, seen = new Set()) {
+    if (!regions || !rootKey || seen.has(rootKey)) return;
+    seen.add(rootKey);
+    const root = regions[rootKey];
+    if (!root) return;
+    root.x = numberOr(root.x) + dx;
+    for (const child of Object.values(regions)) {
+        if (child?.parentKey === rootKey) shiftRegionSubtreeX(regions, child.key, dx, seen);
+    }
+}
+
 function restoreViewportDescendantWidth(region) {
     if (!region) return;
     if (Array.isArray(region._contentViewportBaseMargin)) region.margin = [...region._contentViewportBaseMargin];
     if (Number.isFinite(region._contentViewportBaseWidth)) region.w = region._contentViewportBaseWidth;
+}
+
+function isFlexibleViewportRowChild(region) {
+    const width = String(region?.wPropStr || region?.width || "").toLowerCase();
+    return width === "full" || width === "fill" || width === "fit";
+}
+
+function applyViewportRowRightClearance(regions, rowKey, clearance, viewportKey) {
+    const row = regions?.[rowKey];
+    if (!row || row.dir !== "row" || !(clearance > 0)) return false;
+
+    const children = Object.values(regions)
+        .filter((candidate) => candidate?.parentKey === rowKey && !candidate.ignoreLayout && !isViewportClipDisabled(candidate, viewportKey, regions))
+        .sort((a, b) => (numberOr(a.x) - numberOr(b.x)) || String(a.key || "").localeCompare(String(b.key || "")));
+    const flexible = children.filter(isFlexibleViewportRowChild);
+    if (!flexible.length) return false;
+
+    let remaining = clearance;
+    let carryShift = 0;
+    let flexibleRemaining = flexible.length;
+    children.forEach((child) => {
+        if (carryShift > 0) shiftRegionSubtreeX(regions, child.key, -carryShift);
+        if (!isFlexibleViewportRowChild(child) || remaining <= 0) return;
+
+        const oldWidth = numberOr(child.w);
+        const shrink = Math.min(Math.max(0, oldWidth - 1), remaining / Math.max(1, flexibleRemaining));
+        flexibleRemaining -= 1;
+        if (!(shrink > 0)) return;
+        child.w = Math.max(1, oldWidth - shrink);
+        remaining -= shrink;
+        carryShift += shrink;
+        applyViewportDescendantRightClearance(regions, child.key, numberOr(child.x) + numberOr(child.w), shrink, viewportKey);
+    });
+
+    return carryShift > 0;
 }
 
 function applyViewportDescendantRightClearance(regions, parentKey, parentRight, gutter, viewportKey) {
@@ -79,12 +124,15 @@ function applyViewportDescendantRightClearance(regions, parentKey, parentRight, 
 
         const childRight = numberOr(child.x) + baseWidth + baseMargin[2];
         let childContentRight = numberOr(child.x) + baseWidth;
+        let childWasCleared = false;
         if (childRight >= parentRight - 0.5) {
             child.margin = [baseMargin[0], baseMargin[1], baseMargin[2] + gutter, baseMargin[3]];
             child.w = Math.max(1, baseWidth - gutter);
             childContentRight = numberOr(child.x) + numberOr(child.w);
+            childWasCleared = true;
         }
 
+        if (childWasCleared && child.dir === "row" && applyViewportRowRightClearance(regions, child.key, gutter, viewportKey)) return;
         applyViewportDescendantRightClearance(regions, child.key, childContentRight, gutter, viewportKey);
     });
 }
@@ -140,21 +188,18 @@ function resolveViewportGutterGeometry(node, region, effectiveOverflow) {
     const regionW = numberOr(region?.w);
     if (!effectiveOverflow) return { visibleWidth: Math.max(1, regionW), gutter: 0, contentClearance: 0 };
 
-    const regionRight = regionX + regionW;
-    const nodeRight = numberOr(node?.size?.[0] || node?.properties?.nodeSize?.[0], regionRight);
-    const outerMargin = Math.max(0, nodeRight - regionRight);
-    const hasUsableOuterMargin = outerMargin > 0 && outerMargin <= FATHA_CONTENT_SCROLLBAR_MAX_OUTER_MARGIN_WIDTH;
-    const usableOuterMargin = hasUsableOuterMargin ? outerMargin : 0;
-    const outerRight = regionRight + usableOuterMargin;
-    const gutter = hasUsableOuterMargin
-        ? Math.max(FATHA_CONTENT_SCROLLBAR_BACKGROUND_WIDTH, usableOuterMargin)
-        : FATHA_CONTENT_SCROLLBAR_GUTTER_WIDTH;
-    const contentRight = Math.min(regionRight, Math.max(regionX + 1, outerRight - gutter));
+    // The scrollbar lane is always carved from the content area so the
+    // scrollbar never extends past the node's right edge. The lane is
+    // MARGIN_LEFT + SCROLLBAR_WIDTH + MARGIN_RIGHT, pushed in from the
+    // region's right edge.
+    const gutter = FATHA_CONTENT_SCROLLBAR_MARGIN_LEFT + FATHA_CONTENT_SCROLLBAR_BACKGROUND_WIDTH + FATHA_CONTENT_SCROLLBAR_MARGIN_RIGHT;
+    const contentRight = Math.max(regionX + 1, regionX + regionW - gutter);
+    const contentClearance = Math.max(0, regionX + regionW - contentRight);
 
     return {
         visibleWidth: Math.max(1, contentRight - regionX),
-        gutter: Math.max(0, outerRight - contentRight),
-        contentClearance: Math.max(0, regionRight - contentRight),
+        gutter,
+        contentClearance,
     };
 }
 

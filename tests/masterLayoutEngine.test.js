@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import {
   FATHA_CONTENT_SCROLLBAR_BACKGROUND_WIDTH,
-  FATHA_CONTENT_SCROLLBAR_GUTTER_WIDTH,
+  FATHA_CONTENT_SCROLLBAR_MARGIN_LEFT,
+  FATHA_CONTENT_SCROLLBAR_MARGIN_RIGHT,
   preserveContentViewportClipHeightsForResize,
 } from '../js/fatha/core/fathaContentViewport.js';
 import { masterLayoutEngine } from '../js/fatha/core/masterLayoutEngine.js';
@@ -49,9 +50,10 @@ describe('masterLayoutEngine content viewport sizing', () => {
     expect(layout.contentMinWidth).toBe(100);
     expect(layout.totalWidth).toBe(100);
     expect(layout.regions.panelBackground.w).toBe(100);
-    expect(FATHA_CONTENT_SCROLLBAR_GUTTER_WIDTH).toBeGreaterThan(FATHA_CONTENT_SCROLLBAR_BACKGROUND_WIDTH);
-    expect(owner._contentViewportState.mainContentRegion.gutter).toBe(FATHA_CONTENT_SCROLLBAR_GUTTER_WIDTH);
-    expect(owner._contentViewportState.mainContentRegion.rect.w).toBe(100 - FATHA_CONTENT_SCROLLBAR_GUTTER_WIDTH);
+    const expectedGutter = FATHA_CONTENT_SCROLLBAR_MARGIN_LEFT + FATHA_CONTENT_SCROLLBAR_BACKGROUND_WIDTH + FATHA_CONTENT_SCROLLBAR_MARGIN_RIGHT;
+    expect(expectedGutter).toBeGreaterThan(FATHA_CONTENT_SCROLLBAR_BACKGROUND_WIDTH);
+    expect(owner._contentViewportState.mainContentRegion.gutter).toBe(expectedGutter);
+    expect(owner._contentViewportState.mainContentRegion.rect.w).toBe(100 - expectedGutter);
 
     owner.size[1] = 130;
     owner.properties.nodeSize[1] = 130;
@@ -63,7 +65,7 @@ describe('masterLayoutEngine content viewport sizing', () => {
     expect(layout.regions.panelBackground.w).toBe(100);
   });
 
-  it('uses existing right-side node margin as the scrollbar lane', () => {
+  it('carves scrollbar lane from content regardless of outer margin', () => {
     const owner = makeOwner(112, 120);
     const layout = new masterLayoutEngine(owner);
     const map = makeViewportMap();
@@ -71,17 +73,15 @@ describe('masterLayoutEngine content viewport sizing', () => {
     layout.compute({ x: 0, y: 0, w: owner.size[0], h: owner.size[1] }, map, { isVirtual: true }, true);
 
     const state = owner._contentViewportState.mainContentRegion;
-    const trackX = state.rect.x + state.rect.w + ((state.gutter - FATHA_CONTENT_SCROLLBAR_BACKGROUND_WIDTH) / 2);
-    const trackRight = trackX + FATHA_CONTENT_SCROLLBAR_BACKGROUND_WIDTH;
+    const expectedGutter = FATHA_CONTENT_SCROLLBAR_MARGIN_LEFT + FATHA_CONTENT_SCROLLBAR_BACKGROUND_WIDTH + FATHA_CONTENT_SCROLLBAR_MARGIN_RIGHT;
 
     expect(layout.contentMinWidth).toBe(100);
     expect(layout.totalWidth).toBe(112);
-    expect(state.rect.w).toBe(100);
-    expect(state.gutter).toBe(12);
-    expect(trackX - (state.rect.x + state.rect.w)).toBe(112 - trackRight);
+    expect(state.rect.w).toBe(100 - expectedGutter);
+    expect(state.gutter).toBe(expectedGutter);
   });
 
-  it('does not widen an existing narrow right margin to the fallback gutter', () => {
+  it('carves scrollbar lane from content when outer margin is narrow', () => {
     const owner = makeOwner(104, 120);
     const layout = new masterLayoutEngine(owner);
     const map = makeViewportMap();
@@ -89,14 +89,72 @@ describe('masterLayoutEngine content viewport sizing', () => {
     layout.compute({ x: 0, y: 0, w: owner.size[0], h: owner.size[1] }, map, { isVirtual: true }, true);
 
     const state = owner._contentViewportState.mainContentRegion;
-    const trackX = state.rect.x + state.rect.w + ((state.gutter - FATHA_CONTENT_SCROLLBAR_BACKGROUND_WIDTH) / 2);
-    const trackRight = trackX + FATHA_CONTENT_SCROLLBAR_BACKGROUND_WIDTH;
+    const expectedGutter = FATHA_CONTENT_SCROLLBAR_MARGIN_LEFT + FATHA_CONTENT_SCROLLBAR_BACKGROUND_WIDTH + FATHA_CONTENT_SCROLLBAR_MARGIN_RIGHT;
 
     expect(layout.contentMinWidth).toBe(100);
     expect(layout.totalWidth).toBe(104);
-    expect(state.rect.w).toBe(100);
-    expect(state.gutter).toBe(4);
-    expect(trackX - (state.rect.x + state.rect.w)).toBe(104 - trackRight);
+    expect(state.rect.w).toBe(100 - expectedGutter);
+    expect(state.gutter).toBe(expectedGutter);
+  });
+
+  it('keeps explicit match-width row buttons square and contained after scrollbar gutter carving', () => {
+    const owner = makeOwner(100, 120);
+    const layout = new masterLayoutEngine(owner);
+    const map = {
+      mainContentRegion: {
+        width: 100,
+        height: 'auto',
+        scrollViewport: true,
+        clipHeight: 28,
+        dir: 'col',
+        deckRow_0: {
+          dir: 'row',
+          width: 'full',
+          height: 'auto',
+          modelToggle_0: {
+            type: 'derpToggleV2',
+            text: 'model.safetensors',
+            width: 'full',
+            height: 'auto',
+            padding: [4, 4],
+          },
+          btnRemove_0: {
+            type: 'btnIcon',
+            icon: 'close',
+            width: 'match',
+            height: 20,
+            margin: [1, 1, 1, 1],
+          },
+        },
+        deckRow_1: {
+          dir: 'row',
+          width: 'full',
+          height: 'auto',
+          modelToggle_1: {
+            type: 'derpToggleV2',
+            text: 'other.safetensors',
+            width: 'full',
+            height: 'auto',
+            padding: [4, 4],
+          },
+        },
+      },
+    };
+
+    layout.compute({ x: 0, y: 0, w: owner.size[0], h: owner.size[1] }, map, { isVirtual: true }, true);
+
+    expect(owner._contentViewportState.mainContentRegion.hasOverflow).toBe(true);
+    expect(layout.regions.btnRemove_0.x + layout.regions.btnRemove_0.w + layout.regions.btnRemove_0.margin[2])
+      .toBeLessThanOrEqual(layout.regions.deckRow_0.x + layout.regions.deckRow_0.w);
+    expect(layout.regions.btnRemove_0.y).toBeCloseTo(
+      layout.regions.deckRow_0.y + ((layout.regions.deckRow_0.h - layout.regions.btnRemove_0.h) / 2),
+      5
+    );
+    expect(layout.regions.btnRemove_0.y).toBeGreaterThanOrEqual(layout.regions.deckRow_0.y);
+    expect(layout.regions.btnRemove_0.y + layout.regions.btnRemove_0.h)
+      .toBeLessThanOrEqual(layout.regions.deckRow_0.y + layout.regions.deckRow_0.h);
+    expect(layout.regions.btnRemove_0.w).toBe(20);
+    expect(layout.regions.btnRemove_0.h).toBe(20);
   });
 
   it('preserves viewport clip height during Deck Pressure side-width resize', () => {

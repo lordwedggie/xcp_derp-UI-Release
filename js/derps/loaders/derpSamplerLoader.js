@@ -99,6 +99,7 @@ app.registerExtension({
                 vars.mW, vars.mH, vars.oY, vars.pW, vars.pH, vars.sH, vars.sW
             ].map(v => Number(v.toFixed(2)));
             const t_textNormal_size = vars.t_textNormal_size;
+            const deckButtonSize = pH * 2 + 12;
 
             // Reserve space for the system button + mH gap (derpNotes pattern).
             this.properties.footerHeight = 6 + mH;
@@ -197,7 +198,7 @@ app.registerExtension({
                         icon: "close",
                         hidden: !m.active,
                         alpha: item.isPreviewGhost ? 0 : 1.0,
-                        width: "match", height: "fill", objectAlign: ["left", "middle"], spacing: [sW, 0], margin: [1, 1, 1, 1],
+                        width: "match", height: deckButtonSize, objectAlign: ["left", "middle"], spacing: [sW, 0], margin: [1, 1, 1, 1],
                         themeKey: "button, t_textNormal",
                         onPress: () => {
                             showBastaFileHandler(this, "none", `btnRemoveSampler_${idx}`, {
@@ -270,7 +271,7 @@ app.registerExtension({
                         type: this.UI_TYPES.ICONBUTTON,
                         icon: "close",
                         hidden: !m.active,
-                        width: "match", height: "fill", objectAlign: ["left", "middle"], spacing: [sW, 0], margin: [1, 1, 1, 1],
+                        width: "match", height: deckButtonSize, objectAlign: ["left", "middle"], spacing: [sW, 0], margin: [1, 1, 1, 1],
                         themeKey: "button, t_textNormal",
                     }
                 };

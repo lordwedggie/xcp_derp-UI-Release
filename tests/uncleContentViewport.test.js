@@ -118,7 +118,7 @@ describe('Uncle content viewport drawing', () => {
     expect(ctx.clip).toHaveBeenCalled();
   });
 
-  it('keeps one horizontal pixel of clip bleed on both sides of full-width stroked descendants', async () => {
+  it('keeps one pixel of clip bleed around edge-aligned stroked descendants', async () => {
     const { withContentViewportClip } = await import('../js/fatha/core/fathaContentViewportDraw.js');
     const ctx = makeDrawCtx();
     const node = {
@@ -131,14 +131,18 @@ describe('Uncle content viewport drawing', () => {
       layout: {
         regions: {
           viewportRegion: { key: 'viewportRegion' },
-          rowRegion: { key: 'rowRegion', parentKey: 'viewportRegion' },
+          rowRegion: { key: 'rowRegion', parentKey: 'viewportRegion', state: 'ON', themeKey: 'region' },
         },
       },
       _contentViewportScroll: {},
+      _regionPaintData_ON: {
+        fill: 'transparent',
+        border: { width: 4, color: 'white', placement: 0 },
+      },
     };
 
-    withContentViewportClip(ctx, node, 'rowRegion', { x: 10, y: 20, w: 100, h: 20 }, () => {});
+    withContentViewportClip(ctx, node, 'rowRegion', { x: 10, y: 20, w: 100, h: 30 }, () => {});
 
-    expect(ctx.rect).toHaveBeenCalledWith(9, 20, 102, 30);
+    expect(ctx.rect).toHaveBeenCalledWith(8, 18, 104, 34);
   });
 });
