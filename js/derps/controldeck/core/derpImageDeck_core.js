@@ -33,6 +33,21 @@ function restoreImageDeckPinnedAnchor(anchor) {
     restorePinnedVerticalDeckAnchor(anchor);
 }
 
+function applyDeckPressureLayoutForImageAutoFit(node, graph, snap) {
+    const previousFrameResizeActive = node._deckPressureFrameHeightResizeActive;
+    const previousIsResizing = node._isDerpResizing;
+    node._deckPressureFrameHeightResizeActive = true;
+    node._isDerpResizing = true;
+    try {
+        applyDeckPressureLayout(node, graph, snap);
+    } finally {
+        if (previousFrameResizeActive === undefined) delete node._deckPressureFrameHeightResizeActive;
+        else node._deckPressureFrameHeightResizeActive = previousFrameResizeActive;
+        if (previousIsResizing === undefined) delete node._isDerpResizing;
+        else node._isDerpResizing = previousIsResizing;
+    }
+}
+
 function toArray(value) {
     if (Array.isArray(value)) return value;
     return value ? [value] : [];
@@ -203,7 +218,7 @@ function resizeNodeToImageAspect(node, img, options = {}) {
     if (isDeckPressureHub(node)) {
         const graph = window.app?.graph || node.graph || null;
         node._deckPressureActiveUntil = (performance.now?.() || Date.now()) + 1200;
-        applyDeckPressureLayout(node, graph, SNAP);
+        applyDeckPressureLayoutForImageAutoFit(node, graph, SNAP);
     }
     if (typeof node.syncUncleSlots === "function") node.syncUncleSlots();
     if (typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, true);
@@ -388,4 +403,4 @@ function initDerpImageDeckCore(nodeType) {
     };
 }
 
-export { initDerpImageDeckCore };
+export { initDerpImageDeckCore, resizeNodeToImageAspect };

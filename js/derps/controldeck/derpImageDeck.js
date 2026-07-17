@@ -813,6 +813,8 @@ app.registerExtension({
                 vars.mW, vars.mH, vars.sW, vars.sH, vars.oY, vars.pW, vars.pH
             ].map(v => Number(v.toFixed(2)));
             this.properties.footerAnchorGap = Math.max(Number(this.properties.footerAnchorGap) || 0, mH);
+            this.properties.footerGapHeight = mH;
+            this.properties.footerHeight = mH;
 
             const count = Array.isArray(this._derpImageDeckList) ? this._derpImageDeckList.length : 0;
             const imageUrl = this.getDerpImageDeckCurrentUrl ? this.getDerpImageDeckCurrentUrl() : null;
