@@ -408,6 +408,9 @@ export function drawDeckResizeOptimizedNode(node, ctx) {
         if (node?._deckResizeOptimizationMode) setDeckResizeDomHidden(node, false);
         return false;
     }
+    if (globalThis.DERP_DECK_LATENT_DEBUG) {
+        console.log(`[DeckResizeDebug] drawDeckResizeOptimizedNode GHOST node=${node.id}:${node.titleLabel || node.type || ""} mode=${mode} size=${node.size?.[0]}x${node.size?.[1]} forceSync=${node._forceSync}`);
+    }
     setDeckResizeDomHidden(node, true);
     drawDeckResizeGhost(node, ctx);
     if (node._forceSync) node._forceSync = false;

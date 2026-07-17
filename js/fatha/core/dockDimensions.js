@@ -48,7 +48,7 @@ export function getDockNodeMinHeight(node, fallback = 0, snap = DEFAULT_SNAP) {
     let explicitMinH = 0;
     if (node?.layoutMap) {
         Object.values(node.layoutMap).forEach((reg) => {
-            if (reg?.minHeight) explicitMinH += Number(reg.minHeight) || 0;
+            if (reg?.minHeight !== undefined) explicitMinH += Number(reg.minHeight);
         });
     }
     const contentMinH = Number(node?.layout?.contentMinHeight) || Number(node?.layout?.totalHeight) || 40;
@@ -121,9 +121,7 @@ export function resolveRuntimeDockSize(node, axis, measured, vars = {}) {
     const rawH = isMinState
         ? getCollapsedDockHeight(node, snap, { contentMinHeight: contentMinH, totalHeight: totalH })
         : (contentMinH || totalH || 40);
-    const manualRawH = isMinState ? rawH : (contentMinH || totalH || 40);
-    const autoRawH = isMinState ? rawH : (contentMinH || totalH || 40);
-    const engineFloorH = isMinState ? rawH : snapCeil(autoHeight ? autoRawH : manualRawH, snap);
+    const engineFloorH = isMinState ? rawH : snapCeil(rawH, snap);
 
     const storedW = Number(node?.properties?.nodeSize?.[0]) || 0;
     const storedH = Number(node?.properties?.nodeSize?.[1]) || 0;

@@ -1480,14 +1480,32 @@ export function syncDeckNodeSize(node, width, height, options = {}) {
     setDerpNodeSizeCompat(node, nextW, nextH);
     node.properties.nodeSize = [nextW, nextH];
 
-    if (!liveResize) {
+    // Plain non-viewport deck members (e.g. derpLatent) render content inline
+    // with no scrollViewport clipping. During live deck resize their node.size
+    // changes, but if layout invalidation + sync are deferred (the liveResize
+    // fast path), the sync/draw cycle that calls layout.compute() never runs
+    // for them — regions stay at the previous (larger) positions and content
+    // is drawn outside the new node bounds. Force layout invalidation and
+    // sync for these members even in live resize mode so their content stays
+    // within node bounds during the drag. Viewport-backed nodes keep the
+    // deferred path because their viewport clips stale layout harmlessly.
+    const forceLayoutRecompute = liveResize && isPlainNonViewportDeckMember(node);
+    if (globalThis.DERP_DECK_LATENT_DEBUG && (liveResize || forceLayoutRecompute)) {
+        const _now = performance.now?.() || Date.now();
+        if (!syncDeckNodeSize._lastForceLogAt || _now - syncDeckNodeSize._lastForceLogAt > 100) {
+            syncDeckNodeSize._lastForceLogAt = _now;
+            console.log(`[DeckResizeDebug] syncDeckNodeSize node=${node.id}:${node.titleLabel || node.type || ""} prev=${prevW}x${prevH} next=${nextW}x${nextH} liveResize=${liveResize} plain=${isPlainNonViewportDeckMember(node)} forceLayout=${forceLayoutRecompute} silent=${silent} deferSync=${deferSync}`);
+        }
+    }
+    if (!liveResize || forceLayoutRecompute) {
         if (node.layout) node.layout._lastCacheKey = "";
         node._forceSync = true;
         node._layoutDirty = true;
     }
     if (!deferSync && typeof node.syncUncleSlots === "function") node.syncUncleSlots();
-    if (!silent && typeof node.refreshNodeLayoutMap === "function") node.refreshNodeLayoutMap();
-    if (!silent && typeof node.requestDerpSync === "function") node.requestDerpSync();
+    const allowRefresh = !silent || forceLayoutRecompute;
+    if (allowRefresh && typeof node.refreshNodeLayoutMap === "function") node.refreshNodeLayoutMap();
+    if (allowRefresh && typeof node.requestDerpSync === "function") node.requestDerpSync();
     else if (!deferDirty && typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, true);
     return true;
 }
@@ -2324,7 +2342,14 @@ function getDeckPressureMinSpanForState(node, axis, snap, collapsed, options = {
     if (compactViewportFloor > 0) return Math.min(measuredMin, compactViewportFloor);
     if (options.liveResizeFloor === true && axis === "vertical" && collapsed !== true) {
         const liveHeight = getNodeSizeValue(node, 1);
-        if (liveHeight > 0) return Math.min(measuredMin, Math.max(liveHeight, (Number(snap) || DEFAULT_DECK_SNAP) * 2));
+        if (liveHeight > 0) {
+            // Plain non-viewport nodes render content inline and cannot be
+            // compacted below the measured content min. Use the content min as
+            // the floor instead of the live height (which may already be below
+            // content min from a prior compression, re-allowing overflow).
+            if (isPlainNonViewportDeckMember(node)) return measuredMin;
+            return Math.min(measuredMin, Math.max(liveHeight, (Number(snap) || DEFAULT_DECK_SNAP) * 2));
+        }
     }
     if (node._deckPressureMeasuringMinSpan === true) {
         return measuredMin;
@@ -2376,6 +2401,10 @@ function getDeckPressureMinSpanForState(node, axis, snap, collapsed, options = {
     node.properties.contentCollapsed = previous;
     if (previous !== collapsed) recomputeLayout();
     node._deckPressureMinCache.set(cacheKey, value);
+    if (node._deckPressureMinCache.size > 100) {
+        const oldestKey = node._deckPressureMinCache.keys().next().value;
+        if (oldestKey) node._deckPressureMinCache.delete(oldestKey);
+    }
     return value;
 }
 
@@ -2812,15 +2841,38 @@ function getDeckPressureCompactViewportMinHeight(member, snap) {
     return Math.ceil(Math.max(viewportFloor + headerHeight + footerHeight, unit * 4) / unit) * unit;
 }
 
+export function isPlainNonViewportDeckMember(node) {
+    if (!node) return false;
+    if (node.properties?.useCollapsedTotalHeight === true) return false;
+    if (node.properties?.minHeight !== undefined && Number(node.properties.minHeight) > 0) return false;
+    if (hasDeckPressureViewportHeightLock(node)) return false;
+    if (node?.layoutMap && typeof node.layoutMap === "object") {
+        for (const region of Object.values(node.layoutMap)) {
+            if (region?.minHeight !== undefined && Number(region.minHeight) > 0) return false;
+        }
+    }
+    return true;
+}
+
 function getDeckPressureActiveFrameResizeMinHeight(member, snap) {
     const unit = Math.max(1, Number(snap) || DEFAULT_DECK_SNAP);
     const viewportFloor = getDeckPressureCompactViewportMinHeight(member, snap);
     if (viewportFloor > 0) return viewportFloor;
-    const propMinH = Number(member?.properties?.minHeight) || 0;
+    // Plain non-viewport nodes render content inline at the physical node height
+    // and cannot be compacted below their measured content min without visible
+    // overflow during active frame-height resize (content is drawn outside the
+    // node). Return the measured content min as the active floor so both the hub
+    // height clamp (`getDeckPressureHubMinHeight`) and the side-branch fitting
+    // (`fitDeckPressureSideHeights`) respect it. Returning 0 here is unsafe
+    // because the caller's `liveResizeFloor` fallback uses the current live
+    // height as the floor, which may already be below content min from a prior
+    // compression frame — re-allowing further compression and overflow.
+    if (isPlainNonViewportDeckMember(member)) return getNodeMinHeight(member, snap);
+    const propMinH = member?.properties?.minHeight !== undefined ? Number(member.properties.minHeight) : 0;
     let layoutMinH = 0;
     if (member?.layoutMap && typeof member.layoutMap === "object") {
         Object.values(member.layoutMap).forEach((region) => {
-            if (region?.minHeight !== undefined) layoutMinH += Number(region.minHeight) || 0;
+            if (region?.minHeight !== undefined) layoutMinH += Number(region.minHeight);
         });
     }
     return Math.ceil(Math.max(propMinH, layoutMinH, getNodeCollapsedPressureHeight(member), unit * 4) / unit) * unit;
@@ -2864,7 +2916,7 @@ function fitDeckPressureSideHeights(members, targetHeight, snap, options = {}) {
         liveResizeFloor: options.liveResizeFloor === true,
     };
     const mins = members.map((member) => {
-        if (useLooseExactFloors && member?.properties?.contentCollapsed !== true) return 1;
+        if (useLooseExactFloors && member?.properties?.contentCollapsed !== true && !isPlainNonViewportDeckMember(member)) return 1;
         return quantizeSize(getDeckPressureMinSpanForState(member, "vertical", snap, member.properties?.contentCollapsed === true, minSpanOptions), unit);
     });
     const expandedIndexes = members
@@ -2889,7 +2941,7 @@ function fitDeckPressureSideHeights(members, targetHeight, snap, options = {}) {
             : collapsedClampedCurrent;
         const allowBelowPressureMin = options.allowExactBelowPressureMin === true;
         const sizes = exactHeights.map((value, index) => {
-            const floor = allowBelowPressureMin && members[index]?.properties?.contentCollapsed !== true ? 1 : mins[index];
+            const floor = allowBelowPressureMin && members[index]?.properties?.contentCollapsed !== true && !isPlainNonViewportDeckMember(members[index]) ? 1 : mins[index];
             return Math.max(value, floor);
         });
         const exactTotal = sizes.reduce((sum, value) => sum + value, 0);
@@ -3148,7 +3200,12 @@ export function applyDeckPressureLayout(hub, graph, snap = DEFAULT_DECK_SNAP, op
         if (!cachedFitIsCurrent && applyDeckPressureCollapse(members, sideCollapseTargetHeight, "vertical", snap)) markChanged(members);
     });
 
-    const plan = computeDeckPressureGeometryPlan(hub, graph, snap, pressurePlanOptions);
+    // The collapse passes above are the only state mutations between the two
+    // plan computations, and every one of them routes through markChanged.
+    // When nothing changed, preliminaryPlan is still exact — skip the recompute.
+    const plan = changed.size > 0
+        ? computeDeckPressureGeometryPlan(hub, graph, snap, pressurePlanOptions)
+        : preliminaryPlan;
     if (!plan) return [];
     const hubRect = plan.hubRect;
     if (setDeckNodePos(hub, hubRect.left, hubRect.top)) markChanged(hub);
@@ -3176,8 +3233,13 @@ export function applyDeckPressureLayout(hub, graph, snap = DEFAULT_DECK_SNAP, op
     changed.forEach((node) => {
         if (node?.properties?.contentCollapsed !== true) delete node._deckPressureSkipFillerUntil;
         if (typeof node.syncUncleSlots === "function") node.syncUncleSlots();
-        if (!liveResize && typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, true);
-        if (!liveResize) syncDerpShield(node);
+        // Plain non-viewport members must also redraw + re-shield during live
+        // resize (see syncDeckNodeSize forceLayoutRecompute comment). Without
+        // this, the canvas never marks them dirty and the shield stays at the
+        // previous bounds, so content overflows visually during the drag.
+        const needsDirty = !liveResize || isPlainNonViewportDeckMember(node);
+        if (needsDirty && typeof node.setDirtyCanvas === "function") node.setDirtyCanvas(true, true);
+        if (needsDirty) syncDerpShield(node);
     });
     return [...changed];
 }

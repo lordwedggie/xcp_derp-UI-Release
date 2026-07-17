@@ -740,6 +740,9 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
 
         this._shouldSync = hasVisualChanged || this._forceSync || this._layoutDirty || (isAnimating && isTrueSelected);
         const needsLayoutCompute = hasLayoutChanged || this._forceSync || this._layoutDirty;
+        if (globalThis.DERP_DECK_LATENT_DEBUG && (this._forceSync || needsLayoutCompute)) {
+            console.log(`[DeckResizeDebug] fatha.draw node=${this.id}:${this.titleLabel || this.type || ""} size=${this.size?.[0]}x${this.size?.[1]} forceSync=${this._forceSync} layoutDirty=${this._layoutDirty} needsCompute=${needsLayoutCompute} optMode=${this._deckResizeOptimizationMode || "none"}`);
+        }
         const collapseStateChanged = this._prevContentCollapsed !== this.properties.contentCollapsed;
         if (this._layoutDirty) this._layoutDirty = false;
 

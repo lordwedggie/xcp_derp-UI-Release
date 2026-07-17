@@ -7,6 +7,7 @@ import { syncDockResizePair } from '../js/fatha/core/dockResize.js';
 import { handleNodeResize } from '../js/fatha/core/fathaNodeResize.js';
 import { createDerpShield, removeDerpShield, syncDerpShield } from '../js/fatha/core/fathaDOMshield.js';
 import { applyDeckPressureLayout, computeDeckPressureGeometryPlan, deckNodeToLeader, getDeckCornerOverride, getDeckPressureSideHorizontalWidthLock, normalizeDockPair, setDeckPressureSideVerticalHeightCache } from '../js/fatha/core/masterDockEngine.js';
+import { resizeNodeToImageAspect } from '../js/derps/controldeck/core/derpImageDeck_core.js';
 
 function makeNode(id, x, width, height) {
   return {
@@ -366,10 +367,14 @@ describe('syncHorizontalDeckHeight', () => {
     expect(hub.pos[0]).toBe(200);
   });
 
-  it('defers dirty work during live side-vertical pressure layout', () => {
+  it('defers dirty work during live side-vertical pressure layout for viewport-backed members', () => {
+    // Viewport-backed members have a scrollViewport that clips stale layout,
+    // so deferring dirty work during live resize is safe and performant for
+    // them. (Plain non-viewport members must NOT defer — see the dedicated
+    // regression test below.)
     const hub = makeImageDeck(2040, 200, 300, 220);
-    const top = makeNode(2041, 100, 100, 90);
-    const bottom = makeNode(2042, 100, 100, 130);
+    const top = markViewportNode(makeNode(2041, 100, 100, 90));
+    const bottom = markViewportNode(makeNode(2042, 100, 100, 130));
 
     hub.properties.deckEdges.left = top.id;
     top.properties.deckParentId = hub.id;
@@ -399,6 +404,57 @@ describe('syncHorizontalDeckHeight', () => {
     expect(top.size[0]).toBe(100);
     expect(dirtyCalls).toBe(0);
     expect(top._layoutDirty).not.toBe(true);
+  });
+
+  it('forces dirty work during live side-vertical pressure layout for plain non-viewport members', () => {
+    // Regression test for derpLatent-at-the-bottom overflow: plain non-viewport
+    // members render content inline with no clipping fallback. During live deck
+    // resize, their node.size changes but if layout invalidation + sync are
+    // deferred (the viewport-backed fast path), the sync/draw cycle that calls
+    // layout.compute() never runs — regions stay at the previous (larger)
+    // positions and content is drawn outside the new node bounds. Plain
+    // non-viewport members must force layout invalidation + sync even in live
+    // resize mode so their content stays within node bounds during the drag.
+    const hub = makeImageDeck(2050, 200, 300, 220);
+    const top = makeNode(2051, 100, 100, 90);
+    const bottom = makeNode(2052, 100, 100, 130);
+
+    hub.properties.deckEdges.left = top.id;
+    top.properties.deckParentId = hub.id;
+    top.properties.deckDockSide = 'left';
+    top.properties.deckEdges.right = hub.id;
+    top.properties.deckEdges.bottom = bottom.id;
+    bottom.properties.deckParentId = top.id;
+    bottom.properties.deckDockSide = 'bottom';
+    bottom.properties.deckEdges.top = top.id;
+
+    const graph = { _nodes: [hub, top, bottom] };
+    window.app.graph = graph;
+    window.app.canvas.frame = 27;
+    globalThis.app = window.app;
+
+    applyDeckPressureLayout(hub, graph, 10);
+    let dirtyCalls = 0;
+    [hub, top, bottom].forEach((node) => {
+      node.setDirtyCanvas = () => { dirtyCalls += 1; };
+    });
+    let topRefreshCalls = 0;
+    let topSyncCalls = 0;
+    top.refreshNodeLayoutMap = () => { topRefreshCalls += 1; };
+    top.requestDerpSync = () => { topSyncCalls += 1; };
+    top.size[0] = 150;
+    top.properties.nodeSize[0] = 150;
+
+    const changed = applyDeckPressureLayout(hub, graph, 10, { liveResize: true });
+
+    expect(changed).toContain(top);
+    expect(top.size[0]).toBe(100);
+    // Plain non-viewport members must NOT defer dirty work during live resize.
+    expect(dirtyCalls).toBeGreaterThan(0);
+    expect(top._layoutDirty).toBe(true);
+    expect(top._forceSync).toBe(true);
+    expect(topRefreshCalls).toBeGreaterThan(0);
+    expect(topSyncCalls).toBeGreaterThan(0);
   });
 
   it('preserves side-vertical branch live heights during active seam resize', () => {
@@ -567,9 +623,11 @@ describe('syncHorizontalDeckHeight', () => {
 
   it('keeps lower side-vertical seam heights after the fresh-fit window expires', () => {
     const hub = makeImageDeck(61, 200, 300, 300);
-    const top = makeNode(62, 100, 100, 140);
-    const middle = makeNode(63, 100, 100, 80);
-    const bottom = makeNode(64, 100, 100, 80);
+    // Viewport-backed nodes can be compacted below their content min to the
+    // viewport floor; plain non-viewport nodes now clamp at content min.
+    const top = markViewportNode(makeNode(62, 100, 100, 140));
+    const middle = markViewportNode(makeNode(63, 100, 100, 80));
+    const bottom = markViewportNode(makeNode(64, 100, 100, 80));
 
     hub.properties.deckEdges.left = top.id;
     top.properties.deckParentId = hub.id;
@@ -618,6 +676,53 @@ describe('syncHorizontalDeckHeight', () => {
     expect(top.size[1]).toBe(140);
     expect(middle.size[1]).toBe(120);
     expect(bottom.size[1]).toBe(40);
+  });
+
+  it('clamps plain non-viewport side-vertical members at content min during decked seam resize', () => {
+    // Regression test for derpLatent-at-the-bottom overflow: plain non-viewport
+    // nodes render content inline and must not be compacted below their measured
+    // content min. When decked alongside an ImageDeck, the internal vertical seam
+    // must use preserveExpandedFloor: true (content min floor) for these nodes,
+    // matching their un-decked behavior. Viewport-backed nodes still use the
+    // compact viewport floor.
+    const hub = makeImageDeck(65, 200, 300, 300);
+    const top = makeNode(66, 100, 100, 80);
+    const middle = makeNode(67, 100, 100, 80);
+    const bottom = makeNode(68, 100, 100, 140);
+
+    hub.properties.deckEdges.left = top.id;
+    top.properties.deckParentId = hub.id;
+    top.properties.deckDockSide = 'left';
+    top.properties.deckEdges.right = hub.id;
+    top.properties.deckEdges.bottom = middle.id;
+    middle.properties.deckParentId = top.id;
+    middle.properties.deckDockSide = 'bottom';
+    middle.properties.deckEdges.top = top.id;
+    middle.properties.deckEdges.bottom = bottom.id;
+    bottom.properties.deckParentId = middle.id;
+    bottom.properties.deckDockSide = 'bottom';
+    bottom.properties.deckEdges.top = middle.id;
+
+    top.layout.contentMinHeight = 40;
+    top.layout.totalHeight = 40;
+    middle.layout.contentMinHeight = 40;
+    middle.layout.totalHeight = 40;
+    bottom.layout.contentMinHeight = 100;
+    bottom.layout.totalHeight = 100;
+
+    const graph = { _nodes: [hub, top, middle, bottom] };
+    window.app.graph = graph;
+    window.app.canvas.frame = 13;
+    globalThis.app = window.app;
+
+    // Request middle=180 (which would force bottom=40, below its content min).
+    // Bottom must clamp at its content min (100) so middle only gets the remainder (120).
+    const result = syncDockResizePair(middle, 'bottom', middle.size[0], 180, 40, 40, 10);
+
+    expect(result.handledAll).toBe(true);
+    expect(top.size[1]).toBe(80);
+    expect(middle.size[1]).toBe(120);
+    expect(bottom.size[1]).toBe(100);
   });
 
   it('preserves side-vertical branch auto-height preference and heights during Deck side width resize', () => {
@@ -1478,9 +1583,12 @@ describe('syncHorizontalDeckHeight', () => {
 
   it('does not collapse expanded side-vertical members when active Deck frame shrink fits below stale measured mins', () => {
     const hub = makeImageDeck(2065, 200, 300, 340);
-    const top = makeNode(2066, 100, 100, 140);
-    const middle = makeNode(2067, 100, 100, 110);
-    const bottom = makeNode(2068, 100, 100, 90);
+    // Viewport-backed nodes use the compact viewport floor (not the full content
+    // min) as the active resize floor. Plain non-viewport nodes now clamp at
+    // their content min to prevent visible content overflow when decked.
+    const top = markViewportNode(makeNode(2066, 100, 100, 140));
+    const middle = markViewportNode(makeNode(2067, 100, 100, 110));
+    const bottom = markViewportNode(makeNode(2068, 100, 100, 90));
 
     hub.properties.deckEdges.left = top.id;
     top.properties.deckParentId = hub.id;
@@ -1800,9 +1908,11 @@ describe('syncHorizontalDeckHeight', () => {
 
   it('does not collapse an already fitting side-vertical branch while expanding the Deck frame', () => {
     const hub = makeImageDeck(185, 200, 300, 300);
-    const top = makeNode(186, 100, 100, 120);
-    const middle = makeNode(187, 100, 100, 100);
-    const bottom = makeNode(188, 100, 100, 80);
+    // Viewport-backed nodes can be compacted below their content min to the
+    // viewport floor; plain non-viewport nodes now clamp at content min.
+    const top = markViewportNode(makeNode(186, 100, 100, 120));
+    const middle = markViewportNode(makeNode(187, 100, 100, 100));
+    const bottom = markViewportNode(makeNode(188, 100, 100, 80));
 
     hub.properties.deckEdges.left = top.id;
     top.properties.deckParentId = hub.id;
@@ -1843,6 +1953,70 @@ describe('syncHorizontalDeckHeight', () => {
     expect(middle.properties.contentCollapsed).toBeFalsy();
     expect(bottom.properties.contentCollapsed).toBeFalsy();
     expect(top.size[1] + middle.size[1] + bottom.size[1]).toBe(420);
+  });
+
+  it('keeps side-vertical branches expanded and aligned when ImageDeck auto-fit changes aspect', () => {
+    const hub = makeImageDeck(4065, 200, 300, 600);
+    const diffusion = markViewportNode(makeNode(4066, 100, 100, 200), 'regionDiffusionDeck', 40);
+    const sampler = markViewportNode(makeNode(4067, 100, 100, 200), 'regionSamplerDeck', 40);
+    const latent = markViewportNode(makeNode(4068, 100, 100, 200), 'regionLatentDeck', 40);
+    const right = markViewportNode(makeNode(4069, 500, 140, 600));
+
+    hub.properties.deckArrangement = 'horizontal_sandwich';
+    hub.layout.regions.imageRegion = { w: 300, h: 560 };
+    hub.properties.deckEdges.left = diffusion.id;
+    hub.properties.deckEdges.right = right.id;
+    diffusion.properties.deckParentId = hub.id;
+    diffusion.properties.deckDockSide = 'left';
+    diffusion.properties.deckEdges.right = hub.id;
+    diffusion.properties.deckEdges.bottom = sampler.id;
+    sampler.properties.deckParentId = diffusion.id;
+    sampler.properties.deckDockSide = 'bottom';
+    sampler.properties.deckEdges.top = diffusion.id;
+    sampler.properties.deckEdges.bottom = latent.id;
+    latent.properties.deckParentId = sampler.id;
+    latent.properties.deckDockSide = 'bottom';
+    latent.properties.deckEdges.top = sampler.id;
+    right.properties.deckParentId = hub.id;
+    right.properties.deckDockSide = 'right';
+    right.properties.deckEdges.left = hub.id;
+
+    [diffusion, sampler, latent].forEach((member) => {
+      member.layout.contentMinHeight = 320;
+      member.layout.totalHeight = 320;
+    });
+    right.layout.contentMinHeight = 600;
+    right.layout.totalHeight = 600;
+
+    const graph = { _nodes: [hub, diffusion, sampler, latent, right] };
+    window.app.graph = graph;
+    window.app.canvas.frame = 115;
+    globalThis.app = window.app;
+
+    resizeNodeToImageAspect(hub, { naturalWidth: 400, naturalHeight: 300 });
+
+    expect(hub.size[1]).toBe(270);
+    expect(diffusion.properties.contentCollapsed).toBeFalsy();
+    expect(sampler.properties.contentCollapsed).toBeFalsy();
+    expect(latent.properties.contentCollapsed).toBeFalsy();
+    expect(diffusion.pos[1]).toBe(hub.pos[1]);
+    expect(latent.pos[1] + latent.size[1]).toBe(hub.pos[1] + hub.size[1]);
+    expect(diffusion.size[1] + sampler.size[1] + latent.size[1]).toBe(hub.size[1]);
+    expect(right.pos[1]).toBe(hub.pos[1]);
+    expect(right.size[1]).toBe(hub.size[1]);
+
+    hub.layout.regions.imageRegion = { w: 300, h: 230 };
+    resizeNodeToImageAspect(hub, { naturalWidth: 300, naturalHeight: 400 });
+
+    expect(hub.size[1]).toBe(440);
+    expect(diffusion.properties.contentCollapsed).toBeFalsy();
+    expect(sampler.properties.contentCollapsed).toBeFalsy();
+    expect(latent.properties.contentCollapsed).toBeFalsy();
+    expect(diffusion.pos[1]).toBe(hub.pos[1]);
+    expect(latent.pos[1] + latent.size[1]).toBe(hub.pos[1] + hub.size[1]);
+    expect(diffusion.size[1] + sampler.size[1] + latent.size[1]).toBe(hub.size[1]);
+    expect(right.pos[1]).toBe(hub.pos[1]);
+    expect(right.size[1]).toBe(hub.size[1]);
   });
 
   it('primes side-vertical branch members when Deck frame corner resize starts from a branch member', () => {

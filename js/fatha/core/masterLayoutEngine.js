@@ -722,13 +722,13 @@ export class masterLayoutEngine {
                     regH = this.regions[anchor.target].h;
                 } else if (isParentRow) {
                     // This prevents them from bloating the row height with stale estimations or square-fallbacks.
-                    regH = props.minHeight || 0;
+                    regH = props.minHeight !== undefined ? Number(props.minHeight) : 0;
                 } else {
                     regH = regW;
                 }
             } else {
                 const baseH = hPropResolved === "auto" ? (props.baseHeight || 0) : (props.height || 0);
-                const floorH = config.minHeight || props.minHeight || 0;
+                const floorH = config.minHeight !== undefined ? Number(config.minHeight) : (props.minHeight !== undefined ? Number(props.minHeight) : 0);
                 regH = Math.max(baseH, floorH);
             }
             this._isFillHeight = isFillHeight;
@@ -1175,7 +1175,7 @@ export class masterLayoutEngine {
                         });
 
                         const sharedSpace = Math.max(0, parent.h - reserved - spacingBuffer - footerBuffer);
-                        const fillFloor = r.minHeight || 0;
+                        const fillFloor = r.minHeight !== undefined ? Number(r.minHeight) : 0;
                         const newH = Math.max(fillFloor, (sharedSpace / Math.max(1, fillCount)) - rMarginY);
                         const deltaH = newH - r.h;
 

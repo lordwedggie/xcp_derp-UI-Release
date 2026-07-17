@@ -20,6 +20,7 @@ import {
     isLinearDeckGroup,
     setDeckPressureSideVerticalHeightCache,
     isNodeDocked,
+    isPlainNonViewportDeckMember,
     syncDeckNodeSize,
     setDeckNodePos,
     masterDockEngine,
@@ -70,7 +71,7 @@ const LAYOUT_RESERVED_KEYS = new Set([
     "objectAlign", "labelAlign", "themeKey", "align",
     "baseline", "anchor", "dir", "corners", "offset", "hidden",
     "text", "label", "measureText", "items", "prompt", "bypassHashOptimization",
-    "palette"
+    "palette", "scrollViewport", "clipHeight", "contentViewportClip"
 ]);
 
 function snapshotDockMembers(node, graph) {
@@ -935,16 +936,24 @@ function applyVerticalStackSharedEdgeResize(entity, resizeAnchor, requestedEntit
 
     const session = sessionOwner[sessionKey];
     const totalHeight = (Number(session.topStartH) || getDockNodeHeight(topNode)) + (Number(session.bottomStartH) || getDockNodeHeight(bottomNode));
-    const minHeightOptions = pressureContext
-        ? { preserveExpandedFloor: false, ignoreViewportLayoutFloor: true }
-        : { preserveExpandedFloor: true };
+    // Plain non-viewport nodes (e.g. derpLatent) render content inline and
+    // cannot be compacted below their measured content min without visible
+    // overflow. Use preserveExpandedFloor: true for them so the seam min is
+    // the content min (Math.max branch), matching their un-decked behavior.
+    // Viewport-backed branch nodes keep the compact floor path so their
+    // declared viewport minClipHeight remains the seam floor.
+    const minHeightOptionsFor = (node) => {
+        if (!pressureContext) return { preserveExpandedFloor: true };
+        if (isPlainNonViewportDeckMember(node)) return { preserveExpandedFloor: true };
+        return { preserveExpandedFloor: false, ignoreViewportLayoutFloor: true };
+    };
     // Freeze min-heights into the session so viewport-clipped nodes (whose
     // contentMinHeight changes when their height changes) don't create a
     // feedback loop: height change → contentMinHeight change → min-height
     // change → different clamped height → oscillation/flicker.
     if (!session.topMinH || !session.bottomMinH) {
-        session.topMinH = getVerticalResizeTargetMinHeight(topNode, snap, minHeightOptions);
-        session.bottomMinH = getVerticalResizeTargetMinHeight(bottomNode, snap, minHeightOptions);
+        session.topMinH = getVerticalResizeTargetMinHeight(topNode, snap, minHeightOptionsFor(topNode));
+        session.bottomMinH = getVerticalResizeTargetMinHeight(bottomNode, snap, minHeightOptionsFor(bottomNode));
     }
     const topMinH = session.topMinH;
     const bottomMinH = session.bottomMinH;
@@ -1062,6 +1071,7 @@ function applyCollapsedVerticalBoundaryResize(entity, resizeAnchor, requestedEnt
     if (targetIndex < 0) {
         result.handledHeight = true;
         result.handledAll = true;
+        result.liveResize = true;
         result.appliedHeight = currentHeight;
         members.forEach(addCounterpart);
         return true;
@@ -1084,6 +1094,7 @@ function applyCollapsedVerticalBoundaryResize(entity, resizeAnchor, requestedEnt
     if (delta === 0) {
         result.handledHeight = true;
         result.handledAll = true;
+        result.liveResize = true;
         result.appliedHeight = currentHeight;
         members.forEach(addCounterpart);
         return true;
@@ -2006,6 +2017,8 @@ export function applyDockResizeResult(entity, dockResizeResult) {
             members: snapshotDockMembers(entity, app.graph || entity.graph || null),
         }));
         entity._dockResizeSession = null;
+        entity._deckPressureVerticalSeamSession = null;
+        if (entity._deckPressureSideWidthOverrides) delete entity._deckPressureSideWidthOverrides;
     }
 
     if (dockResizeResult.handledWidth && getLinearResizeMembers(entity, app.graph || entity.graph || null, "vertical").length > 1) {

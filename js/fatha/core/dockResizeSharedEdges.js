@@ -51,31 +51,6 @@ export function canResizeDeckPressureSideWidthMember(node, graph) {
     return canResizeHorizontalMemberWidth(node, graph);
 }
 
-function isDirectHorizontalNodeSeam(leftNode, rightNode, graph) {
-    if (!leftNode || !rightNode || !graph) return false;
-    if (isDeckPressureHub(leftNode) || isDeckPressureHub(rightNode)) return false;
-    return getNodeOnDeckEdge(leftNode, graph, "right")?.id === rightNode.id
-        || getNodeOnDeckEdge(rightNode, graph, "left")?.id === leftNode.id;
-}
-
-function areSameRowAdjacentHorizontalMembers(leftNode, rightNode, graph) {
-    if (!leftNode || !rightNode || !graph) return false;
-    if (isDeckPressureHub(leftNode) || isDeckPressureHub(rightNode)) return false;
-    const hub = getDeckPressureHubForNode(leftNode, graph);
-    if (!hub || hub.id === leftNode.id || getDeckPressureHubForNode(rightNode, graph)?.id !== hub.id) return false;
-    const lx = Number(leftNode.pos?.[0]) || 0;
-    const ly = Number(leftNode.pos?.[1]) || 0;
-    const lw = getNodeSizeValue(leftNode, 0);
-    const lh = getNodeSizeValue(leftNode, 1);
-    const rx = Number(rightNode.pos?.[0]) || 0;
-    const ry = Number(rightNode.pos?.[1]) || 0;
-    const rw = getNodeSizeValue(rightNode, 0);
-    const rh = getNodeSizeValue(rightNode, 1);
-    const overlapY = Math.min(ly + lh, ry + rh) - Math.max(ly, ry);
-    if (overlapY < Math.max(1, Math.min(lh, rh) * 0.5)) return false;
-    return Math.abs((lx + lw) - rx) <= 4 || Math.abs((rx + rw) - lx) <= 4;
-}
-
 export function getHorizontalSameRowNeighbor(node, graph, side) {
     if (!node || !graph || (side !== "left" && side !== "right")) return null;
     const hub = getDeckPressureHubForNode(node, graph);
