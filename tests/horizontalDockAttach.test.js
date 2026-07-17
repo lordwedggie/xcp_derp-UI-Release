@@ -1476,6 +1476,444 @@ describe('syncHorizontalDeckHeight', () => {
     expect(bottom.size[1]).toBeLessThan(90);
   });
 
+  it('does not collapse expanded side-vertical members when active Deck frame shrink fits below stale measured mins', () => {
+    const hub = makeImageDeck(2065, 200, 300, 340);
+    const top = makeNode(2066, 100, 100, 140);
+    const middle = makeNode(2067, 100, 100, 110);
+    const bottom = makeNode(2068, 100, 100, 90);
+
+    hub.properties.deckEdges.left = top.id;
+    top.properties.deckParentId = hub.id;
+    top.properties.deckDockSide = 'left';
+    top.properties.deckEdges.right = hub.id;
+    top.properties.deckEdges.bottom = middle.id;
+    middle.properties.deckParentId = top.id;
+    middle.properties.deckDockSide = 'bottom';
+    middle.properties.deckEdges.top = top.id;
+    middle.properties.deckEdges.bottom = bottom.id;
+    bottom.properties.deckParentId = middle.id;
+    bottom.properties.deckDockSide = 'bottom';
+    bottom.properties.deckEdges.top = middle.id;
+
+    top.layout.contentMinHeight = 320;
+    top.layout.totalHeight = 320;
+    middle.layout.contentMinHeight = 260;
+    middle.layout.totalHeight = 260;
+    bottom.layout.contentMinHeight = 220;
+    bottom.layout.totalHeight = 220;
+
+    const graph = { _nodes: [hub, top, middle, bottom] };
+    window.app.graph = graph;
+    window.app.canvas.frame = 113;
+    globalThis.app = window.app;
+
+    hub._startPos = [...hub.pos];
+    hub._startSize = [...hub.size];
+    hub._isDerpResizing = true;
+    [top, middle, bottom].forEach((member) => {
+      member._isDerpResizing = true;
+      member._dockResizePreserveHeight = true;
+    });
+
+    handleNodeResize(hub, { dx: 0, dy: -40, resizeAnchor: 'bottom-right' }, 1);
+
+    expect(top.properties.contentCollapsed).toBeFalsy();
+    expect(middle.properties.contentCollapsed).toBeFalsy();
+    expect(bottom.properties.contentCollapsed).toBeFalsy();
+    expect(top.size[1] + middle.size[1] + bottom.size[1]).toBe(300);
+    expect(top.size[1]).toBeLessThan(140);
+    expect(middle.size[1]).toBeLessThan(110);
+    expect(bottom.size[1]).toBeLessThan(90);
+  });
+
+  it('clamps active Deck frame shrink instead of collapsing side-vertical members below their active floors', () => {
+    const hub = makeImageDeck(3065, 200, 300, 390);
+    const top = makeNode(3066, 100, 100, 130);
+    const middle = makeNode(3067, 100, 100, 130);
+    const bottom = makeNode(3068, 100, 100, 130);
+
+    hub.properties.deckEdges.left = top.id;
+    top.properties.deckParentId = hub.id;
+    top.properties.deckDockSide = 'left';
+    top.properties.deckEdges.right = hub.id;
+    top.properties.deckEdges.bottom = middle.id;
+    middle.properties.deckParentId = top.id;
+    middle.properties.deckDockSide = 'bottom';
+    middle.properties.deckEdges.top = top.id;
+    middle.properties.deckEdges.bottom = bottom.id;
+    bottom.properties.deckParentId = middle.id;
+    bottom.properties.deckDockSide = 'bottom';
+    bottom.properties.deckEdges.top = middle.id;
+
+    [top, middle, bottom].forEach((member) => {
+      member.properties.minHeight = 120;
+      member.layout.contentMinHeight = 260;
+      member.layout.totalHeight = 260;
+    });
+
+    const graph = { _nodes: [hub, top, middle, bottom] };
+    window.app.graph = graph;
+    window.app.canvas.frame = 114;
+    globalThis.app = window.app;
+
+    hub._startPos = [...hub.pos];
+    hub._startSize = [...hub.size];
+    hub._isDerpResizing = true;
+    [top, middle, bottom].forEach((member) => {
+      member._isDerpResizing = true;
+      member._dockResizePreserveHeight = true;
+    });
+
+    handleNodeResize(hub, { dx: 0, dy: -90, resizeAnchor: 'bottom-right' }, 1);
+
+    expect(hub.size[1]).toBe(360);
+    expect(top.properties.contentCollapsed).toBeFalsy();
+    expect(middle.properties.contentCollapsed).toBeFalsy();
+    expect(bottom.properties.contentCollapsed).toBeFalsy();
+    expect(top.size[1] + middle.size[1] + bottom.size[1]).toBe(360);
+    expect(top.size[1]).toBeGreaterThanOrEqual(120);
+    expect(middle.size[1]).toBeGreaterThanOrEqual(120);
+    expect(bottom.size[1]).toBeGreaterThanOrEqual(120);
+  });
+
+  it('does not collapse compact clipped side-vertical members during active Deck frame height resize', () => {
+    const hub = makeImageDeck(69, 200, 300, 420);
+    const diffusion = markViewportNode(makeNode(70, 100, 100, 120), 'regionDiffusionDeck', 40);
+    const sampler = markViewportNode(makeNode(71, 100, 100, 100), 'regionSamplerDeck', 40);
+    const latent = makeNode(72, 100, 100, 20);
+
+    hub.properties.deckEdges.left = diffusion.id;
+    diffusion.properties.deckParentId = hub.id;
+    diffusion.properties.deckDockSide = 'left';
+    diffusion.properties.deckEdges.right = hub.id;
+    diffusion.properties.deckEdges.bottom = sampler.id;
+    sampler.properties.deckParentId = diffusion.id;
+    sampler.properties.deckDockSide = 'bottom';
+    sampler.properties.deckEdges.top = diffusion.id;
+    sampler.properties.deckEdges.bottom = latent.id;
+    latent.properties.deckParentId = sampler.id;
+    latent.properties.deckDockSide = 'bottom';
+    latent.properties.deckEdges.top = sampler.id;
+    latent.properties.contentCollapsed = true;
+
+    diffusion.layout.contentMinHeight = 320;
+    diffusion.layout.totalHeight = 320;
+    sampler.layout.contentMinHeight = 260;
+    sampler.layout.totalHeight = 260;
+    latent.layout.contentMinHeight = 20;
+    latent.layout.totalHeight = 20;
+    diffusion._contentViewportState = { regionDiffusionDeck: { key: 'regionDiffusionDeck', clipHeight: 40, minClipHeight: 40 } };
+    sampler._contentViewportState = { regionSamplerDeck: { key: 'regionSamplerDeck', clipHeight: 40, minClipHeight: 40 } };
+    hub._isDerpResizing = true;
+    hub._deckPressureFrameHeightResizeActive = true;
+
+    const graph = { _nodes: [hub, diffusion, sampler, latent] };
+    window.app.graph = graph;
+    window.app.canvas.frame = 14;
+    globalThis.app = window.app;
+
+    applyDeckPressureLayout(hub, graph, 10);
+
+    expect(diffusion.properties.contentCollapsed).toBeFalsy();
+    expect(sampler.properties.contentCollapsed).toBeFalsy();
+    expect(latent.properties.contentCollapsed).toBe(true);
+    expect(diffusion.size[1] + sampler.size[1] + latent.size[1]).toBe(420);
+    expect(latent.size[1]).toBe(20);
+  });
+
+  it('does not collapse compact clipped side-vertical members while shrinking the Deck frame height', () => {
+    const hub = makeImageDeck(73, 200, 300, 180);
+    const diffusion = markViewportNode(makeNode(74, 100, 100, 120), 'regionDiffusionDeck', 40);
+    const sampler = markViewportNode(makeNode(75, 100, 100, 100), 'regionSamplerDeck', 40);
+    const latent = makeNode(76, 100, 100, 20);
+
+    hub.properties.deckEdges.left = diffusion.id;
+    diffusion.properties.deckParentId = hub.id;
+    diffusion.properties.deckDockSide = 'left';
+    diffusion.properties.deckEdges.right = hub.id;
+    diffusion.properties.deckEdges.bottom = sampler.id;
+    sampler.properties.deckParentId = diffusion.id;
+    sampler.properties.deckDockSide = 'bottom';
+    sampler.properties.deckEdges.top = diffusion.id;
+    sampler.properties.deckEdges.bottom = latent.id;
+    latent.properties.deckParentId = sampler.id;
+    latent.properties.deckDockSide = 'bottom';
+    latent.properties.deckEdges.top = sampler.id;
+    latent.properties.contentCollapsed = true;
+
+    diffusion.layout.contentMinHeight = 320;
+    diffusion.layout.totalHeight = 320;
+    sampler.layout.contentMinHeight = 260;
+    sampler.layout.totalHeight = 260;
+    latent.layout.contentMinHeight = 20;
+    latent.layout.totalHeight = 20;
+    diffusion._contentViewportState = { regionDiffusionDeck: { key: 'regionDiffusionDeck', clipHeight: 40, minClipHeight: 40 } };
+    sampler._contentViewportState = { regionSamplerDeck: { key: 'regionSamplerDeck', clipHeight: 40, minClipHeight: 40 } };
+    hub._isDerpResizing = true;
+    hub._deckPressureFrameHeightResizeActive = true;
+
+    const graph = { _nodes: [hub, diffusion, sampler, latent] };
+    window.app.graph = graph;
+    window.app.canvas.frame = 15;
+    globalThis.app = window.app;
+
+    applyDeckPressureLayout(hub, graph, 10);
+
+    expect(diffusion.properties.contentCollapsed).toBeFalsy();
+    expect(sampler.properties.contentCollapsed).toBeFalsy();
+    expect(latent.properties.contentCollapsed).toBe(true);
+    expect(diffusion.size[1] + sampler.size[1] + latent.size[1]).toBe(180);
+    expect(latent.size[1]).toBe(20);
+  });
+
+  it('keeps clipped side-vertical members expanded after Deck frame height resize settles', () => {
+    const hub = makeImageDeck(181, 200, 300, 300);
+    const diffusion = markViewportNode(makeNode(182, 100, 100, 120), 'regionDiffusionDeck', 40);
+    const sampler = markViewportNode(makeNode(183, 100, 100, 100), 'regionSamplerDeck', 40);
+    const latent = makeNode(184, 100, 100, 80);
+
+    hub.properties.deckEdges.left = diffusion.id;
+    diffusion.properties.deckParentId = hub.id;
+    diffusion.properties.deckDockSide = 'left';
+    diffusion.properties.deckEdges.right = hub.id;
+    diffusion.properties.deckEdges.bottom = sampler.id;
+    sampler.properties.deckParentId = diffusion.id;
+    sampler.properties.deckDockSide = 'bottom';
+    sampler.properties.deckEdges.top = diffusion.id;
+    sampler.properties.deckEdges.bottom = latent.id;
+    latent.properties.deckParentId = sampler.id;
+    latent.properties.deckDockSide = 'bottom';
+    latent.properties.deckEdges.top = sampler.id;
+    latent.properties.contentCollapsed = true;
+
+    diffusion.layout.contentMinHeight = 320;
+    diffusion.layout.totalHeight = 320;
+    sampler.layout.contentMinHeight = 260;
+    sampler.layout.totalHeight = 260;
+    latent.layout.contentMinHeight = 20;
+    latent.layout.totalHeight = 20;
+    diffusion._contentViewportState = { regionDiffusionDeck: { key: 'regionDiffusionDeck', clipHeight: 40, minClipHeight: 40 } };
+    sampler._contentViewportState = { regionSamplerDeck: { key: 'regionSamplerDeck', clipHeight: 40, minClipHeight: 40 } };
+
+    const graph = { _nodes: [hub, diffusion, sampler, latent] };
+    window.app.graph = graph;
+    window.app.canvas.frame = 17;
+    globalThis.app = window.app;
+
+    hub._startPos = [...hub.pos];
+    hub._startSize = [...hub.size];
+    hub._isDerpResizing = true;
+    [diffusion, sampler, latent].forEach((member) => {
+      member._isDerpResizing = true;
+      member._dockResizePreserveHeight = true;
+    });
+
+    handleNodeResize(hub, { dx: 0, dy: 120, resizeAnchor: 'bottom-right' }, 1);
+
+    expect(diffusion.properties.contentCollapsed).toBeFalsy();
+    expect(sampler.properties.contentCollapsed).toBeFalsy();
+    expect(latent.properties.contentCollapsed).toBe(true);
+    expect(diffusion.size[1] + sampler.size[1] + latent.size[1]).toBe(420);
+
+    hub._isDerpResizing = false;
+    delete hub._deckPressureFrameHeightResizeActive;
+    [diffusion, sampler, latent].forEach((member) => {
+      member._isDerpResizing = false;
+      member._dockResizePreserveHeight = false;
+    });
+
+    window.app.canvas.frame = 18;
+    applyDeckPressureLayout(hub, graph, 10);
+
+    expect(diffusion.properties.contentCollapsed).toBeFalsy();
+    expect(sampler.properties.contentCollapsed).toBeFalsy();
+    expect(latent.properties.contentCollapsed).toBe(true);
+    expect(diffusion.size[1] + sampler.size[1] + latent.size[1]).toBe(420);
+    expect(latent.size[1]).toBe(20);
+  });
+
+  it('keeps clipped side-vertical members expanded after shrinking Deck frame height settles', () => {
+    const hub = makeImageDeck(281, 200, 300, 300);
+    const diffusion = markViewportNode(makeNode(282, 100, 100, 120), 'regionDiffusionDeck', 40);
+    const sampler = markViewportNode(makeNode(283, 100, 100, 100), 'regionSamplerDeck', 40);
+    const latent = makeNode(284, 100, 100, 80);
+
+    hub.properties.deckEdges.left = diffusion.id;
+    diffusion.properties.deckParentId = hub.id;
+    diffusion.properties.deckDockSide = 'left';
+    diffusion.properties.deckEdges.right = hub.id;
+    diffusion.properties.deckEdges.bottom = sampler.id;
+    sampler.properties.deckParentId = diffusion.id;
+    sampler.properties.deckDockSide = 'bottom';
+    sampler.properties.deckEdges.top = diffusion.id;
+    sampler.properties.deckEdges.bottom = latent.id;
+    latent.properties.deckParentId = sampler.id;
+    latent.properties.deckDockSide = 'bottom';
+    latent.properties.deckEdges.top = sampler.id;
+    latent.properties.contentCollapsed = true;
+
+    diffusion.layout.contentMinHeight = 320;
+    diffusion.layout.totalHeight = 320;
+    sampler.layout.contentMinHeight = 260;
+    sampler.layout.totalHeight = 260;
+    latent.layout.contentMinHeight = 20;
+    latent.layout.totalHeight = 20;
+    diffusion._contentViewportState = { regionDiffusionDeck: { key: 'regionDiffusionDeck', clipHeight: 40, minClipHeight: 40 } };
+    sampler._contentViewportState = { regionSamplerDeck: { key: 'regionSamplerDeck', clipHeight: 40, minClipHeight: 40 } };
+
+    const graph = { _nodes: [hub, diffusion, sampler, latent] };
+    window.app.graph = graph;
+    window.app.canvas.frame = 19;
+    globalThis.app = window.app;
+
+    hub._startPos = [...hub.pos];
+    hub._startSize = [...hub.size];
+    hub._isDerpResizing = true;
+    [diffusion, sampler, latent].forEach((member) => {
+      member._isDerpResizing = true;
+      member._dockResizePreserveHeight = true;
+    });
+
+    handleNodeResize(hub, { dx: 0, dy: -120, resizeAnchor: 'bottom-right' }, 1);
+
+    expect(diffusion.properties.contentCollapsed).toBeFalsy();
+    expect(sampler.properties.contentCollapsed).toBeFalsy();
+    expect(latent.properties.contentCollapsed).toBe(true);
+    expect(diffusion.size[1] + sampler.size[1] + latent.size[1]).toBe(180);
+
+    hub._isDerpResizing = false;
+    delete hub._deckPressureFrameHeightResizeActive;
+    [diffusion, sampler, latent].forEach((member) => {
+      member._isDerpResizing = false;
+      member._dockResizePreserveHeight = false;
+    });
+
+    window.app.canvas.frame = 20;
+    applyDeckPressureLayout(hub, graph, 10);
+
+    expect(diffusion.properties.contentCollapsed).toBeFalsy();
+    expect(sampler.properties.contentCollapsed).toBeFalsy();
+    expect(latent.properties.contentCollapsed).toBe(true);
+    expect(diffusion.size[1] + sampler.size[1] + latent.size[1]).toBe(180);
+    expect(latent.size[1]).toBe(20);
+  });
+
+  it('does not collapse an already fitting side-vertical branch while expanding the Deck frame', () => {
+    const hub = makeImageDeck(185, 200, 300, 300);
+    const top = makeNode(186, 100, 100, 120);
+    const middle = makeNode(187, 100, 100, 100);
+    const bottom = makeNode(188, 100, 100, 80);
+
+    hub.properties.deckEdges.left = top.id;
+    top.properties.deckParentId = hub.id;
+    top.properties.deckDockSide = 'left';
+    top.properties.deckEdges.right = hub.id;
+    top.properties.deckEdges.bottom = middle.id;
+    middle.properties.deckParentId = top.id;
+    middle.properties.deckDockSide = 'bottom';
+    middle.properties.deckEdges.top = top.id;
+    middle.properties.deckEdges.bottom = bottom.id;
+    bottom.properties.deckParentId = middle.id;
+    bottom.properties.deckDockSide = 'bottom';
+    bottom.properties.deckEdges.top = middle.id;
+
+    top.layout.contentMinHeight = 280;
+    top.layout.totalHeight = 280;
+    middle.layout.contentMinHeight = 220;
+    middle.layout.totalHeight = 220;
+    bottom.layout.contentMinHeight = 180;
+    bottom.layout.totalHeight = 180;
+
+    const graph = { _nodes: [hub, top, middle, bottom] };
+    window.app.graph = graph;
+    window.app.canvas.frame = 19;
+    globalThis.app = window.app;
+
+    hub._startPos = [...hub.pos];
+    hub._startSize = [...hub.size];
+    hub._isDerpResizing = true;
+    [top, middle, bottom].forEach((member) => {
+      member._isDerpResizing = true;
+      member._dockResizePreserveHeight = true;
+    });
+
+    handleNodeResize(hub, { dx: 0, dy: 120, resizeAnchor: 'bottom-right' }, 1);
+
+    expect(top.properties.contentCollapsed).toBeFalsy();
+    expect(middle.properties.contentCollapsed).toBeFalsy();
+    expect(bottom.properties.contentCollapsed).toBeFalsy();
+    expect(top.size[1] + middle.size[1] + bottom.size[1]).toBe(420);
+  });
+
+  it('primes side-vertical branch members when Deck frame corner resize starts from a branch member', () => {
+    const originalCanvas = window.app.canvas.canvas;
+    const canvas = document.createElement('canvas');
+    canvas.getBoundingClientRect = () => ({ left: 0, top: 0, width: 800, height: 600 });
+    Object.defineProperty(canvas, 'clientWidth', { value: 800, configurable: true });
+    Object.defineProperty(canvas, 'clientHeight', { value: 600, configurable: true });
+    window.app.canvas.canvas = canvas;
+    let latent = null;
+
+    try {
+      const hub = makeImageDeck(77, 200, 300, 420);
+      const diffusion = markViewportNode(makeNode(78, 100, 100, 160), 'regionDiffusionDeck', 40);
+      const sampler = markViewportNode(makeNode(79, 100, 100, 220), 'regionSamplerDeck', 40);
+      latent = makeNode(80, 100, 100, 40);
+
+      hub.properties.deckEdges.left = diffusion.id;
+      diffusion.properties.deckParentId = hub.id;
+      diffusion.properties.deckDockSide = 'left';
+      diffusion.properties.deckEdges.right = hub.id;
+      diffusion.properties.deckEdges.bottom = sampler.id;
+      sampler.properties.deckParentId = diffusion.id;
+      sampler.properties.deckDockSide = 'bottom';
+      sampler.properties.deckEdges.top = diffusion.id;
+      sampler.properties.deckEdges.bottom = latent.id;
+      latent.properties.deckParentId = sampler.id;
+      latent.properties.deckDockSide = 'bottom';
+      latent.properties.deckEdges.top = sampler.id;
+      latent.properties.contentCollapsed = true;
+
+      [diffusion, sampler, latent].forEach((member) => {
+        member.layout.contentMinHeight = member.properties.contentCollapsed ? 20 : 40;
+        member.layout.totalHeight = member.size[1];
+      });
+
+      const graph = { _nodes: [hub, diffusion, sampler, latent] };
+      window.app.graph = graph;
+      window.app.canvas.frame = 16;
+      globalThis.app = window.app;
+
+      applyDeckPressureLayout(hub, graph, 10);
+      createDerpShield(latent);
+      syncDerpShield(latent);
+
+      const handle = latent.interactionShield._resizeHandleLeft;
+      expect(handle.style.display).toBe('block');
+
+      handle.onpointerdown({
+        button: 0,
+        currentTarget: handle,
+        pointerId: 1,
+        clientX: 100,
+        clientY: 420,
+        stopPropagation: () => {},
+        preventDefault: () => {},
+      });
+
+      expect(hub._isDerpResizing).toBe(true);
+      expect(diffusion._isDerpResizing).toBe(true);
+      expect(sampler._isDerpResizing).toBe(true);
+      expect(latent._isDerpResizing).toBe(true);
+      expect(diffusion._dockResizePreserveHeight).toBe(true);
+      expect(sampler._dockResizePreserveHeight).toBe(true);
+      expect(latent._dockResizePreserveHeight).toBe(true);
+    } finally {
+      if (latent) removeDerpShield(latent);
+      window.app.canvas.canvas = originalCanvas;
+    }
+  });
+
   it('primes every side-vertical branch member when lower seam resize starts', () => {
     const originalCanvas = window.app.canvas.canvas;
     const canvas = document.createElement('canvas');

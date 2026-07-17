@@ -341,6 +341,8 @@ export function createDerpShield(node) {
     const clearDockResizeActiveMembers = (resizeNode) => {
         const activeMembers = resizeNode?._dockResizeActiveMembers;
         const graph = app.graph || resizeNode?.graph || node?.graph || null;
+        const shouldFinalSync = resizeNode?._isDerpResizing === true || (activeMembers instanceof Set && activeMembers.size > 0);
+        const finalSyncNodes = new Set();
         const clearPressureSession = (member) => {
             const pressureHub = graph && member ? getDeckPressureHubForNode(member, graph) : null;
             if (pressureHub) {
@@ -352,9 +354,11 @@ export function createDerpShield(node) {
             }
         };
         clearPressureSession(resizeNode);
+        if (resizeNode) finalSyncNodes.add(resizeNode);
         if (activeMembers instanceof Set) {
             activeMembers.forEach((member) => {
                 if (!member) return;
+                finalSyncNodes.add(member);
                 clearPressureSession(member);
                 if (member !== resizeNode) member._isDerpResizing = false;
                 member._dockResizePreserveHeight = false;
@@ -371,6 +375,13 @@ export function createDerpShield(node) {
             delete resizeNode._deckPressureFrameHeightResizeActive;
             resizeNode._dockResizePreserveHeight = false;
             resizeNode._dockResizeActiveMembers = null;
+        }
+        if (shouldFinalSync) {
+            finalSyncNodes.forEach((member) => {
+                if (!member) return;
+                syncDerpShield(member);
+                if (typeof member.setDirtyCanvas === "function") member.setDirtyCanvas(true, true);
+            });
         }
     };
 
@@ -865,6 +876,34 @@ export function createDerpShield(node) {
                         if (memberHeight > 0) syncDeckNodeSize(m, resizeStartWidth, memberHeight, { silent: true, deferDirty: true, deferSync: true, liveResize: true });
                     }
                     rememberActiveMember(m);
+                });
+            }
+            if (isDeckPressureHub(activeResizeNode)) {
+                ["left", "right"].forEach((side) => {
+                    if (getDeckPressureBranchAxis(activeResizeNode, graph, side) !== "vertical") return;
+                    const branchMembers = getDeckPressureBranchMembers(activeResizeNode, graph, side);
+                    if (!branchMembers || branchMembers.length <= 0) return;
+                    const memberWidths = branchMembers
+                        .map((member) => Number(member?.size?.[0] ?? member?.properties?.nodeSize?.[0]) || 0)
+                        .filter((width) => width > 0);
+                    const resizeStartWidth = memberWidths.length ? Math.min(...memberWidths) : 0;
+                    const lockUntil = (performance.now?.() || Date.now()) + 1200;
+                    branchMembers.forEach((m) => {
+                        if (!m) return;
+                        m._isDerpResizing = true;
+                        m._dockResizePreserveHeight = true;
+                        if (resizeStartWidth > 0) {
+                            m._verticalDeckWidthLock = resizeStartWidth;
+                            m._verticalDeckWidthLockUntil = lockUntil;
+                            m._verticalDeckWidthLockExact = true;
+                            m._verticalDeckWidthLockFreezeFloor = true;
+                            m._verticalDeckWidthLockFloor = 0;
+                            m._verticalDeckWidthLockFloorUntil = 0;
+                            const memberHeight = Number(m?.size?.[1] ?? m?.properties?.nodeSize?.[1]) || 0;
+                            if (memberHeight > 0) syncDeckNodeSize(m, resizeStartWidth, memberHeight, { silent: true, deferDirty: true, deferSync: true, liveResize: true });
+                        }
+                        rememberActiveMember(m);
+                    });
                 });
             }
         }

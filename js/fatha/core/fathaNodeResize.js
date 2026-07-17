@@ -2,7 +2,7 @@ import { sysPanel } from "../helpers/fathaSysPanel.js";
 import { applyDockResizeResult, getVerticalResizeTargetMinHeight, syncDockResizePair } from "./dockResize.js";
 import { canResizeDeckPressureSideWidthMember, canResizeHorizontalSharedEdgeWidth, canResizeHorizontalStackHeight, canResizeHorizontalStackWidth, canResizeVerticalStackHeight, getHorizontalDeckMembersByX } from "./dockResizeSharedEdges.js";
 import { getDockGroupAxisFromMembers, getDockNodeMinHeight, getDockNodeMinWidth, resolveDockResizeAxes } from "./dockDimensions.js";
-import { applyDeckPressureLayout, getDeckMembers, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureBranchAxis, getDeckPressureHubForNode, getDeckPressureHubMinWidth, getNodeOnDeckEdge, isDeckPressureHub, isDeckPressureSideWidthResizeEdge, setDeckNodePos } from "./masterDockEngine.js";
+import { applyDeckPressureLayout, getDeckMembers, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureBranchAxis, getDeckPressureHubForNode, getDeckPressureHubMinHeight, getDeckPressureHubMinWidth, getNodeOnDeckEdge, isDeckPressureHub, isDeckPressureSideWidthResizeEdge, setDeckNodePos } from "./masterDockEngine.js";
 import { dockDebug, snapshotDockNode } from "./dockDebugHelpers.js";
 import { setDerpNodeSizeCompat } from "./fathaNode2Compat.js";
 import { resolveDerpPreferredAutoHeight, resolveDerpPreferredAutoWidth, resolveDerpRuntimeAutoHeight } from "./derpHeightPolicy.js";
@@ -160,7 +160,7 @@ export function handleNodeResize(entity, data, scale) {
         : (isVStackCornerHeightResize && startWForMinClamp > 0 ? Math.min(fallbackMinW, startWForMinClamp) : fallbackMinW);
     const useCompactSideVerticalSeamFloor = isDeckPressureSideVerticalSeamResize(entity, graph, resizeAnchor);
     const minH = isPressureHubResize
-        ? SNAP * 8
+        ? getDeckPressureHubMinHeight(entity, graph, SNAP, SNAP * 8)
         : (allowHorizontalStackHeightResize
             ? getHorizontalStackHeightMin(entity, graph, SNAP)
             : getVerticalResizeTargetMinHeight(entity, SNAP, useCompactSideVerticalSeamFloor
@@ -265,7 +265,7 @@ export function handleNodeResize(entity, data, scale) {
     if (isPressureHubResize && graph) {
         entity._deckPressureFrameHeightResizeActive = allowHeightResize && Math.abs(appliedH - startH) > 0.5;
         entity._deckPressureActiveUntil = (performance.now?.() || Date.now()) + 1200;
-        applyDeckPressureLayout(entity, graph, SNAP);
+        applyDeckPressureLayout(entity, graph, SNAP, { liveResize: true });
     }
 
     dockDebug("handle-node-resize-after-apply-size", () => ({
