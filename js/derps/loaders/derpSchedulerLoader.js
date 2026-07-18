@@ -39,7 +39,7 @@ app.registerExtension({
             const [mW, mH, oY, pW, pH, sH, sW] = [
                 vars.mW, vars.mH, vars.oY, vars.pW, vars.pH, vars.sH, vars.sW
             ].map(v => Number(v.toFixed(2)));
-            const t_textNormal_size = vars.t_textNormal_size;
+            const t_textSmall_size = vars.t_textSmall_size;
 
             // Reserve space for the system button + mH gap (derpNotes pattern).
             this.properties.footerHeight = 6 + mH;
@@ -114,7 +114,7 @@ app.registerExtension({
                         width: "full",
                         height: "auto",
                         padding: [pW, pH],
-                        themeKey: "dialog, button, t_textNormal",
+                        themeKey: "dialog, button, t_textSmall",
                         onDragStart: (e, data) => startStackDrag(this, data, idx, rowKey),
                         onDrag: (e, data) => { updateStackDrag(this, data, "schedulerRow_", deck.length); this.refreshNodeLayoutMap(); },
                         onDragEnd: () => endStackDrag(this, "schedulerDeck"),
@@ -137,7 +137,7 @@ app.registerExtension({
                         hidden: !m.active,
                         alpha: item.isPreviewGhost ? 0 : 1.0,
                         width: "match", height: "fill", objectAlign: ["left", "middle"], spacing: [sW, 0], margin: [1, 1, 1, 1],
-                        themeKey: "button, t_textNormal",
+                        themeKey: "button, t_textSmall",
                         onPress: () => {
                             showBastaFileHandler(this, "none", `btnRemoveScheduler_${idx}`, {
                                 title: tLocale("$derp_scheduler_loader.dialogs.remove_scheduler.title", "Remove Scheduler"),
@@ -204,14 +204,14 @@ app.registerExtension({
                         width: "full",
                         height: "auto",
                         padding: [pW, pH],
-                        themeKey: "dialog, button, t_textNormal",
+                        themeKey: "dialog, button, t_textSmall",
                     },
                     floatingRemoveBtn: {
                         type: this.UI_TYPES.ICONBUTTON,
                         icon: "close",
                         hidden: !m.active,
                         width: "match", height: "fill", objectAlign: ["left", "middle"], spacing: [sW, 0], margin: [1, 1, 1, 1],
-                        themeKey: "button, t_textNormal",
+                        themeKey: "button, t_textSmall",
                     }
                 };
             }
@@ -280,8 +280,8 @@ app.registerExtension({
                             value: `{{t_text_accent::${tLocale("$derp_scheduler_loader.browser.select", "Select Scheduler...")}}}`,
                             triggerIconColorKey: "t_text_warning",
                             width: "full", height: "auto",
-                            fontSize: t_textNormal_size,
-                            themeKey: "dialog, t_textNormal", canvasShield: true,
+                            fontSize: t_textSmall_size,
+                            themeKey: "dialog, t_textSmall", canvasShield: true,
                             searchThemeKey: "panel, t_textSystem",
                             padding: [pW, pH],
                             onChange: (v) => {
@@ -305,7 +305,7 @@ app.registerExtension({
                             icon: "refresh",
                             corners: [0, 3, 3, 0],
                             width: "match", height: "fill", objectAlign: ["left", "middle"],
-                            themeKey: "button, t_textNormal",
+                            themeKey: "button, t_textSmall",
                             onPress: () => {
                                 window._xcpDerpSession = Date.now();
                                 this.fetchSchedulerData(true);

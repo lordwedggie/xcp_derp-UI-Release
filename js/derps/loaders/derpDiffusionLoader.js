@@ -92,7 +92,6 @@ export function resolveDiffusionLoaderDeckClipHeight(node, region, regions = {})
 function buildDeckRegions(node, deck, deckKey, rowPrefix, togglePrefix, removePrefix, removeDialogKey) {
     const vars = node.getDerpVars(node);
     const [pW, pH, sH, sW] = [vars.pW, vars.pH, vars.sH, vars.sW].map(v => Number(v.toFixed(2)));
-    const deckButtonSize = pH * 2 + 12;
     const sendSignal = () => {
         if (node.broadcastWirelessSignal) node.broadcastWirelessSignal();
     };
@@ -146,13 +145,13 @@ function buildDeckRegions(node, deck, deckKey, rowPrefix, togglePrefix, removePr
             onPress: () => activateDeckEntry(m, idx),
             regionOffset: [0, 0],
             [`${togglePrefix}${idx}`]: {
-                type: node.UI_TYPES.TOGGLE_V2, iconAlign: "left", isTextOnly: true, mouseOver: true, cutoff: true, cutoffMargin: deckButtonSize,
+                type: node.UI_TYPES.TOGGLE_V2, iconAlign: "left", isTextOnly: true, mouseOver: true, cutoff: true,
                 text: stripModelName(m.name, node.properties.showFolderNames !== false),
                 value: m.active,
                 playSound: m.active ? null : "powerUp",
                 alpha: item.isPreviewGhost ? 0 : 1.0,
                 width: "full", height: "auto", padding: [pW, pH],
-                themeKey: "dialog, button, t_textNormal",
+                themeKey: "dialog, button, t_textSmall",
                 onDragStart: (e, data) => {
                     node._dragDeckKey = deckKey;
                     startStackDrag(node, data, idx, rowKey);
@@ -183,8 +182,8 @@ function buildDeckRegions(node, deck, deckKey, rowPrefix, togglePrefix, removePr
                 type: node.UI_TYPES.ICONBUTTON, icon: "close",
                 hidden: !m.active,
                 alpha: item.isPreviewGhost ? 0 : 1.0,
-                width: "match", height: deckButtonSize, objectAlign: ["left", "middle"], spacing: [sW, 0], margin: [1, 1, 1, 1],
-                themeKey: "button, t_textNormal",
+                width: "match", height: "fill", objectAlign: ["left", "middle"], spacing: [sW, 0], margin: [1, 1, 1, 1],
+                themeKey: "button, t_textSmall",
                 onPress: () => {
                     showBastaFileHandler(node, "none", `${removePrefix}${idx}`, {
                         title: tLocale(`${removeDialogKey}.title`, "Remove"),
@@ -236,7 +235,7 @@ function buildDeckRegions(node, deck, deckKey, rowPrefix, togglePrefix, removePr
             regionOffset: [0, 0],
             floatingToggle: {
                 type: node.UI_TYPES.TOGGLE_V2,
-                themeKey: "dialog, button, t_textNormal",
+                themeKey: "dialog, button, t_textSmall",
                 iconAlign: "left",
                 isTextOnly: true,
                 mouseOver: true,
@@ -270,7 +269,7 @@ app.registerExtension({
 
             const vars = this.getDerpVars(this);
             const [mW, mH, pW, pH, sH, sW, oY] = [vars.mW, vars.mH, vars.pW, vars.pH, vars.sH, vars.sW, vars.oY].map(v => Number(v.toFixed(2)));
-            const t_textNormal_size = vars.t_textNormal_size;
+            const t_textSmall_size = vars.t_textSmall_size;
 
             // Reserve space for the system button + mH gap (derpNotes pattern).
             this.properties.footerHeight = 6 + mH;
@@ -360,8 +359,8 @@ app.registerExtension({
                             value: `{{t_text_accent::${tLocale("$derp_diffusion_loader.browser.select_diffusion", "Select Diffusion Model")}}}`,
                             triggerIconColorKey: "t_text_warning",
                             width: "full", height: "auto",
-                            fontSize: t_textNormal_size,
-                            themeKey: "dialog, t_textNormal", canvasShield: true,
+                            fontSize: t_textSmall_size,
+                            themeKey: "dialog, t_textSmall", canvasShield: true,
                             searchThemeKey: "panel, t_textSystem",
                             padding: [pW, pH],
                             onChange: (v) => {
@@ -380,7 +379,7 @@ app.registerExtension({
                             icon: "refresh",
                             corners: [0, 3, 3, 0],
                             width: "match", height: "fill", objectAlign: ["left", "middle"],
-                            themeKey: "button, t_textNormal",
+                            themeKey: "button, t_textSmall",
                             onPress: () => {
                                 window._xcpDerpSession = Date.now();
                                 this.fetchDiffusionData(true);
@@ -393,14 +392,14 @@ app.registerExtension({
                         margin: [0, mH, 0, 0],
                         lblWeightDtype: {
                             type: this.UI_TYPES.TEXT,
-                            themeKey: "t_textNormal",
+                            themeKey: "t_textSmall",
                             text: tLocale("$derp_diffusion_loader.system.weight_dtype", "Weight DType"),
                             width: "auto", height: "auto", padding: [pW, pH]
                         },
                         dropdownWeightDtype: {
                             type: this.UI_TYPES.FILEBROWSER,
                             icon: "dropdown",
-                            themeKey: "dialog, t_textNormal",
+                            themeKey: "dialog, t_textSmall",
                             canvasShield: true,
                             width: "full", height: "auto",
                             padding: [pW, pH],

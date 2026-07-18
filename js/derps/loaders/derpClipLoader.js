@@ -58,7 +58,7 @@ app.registerExtension({
 
             const vars = this.getDerpVars(this);
             const [mW, mH, pW, pH, sH, sW, oY] = [vars.mW, vars.mH, vars.pW, vars.pH, vars.sH, vars.sW, vars.oY].map(v => Number(v.toFixed(2)));
-            const t_textNormal_size = vars.t_textNormal_size;
+            const t_textSmall_size = vars.t_textSmall_size;
 
             // Reserve space for the system button + mH gap (derpNotes pattern).
             this.properties.footerHeight = 6 + mH;
@@ -120,7 +120,7 @@ app.registerExtension({
                         playSound: m.active ? null : "powerUp",
                         alpha: item.isPreviewGhost ? 0 : 1.0,
                         width: "full", height: "auto", padding: [pW, pH],
-                        themeKey: "dialog, button, t_textNormal",
+                        themeKey: "dialog, button, t_textSmall",
                         onDragStart: (e, data) => startStackDrag(this, data, idx, rowKey),
                         onDrag: (e, data) => { updateStackDrag(this, data, "clipRow_", clipDeck.length); this.refreshNodeLayoutMap(); },
                         onDragEnd: () => endStackDrag(this, "clipDeck"),
@@ -142,7 +142,7 @@ app.registerExtension({
                         hidden: !m.active,
                         alpha: item.isPreviewGhost ? 0 : 1.0,
                         width: "match", height: "fill", objectAlign: ["left", "middle"], spacing: [sW, 0], margin: [1, 1, 1, 1],
-                        themeKey: "button, t_textNormal",
+                        themeKey: "button, t_textSmall",
                         onPress: () => {
                             showBastaFileHandler(this, "none", `btnRemoveClip_${idx}`, {
                                 title: tLocale("$derp_clip_loader.dialogs.remove_clip.title", "Remove CLIP"),
@@ -203,7 +203,7 @@ app.registerExtension({
                         width: "full",
                         height: "auto",
                         padding: [pW, pH],
-                        themeKey: "dialog, button, t_textNormal",
+                        themeKey: "dialog, button, t_textSmall",
                     }
                 };
             }
@@ -272,8 +272,8 @@ app.registerExtension({
                             value: `{{t_text_accent::${tLocale("$derp_clip_loader.browser.select", "Select CLIP...")}}}`,
                             triggerIconColorKey: "t_text_warning",
                             width: "full", height: "auto",
-                            fontSize: t_textNormal_size,
-                            themeKey: "dialog, t_textNormal", canvasShield: true,
+                            fontSize: t_textSmall_size,
+                            themeKey: "dialog, t_textSmall", canvasShield: true,
                             searchThemeKey: "panel, t_textSystem",
                             padding: [pW, pH],
                             onChange: (v) => {
@@ -292,7 +292,7 @@ app.registerExtension({
                             icon: "refresh",
                             corners: [0, 3, 3, 0],
                             width: "match", height: "fill", objectAlign: ["left", "middle"],
-                            themeKey: "button, t_textNormal",
+                            themeKey: "button, t_textSmall",
                             onPress: () => {
                                 window._xcpDerpSession = Date.now();
                                 this.fetchClipData(true);
@@ -309,14 +309,14 @@ app.registerExtension({
                             lblClipType: {
                                 type: this.UI_TYPES.TEXT,
                                 measureText: "device",
-                                themeKey: "t_textNormal",
+                                themeKey: "t_textSmall",
                                 text: tLocale("$derp_clip_loader.options.type", "type"),
                                 width: "auto", height: "auto", padding: [pW, pH]
                             },
                             browserClipType: {
                                 type: this.UI_TYPES.FILEBROWSER,
                                 icon: "dropdown",
-                                themeKey: "dialog, t_textNormal",
+                                themeKey: "dialog, t_textSmall",
                                 canvasShield: true,
                                 width: "full", height: "auto",
                                 padding: [pW, pH],
@@ -341,14 +341,14 @@ app.registerExtension({
                             margin: [0, sH, 0, 0],
                             lblClipDevice: {
                                 type: this.UI_TYPES.TEXT,
-                                themeKey: "t_textNormal",
+                                themeKey: "t_textSmall",
                                 text: tLocale("$derp_clip_loader.options.device", "device"),
                                 width: "auto", height: "auto", padding: [pW, pH]
                             },
                             browserClipDevice: {
                                 type: this.UI_TYPES.FILEBROWSER,
                                 icon: "dropdown",
-                                themeKey: "dialog, t_textNormal",
+                                themeKey: "dialog, t_textSmall",
                                 canvasShield: true,
                                 width: "full", height: "auto",
                                 padding: [pW, pH],
@@ -392,7 +392,7 @@ app.registerExtension({
                     },
                     toggleShowFolder: {
                         anchor: { target: "lblTitle", axis: "y" },
-                        type: this.UI_TYPES.TOGGLE_V2, isTextOnly: true, themeKey: "dialog, button, t_textNormal",
+                        type: this.UI_TYPES.TOGGLE_V2, isTextOnly: true, themeKey: "dialog, button, t_textSmall",
                         text: tLocale("$derp_clip_loader.system.show_folder_names", "Show Folder Names"),
                         width: "full", height: "auto", padding: [pW, pH],
                         value: this.properties.showFolderNames !== false,
