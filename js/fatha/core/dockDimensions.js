@@ -1,5 +1,14 @@
 const DEFAULT_SNAP = 10;
 
+// Combined node structure hash + header inset hash for layout/engine cache keys.
+// _layoutMapHash is written by each node's refreshNodeLayoutMap (map content);
+// _headerInsetLayoutHash is written by getVirtualNodeLayoutMap (collapse /
+// drawHeader / selection / corners / insets). One helper keeps every cache-key
+// site on the same contract so a third component only ever changes here.
+export function getDerpLayoutCacheHash(node) {
+    return (node?._layoutMapHash || "") + "~" + (node?._headerInsetLayoutHash || "");
+}
+
 function isFiniteNumber(value) {
     return typeof value === "number" && Number.isFinite(value);
 }
@@ -12,6 +21,24 @@ function snapCeil(value, snap = DEFAULT_SNAP) {
 function snapRound(value, snap = DEFAULT_SNAP) {
     const unit = isFiniteNumber(snap) && snap > 0 ? snap : DEFAULT_SNAP;
     return Math.round((Number(value) || 0) / unit) * unit;
+}
+
+// Deep-walks a layout map for explicit region minHeight values. The walk
+// mirrors the layout engine's own region discovery (any object value may be a
+// child region), so nested regions (e.g. derpPromptBook's contentRegion) count
+// toward the floor. Function-valued minHeight (viewport configs) resolves to
+// NaN and is ignored.
+export function sumLayoutMapMinHeights(config, seen = new Set()) {
+    if (!config || typeof config !== "object" || seen.has(config)) return 0;
+    seen.add(config);
+    const own = Number(config.minHeight);
+    let sum = Number.isFinite(own) && own > 0 ? own : 0;
+    Object.values(config).forEach((value) => {
+        if (value && typeof value === "object" && !Array.isArray(value)) {
+            sum += sumLayoutMapMinHeights(value, seen);
+        }
+    });
+    return sum;
 }
 
 function getCollapsedDockHeight(node, snap = DEFAULT_SNAP, measured = {}) {
@@ -45,12 +72,7 @@ export function getDockNodeMinHeight(node, fallback = 0, snap = DEFAULT_SNAP) {
         return Math.max(Number(fallback) || 0, getCollapsedDockHeight(node, snap));
     }
 
-    let explicitMinH = 0;
-    if (node?.layoutMap) {
-        Object.values(node.layoutMap).forEach((reg) => {
-            if (reg?.minHeight !== undefined) explicitMinH += Number(reg.minHeight);
-        });
-    }
+    const explicitMinH = sumLayoutMapMinHeights(node?.layoutMap);
     const contentMinH = Number(node?.layout?.contentMinHeight) || Number(node?.layout?.totalHeight) || 40;
     const raw = Math.max(Number(fallback) || 0, explicitMinH, contentMinH);
     return snapCeil(raw, snap);

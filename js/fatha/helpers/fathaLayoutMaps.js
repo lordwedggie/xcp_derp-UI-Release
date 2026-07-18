@@ -198,6 +198,9 @@ function getHeaderInsetLayoutHash(node, insetBoost) {
     return [
         node._currentThemeCacheKey || node._currentThemeName || "",
         node.properties?.contentCollapsed ? 1 : 0,
+        // drawHeader toggles headerRegion.hidden + footerGapHeight in the shared
+        // base map; custom-hash nodes that omit it would serve stale layouts.
+        node.properties?.drawHeader === false ? 0 : 1,
         isSelected ? 1 : 0,
         cornerOverride ? cornerOverride.map(v => (v ?? "n")).join("_") : "nocorners",
         `${insetBoost.left},${insetBoost.right}`,
@@ -356,7 +359,11 @@ export const getVirtualNodeLayoutMap = (node) => {
     const headerPaletteFill = resolveHeaderPaletteFill(node);
     const headerSideInsetBoost = resolveHeaderSideInsetBoost(node);
     
-    node._layoutMapHash = getHeaderInsetLayoutHash(node, headerSideInsetBoost);
+    // Header inset state feeds engine cache keys via a SEPARATE field.
+    // Writing it to node._layoutMapHash would clobber the node's own structure
+    // hash (set by refreshNodeLayoutMap) on every compute, killing node-level
+    // map caching and the engine's _hashMap fallback (bypassHashOptimization).
+    node._headerInsetLayoutHash = getHeaderInsetLayoutHash(node, headerSideInsetBoost);
 
     const isVerticalDocked = isVerticalDockedGroup(node);
     const isHorizontalDocked = isHorizontalDockedGroup(node);
@@ -968,6 +975,9 @@ export function getPanelBaseMap(hostNode, app, sysState) {
                 onPress: () => {
                     if (isVerticalDocked) return;
                     hostNode.properties.drawHeader = (hostNode.properties.drawHeader !== false) ? false : true;
+                    // Node maps branch on drawHeader (content top margin); rebuild BEFORE
+                    // deck title-toggle sync so measurements use the fresh map.
+                    if (typeof hostNode.refreshNodeLayoutMap === "function") hostNode.refreshNodeLayoutMap();
                     handleHorizontalDeckTitleToggle(hostNode);
                 }
             },

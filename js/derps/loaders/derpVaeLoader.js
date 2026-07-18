@@ -56,9 +56,14 @@ app.registerExtension({
             ].map(v => Number(v.toFixed(2)));
             const t_textNormal_size = vars.t_textNormal_size;
 
+            // Reserve space for the system button + mH gap (derpNotes pattern).
+            this.properties.footerHeight = 6 + mH;
+
             const deck = this.properties.vaeDeck || [];
             const deckHash = deck.map(m => `${m.name}:${m.active}:${m.source || ""}`).join("|");
-            const structureHash = `${deckHash}_${(this._vaeList || []).length}_${window._xcpDerpSession}_${this.properties.showFolderNames}_${this.properties.extractFromModel}_${mW}_${mH}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}_${this._dropPreviewIdx}_${this._dragTrig?.index}_${this._dragThresholdMet}_${this._dragMouse?.join(",")}`;
+            // _vaeList content (not length) must be hashed: same-count list refreshes
+            // change FILEBROWSER items and would otherwise keep a stale layout map.
+            const structureHash = `${deckHash}_${(this._vaeList || []).join("|")}_${window._xcpDerpSession}_${this.properties.showFolderNames}_${this.properties.extractFromModel}_${mW}_${mH}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}_${this._dropPreviewIdx}_${this._dragTrig?.index}_${this._dragThresholdMet}_${this._dragMouse?.join(",")}`;
 
             if (this._layoutMapHash === structureHash && this.layoutMap) {
                 this.requestDerpSync();
@@ -223,16 +228,24 @@ app.registerExtension({
             }
 
             this.layoutMap = {
-                sysContentRegion: {
+                deckAndSpringRegion: {
                     anchor: { target: "headerRegion", axis: "y" },
-                    width: "full", height: "auto", dir: "col",
-                    margin: [mW, mH, mW, mH],
+                    width: "full", height: "fill", dir: "col",
+                    margin: [mW, mH, mW, 0],
                     regionVaeDeck: {
                         width: "full", height: "auto", dir: "col", spacing: [0, sH],
                         hidden: deck.length === 0,
                         margin: [0, 0, 0, mH],
                         ...deckRegions
                     },
+                    springRegion: {
+                        width: "full", height: "fill", minHeight: 0,
+                        hidden: deck.length === 0,
+                    },
+                },
+                loaderRegion: {
+                    width: "full", height: "auto", dir: "col",
+                    margin: [mW, 0, mW, 0],
                     vaeDeckBreak: {
                         type: this.UI_TYPES.LINEBREAK,
                         margin: [-mW, 0],

@@ -1,7 +1,7 @@
 import { sysPanel } from "../helpers/fathaSysPanel.js";
 import { applyDockResizeResult, getVerticalResizeTargetMinHeight, syncDockResizePair } from "./dockResize.js";
 import { canResizeDeckPressureSideWidthMember, canResizeHorizontalSharedEdgeWidth, canResizeHorizontalStackHeight, canResizeHorizontalStackWidth, canResizeVerticalStackHeight, getHorizontalDeckMembersByX } from "./dockResizeSharedEdges.js";
-import { getDockGroupAxisFromMembers, getDockNodeMinHeight, getDockNodeMinWidth, resolveDockResizeAxes } from "./dockDimensions.js";
+import { getDockGroupAxisFromMembers, getDockNodeMinHeight, getDockNodeMinWidth, getDerpLayoutCacheHash, resolveDockResizeAxes } from "./dockDimensions.js";
 import { applyDeckPressureLayout, getDeckMembers, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureBranchAxis, getDeckPressureHubForNode, getDeckPressureHubMinHeight, getDeckPressureHubMinWidth, getNodeOnDeckEdge, isDeckPressureHub, isDeckPressureSideWidthResizeEdge, setDeckNodePos } from "./masterDockEngine.js";
 import { dockDebug, snapshotDockNode } from "./dockDebugHelpers.js";
 import { setDerpNodeSizeCompat } from "./fathaNode2Compat.js";
@@ -49,7 +49,7 @@ function getResizeSessionPressureMinWidth(entity, graph, snap, fallbackMinWidth)
             member?.properties?.contentCollapsed === true ? 1 : 0,
             Math.round(Number(member?.size?.[0] ?? member?.properties?.nodeSize?.[0]) || 0),
             Math.round(Number(member?.size?.[1] ?? member?.properties?.nodeSize?.[1]) || 0),
-            member?._layoutMapHash || "",
+            getDerpLayoutCacheHash(member),
         ].join(":")),
     ].join("|");
     if (entity._deckResizeMinWidthCache?.signature === signature) {

@@ -16,7 +16,7 @@ function getNodeSizeValue(node, index) {
     return Number(node?.size?.[index] ?? node?.properties?.nodeSize?.[index]) || 0;
 }
 
-function getLinearResizeMembers(node, graph, axis) {
+export function getLinearResizeMembers(node, graph, axis) {
     if (!graph || !node) return [];
     const pressureHub = getDeckPressureHubForNode(node, graph);
     if (pressureHub?.id === node.id) return [];

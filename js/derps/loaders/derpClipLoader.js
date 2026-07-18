@@ -59,6 +59,10 @@ app.registerExtension({
             const vars = this.getDerpVars(this);
             const [mW, mH, pW, pH, sH, sW, oY] = [vars.mW, vars.mH, vars.pW, vars.pH, vars.sH, vars.sW, vars.oY].map(v => Number(v.toFixed(2)));
             const t_textNormal_size = vars.t_textNormal_size;
+
+            // Reserve space for the system button + mH gap (derpNotes pattern).
+            this.properties.footerHeight = 6 + mH;
+
             const clipDeck = this.properties.clipDeck || [];
             const clipList = this._clipList || [];
             const deckHash = clipDeck.map(m => `${m.name}:${m.active}`).join("|");
@@ -205,16 +209,24 @@ app.registerExtension({
             }
 
             this.layoutMap = {
-                sysContentRegion: {
+                deckAndSpringRegion: {
                     anchor: { target: "headerRegion", axis: "y" },
-                    width: "full", height: "auto", dir: "col",
-                    margin: [mW, mH, mW, mH],
+                    width: "full", height: "fill", dir: "col",
+                    margin: [mW, mH, mW, 0],
                     regionClipDeck: {
                         width: "full", height: "auto", dir: "col", spacing: [0, sH],
                         hidden: clipDeck.length === 0,
                         margin: [0, 0, 0, mH],
                         ...deckRegions
                     },
+                    springRegion: {
+                        width: "full", height: "fill", minHeight: 0,
+                        hidden: clipDeck.length === 0,
+                    },
+                },
+                loaderRegion: {
+                    width: "full", height: "auto", dir: "col",
+                    margin: [mW, 0, mW, 0],
                     clipDeckBreak: {
                         type: this.UI_TYPES.LINEBREAK,
                         margin: [-mW, 0],

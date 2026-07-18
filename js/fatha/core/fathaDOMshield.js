@@ -19,7 +19,7 @@
 import { app } from "../../../../scripts/app.js";
 import { renderHitboxDebug } from "../helpers/debugPainter.js";
 import { computeDeckPressureGeometryPlan, getDeckMembers, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureBranchAxis, getDeckPressureHubForNode, getNodeOnDeckEdge, isDeckPressureHub, isDeckPressureSideHorizontalBranchMember, isDeckPressureSideHorizontalHubEdge, isDeckPressureSideWidthResizeEdge, isLinearDeckGroup, syncDeckNodeSize } from "./masterDockEngine.js";
-import { canResizeDeckPressureSideWidthMember, canResizeHorizontalSharedEdgeWidth as canResizeHorizontalSharedEdge, canResizeHorizontalStackHeight, canResizeHorizontalStackWidth, canResizeVerticalSharedEdgeHeight as canResizeVerticalSharedEdge, getHorizontalSameRowNeighbor } from "./dockResizeSharedEdges.js";
+import { canResizeDeckPressureSideWidthMember, canResizeHorizontalSharedEdgeWidth as canResizeHorizontalSharedEdge, canResizeHorizontalStackHeight, canResizeHorizontalStackWidth, canResizeVerticalSharedEdgeHeight as canResizeVerticalSharedEdge, getHorizontalSameRowNeighbor, getLinearResizeMembers } from "./dockResizeSharedEdges.js";
 import { beginDeckResizeOptimization, clearEntityTooltip, endDeckResizeOptimization, isSystemButtonHit } from "./fathaHandler.js";
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
 import { MASTER_Z, promoteMasterZ } from "./masterZ.js";
@@ -1276,14 +1276,6 @@ export function createDerpShield(node) {
 
     document.body.appendChild(shield);
     node.interactionShield = shield;
-}
-
-function getLinearResizeMembers(node, graph, axis) {
-    if (!graph || !node) return [];
-    const pressureHub = getDeckPressureHubForNode(node, graph);
-    const branchSide = pressureHub && pressureHub.id !== node.id ? getDeckPressureBranchSideForNode(pressureHub, graph, node) : null;
-    if (getDeckPressureBranchAxis(pressureHub, graph, branchSide) === axis) return getDeckPressureBranchMembers(pressureHub, graph, branchSide);
-    return isLinearDeckGroup(node, graph, axis) ? getDeckMembers(node, graph) : [];
 }
 
 function getVerticalSharedResizeNeighbor(node, graph, anchor) {

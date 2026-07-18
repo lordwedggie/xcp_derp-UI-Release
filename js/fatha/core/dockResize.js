@@ -38,7 +38,7 @@ import {
     shouldPreserveDockHeight,
     shouldPreserveDockWidth,
 } from "./dockDimensions.js";
-import { canResizeHorizontalMemberHeight, canResizeHorizontalMemberWidth, canResizeHorizontalSeamPair, canResizeHorizontalSharedEdgeWidth, canResizeHorizontalStackHeight, canResizeVerticalMemberHeight, canResizeVerticalSeamPair, getHorizontalDeckMembersByX, getHorizontalSameRowNeighbor } from "./dockResizeSharedEdges.js";
+import { canResizeHorizontalMemberHeight, canResizeHorizontalMemberWidth, canResizeHorizontalSeamPair, canResizeHorizontalSharedEdgeWidth, canResizeHorizontalStackHeight, canResizeVerticalMemberHeight, canResizeVerticalSeamPair, getHorizontalDeckMembersByX, getHorizontalSameRowNeighbor, getLinearResizeMembers } from "./dockResizeSharedEdges.js";
 import { dockDebug, isDockDebugEnabled, snapshotDockNode } from "./dockDebugHelpers.js";
 import { getVirtualNodeLayoutMap } from "../helpers/fathaLayoutMaps.js";
 import { setDerpNodeSizeCompat } from "./fathaNode2Compat.js";
@@ -686,15 +686,6 @@ function normalizeHorizontalMemberPositions(anchorNode, graph) {
         cursorX += getDockNodeWidth(member);
         if (posChanged && typeof member.syncUncleSlots === "function") member.syncUncleSlots();
     });
-}
-
-function getLinearResizeMembers(node, graph, axis) {
-    if (!graph || !node) return [];
-    const pressureHub = getDeckPressureHubForNode(node, graph);
-    if (pressureHub?.id === node.id) return [];
-    const branchSide = pressureHub && pressureHub.id !== node.id ? getDeckPressureBranchSideForNode(pressureHub, graph, node) : null;
-    if (getDeckPressureBranchAxis(pressureHub, graph, branchSide) === axis) return getDeckPressureBranchMembers(pressureHub, graph, branchSide);
-    return isLinearDeckGroup(node, graph, axis) ? getDeckMembers(node, graph) : [];
 }
 
 function getVerticalDeckMembersByY(node, graph) {
@@ -1952,8 +1943,16 @@ export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH,
             return result;
         }
 
-        const topMinH = getVerticalResizeTargetMinHeight(topNode, snap, { preserveExpandedFloor: true });
-        const bottomMinH = getVerticalResizeTargetMinHeight(bottomNode, snap, { preserveExpandedFloor: true });
+        // Freeze min-heights into the session (same as the ordered-seam path):
+        // viewport-clipped nodes have contentMinHeight that changes with node
+        // height, so re-reading the min each pointermove creates a feedback
+        // loop (height change → min change → clamped height → oscillation).
+        if (!session.topMinH || !session.bottomMinH) {
+            session.topMinH = getVerticalResizeTargetMinHeight(topNode, snap, { preserveExpandedFloor: true });
+            session.bottomMinH = getVerticalResizeTargetMinHeight(bottomNode, snap, { preserveExpandedFloor: true });
+        }
+        const topMinH = session.topMinH;
+        const bottomMinH = session.bottomMinH;
         if (totalHeight < topMinH + bottomMinH) {
             result.handledHeight = true;
             result.handledAll = true;

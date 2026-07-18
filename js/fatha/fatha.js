@@ -20,7 +20,7 @@ import { isComfyVueNodesMode, scheduleNativeVueNodeShellSuppression, shouldMutat
 import { drawContentViewportScrollbars, getContentViewportGeometry, withContentViewportClip } from "./core/fathaContentViewportDraw.js";
 import { getContentViewportSignature } from "./core/fathaContentViewport.js";
 import { undeckNode, undeckDeckPressureBranches, isDeckPressureHub } from "./core/masterDockEngine.js";
-import { getActiveVerticalNodeWidthLock } from "./core/dockDimensions.js";
+import { getActiveVerticalNodeWidthLock, getDerpLayoutCacheHash } from "./core/dockDimensions.js";
 
 const FATHA_OVERLAY_WINDOW_MS = 4000;
 const FATHA_VIEWPORT_CULL_MARGIN_PX = 160;
@@ -293,12 +293,10 @@ function buildPassiveWholeWallCacheState(node, passiveCacheScale) {
         const key = canUse ? [
             Math.max(1, Math.round(cacheReg?.w || node.size?.[0] || 1)),
             Math.max(1, Math.round(cacheReg?.h || node.size?.[1] || 1)),
-            node._layoutMapHash || "",
-            node._currentThemeCacheKey || node._currentThemeName || "",
+            // Includes theme key, contentCollapsed, drawHeader via the inset hash.
+            getDerpLayoutCacheHash(node),
             node.mode || 0,
-            node.properties?.contentCollapsed === true ? 1 : 0,
             node.properties?.settingActive === true ? 1 : 0,
-            node.properties?.drawHeader === false ? 0 : 1,
             node._triggerWallVisualHash || "",
             node._hoveredRegionKey || "",
             node._pressedRegionKey || "",
@@ -346,12 +344,11 @@ function buildPassiveWholeWallCacheState(node, passiveCacheScale) {
         const key = canUse ? [
             Math.max(1, Math.round(cacheReg?.w || node.size?.[0] || 1)),
             Math.max(1, Math.round(cacheReg?.h || node.size?.[1] || 1)),
-            node._layoutMapHash || "",
+            // Includes theme key, contentCollapsed, drawHeader via the inset hash.
+            getDerpLayoutCacheHash(node),
             valueHash,
             previewHash,
-            node._currentThemeCacheKey || node._currentThemeName || "",
             node.mode || 0,
-            node.properties?.contentCollapsed === true ? 1 : 0,
             node.properties?.nameDisplay || "",
             node.properties?.showCLIP === false ? 0 : 1,
             node.properties?.attentionMode || "",
@@ -740,9 +737,6 @@ export function fatha(nodeType, nodeData, minWidth = 100) {
 
         this._shouldSync = hasVisualChanged || this._forceSync || this._layoutDirty || (isAnimating && isTrueSelected);
         const needsLayoutCompute = hasLayoutChanged || this._forceSync || this._layoutDirty;
-        if (globalThis.DERP_DECK_LATENT_DEBUG && (this._forceSync || needsLayoutCompute)) {
-            console.log(`[DeckResizeDebug] fatha.draw node=${this.id}:${this.titleLabel || this.type || ""} size=${this.size?.[0]}x${this.size?.[1]} forceSync=${this._forceSync} layoutDirty=${this._layoutDirty} needsCompute=${needsLayoutCompute} optMode=${this._deckResizeOptimizationMode || "none"}`);
-        }
         const collapseStateChanged = this._prevContentCollapsed !== this.properties.contentCollapsed;
         if (this._layoutDirty) this._layoutDirty = false;
 

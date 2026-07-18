@@ -61,8 +61,10 @@ app.registerExtension({
             const deck = this.properties.modelDeck || [];
             const deckHash = deck.map(m => `${m.name}:${m.active}`).join("|");
 
-            // GOLD-MASTER HASH: Includes physical width and consistent naming for caching
-            const structureHash = `${deckHash}_${(this._modelList || []).length}_${window._xcpDerpSession}_${this.properties.showFolderNames}_${mW}_${mH}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}_${this._dropPreviewIdx}_${this._dragTrig?.index}_${this._dragThresholdMet}_${this._dragMouse?.join(",")}`;
+            // GOLD-MASTER HASH: Includes physical width and consistent naming for caching.
+            // _modelList content (not length) must be hashed: same-count list refreshes
+            // change FILEBROWSER items and would otherwise keep a stale layout map.
+            const structureHash = `${deckHash}_${(this._modelList || []).join("|")}_${window._xcpDerpSession}_${this.properties.showFolderNames}_${mW}_${mH}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}_${this._dropPreviewIdx}_${this._dragTrig?.index}_${this._dragThresholdMet}_${this._dragMouse?.join(",")}`;
 
             if (this._layoutMapHash === structureHash && this.layoutMap) {
                 return;

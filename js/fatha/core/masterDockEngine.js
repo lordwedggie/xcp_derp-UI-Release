@@ -9,7 +9,7 @@ import { syncDerpShield } from "./fathaDOMshield.js";
 import { applyDerpPreferredAutoHeight, resolveDerpPreferredAutoHeight } from "./derpHeightPolicy.js";
 import { handleNodeResize } from "./fathaNodeResize.js";
 import { getVirtualNodeLayoutMap } from "../helpers/fathaLayoutMaps.js";
-import { getActiveVerticalDeckWidthLock, getDockGroupAxisFromMembers, getDockNodeMinHeight, getDockNodeMinWidth, getSharedDockMinWidth, getSharedDockWidth, resolveDockAttachDimensions, resolveRuntimeDockSize } from "./dockDimensions.js";
+import { getActiveVerticalDeckWidthLock, getDockGroupAxisFromMembers, getDockNodeMinHeight, getDockNodeMinWidth, getDerpLayoutCacheHash, getSharedDockMinWidth, getSharedDockWidth, resolveDockAttachDimensions } from "./dockDimensions.js";
 import { setDerpNodeSizeCompat } from "./fathaNode2Compat.js";
 import { masterPainter } from "../../herbina/masterPainter.js";
 import { DEFAULT_PULSE_SPEED, getPulsedColor, parseColor } from "../../herbina/masterAnimator.js";
@@ -25,6 +25,25 @@ const DECK_ARRANGEMENT_HORIZONTAL = "horizontal_sandwich";
 let deckGraphIndexFrame = null;
 let deckGraphIndexGraph = null;
 let deckGraphIndex = null;
+// Monotonic stamp + newest-session node set guarding the 250ms
+// _horizontalDeckWidthResizeLock release timers: a stale timer must not clear
+// a lock re-acquired by a newer session, but must still release nodes the
+// newer session does not cover. The lock stays boolean; every reader uses
+// strict `=== true` checks.
+let deckWidthResizeLockStamp = 0;
+let deckWidthResizeLockLatestNodes = null;
+
+function scheduleHorizontalDeckWidthLockRelease(nodes) {
+    const lockStamp = ++deckWidthResizeLockStamp;
+    deckWidthResizeLockLatestNodes = new Set(nodes.filter(Boolean));
+    setTimeout(() => {
+        nodes.forEach((node) => {
+            if (!node) return;
+            if (lockStamp !== deckWidthResizeLockStamp && deckWidthResizeLockLatestNodes?.has(node)) return;
+            node._horizontalDeckWidthResizeLock = false;
+        });
+    }, 250);
+}
 
 function invalidateDeckGraphIndex() {
     deckGraphIndexFrame = null;
@@ -112,8 +131,7 @@ export function isDeckableDerpNode(node) {
 }
 
 export function isClosedDeckTarget(node) {
-    if (!isDeckableDerpNode(node)) return false;
-    return true;
+    return isDeckableDerpNode(node);
 }
 
 export function isDeckPressureHub(node) {
@@ -192,7 +210,10 @@ function getNodeCollapsedPressureHeight(node) {
     if (node?.properties?.useCollapsedTotalHeight !== true) return DEFAULT_DECK_SNAP * 2;
     const contentMinH = Number(node?.layout?.contentMinHeight) || 0;
     const totalH = Number(node?.layout?.totalHeight) || 0;
-    return totalH || contentMinH || (DEFAULT_DECK_SNAP * 2);
+    // Matches getCollapsedDockHeight in dockDimensions.js: the collapsed floor is
+    // the larger of the two measurements so overflow states never use a smaller
+    // pressure floor than the dock-resize floor for the same node.
+    return Math.max(contentMinH, totalH) || (DEFAULT_DECK_SNAP * 2);
 }
 
 function getNodeMinWidth(node, snap = DEFAULT_DECK_SNAP) {
@@ -245,7 +266,7 @@ export function getDeckAttachLeaderForSide(leader, side, graph) {
         visited.add(current.id);
         const next = getPeerDeckNeighbor(current, graph, side);
         if (!next) break;
-        if (getPeerDeckNeighbor(current, graph, side) && isPinnedVerticalInsertTarget(current, graph, side)) break;
+        if (isPinnedVerticalInsertTarget(current, graph, side)) break;
         current = next;
     }
     return current || leader;
@@ -261,27 +282,6 @@ function collectDeckLine(node, graph, negativeSide, positiveSide) {
     if (!node || !graph) return [];
     const out = [];
     const seen = new Set();
-    const queue = [node];
-
-    while (queue.length > 0) {
-        const cur = queue.shift();
-        if (!cur || seen.has(cur.id)) continue;
-        seen.add(cur.id);
-        out.push(cur);
-
-        const negative = getNodeOnDeckEdge(cur, graph, negativeSide);
-        const positive = getNodeOnDeckEdge(cur, graph, positiveSide);
-        if (negative && !seen.has(negative.id)) queue.push(negative);
-        if (positive && !seen.has(positive.id)) queue.push(positive);
-    }
-
-    return out;
-}
-
-function collectDeckLineExcluding(node, graph, negativeSide, positiveSide, excludedNodeId = null) {
-    if (!node || !graph || node.id === excludedNodeId) return [];
-    const out = [];
-    const seen = new Set([excludedNodeId]);
     const queue = [node];
 
     while (queue.length > 0) {
@@ -391,8 +391,9 @@ export function getDeckPressureBranchMembers(hub, graph, side) {
     if (!first) return [];
     const branchAxis = getDeckPressureBranchAxis(hub, graph, side);
     const axisSides = branchAxis === "vertical" ? ["top", "bottom"] : ["left", "right"];
-    const ordered = collectDeckLineOrderedExcluding(first, graph, axisSides[0], axisSides[1], hub.id);
-    return ordered.length > 0 ? ordered : sortDeckNodesByAxis(collectDeckLineExcluding(first, graph, axisSides[0], axisSides[1], hub.id), branchAxis === "vertical" ? "y" : "x");
+    // `first` is a peer neighbor of the hub and can never be the hub itself
+    // (self-dock is rejected at attach), so the ordered walk always succeeds.
+    return collectDeckLineOrderedExcluding(first, graph, axisSides[0], axisSides[1], hub.id);
 }
 
 export function getDeckPressureBranchSideForNode(hub, graph, node) {
@@ -996,14 +997,6 @@ export function getDeckChildren(node, graph) {
     return [...children.values()];
 }
 
-function getLegacyDeckParent(node, graph) {
-    return getDeckParent(node, graph);
-}
-
-function getLegacyDeckChildren(node, graph) {
-    return getDeckChildren(node, graph);
-}
-
 function compareDeckRootCandidates(a, b) {
     const ay = Number(a?.pos?.[1]) || 0;
     const by = Number(b?.pos?.[1]) || 0;
@@ -1292,11 +1285,7 @@ function restoreDeckPressureSideHorizontalUndockWidths(snapshot) {
         if (typeof node.syncUncleSlots === "function") node.syncUncleSlots();
         syncDerpShield(node);
     });
-    setTimeout(() => {
-        snapshot.forEach(({ node }) => {
-            if (node) node._horizontalDeckWidthResizeLock = false;
-        });
-    }, 250);
+    scheduleHorizontalDeckWidthLockRelease(snapshot.map(({ node }) => node));
     return changed;
 }
 function refreshDeckStateWidgets(nodes = []) {
@@ -1349,7 +1338,7 @@ export function undeckNode(node, graph = null) {
     const props = ensureDeckProps(node);
     if (!props) return false;
     const activeGraph = graph || node?.graph || null;
-    const parent = activeGraph ? getLegacyDeckParent(node, activeGraph) : null;
+    const parent = activeGraph ? getDeckParent(node, activeGraph) : null;
     const directNeighbors = activeGraph ? getDirectDeckNeighbors(node, activeGraph) : [];
     const hadParent = props.deckParentId !== null && props.deckParentId !== undefined;
     const hadDockSide = props.deckDockSide !== null && props.deckDockSide !== undefined;
@@ -1490,13 +1479,6 @@ export function syncDeckNodeSize(node, width, height, options = {}) {
     // within node bounds during the drag. Viewport-backed nodes keep the
     // deferred path because their viewport clips stale layout harmlessly.
     const forceLayoutRecompute = liveResize && isPlainNonViewportDeckMember(node);
-    if (globalThis.DERP_DECK_LATENT_DEBUG && (liveResize || forceLayoutRecompute)) {
-        const _now = performance.now?.() || Date.now();
-        if (!syncDeckNodeSize._lastForceLogAt || _now - syncDeckNodeSize._lastForceLogAt > 100) {
-            syncDeckNodeSize._lastForceLogAt = _now;
-            console.log(`[DeckResizeDebug] syncDeckNodeSize node=${node.id}:${node.titleLabel || node.type || ""} prev=${prevW}x${prevH} next=${nextW}x${nextH} liveResize=${liveResize} plain=${isPlainNonViewportDeckMember(node)} forceLayout=${forceLayoutRecompute} silent=${silent} deferSync=${deferSync}`);
-        }
-    }
     if (!liveResize || forceLayoutRecompute) {
         if (node.layout) node.layout._lastCacheKey = "";
         node._forceSync = true;
@@ -1860,11 +1842,7 @@ function restoreDeckPressureHorizontalStackSnapshot(snapshot) {
         node._horizontalDeckWidthBalanceReady = true;
         if (typeof node.syncUncleSlots === "function") node.syncUncleSlots();
     });
-    setTimeout(() => {
-        snapshot.members.forEach(({ node }) => {
-            if (node) node._horizontalDeckWidthResizeLock = false;
-        });
-    }, 250);
+    scheduleHorizontalDeckWidthLockRelease(snapshot.members.map(({ node }) => node));
     return changed;
 }
 function maybeResolveDeckPressureArrangement(hubCandidate, graph, side) {
@@ -2362,20 +2340,20 @@ function getDeckPressureMinSpanForState(node, axis, snap, collapsed, options = {
         Math.round(Number(node?.layout?.contentMinHeight) || 0),
         Math.round(Number(node?.layout?.totalHeight) || 0),
         getContentViewportSignature(node),
-        node._layoutMapHash || "",
+        getDerpLayoutCacheHash(node),
     ].join(":");
     if (!(node._deckPressureMinCache instanceof Map)) node._deckPressureMinCache = new Map();
     if (node._deckPressureMinCache.has(cacheKey)) return node._deckPressureMinCache.get(cacheKey);
     const previous = node.properties.contentCollapsed;
     node.properties.contentCollapsed = collapsed;
-    const recomputeLayout = () => {
+    const recomputeLayout = (measureCollapsed) => {
         if (node._deckPressureMeasuringMinSpan === true) return;
         node._deckPressureMeasuringMinSpan = true;
         try {
         if (typeof node.refreshNodeLayoutMap === "function") node.refreshNodeLayoutMap();
         if (node.layout && typeof node.layout.compute === "function") {
             node.layout._lastCacheKey = "";
-            const measureHeight = collapsed
+            const measureHeight = measureCollapsed
                 ? Math.max((Number(snap) || DEFAULT_DECK_SNAP) * 2, 1)
                 : Math.max(getNodeSizeValue(node, 1), 1);
             node.layout.compute({
@@ -2394,12 +2372,20 @@ function getDeckPressureMinSpanForState(node, axis, snap, collapsed, options = {
             delete node._deckPressureMeasuringMinSpan;
         }
     };
-    recomputeLayout();
+    // Measurement computes can run re-entrant (a branch member's draw reaches
+    // applyDeckPressureLayout via normalizeDerpDockedLayout before its paint),
+    // so the live layout must always be left computed for the node's REAL
+    // collapse state at its REAL height — never the temporary measured state.
+    // Snapshot viewport scroll first: the collapsed-state tiny-height pass
+    // would otherwise clamp the user's scroll position away permanently.
+    const savedViewportScroll = node._contentViewportScroll ? { ...node._contentViewportScroll } : null;
+    recomputeLayout(collapsed);
+    if (savedViewportScroll) node._contentViewportScroll = { ...savedViewportScroll };
     const value = axis === "vertical"
         ? (collapsed ? getNodeCollapsedPressureHeight(node) : getNodeMinHeight(node, snap))
         : getNodeMinWidth(node, snap);
     node.properties.contentCollapsed = previous;
-    if (previous !== collapsed) recomputeLayout();
+    if (previous !== collapsed) recomputeLayout(previous);
     node._deckPressureMinCache.set(cacheKey, value);
     if (node._deckPressureMinCache.size > 100) {
         const oldestKey = node._deckPressureMinCache.keys().next().value;
@@ -2534,6 +2520,26 @@ function clearDeckPressureSideVerticalWidthCache(hub, side = null) {
     else delete hub._deckPressureSideVerticalWidths;
 }
 
+// Stable per-member signature for the side-height cache. Captures state that
+// makes cached exact heights stale — collapse toggles (from any path: shield
+// button, engine collapse pass, dock/undock) and viewport clip changes from
+// content edits — while ignoring transient values like scrollTop so ordinary
+// scrolling never invalidates preserved side heights.
+function getDeckPressureSideHeightMemberSig(node) {
+    const collapsed = node?.properties?.contentCollapsed === true ? 1 : 0;
+    const states = Object.values(node?._contentViewportState || {});
+    if (states.length === 0) return `${collapsed}`;
+    const viewportSig = states
+        .map((state) => [
+            state.key,
+            Math.round(Number(state.fullHeight) || 0),
+            Math.round(Number(state.clipHeight) || 0),
+            state.hasOverflow ? 1 : 0,
+        ].join(":"))
+        .join("|");
+    return `${collapsed}|${viewportSig}`;
+}
+
 function getDeckPressureSideVerticalHeightCache(hub, side, members = []) {
     if (!isDeckPressureHub(hub) || (side !== "left" && side !== "right")) return null;
     const rawCache = hub?._deckPressureSideVerticalHeights?.[side];
@@ -2544,6 +2550,7 @@ function getDeckPressureSideVerticalHeightCache(hub, side, members = []) {
         const member = members[index];
         const entry = cached[index];
         if (!member || entry?.id !== member.id) return null;
+        if (entry.sig !== undefined && entry.sig !== getDeckPressureSideHeightMemberSig(member)) return null;
         const height = Number(entry.height) || 0;
         if (!(height > 0)) return null;
         heights.push(height);
@@ -2558,7 +2565,7 @@ export function setDeckPressureSideVerticalHeightCache(hub, side, members = [], 
     if (!isDeckPressureHub(hub) || (side !== "left" && side !== "right") || !Array.isArray(members) || members.length === 0) return;
     const heights = members
         .filter(Boolean)
-        .map((member) => ({ id: member.id, height: getNodeSizeValue(member, 1) }));
+        .map((member) => ({ id: member.id, height: getNodeSizeValue(member, 1), sig: getDeckPressureSideHeightMemberSig(member) }));
     if (heights.length !== members.length || heights.some((entry) => !(entry.height > 0))) return;
     if (!hub._deckPressureSideVerticalHeights) hub._deckPressureSideVerticalHeights = {};
     hub._deckPressureSideVerticalHeights[side] = {

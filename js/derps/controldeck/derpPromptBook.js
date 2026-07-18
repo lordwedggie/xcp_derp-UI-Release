@@ -103,8 +103,12 @@ app.registerExtension({
             const currentIndex = this.properties.currentPageIndex || 0;
             const safeIndex = Math.max(0, Math.min(currentIndex, Math.max(0, book.length - 1)));
 
-            const contentFp = book.reduce((acc, p) => acc + (p.content || "").length, 0);
-            const structureHash = `${book.length}_${safeIndex}_${this.properties.bookName}_${this.properties.coverPage}_${this.properties.showTotalPage}_${this.properties.drawHeader}_${(this._availableBooks || []).length}_${editorPaddingHash}_${contentFp}_${window._xcpDerpSession}`;
+            // Hash page TITLES (baked into dropdown items) instead of content:
+            // content edits are re-synced in-place by the rehydrate path below,
+            // so hashing content would force a full map rebuild on every keystroke.
+            const pageTitlesFp = book.map(p => p.title || "").join("|");
+            // _availableBooks content (not length): same-count list refreshes (e.g. book renames) change dropdown items.
+            const structureHash = `${book.length}_${safeIndex}_${this.properties.bookName}_${this.properties.coverPage}_${this.properties.showTotalPage}_${this.properties.drawHeader}_${(this._availableBooks || []).join("|")}_${editorPaddingHash}_${pageTitlesFp}_${window._xcpDerpSession}`;
             this._layoutMapHash = structureHash;
 
             const activePage = book[safeIndex] || { title: tLocale("$derp_prompt_book.page.empty", "Empty"), content: "" };

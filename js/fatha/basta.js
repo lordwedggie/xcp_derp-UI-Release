@@ -17,6 +17,7 @@ import { ensureScreenRectVisible, isWarping } from "./core/fathaWarp.js";
 import { MASTER_Z } from "./core/masterZ.js";
 import { resolveSystemThemePaint, getSystemThemeLayoutVars } from "./helpers/fathaSystemTheme.js";
 import { getContentViewportForRegion } from "./core/fathaContentViewport.js";
+import { getDerpLayoutCacheHash } from "./core/dockDimensions.js";
 
 const BASTA_FADE_SPEED = 0.4;
 const BLD_ID = "basta_lora_detail_global_unique_id";
@@ -735,7 +736,7 @@ class BastaInstance {
         // THE STRUCTURAL HASH GATE: Prevent 20fps loss by skipping layout generation if state is static.
         // THE PERF FIX: Remove alpha from the structure hash so fade animations don't trigger deep layout computes
         const prevStructureHash = this._lastStructureHash;
-        const structureHash = `${window._xcpDerpSession}_${this.hostNode?._layoutMapHash || ""}`;
+        const structureHash = `${window._xcpDerpSession}_${getDerpLayoutCacheHash(this.hostNode)}`;
         const structureChanged = prevStructureHash !== structureHash;
         const liveResizeReason = !!this._isDerpResizing;
         const layoutForceReason = !!this._forceSync || liveResizeReason;

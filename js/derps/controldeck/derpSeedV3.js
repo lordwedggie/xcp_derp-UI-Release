@@ -56,6 +56,8 @@ function buildSeedV3LayoutHash(node, vars, history) {
         node._comfyIsBusy ? 1 : 0,
         node.properties?.seedMode || "Random",
         node.properties?.toggleColorKey !== false ? 1 : 0,
+        // drawHeader changes topControlsRegion margins — must rebuild on toggle.
+        node.properties?.drawHeader === true ? 1 : 0,
         getSeedV3DigitCount(node),
         getSeedV3HistoryLimit(node),
         getSeedV3VisibleHistory(node),

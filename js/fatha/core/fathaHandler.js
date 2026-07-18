@@ -23,7 +23,8 @@ import {
     handleHorizontalDeckTitleToggleImpl,
 } from "./dockResize.js";
 import { masterDockEngine, getDeckMembers, getDeckCornerOverride, getNodeOnDeckEdge, isDeckPressureSideHorizontalBranchMember, isLinearDeckGroup, normalizeDockedLayout, setDeckNodePos, syncDeckNodeSize, isDeckPressureHub, getDeckPressureHubForNode, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureBranchAxis, applyDeckPressureLayout, getDeckPressureSideHorizontalExplicitWidthLock, drawSharedResizeSeamGhosts } from "./masterDockEngine.js";
-import { getActiveVerticalDeckWidthLock, getDockGroupAxisFromMembers, getDockNodeHeight, getDockNodeMinWidth, getDockNodeWidth, getSharedDockMinWidth, getSharedDockWidth, shouldPreserveDockHeight, shouldPreserveDockWidth } from "./dockDimensions.js";
+import { getActiveVerticalDeckWidthLock, getDockGroupAxisFromMembers, getDockNodeHeight, getDockNodeMinWidth, getDockNodeWidth, getDerpLayoutCacheHash, getSharedDockMinWidth, getSharedDockWidth, shouldPreserveDockHeight, shouldPreserveDockWidth } from "./dockDimensions.js";
+import { getLinearResizeMembers } from "./dockResizeSharedEdges.js";
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
 import {
     getNodeHeaderPaletteFingerprint,
@@ -226,7 +227,7 @@ function getDeckGeometrySignature(members = [], value = 0, axis = "horizontal") 
                         edges.top ?? "",
                         edges.bottom ?? "",
                         member?.properties?.deckArrangement || "",
-                        member?._layoutMapHash || "",
+                        getDerpLayoutCacheHash(member),
                         Math.round(Number(member?.layout?.contentMinHeight) || 0),
                         Math.round(Number(member?.layout?.totalHeight) || 0),
                         getContentViewportSignature(member),
@@ -408,26 +409,14 @@ export function drawDeckResizeOptimizedNode(node, ctx) {
         if (node?._deckResizeOptimizationMode) setDeckResizeDomHidden(node, false);
         return false;
     }
-    if (globalThis.DERP_DECK_LATENT_DEBUG) {
-        console.log(`[DeckResizeDebug] drawDeckResizeOptimizedNode GHOST node=${node.id}:${node.titleLabel || node.type || ""} mode=${mode} size=${node.size?.[0]}x${node.size?.[1]} forceSync=${node._forceSync}`);
-    }
     setDeckResizeDomHidden(node, true);
     drawDeckResizeGhost(node, ctx);
     if (node._forceSync) node._forceSync = false;
     return true;
 }
 
-function getLinearDeckMembers(node, graph, axis) {
-    if (!graph || !node) return [];
-    const pressureHub = getDeckPressureHubForNode(node, graph);
-    if (pressureHub?.id === node.id) return [];
-    const branchSide = pressureHub && pressureHub.id !== node.id ? getDeckPressureBranchSideForNode(pressureHub, graph, node) : null;
-    if (getDeckPressureBranchAxis(pressureHub, graph, branchSide) === axis) return getDeckPressureBranchMembers(pressureHub, graph, branchSide);
-    return isLinearDeckGroup(node, graph, axis) ? getDeckMembers(node, graph) : [];
-}
-
 function getHorizontalDeckMembersByX(node, graph) {
-    const members = getLinearDeckMembers(node, graph, "horizontal");
+    const members = getLinearResizeMembers(node, graph, "horizontal");
     if (members.length === 0) return [];
     const pressureHub = getDeckPressureHubForNode(node, graph);
     const branchSide = pressureHub && pressureHub.id !== node.id ? getDeckPressureBranchSideForNode(pressureHub, graph, node) : null;
@@ -599,8 +588,8 @@ function getDeckFrameState(node) {
         return null;
     }
     let axis = getDockGroupAxisFromMembers(members);
-    const horizontalMembers = getLinearDeckMembers(node, graph, "horizontal");
-    const verticalMembers = getLinearDeckMembers(node, graph, "vertical");
+    const horizontalMembers = getLinearResizeMembers(node, graph, "horizontal");
+    const verticalMembers = getLinearResizeMembers(node, graph, "vertical");
     if (horizontalMembers.length > 1) {
         members = horizontalMembers;
         axis = "horizontal";

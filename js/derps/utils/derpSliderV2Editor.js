@@ -229,6 +229,8 @@ function buildEditorLayoutHash(node, vars) {
         sW,
         sH,
         oY,
+        // drawHeader branches sliderEditorRegion margins below.
+        node?.properties?.drawHeader === true ? 1 : 0,
         getEditorRenderPath(),
         props.sliderV2SelectedStyleFile,
         props.sliderV2StyleName,

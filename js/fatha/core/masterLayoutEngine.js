@@ -5,6 +5,7 @@
 import { interpretLayoutProps } from "../../herbina/utils/widgetsUtils.js";
 import { renderLayoutDebug } from "../helpers/debugPainter.js";
 import { applyContentViewportLayout } from "./fathaContentViewport.js";
+import { getDerpLayoutCacheHash } from "./dockDimensions.js";
 
 /**
  * t: Translates a key using the global locale registry.
@@ -328,8 +329,13 @@ export class masterLayoutEngine {
         const hSlot = isSys ? "sys" : (this.owner?._hideSlot);
 
         if (isForced || forceOverride) this._cachedMapHash = "";
-        const rawMapHash = (this.owner && this.owner._layoutMapHash !== undefined)
-            ? this.owner._layoutMapHash
+        // Combine the node's structure hash (map content) with the header inset
+        // hash (collapse/drawHeader/selection/corners/insets) so engine cache
+        // keys see both. Only when the node hash is absent do we fall back to
+        // hashing the profile map directly (bypassHashOptimization path).
+        const ownerMapHash = this.owner?._layoutMapHash;
+        const rawMapHash = (ownerMapHash !== undefined && ownerMapHash !== null)
+            ? getDerpLayoutCacheHash(this.owner)
             : (this._cachedMapHash || (this._hashMap ? (this._cachedMapHash = this._hashMap(profileMap)) : ""));
         const mapHash = typeof rawMapHash === "string" ? rawMapHash : (rawMapHash == null ? "" : String(rawMapHash));
 

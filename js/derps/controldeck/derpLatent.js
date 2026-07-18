@@ -145,13 +145,6 @@ app.registerExtension({
                 vars.mW, vars.mH, vars.sW, vars.sH, vars.oX, vars.oY, vars.pW, vars.pH
             ].map(v => Number(v.toFixed(2)));
 
-            const structureHash = `${mode}_${this.properties.selectedLatent}_${this.properties.batchSize}_${this.properties.editorMP}_${presets.length}_${mW}_${mH}_${sW}_${sH}_${window._xcpDerpSession}_${this.properties.drawHeader}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}`;
-
-            if (this._lastMapStructure === structureHash && this.layoutMap) {
-                this.requestDerpSync();
-                return;
-            }
-            this._lastMapStructure = structureHash;
             const isPortrait = mode === "Portrait";
             const getLabel = (p, m) => {
                 const isP = m === "Portrait";
@@ -160,6 +153,17 @@ app.registerExtension({
                 const ar = (isP ? p.aspectRatio.split(" : ").reverse().join(":") : p.aspectRatio).replace(/\s*:\s*/g, ":");
                 return `${ar} - ${w} x ${h}`;
             };
+            // Preset labels (not just count) and widget padding must be hashed:
+            // same-length profile swaps change dropdown items, and pW/pH are
+            // baked into the map but not otherwise represented.
+            const presetLabels = presets.map(p => getLabel(p, mode));
+            const structureHash = `${mode}_${this.properties.selectedLatent}_${this.properties.batchSize}_${this.properties.editorMP}_${presetLabels.join("|")}_${mW}_${mH}_${sW}_${sH}_${pW}_${pH}_${window._xcpDerpSession}_${this.properties.drawHeader}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}`;
+
+            if (this._lastMapStructure === structureHash && this.layoutMap) {
+                this.requestDerpSync();
+                return;
+            }
+            this._lastMapStructure = structureHash;
 
             const dropdownItems = presets.map(p => {
                 const full = getLabel(p, mode);
