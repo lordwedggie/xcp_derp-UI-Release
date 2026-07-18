@@ -39,8 +39,7 @@ import { DERP_SCROLLBAR_WIDTH, DERP_SCROLLBAR_MIN_THUMB } from "../../fatha/core
 const BYPASS_BRIGHTNESS = 0.6;
 // Right-side inset for the editor scrollbar (inside the widget bounds).
 // The viewport scrollbar sits in an external gutter; the editor has no gutter,
-// so it needs a small right-side offset. Top/bottom margins are 0 to match
-// the viewport scrollbar.
+// so it needs a small right-side offset.
 const EDITOR_SCROLLBAR_RIGHT_INSET = 2;
 const EDITOR_SCROLLBAR_LEFT_MARGIN = 4;
 
@@ -251,9 +250,28 @@ function resolveDerpEditorImageSrc(src) {
     return window.location.origin + `/xcp/get_prompt_book_image?name=${encodeURIComponent(rawSrc)}`;
 }
 
-function getDerpEditorContentHeight(node, safeConfig, lines) {
-    const uiLineHeight = getDerpTextLineHeight(safeConfig.geometry?.fontSize || 10);
-    const drawW = Math.max(0, (safeConfig.geometry?.w || 0) - ((safeConfig.padding?.[0] || 4) * 2));
+function getDerpEditorCutoffRightPad(node, safeConfig, padX, isMultiline, requestedCanvasShield) {
+    let cutoffRightPad = safeConfig.displayMode === "cutoff" ? padX : 0;
+    if (isMultiline && requestedCanvasShield) {
+        const editorScrollbarGap = Math.max(0, Number(node.getDerpVars?.(node)?.sW) || 0);
+        cutoffRightPad = Math.max(cutoffRightPad, DERP_SCROLLBAR_WIDTH + EDITOR_SCROLLBAR_LEFT_MARGIN + EDITOR_SCROLLBAR_RIGHT_INSET + editorScrollbarGap);
+    }
+    return cutoffRightPad;
+}
+
+export function getDerpEditorContentWidth(node, safeConfig) {
+    const cachedWidth = Number(safeConfig?._editorContentWidth);
+    if (Number.isFinite(cachedWidth)) return Math.max(0, cachedWidth);
+    const padX = Number(safeConfig?.padding?.[0] ?? 4) || 0;
+    const isMultiline = !!(safeConfig?.multiline || safeConfig?.wrap);
+    const requestedCanvasShield = safeConfig?.canvasShield !== false;
+    const cutoffRightPad = getDerpEditorCutoffRightPad(node, safeConfig || {}, padX, isMultiline, requestedCanvasShield);
+    return Math.max(0, (safeConfig?.geometry?.w || 0) - (padX * 2) - cutoffRightPad);
+}
+
+export function getDerpEditorContentHeight(node, safeConfig, lines) {
+    const uiLineHeight = Number(safeConfig?._editorLineHeight) || getDerpTextLineHeight(safeConfig.geometry?.fontSize || 10);
+    const drawW = getDerpEditorContentWidth(node, safeConfig);
     let totalHeight = 0;
 
     lines.forEach(item => {
@@ -274,29 +292,131 @@ function getDerpEditorContentHeight(node, safeConfig, lines) {
     return totalHeight;
 }
 
+function handleDerpEditorImageLoaded(node, safeConfig) {
+    const el = node?._derpDomElements?.[safeConfig?.key];
+    if (el) delete el._lastMetrics;
+    const clamp = node?._derpScrollConfigs?.[safeConfig?.key]?._clampScroll;
+    if (typeof clamp === "function") clamp();
+    if (node) node._derpAwakeFrames = 5;
+    if (node?.requestDerpSync) node.requestDerpSync();
+    else if (node?.setDirtyCanvas) node.setDirtyCanvas(true);
+}
+
+export function buildDerpEditorLines(value, availableWidth, fontSize, font, fontWeight, numberOnly = false) {
+    const lines = [];
+    const EPSILON = 0.01;
+    const PUNC_NO_START = /^[\uff0c\u3002\uff1f\uff01\u3001\uff1a\uff1b\u201d\u2019\u300b\u300f\u3011\u3009\u3015\u3017\u3019\u00b7\u2014\u2026,\.\?!:;"]/;
+
+    const pushWrappedText = (para) => {
+        if (para.length === 0) {
+            lines.push("");
+            return;
+        }
+
+        const tokens = para.split(/([\s\-]|(?<=[\u3000-\u9fff])|(?=[\u3000-\u9fff]))/).filter(Boolean);
+        let currentLine = "";
+
+        tokens.forEach(token => {
+            if (token === "") return;
+            const testLine = currentLine + token;
+            const measureToken = numberOnly ? "9" : token;
+            const testW = measureTextWidth(currentLine + measureToken, fontSize, font, fontWeight);
+
+            if (testW > (availableWidth + EPSILON) && currentLine.length > 0) {
+                if (PUNC_NO_START.test(token.trim()) && currentLine.length > 1) {
+                    const lastChar = currentLine.slice(-1);
+                    const lineWithoutLast = currentLine.slice(0, -1);
+                    lines.push(lineWithoutLast.replace(/\s+$/, ''));
+                    currentLine = lastChar + token.replace(/^\s+/, '');
+                } else {
+                    lines.push(currentLine.replace(/\s+$/, ''));
+                    currentLine = token.replace(/^\s+/, '');
+                }
+            } else {
+                currentLine = testLine;
+            }
+
+            while (measureTextWidth(numberOnly ? "9".repeat(currentLine.length) : currentLine, fontSize, font, fontWeight) > (availableWidth + EPSILON) && currentLine.length > 1) {
+                let tempLine = "";
+                let cutIndex = 0;
+                for (let i = 0; i < currentLine.length; i++) {
+                    const tempW = measureTextWidth(numberOnly ? "9".repeat(tempLine.length + 1) : (tempLine + currentLine[i]), fontSize, font, fontWeight);
+                    if (tempW > (availableWidth + EPSILON) && tempLine.length > 0) {
+                        cutIndex = i;
+                        break;
+                    }
+                    tempLine += currentLine[i];
+                }
+                if (cutIndex > 0) {
+                    lines.push(tempLine);
+                    currentLine = currentLine.slice(cutIndex);
+                } else {
+                    lines.push(currentLine[0]);
+                    currentLine = currentLine.slice(1);
+                }
+            }
+        });
+
+        if (currentLine.length > 0) {
+            lines.push(currentLine.replace(/\s+$/, ''));
+        }
+    };
+
+    const pushText = (text) => {
+        String(text).split('\n').forEach(para => {
+            pushWrappedText(para);
+        });
+    };
+
+    const parts = String(value || "").split(/(\[\[IMG:[\s\S]*?\]\])/g);
+    parts.forEach((part, i) => {
+        if (!part) return;
+        const imgMatch = part.trim().match(/^\[\[IMG:([\s\S]*?)\]\]$/);
+        if (imgMatch) {
+            lines.push({ type: 'img', src: imgMatch[1].trim() });
+        } else {
+            let cleanPart = part;
+            if (i < parts.length - 1 && parts[i + 1].startsWith("[[IMG:")) cleanPart = cleanPart.replace(/\n+$/, "");
+            if (i > 0 && parts[i - 1].startsWith("[[IMG:")) cleanPart = cleanPart.replace(/^\n+/, "");
+            if (cleanPart) pushText(cleanPart);
+        }
+    });
+
+    if (lines.length === 0) lines.push("");
+    return lines;
+}
+
 function clampDerpEditorScroll(node, safeConfig) {
     if (!node?._derpScrollOffsets || !safeConfig?.key) return 0;
     const lines = node._editorLineCache?.[safeConfig.key]?.lines || [];
     const totalHeight = getDerpEditorContentHeight(node, safeConfig, lines);
     const viewHeight = safeConfig.geometry?.h || 0;
-    const maxScroll = Math.max(0, totalHeight - viewHeight + 20);
+    const maxScroll = Math.max(0, totalHeight - viewHeight);
     node._derpScrollOffsets[safeConfig.key] = Math.max(0, Math.min(node._derpScrollOffsets[safeConfig.key] || 0, maxScroll));
     return maxScroll;
 }
 
-function drawDerpEditorCanvasScrollbar(ctx, { x, y, w, h, scrollTop, maxScroll, alpha, trackColor, thumbColor }) {
+export function resolveDerpEditorScrollbarGeometry({ x, y, w, h, scrollTop, maxScroll, verticalMargin = 0 }) {
     if (!(maxScroll > 0) || !(w > 0) || !(h > 0)) return;
 
+    const insetY = Math.max(0, Math.min(Number(verticalMargin) || 0, h / 2));
     const trackX = x + w - DERP_SCROLLBAR_WIDTH - EDITOR_SCROLLBAR_RIGHT_INSET;
-    const trackY = y;
-    const trackH = Math.max(0, h);
-    if (!(trackH > 0)) return;
+    const trackY = y + insetY;
+    const trackH = Math.max(0, h - (insetY * 2));
+    if (!(trackH > 0)) return null;
 
     const contentHeight = h + maxScroll;
     const thumbRatio = Math.max(0, Math.min(1, h / Math.max(h, contentHeight)));
     const thumbH = Math.min(trackH, Math.max(DERP_SCROLLBAR_MIN_THUMB, trackH * thumbRatio));
     const thumbTravel = Math.max(0, trackH - thumbH);
     const thumbY = trackY + (thumbTravel * Math.max(0, Math.min(1, scrollTop / maxScroll)));
+    return { trackX, trackY, trackH, thumbH, thumbY };
+}
+
+function drawDerpEditorCanvasScrollbar(ctx, { x, y, w, h, scrollTop, maxScroll, alpha, trackColor, thumbColor, verticalMargin = 0 }) {
+    const geometry = resolveDerpEditorScrollbarGeometry({ x, y, w, h, scrollTop, maxScroll, verticalMargin });
+    if (!geometry) return;
+    const { trackX, trackY, trackH, thumbH, thumbY } = geometry;
     const corners = [DERP_SCROLLBAR_WIDTH / 2, DERP_SCROLLBAR_WIDTH / 2, DERP_SCROLLBAR_WIDTH / 2, DERP_SCROLLBAR_WIDTH / 2];
 
     ctx.save();
@@ -714,19 +834,15 @@ export function syncDerpEditor(context, node, app, config) {
     // --- 1. SHARED METRICS & ALIGNMENT ---
     const padX = props.padding?.[0] || 0;
     const padY = props.padding?.[1] || 0;
-    const isCutoff = safeConfig.displayMode === "cutoff";
-    let cutoffRightPad = isCutoff ? padX : 0;
-    if (isMultiline && requestedCanvasShield) {
-        const editorScrollbarGap = Math.max(0, Number(node.getDerpVars?.(node)?.sW) || 0);
-        cutoffRightPad = Math.max(cutoffRightPad, DERP_SCROLLBAR_WIDTH + EDITOR_SCROLLBAR_LEFT_MARGIN + EDITOR_SCROLLBAR_RIGHT_INSET + editorScrollbarGap);
-    }
+    const cutoffRightPad = getDerpEditorCutoffRightPad(node, safeConfig, padX, isMultiline, requestedCanvasShield);
     const textPadX = prefixGlyphText ? Math.max(padX, prefixGlyphPad) : padX;
 
     const ds = app?.canvas?.ds || { scale: 1, offset: [0, 0] };
     const rect = app?.canvas?.canvas?.getBoundingClientRect() || { left: 0, top: 0 };
 
     const availableWidth = Math.max(0, w - (padX * 2) - cutoffRightPad);
-    const EPSILON = 0.01; // Tightened buffer now that sub-pixel math is removed
+    safeConfig._editorContentWidth = availableWidth;
+    const scrollbarMarginY = Math.max(0, Number(node.getDerpVars?.(node)?.sH) || 0);
     const rawBg = paintData?.fill || config.btnColor || "transparent";
     // THE THEME FIX: Removed hardcoded DIS alpha override so the _DIS theme key is strictly respected
     let rawIc = labelData?.textColor || labelData?.fill || "red";
@@ -743,6 +859,7 @@ export function syncDerpEditor(context, node, app, config) {
     if (isAnimating && node) node._derpAwakeFrames = 5;
 
     const lineHeight = getDerpTextLineHeight(fontSize);
+    safeConfig._editorLineHeight = lineHeight;
 
     // Word Wrapping Cache
     // THE FIX: The cache key MUST use valToSync, not measureText, otherwise the Canvas
@@ -754,93 +871,11 @@ export function syncDerpEditor(context, node, app, config) {
     let lines = node._editorLineCache[safeConfig.key]?.key === cacheKey ? node._editorLineCache[safeConfig.key].lines : null;
 
     if (!lines) {
-        lines = [];
         if (isMultiline) {
             // THE FIX: Always parse the actual value for rendering, never the measureText proxy
-            const paragraphs = valToSync.toString().split('\n');
-
             // THE FIX: Support numeric-only height measurement parity for Canvas pass
             const numberOnly = safeConfig.numberOnly === true;
-            const numMeasureStr = "9876543210";
-
-            paragraphs.forEach(para => {
-                // THE PARSER FIX: Make the wrapper immune to trailing whitespace
-                // which causes Canvas to shatter the Base64 image marker.
-                const cleanPara = para.trim();
-                const imgMatch = cleanPara.match(/^\[\[IMG:([\s\S]*?)\]\]$/);
-                if (imgMatch) {
-                    lines.push({ type: 'img', src: imgMatch[1].trim() });
-                    return;
-                }
-
-                if (para.length === 0) {
-                    lines.push("");
-                    return;
-                }
-
-                // THE FIX: Use numeric string for measurement if flag is active
-                const targetPara = numberOnly ? numMeasureStr : para;
-
-                // THE EXACT CJK PARITY FIX: HTML evaluates CJK text character-by-character,
-                // NOT by dictionary words. Intl.Segmenter groups Chinese characters into words,
-                // causing the Canvas to wrap entirely differently than HTML.
-                // We split by spaces, hyphens, OR any individual CJK character/punctuation (\u3000-\u9fff).
-                // THE WORD-BREAK FIX: Removed '\b' so canvas stops incorrectly breaking unbroken words like "powerful,octane"
-                const tokens = para.split(/([\s\-]|(?<=[\u3000-\u9fff])|(?=[\u3000-\u9fff]))/).filter(Boolean);
-
-                let currentLine = "";
-                // KINSOKU SHORI: Universal punctuation that cannot start a new line
-                const PUNC_NO_START = /^[\uff0c\u3002\uff1f\uff01\u3001\uff1a\uff1b\u201d\u2019\u300b\u300f\u3011\u3009\u3015\u3017\u3019\u00b7\u2014\u2026,\.\?!:;"]/;
-
-                tokens.forEach(token => {
-                    if (token === "") return;
-                    let testLine = currentLine + token;
-                    // THE FIX: If numberOnly is true, we measure against a numeric-length proxy for the token
-                    const measureToken = numberOnly ? "9" : token;
-                    let testW = measureTextWidth(currentLine + measureToken, fontSize, font, fontWeight);
-
-                    if (testW > (availableWidth + EPSILON) && currentLine.length > 0) {
-                        // KINSOKU SHORI FIX: Prevent forbidden punctuation from starting a new line alone.
-                        // By forcing the preceding character down with it, we match HTML grammar wrapping.
-                        if (PUNC_NO_START.test(token.trim()) && currentLine.length > 1) {
-                            const lastChar = currentLine.slice(-1);
-                            const lineWithoutLast = currentLine.slice(0, -1);
-                            lines.push(lineWithoutLast.replace(/\s+$/, ''));
-                            currentLine = lastChar + token.replace(/^\s+/, '');
-                        } else {
-                            lines.push(currentLine.replace(/\s+$/, ''));
-                            currentLine = token.replace(/^\s+/, '');
-                        }
-                    } else {
-                        currentLine = testLine;
-                    }
-
-                    // THE FIX: Apply numeric measurement to the break-word loop
-                    while (measureTextWidth(numberOnly ? "9".repeat(currentLine.length) : currentLine, fontSize, font, fontWeight) > (availableWidth + EPSILON) && currentLine.length > 1) {
-                        let tempLine = "";
-                        let cutIndex = 0;
-                        for (let i = 0; i < currentLine.length; i++) {
-                            let tempW = measureTextWidth(numberOnly ? "9".repeat(tempLine.length + 1) : (tempLine + currentLine[i]), fontSize, font, fontWeight);
-                            if (tempW > (availableWidth + EPSILON) && tempLine.length > 0) {
-                                cutIndex = i;
-                                break;
-                            }
-                            tempLine += currentLine[i];
-                        }
-                        if (cutIndex > 0) {
-                            lines.push(tempLine);
-                            currentLine = currentLine.slice(cutIndex);
-                        } else {
-                            lines.push(currentLine[0]);
-                            currentLine = currentLine.slice(1);
-                        }
-                    }
-                });
-
-                if (currentLine.length > 0) {
-                    lines.push(currentLine.replace(/\s+$/, ''));
-                }
-            });
+            lines = buildDerpEditorLines(valToSync, availableWidth, fontSize, font, fontWeight, numberOnly);
         } else {
             lines = [valToSync.toString()];
         }
@@ -867,7 +902,7 @@ export function syncDerpEditor(context, node, app, config) {
     } else {
         const scaledFS_calc = fontSize * ds.scale;
         const uiLineHeight_calc = Math.round(getDerpTextLineHeight(scaledFS_calc));
-        const drawW_calc = (w - (padX * 2)) * ds.scale;
+        const drawW_calc = availableWidth * ds.scale;
         var totalPhysicalTextHeight = 0;
 
         lines.forEach(item => {
@@ -929,7 +964,8 @@ export function syncDerpEditor(context, node, app, config) {
                     maxScroll: maxEditorScroll,
                     alpha: sysAlpha,
                     trackColor: animatedFillColor,
-                    thumbColor: animatedTextColor
+                    thumbColor: animatedTextColor,
+                    verticalMargin: scrollbarMarginY
                 });
                 ctx.restore();
             }
@@ -1004,15 +1040,16 @@ export function syncDerpEditor(context, node, app, config) {
 
                             if (!node._derpImgCache[imgSrc]) {
                                 const img = new Image();
+                                img.onload = () => { handleDerpEditorImageLoaded(node, safeConfig); };
                                 img.src = imgSrc;
-                                img.onload = () => { node.setDirtyCanvas(true); };
                                 node._derpImgCache[imgSrc] = img;
+                                if (img.complete && img.naturalWidth > 0) handleDerpEditorImageLoaded(node, safeConfig);
                             }
 
                             const imgObj = node._derpImgCache[imgSrc];
                             if (imgObj && imgObj.complete && imgObj.naturalWidth > 0) {
                                 const aspect = imgObj.naturalHeight / imgObj.naturalWidth;
-                                const drawW = w - (padX * 2);
+                                const drawW = availableWidth;
                                 const drawH = drawW * aspect;
 
                                 if (currentY + drawH > y && currentY < y + h) {
@@ -1038,7 +1075,8 @@ export function syncDerpEditor(context, node, app, config) {
                     maxScroll: maxEditorScroll,
                     alpha: sysAlpha,
                     trackColor: animatedFillColor,
-                    thumbColor: animatedTextColor
+                    thumbColor: animatedTextColor,
+                    verticalMargin: scrollbarMarginY
                 });
 
                 ctx.restore();

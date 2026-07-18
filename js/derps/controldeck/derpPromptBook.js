@@ -211,10 +211,10 @@ app.registerExtension({
                 mainRegion: {
                     anchor: { target: "bookBreak", axis: "y" },
                     width: "full", height: "fill", dir: "col",
-                    margin: [mW, mH, mW, 0],
+                    margin: [mW, sH, mW, 0],
                     contentRegion: {
                         width: "full", height: "fill", dir: "col",
-                        margin: [0, 0, 0, mH], padding: [0, 0],
+                        margin: [0, 0, 0, sH], padding: [0, 0],
                         minHeight: 100,
                         editorMain: {
                         type: this.UI_TYPES.EDITOR, multiline: true, noHover: true, canvasShield: true, switchOnEditing: true,
