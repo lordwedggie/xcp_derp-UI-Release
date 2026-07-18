@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Herbina Master Widgets Utils | Path: ./Herbina/utils/widgetsUtils.js
  */
 
@@ -12,6 +12,85 @@ const TEXT_EFFECT_OFFSET_FACTOR = 1.5;
 
 const _measureCanvas = document.createElement("canvas");
 const _measureCtx = _measureCanvas.getContext("2d");
+
+// Cross-frame text measurement cache: widget draw paths call measureTextWidth/Height
+// with identical inputs every frame. Keyed on full font state + visible text.
+const _textMeasureCache = new Map();
+const TEXT_MEASURE_CACHE_LIMIT = 1000;
+
+function getCachedTextMeasure(key) {
+    const hit = _textMeasureCache.get(key);
+    if (hit === undefined) return undefined;
+    // Refresh recency so hot entries survive the FIFO trim below.
+    _textMeasureCache.delete(key);
+    _textMeasureCache.set(key, hit);
+    return hit;
+}
+
+function setCachedTextMeasure(key, value) {
+    if (Number.isNaN(value)) return; // Missing ink metrics (headless/test ctx) — never poison the cache
+    if (_textMeasureCache.size >= TEXT_MEASURE_CACHE_LIMIT) {
+        // Drop oldest quarter in one pass instead of thrashing entry-by-entry.
+        const trimTo = TEXT_MEASURE_CACHE_LIMIT * 0.75;
+        for (const oldest of _textMeasureCache.keys()) {
+            if (_textMeasureCache.size <= trimTo) break;
+            _textMeasureCache.delete(oldest);
+        }
+    }
+    _textMeasureCache.set(key, value);
+}
+
+if (typeof document !== "undefined" && document.fonts?.addEventListener) {
+    // A late-loading webfont changes metrics for identical keys; drop stale measurements.
+    document.fonts.addEventListener("loadingdone", () => _textMeasureCache.clear());
+}
+
+// ---------------------------------------------------------------------------
+// Color-key parse cache
+// ---------------------------------------------------------------------------
+// Widgets call parseColorKeyText with the same text on every draw frame.
+// The result only changes when the palette or theme changes, so cache hits
+// skip regex scanning, palette resolution, JSON.stringify compare, and allocation.
+//
+const _colorKeyParseCache = new Map();
+const COLOR_KEY_PARSE_CACHE_LIMIT = 2000;
+
+function _getCachedColorKeyParse(key) {
+    const hit = _colorKeyParseCache.get(key);
+    if (hit === undefined) return undefined;
+    // LRU: move to end on access so hot entries survive trim.
+    _colorKeyParseCache.delete(key);
+    _colorKeyParseCache.set(key, hit);
+    return hit;
+}
+
+function _setCachedColorKeyParse(key, value) {
+    if (_colorKeyParseCache.size >= COLOR_KEY_PARSE_CACHE_LIMIT) {
+        const trimTo = COLOR_KEY_PARSE_CACHE_LIMIT * 0.75;
+        for (const oldest of _colorKeyParseCache.keys()) {
+            if (_colorKeyParseCache.size <= trimTo) break;
+            _colorKeyParseCache.delete(oldest);
+        }
+    }
+    _colorKeyParseCache.set(key, value);
+}
+
+// Live palette edits (bastaPalette preview) mutate palette data in place without
+// changing any signature component — external callers must clear explicitly.
+export function clearColorKeyParseCache() {
+    _colorKeyParseCache.clear();
+}
+
+function _buildColorKeyPaletteSig(node, palette = null) {
+    // palette arg is a data object; only its keys matter for signature.
+    const paletteKeys = palette ? Object.keys(palette).join(",") : "";
+    const theme = node?._currentThemeCacheKey || "";
+    const header = node?._headerPaletteName || "";
+    const strPal = node?._derpStringPalette?.path || node?.properties?._derpStringPalette?.path
+        || node?.hostNode?._derpStringPalette?.path || node?.hostNode?.properties?._derpStringPalette?.path || "";
+    const global = typeof window !== "undefined" ? (window.xcpActivePaletteName || "") : "";
+    return `${theme}|${header}|${strPal}|${global}|${paletteKeys}`;
+}
 
 // --- UNIFIED PALETTE HUB ---
 const _paletteCache = {};
@@ -112,11 +191,17 @@ export function resolvePaletteEntry(node, path, entryName) {
                 const targetName = String(entryName || "").toLowerCase();
                 const entry = palettes.find(p => String(p?.name || "").toLowerCase() === targetName);
                 _paletteCache[cacheKey] = entry || "NOT_FOUND";
+                // Parse results captured while this entry was LOADING hold transient
+                // null colors — wipe them so the redraw below re-resolves fresh.
+                _colorKeyParseCache.clear();
 
                 // Force a redraw once data arrives
                 if (node.requestDerpSync) node.requestDerpSync();
                 if (node.setDirtyCanvas) node.setDirtyCanvas(true, true);
-            }).catch(() => { _paletteCache[cacheKey] = "ERROR"; });
+            }).catch(() => {
+                _paletteCache[cacheKey] = "ERROR";
+                _colorKeyParseCache.clear();
+            });
     }
 
     const data = _paletteCache[cacheKey];
@@ -305,6 +390,13 @@ function resolveColorKey(node, keyName, stateSuffix = "_OFF", palette = null) {
 
 export function parseColorKeyText(text, node, stateSuffix = "_OFF", fallbackColor = null, palette = null) {
     if (!text || typeof text !== 'string') return { segments: null, hasColorKeys: false };
+
+    // --- CACHE LOOKUP ---
+    const paletteSig = _buildColorKeyPaletteSig(node, palette);
+    const cacheKey = `${text}|${stateSuffix}|${paletteSig}`;
+    const cached = _getCachedColorKeyParse(cacheKey);
+    if (cached !== undefined) return cached;
+
     COLOR_KEY_REGEX.lastIndex = 0;
     const raw = [];
     let lastIndex = 0, match, found = false;
@@ -318,7 +410,11 @@ export function parseColorKeyText(text, node, stateSuffix = "_OFF", fallbackColo
         lastIndex = COLOR_KEY_REGEX.lastIndex;
     }
     if (lastIndex < text.length) raw.push({ text: text.slice(lastIndex), color: null, effects: undefined });
-    if (!found) return { segments: null, hasColorKeys: false };
+    if (!found) {
+        const result = { segments: null, hasColorKeys: false };
+        _setCachedColorKeyParse(cacheKey, result);
+        return result;
+    }
     const segments = [];
     for (const seg of raw) {
         const prev = segments[segments.length - 1];
@@ -326,7 +422,9 @@ export function parseColorKeyText(text, node, stateSuffix = "_OFF", fallbackColo
         if (prev && prev.color === seg.color && sameEffects) prev.text += seg.text;
         else segments.push(seg);
     }
-    return { segments, hasColorKeys: true };
+    const result = { segments, hasColorKeys: true };
+    _setCachedColorKeyParse(cacheKey, result);
+    return result;
 }
 
 export function colorSegmentsToHTML(segments, fallbackColor = null, options = {}) {
@@ -443,21 +541,32 @@ export function measureTextHeight(text, maxWidth, themeData, paddingH = 0) {
     }
 
     // THE ACCURACY FIX: Measure the actual text provided and remove the 1.2x floor
+    const cacheKey = `H|${fontWeight}|${fontSize}|${baseFont}|${visibleText}`;
+    const cached = getCachedTextMeasure(cacheKey);
+    if (cached !== undefined) return cached;
+    _measureCtx.font = `${fontWeight} ${fontSize}px ${safeFont}`;
     const metrics = _measureCtx.measureText(visibleText || "Hgyj");
     const inkHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
-    return Math.max(inkHeight, fontSize);
+    const result = Math.max(inkHeight, fontSize);
+    setCachedTextMeasure(cacheKey, result);
+    return result;
 }
 
 export function measureTextWidth(text, fontSize, fontFamily, fontWeight = "normal") {
     const visibleText = stripColorKeyTags(text);
     const baseFont = fontFamily || "arial";
+    const cacheKey = `W|${fontWeight}|${fontSize}|${baseFont}|${visibleText}`;
+    const cached = getCachedTextMeasure(cacheKey);
+    if (cached !== undefined) return cached;
     const cleanFont = baseFont.replace(/\bpx\b/gi, "").trim(); // THE FIX: Remove rogue "px"
     const safeFont = (cleanFont.includes(",") || cleanFont.includes('"') || cleanFont.includes("'"))
         ? cleanFont
         : `"${cleanFont}"`;
 
     _measureCtx.font = `${fontWeight} ${fontSize}px ${safeFont}`;
-    return _measureCtx.measureText(visibleText || "").width;
+    const width = _measureCtx.measureText(visibleText || "").width;
+    setCachedTextMeasure(cacheKey, width);
+    return width;
 }
 
 const CJK_WRAP_CHAR_RE = /[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff\uac00-\ud7af]/;
@@ -594,8 +703,9 @@ export function resolvePaintData(node, key, suffix = "", overrideColor = null, p
     }
 
     // 1. Clone theme data (geometry source: font, fontSize, corners, etc.)
-    // If key not found, try to inherit geometry from a fallback theme key
-    if (!data) {
+    // If key not found, try to inherit geometry from a fallback theme key.
+    // `#`-prefixed keys are optional override slots — return null so callers fall through via `||`.
+    if (!data && !key.startsWith("#")) {
         // Fallback geometry: use t_textSystem for text keys, region for body keys
         const isTextKey = key.toLowerCase().includes("text") || key.toLowerCase().includes("tooltip");
         const fallbackKey = isTextKey ? "t_textSystem" : "region";

@@ -10,6 +10,7 @@ import { showBastaColorDesigner } from "./bastaColorDesigner.js";
 import { showBastaSystemMessage } from "./bastaSystemMessage.js";
 import { showBastaFileHandler } from "./bastaFileHandler.js";
 import { handleThemeUpdateImpl } from "../helpers/fathaThemeRuntime.js";
+import { clearColorKeyParseCache } from "../../herbina/utils/widgetsUtils.js";
 
 // THE DEFAULT EFFECT KEYS: Fallback values if the loaded JSON is missing effect data
 const DEFAULT_SHADOW = { _ON: [0, 0, 0, 0.5], _OFF: [0, 0, 0, 0.5], _DIS: [0, 0, 0, 0.5] };
@@ -128,6 +129,9 @@ function syncActivePalettePreview(basta) {
     }
     if (!window.xcpStringPaletteCache || typeof window.xcpStringPaletteCache !== "object") window.xcpStringPaletteCache = {};
     getPaletteNameAliases(activeName).forEach(name => { window.xcpStringPaletteCache[name] = activeData; });
+    // Palette data mutated in place — wipe cached color-key parse results so
+    // live edits repaint with fresh colors on the very next frame.
+    clearColorKeyParseCache();
     return true;
 }
 

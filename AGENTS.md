@@ -193,6 +193,7 @@ Lessons here are agent-facing reminders and sharp-edge indexes. Keep them short,
 - For new BUTTON layout-map entries, include `mouseOver: true` and `padding: [pW, pH]` unless matching a nearby non-interactive label pattern.
 - Do not use `padding` on TEXT widgets when the background is disabled; position via parent margin/spacing instead.
 - `btnIcon` fallback glyph is used by unknown icon keys such as SeedV2's stop button. Keep `fallback: "⏹"` in `ICON_MAP`.
+- Two cross-frame measurement caches live in `widgetsUtils.js`: `_textMeasureCache` (measureTextWidth/Height) and `_colorKeyParseCache` (parseColorKeyText). Both are LRU Maps keyed on full visual inputs. The color-key cache's palette signature includes `node._currentThemeCacheKey`, header palette, string-palette path, and active palette name. Two in-place mutation paths bypass the signature and require explicit clears: async palette fetch completion in `resolvePaletteEntry`, and live palette editing in `syncActivePalettePreview` via the exported `clearColorKeyParseCache()`. Cached parseColorKeyText results share object identity — callers must not mutate segments. See `FRAMEWORK-Optimization.md` for the full contract.
 
 ### Editor Widgets
 
