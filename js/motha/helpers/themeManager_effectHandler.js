@@ -175,7 +175,7 @@ export function bindEffectEvents(node, updateThemeLayoutFn) {
         // 5. Shadow Offset Event (Immediate Update)
         const updateShadowOffset = (v) => {
             const val = node._selectedKeyName;
-            const parts = v.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+            const parts = v.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
 
             if (parts.length > 0) {
                 const x = parts[0];
@@ -202,7 +202,7 @@ export function bindEffectEvents(node, updateThemeLayoutFn) {
         // 6. Shadow Blur Event (Immediate + Clamped 0-20)
         const updateShadowBlur = (v) => {
             const val = node._selectedKeyName;
-            const num = parseInt(v);
+            const num = parseFloat(v);
 
             if (!isNaN(num)) {
                 // Clamp value between 0 and 20
@@ -354,7 +354,7 @@ export function bindEffectEvents(node, updateThemeLayoutFn) {
         // 7. Glow Offset & Blur Events (Immediate Updates)
         const updateGlowOffset = (v) => {
             const val = node._selectedKeyName;
-            const parts = v.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+            const parts = v.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
             if (parts.length > 0) {
                 const x = parts[0];
                 const y = parts.length > 1 ? parts[1] : x;
@@ -372,7 +372,7 @@ export function bindEffectEvents(node, updateThemeLayoutFn) {
 
         const updateGlowBlur = (v) => {
             const val = node._selectedKeyName;
-            const num = parseInt(v);
+            const num = parseFloat(v);
             if (!isNaN(num)) {
                 const clamped = Math.max(0, Math.min(20, num)); // Clamp 0-20
                 if (!node.themeToEdit[val].glow) node.themeToEdit[val].glow = [0, 0, 4, "rgba(0,0,0,0.5)"];

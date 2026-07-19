@@ -74,12 +74,39 @@ export function applyThemeWeightToTheme(targetTheme, weightData) {
         if (!targetKey || typeof targetKey !== "object" || Array.isArray(targetKey)) return;
         ["corners", "font", "fontSize", "fontWeight"].forEach((prop) => {
             if (weightEntry[prop] === undefined) return;
-            targetKey[prop] = cloneWeightValue(weightEntry[prop]);
+            if (prop === "corners") {
+                targetKey.corners = applyCornersWithBaseSign(targetKey.corners, weightEntry.corners);
+            } else {
+                targetKey[prop] = cloneWeightValue(weightEntry[prop]);
+            }
             changed = true;
         });
     });
 
     return changed;
+}
+
+// Preserve the original theme corner sign (per-element) when applying a weight's corner magnitude.
+// e.g. base=-2, weight=4 -> -4 ; base=2, weight=4 -> 4 ; base=0, weight=4 -> 4
+// If the base corner magnitude is <= 1 (i.e. -1, 0, or 1), the weight is ignored for that element
+// to preserve intentional sharp/flat corners.
+function applyCornersWithBaseSign(baseCorners, weightCorners) {
+    if (typeof weightCorners === "number") {
+        const b = Number(baseCorners);
+        if (Math.abs(b) <= 1) return cloneWeightValue(baseCorners);
+        const sign = b < 0 ? -1 : 1;
+        return sign * Math.abs(weightCorners);
+    }
+    if (Array.isArray(weightCorners)) {
+        const baseArr = Array.isArray(baseCorners) ? baseCorners : [];
+        return weightCorners.map((w, i) => {
+            const b = Number(baseArr[i] ?? baseCorners ?? 0);
+            if (Math.abs(b) <= 1) return cloneWeightValue(baseArr[i] ?? baseCorners);
+            const sign = b < 0 ? -1 : 1;
+            return sign * Math.abs(Number(w) || 0);
+        });
+    }
+    return cloneWeightValue(weightCorners);
 }
 
 function collectThemeWeightData(themeObj, sourceThemeName = "") {
