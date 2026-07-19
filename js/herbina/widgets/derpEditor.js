@@ -21,6 +21,7 @@
  * @param {boolean} skipBackground - If true, skips background rendering and draws text only. Default: false.
  * @param {boolean} deferAsleepDomHitTest - If true, asleep DOM pointer hits fall through to layout hit testing.
  * @param {boolean} richImageContent - If true, syncs DOM content through innerText so PromptBook image embeds survive.
+ * @param {boolean} noShrink - If true, disables the default shrink-to-fit behavior for single-line editors. Default: false (shrink enabled, matches btnSimple/textLabel).
  *  */
 import { app as comfyApp } from "../../../../scripts/app.js";
 import { applyHTMLTheme } from "../masterPainterHTML.js";
@@ -704,7 +705,7 @@ export function syncDerpEditor(context, node, app, config) {
     const paintData = bodyPaint;
     const labelData = labelPaint;
 
-    const fontSize = props.fontSize || labelPaint?.fontSize || 10;
+    let fontSize = props.fontSize || labelPaint?.fontSize || 10;
     const font = safeConfig.fontFamily || labelPaint?.font || "Arial";
     const fontWeight = safeConfig.fontWeight || labelPaint?.fontWeight || props.fontWeight || "normal";
     const prefixGlyphText = safeConfig.prefixGlyph ? String(safeConfig.prefixGlyph) : "";
@@ -842,6 +843,16 @@ export function syncDerpEditor(context, node, app, config) {
 
     const availableWidth = Math.max(0, w - (padX * 2) - cutoffRightPad);
     safeConfig._editorContentWidth = availableWidth;
+
+    // Shrink-to-fit (default ON; opt out via noShrink: true). Matches btnSimple/textLabel pattern.
+    // Skipped for multiline editors (they use wrapping) and when there's no text or no width to fit into.
+    // measureTextWidth is LRU-cached (_textMeasureCache), so per-frame cost is negligible on cache hits.
+    if (safeConfig.noShrink !== true && !isMultiline && valToSync.length > 0 && availableWidth > 0) {
+        while (measureTextWidth(valToSync, fontSize, font, fontWeight) > availableWidth && fontSize > 4) {
+            fontSize -= 0.5;
+        }
+    }
+
     const scrollbarMarginY = Math.max(0, Number(node.getDerpVars?.(node)?.sH) || 0);
     const rawBg = paintData?.fill || config.btnColor || "transparent";
     // THE THEME FIX: Removed hardcoded DIS alpha override so the _DIS theme key is strictly respected
