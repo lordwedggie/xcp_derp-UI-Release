@@ -411,6 +411,17 @@ export function applyContentViewportLayout(node, regions, layout, options = {}) 
         compactViewportAncestors(regions, region.parentKey, delta);
     }
 
+    // Multi-viewport handoff: an earlier viewport's clip delta shifts later
+    // viewport regions via compactViewportAncestors. Re-sync published rects to
+    // the live post-shift positions so clip rects, hit-testing, and scrollbars
+    // track the shift instead of drawing at stale pre-shift coordinates.
+    for (const state of Object.values(nextState)) {
+        const liveRegion = regions[state.key];
+        if (!liveRegion || !state.rect) continue;
+        state.rect.x = numberOr(liveRegion.x);
+        state.rect.y = numberOr(liveRegion.y);
+    }
+
     if (!publishState) return hasOverflow;
 
     node._contentViewportState = nextState;

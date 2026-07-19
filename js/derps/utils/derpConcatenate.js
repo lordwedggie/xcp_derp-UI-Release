@@ -8,6 +8,18 @@ import { startStackDrag, updateStackDrag, endStackDrag } from "../../fatha/helpe
 import { measureTextHeight } from "../../herbina/utils/widgetsUtils.js";
 import { settleDerpSizeBeforeDraw } from "../../fatha/core/fathaHandler.js";
 import { resolveDerpPreferredAutoHeight, resolveDerpRuntimeAutoHeight } from "../../fatha/core/derpHeightPolicy.js";
+import {
+    FATHA_CONTENT_SCROLLBAR_BACKGROUND_WIDTH,
+    FATHA_CONTENT_SCROLLBAR_MARGIN_LEFT,
+    FATHA_CONTENT_SCROLLBAR_MARGIN_RIGHT,
+} from "../../fatha/core/fathaContentViewport.js";
+
+// Scrollbar lane carved from a viewport region's right edge on overflow.
+// Wrap measurements must reserve it so the gutter clearance pass cannot
+// re-wrap text taller than its measured region height.
+const CONCAT_VIEWPORT_SCROLLBAR_GUTTER = FATHA_CONTENT_SCROLLBAR_MARGIN_LEFT
+    + FATHA_CONTENT_SCROLLBAR_BACKGROUND_WIDTH
+    + FATHA_CONTENT_SCROLLBAR_MARGIN_RIGHT;
 
 function tLocale(key, fallback = key) {
     if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
@@ -28,6 +40,105 @@ function measureConcatPreviewHeight(text, maxWidth, fontSize, fontFamily, fontWe
         font: fontFamily || "arial",
         fontWeight: fontWeight || "normal",
     }) + verticalPadding;
+}
+
+// --- scrollViewport clip resolvers (manual-height mode only) ---
+
+// Fires only when a viewport is squeezed below its minClip (node below resize
+// floor). State-change gated so it never floods the console.
+function logConcatClipTight(node, tag, clip, minClip) {
+    const key = `_concatClipTight_${tag}`;
+    const msg = `${clip.toFixed(1)}<${minClip.toFixed(1)}`;
+    if (node[key] === msg) return;
+    node[key] = msg;
+    console.log(`[concat-clip] node=${node?.id} ${tag} clip below min: clip=${clip.toFixed(1)} min=${minClip.toFixed(1)} nodeH=${(Number(node?.size?.[1]) || 0).toFixed(1)}`);
+}
+
+function resolveConcatSignalsClipHeight(node, region, regions = {}) {
+    if (resolveDerpRuntimeAutoHeight(node)) return 0;
+    const fullHeight = Number(region?.h) || 0;
+    const regionY = Number(region?.y) || 0;
+    const vars = typeof node?.getDerpVars === "function" ? node.getDerpVars(node) : {};
+    const viewportGap = Math.max(0, Number(vars?.mH || 0));
+    const signalsMin = Number(node?._concatSignalsMinClipHeight) || 0;
+    const outputMin = Number(node?._concatOutputMinClipHeight) || 0;
+    // addSignalRegion is bottom-pinned below the fill container; both viewports
+    // must stop above it (loaderRegion pattern), not at the node's bottom edge.
+    const addSignalTop = Number(regions?.addSignalRegion?.y) || 0;
+    const outputRegion = regions?.regionConcatContent;
+    const outputContentTop = Number(outputRegion?.y) || 0;
+    // Fixed rows between the signals viewport bottom and the output content top
+    // (linebreak + concat header + linebreak) must be preserved as well.
+    const fixedMiddle = Math.max(0, outputContentTop - (regionY + fullHeight));
+    const hasBottomClamp = addSignalTop > regionY;
+    if (!hasBottomClamp) {
+        // Zero-height measurement pass (bottom row not positioned yet): there
+        // is nothing to clamp against. Measuring from the physical node height
+        // here inflates contentMinHeight to the CURRENT height, which makes
+        // manual resize expand-only. Report the declared minimum instead.
+        const clip = Math.max(1, Math.min(fullHeight, Math.max(1, signalsMin)));
+        node._concatSignalsClipDelta = Math.max(0, fullHeight - clip);
+        return clip;
+    }
+    const space = Math.max(0, addSignalTop - regionY - fixedMiddle - viewportGap);
+
+    let available;
+    if (node?._concatUseOutputViewport === true) {
+        // Share the space between both viewports: water-fill so a fully-fitting
+        // viewport is satisfied first, otherwise both split the shortage.
+        const outputFull = Number(outputRegion?.h) || 0;
+        const needS = Math.max(0, fullHeight - signalsMin);
+        const needO = Math.max(0, outputFull - outputMin);
+        const budget = space - signalsMin - outputMin;
+        if (!(budget > 0)) available = Math.max(0, space - outputMin);
+        else if (needS <= budget / 2) available = fullHeight;
+        else if (needO <= budget / 2) available = space - outputMin - needO;
+        else available = signalsMin + budget / 2;
+    } else {
+        // Output content is fixed-height (collapsed or single-line): reserve all of it.
+        available = space - (Number(outputRegion?.h) || 0);
+    }
+    // Hard cap: never cross the bottom clamp, even below minClip. Floor at 1px
+    // so the viewport never disables into full overflow.
+    const clip = Math.max(1, fullHeight > 0 ? Math.min(fullHeight, available) : available);
+    if (clip < signalsMin) logConcatClipTight(node, "signals", clip, signalsMin);
+    node._concatSignalsClipDelta = Math.max(0, fullHeight - clip);
+    return clip;
+}
+
+function resolveConcatSignalsMinClipHeight(node, region, regions = {}) {
+    return Number(node?._concatSignalsMinClipHeight) || 0;
+}
+
+function resolveConcatOutputClipHeight(node, region, regions = {}) {
+    if (resolveDerpRuntimeAutoHeight(node)) return 0;
+    const fullHeight = Number(region?.h) || 0;
+    const regionY = Number(region?.y) || 0;
+    const signalsDelta = Number(node?._concatSignalsClipDelta) || 0;
+    // region.y is pre-shift; the signals viewport's post-clip shift raises this
+    // region by signalsDelta, so measure available space from the shifted top.
+    const shiftedRegionY = regionY - signalsDelta;
+    const vars = typeof node?.getDerpVars === "function" ? node.getDerpVars(node) : {};
+    const viewportGap = Math.max(0, Number(vars?.mH || 0));
+    const outputMin = Number(node?._concatOutputMinClipHeight) || 0;
+    // Clamp above the bottom-pinned signal selector row (loaderRegion pattern).
+    const addSignalTop = Number(regions?.addSignalRegion?.y) || 0;
+    const hasBottomClamp = addSignalTop > shiftedRegionY;
+    if (!hasBottomClamp) {
+        // Same zero-height measurement rule as the signals resolver: report
+        // the declared minimum, not a physical-node-height measurement, or
+        // contentMinHeight inflates to the current height and manual resize
+        // becomes expand-only.
+        return Math.max(1, Math.min(fullHeight, Math.max(1, outputMin)));
+    }
+    const available = Math.max(0, addSignalTop - shiftedRegionY - viewportGap);
+    const clip = Math.max(1, fullHeight > 0 ? Math.min(fullHeight, available) : available);
+    if (clip < outputMin) logConcatClipTight(node, "output", clip, outputMin);
+    return clip;
+}
+
+function resolveConcatOutputMinClipHeight(node, region, regions = {}) {
+    return Number(node?._concatOutputMinClipHeight) || 0;
 }
 
 function getConcatPreviewInnerWidth(node, vars) {
@@ -308,6 +419,9 @@ function buildConcatLayoutHash(node, vars, signalStates, isRuntimeAutoHeight = r
         `hm:${isRuntimeAutoHeight ? "auto" : "manual"}`,
         `hp:${hiddenPreviewHash}`,
         `cc:${node?.properties?.concatContentCollapsed === true ? 1 : 0}`,
+        // Overflow-gated box clearance margins change the map; the flag must
+        // be hashed or the early-return guard serves a stale pre-margin map.
+        `ov:${node?._contentViewportState?.regionConcatContent?.hasOverflow === true ? 1 : 0}`,
     ].join("|");
 }
 
@@ -367,11 +481,37 @@ app.registerExtension({
             const previewFontSize = Number(t_textSmall_size || this._t_textSmallPaintData?.fontSize || 12);
             const previewFont = this._t_textSmallPaintData?.font || "arial";
             const previewFontWeight = this._t_textSmallPaintData?.fontWeight || "normal";
-            const previewInnerWidth = getConcatPreviewInnerWidth(this, vars);
             const combinedValue = getConcatCombinedValue(signalStates);
-            const combinedPreviewHeight = measureConcatPreviewHeight(combinedValue || " ", previewInnerWidth, previewFontSize, previewFont, previewFontWeight, pH);
             const isRuntimeAutoHeight = resolveDerpRuntimeAutoHeight(this);
+            const isManualMode = !isRuntimeAutoHeight;
             const structureHash = buildConcatLayoutHash(this, vars, signalStates, isRuntimeAutoHeight);
+
+            // --- Viewport arming (loader pattern: armed in manual mode whenever
+            // content exists; the clip resolvers decide how much actually clips) ---
+            const useSignalsViewport = isManualMode && signalStates.length > 0;
+            const useOutputViewport = isManualMode && this.properties?.concatContentCollapsed !== true;
+            this._concatUseOutputViewport = useOutputViewport;
+            // Scrollbar-outside-the-box clearance: the painted concat section box
+            // (regionConcatenated) is an ANCESTOR of the output viewport, so the
+            // framework's descendant-only gutter clearance never moves it and the
+            // scrollbar draws flush on the box's right edge. On overflow, narrow
+            // the box by the gutter and extend the viewport by the same amount —
+            // the pair cancels, so viewport/text/scrollbar geometry is unchanged
+            // (no rewrap, no overflow oscillation) while the box edge steps left
+            // of the scrollbar lane, matching the signal entries' outside look.
+            const outputBoxCleared = this._contentViewportState?.regionConcatContent?.hasOverflow === true;
+            // Reserve the scrollbar gutter in wrap measurements so the gutter
+            // clearance pass cannot re-wrap text taller than its measured region
+            // height (which would slice the bottom text line at full clip).
+            const gutterSafety = (useSignalsViewport || useOutputViewport) ? CONCAT_VIEWPORT_SCROLLBAR_GUTTER : 0;
+            const previewInnerWidth = Math.max(1, getConcatPreviewInnerWidth(this, vars) - gutterSafety);
+            const outputInnerWidth = Math.max(1, previewInnerWidth - (sW * 2));
+            const combinedPreviewHeight = measureConcatPreviewHeight(combinedValue || " ", outputInnerWidth, previewFontSize, previewFont, previewFontWeight, pH);
+            const oneLineHeight = measureConcatPreviewHeight("Xg", outputInnerWidth, previewFontSize, previewFont, previewFontWeight, pH);
+            this._concatOneLineHeight = oneLineHeight;
+            this._concatOutputMinClipHeight = oneLineHeight + sH + sH;
+            this._concatSignalsMinClipHeight = oneLineHeight + (Number(t_textNormal_size || 14) + (pH * 2)) + sH + sH;
+            this._concatSignalsClipDelta = 0;
 
             this._concatActiveSignalIds = signalStates.map((state) => state.activeSignalId);
             this._concatSignalPreview = signalStates.map((state) => state.preview).join("");
@@ -511,22 +651,32 @@ app.registerExtension({
                         dir: "col",
                         width: "full", height: "auto",
                         alpha: item.isPreviewGhost ? 0 : 1.0,
-                        [`textSignal_${index}`]: {
-                            hidden: previewHidden,
-                            type: this.UI_TYPES.TEXT,
-                            themeKey: "t_textSmall",
-                            text: (signalState.hasSignal && !signalState.preview) ? tLocale("$derp_concatenate.empty_signal", "Incoming signal is an {{t_text_error::empty string...}}") : (signalState.preview || " "),
-                            width: "full", height: previewHidden ? 0 : previewHeight,
-                            padding: [pW, pH],
-                            labelAlign: ["left", "top"],
-                            wrap: true,
-                            margin: [0, 0, 0, sH],
+                        [`regionSignalContentInner_${index}`]: {
+                            dir: "col",
+                            width: "full", height: "auto",
+                            // No margins on this wrapper: the engine folds child
+                            // margins into auto heights, but the viewport's
+                            // fullHeight measures descendant y+h WITHOUT margins —
+                            // so the trailing sH must live on the text child to be
+                            // counted in the viewport's measured content height.
+                            [`textSignal_${index}`]: {
+                                hidden: previewHidden,
+                                type: this.UI_TYPES.TEXT,
+                                themeKey: "t_textSmall",
+                                text: (signalState.hasSignal && !signalState.preview) ? tLocale("$derp_concatenate.empty_signal", "Incoming signal is an {{t_text_error::empty string...}}") : (signalState.preview || " "),
+                                width: "full", height: previewHidden ? 0 : previewHeight,
+                                padding: [pW, pH],
+                                margin: [0, 0, 0, sH],
+                                labelAlign: ["left", "top"],
+                                wrap: true,
+                            },
                         },
                     },
                 };
                 return acc;
             }, {});
 
+            let floatingRowRegion = null;
             if (floatingItem && this._dragThresholdMet && this._dragMouse && this._dragOffset) {
                 const { signalState, index } = floatingItem;
                 const dragX = this._dragMouse[0] - this._dragOffset[0];
@@ -535,7 +685,7 @@ app.registerExtension({
                 const floatingRowWidth = sourceRow?.w || getConcatContentWidth(this, vars);
                 const floatingRowHeight = sourceRow?.h || "auto";
 
-                signalEntryRegions.floatingSignalRow = {
+                floatingRowRegion = {
                     type: this.UI_TYPES.REGION,
                     themeKey: "region",
                     dir: "col",
@@ -592,7 +742,15 @@ app.registerExtension({
                     displayMode: "cutoff",
                     pulseStates: true,
                 },
-                ...signalEntryRegions,
+                regionSignalsViewport: {
+                    scrollViewport: useSignalsViewport,
+                    clipHeight: resolveConcatSignalsClipHeight,
+                    minClipHeight: resolveConcatSignalsMinClipHeight,
+                    width: "full", height: "auto", dir: "col",
+                    margin: [0, 0, 0, 0],
+                    ...signalEntryRegions,
+                },
+                ...(floatingRowRegion ? { floatingSignalRow: floatingRowRegion } : {}),
                 linebreakBeforeConcat: {
                     type: this.UI_TYPES.LINEBREAK,
                     themeKey: "line",
@@ -605,6 +763,9 @@ app.registerExtension({
                 type: this.UI_TYPES.REGION,
                 dir: "col",
                 width: "full", height: "auto",
+                // Paired with the viewport's -gutter margin below: on overflow
+                // the painted box steps left of the scrollbar lane.
+                margin: [0, 0, outputBoxCleared ? CONCAT_VIEWPORT_SCROLLBAR_GUTTER : 0, 0],
                 onContextMenu: () => {
                     this.properties.concatContentCollapsed = !this.properties.concatContentCollapsed;
                     this._layoutMapHash = null;
@@ -664,16 +825,38 @@ app.registerExtension({
                     height: 1,
                     margin: [0, 0, 0, sH],
                 },
-                lbelConcatContent: {
-                    hidden: this.properties.concatContentCollapsed,
-                    type: this.UI_TYPES.TEXT,
-                    themeKey: "t_textSmall",
-                    text: combinedValue || " ",
-                    width: "full", height: combinedPreviewHeight,
-                    padding: [pW, pH],
-                    labelAlign: ["left", "top"],
-                    wrap: true,
-                    mouseOver: false,
+                regionConcatContent: {
+                    scrollViewport: useOutputViewport,
+                    clipHeight: resolveConcatOutputClipHeight,
+                    minClipHeight: resolveConcatOutputMinClipHeight,
+                    width: "full", height: "auto", dir: "col",
+                    // Extends past the narrowed box back to the full content
+                    // width (LINEBREAK -mW pattern), keeping viewport width —
+                    // and therefore text wrap and overflow state — constant.
+                    margin: [0, 0, outputBoxCleared ? -CONCAT_VIEWPORT_SCROLLBAR_GUTTER : 0, 0],
+                    // Auto-height wrapper: the engine folds child margins into
+                    // auto heights, but the viewport's fullHeight measures
+                    // descendant y+h WITHOUT margins — so the sH/sW insets must
+                    // live on the text child (counted via the wrapper's auto
+                    // height), not on the wrapper itself. Otherwise the bottom
+                    // sH is dropped from fullHeight and the clip slices the
+                    // bottom text line.
+                    regionConcatContentInner: {
+                        dir: "col",
+                        width: "full", height: "auto",
+                        lbelConcatContent: {
+                            hidden: this.properties.concatContentCollapsed,
+                            type: this.UI_TYPES.TEXT,
+                            themeKey: "t_textSmall",
+                            text: combinedValue || " ",
+                            width: "full", height: combinedPreviewHeight,
+                            padding: [pW, pH],
+                            margin: [sW, sH, sW, sH],
+                            labelAlign: ["left", "top"],
+                            wrap: true,
+                            mouseOver: false,
+                        },
+                    },
                 },
             };
             const addSignalControls = {
@@ -959,6 +1142,16 @@ app.registerExtension({
                         suppressRequestSync: true,
                     });
                 }
+            }
+
+            // Overflow-gated box clearance: the layout pass learns about output
+            // overflow only after the map is built, so flip-trigger one rebuild
+            // here to apply/remove the paired box/viewport gutter margins.
+            const outputOverflowNow = this._contentViewportState?.regionConcatContent?.hasOverflow === true;
+            if (outputOverflowNow !== (this._concatOutputBoxCleared === true)) {
+                this._concatOutputBoxCleared = outputOverflowNow;
+                this._layoutMapHash = null;
+                this.refreshNodeLayoutMap();
             }
         };
     }

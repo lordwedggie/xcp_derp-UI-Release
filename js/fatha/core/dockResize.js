@@ -767,6 +767,19 @@ function getVerticalResizeStartHeight(node, snap) {
         : getDockNodeHeight(node);
 }
 
+function subtreeContainsContentViewport(config, liveRegions = {}, key = null) {
+    if (!config || typeof config !== "object") return false;
+    if (config.scrollViewport === true) return true;
+    const live = key ? liveRegions[key] : null;
+    if (live?.scrollViewport === true || live?._contentViewport === true) return true;
+    return Object.entries(config).some(([childKey, childConfig]) =>
+        !LAYOUT_RESERVED_KEYS.has(childKey)
+        && childConfig
+        && typeof childConfig === "object"
+        && !Array.isArray(childConfig)
+        && subtreeContainsContentViewport(childConfig, liveRegions, childKey));
+}
+
 function getVisibleRegionLayoutFloor(config, liveRegions = {}, key = null) {
     if (!config || config.hidden === true || config.ignoreLayout === true) return 0;
 
@@ -803,8 +816,15 @@ function getVisibleRegionLayoutFloor(config, liveRegions = {}, key = null) {
         const minH = config.minHeight !== undefined ? Number(config.minHeight) : NaN;
         const liveMinH = live?.minHeight !== undefined ? Number(live.minHeight) : NaN;
         const liveBaseH = live?.baseHeight !== undefined ? Number(live.baseHeight) : NaN;
+        // Auto-height regions whose subtree contains a content viewport must not
+        // floor at their live measured height: live.h tracks the current clip or
+        // full unclipped content and pins the resize floor to the node's present
+        // height, making standalone manual resize expand-only. Viewport-bearing
+        // subtrees floor at config minima + childTotal (childTotal already carries
+        // the viewport's declared min clip via the scrollViewport branch above).
+        const containsViewport = subtreeContainsContentViewport(config, liveRegions, key);
         height = Math.max(
-            Number(live?.h) || 0,
+            containsViewport ? 0 : (Number(live?.h) || 0),
             !isNaN(minH) ? minH : 0,
             !isNaN(liveMinH) ? liveMinH : 0,
             !isNaN(liveBaseH) ? liveBaseH : 0,
