@@ -644,6 +644,27 @@
       "duplicate_failed": "Book duplicate failed"
     }
   },
+  "derp_tutorial": {
+    "title": "Derp Tutorial",
+    "intro": "Welcome to derp-UI. Pick a tutorial workflow below to open it in a fresh ComfyUI tab.",
+    "buttons": {
+      "workflow_fallback": "Tutorial workflow",
+      "no_workflows": "No tutorial workflows found"
+    },
+    "toggle": {
+      "never_auto_show": "Do not auto show this tutorial again"
+    },
+    "tooltips": {
+      "launch_workflow": "Open this tutorial workflow in a new ComfyUI tab.",
+      "never_auto_show": "Suppresses the tutorial auto-show for this major tutorial version."
+    },
+    "messages": {
+      "list_failed": "Could not list tutorial workflows.",
+      "loader_missing": "ComfyUI workflow loader was not ready.",
+      "load_empty": "Tutorial workflow file was empty.",
+      "popup_blocked": "Browser blocked the new tab. Allow popups for ComfyUI, then try again."
+    }
+  },
   "derp_router": {
     "title": "Derp Router",
     "signals": {

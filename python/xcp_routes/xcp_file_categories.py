@@ -18,6 +18,7 @@ from .xcp_file_common import (
     SLIDER_V2_STYLES_DIR,
     THEME_DIR,
     TRIGGER_WALL_DIR,
+    WORKFLOWS_DIR,
     resolve_lora_trigger_dir,
 )
 
@@ -130,6 +131,7 @@ CATEGORY_SPECS = {
     },
     "triggerWall": {"dir": TRIGGER_WALL_DIR, "file_extension": ".json"},
     "triggerWallDeck": {"dir": SETTINGS_DIR, "file_extension": ".json"},
+    "workflows": {"dir": WORKFLOWS_DIR, "file_extension": ".json"},
     "lora_triggers": {
         "dir": None,
         "file_extension": ".txt",

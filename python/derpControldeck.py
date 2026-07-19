@@ -92,6 +92,18 @@ class DerpPromptBookNode:
     def do_nothing(self):
         return ()
 
+class DerpTutorialNode:
+    @classmethod
+    def INPUT_TYPES(s):
+        return {"required": {}}
+
+    RETURN_TYPES = ()
+    FUNCTION = "do_nothing"
+    CATEGORY = "🔞 derpNodes/ControlDeck"
+
+    def do_nothing(self):
+        return ()
+
 class DerpSwatchNode:
     @classmethod
     def INPUT_TYPES(s):
@@ -297,6 +309,7 @@ NODE_CLASS_MAPPINGS = {
     "DerpSliderNode": DerpSliderNode,
     "DerpToggleNode": DerpToggleNode,
     "DerpPromptBookNode": DerpPromptBookNode,
+    "DerpTutorialNode": DerpTutorialNode,
     "DerpSwatchNode": DerpSwatchNode,
     "DerpLatentNode": DerpLatentNode,
     "DerpModelLoaderNode": DerpModelLoaderNode,
@@ -315,6 +328,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "DerpSliderNode": "Derp Slider",
     "DerpToggleNode": "Derp Toggle",
     "DerpPromptBookNode": "Derp Prompt Book",
+    "DerpTutorialNode": "Derp Tutorial",
     "DerpSwatchNode": "Derp Swatch",
     "DerpLatentNode": "Derp Latent",
     "DerpModelLoaderNode": "Derp Model Loader",

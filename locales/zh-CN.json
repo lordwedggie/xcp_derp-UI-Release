@@ -644,6 +644,27 @@
       "duplicate_failed": "书籍复制失败"
     }
   },
+  "derp_tutorial": {
+    "title": "老登教程",
+    "intro": "欢迎使用 derp-UI。在下方选择教程工作流，它会在新的 ComfyUI 标签页中打开。",
+    "buttons": {
+      "workflow_fallback": "教程工作流",
+      "no_workflows": "未找到教程工作流"
+    },
+    "toggle": {
+      "never_auto_show": "不再自动显示这个教程"
+    },
+    "tooltips": {
+      "launch_workflow": "在新的 ComfyUI 标签页中打开这个教程工作流。",
+      "never_auto_show": "对当前主版本教程关闭自动显示。"
+    },
+    "messages": {
+      "list_failed": "无法列出教程工作流。",
+      "loader_missing": "ComfyUI 工作流加载器尚未准备好。",
+      "load_empty": "教程工作流文件为空。",
+      "popup_blocked": "浏览器阻止了新标签页。请允许 ComfyUI 弹出窗口，然后重试。"
+    }
+  },
   "derp_router": {
     "title": "老登路由器",
     "signals": {

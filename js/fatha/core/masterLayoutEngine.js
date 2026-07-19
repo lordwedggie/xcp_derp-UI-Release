@@ -461,11 +461,14 @@ export class masterLayoutEngine {
         // The caller (grandFatha.js or grandFathaSysPanel.js) is now responsible for providing the full map.
         const { footerRegion, ...mainMap } = profileMap;
 
-        const fullContext = { ...context, owner: this.owner };
+        // isMeasurePass lets interpretLayoutProps detect PASS 1 (SQUISH_WIDTH) and
+        // fall back to the host node's physical width for wrap-text measurement,
+        // preventing multi-line height inflation during the rigid floor pass.
+        const fullContext = { ...context, owner: this.owner, isMeasurePass: !!this._measurePass };
         this.processRecursive(mainMap, this.regions.panelBackground, fullContext);
 
         if (footerRegion) {
-            this.processRecursive({ footerRegion }, this.regions.panelBackground, context);
+            this.processRecursive({ footerRegion }, this.regions.panelBackground, fullContext);
         }
 
         const allRegions = Object.values(this.regions).filter(r => r.key !== "panelBackground" && !r.ignoreLayout);

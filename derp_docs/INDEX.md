@@ -23,6 +23,7 @@
 - <span style="color: #666">Derp Swatch</span> — color swatch picker with wireless output
 - <span style="color: #666">Derp Trigger Wall</span> — multi-trigger panel for prompt injection
 - <span style="color: #666">Derp Prompt Book</span> — multi-page prompt book editor with image embedding
+- [Derp Tutorial](ControlDeck%20Nodes/Derp%20Tutorial.md) — first-run guide with workflow launch buttons
 - [Derp Seed V2](ControlDeck%20Nodes/Derp%20SeedV2.md) — advanced seed control with history and modes
 
 ### Utility Nodes

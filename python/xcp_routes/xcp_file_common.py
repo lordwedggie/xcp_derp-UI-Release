@@ -108,6 +108,7 @@ SLIDER_V2_STYLES_DIR = resolve_derp_subdir("sliderV2Styles")
 PROMPT_BOOK_DIR = resolve_derp_subdir("derpPromptBook")
 TRIGGER_WALL_DIR = resolve_derp_subdir("derpTriggerWall")
 TRIGGER_WALL_DECK_DIR = resolve_derp_subdir("derpTriggerWallDeck")
+WORKFLOWS_DIR = resolve_derp_subdir("workflows")
 LOCALE_DIR = os.path.join(EXT_ROOT, "locales")
 LORA_STACKS_DIR = get_lora_stack_profiles_dir(DERP_ROOT)
 

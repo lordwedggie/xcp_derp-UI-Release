@@ -978,8 +978,12 @@ export function interpretLayoutProps(config, context = {}) {
 
             // THE WRAP WIDTH FIX: Use the host node's physical width as a fallback during Pass 1
             // so text measuring has a boundary to calculate multi-line height against.
+            // During PASS 1 (SQUISH_WIDTH = 10), geometry.w is the squished width, which would
+            // cause wrap text to measure hundreds of lines and inflate contentMinHeight.
+            // isMeasurePass (set by masterLayoutEngine.runLayoutPass) gates this to PASS 1 only.
             const fallbackW = (context.owner && context.owner.size) ? Math.max(0, context.owner.size[0] - padW - 20) : 0;
-            const engineInnerW = (context.geometry?.w !== undefined && context.geometry.w > 0) ? (context.geometry.w - padW) : fallbackW;
+            const useGeometryW = context.isMeasurePass !== true && context.geometry?.w !== undefined && context.geometry.w > 0;
+            const engineInnerW = useGeometryW ? (context.geometry.w - padW) : fallbackW;
             // THE PADDING REFINEMENT: Ensure numeric widths also respect the padding floor for text clamping
             const innerW = (typeof config.width === 'number') ? Math.max(0, config.width - padW) : engineInnerW;
 
