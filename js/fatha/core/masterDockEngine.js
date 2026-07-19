@@ -15,6 +15,7 @@ import { masterPainter } from "../../herbina/masterPainter.js";
 import { DEFAULT_PULSE_SPEED, getPulsedColor, parseColor } from "../../herbina/masterAnimator.js";
 import { resolveSystemThemeFill, resolveSystemThemePaint } from "../helpers/fathaSystemTheme.js";
 import { getContentViewportSignature } from "./fathaContentViewport.js";
+import { canResizeVerticalSeamPair, canResizeHorizontalSeamPair, isDeckPressureSideVerticalBranchMember } from "./dockResizeSharedEdges.js";
 
 const DEFAULT_DECK_SNAP = 10;
 const DEFAULT_DECK_RADIUS = 48;
@@ -3374,23 +3375,51 @@ function getDeckPressureSideHoverGhost(entity, graph, session) {
     return { x: seamX - 0.5, y: band.top, w: 1, h: band.height };
 }
 
+function seamGhostPairIsResizable(a, b, side, graph) {
+    if (!a || !b || !graph) return false;
+    let resizable = false;
+    if (side === "top" || side === "bottom") resizable = canResizeVerticalSeamPair(a, b, graph);
+    else if (side === "left" || side === "right") resizable = canResizeHorizontalSeamPair(a, b, graph);
+    if (isDockDebugEnabled()) {
+        const aPref = resolveDerpPreferredAutoHeight(a);
+        const bPref = resolveDerpPreferredAutoHeight(b);
+        dockDebug("seam-ghost-gate", {
+            aId: a?.id, bId: b?.id, side, resizable,
+            aAutoH: a?.properties?.autoHeight, bAutoH: b?.properties?.autoHeight,
+            aCollapsed: a?.properties?.contentCollapsed, bCollapsed: b?.properties?.contentCollapsed,
+            aPrefAutoH: aPref, bPrefAutoH: bPref,
+            aSideBranch: isDeckPressureSideVerticalBranchMember(a, graph), bSideBranch: isDeckPressureSideVerticalBranchMember(b, graph),
+            aSavedH: a?.properties?.deckSavedAutoHeight, bSavedH: b?.properties?.deckSavedAutoHeight,
+            aPrefH: a?.properties?._derpPreferredAutoHeight, bPrefH: b?.properties?._derpPreferredAutoHeight,
+            deckAutoStackMode: getDeckAutoStackModeSetting(),
+        });
+    }
+    return resizable;
+}
+
 function getSeamGhostPairsForSession(entity, graph, session = entity?._dockResizeSession) {
     if (!session || !graph) return [];
     if (session.entityId !== undefined && session.neighborId !== undefined) {
         if (session.deckPressureSideWidth) return [];
         const entityNode = getNodeById(graph, session.entityId);
         const neighbor = getNodeById(graph, session.neighborId);
-        return entityNode && neighbor ? [{ a: entityNode, b: neighbor, side: session.side }] : [];
+        if (!entityNode || !neighbor) return [];
+        if (!seamGhostPairIsResizable(entityNode, neighbor, session.side, graph)) return [];
+        return [{ a: entityNode, b: neighbor, side: session.side }];
     }
     if ((session.side === "left" || session.side === "right" || session.side === "top" || session.side === "bottom") && session.leaderId !== undefined && session.dockedId !== undefined) {
         const leader = getNodeById(graph, session.leaderId);
         const docked = getNodeById(graph, session.dockedId);
-        return leader && docked ? [{ a: leader, b: docked, side: session.side }] : [];
+        if (!leader || !docked) return [];
+        if (!seamGhostPairIsResizable(leader, docked, session.side, graph)) return [];
+        return [{ a: leader, b: docked, side: session.side }];
     }
     if (session.side === "vertical-ordered-seam" && session.topNodeId !== undefined && session.bottomNodeId !== undefined) {
         const topNode = getNodeById(graph, session.topNodeId);
         const bottomNode = getNodeById(graph, session.bottomNodeId);
-        return topNode && bottomNode ? [{ a: topNode, b: bottomNode, side: "bottom" }] : [];
+        if (!topNode || !bottomNode) return [];
+        if (!seamGhostPairIsResizable(topNode, bottomNode, "bottom", graph)) return [];
+        return [{ a: topNode, b: bottomNode, side: "bottom" }];
     }
     if (typeof session.side === "string" && session.side.startsWith("deck-pressure-") && session.side.endsWith("-seam") && session.hubId !== undefined) {
         const hub = getNodeById(graph, session.hubId);
@@ -3476,6 +3505,15 @@ export function drawSharedResizeSeamGhosts(ctx, graph = globalThis?.app?.graph |
                 const ids = [pair.a?.id, pair.b?.id].sort().join(":");
                 if (!ids || seen.has(ids)) return;
                 seen.add(ids);
+                dockDebug("seam-ghost-draw", () => ({
+                    pairIds: ids,
+                    side: pair.side,
+                    aAutoH: pair.a?.properties?.autoHeight,
+                    bAutoH: pair.b?.properties?.autoHeight,
+                    sessionSide: session?.side,
+                    hasHover: !!node?._dockResizeHoverSession,
+                    hasResize: !!node?._dockResizeSession,
+                }));
                 drawSeamGhostPair(ctx, pair, paint);
                 drew = true;
             });

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { getDeckPressureSideHorizontalLockedWidth, getDerpVars, normalizeDerpDockedLayout, resolveDerpRuntimeSize, shouldLockDeckPressureSideHorizontalWidth, syncHorizontalDeckHeight } from '../js/fatha/core/fathaHandler.js';
 import { resolveDerpPreferredAutoHeight, resolveDerpPreferredAutoWidth } from '../js/fatha/core/derpHeightPolicy.js';
-import { canResizeDeckPressureSideWidthMember, canResizeHorizontalMemberWidth, canResizeVerticalSharedEdgeHeight } from '../js/fatha/core/dockResizeSharedEdges.js';
+import { canResizeDeckPressureSideWidthMember, canResizeHorizontalMemberWidth, canResizeVerticalSeamPair, canResizeVerticalSharedEdgeHeight } from '../js/fatha/core/dockResizeSharedEdges.js';
 import { syncDockResizePair } from '../js/fatha/core/dockResize.js';
 import { handleNodeResize } from '../js/fatha/core/fathaNodeResize.js';
 import { createDerpShield, removeDerpShield, syncDerpShield } from '../js/fatha/core/fathaDOMshield.js';
@@ -150,6 +150,38 @@ describe('syncHorizontalDeckHeight', () => {
 
     expect(Number(hub._deckPressureActiveUntil || 0)).toBeGreaterThan(performance.now?.() || Date.now());
     expect(top.size[1] + bottom.size[1]).toBe(hub.size[1]);
+  });
+
+  it('blocks seam resize between two preferred-auto members of a side vertical branch', () => {
+    const hub = makeImageDeck(3000, 200, 300, 220);
+    const top = makeNode(3001, 0, 100, 80);
+    const bottom = makeNode(3002, 0, 100, 80);
+    top.properties.deckEdges.bottom = bottom.id;
+    bottom.properties.deckEdges.top = top.id;
+
+    const graph = { _nodes: [hub, top, bottom] };
+    window.app.graph = graph;
+    window.app.canvas.frame = 10;
+    globalThis.app = window.app;
+
+    expect(deckNodeToLeader(top, hub, graph, 'left')).toBe(true);
+
+    // Docked preferred-auto state: runtime autoHeight forced off, saved preference on.
+    [top, bottom].forEach((member) => {
+      member.properties.deckSavedAutoHeight = true;
+      member.properties._derpPreferredAutoHeight = true;
+      member.properties.autoHeight = false;
+    });
+    expect(resolveDerpPreferredAutoHeight(top)).toBe(true);
+    expect(resolveDerpPreferredAutoHeight(bottom)).toBe(true);
+    // The side band owns both heights: the seam cannot resize either node.
+    expect(canResizeVerticalSeamPair(top, bottom, graph)).toBe(false);
+    expect(canResizeVerticalSharedEdgeHeight(top, graph, 'bottom')).toBe(false);
+
+    // Mixed branch: one manual member can absorb the delta, so the seam opens.
+    bottom.properties._derpPreferredAutoHeight = false;
+    bottom.properties.deckSavedAutoHeight = false;
+    expect(canResizeVerticalSeamPair(top, bottom, graph)).toBe(true);
   });
 
   it('restores runtime autoWidth for top Deck Pressure horizontal branches', () => {
@@ -1213,7 +1245,7 @@ describe('syncHorizontalDeckHeight', () => {
     expect(diffusion.size[1] + sampler.size[1] + latent.size[1]).toBe(420);
   });
 
-  it('allows side-vertical Deck Pressure internal seams for preferred auto-height branch nodes', () => {
+  it('blocks side-vertical Deck Pressure seams when both members are preferred auto-height', () => {
     const hub = makeImageDeck(92, 200, 300, 240);
     const top = makeNode(93, 100, 100, 140);
     const bottom = makeNode(94, 100, 100, 100);
@@ -1237,9 +1269,18 @@ describe('syncHorizontalDeckHeight', () => {
     window.app.graph = graph;
     globalThis.app = window.app;
 
+    // Both members are preferred-auto: the side band owns both heights,
+    // so the internal seam cannot resize either node (no manual member to absorb delta).
+    expect(canResizeVerticalSharedEdgeHeight(top, graph, 'bottom')).toBe(false);
+    expect(canResizeVerticalSharedEdgeHeight(bottom, graph, 'top')).toBe(false);
+
+    // Mixed branch: one manual member can absorb the delta, seam opens.
+    bottom.properties._derpPreferredAutoHeight = false;
+    bottom.properties.deckSavedAutoHeight = false;
     expect(canResizeVerticalSharedEdgeHeight(top, graph, 'bottom')).toBe(true);
     expect(canResizeVerticalSharedEdgeHeight(bottom, graph, 'top')).toBe(true);
 
+    // Ordinary auto+auto stack seam should still be blocked.
     const ordinaryTop = makeNode(95, 0, 100, 120);
     const ordinaryBottom = makeNode(96, 0, 100, 80);
     ordinaryTop.properties.autoHeight = true;
@@ -1247,7 +1288,6 @@ describe('syncHorizontalDeckHeight', () => {
     ordinaryTop.properties.deckEdges.bottom = ordinaryBottom.id;
     ordinaryBottom.properties.deckEdges.top = ordinaryTop.id;
     const ordinaryGraph = { _nodes: [ordinaryTop, ordinaryBottom] };
-
     expect(canResizeVerticalSharedEdgeHeight(ordinaryTop, ordinaryGraph, 'bottom')).toBe(false);
   });
 

@@ -88,10 +88,18 @@ export function canResizeHorizontalSeamPair(leftNode, rightNode, graph) {
 }
 
 export function canResizeVerticalSeamPair(topNode, bottomNode, graph) {
-    return canResizeVerticalMemberHeight(topNode, graph) && canResizeVerticalMemberHeight(bottomNode, graph);
+    if (!canResizeVerticalMemberHeight(topNode, graph) || !canResizeVerticalMemberHeight(bottomNode, graph)) return false;
+    // Deck Pressure side vertical branch seam between two preferred-auto members:
+    // the side band owns both heights, so no member can absorb the delta and the
+    // seam cannot resize either node. Mixed branches (one manual member) stay resizable.
+    if (isDeckPressureSideVerticalBranchMember(topNode, graph)
+        && isDeckPressureSideVerticalBranchMember(bottomNode, graph)
+        && resolveDerpPreferredAutoHeight(topNode)
+        && resolveDerpPreferredAutoHeight(bottomNode)) return false;
+    return true;
 }
 
-function isDeckPressureSideVerticalBranchMember(node, graph) {
+export function isDeckPressureSideVerticalBranchMember(node, graph) {
     if (!node || !graph) return false;
     const pressureHub = getDeckPressureHubForNode(node, graph);
     if (!pressureHub || pressureHub.id === node.id) return false;

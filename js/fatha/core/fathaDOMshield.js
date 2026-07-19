@@ -1588,7 +1588,10 @@ export function syncDerpShield(node) {
         node.interactionShield._resizeHandle._resizeAnchorOverride = ((!isPressureHub && !isVerticalDockStack && canResizeSharedRightW) || canResizePressureSeamRightW || canResizePressureSideHorizontalRightW) ? "right" : null;
         handleStyle.width = `${bottomRightWidth}px`;
         handleStyle.height = `${bottomCornerSize}px`;
-        handleStyle.cursor = getCornerCursor(canUseRightW, "nwse-resize");
+        // Frame-corner drags route to the pressure hub and resize the whole frame
+        // diagonally, so the cursor must be diagonal regardless of this member's
+        // own preferred auto axes (e.g. preferred-auto side-branch members).
+        handleStyle.cursor = (isPressureMember && allowFrameCornerBottomRight) ? "nwse-resize" : getCornerCursor(canUseRightW, "nwse-resize");
         // THE INTERACTION GUARD: Disable handle interaction entirely if both axes are auto-managed
         node.resizable = canResizeStackW || canResizeStackH || canResizeSharedW || !(vars.autoWidth && vars.autoHeight); // THE NATIVE FIX: Kill LiteGraph's own resize logic
         const showBottomRightCorner = node.resizable && (canUseRightW || canUseCornerH) && allowBottomResizeCorners && allowFrameCornerBottomRight;
@@ -1634,7 +1637,7 @@ export function syncDerpShield(node) {
             node.interactionShield._resizeHandleLeft._resizeAnchorOverride = ((!isPressureHub && !isVerticalDockStack && canResizeSharedLeftW) || canResizePressureSeamLeftW || canResizePressureSideHorizontalLeftW) ? "left" : null;
             leftStyle.width = `${bottomLeftWidth}px`;
             leftStyle.height = `${bottomCornerSize}px`;
-            leftStyle.cursor = getCornerCursor(canUseLeftW, "nesw-resize");
+            leftStyle.cursor = (isPressureMember && allowFrameCornerBottomLeft) ? "nesw-resize" : getCornerCursor(canUseLeftW, "nesw-resize");
             const showBottomLeftCorner = node.resizable && (canUseLeftW || canUseCornerH) && allowBottomResizeCorners && allowFrameCornerBottomLeft;
             leftStyle.display = showBottomLeftCorner ? "block" : "none";
             leftStyle.pointerEvents = showBottomLeftCorner ? "auto" : "none";
@@ -1726,7 +1729,7 @@ export function syncDerpShield(node) {
                     node.interactionShield._resizeHandleTopLeft._resizeAnchorOverride = "top";
                 }
             } else {
-                topLeftStyle.cursor = getCornerCursor(canUseLeftW, "nwse-resize");
+                topLeftStyle.cursor = (isPressureMember && allowFrameCornerTopLeft) ? "nwse-resize" : getCornerCursor(canUseLeftW, "nwse-resize");
             }
         }
 
@@ -1767,7 +1770,7 @@ export function syncDerpShield(node) {
                     node.interactionShield._resizeHandleTopRight._resizeAnchorOverride = "top";
                 }
             } else {
-                topRightStyle.cursor = getCornerCursor(canUseRightW, "nesw-resize");
+                topRightStyle.cursor = (isPressureMember && allowFrameCornerTopRight) ? "nesw-resize" : getCornerCursor(canUseRightW, "nesw-resize");
             }
         }
     }
