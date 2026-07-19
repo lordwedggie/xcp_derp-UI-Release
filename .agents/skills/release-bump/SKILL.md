@@ -37,7 +37,9 @@ These files must never appear in the release remote:
 9. Push to the dev remote: `git push github daily-development`.
 10. Push to the release remote: `git push release daily-development`.
     - If the release remote uses a different branch name, use `git push release daily-development:<branch-name>`.
-11. Verify both pushes landed with `git log --oneline github/daily-development -1` and `git log --oneline release/daily-development -1`.
+11. Merge `daily-development` into `main` and push to trigger the Comfy Registry publish:
+    - `git checkout main && git merge daily-development && git push github main && git checkout daily-development`
+12. Verify all pushes landed with `git log --oneline github/daily-development -1`, `git log --oneline release/daily-development -1`, and `git log --oneline github/main -1`.
 
 ## Remotes
 
@@ -48,5 +50,5 @@ These files must never appear in the release remote:
 
 ## Notes
 
-- The Comfy Registry publish action triggers on push to `main`. If you need to trigger a registry publish, merge `daily-development` into `main` and push — but only do this when the user asks.
+- The Comfy Registry publish action triggers on push to `main`. Every publish always merges `daily-development` into `main` and pushes to trigger the registry publish.
 - The release remote should be configured to exclude private files (`.gitattributes` or server-side filtering). If the user hasn't set this up, remind them.
