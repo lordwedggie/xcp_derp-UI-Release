@@ -16,6 +16,7 @@ import { DEFAULT_PULSE_SPEED, getPulsedColor, parseColor } from "../../herbina/m
 import { resolveSystemThemeFill, resolveSystemThemePaint } from "../helpers/fathaSystemTheme.js";
 import { getContentViewportSignature } from "./fathaContentViewport.js";
 import { canResizeVerticalSeamPair, canResizeHorizontalSeamPair, isDeckPressureSideVerticalBranchMember } from "./dockResizeSharedEdges.js";
+import { getVerticalResizeTargetMinHeight } from "./dockResize.js";
 
 const DEFAULT_DECK_SNAP = 10;
 const DEFAULT_DECK_RADIUS = 48;
@@ -2828,6 +2829,17 @@ function hasDeckPressureViewportHeightLock(member) {
 function getDeckPressureCompactViewportMinHeight(member, snap) {
     if (!hasDeckPressureViewportHeightLock(member)) return 0;
     const unit = Math.max(1, Number(snap) || DEFAULT_DECK_SNAP);
+    // The compact floor must cover the whole visible layout: viewport declared
+    // min clips PLUS every fixed sibling row (linebreaks, section headers,
+    // bottom-pinned rows) and margins. Summing viewport states alone missed
+    // those fixed rows and let frame resize compress multi-viewport nodes
+    // (derpConcatenate floored at ~110 vs a true ~175) and loader rows below
+    // their real minimum — content collided with pinned rows, and idle passes
+    // then refit branches against full content mins that no longer matched the
+    // frame band. Use the same viewport-aware layout walk the internal
+    // side-branch seam floors use so every compact floor agrees.
+    const layoutWalkFloor = getVerticalResizeTargetMinHeight(member, unit, { preserveExpandedFloor: false, ignoreViewportLayoutFloor: true });
+    if (layoutWalkFloor > 0) return layoutWalkFloor;
     const stateFloor = Object.values(member._contentViewportState || {}).reduce((sum, state) => {
         return sum + Math.max(
             Number(state?.minClipHeight) || 0,
@@ -3147,6 +3159,34 @@ export function computeDeckPressureGeometryPlan(hub, graph, snap = DEFAULT_DECK_
                 compactViewportFloor: fitLiveSideHeightTarget,
                 liveResizeFloor: fitLiveSideHeightTarget,
             });
+            if (isDockDebugEnabled()) {
+                const heightTotal = heights.reduce((sum, value) => sum + (Number(value) || 0), 0);
+                const rawCache = hub?._deckPressureSideVerticalHeights?.[branch.side];
+                const rawEntries = Array.isArray(rawCache) ? rawCache : rawCache?.entries;
+                dockDebug("dp-side-fit", {
+                    side: branch.side,
+                    bandHeight: band.height,
+                    bandBottom: band.bottom,
+                    frameBottom: frame.bottom,
+                    liveHeights: branch.members.map((member) => ({ id: member?.id, h: getNodeSizeValue(member, 1), prefAuto: resolveDerpPreferredAutoHeight(member), collapsed: member?.properties?.contentCollapsed === true, vpLock: hasDeckPressureViewportHeightLock(member) })),
+                    heights,
+                    heightTotal,
+                    edgeDiff: band.height - heightTotal,
+                    cachedHeights: cachedHeights || null,
+                    cacheDiag: !rawEntries ? "missing" : (cachedHeights ? "hit" : rawEntries.map((entry, index) => {
+                        const member = branch.members[index];
+                        if (!member || entry?.id !== member.id) return `id-mismatch:${entry?.id}!=${member?.id}`;
+                        const sig = getDeckPressureSideHeightMemberSig(member);
+                        return entry.sig === sig ? "ok" : `sig:${entry.sig}->${sig}`;
+                    })),
+                    fitLiveSideHeightTarget,
+                    preserveLiveSideHeights,
+                    preserveExactLiveSideHeights: preserveExactLiveSideHeights || !!cachedHeights,
+                    hubResizing: hub?._isDerpResizing === true,
+                    liveResize: options.liveResize === true,
+                    preservedFrame: !!preservedFrame,
+                });
+            }
             memberRects = makeDeckPressureMemberRects(branch.members, band, "vertical", heights);
         } else if (branch.side === "left" || branch.side === "right") {
             memberRects = makeDeckPressureMemberRects(branch.members, band, "horizontal", fitDeckPressureRowWidths(branch.members, band.width, snap));
@@ -3228,6 +3268,28 @@ export function applyDeckPressureLayout(hub, graph, snap = DEFAULT_DECK_SNAP, op
             const posChanged = setDeckNodePos(node, rect.left, rect.top);
             if (sizeChanged || posChanged) markChanged(node);
         });
+        if (isDockDebugEnabled() && (branch.side === "left" || branch.side === "right") && branch.axis === "vertical" && branch.memberRects.length > 0) {
+            const lastRect = branch.memberRects[branch.memberRects.length - 1].rect;
+            const firstRect = branch.memberRects[0].rect;
+            const stackBottomDiff = lastRect.bottom - branch.band.bottom;
+            const stackTopDiff = firstRect.top - branch.band.top;
+            if (Math.abs(stackBottomDiff) > 0.5 || Math.abs(stackTopDiff) > 0.5) {
+                dockDebug("dp-side-edge-mismatch", {
+                    side: branch.side,
+                    bandTop: branch.band.top,
+                    bandBottom: branch.band.bottom,
+                    firstTop: firstRect.top,
+                    lastBottom: lastRect.bottom,
+                    stackBottomDiff,
+                    stackTopDiff,
+                    rects: branch.memberRects.map(({ node, rect }) => ({ id: node?.id, top: rect.top, bottom: rect.bottom, h: rect.height })),
+                    frameBottom: plan.frame.bottom,
+                    hubResizing: hub?._isDerpResizing === true,
+                    frameHeightResizeActive: hub?._deckPressureFrameHeightResizeActive === true,
+                    liveResize,
+                });
+            }
+        }
         if (hub._deckPressureFrameHeightResizeActive === true && (branch.side === "left" || branch.side === "right") && branch.axis === "vertical") {
             setDeckPressureSideVerticalHeightCache(hub, branch.side, branch.members, { allowBelowPressureMin: true });
         }
