@@ -77,6 +77,7 @@ const DERP_SETTING_DEFAULTS = {
     perfOverlayShowRanking: true,
     perfOverlayShowZOrder: false,
     warpSpeedLevel: 5,
+    selectionPulseAnimation: true,
 };
 const DERP_SETTING_DEFAULT_IDS = {
     "Derp.StickyDrag": DERP_SETTING_DEFAULTS.stickyDrag,
@@ -104,6 +105,7 @@ const DERP_SETTING_DEFAULT_IDS = {
     "Derp.PerfOverlayShowRanking": DERP_SETTING_DEFAULTS.perfOverlayShowRanking,
     "Derp.PerfOverlayShowZOrder": DERP_SETTING_DEFAULTS.perfOverlayShowZOrder,
     "Derp.WarpSpeedLevel": DERP_SETTING_DEFAULTS.warpSpeedLevel,
+    "Derp.SelectionPulseAnimation": DERP_SETTING_DEFAULTS.selectionPulseAnimation,
 };
 
 function syncDerpGlobalSettingsAlias() {
@@ -825,6 +827,22 @@ app.registerExtension({
             }
         });
 
+        app.ui.settings.addSetting({
+            id: "Derp.SelectionPulseAnimation",
+            name: "Selected nodes pulse animation",
+            category: DERP_GROUPS.optimization("Selection Pulse Animation"),
+            sortOrder: DERP_GROUP_SORT_ORDER.optimization,
+            type: "boolean",
+            default: true,
+            onChange: (v) => {
+                window.DERP_GLOBAL_SETTINGS = window.DERP_GLOBAL_SETTINGS || {};
+                window.DERP_GLOBAL_SETTINGS.selectionPulseAnimation = normalizeBooleanSetting(v, true);
+                syncDerpGlobalSettingsAlias();
+                // Dirty canvas so selected nodes immediately stop/start pulsing.
+                if (app.canvas) app.canvas.setDirty(true, true);
+            }
+        });
+
         seedMissingDerpSettingDefaults();
 
         // Initialize global object for immediate access by nodes
@@ -853,7 +871,8 @@ app.registerExtension({
             perfOverlayFontSize: Number(getStoredSettingValue("Derp.PerfOverlayFontSize", DERP_SETTING_DEFAULTS.perfOverlayFontSize)) || DERP_SETTING_DEFAULTS.perfOverlayFontSize,
             perfOverlayShowRanking: normalizeBooleanSetting(getStoredSettingValue("Derp.PerfOverlayShowRanking", DERP_SETTING_DEFAULTS.perfOverlayShowRanking), DERP_SETTING_DEFAULTS.perfOverlayShowRanking),
             perfOverlayShowZOrder: normalizeBooleanSetting(getStoredSettingValue("Derp.PerfOverlayShowZOrder", DERP_SETTING_DEFAULTS.perfOverlayShowZOrder), DERP_SETTING_DEFAULTS.perfOverlayShowZOrder),
-            warpSpeedLevel: Math.max(1, Math.min(9, Math.round(Number(getStoredSettingValue("Derp.WarpSpeedLevel", DERP_SETTING_DEFAULTS.warpSpeedLevel)) || DERP_SETTING_DEFAULTS.warpSpeedLevel)))
+            warpSpeedLevel: Math.max(1, Math.min(9, Math.round(Number(getStoredSettingValue("Derp.WarpSpeedLevel", DERP_SETTING_DEFAULTS.warpSpeedLevel)) || DERP_SETTING_DEFAULTS.warpSpeedLevel))),
+            selectionPulseAnimation: normalizeBooleanSetting(getStoredSettingValue("Derp.SelectionPulseAnimation", DERP_SETTING_DEFAULTS.selectionPulseAnimation), DERP_SETTING_DEFAULTS.selectionPulseAnimation)
         };
         syncDerpGlobalSettingsAlias();
 

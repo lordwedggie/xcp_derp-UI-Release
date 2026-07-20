@@ -985,6 +985,62 @@ export async function loadDerpPalette(paletteName = "Derp_Default_v01") {
 // --- ANIMATION TUNABLES ---
 export const ANIM_SELECTION_PULSE = true;
 
+// --- SELECTION PULSE WAKER (Option A) ---
+// getPulseAlpha is quantized to 50ms buckets (PULSE_FRAME_BUCKET_MS in
+// masterAnimator.js), so the pulse visual only changes ~20 times/sec. The
+// previous code called setDirtyCanvas(true, false) every frame while a node
+// was selected, forcing ALL nodes on the canvas to redraw at 60fps — 40 of
+// those 60 redraws/sec produced visually identical output and made non-selected
+// nodes go red in the performance tracker. This RAF-based waker only dirties
+// registered nodes when the pulse bucket actually changes, cutting the
+// canvas-wide dirty rate from 60fps to 20fps.
+const _pulseWaker = { handle: null, lastBucket: 0, nodes: new Set() };
+
+function _pulseBucket() {
+    return Math.floor(Date.now() / 50) * 50;
+}
+
+function _isNodeStillPulsing(node) {
+    if (!node || node._derpPulseActive !== true) return false;
+    const isSelected = node._xcpTrueSelected !== undefined
+        ? node._xcpTrueSelected
+        : !!(app.canvas?.selected_nodes && app.canvas.selected_nodes[node.id]);
+    if (!isSelected) return false;
+    if (node.mode === 4 || node.mode === 2 || node._derpSpoofedBypass) return false;
+    return true;
+}
+
+function _tickPulseDirty() {
+    _pulseWaker.handle = null;
+    const bucket = _pulseBucket();
+    const bucketChanged = bucket !== _pulseWaker.lastBucket;
+    if (bucketChanged) _pulseWaker.lastBucket = bucket;
+    // Prune stale nodes every tick; dirty surviving nodes only when the bucket changed.
+    for (const node of _pulseWaker.nodes) {
+        if (_isNodeStillPulsing(node)) {
+            if (bucketChanged) node.setDirtyCanvas(true, false);
+        } else {
+            node._derpPulseActive = false;
+            _pulseWaker.nodes.delete(node);
+        }
+    }
+    if (_pulseWaker.nodes.size > 0) {
+        const raf = globalThis.requestAnimationFrame || ((cb) => setTimeout(cb, 16));
+        _pulseWaker.handle = raf(_tickPulseDirty);
+    }
+}
+
+function _registerPulseNode(node) {
+    if (!node) return;
+    node._derpPulseActive = true;
+    _pulseWaker.nodes.add(node);
+    if (_pulseWaker.handle === null) {
+        _pulseWaker.lastBucket = _pulseBucket();
+        const raf = globalThis.requestAnimationFrame || ((cb) => setTimeout(cb, 16));
+        _pulseWaker.handle = raf(_tickPulseDirty);
+    }
+}
+
 function debugPinnedCollapse(label, node, extra = {}) {
     return;
 }
@@ -1736,7 +1792,7 @@ export function handleDrawCTX(entity, ctx, overlayPass = false) {
             }
         };
 
-        if (isSelected && !isBypassed && ANIM_SELECTION_PULSE) {
+        if (isSelected && !isBypassed && ANIM_SELECTION_PULSE && window.DERP_GLOBAL_SETTINGS?.selectionPulseAnimation !== false) {
             // --- SELECTION PULSE ---
             if (paintOFF) {
                 if (header && paintON) {
@@ -1779,7 +1835,18 @@ export function handleDrawCTX(entity, ctx, overlayPass = false) {
                 }
                 ctx.restore();
             }
-            entity.setDirtyCanvas(true, false);
+            // Gate canvas-wide dirty to the 50ms pulse bucket via the RAF waker
+            // instead of dirtying every frame (which forces ALL nodes to redraw).
+            _registerPulseNode(entity);
+        } else if (isSelected && !isBypassed) {
+            // SELECTED STATIC: pulse animation disabled — render the _ON frame
+            // (paintON + _ON header state) so the selected node is clearly visible.
+            renderBaseBackground(ctx, {
+                bodyPaint: paintON,
+                headerPaletteState: "_ON",
+                headerEffectPaint: paintON,
+                cornerPaint: paintON,
+            });
         } else {
             if (useStaticBgCache) {
                 const bw = Math.max(1, Math.round(entity.size[0]));
