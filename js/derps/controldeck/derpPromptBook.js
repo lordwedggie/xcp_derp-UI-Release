@@ -177,7 +177,12 @@ app.registerExtension({
                         dropdownBooks: {
                             type: this.UI_TYPES.FILEBROWSER, canvasShield: true, skipBackground: true, themeKey: "panel, t_textNormal",
                             indicator: "on", mouseOver: false, searchTab: true,
-                            items: (this._availableBooks || []).map(name => ({ value: name, _triggerDisplay: `{{t_text_accent::${name}}}` })),
+                            items: (this._availableBooks || []).map(name => {
+                                const isSelected = name === this.properties.bookName;
+                                return isSelected
+                                    ? { value: name, _triggerDisplay: `{{t_text_accent::${name}}}` }
+                                    : { value: name };
+                            }),
                             triggerIconColorKey: "t_text_warning",
                             value: this.properties.bookName || tLocale("$derp_prompt_book.book.untitled_name", "Untitled Book"),
                             mode: "file", fileType: "promptBook", displayText: tLocale("$derp_prompt_book.browser.select", "Select Book..."),
@@ -283,11 +288,13 @@ app.registerExtension({
                         type: this.UI_TYPES.FILEBROWSER, searchTab: true,
                         icon: "dropdown", skipBackground: true,
                         canvasShield: true, themeKey: "panel, t_textNormal",
-                        items: book.map((page, idx) => ({
-                            value: String(idx),
-                            display: getPageLabel(this, idx, page.title),
-                            _triggerDisplay: `{{t_text_highlight::${getPageLabel(this, idx, page.title)}}}`
-                        })),
+                        items: book.map((page, idx) => {
+                            const label = getPageLabel(this, idx, page.title);
+                            const isSelected = idx === safeIndex;
+                            return isSelected
+                                ? { value: String(idx), display: label, _triggerDisplay: `{{t_text_highlight::${label}}}` }
+                                : { value: String(idx), display: label };
+                        }),
                         triggerIconColorKey: "t_text_warning",
                         mouseOver: false,
                         width: "full", height: "auto", padding: [pW, pH], spacing: [sW, 0], displayMode: "ellipsis",
