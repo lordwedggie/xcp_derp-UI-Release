@@ -44,16 +44,6 @@ function measureConcatPreviewHeight(text, maxWidth, fontSize, fontFamily, fontWe
 
 // --- scrollViewport clip resolvers (manual-height mode only) ---
 
-// Fires only when a viewport is squeezed below its minClip (node below resize
-// floor). State-change gated so it never floods the console.
-function logConcatClipTight(node, tag, clip, minClip) {
-    const key = `_concatClipTight_${tag}`;
-    const msg = `${clip.toFixed(1)}<${minClip.toFixed(1)}`;
-    if (node[key] === msg) return;
-    node[key] = msg;
-    console.log(`[concat-clip] node=${node?.id} ${tag} clip below min: clip=${clip.toFixed(1)} min=${minClip.toFixed(1)} nodeH=${(Number(node?.size?.[1]) || 0).toFixed(1)}`);
-}
-
 function resolveConcatSignalsClipHeight(node, region, regions = {}) {
     if (resolveDerpRuntimeAutoHeight(node)) return 0;
     const fullHeight = Number(region?.h) || 0;
@@ -101,7 +91,6 @@ function resolveConcatSignalsClipHeight(node, region, regions = {}) {
     // Hard cap: never cross the bottom clamp, even below minClip. Floor at 1px
     // so the viewport never disables into full overflow.
     const clip = Math.max(1, fullHeight > 0 ? Math.min(fullHeight, available) : available);
-    if (clip < signalsMin) logConcatClipTight(node, "signals", clip, signalsMin);
     node._concatSignalsClipDelta = Math.max(0, fullHeight - clip);
     return clip;
 }
@@ -133,7 +122,6 @@ function resolveConcatOutputClipHeight(node, region, regions = {}) {
     }
     const available = Math.max(0, addSignalTop - shiftedRegionY - viewportGap);
     const clip = Math.max(1, fullHeight > 0 ? Math.min(fullHeight, available) : available);
-    if (clip < outputMin) logConcatClipTight(node, "output", clip, outputMin);
     return clip;
 }
 
@@ -446,8 +434,6 @@ app.registerExtension({
 
     async beforeRegisterNodeDef(nodeType, nodeData) {
         if (nodeData.name !== "derpConcatenate") return;
-
-        console.log(`[Fatha] Intercepting Python Node: ${nodeData.name}`);
 
         fatha(nodeType, nodeData, 120);
 
