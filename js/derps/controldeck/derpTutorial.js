@@ -366,7 +366,8 @@ app.registerExtension({
                         text: tLocale("$derp_tutorial.intro", "Welcome to derp-UI. Pick a tutorial workflow below to open it in a fresh ComfyUI tab."),
                         width: "full",
                         height: "auto",
-                        padding: [pW, pH],
+                        margin: [0, 0, 0, sH],
+                        padding: [pW, pH], 
                         wrap: true,
                         mouseOver: false,
                     },
@@ -392,7 +393,7 @@ app.registerExtension({
                         themeKey: "line",
                         width: "full",
                         height: 1,
-                        margin: [-mW, 0],
+                        margin: [-mW, mH],
                     },
                     suppressRow: {
                         width: "full",
