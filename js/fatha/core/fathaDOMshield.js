@@ -26,6 +26,7 @@ import { MASTER_Z, promoteMasterZ } from "./masterZ.js";
 import { isComfyVueNodesMode } from "./fathaNode2Compat.js";
 import { handleContentViewportWheel, mapShieldPointThroughContentViewport, preserveContentViewportScrollForInteraction, tryStartContentViewportScrollbarDrag } from "./fathaContentViewportShield.js";
 import { resolveDerpPreferredAutoHeight, resolveDerpPreferredAutoWidth } from "./derpHeightPolicy.js";
+import { getDerpCanvasRect } from "../../herbina/utils/widgetsUtils.js";
 
 // DEBUG_MODE is now dynamically handled via node.properties.debugMode
 const CORNER_RESIZE_ANCHORS = new Set(["top-left", "top-right", "bottom-left", "bottom-right"]);
@@ -1608,7 +1609,7 @@ export function syncDerpShield(node) {
     // THE REFLOW FIX: Prevent getBoundingClientRect() from thrashing the browser's Main Thread
     // 60 times a second during idle animations (like Fatha's selection pulse).
     const canvasEl = app.canvas.canvas;
-    const rect = canvasEl.getBoundingClientRect();
+    const rect = getDerpCanvasRect(canvasEl);
     const edgeState = node.properties?.deckEdges || {};
     const varsForHash = node.getDerpVars ? node.getDerpVars(node) : { autoWidth: false, autoHeight: true };
     const preferredAutoWidthForHash = resolveDerpPreferredAutoWidth(node);
@@ -1624,7 +1625,7 @@ export function syncDerpShield(node) {
     const hubNeighborBottomForHash = pressureHubForHash ? (getNodeOnDeckEdge(pressureHubForHash, graphForHash, "bottom")?.id ?? "n") : "n";
     const hubNeighborLeftForHash = pressureHubForHash ? (getNodeOnDeckEdge(pressureHubForHash, graphForHash, "left")?.id ?? "n") : "n";
     const hubNeighborRightForHash = pressureHubForHash ? (getNodeOnDeckEdge(pressureHubForHash, graphForHash, "right")?.id ?? "n") : "n";
-    const stateHash = `${node.pos[0]},${node.pos[1]}_${visualW},${visualH}_${scale}_${ds.offset[0]},${ds.offset[1]}_${node.flags?.collapsed}_${node.properties?.contentCollapsed}_${node.properties?.debugMode}_${canvasEl.clientWidth},${canvasEl.clientHeight}_${canvasRectHash}_${edgeState.left ?? "n"},${edgeState.right ?? "n"},${edgeState.top ?? "n"},${edgeState.bottom ?? "n"}_${neighborLeftForHash},${neighborRightForHash}_${pressureHubForHash?.id ?? "n"},${branchSideForHash ?? "n"},${branchAxisForHash}_${hubNeighborTopForHash},${hubNeighborBottomForHash},${hubNeighborLeftForHash},${hubNeighborRightForHash}_${varsForHash.autoWidth}_${varsForHash.autoHeight}_${preferredAutoWidthForHash}_${preferredAutoHeightForHash}`;
+    const stateHash = `${node.pos[0]},${node.pos[1]}_${visualW},${visualH}_${scale}_${ds.offset[0]},${ds.offset[1]}_${node.flags?.collapsed}_${node.properties?.contentCollapsed}_${node.properties?.debugMode}_${Math.round(rect.width)},${Math.round(rect.height)}_${canvasRectHash}_${edgeState.left ?? "n"},${edgeState.right ?? "n"},${edgeState.top ?? "n"},${edgeState.bottom ?? "n"}_${neighborLeftForHash},${neighborRightForHash}_${pressureHubForHash?.id ?? "n"},${branchSideForHash ?? "n"},${branchAxisForHash}_${hubNeighborTopForHash},${hubNeighborBottomForHash},${hubNeighborLeftForHash},${hubNeighborRightForHash}_${varsForHash.autoWidth}_${varsForHash.autoHeight}_${preferredAutoWidthForHash}_${preferredAutoHeightForHash}`;
     if (node.interactionShield._lastStateHash === stateHash && !node._forceSync) return;
     node.interactionShield._lastStateHash = stateHash;
 

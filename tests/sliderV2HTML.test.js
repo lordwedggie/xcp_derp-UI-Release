@@ -32,6 +32,10 @@ vi.mock('../js/herbina/utils/widgetsUtils.js', () => {
     colorSegmentsToHTML: (segments, fallbackColor) => (segments || [])
       .map((segment) => `<span style="color:${segment.color || fallbackColor}">${segment.text}</span>`)
       .join(''),
+    findPaintPropName: (owner, lowerTarget) => {
+      if (!owner || !lowerTarget) return null;
+      return Object.keys(owner).find((k) => k.toLowerCase() === lowerTarget) || null;
+    },
     getAlignmentMaps: () => ({
       justify: { left: 'flex-start', center: 'center', right: 'flex-end' },
       align: { top: 'flex-start', middle: 'center', bottom: 'flex-end' },

@@ -13,6 +13,7 @@ import {
     applyInteractionStyles,
     calculateScreenCoords,
     colorSegmentsToHTML,
+    findPaintPropName,
     getAlignmentMaps,
     resolveInterpolatedPaint,
     resolvePaintData,
@@ -145,11 +146,8 @@ function hasSliderV2ExactPaintData(node, key, suffix = "") {
     if (!node || !key) return false;
     const full = `_${key}PaintData${suffix}`.toLowerCase();
     const base = `_${key}PaintData`.toLowerCase();
-    const hasKey = (owner) => !!owner && Object.keys(owner).some((candidate) => {
-        const lower = candidate.toLowerCase();
-        return lower === full || lower === base;
-    });
-    return hasKey(node) || hasKey(node.hostNode);
+    return !!(findPaintPropName(node, full) || findPaintPropName(node, base)
+        || findPaintPropName(node.hostNode, full) || findPaintPropName(node.hostNode, base));
 }
 
 function resolveSliderV2BodyPaint(node, bodyKey, suffix, fallbackColor, fallbackPaint) {

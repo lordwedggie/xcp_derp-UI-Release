@@ -21,6 +21,7 @@ import { drawContentViewportScrollbars, getContentViewportGeometry, withContentV
 import { getContentViewportSignature } from "./core/fathaContentViewport.js";
 import { undeckNode, undeckDeckPressureBranches, isDeckPressureHub } from "./core/masterDockEngine.js";
 import { getActiveVerticalNodeWidthLock, getDerpLayoutCacheHash } from "./core/dockDimensions.js";
+import { getDerpCanvasRect } from "../herbina/utils/widgetsUtils.js";
 
 const FATHA_OVERLAY_WINDOW_MS = 4000;
 const FATHA_VIEWPORT_CULL_MARGIN_PX = 160;
@@ -46,7 +47,7 @@ function isSliderRegionType(type) {
 function getFathaNodeScreenRect(node, canvasDS, canvasEl) {
     if (!node || !canvasDS || !canvasEl) return null;
     const scale = Number(canvasDS.scale) || 1;
-    const rect = canvasEl.getBoundingClientRect?.();
+    const rect = getDerpCanvasRect(canvasEl);
     if (!rect) return null;
 
     const padL = Number(node._padL || 0);
@@ -184,7 +185,7 @@ function createFathaCacheCanvas(width, height, scaleFactor = 1) {
 function getFathaVisibleLocalRect(node) {
     const canvas = app?.canvas?.canvas;
     const canvasDS = app?.canvas?.ds;
-    const rect = canvas?.getBoundingClientRect?.();
+    const rect = canvas ? getDerpCanvasRect(canvas) : null;
     const scale = Number(canvasDS?.scale) || 1;
     if (!node || !rect || !(scale > 0)) return null;
 

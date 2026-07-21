@@ -227,8 +227,18 @@ export function syncDerpBackgroundParallax(layer) {
     const translateX = clamp(screenPanX * DERP_BACKGROUND_PARALLAX_CONFIG.panStrengthX, -extraX, extraX);
     const translateY = clamp(screenPanY * DERP_BACKGROUND_PARALLAX_CONFIG.panStrengthY, -extraY, extraY);
 
+    const nextLeft = ((viewportWidth - renderWidth) / 2) + translateX;
+    const nextTop = ((viewportHeight - renderHeight) / 2) + translateY;
+
+    // No-op guard: the RAF tick fires every frame even when the canvas is
+    // idle; skip CSSOM writes when the computed geometry is unchanged so
+    // idle frames cost nothing here.
+    const last = state.lastApplied;
+    if (last && last.renderWidth === renderWidth && last.renderHeight === renderHeight && last.left === nextLeft && last.top === nextTop) return;
+    state.lastApplied = { renderWidth, renderHeight, left: nextLeft, top: nextTop };
+
     state.visual.style.width = `${renderWidth}px`;
     state.visual.style.height = `${renderHeight}px`;
-    state.visual.style.left = `${((viewportWidth - renderWidth) / 2) + translateX}px`;
-    state.visual.style.top = `${((viewportHeight - renderHeight) / 2) + translateY}px`;
+    state.visual.style.left = `${nextLeft}px`;
+    state.visual.style.top = `${nextTop}px`;
 }

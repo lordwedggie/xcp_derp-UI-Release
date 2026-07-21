@@ -498,11 +498,31 @@ export function getDerpTextColor(safeConfig, labelPaint) {
 }
 // --------------------------------
 
+// Shared short-TTL canvas rect cache. getBoundingClientRect() forces a
+// synchronous layout flush whenever earlier style writes in the same frame
+// dirtied layout, so per-node reads during pan/zoom cost N flushes per frame.
+// The canvas element's screen rect cannot change mid-frame (pan/zoom only
+// mutates ds.offset/ds.scale), so one read per TTL window is exact for
+// frame-coherent consumers and self-corrects on window resize/scroll.
+const CANVAS_RECT_CACHE_TTL_MS = 32;
+let _canvasRectCache = { time: -Infinity, rect: null, el: null };
+
+export function getDerpCanvasRect(canvasEl) {
+    if (!canvasEl || typeof canvasEl.getBoundingClientRect !== "function") return null;
+    const now = performance.now();
+    if (_canvasRectCache.rect && _canvasRectCache.el === canvasEl && (now - _canvasRectCache.time) < CANVAS_RECT_CACHE_TTL_MS) {
+        return _canvasRectCache.rect;
+    }
+    const rect = canvasEl.getBoundingClientRect();
+    _canvasRectCache = { time: now, rect, el: canvasEl };
+    return rect;
+}
+
 export function calculateScreenCoords(node, app, localX, localY, width, height) {
     if (!node || !app?.canvas?.ds) return null;
     const ds = app.canvas.ds;
     const scale = ds.scale;
-    const canvasRect = window.xcpDerpSingleton?.getCanvasRect ? window.xcpDerpSingleton.getCanvasRect() : app.canvas.canvas.getBoundingClientRect();
+    const canvasRect = getDerpCanvasRect(app.canvas.canvas);
     if (arguments.length > 6 && arguments[6]?.hidden) {
         return { left: "-10000px", top: "-10000px", width: "0px", height: "0px", scale };
     }
@@ -675,6 +695,26 @@ export function parseThemeKey(themeKey, defaultLabelKey = "t_textsmall") {
  * @param {string} suffix - The state suffix (e.g., '_ON').
  * @returns {object|null} - The paint data object or null.
  */
+// Paint-data property-name memo: the case-insensitive paint lookup used to
+// scan Object.keys(owner) twice per call — per widget, per frame. Positive
+// resolutions are memoized per owner and re-validated with a single property
+// read; misses fall through to the live scan, so theme hydration can add or
+// delete paint props without any cross-module cache invalidation.
+const _paintPropNameCache = new WeakMap();
+
+export function findPaintPropName(owner, lowerTarget) {
+    if (!owner || !lowerTarget) return null;
+    const perOwner = _paintPropNameCache.get(owner);
+    const cached = perOwner?.get(lowerTarget);
+    if (cached && owner[cached] !== undefined) return cached;
+    const match = Object.keys(owner).find(k => k.toLowerCase() === lowerTarget) || null;
+    if (match) {
+        if (!perOwner) _paintPropNameCache.set(owner, new Map([[lowerTarget, match]]));
+        else perOwner.set(lowerTarget, match);
+    }
+    return match;
+}
+
 /**
  * resolvePaintData: The "Heist" Resolver.
  * Combines structural theme data with optional palette overrides.
@@ -687,18 +727,16 @@ export function resolvePaintData(node, key, suffix = "", overrideColor = null, p
     const targetBase = `_${key}PaintData`.toLowerCase();
 
     let owner = node;
-    let nodeKeys = Object.keys(owner);
-    let matchedFull = nodeKeys.find(k => k.toLowerCase() === targetFull);
-    let matchedBase = nodeKeys.find(k => k.toLowerCase() === targetBase);
+    let matchedFull = findPaintPropName(owner, targetFull);
+    let matchedBase = findPaintPropName(owner, targetBase);
     let data = owner[matchedFull] || owner[matchedBase];
 
     // THE CASCADE FIX: Allow Bastas to use their own hydrated paint data first,
     // before falling back to their hostNode for inherited styles.
     if (!data && node.hostNode) {
         owner = node.hostNode;
-        nodeKeys = Object.keys(owner);
-        matchedFull = nodeKeys.find(k => k.toLowerCase() === targetFull);
-        matchedBase = nodeKeys.find(k => k.toLowerCase() === targetBase);
+        matchedFull = findPaintPropName(owner, targetFull);
+        matchedBase = findPaintPropName(owner, targetBase);
         data = owner[matchedFull] || owner[matchedBase];
     }
 
@@ -713,13 +751,11 @@ export function resolvePaintData(node, key, suffix = "", overrideColor = null, p
             const fallbackFull = `_${fallbackKey}PaintData${suffix}`.toLowerCase();
             const fallbackBase = `_${fallbackKey}PaintData`.toLowerCase();
             let fOwner = owner;
-            let fKeys = Object.keys(fOwner);
-            let fMatch = fKeys.find(k => k.toLowerCase() === fallbackFull) || fKeys.find(k => k.toLowerCase() === fallbackBase);
+            let fMatch = findPaintPropName(fOwner, fallbackFull) || findPaintPropName(fOwner, fallbackBase);
             let fData = fOwner[fMatch];
             if (!fData && node.hostNode) {
                 fOwner = node.hostNode;
-                fKeys = Object.keys(fOwner);
-                fMatch = fKeys.find(k => k.toLowerCase() === fallbackFull) || fKeys.find(k => k.toLowerCase() === fallbackBase);
+                fMatch = findPaintPropName(fOwner, fallbackFull) || findPaintPropName(fOwner, fallbackBase);
                 fData = fOwner[fMatch];
             }
             if (fData) data = { ...fData };
