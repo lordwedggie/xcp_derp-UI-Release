@@ -254,8 +254,12 @@ function resolveDerpEditorImageSrc(src) {
 function getDerpEditorCutoffRightPad(node, safeConfig, padX, isMultiline, requestedCanvasShield) {
     let cutoffRightPad = safeConfig.displayMode === "cutoff" ? padX : 0;
     if (isMultiline && requestedCanvasShield) {
-        const editorScrollbarGap = Math.max(0, Number(node.getDerpVars?.(node)?.sW) || 0);
-        cutoffRightPad = Math.max(cutoffRightPad, DERP_SCROLLBAR_WIDTH + EDITOR_SCROLLBAR_LEFT_MARGIN + EDITOR_SCROLLBAR_RIGHT_INSET + editorScrollbarGap);
+        const el = node?._derpDomElements?.[safeConfig.key];
+        const needsScrollbar = el ? (el.scrollHeight > el.clientHeight) : false;
+        if (needsScrollbar) {
+            const editorScrollbarGap = Math.max(0, Number(node.getDerpVars?.(node)?.sW) || 0);
+            cutoffRightPad = Math.max(cutoffRightPad, DERP_SCROLLBAR_WIDTH + EDITOR_SCROLLBAR_LEFT_MARGIN + EDITOR_SCROLLBAR_RIGHT_INSET + editorScrollbarGap);
+        }
     }
     return cutoffRightPad;
 }

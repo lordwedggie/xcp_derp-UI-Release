@@ -11,6 +11,8 @@ describe('derpEditor embedded image measurement', () => {
   it('uses the scrollbar-reserved content width for image scroll height', () => {
     const node = {
       getDerpVars: () => ({ sW: 3 }),
+      // Overflowing editor DOM element: scrollbar reserve only applies when content overflows.
+      _derpDomElements: { editorMain: { scrollHeight: 200, clientHeight: 100 } },
       _derpImgCache: {
         '/prompt-book-image.png': {
           complete: true,
@@ -57,6 +59,7 @@ describe('derpEditor embedded image measurement', () => {
   it('uses the live editor line height when computing max scroll content height', () => {
     const node = {
       getDerpVars: () => ({ sW: 3 }),
+      _derpDomElements: { editorMain: { scrollHeight: 200, clientHeight: 100 } },
       _derpImgCache: {
         '/prompt-book-image.png': {
           complete: true,
@@ -80,6 +83,23 @@ describe('derpEditor embedded image measurement', () => {
     ]);
 
     expect(contentHeight).toBeCloseTo(30 + (169 * 0.5) + 10);
+  });
+
+  it('reserves no scrollbar width when the editor content does not overflow', () => {
+    const node = {
+      getDerpVars: () => ({ sW: 3 }),
+      // Non-overflowing editor: content fits, so no scrollbar gutter is reserved.
+      _derpDomElements: { editorMain: { scrollHeight: 80, clientHeight: 100 } },
+    };
+    const config = {
+      key: 'editorMain',
+      multiline: true,
+      canvasShield: true,
+      geometry: { w: 200, h: 100, fontSize: 10 },
+      padding: [10, 0],
+    };
+
+    expect(getDerpEditorContentWidth(node, config)).toBe(180);
   });
 
   it('insets the editor scrollbar track by the requested vertical spacing', () => {
