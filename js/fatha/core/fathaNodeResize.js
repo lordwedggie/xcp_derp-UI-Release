@@ -1,8 +1,8 @@
 import { sysPanel } from "../helpers/fathaSysPanel.js";
 import { applyDockResizeResult, getVerticalResizeTargetMinHeight, scheduleLiveResizeShieldSync, syncDockResizePair } from "./dockResize.js";
-import { canResizeDeckPressureSideWidthMember, canResizeHorizontalSharedEdgeWidth, canResizeHorizontalStackHeight, canResizeHorizontalStackWidth, canResizeVerticalStackHeight, getHorizontalDeckMembersByX } from "./dockResizeSharedEdges.js";
+import { canResizeDeckPressureSideWidthMember, canResizeDeckPressureTopBottomHeightBranch, canResizeHorizontalSharedEdgeWidth, canResizeHorizontalStackHeight, canResizeHorizontalStackWidth, canResizeVerticalStackHeight, getHorizontalDeckMembersByX } from "./dockResizeSharedEdges.js";
 import { getDockGroupAxisFromMembers, getDockNodeMinHeight, getDockNodeMinWidth, getDerpLayoutCacheHash, resolveDockResizeAxes } from "./dockDimensions.js";
-import { applyDeckPressureLayout, getDeckMembers, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureBranchAxis, getDeckPressureHubForNode, getDeckPressureHubMinHeight, getDeckPressureHubMinWidth, getNodeOnDeckEdge, isDeckPressureHub, isDeckPressureSideWidthResizeEdge, setDeckNodePos } from "./masterDockEngine.js";
+import { applyDeckPressureLayout, getDeckMembers, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureBranchAxis, getDeckPressureHubForNode, getDeckPressureHubMinHeight, getDeckPressureHubMinWidth, getNodeOnDeckEdge, isDeckPressureHub, isDeckPressureSideWidthResizeEdge, isDeckPressureTopBottomHeightResizeEdge, setDeckNodePos } from "./masterDockEngine.js";
 import { dockDebug, snapshotDockNode } from "./dockDebugHelpers.js";
 import { setDerpNodeSizeCompat } from "./fathaNode2Compat.js";
 import { resolveDerpPreferredAutoHeight, resolveDerpPreferredAutoWidth, resolveDerpRuntimeAutoHeight } from "./derpHeightPolicy.js";
@@ -24,6 +24,16 @@ function isDeckPressureSideWidthResize(entity, graph, resizeAnchor) {
         && session.side.startsWith("deck-pressure-")
         && session.side.endsWith("-seam")) return true;
     return isDeckPressureSideWidthResizeEdge(entity, graph, resizeAnchor);
+}
+
+function isDeckPressureTopBottomHeightResize(entity, graph, resizeAnchor) {
+    const session = entity?._dockResizeSession;
+    if ((resizeAnchor === "top" || resizeAnchor === "bottom")
+        && session?.entityId === entity?.id
+        && typeof session.side === "string"
+        && session.side.startsWith("deck-pressure-")
+        && session.side.endsWith("-seam")) return true;
+    return isDeckPressureTopBottomHeightResizeEdge(entity, graph, resizeAnchor);
 }
 
 function isDeckPressureOuterFrameEdge(entity, graph, resizeAnchor) {
@@ -88,6 +98,19 @@ function applyDeckPressureFrameHeightResize(target, graph, data, scale, snap) {
         const hubTop = Number(hub.pos?.[1]) || 0;
         const hubBottom = hubTop + (Number(hub.size?.[1] ?? hub.properties?.nodeSize?.[1]) || 0);
         hub._deckPressureFrameEdgeResizeStartBounds = { ...bounds, hubTop, hubBottom };
+        // Freeze top/bottom row member widths for the whole drag. The per-move
+        // pressure plan otherwise re-fits them from live widths, which feeds
+        // transient self-inflation (e.g. derpSeedV3's width floor sync) back
+        // into the plan and lets a member grow wider until mouse release.
+        const rowWidthSnapshot = {};
+        for (const branchSide of ["top", "bottom"]) {
+            if (getDeckPressureBranchAxis(hub, graph, branchSide) !== "horizontal") continue;
+            for (const member of getDeckPressureBranchMembers(hub, graph, branchSide)) {
+                const width = Number(member?.size?.[0] ?? member?.properties?.nodeSize?.[0]) || 0;
+                if (member?.id !== undefined && member?.id !== null && width > 0) rowWidthSnapshot[member.id] = width;
+            }
+        }
+        hub._deckPressureTopBottomWidthOverrides = rowWidthSnapshot;
     }
     const start = hub._deckPressureFrameEdgeResizeStartBounds;
     const sign = side === "top" ? -1 : 1;
@@ -209,6 +232,12 @@ export function handleNodeResize(entity, data, scale) {
         && canResizeVerticalStackHeight(entity, graph, verticalStackResizeSide);
     const allowDeckPressureSideWidthResize = isDeckPressureSideWidthResize(entity, graph, resizeAnchor)
         && canResizeDeckPressureSideWidthMember(entity, graph);
+    const allowDeckPressureTopBottomHeightResize = isDeckPressureTopBottomHeightResize(entity, graph, resizeAnchor)
+        && (() => {
+            const ph = getDeckPressureHubForNode(entity, graph);
+            const bs = ph && ph.id !== entity.id ? getDeckPressureBranchSideForNode(ph, graph, entity) : null;
+            return canResizeDeckPressureTopBottomHeightBranch(ph, graph, bs);
+        })();
     const allowDeckPressureOuterFrameEdge = isDeckPressureOuterFrameEdge(entity, graph, resizeAnchor);
     if (allowHorizontalStackWidthResize || allowHorizontalSharedEdgeWidthResize || allowDeckPressureSideWidthResize || allowDeckPressureOuterFrameEdge) {
         resizeAxes.allowWidth = true;
@@ -217,6 +246,16 @@ export function handleNodeResize(entity, data, scale) {
     if (isPureVerticalSharedEdgeResize) {
         resizeAxes.allowWidth = false;
         resizeAxes.allowHeight = !preferredAutoHeight;
+    }
+    // Top/bottom hub seam: dragging the edge between a horizontal branch row
+    // and the deck hub redistributes row height and hub height inside the
+    // preserved frame. Runs after the pure-vertical-edge block because that
+    // block clears allowHeight for preferred-auto members — the seam resizes
+    // the whole branch, so a preferred-auto dragged member is fine as long as
+    // some branch member can absorb the delta (gated above).
+    if (allowDeckPressureTopBottomHeightResize) {
+        resizeAxes.allowWidth = false;
+        resizeAxes.allowHeight = true;
     }
     if (allowVerticalStackHeightResize) {
         resizeAxes.allowHeight = true;
@@ -342,7 +381,7 @@ export function handleNodeResize(entity, data, scale) {
     let dockResizeResult;
     entity._dockResizeAllowHeight = allowHeightResize;
     if (allowHorizontalStackWidthResize || allowHorizontalSharedEdgeWidthResize || allowDeckPressureSideWidthResize || (axis === "horizontal" && horizontalStackResizeSide)) entity._dockResizeRequestedDeltaW = snappedStackDeltaW;
-    if (allowVerticalStackHeightResize) entity._dockResizeRequestedDeltaH = snappedStackDeltaH;
+    if (allowVerticalStackHeightResize || allowDeckPressureTopBottomHeightResize) entity._dockResizeRequestedDeltaH = snappedStackDeltaH;
     try {
         dockResizeResult = isPressureHubResize
             ? { handledWidth: false, handledHeight: false, handledAll: false, appliedWidth: null, appliedHeight: null, counterparts: [] }

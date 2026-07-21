@@ -9,6 +9,7 @@ import {
     getDeckPressureBranchSideForNode,
     getDeckPressureBranchAxis,
     getDeckPressureHubMinWidth,
+    getDeckPressureHubMinHeight,
     getDeckPressureHubForNode,
     getDeckPressureSideVerticalWidthLock,
     getNodeOnDeckEdge,
@@ -17,6 +18,7 @@ import {
     isDeckPressureSideHorizontalHubEdge,
     isDeckPressureSideHorizontalBranchMember,
     isDeckPressureSideWidthResizeEdge,
+    isDeckPressureTopBottomHeightResizeEdge,
     isLinearDeckGroup,
     setDeckPressureSideVerticalHeightCache,
     isNodeDocked,
@@ -1674,6 +1676,107 @@ function applyDeckPressureSideWidthResize(entity, resizeAnchor, requestedEntityW
     return true;
 }
 
+// Hub-facing top/bottom seam of a horizontal (row) branch decked above/below
+// the hub — the height twin of applyDeckPressureSideWidthResize's inner-seam
+// path. The Deck frame is preserved: the dragged branch row and the hub split
+// the frame height between them, and side branches refit to the new band.
+function applyDeckPressureTopBottomHeightResize(entity, resizeAnchor, requestedEntityHeight, minH, snap, result, addCounterpart, graph) {
+    if (resizeAnchor !== "top" && resizeAnchor !== "bottom") return false;
+    const pressureHub = getDeckPressureHubForNode(entity, graph);
+    if (!pressureHub || pressureHub.id === entity.id) return false;
+    const branchSide = getDeckPressureBranchSideForNode(pressureHub, graph, entity);
+    if (branchSide !== "top" && branchSide !== "bottom") return false;
+    if (getDeckPressureBranchAxis(pressureHub, graph, branchSide) !== "horizontal") return false;
+    // Only the hub-facing edge of the branch row is a hub seam.
+    const hubFacingSide = branchSide === "top" ? "bottom" : "top";
+    if (resizeAnchor !== hubFacingSide) return false;
+    const currentSession = entity._dockResizeSession;
+    const sessionMatches = currentSession
+        && currentSession.side === `deck-pressure-${branchSide}-seam`
+        && currentSession.entityId === entity.id
+        && currentSession.hubId === pressureHub.id;
+    if (!sessionMatches && !isDeckPressureTopBottomHeightResizeEdge(entity, graph, resizeAnchor)) return false;
+
+    const branchMembers = getDeckPressureBranchMembers(pressureHub, graph, branchSide);
+    if (!branchMembers.length) return false;
+
+    const planBefore = computeDeckPressureGeometryPlan(pressureHub, graph, snap);
+    const frameBefore = planBefore?.frame || null;
+    if (!frameBefore) return false;
+
+    if (!sessionMatches) {
+        entity._dockResizeSession = {
+            side: `deck-pressure-${branchSide}-seam`,
+            entityId: entity.id,
+            hubId: pressureHub.id,
+            frameBounds: frameBefore,
+            branchStartHeight: Math.max(...branchMembers.map((member) => getDockNodeHeight(member)), 0),
+            otherBranchHeight: Math.max(0, Number(planBefore?.constraints?.[branchSide === "top" ? "bottomHeight" : "topHeight"]) || 0),
+            arrangement: planBefore?.arrangement || null,
+        };
+        // Freeze top/bottom row member widths for the whole drag — the per-move
+        // pressure plan otherwise re-fits them from live widths, which feeds
+        // transient self-inflation (e.g. derpSeedV3's width floor sync) back
+        // into the plan and lets a member grow wider until mouse release.
+        const rowWidthSnapshot = {};
+        for (const side of ["top", "bottom"]) {
+            if (getDeckPressureBranchAxis(pressureHub, graph, side) !== "horizontal") continue;
+            for (const member of getDeckPressureBranchMembers(pressureHub, graph, side)) {
+                const width = Number(member?.size?.[0] ?? member?.properties?.nodeSize?.[0]) || 0;
+                if (member?.id !== undefined && member?.id !== null && width > 0) rowWidthSnapshot[member.id] = width;
+            }
+        }
+        pressureHub._deckPressureTopBottomWidthOverrides = rowWidthSnapshot;
+        pressureHub._deckPressureTopBottomResizeSession = {
+            entityId: entity.id,
+            branchSide,
+        };
+    }
+    const session = entity._dockResizeSession;
+    // Inner seam: the frame is preserved and the hub shifts within it.
+    const preservedFrame = session.frameBounds || frameBefore;
+    const branchStartHeight = Number(session.branchStartHeight) || Math.max(...branchMembers.map((member) => getDockNodeHeight(member)), 0);
+    const otherBranchHeight = Math.max(0, Number(session.otherBranchHeight) || 0);
+    const preservedFrameHeight = Math.max(0, Number(preservedFrame.bottom) - Number(preservedFrame.top));
+    const branchFloor = Math.max(...branchMembers.map((member) => getDockNodeMinHeight(member, 0, snap)), 0);
+    const fallbackHubMinHeight = getDockNodeMinHeight(pressureHub, 0, snap);
+    const hubMinHeight = Math.max(fallbackHubMinHeight, getDeckPressureHubMinHeight(pressureHub, graph, snap, fallbackHubMinHeight));
+    const availableBranchHeight = Math.max(0, preservedFrameHeight - otherBranchHeight - hubMinHeight);
+    const lowerBranchHeight = Math.min(branchFloor, availableBranchHeight);
+    const explicitDelta = Number(entity._dockResizeRequestedDeltaH);
+    const requestedDelta = Number.isFinite(explicitDelta) ? explicitDelta : (Number(requestedEntityHeight) - branchStartHeight);
+    const nextBranchHeight = Math.min(availableBranchHeight, Math.max(lowerBranchHeight, branchStartHeight + requestedDelta));
+
+    pressureHub._deckPressurePreserveFrameBounds = preservedFrame;
+    pressureHub._deckPressureTopBottomHeightOverrides = {
+        top: branchSide === "top" ? nextBranchHeight : otherBranchHeight,
+        bottom: branchSide === "bottom" ? nextBranchHeight : otherBranchHeight,
+    };
+    // Reuse the frame-height-resize stand-down: the plan owns top/bottom row
+    // heights, hub height, and side-branch refits for the whole drag, so the
+    // Fatha/Uncle draw loops pin members to plan geometry on both axes.
+    pressureHub._deckPressureFrameHeightResizeActive = true;
+    pressureHub._deckPressureActiveUntil = (performance.now?.() || Date.now()) + 1200;
+
+    branchMembers.forEach((member) => addCounterpart(member));
+    addCounterpart(pressureHub);
+    try {
+        applyDeckPressureLayout(pressureHub, graph, snap, { liveResize: true });
+    } finally {
+        if (!pressureHub._deckPressureTopBottomResizeSession) {
+            delete pressureHub._deckPressurePreserveFrameBounds;
+            delete pressureHub._deckPressureTopBottomHeightOverrides;
+            delete pressureHub._deckPressureFrameHeightResizeActive;
+        }
+    }
+
+    result.handledHeight = true;
+    result.handledAll = true;
+    result.liveResize = true;
+    result.appliedHeight = nextBranchHeight;
+    return true;
+}
+
 export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH, snap = 10) {
     const graph = app.graph || entity.graph || null;
     if (!graph) return { handledWidth: false, handledHeight: false, handledAll: false, appliedWidth: null, appliedHeight: null, counterparts: [] };
@@ -1713,6 +1816,10 @@ export function syncDockResizePair(entity, resizeAnchor, newW, newH, minW, minH,
     if (isPureVerticalSeamResize) markVerticalStackWidthLock(verticalSeamMembers, { exact: true });
 
     if ((isLeftHandle || isRightHandle) && applyDeckPressureSideWidthResize(entity, resizeAnchor, newW, minW, snap, result, addCounterpart, graph)) {
+        return result;
+    }
+
+    if ((isTopHandle || isBottomHandle) && applyDeckPressureTopBottomHeightResize(entity, resizeAnchor, newH, minH, snap, result, addCounterpart, graph)) {
         return result;
     }
 

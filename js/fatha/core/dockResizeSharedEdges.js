@@ -51,6 +51,17 @@ export function canResizeDeckPressureSideWidthMember(node, graph) {
     return canResizeHorizontalMemberWidth(node, graph);
 }
 
+// Top/bottom hub-seam eligibility: the horizontal (row) branch decked above or
+// below the hub must contain at least one manual-height member that can absorb
+// the height delta. Works for both branch members and the hub itself (pass the
+// resolved hub + branchSide), mirroring canResizeHorizontalStackHeight.
+export function canResizeDeckPressureTopBottomHeightBranch(hub, graph, branchSide) {
+    if (!hub || !graph || (branchSide !== "top" && branchSide !== "bottom")) return false;
+    if (getDeckPressureBranchAxis(hub, graph, branchSide) !== "horizontal") return false;
+    const members = getDeckPressureBranchMembers(hub, graph, branchSide);
+    return members.length > 0 && members.some((member) => canResizeHorizontalMemberHeight(member, graph));
+}
+
 export function getHorizontalSameRowNeighbor(node, graph, side) {
     if (!node || !graph || (side !== "left" && side !== "right")) return null;
     const hub = getDeckPressureHubForNode(node, graph);

@@ -500,6 +500,28 @@ export function isDeckPressureSideWidthResizeEdge(node, graph, side) {
     return Math.abs(edgeX - targetX) <= 4;
 }
 
+// Hub-facing top/bottom edge of a horizontal (row) branch decked above/below
+// the hub. Dragging that seam redistributes branch row height and hub height
+// inside the preserved Deck frame — the height twin of the side-width seam.
+export function isDeckPressureTopBottomHeightResizeEdge(node, graph, side) {
+    if (side !== "top" && side !== "bottom") return false;
+    if (!node || !graph) return false;
+    const pressureHub = getDeckPressureHubForNode(node, graph);
+    if (!pressureHub || pressureHub.id === node.id) return false;
+    const branchSide = getDeckPressureBranchSideForNode(pressureHub, graph, node);
+    if (branchSide !== "top" && branchSide !== "bottom") return false;
+    if (getDeckPressureBranchAxis(pressureHub, graph, branchSide) !== "horizontal") return false;
+    const hubFacingSide = branchSide === "top" ? "bottom" : "top";
+    if (side !== hubFacingSide) return false;
+    const y = Number(node.pos?.[1]) || 0;
+    const h = getNodeSizeValue(node, 1);
+    const edgeY = side === "top" ? y : y + h;
+    const hubY = Number(pressureHub.pos?.[1]) || 0;
+    const hubH = getNodeSizeValue(pressureHub, 1);
+    const targetY = branchSide === "top" ? hubY : hubY + hubH;
+    return Math.abs(edgeY - targetY) <= 4;
+}
+
 function isDeckPressureHubSeam(node, neighbor, graph) {
     if (!node || !neighbor || !graph) return false;
     return (isDeckPressureHub(node) && getDeckPressureHubForNode(neighbor, graph)?.id === node.id)
@@ -2732,6 +2754,23 @@ function fitDeckPressureRowWidths(members, targetWidth, snap) {
     return members.map((member) => widths.get(member.id) || quantizeSize(getNodeSizeValue(member, 0), unit));
 }
 
+// While a top/bottom frame edge drag is live, row member widths come from the
+// drag-start snapshot stored on the hub (see applyDeckPressureFrameHeightResize)
+// instead of a live refit — a height-only drag must not rewrite widths. Returns
+// null when no usable snapshot exists so callers fall back to the live fit.
+function getDeckPressureFrameDragRowWidths(hub, members) {
+    if (hub?._deckPressureFrameHeightResizeActive !== true) return null;
+    const snapshot = hub?._deckPressureTopBottomWidthOverrides;
+    if (!snapshot || !Array.isArray(members) || members.length === 0) return null;
+    const widths = [];
+    for (const member of members) {
+        const width = Number(snapshot[member?.id]) || 0;
+        if (width <= 0) return null;
+        widths.push(width);
+    }
+    return widths;
+}
+
 function fitDeckPressureLiveSideHeights(current, mins, expandedIndexes, targetHeight, unit) {
     const sizes = [...mins];
     const recipients = expandedIndexes.length > 0 ? expandedIndexes : sizes.map((_, index) => index);
@@ -3135,8 +3174,13 @@ export function computeDeckPressureGeometryPlan(hub, graph, snap = DEFAULT_DECK_
     const preserveLiveSideHeights = hub?._isDerpResizing === true;
     const fitLiveSideHeightTarget = hub?._deckPressureFrameHeightResizeActive === true;
     const preserveExactLiveSideHeights = hub?._deckPressureSideResizeSession && !fitLiveSideHeightTarget;
-    const hubTop = arrangement === DECK_ARRANGEMENT_HORIZONTAL ? rawHubRect.top : frame.top + topHeight;
-    const hubBottom = arrangement === DECK_ARRANGEMENT_HORIZONTAL ? rawHubRect.top + rawHubRect.height : frame.bottom - bottomHeight;
+    // With a preserved frame the hub derives from frame + branch overrides on
+    // both arrangements. In horizontal_sandwich the live-rect fallback would
+    // freeze the top/bottom band at its drag-start height and silently disable
+    // hub-seam height resize; for existing preserved-frame paths the derived
+    // values equal the live rect, so behavior is unchanged there.
+    const hubTop = preservedFrame || arrangement !== DECK_ARRANGEMENT_HORIZONTAL ? frame.top + topHeight : rawHubRect.top;
+    const hubBottom = preservedFrame || arrangement !== DECK_ARRANGEMENT_HORIZONTAL ? frame.bottom - bottomHeight : rawHubRect.top + rawHubRect.height;
     const hubRect = preservedFrame ? rectFromEdges(frame.left + leftWidth, hubTop, frame.right - rightWidth, hubBottom) : rectFromEdges(rawHubRect.left, rawHubRect.top, rawHubRect.left + centerWidth, rawHubRect.top + centerHeight);
     const sideBandTop = arrangement === DECK_ARRANGEMENT_HORIZONTAL ? hubRect.top : frame.top;
     const sideBandBottom = arrangement === DECK_ARRANGEMENT_HORIZONTAL ? hubRect.bottom : frame.bottom;
@@ -3196,7 +3240,7 @@ export function computeDeckPressureGeometryPlan(hub, graph, snap = DEFAULT_DECK_
         } else if (branch.side === "left" || branch.side === "right") {
             memberRects = makeDeckPressureMemberRects(branch.members, band, "horizontal", fitDeckPressureRowWidths(branch.members, band.width, snap));
         } else if (branch.axis === "horizontal") {
-            memberRects = makeDeckPressureMemberRects(branch.members, band, "horizontal", fitDeckPressureRowWidths(branch.members, band.width, snap));
+            memberRects = makeDeckPressureMemberRects(branch.members, band, "horizontal", getDeckPressureFrameDragRowWidths(hub, branch.members) || fitDeckPressureRowWidths(branch.members, band.width, snap));
         } else {
             const heights = getDeckPressureColumnCurrentHeights(branch.members, snap);
             const width = preservedFrame ? band.width : Math.max(band.width, getDeckPressureBranchEdgeMinSpan(branch, snap));
@@ -3423,23 +3467,35 @@ function getDeckPressureSideSeamGhost(entity, graph, session) {
     const hub = getNodeById(graph, session.hubId);
     if (!hub) return null;
     const branchSide = session.side.slice("deck-pressure-".length, -"-seam".length);
-    if (branchSide !== "left" && branchSide !== "right") return null;
     const band = computeDeckPressureGeometryPlan(hub, graph)?.bands?.[branchSide];
     if (!band) return null;
-    const seamX = branchSide === "left" ? band.right : band.left;
-    return { x: seamX - 0.5, y: band.top, w: 1, h: band.height };
+    if (branchSide === "left" || branchSide === "right") {
+        const seamX = branchSide === "left" ? band.right : band.left;
+        return { x: seamX - 0.5, y: band.top, w: 1, h: band.height };
+    }
+    if (branchSide === "top" || branchSide === "bottom") {
+        const seamY = branchSide === "top" ? band.bottom : band.top;
+        return { x: band.left, y: seamY - 0.5, w: band.width, h: 1 };
+    }
+    return null;
 }
 
 function getDeckPressureSideHoverGhost(entity, graph, session) {
-    if (!entity || !graph || !session?.deckPressureSideWidth) return null;
+    if (!entity || !graph || (!session?.deckPressureSideWidth && !session?.deckPressureTopBottomHeight)) return null;
     const hub = getNodeById(graph, session.hubId);
     if (!hub) return null;
     const branchSide = session.branchSide;
-    if (branchSide !== "left" && branchSide !== "right") return null;
     const band = computeDeckPressureGeometryPlan(hub, graph)?.bands?.[branchSide];
     if (!band) return null;
-    const seamX = branchSide === "left" ? band.right : band.left;
-    return { x: seamX - 0.5, y: band.top, w: 1, h: band.height };
+    if (branchSide === "left" || branchSide === "right") {
+        const seamX = branchSide === "left" ? band.right : band.left;
+        return { x: seamX - 0.5, y: band.top, w: 1, h: band.height };
+    }
+    if (branchSide === "top" || branchSide === "bottom") {
+        const seamY = branchSide === "top" ? band.bottom : band.top;
+        return { x: band.left, y: seamY - 0.5, w: band.width, h: 1 };
+    }
+    return null;
 }
 
 function seamGhostPairIsResizable(a, b, side, graph) {
@@ -3467,7 +3523,7 @@ function seamGhostPairIsResizable(a, b, side, graph) {
 function getSeamGhostPairsForSession(entity, graph, session = entity?._dockResizeSession) {
     if (!session || !graph) return [];
     if (session.entityId !== undefined && session.neighborId !== undefined) {
-        if (session.deckPressureSideWidth) return [];
+        if (session.deckPressureSideWidth || session.deckPressureTopBottomHeight) return [];
         const entityNode = getNodeById(graph, session.entityId);
         const neighbor = getNodeById(graph, session.neighborId);
         if (!entityNode || !neighbor) return [];
