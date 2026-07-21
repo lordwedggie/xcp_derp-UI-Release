@@ -210,7 +210,7 @@ app.registerExtension({
                 bookBreak: {
                     type: this.UI_TYPES.LINEBREAK,
                     anchor: { target: "bookRegion", axis: "y" },
-                    margin: [0, mH],
+                    margin: [0, sH],
                     width: "full", height: 1,
                 },
                 mainRegion: {
@@ -219,7 +219,7 @@ app.registerExtension({
                     margin: [mW, sH, mW, 0],
                     contentRegion: {
                         width: "full", height: "fill", dir: "col",
-                        margin: [0, 0, 0, sH], padding: [0, 0],
+                        padding: [0, 0],
                         minHeight: 100,
                         editorMain: {
                         type: this.UI_TYPES.EDITOR, multiline: true, noHover: true, canvasShield: true, switchOnEditing: true,
@@ -261,14 +261,17 @@ app.registerExtension({
                         },
                     }
                 },
+            },
+            pageFooterRegion: {
+                dir: "col", width: "full", height: "auto",
                 pageBreak: {
                     type: this.UI_TYPES.LINEBREAK,
-                    margin: [-mW, mH],
+                    margin: [0, sH, 0, 0],
                     width: "full", height: 1,
                 },
                 pageRegion: {
                     anchor: { target: "pageBreak", axis: "y", },
-                    dir: "row", width: "full", height: "auto", margin: [mW, mH, mW, mH], padding: [0, 0],
+                    dir: "row", width: "full", height: "auto", margin: [mW, mH], padding: [0, 0],
                     btnPageLeft: {
                         type: this.UI_TYPES.ICONBUTTON, icon: "leftarrow", themeKey: "button, t_textNormal",
                         width: "match", height: "fill", spacing: [sW, 0], objectAlign: ["left", "middle"],
