@@ -1506,6 +1506,49 @@ describe('syncHorizontalDeckHeight', () => {
     expect(getDeckCornerOverride(rightBottom, graph)[2]).toBe(null);
   });
 
+  it('resizes the bottom stack and not the hub when dragging the deck frame bottom edge', () => {
+    const hub = makeImageDeck(501, 200, 300, 400);
+    hub.properties.deckArrangement = 'vertical_sandwich';
+    const leftNode = makeNode(502, 100, 100, 480);
+    const bottomNode = makeNode(503, 200, 300, 80);
+
+    hub.properties.deckEdges.left = leftNode.id;
+    hub.properties.deckEdges.bottom = bottomNode.id;
+    leftNode.properties.deckParentId = hub.id;
+    leftNode.properties.deckDockSide = 'left';
+    leftNode.properties.deckEdges.right = hub.id;
+    bottomNode.properties.deckParentId = hub.id;
+    bottomNode.properties.deckDockSide = 'bottom';
+    bottomNode.properties.deckEdges.top = hub.id;
+
+    [leftNode, bottomNode].forEach((member) => {
+      member.layout.contentMinHeight = 40;
+      member.layout.totalHeight = 40;
+    });
+
+    const graph = { _nodes: [hub, leftNode, bottomNode] };
+    window.app.graph = graph;
+    window.app.canvas.frame = 120;
+    globalThis.app = window.app;
+
+    applyDeckPressureLayout(hub, graph, 10);
+    expect(hub.size[1]).toBe(400);
+    expect(leftNode.size[1]).toBe(480);
+    expect(bottomNode.size[1]).toBe(80);
+
+    bottomNode._startPos = [...bottomNode.pos];
+    bottomNode._startSize = [...bottomNode.size];
+    handleNodeResize(bottomNode, { dx: 0, dy: 60, resizeAnchor: 'bottom' }, 1);
+
+    // The hub keeps its rect: the decked stacks absorb the frame delta.
+    expect(hub.pos[1]).toBe(0);
+    expect(hub.size[1]).toBe(400);
+    expect(hub.properties.nodeSize[1]).toBe(400);
+    expect(bottomNode.size[1]).toBe(140);
+    expect(leftNode.size[1]).toBe(540);
+    expect(bottomNode.pos[1] + bottomNode.size[1]).toBe(leftNode.pos[1] + leftNode.size[1]);
+  });
+
   it('preserves side-vertical branch live heights when active Deck resize is not changing height', () => {
     const hub = makeImageDeck(57, 200, 300, 300);
     const top = makeNode(58, 100, 100, 140);

@@ -80,6 +80,24 @@ function isDeckPressureFrameCorner(node, graph, anchor) {
     return false;
 }
 
+function isDeckPressureFrameEdge(node, graph, side) {
+    if (side !== "left" && side !== "right" && side !== "top" && side !== "bottom") return false;
+    const pressureHub = graph ? getDeckPressureHubForNode(node, graph) : null;
+    if (!pressureHub) return false;
+    const bounds = getDeckPressureFrameBounds(pressureHub, graph);
+    if (!bounds) return false;
+    const x = Number(node?.pos?.[0]) || 0;
+    const y = Number(node?.pos?.[1]) || 0;
+    const w = Number(node?.size?.[0] ?? node?.properties?.nodeSize?.[0]) || 0;
+    const h = Number(node?.size?.[1] ?? node?.properties?.nodeSize?.[1]) || 0;
+    const tolerance = 1;
+    if (side === "left") return Math.abs(x - bounds.left) <= tolerance;
+    if (side === "right") return Math.abs((x + w) - bounds.right) <= tolerance;
+    if (side === "top") return Math.abs(y - bounds.top) <= tolerance;
+    if (side === "bottom") return Math.abs((y + h) - bounds.bottom) <= tolerance;
+    return false;
+}
+
 function isDeckPressureHubSeamSideEdge(node, graph, side) {
     if (side !== "left" && side !== "right") return false;
     const pressureHub = graph ? getDeckPressureHubForNode(node, graph) : null;
@@ -264,6 +282,36 @@ export function createDerpShield(node) {
     `;
     shield.appendChild(resizeHandleSharedRight);
 
+    const resizeHandleSharedTop = document.createElement("div");
+    resizeHandleSharedTop.style.cssText = `
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 10px;
+        cursor: ns-resize;
+        z-index: 30;
+        background: transparent;
+        display: none;
+        pointer-events: none;
+    `;
+    shield.appendChild(resizeHandleSharedTop);
+
+    const resizeHandleSharedBottom = document.createElement("div");
+    resizeHandleSharedBottom.style.cssText = `
+        position: absolute;
+        left: 0;
+        bottom: 0;
+        width: 100%;
+        height: 10px;
+        cursor: ns-resize;
+        z-index: 30;
+        background: transparent;
+        display: none;
+        pointer-events: none;
+    `;
+    shield.appendChild(resizeHandleSharedBottom);
+
     // THE FIX: Store a reference so we can dynamically adjust its offsets during zoom
     shield._resizeHandle = resizeHandle;
     shield._resizeHandleLeft = resizeHandleLeft;
@@ -271,6 +319,8 @@ export function createDerpShield(node) {
     shield._resizeHandleTopRight = resizeHandleTopRight;
     shield._resizeHandleSharedLeft = resizeHandleSharedLeft;
     shield._resizeHandleSharedRight = resizeHandleSharedRight;
+    shield._resizeHandleSharedTop = resizeHandleSharedTop;
+    shield._resizeHandleSharedBottom = resizeHandleSharedBottom;
 
     if (node.type === "xcpDerpSignalOut") {
         const linkHandleLayer = document.createElement("div");
@@ -350,7 +400,9 @@ export function createDerpShield(node) {
                 pressureHub._deckPressureSideResizeSession = null;
                 delete pressureHub._deckPressureFrameHeightResizeActive;
                 delete pressureHub._deckPressurePreserveFrameBounds;
+                delete pressureHub._deckPressureFrameEdgeResizeStartBounds;
                 delete pressureHub._deckPressureSideWidthOverrides;
+                delete pressureHub._deckPressureTopBottomHeightOverrides;
             }
         };
         clearPressureSession(resizeNode);
@@ -813,7 +865,33 @@ export function createDerpShield(node) {
 
         const graph = app.graph || node.graph || null;
         const pressureFrameCorner = isDeckPressureFrameCorner(node, graph, anchor);
+        const pressureFrameEdge = !isCornerResizeAnchor(anchor) && isDeckPressureFrameEdge(node, graph, anchor);
         if (isDeckPressureBranchMember(node, graph) && isCornerResizeAnchor(anchor) && !pressureFrameCorner) {
+            shield.onpointerdown(e);
+            return;
+        }
+        // Branch member side-edge hits only resize when on the deck frame
+        // boundary or an internal seam; otherwise pass through so clicks
+        // reach the node body. The shield's _frameEdge* flags (set during
+        // syncDerpShield) tell us whether a visible frame-edge handle exists
+        // for this side — if so, the click came from that handle and must
+        // proceed. For hub-facing seams, getDeckPressureSideSeamResizeTarget
+        // detects the internal seam. Top/bottom anchors on side-branch
+        // members are either deck frame edges (caught by _frameEdge flags)
+        // or internal vertical seams between branch siblings, both of which
+        // must proceed. Side anchors on top/bottom (or side-horizontal)
+        // branch members are internal horizontal seams between siblings —
+        // canResizeHorizontalSharedEdge is the same predicate the hover and
+        // hit-test paths use, so drag start stays in sync with the ghost and
+        // cursor. Passing through on a real seam would re-enter
+        // shield.onpointerdown, re-detect the same seam, and recurse.
+        const isSideAnchor = anchor === "left" || anchor === "right";
+        const hasVisibleFrameEdge = isSideAnchor
+            ? !!(shield._frameEdgeLeft && anchor === "left") || !!(shield._frameEdgeRight && anchor === "right")
+            : !!(shield._frameEdgeTop && anchor === "top") || !!(shield._frameEdgeBottom && anchor === "bottom");
+        const hubSeamResizeEarly = isSideAnchor ? getDeckPressureSideSeamResizeTarget(node, graph, anchor) : null;
+        const internalSeamResize = isSideAnchor ? canResizeHorizontalSharedEdge(node, graph, anchor) : false;
+        if (isDeckPressureBranchMember(node, graph) && isSideAnchor && !isCornerResizeAnchor(anchor) && !pressureFrameEdge && !hasVisibleFrameEdge && !hubSeamResizeEarly && !internalSeamResize) {
             shield.onpointerdown(e);
             return;
         }
@@ -827,8 +905,14 @@ export function createDerpShield(node) {
         app.canvas.canvas.focus(); // THE FOCUS FIX: Ensure keyboard events reach the canvas
         isResizing = true;
         const pressureHub = graph ? getDeckPressureHubForNode(node, graph) : null;
+        // Frame edge resize does NOT route to the hub — the branch member
+        // itself is the resize target. When a left/right edge of a branch
+        // member aligns with the frame boundary, applyDeckPressureSideWidthResize
+        // in syncDockResizePair handles it: it resizes the entire branch width
+        // (all stack members) and adjusts the hub position/size accordingly.
+        // Corner resize still routes to the hub for diagonal frame resize.
         const routeToPressureHub = pressureHub && pressureHub.id !== node.id && pressureFrameCorner;
-        const hubSeamResize = getDeckPressureSideSeamResizeTarget(node, graph, anchor);
+        const hubSeamResize = hubSeamResizeEarly || getDeckPressureSideSeamResizeTarget(node, graph, anchor);
         activeResizeNode = hubSeamResize?.node || (routeToPressureHub ? pressureHub : node);
         activeResizeNode._resizeAnchor = hubSeamResize?.anchor || anchor;
         node._dockResizeHoverSession = null;
@@ -957,6 +1041,8 @@ export function createDerpShield(node) {
     resizeHandleTopRight.onpointerdown = (e) => startResize(e, "top-right");
     resizeHandleSharedLeft.onpointerdown = (e) => startResize(e, "left");
     resizeHandleSharedRight.onpointerdown = (e) => startResize(e, "right");
+    resizeHandleSharedTop.onpointerdown = (e) => startResize(e, "top");
+    resizeHandleSharedBottom.onpointerdown = (e) => startResize(e, "bottom");
 
     const getSharedResizeAnchorAtPointer = (e) => {
         const graph = app.graph || node.graph || null;
@@ -1289,6 +1375,11 @@ function getVerticalSharedResizeNeighbor(node, graph, anchor) {
 }
 
 function getShieldResizeCursor(node, graph, anchor) {
+    // Pressure hub frame edge resize: always return the axis cursor because
+    // the shield sync code only shows the edge handle when the resize is
+    // eligible (stack resize or standalone deck).
+    if (isDeckPressureHub(node) && (anchor === "left" || anchor === "right")) return "ew-resize";
+    if (isDeckPressureHub(node) && (anchor === "top" || anchor === "bottom")) return "ns-resize";
     const canW = !resolveDerpPreferredAutoWidth(node);
     const canH = !resolveDerpPreferredAutoHeight(node);
     const isHorizontalDockStack = getLinearResizeMembers(node, graph, "horizontal").length > 1;
@@ -1326,6 +1417,8 @@ function disableResizeHandles(shield) {
         shield?._resizeHandleTopRight,
         shield?._resizeHandleSharedLeft,
         shield?._resizeHandleSharedRight,
+        shield?._resizeHandleSharedTop,
+        shield?._resizeHandleSharedBottom,
     ].forEach((handle) => {
         if (!handle) return;
         handle.style.display = "none";
@@ -1421,7 +1514,7 @@ function syncMouseHitboxDebugRects(node, scale) {
 
 export function syncDerpShield(node) {
     if (!node.interactionShield) return;
-    if (!node.interactionShield._resizeHandleSharedLeft || !node.interactionShield._resizeHandleSharedRight) {
+    if (!node.interactionShield._resizeHandleSharedLeft || !node.interactionShield._resizeHandleSharedRight || !node.interactionShield._resizeHandleSharedTop || !node.interactionShield._resizeHandleSharedBottom) {
         removeDerpShield(node);
         createDerpShield(node);
         if (!node.interactionShield) return;
@@ -1456,7 +1549,11 @@ export function syncDerpShield(node) {
     const neighborLeftForHash = getNodeOnDeckEdge(node, graphForHash, "left")?.id ?? "n";
     const neighborRightForHash = getNodeOnDeckEdge(node, graphForHash, "right")?.id ?? "n";
     const canvasRectHash = `${rect.left.toFixed(2)},${rect.top.toFixed(2)},${rect.width.toFixed(2)},${rect.height.toFixed(2)}`;
-    const stateHash = `${node.pos[0]},${node.pos[1]}_${visualW},${visualH}_${scale}_${ds.offset[0]},${ds.offset[1]}_${node.flags?.collapsed}_${node.properties?.contentCollapsed}_${node.properties?.debugMode}_${canvasEl.clientWidth},${canvasEl.clientHeight}_${canvasRectHash}_${edgeState.left ?? "n"},${edgeState.right ?? "n"},${edgeState.top ?? "n"},${edgeState.bottom ?? "n"}_${neighborLeftForHash},${neighborRightForHash}_${pressureHubForHash?.id ?? "n"},${branchSideForHash ?? "n"},${branchAxisForHash}_${varsForHash.autoWidth}_${varsForHash.autoHeight}_${preferredAutoWidthForHash}_${preferredAutoHeightForHash}`;
+    const hubNeighborTopForHash = pressureHubForHash ? (getNodeOnDeckEdge(pressureHubForHash, graphForHash, "top")?.id ?? "n") : "n";
+    const hubNeighborBottomForHash = pressureHubForHash ? (getNodeOnDeckEdge(pressureHubForHash, graphForHash, "bottom")?.id ?? "n") : "n";
+    const hubNeighborLeftForHash = pressureHubForHash ? (getNodeOnDeckEdge(pressureHubForHash, graphForHash, "left")?.id ?? "n") : "n";
+    const hubNeighborRightForHash = pressureHubForHash ? (getNodeOnDeckEdge(pressureHubForHash, graphForHash, "right")?.id ?? "n") : "n";
+    const stateHash = `${node.pos[0]},${node.pos[1]}_${visualW},${visualH}_${scale}_${ds.offset[0]},${ds.offset[1]}_${node.flags?.collapsed}_${node.properties?.contentCollapsed}_${node.properties?.debugMode}_${canvasEl.clientWidth},${canvasEl.clientHeight}_${canvasRectHash}_${edgeState.left ?? "n"},${edgeState.right ?? "n"},${edgeState.top ?? "n"},${edgeState.bottom ?? "n"}_${neighborLeftForHash},${neighborRightForHash}_${pressureHubForHash?.id ?? "n"},${branchSideForHash ?? "n"},${branchAxisForHash}_${hubNeighborTopForHash},${hubNeighborBottomForHash},${hubNeighborLeftForHash},${hubNeighborRightForHash}_${varsForHash.autoWidth}_${varsForHash.autoHeight}_${preferredAutoWidthForHash}_${preferredAutoHeightForHash}`;
     if (node.interactionShield._lastStateHash === stateHash && !node._forceSync) return;
     node.interactionShield._lastStateHash = stateHash;
 
@@ -1580,6 +1677,28 @@ export function syncDerpShield(node) {
         const allowFrameCornerTopRight = !isPressureMember || isDeckPressureFrameCorner(node, graph, "top-right");
         const allowFrameCornerBottomLeft = !isPressureMember || isDeckPressureFrameCorner(node, graph, "bottom-left");
         const allowFrameCornerBottomRight = !isPressureMember || isDeckPressureFrameCorner(node, graph, "bottom-right");
+        // Frame edge detection: outer edges of the deck frame that can be
+        // dragged to resize the deck (or the stack if the deck is docked).
+        // No neighbor gate — if there's a stack neighbor, the existing
+        // shared-seam handle logic already covers it; the frame edge flag
+        // only needs to ensure the handle is visible on frame boundaries.
+        const deckInHorizontalStack = pressureHub && getLinearResizeMembers(pressureHub, graph, "horizontal").length > 1;
+        const deckInVerticalStack = pressureHub && getLinearResizeMembers(pressureHub, graph, "vertical").length > 1;
+        const deckCanResizeWidth = !deckInHorizontalStack || canResizeHorizontalStackWidth(pressureHub, graph, "left") || canResizeHorizontalStackWidth(pressureHub, graph, "right");
+        const deckCanResizeHeight = !deckInVerticalStack || canResizeVerticalStackHeight(pressureHub, graph, "top") || canResizeVerticalStackHeight(pressureHub, graph, "bottom");
+        const deckFrameEdgeLeft = isDeckPressureFrameEdge(node, graph, "left") && deckCanResizeWidth;
+        const deckFrameEdgeRight = isDeckPressureFrameEdge(node, graph, "right") && deckCanResizeWidth;
+        const deckFrameEdgeTop = isDeckPressureFrameEdge(node, graph, "top") && deckCanResizeHeight;
+        const deckFrameEdgeBottom = isDeckPressureFrameEdge(node, graph, "bottom") && deckCanResizeHeight;
+        const hasFrameEdge = deckFrameEdgeLeft || deckFrameEdgeRight || deckFrameEdgeTop || deckFrameEdgeBottom;
+        // Store on the shield so startResize can distinguish frame-edge clicks
+        // (which must proceed) from non-handle side clicks (which pass through).
+        if (node.interactionShield) {
+            node.interactionShield._frameEdgeLeft = deckFrameEdgeLeft;
+            node.interactionShield._frameEdgeRight = deckFrameEdgeRight;
+            node.interactionShield._frameEdgeTop = deckFrameEdgeTop;
+            node.interactionShield._frameEdgeBottom = deckFrameEdgeBottom;
+        }
         if (node.interactionShield._resizeHandleSharedLeft) {
             const sharedLeftStyle = node.interactionShield._resizeHandleSharedLeft.style;
             sharedLeftStyle.width = `${SHARED_HORIZONTAL_SEAM_HITBOX_PX}px`;
@@ -1587,7 +1706,7 @@ export function syncDerpShield(node) {
             sharedLeftStyle.left = `-${padL * scale}px`;
             sharedLeftStyle.top = "0px";
             sharedLeftStyle.cursor = "ew-resize";
-            const showSharedLeft = canResizeSharedLeftW || canResizePressureSeamLeftW || canResizePressureSideHorizontalLeftW;
+            const showSharedLeft = canResizeSharedLeftW || canResizePressureSeamLeftW || canResizePressureSideHorizontalLeftW || deckFrameEdgeLeft;
             sharedLeftStyle.display = showSharedLeft ? "block" : "none";
             sharedLeftStyle.pointerEvents = showSharedLeft ? "auto" : "none";
             node.interactionShield._resizeHandleSharedLeft._resizeAnchorOverride = showSharedLeft ? "left" : null;
@@ -1599,10 +1718,33 @@ export function syncDerpShield(node) {
             sharedRightStyle.right = `-${padR * scale}px`;
             sharedRightStyle.top = "0px";
             sharedRightStyle.cursor = "ew-resize";
-            const showSharedRight = canResizeSharedRightW || canResizePressureSeamRightW || canResizePressureSideHorizontalRightW;
+            const showSharedRight = canResizeSharedRightW || canResizePressureSeamRightW || canResizePressureSideHorizontalRightW || deckFrameEdgeRight;
             sharedRightStyle.display = showSharedRight ? "block" : "none";
             sharedRightStyle.pointerEvents = showSharedRight ? "auto" : "none";
             node.interactionShield._resizeHandleSharedRight._resizeAnchorOverride = showSharedRight ? "right" : null;
+        }
+        // Top/bottom edge handles for deck frame outer edges.
+        if (node.interactionShield._resizeHandleSharedTop) {
+            const sharedTopStyle = node.interactionShield._resizeHandleSharedTop.style;
+            sharedTopStyle.width = `${visualW * scale}px`;
+            sharedTopStyle.height = `${SHARED_VERTICAL_SEAM_HITBOX_PX}px`;
+            sharedTopStyle.left = `${padL * scale}px`;
+            sharedTopStyle.top = "0px";
+            sharedTopStyle.cursor = "ns-resize";
+            sharedTopStyle.display = deckFrameEdgeTop ? "block" : "none";
+            sharedTopStyle.pointerEvents = deckFrameEdgeTop ? "auto" : "none";
+            node.interactionShield._resizeHandleSharedTop._resizeAnchorOverride = deckFrameEdgeTop ? "top" : null;
+        }
+        if (node.interactionShield._resizeHandleSharedBottom) {
+            const sharedBottomStyle = node.interactionShield._resizeHandleSharedBottom.style;
+            sharedBottomStyle.width = `${visualW * scale}px`;
+            sharedBottomStyle.height = `${SHARED_VERTICAL_SEAM_HITBOX_PX}px`;
+            sharedBottomStyle.left = `${padL * scale}px`;
+            sharedBottomStyle.bottom = "0px";
+            sharedBottomStyle.cursor = "ns-resize";
+            sharedBottomStyle.display = deckFrameEdgeBottom ? "block" : "none";
+            sharedBottomStyle.pointerEvents = deckFrameEdgeBottom ? "auto" : "none";
+            node.interactionShield._resizeHandleSharedBottom._resizeAnchorOverride = deckFrameEdgeBottom ? "bottom" : null;
         }
         node.interactionShield._resizeHandle._resizeAnchorOverride = ((!isPressureHub && !isVerticalDockStack && canResizeSharedRightW) || canResizePressureSeamRightW || canResizePressureSideHorizontalRightW) ? "right" : null;
         handleStyle.width = `${bottomRightWidth}px`;
@@ -1612,7 +1754,7 @@ export function syncDerpShield(node) {
         // own preferred auto axes (e.g. preferred-auto side-branch members).
         handleStyle.cursor = (isPressureMember && allowFrameCornerBottomRight) ? "nwse-resize" : getCornerCursor(canUseRightW, "nwse-resize", canUseBottomCornerH);
         // THE INTERACTION GUARD: Disable handle interaction entirely if both axes are auto-managed
-        node.resizable = canResizeStackW || canResizeStackH || canResizeSharedW || !(vars.autoWidth && vars.autoHeight); // THE NATIVE FIX: Kill LiteGraph's own resize logic
+        node.resizable = canResizeStackW || canResizeStackH || canResizeSharedW || hasFrameEdge || !(vars.autoWidth && vars.autoHeight); // THE NATIVE FIX: Kill LiteGraph's own resize logic
         const showBottomRightCorner = node.resizable && (canUseRightW || canUseBottomCornerH) && allowBottomResizeCorners && allowFrameCornerBottomRight;
         handleStyle.display = showBottomRightCorner ? "block" : "none"; // THE VISUAL FIX: Completely remove the handle
         handleStyle.pointerEvents = showBottomRightCorner ? "auto" : "none";

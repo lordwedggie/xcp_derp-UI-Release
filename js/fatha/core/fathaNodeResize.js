@@ -1,5 +1,5 @@
 import { sysPanel } from "../helpers/fathaSysPanel.js";
-import { applyDockResizeResult, getVerticalResizeTargetMinHeight, syncDockResizePair } from "./dockResize.js";
+import { applyDockResizeResult, getVerticalResizeTargetMinHeight, scheduleLiveResizeShieldSync, syncDockResizePair } from "./dockResize.js";
 import { canResizeDeckPressureSideWidthMember, canResizeHorizontalSharedEdgeWidth, canResizeHorizontalStackHeight, canResizeHorizontalStackWidth, canResizeVerticalStackHeight, getHorizontalDeckMembersByX } from "./dockResizeSharedEdges.js";
 import { getDockGroupAxisFromMembers, getDockNodeMinHeight, getDockNodeMinWidth, getDerpLayoutCacheHash, resolveDockResizeAxes } from "./dockDimensions.js";
 import { applyDeckPressureLayout, getDeckMembers, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureBranchAxis, getDeckPressureHubForNode, getDeckPressureHubMinHeight, getDeckPressureHubMinWidth, getNodeOnDeckEdge, isDeckPressureHub, isDeckPressureSideWidthResizeEdge, setDeckNodePos } from "./masterDockEngine.js";
@@ -24,6 +24,111 @@ function isDeckPressureSideWidthResize(entity, graph, resizeAnchor) {
         && session.side.startsWith("deck-pressure-")
         && session.side.endsWith("-seam")) return true;
     return isDeckPressureSideWidthResizeEdge(entity, graph, resizeAnchor);
+}
+
+function isDeckPressureOuterFrameEdge(entity, graph, resizeAnchor) {
+    // Only pure side anchors — corner anchors are handled by the frame corner path.
+    if (resizeAnchor !== "left" && resizeAnchor !== "right") return false;
+    const pressureHub = getDeckPressureHubForNode(entity, graph);
+    if (!pressureHub || pressureHub.id === entity.id) return false;
+    const branchSide = getDeckPressureBranchSideForNode(pressureHub, graph, entity);
+    if (branchSide !== "left" && branchSide !== "right") return false;
+    // The outer edge is opposite to the hub-facing side.
+    const outerEdgeSide = branchSide === "left" ? "left" : "right";
+    return resizeAnchor === outerEdgeSide;
+}
+
+function getDeckPressureLiveFrameBounds(hub, graph) {
+    const members = getDeckMembers(hub, graph);
+    let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
+    (Array.isArray(members) ? members : []).forEach((member) => {
+        if (!member) return;
+        const x = Number(member.pos?.[0]) || 0;
+        const y = Number(member.pos?.[1]) || 0;
+        const w = Number(member.size?.[0] ?? member.properties?.nodeSize?.[0]) || 0;
+        const h = Number(member.size?.[1] ?? member.properties?.nodeSize?.[1]) || 0;
+        left = Math.min(left, x);
+        top = Math.min(top, y);
+        right = Math.max(right, x + w);
+        bottom = Math.max(bottom, y + h);
+    });
+    return Number.isFinite(left) ? { left, top, right, bottom } : null;
+}
+
+// Top/bottom drags on a deck frame outer edge resize the decked STACKS (side
+// vertical branches fit to the new band; the hub derives its rect from the
+// frame) — the drag never resizes derpImageDeck directly. Returns the hub +
+// dragged side when the entity's anchored edge lies on the pressure frame.
+function getDeckPressureFrameHeightEdgeTarget(entity, graph, resizeAnchor) {
+    if (resizeAnchor !== "top" && resizeAnchor !== "bottom") return null;
+    if (!entity || !graph) return null;
+    const hub = isDeckPressureHub(entity) ? entity : getDeckPressureHubForNode(entity, graph);
+    if (!hub) return null;
+    const bounds = getDeckPressureLiveFrameBounds(hub, graph);
+    if (!bounds) return null;
+    const y = Number(entity.pos?.[1]) || 0;
+    const h = Number(entity.size?.[1] ?? entity.properties?.nodeSize?.[1]) || 0;
+    const edge = resizeAnchor === "top" ? y : y + h;
+    const frameEdge = resizeAnchor === "top" ? bounds.top : bounds.bottom;
+    if (Math.abs(edge - frameEdge) > 1) return null;
+    // When no top/bottom branch covers the dragged edge, the edge is the hub's
+    // own edge (or a side stack end flush with it) — resizing it must move the
+    // hub, so keep the legacy hub-driven path for that configuration.
+    const hubTop = Number(hub.pos?.[1]) || 0;
+    const hubBottom = hubTop + (Number(hub.size?.[1] ?? hub.properties?.nodeSize?.[1]) || 0);
+    const branchCoverage = resizeAnchor === "top" ? hubTop - bounds.top : bounds.bottom - hubBottom;
+    if (branchCoverage <= 0.5) return null;
+    return { hub, side: resizeAnchor, bounds };
+}
+
+function applyDeckPressureFrameHeightResize(target, graph, data, scale, snap) {
+    const { hub, side, bounds } = target;
+    const unit = Math.max(1, Number(snap) || 10);
+    if (!hub._deckPressureFrameEdgeResizeStartBounds) {
+        const hubTop = Number(hub.pos?.[1]) || 0;
+        const hubBottom = hubTop + (Number(hub.size?.[1] ?? hub.properties?.nodeSize?.[1]) || 0);
+        hub._deckPressureFrameEdgeResizeStartBounds = { ...bounds, hubTop, hubBottom };
+    }
+    const start = hub._deckPressureFrameEdgeResizeStartBounds;
+    const sign = side === "top" ? -1 : 1;
+    const rawDelta = ((Number(data?.dy) || 0) / (Number(scale) || 1)) * sign;
+    const snappedDelta = Math.round(rawDelta / unit) * unit;
+    // The hub stays fixed for the whole drag: the delta is absorbed by the
+    // decked stack on the dragged edge (the top/bottom branch), never by
+    // derpImageDeck itself. Side vertical branches refit to the new band.
+    const startBranchHeight = Math.max(0, side === "top" ? start.hubTop - start.top : start.bottom - start.hubBottom);
+    const otherBranchHeight = Math.max(0, side === "top" ? start.bottom - start.hubBottom : start.hubTop - start.top);
+    const branchMembers = getDeckPressureBranchMembers(hub, graph, side);
+    // Clamp with the branch MINIMUM height (not the drag-start height) so the
+    // stack can shrink to its own floor instead of being frozen at the height
+    // it had when the drag began.
+    const branchFloor = branchMembers.length
+        ? Math.max(...branchMembers.map((member) => getDockNodeMinHeight(member, 0, unit)), 0)
+        : 0;
+    const nextBranchHeight = Math.max(branchFloor, startBranchHeight + snappedDelta);
+    if (Math.abs(nextBranchHeight - startBranchHeight) < 0.5) return;
+    const frame = side === "top"
+        ? { left: start.left, top: start.hubTop - nextBranchHeight, right: start.right, bottom: start.bottom }
+        : { left: start.left, top: start.top, right: start.right, bottom: start.hubBottom + nextBranchHeight };
+    hub._deckPressureTopBottomHeightOverrides = {
+        top: side === "top" ? nextBranchHeight : otherBranchHeight,
+        bottom: side === "bottom" ? nextBranchHeight : otherBranchHeight,
+    };
+    hub._deckPressurePreserveFrameBounds = frame;
+    hub._deckPressureFrameHeightResizeActive = true;
+    hub._deckPressureActiveUntil = (performance.now?.() || Date.now()) + 1200;
+    const changed = applyDeckPressureLayout(hub, graph, unit, { liveResize: true });
+    scheduleLiveResizeShieldSync([hub, ...(Array.isArray(changed) ? changed : [])]);
+    dockDebug("resize-deck-frame-height-edge", () => ({
+        hub: snapshotDockNode(hub),
+        side,
+        rawDelta,
+        snappedDelta,
+        startBranchHeight,
+        nextBranchHeight,
+        branchFloor,
+        frame,
+    }));
 }
 
 function isDeckPressureSideVerticalSeamResize(entity, graph, resizeAnchor) {
@@ -104,10 +209,11 @@ export function handleNodeResize(entity, data, scale) {
         && canResizeVerticalStackHeight(entity, graph, verticalStackResizeSide);
     const allowDeckPressureSideWidthResize = isDeckPressureSideWidthResize(entity, graph, resizeAnchor)
         && canResizeDeckPressureSideWidthMember(entity, graph);
-    if (allowHorizontalStackWidthResize || allowHorizontalSharedEdgeWidthResize || allowDeckPressureSideWidthResize) {
+    const allowDeckPressureOuterFrameEdge = isDeckPressureOuterFrameEdge(entity, graph, resizeAnchor);
+    if (allowHorizontalStackWidthResize || allowHorizontalSharedEdgeWidthResize || allowDeckPressureSideWidthResize || allowDeckPressureOuterFrameEdge) {
         resizeAxes.allowWidth = true;
     }
-    if (allowDeckPressureSideWidthResize) resizeAxes.allowHeight = false;
+    if (allowDeckPressureSideWidthResize || allowDeckPressureOuterFrameEdge) resizeAxes.allowHeight = false;
     if (isPureVerticalSharedEdgeResize) {
         resizeAxes.allowWidth = false;
         resizeAxes.allowHeight = !preferredAutoHeight;
@@ -122,6 +228,22 @@ export function handleNodeResize(entity, data, scale) {
         resizeAxes.allowHeight = false;
     }
 
+    // Pressure hub frame edge resize: side anchors ("left"/"right"/"top"/"bottom")
+    // on the hub resize the deck frame on a single axis. This overrides the
+    // per-node autoHeight/autoWidth checks because frame edge resize operates
+    // on the whole deck, not the individual node. Stack resize paths above
+    // already set the same axis, so this is redundant for stacks but essential
+    // for standalone decks where the hub is preferred-auto.
+    if (isDeckPressureHub(entity) && (resizeAnchor === "left" || resizeAnchor === "right" || resizeAnchor === "top" || resizeAnchor === "bottom")) {
+        if (resizeAnchor === "left" || resizeAnchor === "right") {
+            resizeAxes.allowWidth = true;
+            resizeAxes.allowHeight = false;
+        } else {
+            resizeAxes.allowWidth = false;
+            resizeAxes.allowHeight = true;
+        }
+    }
+
     // Block height resize on corners for collapsed nodes in vertical stacks
     const collapsedInVertical = axis === "vertical" && entity?.properties?.contentCollapsed === true;
     if (collapsedInVertical) {
@@ -131,6 +253,17 @@ export function handleNodeResize(entity, data, scale) {
         const isBottomBoundaryResize = !getNodeOnDeckEdge(entity, graph, "bottom") && (data.resizeAnchor === "bottom-left" || data.resizeAnchor === "bottom-right");
         const isVerticalIntent = Math.abs(Number(data.dy) || 0) > Math.abs(Number(data.dx) || 0) + 2;
         if (isCorner && (!isVerticalIntent || (!isTopBoundaryResize && !isBottomBoundaryResize))) resizeAxes.allowHeight = false;
+    }
+
+    // Deck frame height edge: top/bottom drags on the deck frame's outer edge
+    // resize the decked STACKS (side vertical branches fit the new band; the
+    // hub derives its rect from the preserved frame) — never the node itself.
+    // Runs before the per-node axis gates so preferred-auto stack members
+    // still resize their stack instead of falling through to a node resize.
+    const frameHeightEdgeTarget = getDeckPressureFrameHeightEdgeTarget(entity, graph, resizeAnchor);
+    if (frameHeightEdgeTarget) {
+        applyDeckPressureFrameHeightResize(frameHeightEdgeTarget, graph, data, scale, SNAP);
+        return;
     }
 
     dockDebug("handle-node-resize-start", () => ({

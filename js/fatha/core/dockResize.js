@@ -51,7 +51,7 @@ if (globalThis.DERP_DOCK_RESIZE_DEBUG) globalThis.DERP_DOCK_RESIZE_LOGS = global
 const pendingLiveResizeShieldSync = new Set();
 let pendingLiveResizeShieldFrame = null;
 
-function scheduleLiveResizeShieldSync(nodes = []) {
+export function scheduleLiveResizeShieldSync(nodes = []) {
     nodes.forEach((node) => {
         if (node) pendingLiveResizeShieldSync.add(node);
     });
@@ -1498,7 +1498,13 @@ function applyDeckPressureSideWidthResize(entity, resizeAnchor, requestedEntityW
         && currentSession.side === `deck-pressure-${branchSide}-seam`
         && currentSession.entityId === entity.id
         && currentSession.hubId === pressureHub.id;
-    if (!sessionMatches && !isDeckPressureSideWidthResizeEdge(entity, graph, resizeAnchor)) return false;
+    // Frame edge resize: outer edge of a branch member that aligns with the
+    // deck frame boundary. Unlike the inner seam (which preserves the frame),
+    // this resizes the entire branch width and lets the frame expand/shrink.
+    const outerEdgeSide = branchSide === "left" ? "left" : "right";
+    const isOuterFrameEdge = !sessionMatches && !isDeckPressureSideWidthResizeEdge(entity, graph, resizeAnchor)
+        && resizeAnchor === outerEdgeSide;
+    if (!sessionMatches && !isDeckPressureSideWidthResizeEdge(entity, graph, resizeAnchor) && !isOuterFrameEdge) return false;
 
     const branchMembers = getDeckPressureBranchMembers(pressureHub, graph, branchSide);
     if (!branchMembers.length) return false;
@@ -1524,6 +1530,7 @@ function applyDeckPressureSideWidthResize(entity, resizeAnchor, requestedEntityW
             oppositeSideWidth: branchSide === "left" ? Number(planBefore?.constraints?.rightWidth) || 0 : Number(planBefore?.constraints?.leftWidth) || 0,
             topBottomMinWidth: Number(planBefore?.constraints?.topBottomMinWidth) || 0,
             arrangement: planBefore?.arrangement || null,
+            isOuterFrameEdge,
         };
         pressureHub._deckPressureSideResizeSession = {
             entityId: entity.id,
@@ -1531,6 +1538,10 @@ function applyDeckPressureSideWidthResize(entity, resizeAnchor, requestedEntityW
         };
     }
     const session = entity._dockResizeSession;
+    const isOuterEdge = session.isOuterFrameEdge === true;
+    // For outer frame edge resize, the frame expands/shrinks on the dragged
+    // side. For inner seam resize, the frame is preserved and the hub shifts
+    // within it.
     const preservedFrame = session.frameBounds || frameBefore;
     const hubStartX = Number(session.hubStartX) || Number(pressureHub.pos?.[0]) || 0;
     const hubStartW = Number(session.hubStartW) || getDockNodeWidth(pressureHub);
@@ -1547,20 +1558,49 @@ function applyDeckPressureSideWidthResize(entity, resizeAnchor, requestedEntityW
     const hubMinWidth = Math.max(fallbackHubMinWidth, getDeckPressureHubMinWidth(pressureHub, graph, snap, fallbackHubMinWidth));
     const topBottomMinWidth = Math.max(0, Number(session.topBottomMinWidth) || 0);
     const hubRequiredWidth = session.arrangement === "vertical_sandwich" ? Math.max(hubMinWidth, topBottomMinWidth) : hubMinWidth;
-    const availableBranchWidth = Math.max(0, preservedFrameWidth - oppositeSideWidth - hubRequiredWidth);
-    const maxBranchWidth = Math.max(0, availableBranchWidth);
     const explicitDelta = Number(entity._dockResizeRequestedDeltaW);
     const requestedDelta = Number.isFinite(explicitDelta) ? explicitDelta : (Number(requestedEntityWidth) - branchStartWidth);
-    const lowerBranchWidth = Math.min(branchMinWidth, maxBranchWidth);
-    const nextBranchWidth = Math.min(maxBranchWidth, Math.max(lowerBranchWidth, branchStartWidth + requestedDelta));
+
+    let nextBranchWidth;
+    let frameForLayout;
+    if (isOuterEdge) {
+        // Outer frame edge: the frame expands/shrinks on the dragged side.
+        // No maxBranchWidth clamp — the frame grows with the branch.
+        nextBranchWidth = Math.max(branchMinWidth, branchStartWidth + requestedDelta);
+        // Compute the new frame bounds: expand/shrink on the dragged side,
+        // keep the opposite side anchored.
+        if (branchSide === "left") {
+            frameForLayout = {
+                left: preservedFrame.right - oppositeSideWidth - hubStartW - nextBranchWidth,
+                top: preservedFrame.top,
+                right: preservedFrame.right,
+                bottom: preservedFrame.bottom,
+            };
+        } else {
+            frameForLayout = {
+                left: preservedFrame.left,
+                top: preservedFrame.top,
+                right: preservedFrame.left + nextBranchWidth + hubStartW + oppositeSideWidth,
+                bottom: preservedFrame.bottom,
+            };
+        }
+    } else {
+        // Inner seam: preserve the frame, clamp branch width to available space.
+        const availableBranchWidth = Math.max(0, preservedFrameWidth - oppositeSideWidth - hubRequiredWidth);
+        const maxBranchWidth = Math.max(0, availableBranchWidth);
+        const lowerBranchWidth = Math.min(branchMinWidth, maxBranchWidth);
+        nextBranchWidth = Math.min(maxBranchWidth, Math.max(lowerBranchWidth, branchStartWidth + requestedDelta));
+        frameForLayout = preservedFrame;
+    }
+
     const activeSideWidths = {
         left: branchSide === "left" ? nextBranchWidth : oppositeSideWidth,
         right: branchSide === "right" ? nextBranchWidth : oppositeSideWidth,
     };
-    pressureHub._deckPressurePreserveFrameBounds = preservedFrame;
+    pressureHub._deckPressurePreserveFrameBounds = frameForLayout;
     pressureHub._deckPressureSideWidthOverrides = activeSideWidths;
 
-    const currentPlan = computeDeckPressureGeometryPlan(pressureHub, graph, snap, { frameBounds: preservedFrame });
+    const currentPlan = computeDeckPressureGeometryPlan(pressureHub, graph, snap, { frameBounds: frameForLayout });
     const currentWidths = currentPlan?.constraints || {};
     const sideWidths = {
         left: branchSide === "left" ? nextBranchWidth : Number(currentWidths.leftWidth) || activeSideWidths.left,

@@ -3115,8 +3115,13 @@ export function computeDeckPressureGeometryPlan(hub, graph, snap = DEFAULT_DECK_
     const bottomBranch = branchBySide.bottom || null;
     const leftBranch = branchBySide.left || null;
     const rightBranch = branchBySide.right || null;
-    const topHeight = getDeckPressureBranchHeight(topBranch, snap);
-    const bottomHeight = getDeckPressureBranchHeight(bottomBranch, snap);
+    const topBottomHeightOverrides = hub._deckPressureTopBottomHeightOverrides || {};
+    const topHeight = Number.isFinite(Number(topBottomHeightOverrides.top))
+        ? Math.max(0, Number(topBottomHeightOverrides.top))
+        : getDeckPressureBranchHeight(topBranch, snap);
+    const bottomHeight = Number.isFinite(Number(topBottomHeightOverrides.bottom))
+        ? Math.max(0, Number(topBottomHeightOverrides.bottom))
+        : getDeckPressureBranchHeight(bottomBranch, snap);
     const sideWidthOverrides = options.sideWidths || hub._deckPressureSideWidthOverrides || {};
     const leftWidth = Math.max(0, Number(sideWidthOverrides.left) || getDeckPressureBranchWidth(leftBranch, snap));
     const rightWidth = Math.max(0, Number(sideWidthOverrides.right) || getDeckPressureBranchWidth(rightBranch, snap));
