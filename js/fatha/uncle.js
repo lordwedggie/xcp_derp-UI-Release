@@ -6,7 +6,7 @@
 import { app } from "../../../../scripts/app.js";
 import { createDerpShield, syncDerpShield, removeDerpShield } from "./core/fathaDOMshield.js";
 import { masterLayoutEngine } from "./core/masterLayoutEngine.js";
-import { handleShieldInteraction, handleDrawCTX, handleThemeUpdate, handleInitDerpGlobalListener, getDerpVars, handleDerpRequestSync, handleDerpComputeSize, handleDerpCollapse, animateDerpSize, drawDeckPreviewGlobal, shouldPreserveHorizontalDeckHeight, shouldPreserveVerticalDeckWidth, balanceHorizontalDeckWidthChange, syncHorizontalDeckHeight, resolveDerpRuntimeSize, resolveHorizontalDeckSharedHeight, normalizeDerpDockedLayout, syncDerpLocalizedDefaultTitle, drawDeckResizeOptimizedNode, shouldLockDeckPressureSideHorizontalWidth, getDeckPressureSideHorizontalLockedWidth } from "./core/fathaHandler.js";
+import { handleShieldInteraction, handleDrawCTX, handleThemeUpdate, handleInitDerpGlobalListener, getDerpVars, handleDerpRequestSync, handleDerpComputeSize, handleDerpCollapse, animateDerpSize, drawDeckPreviewGlobal, shouldPreserveHorizontalDeckHeight, shouldPreserveVerticalDeckWidth, balanceHorizontalDeckWidthChange, syncHorizontalDeckHeight, resolveDerpRuntimeSize, resolveHorizontalDeckSharedHeight, normalizeDerpDockedLayout, syncDerpLocalizedDefaultTitle, drawDeckResizeOptimizedNode, shouldLockDeckPressureSideHorizontalWidth, getDeckPressureSideHorizontalLockedWidth, isDeckPressureFrameHeightResizeActive } from "./core/fathaHandler.js";
 export { getDerpVars };
 import { suppressDefaultWidgets, syncUncleSlots, lerpUnclePadding, drawUncleSlots } from "./helpers/uncleSlotHelper.js";
 import { drawDerpSysPanelGlobal, isHostActive, closeDerpSysPanel, sysPanel } from "./helpers/fathaSysPanel.js";
@@ -281,13 +281,19 @@ export function uncle(nodeType, nodeData, minWidth = 100) {
         // During live resize, preserve the manually dragged axis but still let the auto-managed
         // secondary axis respond immediately (e.g. width shrink causing auto-height growth).
         const lockHorizontalDeckResize = this._horizontalDeckWidthResizeLock === true || shouldLockDeckPressureSideHorizontalWidth(this);
+        // While a deck frame top/bottom edge drag is live, the pressure plan owns
+        // member geometry on BOTH axes. Pin draw targets to the plan-assigned
+        // physical size or the per-frame auto width/height targets fight the plan.
+        const frameHeightResizeActive = isDeckPressureFrameHeightResizeActive(this);
         const lockedDeckPressureSideW = getDeckPressureSideHorizontalLockedWidth(this);
         const lockedVerticalStackW = this._dockResizePreserveHeight === true ? getActiveVerticalNodeWidthLock(this, 0) : 0;
-        const liveTargetW = lockedDeckPressureSideW > 0
-            ? lockedDeckPressureSideW
-            : lockedVerticalStackW > 0
-                ? lockedVerticalStackW
-                : ((this._isDerpResizing && (!autoWidth || this._dockResizePreserveHeight === true)) || lockHorizontalDeckResize ? this.size[0] : targetW);
+        const liveTargetW = frameHeightResizeActive
+            ? this.size[0]
+            : lockedDeckPressureSideW > 0
+                ? lockedDeckPressureSideW
+                : lockedVerticalStackW > 0
+                    ? lockedVerticalStackW
+                    : ((this._isDerpResizing && (!autoWidth || this._dockResizePreserveHeight === true)) || lockHorizontalDeckResize ? this.size[0] : targetW);
         // A freshly seam-/pressure-fit member (e.g. a clipped autoHeight LoRA Stack in numeric
         // Height Mode) must keep the seam-assigned height; without this, the autoHeight path
         // recomputes the clipped content floor each frame and snaps the node back, fighting the
@@ -295,10 +301,10 @@ export function uncle(nodeType, nodeData, minWidth = 100) {
         // guard, so normal autoHeight growth resumes once the seam session ends.
         const manualHeightFitActive = Number(this._deckPressureManualBranchFitUntil || 0) > (performance.now?.() || Date.now());
         const preserveResizeHeight = this._isDerpResizing && (!autoHeight || manualHeightFitActive || this._dockResizePreserveHeight === true);
-        const liveTargetH = preserveResizeHeight || lockHorizontalDeckResize ? this.size[1] : targetH;
+        const liveTargetH = frameHeightResizeActive || preserveResizeHeight || lockHorizontalDeckResize ? this.size[1] : targetH;
         const preAnimateW = Number(this.size?.[0]) || 0;
         animateDerpSize(this, liveTargetW, liveTargetH, useAnim);
-        balanceHorizontalDeckWidthChange(this, preAnimateW);
+        if (!frameHeightResizeActive) balanceHorizontalDeckWidthChange(this, preAnimateW);
 
         const bounds = { x: 0, y: 0, w: this.size[0], h: this.size[1] };
 
@@ -310,7 +316,7 @@ export function uncle(nodeType, nodeData, minWidth = 100) {
         }, needsLayoutCompute);
 
         if (preserveHorizontalDeckHeight) {
-            if (!lockHorizontalDeckResize) {
+            if (!lockHorizontalDeckResize && !frameHeightResizeActive) {
                 const postLayoutHeight = resolveHorizontalDeckSharedHeight(this);
                 if (Number(postLayoutHeight) > 0 && this.size[1] !== postLayoutHeight) {
                     animateDerpSize(this, this.size[0], postLayoutHeight, useAnim);
@@ -325,9 +331,9 @@ export function uncle(nodeType, nodeData, minWidth = 100) {
         if (this.properties.nodeSize && !isMinState) {
             if (lockedDeckPressureSideW > 0) this.properties.nodeSize[0] = lockedDeckPressureSideW;
             else if (lockedVerticalStackW > 0) this.properties.nodeSize[0] = lockedVerticalStackW;
-            else if (autoWidth && !shouldPreserveVerticalDeckWidth(this) && !lockHorizontalDeckResize) this.properties.nodeSize[0] = targetW;
+            else if (autoWidth && !shouldPreserveVerticalDeckWidth(this) && !lockHorizontalDeckResize && !frameHeightResizeActive) this.properties.nodeSize[0] = targetW;
             if (preserveResizeHeight) this.properties.nodeSize[1] = Number(this.size?.[1]) || targetH;
-            else if (autoHeight) this.properties.nodeSize[1] = preserveHorizontalDeckHeight
+            else if (autoHeight && !frameHeightResizeActive) this.properties.nodeSize[1] = preserveHorizontalDeckHeight
                 ? (Number(this.size?.[1]) || targetH)
                 : targetH;
         }

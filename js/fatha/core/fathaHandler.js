@@ -1078,6 +1078,17 @@ export function shouldPreserveHorizontalDeckHeight(node) {
     return state?.preserveHeight === true;
 }
 
+// While a deck-pressure frame top/bottom edge drag is live, the hub owns branch
+// member heights via _deckPressureTopBottomHeightOverrides. The per-draw
+// horizontal shared-height sync must stand down or it fights the pressure plan
+// every frame (members flicker, disappear, and open gaps mid-drag).
+export function isDeckPressureFrameHeightResizeActive(node) {
+    const graph = app.graph || node?.graph || null;
+    if (!graph || !node) return false;
+    const hub = getDeckPressureHubForNode(node, graph);
+    return hub?._deckPressureFrameHeightResizeActive === true;
+}
+
 export function getDeckPressureSideHorizontalLockedWidth(node) {
     const graph = app.graph || node?.graph || null;
     return getDeckPressureSideHorizontalExplicitWidthLock(node, graph);
