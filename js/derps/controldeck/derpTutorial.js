@@ -177,6 +177,28 @@ function hasTutorialNode() {
     return (app.graph?._nodes || []).some((node) => node?.type === "DerpTutorialNode" || node?.comfyClass === "DerpTutorialNode");
 }
 
+function getNativeGraphNodes() {
+    return (app.graph?._nodes || []).filter((node) => node && !node.isFathaNode && !node.isUncleNode);
+}
+
+function hasNativeVueNodeDom() {
+    if (typeof document === "undefined" || typeof document.querySelectorAll !== "function") return false;
+    const graph = app.graph;
+    return Array.from(document.querySelectorAll(".lg-node[data-node-id], [data-node-id]")).some((el) => {
+        const nodeId = el?.dataset?.nodeId ?? el?.getAttribute?.("data-node-id");
+        const node = graph?.getNodeById?.(nodeId) || graph?.getNodeById?.(Number(nodeId));
+        return !!(node && !node.isFathaNode && !node.isUncleNode);
+    });
+}
+
+function isTutorialAutoAddReady(attempt = 0) {
+    if (!window.__derpTutorialAfterStartupGraphConfigured) return false;
+    if (!(typeof LiteGraph !== "undefined" && LiteGraph.vueNodesMode)) return true;
+    if (!getNativeGraphNodes().length) return true;
+    if (hasNativeVueNodeDom()) return true;
+    return attempt >= 20;
+}
+
 function placeTutorialNode(node) {
     const canvas = app.canvas;
     const scale = Number(canvas?.ds?.scale) || 1;
@@ -206,6 +228,10 @@ function maybeAutoAddTutorialNode(attempt = 0) {
     }
     if (hasTutorialNode()) return;
     if (readNumericSetting(TUTORIAL_SUPPRESS_SETTING, 0) === DERP_TUTORIAL_MAJOR_VERSION) return;
+    if (!isTutorialAutoAddReady(attempt)) {
+        if (attempt < 40) setTimeout(() => maybeAutoAddTutorialNode(attempt + 1), 250);
+        return;
+    }
 
     const nodeType = getTutorialLiteGraphType(liteGraph);
     if (!nodeType) {
@@ -259,13 +285,13 @@ app.registerExtension({
     async setup() {
         initDerpGlobalListener();
         const loadedFromQuery = await loadTutorialWorkflowFromQuery();
-        if (!loadedFromQuery) scheduleTutorialAutoAdd();
+        if (!loadedFromQuery && window.__derpTutorialAfterStartupGraphConfigured) scheduleTutorialAutoAdd(750);
     },
 
     async afterConfigureGraph() {
         if (window.__derpTutorialAfterStartupGraphConfigured) return;
         window.__derpTutorialAfterStartupGraphConfigured = true;
-        scheduleTutorialAutoAdd(250);
+        scheduleTutorialAutoAdd(750);
     },
 
     async beforeRegisterNodeDef(nodeType, nodeData) {
