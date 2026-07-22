@@ -3144,7 +3144,94 @@ function makeDeckPressureMemberRects(members, band, axis, sizes) {
     return rects;
 }
 
+// Per-signature memo for the read-only geometry plan. During pan/zoom every
+// deck member's shield sync asks for frame bounds / band rects, which used to
+// recompute the full plan per node per frame. With empty options and no
+// transient resize state on the hub the plan is a pure function of member
+// topology + geometry + layout state, so one computed plan can be shared by
+// all callers until the signature changes. Resize paths pass options or set
+// transient hub state and always bypass the memo.
+const DECK_PRESSURE_PLAN_MEMO_LIMIT = 32;
+const deckPressurePlanMemo = new Map();
+
+function hasDeckPressurePlanTransientState(hub) {
+    return !!(hub?._isDerpResizing
+        || hub?._deckPressureFrameHeightResizeActive
+        || hub?._deckPressureSideResizeSession
+        || hub?._deckPressureSideWidthOverrides
+        || hub?._deckPressureTopBottomHeightOverrides
+        || hub?._deckPressureTopBottomWidthOverrides);
+}
+
+function isDeckPressurePlanCacheableOptions(options) {
+    return !options || (!options.hubRect && !options.frameBounds && !options.sideWidths && options.liveResize !== true);
+}
+
+// Scroll-free viewport signature: the plan reads clip/full/min heights but
+// never scrollTop, so ordinary scrolling must not invalidate the memo (same
+// precedent as getDeckPressureSideHeightMemberSig).
+function getDeckPressurePlanViewportSig(node) {
+    const states = Object.values(node?._contentViewportState || {});
+    if (!states.length) return "";
+    return states.map((state) => [
+        state.key,
+        Math.round(Number(state.fullHeight) || 0),
+        Math.round(Number(state.clipHeight) || 0),
+        state.hasOverflow ? 1 : 0,
+        Math.round(Number(state.minClipHeight) || 0),
+    ].join(":")).join("|");
+}
+
+function getDeckPressurePlanSignature(hub, graph, snap) {
+    const members = getDeckMembers(hub, graph);
+    if (!members.length) return null;
+    const memberSig = members.map((member) => {
+        const edges = member?.properties?.deckEdges || {};
+        return [
+            member?.id,
+            Math.round(Number(member?.pos?.[0]) || 0),
+            Math.round(Number(member?.pos?.[1]) || 0),
+            Math.round(Number(member?.size?.[0] ?? member?.properties?.nodeSize?.[0]) || 0),
+            Math.round(Number(member?.size?.[1] ?? member?.properties?.nodeSize?.[1]) || 0),
+            member?.flags?.collapsed === true ? 1 : 0,
+            member?.properties?.contentCollapsed === true ? 1 : 0,
+            member?.properties?.deckParentId ?? "",
+            member?.properties?.deckDockSide || "",
+            edges.left ?? "",
+            edges.right ?? "",
+            edges.top ?? "",
+            edges.bottom ?? "",
+            member?.properties?.deckArrangement || "",
+            getDerpLayoutCacheHash(member),
+            Math.round(Number(member?.layout?.contentMinHeight) || 0),
+            Math.round(Number(member?.layout?.totalHeight) || 0),
+            getDeckPressurePlanViewportSig(member),
+        ].join(":");
+    }).join("|");
+    const sideWidths = hub?._deckPressureSideVerticalWidths || {};
+    return [
+        memberSig,
+        `sw:${Math.round(Number(sideWidths.left) || 0)},${Math.round(Number(sideWidths.right) || 0)}`,
+        `snap:${Math.round(Number(snap) || 0)}`,
+    ].join("#");
+}
+
 export function computeDeckPressureGeometryPlan(hub, graph, snap = DEFAULT_DECK_SNAP, options = {}) {
+    if (!isDeckPressureHub(hub) || !graph) return null;
+    if (!isDeckPressurePlanCacheableOptions(options) || hasDeckPressurePlanTransientState(hub)) {
+        return computeDeckPressureGeometryPlanImpl(hub, graph, snap, options);
+    }
+    const signature = getDeckPressurePlanSignature(hub, graph, snap);
+    if (!signature) return computeDeckPressureGeometryPlanImpl(hub, graph, snap, options);
+    const cached = deckPressurePlanMemo.get(hub.id);
+    if (cached?.signature === signature) return cached.plan;
+    const plan = computeDeckPressureGeometryPlanImpl(hub, graph, snap, options);
+    deckPressurePlanMemo.set(hub.id, { signature, plan });
+    if (deckPressurePlanMemo.size > DECK_PRESSURE_PLAN_MEMO_LIMIT) deckPressurePlanMemo.clear();
+    return plan;
+}
+
+function computeDeckPressureGeometryPlanImpl(hub, graph, snap = DEFAULT_DECK_SNAP, options = {}) {
     if (!isDeckPressureHub(hub) || !graph) return null;
     const branches = getDeckPressureBranchRecords(hub, graph);
     const arrangement = ensureDeckPressureArrangement(hub, graph);

@@ -1625,9 +1625,62 @@ export function syncDerpShield(node) {
     const hubNeighborBottomForHash = pressureHubForHash ? (getNodeOnDeckEdge(pressureHubForHash, graphForHash, "bottom")?.id ?? "n") : "n";
     const hubNeighborLeftForHash = pressureHubForHash ? (getNodeOnDeckEdge(pressureHubForHash, graphForHash, "left")?.id ?? "n") : "n";
     const hubNeighborRightForHash = pressureHubForHash ? (getNodeOnDeckEdge(pressureHubForHash, graphForHash, "right")?.id ?? "n") : "n";
-    const stateHash = `${node.pos[0]},${node.pos[1]}_${visualW},${visualH}_${scale}_${ds.offset[0]},${ds.offset[1]}_${node.flags?.collapsed}_${node.properties?.contentCollapsed}_${node.properties?.debugMode}_${Math.round(rect.width)},${Math.round(rect.height)}_${canvasRectHash}_${edgeState.left ?? "n"},${edgeState.right ?? "n"},${edgeState.top ?? "n"},${edgeState.bottom ?? "n"}_${neighborLeftForHash},${neighborRightForHash}_${pressureHubForHash?.id ?? "n"},${branchSideForHash ?? "n"},${branchAxisForHash}_${hubNeighborTopForHash},${hubNeighborBottomForHash},${hubNeighborLeftForHash},${hubNeighborRightForHash}_${varsForHash.autoWidth}_${varsForHash.autoHeight}_${preferredAutoWidthForHash}_${preferredAutoHeightForHash}`;
-    if (node.interactionShield._lastStateHash === stateHash && !node._forceSync) return;
-    node.interactionShield._lastStateHash = stateHash;
+    // Group signature: the cached eligibility predicates below also read
+    // sibling state — collapse/height-mode prefs (canResize*Stack*,
+    // canResize*Member*), sibling geometry (frame corner/edge checks,
+    // getHorizontalSameRowNeighbor, seam resolvers), and edge/branch
+    // topology. None of that is visible in the node-local fields above, so
+    // a sibling changing height mode or collapsing would leave stale
+    // handles/ghosts behind (pre-split hashes only healed via incidental
+    // pan/zoom invalidation). Fold the whole dock group into the structure
+    // hash: all fields are graph-space and stay stable during pan/zoom, so
+    // transform-only frames still skip the predicate battery exactly as
+    // before. The walk is O(group) over the per-frame deck graph index.
+    let groupSigForHash = "";
+    {
+        const groupMembersForHash = graphForHash ? getDeckMembers(node, graphForHash) : [node];
+        if (groupMembersForHash.length > 1) {
+            groupSigForHash = groupMembersForHash
+                .slice()
+                .sort((a, b) => (Number(a?.id) || 0) - (Number(b?.id) || 0))
+                .map((member) => {
+                    const memberEdges = member?.properties?.deckEdges || {};
+                    return [
+                        member?.id,
+                        Math.round(Number(member?.pos?.[0]) || 0),
+                        Math.round(Number(member?.pos?.[1]) || 0),
+                        Math.round(Number(member?.size?.[0] ?? member?.properties?.nodeSize?.[0]) || 0),
+                        Math.round(Number(member?.size?.[1] ?? member?.properties?.nodeSize?.[1]) || 0),
+                        member?.flags?.collapsed === true ? 1 : 0,
+                        member?.properties?.contentCollapsed === true ? 1 : 0,
+                        member?.properties?.autoWidth === true ? 1 : 0,
+                        member?.properties?.deckSavedAutoWidth === true ? 1 : 0,
+                        resolveDerpPreferredAutoWidth(member) ? 1 : 0,
+                        resolveDerpPreferredAutoHeight(member) ? 1 : 0,
+                        member?.properties?.deckParentId ?? "n",
+                        member?.properties?.deckDockSide || "n",
+                        member?.properties?.deckArrangement || "n",
+                        memberEdges.left ?? "n",
+                        memberEdges.right ?? "n",
+                        memberEdges.top ?? "n",
+                        memberEdges.bottom ?? "n",
+                    ].join(",");
+                })
+                .join("|");
+        }
+    }
+    // Split hash: everything the resize-eligibility predicates read is
+    // graph-space (node pos/size, edges, neighbors, pressure topology, auto
+    // prefs) and stays stable during pan/zoom, while screen-space state
+    // (scale, offset, canvas rect, pads) changes every pan/zoom frame. A
+    // transform-only mismatch re-applies pixel styles against the cached
+    // eligibility instead of re-running the graph-walk predicate battery.
+    const structureHash = `${node.pos[0]},${node.pos[1]}_${visualW},${visualH}_${node.flags?.collapsed}_${node.properties?.contentCollapsed}_${node.properties?.debugMode}_${edgeState.left ?? "n"},${edgeState.right ?? "n"},${edgeState.top ?? "n"},${edgeState.bottom ?? "n"}_${neighborLeftForHash},${neighborRightForHash}_${pressureHubForHash?.id ?? "n"},${branchSideForHash ?? "n"},${branchAxisForHash}_${hubNeighborTopForHash},${hubNeighborBottomForHash},${hubNeighborLeftForHash},${hubNeighborRightForHash}_${varsForHash.autoWidth}_${varsForHash.autoHeight}_${preferredAutoWidthForHash}_${preferredAutoHeightForHash}_${groupSigForHash}`;
+    const transformHash = `${scale}_${ds.offset[0]},${ds.offset[1]}_${canvasRectHash}_${Math.round(rect.width)},${Math.round(rect.height)}_${padL},${padR}`;
+    const structureChanged = node.interactionShield._lastStructureHash !== structureHash;
+    if (!structureChanged && node.interactionShield._lastTransformHash === transformHash && !node._forceSync) return;
+    node.interactionShield._lastStructureHash = structureHash;
+    node.interactionShield._lastTransformHash = transformHash;
 
     const shieldX = rect.left + (node.pos[0] + padL + ds.offset[0]) * scale;
     const shieldY = rect.top + (node.pos[1] + ds.offset[1]) * scale;
@@ -1701,26 +1754,98 @@ export function syncDerpShield(node) {
         const hasSharedTopEdge = edges.top !== null && edges.top !== undefined;
         const hasSharedBottomEdge = edges.bottom !== null && edges.bottom !== undefined;
         const graph = app.graph || node.graph || null;
-        const isVerticalDockStack = getLinearResizeMembers(node, graph, "vertical").length > 1;
-        const isHorizontalDockStack = getLinearResizeMembers(node, graph, "horizontal").length > 1;
         const isPressureHub = isDeckPressureHub(node);
-        const pressureHub = graph ? getDeckPressureHubForNode(node, graph) : null;
-        const isPressureMember = !!pressureHub;
-        const canResizePressureSeamLeftW = isDeckPressureHubSeamSideEdge(node, graph, "left");
-        const canResizePressureSeamRightW = isDeckPressureHubSeamSideEdge(node, graph, "right");
-        const canResizePressureSeamTopH = isDeckPressureHubSeamTopBottomEdge(node, graph, "top");
-        const canResizePressureSeamBottomH = isDeckPressureHubSeamTopBottomEdge(node, graph, "bottom");
-        const canResizePressureSideHorizontalLeftW = isDeckPressureSideHorizontalHubEdge(node, graph, "left") && isDeckPressureSideWidthResizeEdge(node, graph, "left") && canResizeDeckPressureSideWidthMember(node, graph);
-        const canResizePressureSideHorizontalRightW = isDeckPressureSideHorizontalHubEdge(node, graph, "right") && isDeckPressureSideWidthResizeEdge(node, graph, "right") && canResizeDeckPressureSideWidthMember(node, graph);
-        const canResizeStackLeftW = isHorizontalDockStack && canResizeHorizontalStackWidth(node, graph, "left");
-        const canResizeStackRightW = isHorizontalDockStack && canResizeHorizontalStackWidth(node, graph, "right");
+        const isCollapsed = node.properties?.contentCollapsed === true;
+        // Resize eligibility is a pure function of graph-space structure
+        // (covered by structureHash above). During pan/zoom only the
+        // transform hash changes, so the predicate battery — linear-stack
+        // walks, pressure seam resolvers, frame corner/edge checks — is
+        // reused from the shield cache and only the pixel styles below run.
+        let eligibility = node.interactionShield._resizeEligibility;
+        if (structureChanged || !eligibility || node._forceSync) {
+            const pressureHub = graph ? getDeckPressureHubForNode(node, graph) : null;
+            const isPressureMember = !!pressureHub;
+            const isVerticalDockStack = getLinearResizeMembers(node, graph, "vertical").length > 1;
+            const isHorizontalDockStack = getLinearResizeMembers(node, graph, "horizontal").length > 1;
+            const nodeAbove = isVerticalDockStack ? getNodeOnDeckEdge(node, graph, "top") : null;
+            const nodeBelow = isVerticalDockStack ? getNodeOnDeckEdge(node, graph, "bottom") : null;
+            // Frame edge detection: outer edges of the deck frame that can be
+            // dragged to resize the deck (or the stack if the deck is docked).
+            // No neighbor gate — if there's a stack neighbor, the existing
+            // shared-seam handle logic already covers it; the frame edge flag
+            // only needs to ensure the handle is visible on frame boundaries.
+            const deckInHorizontalStack = pressureHub && getLinearResizeMembers(pressureHub, graph, "horizontal").length > 1;
+            const deckInVerticalStack = pressureHub && getLinearResizeMembers(pressureHub, graph, "vertical").length > 1;
+            const deckCanResizeWidth = !deckInHorizontalStack || canResizeHorizontalStackWidth(pressureHub, graph, "left") || canResizeHorizontalStackWidth(pressureHub, graph, "right");
+            const deckCanResizeHeight = !deckInVerticalStack || canResizeVerticalStackHeight(pressureHub, graph, "top") || canResizeVerticalStackHeight(pressureHub, graph, "bottom");
+            eligibility = {
+                isVerticalDockStack,
+                isHorizontalDockStack,
+                isPressureMember,
+                canResizePressureSeamLeftW: isDeckPressureHubSeamSideEdge(node, graph, "left"),
+                canResizePressureSeamRightW: isDeckPressureHubSeamSideEdge(node, graph, "right"),
+                canResizePressureSeamTopH: isDeckPressureHubSeamTopBottomEdge(node, graph, "top"),
+                canResizePressureSeamBottomH: isDeckPressureHubSeamTopBottomEdge(node, graph, "bottom"),
+                canResizePressureSideHorizontalLeftW: isDeckPressureSideHorizontalHubEdge(node, graph, "left") && isDeckPressureSideWidthResizeEdge(node, graph, "left") && canResizeDeckPressureSideWidthMember(node, graph),
+                canResizePressureSideHorizontalRightW: isDeckPressureSideHorizontalHubEdge(node, graph, "right") && isDeckPressureSideWidthResizeEdge(node, graph, "right") && canResizeDeckPressureSideWidthMember(node, graph),
+                canResizeStackLeftW: isHorizontalDockStack && canResizeHorizontalStackWidth(node, graph, "left"),
+                canResizeStackRightW: isHorizontalDockStack && canResizeHorizontalStackWidth(node, graph, "right"),
+                canResizeStackH: isHorizontalDockStack && canResizeHorizontalStackHeight(node, graph),
+                canResizeStackTopH: !isHorizontalDockStack && isVerticalDockStack ? canResizeVerticalStackHeight(node, graph, "top") : false,
+                canResizeStackBottomH: !isHorizontalDockStack && isVerticalDockStack ? canResizeVerticalStackHeight(node, graph, "bottom") : false,
+                canResizeSharedLeftW: canResizeHorizontalSharedEdge(node, graph, "left"),
+                canResizeSharedRightW: canResizeHorizontalSharedEdge(node, graph, "right"),
+                hasHorizontalLeftNeighbor: isHorizontalDockStack && !!getHorizontalSameRowNeighbor(node, graph, "left"),
+                hasHorizontalRightNeighbor: isHorizontalDockStack && !!getHorizontalSameRowNeighbor(node, graph, "right"),
+                hasInternalTopResizeEdge: hasSharedTopEdge && !!nodeAbove && !isCollapsed && nodeAbove?.properties?.contentCollapsed !== true && canResizeVerticalSharedEdge(node, graph, "top"),
+                hasInternalBottomResizeEdge: hasSharedBottomEdge && !!nodeBelow && !isCollapsed && nodeBelow?.properties?.contentCollapsed !== true && canResizeVerticalSharedEdge(node, graph, "bottom"),
+                isTopBoundary: !!isVerticalDockStack && !nodeAbove,
+                isBottomBoundary: !!isVerticalDockStack && !nodeBelow,
+                allowFrameCornerTopLeft: !isPressureMember || isDeckPressureFrameCorner(node, graph, "top-left"),
+                allowFrameCornerTopRight: !isPressureMember || isDeckPressureFrameCorner(node, graph, "top-right"),
+                allowFrameCornerBottomLeft: !isPressureMember || isDeckPressureFrameCorner(node, graph, "bottom-left"),
+                allowFrameCornerBottomRight: !isPressureMember || isDeckPressureFrameCorner(node, graph, "bottom-right"),
+                deckFrameEdgeLeft: isDeckPressureFrameEdge(node, graph, "left") && deckCanResizeWidth,
+                deckFrameEdgeRight: isDeckPressureFrameEdge(node, graph, "right") && deckCanResizeWidth,
+                deckFrameEdgeTop: isDeckPressureFrameEdge(node, graph, "top") && deckCanResizeHeight,
+                deckFrameEdgeBottom: isDeckPressureFrameEdge(node, graph, "bottom") && deckCanResizeHeight,
+            };
+            node.interactionShield._resizeEligibility = eligibility;
+        }
+        const {
+            isVerticalDockStack,
+            isHorizontalDockStack,
+            isPressureMember,
+            canResizePressureSeamLeftW,
+            canResizePressureSeamRightW,
+            canResizePressureSeamTopH,
+            canResizePressureSeamBottomH,
+            canResizePressureSideHorizontalLeftW,
+            canResizePressureSideHorizontalRightW,
+            canResizeStackLeftW,
+            canResizeStackRightW,
+            canResizeStackH,
+            canResizeStackTopH,
+            canResizeStackBottomH,
+            canResizeSharedLeftW,
+            canResizeSharedRightW,
+            hasHorizontalLeftNeighbor,
+            hasHorizontalRightNeighbor,
+            hasInternalTopResizeEdge,
+            hasInternalBottomResizeEdge,
+            isTopBoundary,
+            isBottomBoundary,
+            allowFrameCornerTopLeft,
+            allowFrameCornerTopRight,
+            allowFrameCornerBottomLeft,
+            allowFrameCornerBottomRight,
+            deckFrameEdgeLeft,
+            deckFrameEdgeRight,
+            deckFrameEdgeTop,
+            deckFrameEdgeBottom,
+        } = eligibility;
         const canResizeStackW = canResizeStackLeftW || canResizeStackRightW || canResizePressureSeamLeftW || canResizePressureSeamRightW || canResizePressureSideHorizontalLeftW || canResizePressureSideHorizontalRightW;
-        const canResizeStackH = isHorizontalDockStack && canResizeHorizontalStackHeight(node, graph);
-        const canResizeSharedLeftW = canResizeHorizontalSharedEdge(node, graph, "left");
-        const canResizeSharedRightW = canResizeHorizontalSharedEdge(node, graph, "right");
         const canResizeSharedW = canResizeSharedLeftW || canResizeSharedRightW;
-        const hasHorizontalLeftNeighbor = isHorizontalDockStack && !!getHorizontalSameRowNeighbor(node, graph, "left");
-        const hasHorizontalRightNeighbor = isHorizontalDockStack && !!getHorizontalSameRowNeighbor(node, graph, "right");
         const canUseLeftW = (hasHorizontalLeftNeighbor ? canResizeSharedLeftW : (isHorizontalDockStack ? canResizeStackLeftW : canW)) || canResizePressureSeamLeftW || canResizePressureSideHorizontalLeftW;
         const canUseRightW = (hasHorizontalRightNeighbor ? canResizeSharedRightW : (isHorizontalDockStack ? canResizeStackRightW : canW)) || canResizePressureSeamRightW || canResizePressureSideHorizontalRightW;
         // Vertical stack boundary corners can resize the STACK height (distributed
@@ -1730,40 +1855,14 @@ export function syncDerpShield(node) {
         // members, so canResizeStackH covers both top and bottom corners.
         const canUseTopCornerH = isHorizontalDockStack
             ? canResizeStackH
-            : (isVerticalDockStack ? canResizeVerticalStackHeight(node, graph, "top") : canH);
+            : (isVerticalDockStack ? canResizeStackTopH : canH);
         const canUseBottomCornerH = isHorizontalDockStack
             ? canResizeStackH
-            : (isVerticalDockStack ? canResizeVerticalStackHeight(node, graph, "bottom") : canH);
+            : (isVerticalDockStack ? canResizeStackBottomH : canH);
         const getCornerCursor = (canUseW, diagonalCursor, canUseH) => (canUseW && canUseH) ? diagonalCursor : (canUseW ? "ew-resize" : (canUseH ? "ns-resize" : "default"));
-        const isCollapsed = node.properties?.contentCollapsed === true;
-        const nodeAbove = isVerticalDockStack ? getNodeOnDeckEdge(node, graph, "top") : null;
-        const nodeBelow = isVerticalDockStack ? getNodeOnDeckEdge(node, graph, "bottom") : null;
-        const isNodeAboveCollapsed = nodeAbove?.properties?.contentCollapsed === true;
-        const isNodeBelowCollapsed = nodeBelow?.properties?.contentCollapsed === true;
-        const hasInternalTopResizeEdge = hasSharedTopEdge && !!nodeAbove && !isCollapsed && !isNodeAboveCollapsed && canResizeVerticalSharedEdge(node, graph, "top");
-        const hasInternalBottomResizeEdge = hasSharedBottomEdge && !!nodeBelow && !isCollapsed && !isNodeBelowCollapsed && canResizeVerticalSharedEdge(node, graph, "bottom");
-        const isTopBoundary = !!isVerticalDockStack && !nodeAbove;
-        const isBottomBoundary = !!isVerticalDockStack && !nodeBelow;
         const allowTopResizeCorners = !isVerticalDockStack || isTopBoundary;
         const allowBottomResizeCorners = !isVerticalDockStack || isBottomBoundary;
         const pressureSharedEdgeHeight = Math.max(1, (visualH * scale) - topCornerSize - bottomCornerSize);
-        const allowFrameCornerTopLeft = !isPressureMember || isDeckPressureFrameCorner(node, graph, "top-left");
-        const allowFrameCornerTopRight = !isPressureMember || isDeckPressureFrameCorner(node, graph, "top-right");
-        const allowFrameCornerBottomLeft = !isPressureMember || isDeckPressureFrameCorner(node, graph, "bottom-left");
-        const allowFrameCornerBottomRight = !isPressureMember || isDeckPressureFrameCorner(node, graph, "bottom-right");
-        // Frame edge detection: outer edges of the deck frame that can be
-        // dragged to resize the deck (or the stack if the deck is docked).
-        // No neighbor gate — if there's a stack neighbor, the existing
-        // shared-seam handle logic already covers it; the frame edge flag
-        // only needs to ensure the handle is visible on frame boundaries.
-        const deckInHorizontalStack = pressureHub && getLinearResizeMembers(pressureHub, graph, "horizontal").length > 1;
-        const deckInVerticalStack = pressureHub && getLinearResizeMembers(pressureHub, graph, "vertical").length > 1;
-        const deckCanResizeWidth = !deckInHorizontalStack || canResizeHorizontalStackWidth(pressureHub, graph, "left") || canResizeHorizontalStackWidth(pressureHub, graph, "right");
-        const deckCanResizeHeight = !deckInVerticalStack || canResizeVerticalStackHeight(pressureHub, graph, "top") || canResizeVerticalStackHeight(pressureHub, graph, "bottom");
-        const deckFrameEdgeLeft = isDeckPressureFrameEdge(node, graph, "left") && deckCanResizeWidth;
-        const deckFrameEdgeRight = isDeckPressureFrameEdge(node, graph, "right") && deckCanResizeWidth;
-        const deckFrameEdgeTop = isDeckPressureFrameEdge(node, graph, "top") && deckCanResizeHeight;
-        const deckFrameEdgeBottom = isDeckPressureFrameEdge(node, graph, "bottom") && deckCanResizeHeight;
         const hasFrameEdge = deckFrameEdgeLeft || deckFrameEdgeRight || deckFrameEdgeTop || deckFrameEdgeBottom;
         // Store on the shield so startResize can distinguish frame-edge clicks
         // (which must proceed) from non-handle side clicks (which pass through).
