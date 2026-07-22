@@ -521,6 +521,10 @@ export function createDerpEditorHTML(callbacks = {}) {
     el.addEventListener("paste", (e) => {
         e.stopPropagation();
         if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+        e.preventDefault();
+        const text = e.clipboardData?.getData("text/plain") || "";
+        if (!text) return;
+        document.execCommand("insertText", false, text);
     });
     el.addEventListener("input", () => {
         const nextValue = getDerpEditorDomValue(el);
