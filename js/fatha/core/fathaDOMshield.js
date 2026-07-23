@@ -1905,12 +1905,15 @@ export function syncDerpShield(node) {
             node.interactionShield._resizeHandleSharedRight._resizeAnchorOverride = showSharedRight ? "right" : null;
         }
         // Top/bottom edge handles for deck frame outer edges and hub seams.
+        // Extend outward by the same pad as the corner handles so the grab zone
+        // straddles the visual frame edge — the body drop shadow is offset
+        // downward, so an inward-only bottom strip reads as "above the edge".
         if (node.interactionShield._resizeHandleSharedTop) {
             const sharedTopStyle = node.interactionShield._resizeHandleSharedTop.style;
             sharedTopStyle.width = `${visualW * scale}px`;
-            sharedTopStyle.height = `${SHARED_VERTICAL_SEAM_HITBOX_PX}px`;
+            sharedTopStyle.height = `${SHARED_VERTICAL_SEAM_HITBOX_PX + cornerOutwardPad}px`;
             sharedTopStyle.left = `${padL * scale}px`;
-            sharedTopStyle.top = "0px";
+            sharedTopStyle.top = `-${cornerOutwardPad}px`;
             sharedTopStyle.cursor = "ns-resize";
             const showSharedTop = deckFrameEdgeTop || canResizePressureSeamTopH;
             sharedTopStyle.display = showSharedTop ? "block" : "none";
@@ -1920,9 +1923,9 @@ export function syncDerpShield(node) {
         if (node.interactionShield._resizeHandleSharedBottom) {
             const sharedBottomStyle = node.interactionShield._resizeHandleSharedBottom.style;
             sharedBottomStyle.width = `${visualW * scale}px`;
-            sharedBottomStyle.height = `${SHARED_VERTICAL_SEAM_HITBOX_PX}px`;
+            sharedBottomStyle.height = `${SHARED_VERTICAL_SEAM_HITBOX_PX + cornerOutwardPad}px`;
             sharedBottomStyle.left = `${padL * scale}px`;
-            sharedBottomStyle.bottom = "0px";
+            sharedBottomStyle.bottom = `-${cornerOutwardPad}px`;
             sharedBottomStyle.cursor = "ns-resize";
             const showSharedBottom = deckFrameEdgeBottom || canResizePressureSeamBottomH;
             sharedBottomStyle.display = showSharedBottom ? "block" : "none";
