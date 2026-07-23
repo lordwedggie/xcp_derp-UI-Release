@@ -127,6 +127,14 @@ function resolveDeckPressureSideSeam(node, graph, side) {
         return getDeckPressureBranchMembers(pressureHub, graph, side).length > 0 ? { hub: pressureHub, branchSide: side } : null;
     }
     const directBranchSide = getDeckPressureBranchSideForNode(pressureHub, graph, node);
+    // A top/bottom branch member whose row spans the full frame width has its
+    // left/right edge aligned with the hub's left/right edge — the coordinate
+    // fallback below would incorrectly classify that edge as a side seam
+    // (branchSide "left"/"right") even though the member belongs to the
+    // top/bottom branch. Only left/right branch members are eligible for side
+    // seam resize; top/bottom members must fall through to the frame-edge or
+    // internal-seam paths. Mirrors the guard in resolveDeckPressureTopBottomSeam.
+    if (directBranchSide !== "left" && directBranchSide !== "right") return null;
     if (isDeckPressureSideWidthResizeEdge(node, graph, side)) return { hub: pressureHub, branchSide: directBranchSide };
     const nodeRect = getNodeGraphRect(node);
     if (!nodeRect) return null;
