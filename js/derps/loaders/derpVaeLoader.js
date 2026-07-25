@@ -127,7 +127,7 @@ app.registerExtension({
                         playSound: m.active ? null : "powerup",
                         alpha: item.isPreviewGhost ? 0 : 1.0,
                         width: "full", height: "auto", padding: [pW, pH],
-                        themeKey: "dialog, button, t_textSmall",
+                        themeKey: "dialog, button, t_textNormal",
                         onDragStart: (e, data) => startStackDrag(this, data, idx, rowKey),
                         onDrag: (e, data) => { updateStackDrag(this, data, "vaeRow_", deck.length); this.refreshNodeLayoutMap(); },
                         onDragEnd: () => endStackDrag(this, "vaeDeck"),
@@ -149,7 +149,7 @@ app.registerExtension({
                         hidden: !m.active,
                         alpha: item.isPreviewGhost ? 0 : 1.0,
                         width: "match", height: "fill", objectAlign: ["left", "middle"], spacing: [sW, 0], margin: [1, 1, 1, 1],
-                        themeKey: "button, t_textSmall",
+                        themeKey: "button, t_textNormal",
                         onPress: () => {
                             showBastaFileHandler(this, "none", `btnRemoveVae_${idx}`, {
                                 title: tLocale("$derp_vae_loader.dialogs.remove_vae.title", "Remove VAE"),
@@ -215,14 +215,14 @@ app.registerExtension({
                         width: "full",
                         height: "auto",
                         padding: [pW, pH],
-                        themeKey: "dialog, button, t_textSmall",
+                        themeKey: "dialog, button, t_textNormal",
                     },
                     [`floatingRemoveBtn`]: {
                         type: this.UI_TYPES.ICONBUTTON,
                         icon: "close",
                         hidden: !m.active,
                         width: "match", height: "fill", objectAlign: ["left", "middle"], spacing: [sW, 0], margin: [1, 1, 1, 1],
-                        themeKey: "button, t_textSmall",
+                        themeKey: "button, t_textNormal",
                     }
                 };
             }
@@ -263,7 +263,7 @@ app.registerExtension({
                             labelAlign: ["center", "middle"],
                             state: deck.length > 0 ? "OFF" : "DIS",
                             pulseStates: true,
-                            themeKey: "button, t_textSmall",
+                            themeKey: "button, t_textNormal",
                             onPress: () => {
                                 showBastaFileHandler(this, "none", "btnClear", {
                                     title: tLocale("$derp_vae_loader.dialogs.clear_deck.title", "Clear VAE Deck"),
@@ -291,7 +291,7 @@ app.registerExtension({
                             triggerIconColorKey: "t_text_warning",
                             width: "full", height: "auto",
                             fontSize: t_textSmall_size,
-                            themeKey: "dialog, t_textSmall", canvasShield: true,
+                            themeKey: "dialog, t_textNormal", canvasShield: true,
                             searchThemeKey: "panel, t_textSystem",
                             padding: [pW, pH],
                             onChange: (v) => {
@@ -316,7 +316,7 @@ app.registerExtension({
                             icon: "refresh",
                             corners: [0, 3, 3, 0],
                             width: "match", height: "fill", objectAlign: ["left", "middle"],
-                            themeKey: "button, t_textSmall",
+                            themeKey: "button, t_textNormal",
                             onPress: () => {
                                 window._xcpDerpSession = Date.now();
                                 this.fetchVaeData(true);

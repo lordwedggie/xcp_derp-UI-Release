@@ -151,7 +151,7 @@ function buildDeckRegions(node, deck, deckKey, rowPrefix, togglePrefix, removePr
                 playSound: m.active ? null : "powerUp",
                 alpha: item.isPreviewGhost ? 0 : 1.0,
                 width: "full", height: "auto", padding: [pW, pH],
-                themeKey: "dialog, button, t_textSmall",
+                themeKey: "dialog, button, t_textNormal",
                 onDragStart: (e, data) => {
                     node._dragDeckKey = deckKey;
                     startStackDrag(node, data, idx, rowKey);
@@ -183,7 +183,7 @@ function buildDeckRegions(node, deck, deckKey, rowPrefix, togglePrefix, removePr
                 hidden: !m.active,
                 alpha: item.isPreviewGhost ? 0 : 1.0,
                 width: "match", height: "fill", objectAlign: ["left", "middle"], spacing: [sW, 0], margin: [1, 1, 1, 1],
-                themeKey: "button, t_textSmall",
+                themeKey: "button, t_textNormal",
                 onPress: () => {
                     showBastaFileHandler(node, "none", `${removePrefix}${idx}`, {
                         title: tLocale(`${removeDialogKey}.title`, "Remove"),
@@ -235,7 +235,7 @@ function buildDeckRegions(node, deck, deckKey, rowPrefix, togglePrefix, removePr
             regionOffset: [0, 0],
             floatingToggle: {
                 type: node.UI_TYPES.TOGGLE_V2,
-                themeKey: "dialog, button, t_textSmall",
+                themeKey: "dialog, button, t_textNormal",
                 iconAlign: "left",
                 isTextOnly: true,
                 mouseOver: true,
@@ -332,7 +332,7 @@ app.registerExtension({
                             labelAlign: ["center", "middle"],
                             state: diffusionDeck.length > 0 ? "OFF" : "DIS",
                             pulseStates: true,
-                            themeKey: "button, t_textSmall",
+                            themeKey: "button, t_textNormal",
                             onPress: () => {
                                 showBastaFileHandler(this, "none", "btnClearDiffusions", {
                                     title: tLocale("$derp_diffusion_loader.dialogs.clear_diffusion_deck.title", "Clear Diffusion Deck"),
@@ -360,7 +360,7 @@ app.registerExtension({
                             triggerIconColorKey: "t_text_warning",
                             width: "full", height: "auto",
                             fontSize: t_textSmall_size,
-                            themeKey: "dialog, t_textSmall", canvasShield: true,
+                            themeKey: "dialog, t_textNormal", canvasShield: true,
                             searchThemeKey: "panel, t_textSystem",
                             padding: [pW, pH],
                             onChange: (v) => {
@@ -379,7 +379,7 @@ app.registerExtension({
                             icon: "refresh",
                             corners: [0, 3, 3, 0],
                             width: "match", height: "fill", objectAlign: ["left", "middle"],
-                            themeKey: "button, t_textSmall",
+                            themeKey: "button, t_textNormal",
                             onPress: () => {
                                 window._xcpDerpSession = Date.now();
                                 this.fetchDiffusionData(true);
