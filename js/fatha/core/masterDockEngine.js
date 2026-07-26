@@ -1312,6 +1312,17 @@ function saveDeckNodeAxes(node) {
     if (!Object.prototype.hasOwnProperty.call(props, "deckSavedAutoHeight")) {
         props.deckSavedAutoHeight = resolveDerpPreferredAutoHeight(node);
     }
+    // Save pixel dimensions for manual-mode nodes so they can be restored on
+    // undock. Auto-mode nodes re-measure from content after their boolean is
+    // restored, so the pixel value is irrelevant for them. The hasOwnProperty
+    // guard matches saveDeckNodeAxes' boolean-save semantics: first-dock wins,
+    // re-docks within the same session do not overwrite.
+    if (!Object.prototype.hasOwnProperty.call(props, "deckSavedWidth") && props.autoWidth !== true) {
+        props.deckSavedWidth = getNodeSizeValue(node, 0);
+    }
+    if (!Object.prototype.hasOwnProperty.call(props, "deckSavedHeight") && !resolveDerpPreferredAutoHeight(node)) {
+        props.deckSavedHeight = getNodeSizeValue(node, 1);
+    }
 }
 
 function restoreDeckNodeAxes(node) {
@@ -1328,6 +1339,24 @@ function restoreDeckNodeAxes(node) {
     if (hasSavedHeight) {
         node.properties.autoHeight = node.properties.deckSavedAutoHeight === true;
     }
+    // Restore pre-deck pixel dimensions for manual-mode nodes. Auto-mode nodes
+    // (autoWidth/autoHeight === true) re-measure from content, so their pixel
+    // values are left alone. The _derpPixelSizesRestored flag tells the
+    // pre-undock snapshot restorer (restoreDeckPressureSideHorizontalUndockWidths)
+    // to skip this node — otherwise it would overwrite the just-restored
+    // pre-deck sizes with the deck-pressure snapshot from before undock.
+    const hasSavedPixelWidth = Object.prototype.hasOwnProperty.call(node.properties, "deckSavedWidth");
+    const hasSavedPixelHeight = Object.prototype.hasOwnProperty.call(node.properties, "deckSavedHeight");
+    if (hasSavedPixelWidth || hasSavedPixelHeight) {
+        const restoreW = hasSavedPixelWidth && !node.properties.autoWidth;
+        const restoreH = hasSavedPixelHeight && !node.properties.autoHeight;
+        if (restoreW || restoreH) {
+            const targetW = restoreW ? node.properties.deckSavedWidth : getNodeSizeValue(node, 0);
+            const targetH = restoreH ? node.properties.deckSavedHeight : getNodeSizeValue(node, 1);
+            syncDeckNodeSize(node, targetW, targetH, { silent: true });
+            node._derpPixelSizesRestored = true;
+        }
+    }
     // Always clean up preferred overrides set by Manual mode, even if the
     // corresponding saved value was already deleted by a prior restore.
     // Otherwise resolveDerpPreferredAutoWidth/AutoHeight would keep returning
@@ -1339,6 +1368,8 @@ function restoreDeckNodeAxes(node) {
     delete node.properties._derpPreferredAutoHeight;
     delete node.properties.deckSavedAutoWidth;
     delete node.properties.deckSavedAutoHeight;
+    delete node.properties.deckSavedWidth;
+    delete node.properties.deckSavedHeight;
 
     if (node.layout) node.layout._lastCacheKey = "";
     node._forceSync = true;
@@ -1374,6 +1405,10 @@ function restoreDeckPressureSideHorizontalUndockWidths(snapshot) {
     let changed = false;
     snapshot.forEach(({ node, width, height }) => {
         if (!node || !(width > 0)) return;
+        // Skip nodes whose pre-deck pixel sizes were just restored by
+        // restoreDeckNodeAxes — the snapshot holds the deck-pressure-modified
+        // dimensions, and overwriting them would undo the restoration.
+        if (node._derpPixelSizesRestored) return;
         if (!node.properties) node.properties = {};
         node._horizontalDeckWidthResizeLock = true;
         changed = syncDeckNodeSize(node, width, height > 0 ? height : getNodeSizeValue(node, 1), { silent: true }) || changed;
@@ -1493,6 +1528,12 @@ export function undockNodeEdges(node, graph = null) {
         restoreDeckPressureSideHorizontalUndockWidths(preserveSideHorizontalWidths);
     }
 
+    // Clear the pixel-restored flag now that snapshot restorations are done.
+    // The flag prevented restoreDeckPressureSideHorizontalUndockWidths from
+    // clobbering pre-deck sizes on undocked members; leaving it set would
+    // cause future snapshot restorations to skip these nodes incorrectly.
+    [node, ...directNeighbors].forEach((n) => { if (n) delete n._derpPixelSizesRestored; });
+
     return changed;
 }
 
@@ -1522,10 +1563,13 @@ export function undeckDeckPressureBranches(hub, graph = null) {
             changed = true;
         }
         allBranchMembers.forEach(clearDeckPressureSideHorizontalWidthLock);
+        // Always restore axes for all branch members — the entire stack is
+        // leaving the hub, so every member's pre-deck auto-mode and pixel
+        // dimensions should be restored regardless of whether the members
+        // are still docked to each other. restoreDeckNodeAxes is a no-op if
+        // no saved properties exist, so calling it twice is safe.
         allBranchMembers.forEach((member) => {
-            if (member && !isNodeDocked(member, activeGraph)) {
-                restoreDeckNodeAxes(member);
-            }
+            if (member) restoreDeckNodeAxes(member);
         });
     });
 
@@ -1533,6 +1577,10 @@ export function undeckDeckPressureBranches(hub, graph = null) {
         refreshDeckStateWidgets([...affected.values()]);
         preserveSideHorizontalWidths.forEach(restoreDeckPressureSideHorizontalUndockWidths);
     }
+
+    // Clear the pixel-restored flag for all branch members now that snapshot
+    // restorations are done (see undockNodeEdges for the same cleanup).
+    branchMembers.forEach((n) => { if (n) delete n._derpPixelSizesRestored; });
 
     return changed;
 }
