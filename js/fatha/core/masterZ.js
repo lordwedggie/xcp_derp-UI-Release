@@ -51,35 +51,54 @@ function getSelectedDerpNodes(graph) {
     return Object.values(selected).filter((node) => isDerpNode(node) && node?.graph === graph);
 }
 
-function getDockNeighbors(node, graph) {
-    if (!node || !graph?._nodes) return [];
-    const ids = new Set();
-    const props = node.properties || {};
-    if (props.deckParentId !== null && props.deckParentId !== undefined) ids.add(String(props.deckParentId));
-    Object.values(props.deckEdges || {}).forEach((id) => {
-        if (id !== null && id !== undefined) ids.add(String(id));
-    });
-
-    const out = [];
+// Per-promote lookup maps: the old getDockNeighbors scanned every graph node for
+// every dequeued member (O(graph) per member, O(graph × members) per promote).
+// The deck relation is pure id data, so one O(graph) pass building byId +
+// reverse parent/edge indexes lets the BFS resolve neighbors in O(degree).
+function buildDeckLookupMaps(graph) {
+    const byId = new Map();
+    const childrenByParentId = new Map();
+    const sourcesByEdgeTargetId = new Map();
     for (const candidate of graph._nodes) {
-        if (!isDerpNode(candidate) || candidate === node) continue;
+        if (!isDerpNode(candidate)) continue;
+        byId.set(String(candidate.id), candidate);
         const candidateProps = candidate.properties || {};
-        if (ids.has(String(candidate.id))) {
-            out.push(candidate);
-            continue;
+        if (candidateProps.deckParentId !== null && candidateProps.deckParentId !== undefined) {
+            const key = String(candidateProps.deckParentId);
+            let list = childrenByParentId.get(key);
+            if (!list) childrenByParentId.set(key, (list = []));
+            list.push(candidate);
         }
-        if (candidateProps.deckParentId !== null && candidateProps.deckParentId !== undefined && String(candidateProps.deckParentId) === String(node.id)) {
-            out.push(candidate);
-            continue;
-        }
-        if (Object.values(candidateProps.deckEdges || {}).some((id) => String(id) === String(node.id))) {
-            out.push(candidate);
+        for (const id of Object.values(candidateProps.deckEdges || {})) {
+            if (id === null || id === undefined) continue;
+            const key = String(id);
+            let list = sourcesByEdgeTargetId.get(key);
+            if (!list) sourcesByEdgeTargetId.set(key, (list = []));
+            list.push(candidate);
         }
     }
-    return out;
+    return { byId, childrenByParentId, sourcesByEdgeTargetId };
 }
 
-function getDeckMembersLocal(rootNode, graph) {
+function pushDeckNeighbors(node, lookup, queue) {
+    const props = node.properties || {};
+    if (props.deckParentId !== null && props.deckParentId !== undefined) {
+        const parent = lookup.byId.get(String(props.deckParentId));
+        if (parent) queue.push(parent);
+    }
+    for (const id of Object.values(props.deckEdges || {})) {
+        if (id === null || id === undefined) continue;
+        const edgeNode = lookup.byId.get(String(id));
+        if (edgeNode) queue.push(edgeNode);
+    }
+    const key = String(node.id);
+    const children = lookup.childrenByParentId.get(key);
+    if (children) queue.push(...children);
+    const edgeSources = lookup.sourcesByEdgeTargetId.get(key);
+    if (edgeSources) queue.push(...edgeSources);
+}
+
+function getDeckMembersLocal(rootNode, graph, lookup = buildDeckLookupMaps(graph)) {
     if (!rootNode || !graph?._nodes) return [];
     const queue = [rootNode];
     const members = [];
@@ -89,7 +108,7 @@ function getDeckMembersLocal(rootNode, graph) {
         if (!node || seen.has(node.id)) continue;
         seen.add(node.id);
         members.push(node);
-        queue.push(...getDockNeighbors(node, graph));
+        pushDeckNeighbors(node, lookup, queue);
     }
     return members;
 }
@@ -109,8 +128,11 @@ export function getMasterZPromotionSet(node, graph = getGraph(node)) {
     else seed.push(node);
 
     const expanded = [];
+    // One shared lookup for all seed items: multi-select promotes used to pay a
+    // full O(graph) map build (previously O(graph) scans) per selected node.
+    const lookup = buildDeckLookupMaps(graph);
     for (const item of uniqueNodes(seed)) {
-        const members = getDeckMembersLocal(item, graph);
+        const members = getDeckMembersLocal(item, graph, lookup);
         expanded.push(...(members.length ? members : [item]));
     }
 
@@ -128,15 +150,25 @@ export function syncMasterZ(graph = app?.graph || null) {
     nodes.forEach((node, idx) => {
         if (!isDerpNode(node)) return;
         const shieldZ = MASTER_Z.nodeShieldBase + (idx * 2);
-        const htmlZ = shieldZ + 1;
-        node.baseZIndex = String(shieldZ);
-        node._masterZShield = shieldZ;
-        node._masterZHtml = htmlZ;
-        if (node.interactionShield) {
-            const dMode = node.properties?.debugMode;
-            node.interactionShield.style.zIndex = (dMode === "Hitbox" || dMode === "Widgets Hitbox")
-                ? String(MASTER_Z.debugHitbox)
-                : String(shieldZ);
+        // Change-guard: a node's z band only moves when its graph index moves
+        // (promote/reorder) or hitbox-debug mode flips. Between those events this
+        // per-frame onDrawForeground pass would rewrite identical values into JS
+        // props and the DOM — and DOM style writes cost style time even when the
+        // assigned string is unchanged. Skip when nothing moved. syncDerpShield
+        // independently writes the same z from baseZIndex on shield (re)creation,
+        // so a fresh element can never strand a stale value behind the guard.
+        if (node._masterZShield !== shieldZ) {
+            node._masterZShield = shieldZ;
+            node._masterZHtml = shieldZ + 1;
+            node.baseZIndex = String(shieldZ);
+        }
+        const shield = node.interactionShield;
+        if (!shield) return;
+        const dMode = node.properties?.debugMode;
+        const domTarget = (dMode === "Hitbox" || dMode === "Widgets Hitbox") ? MASTER_Z.debugHitbox : shieldZ;
+        if (node._masterZDomTarget !== domTarget) {
+            node._masterZDomTarget = domTarget;
+            shield.style.zIndex = String(domTarget);
         }
     });
 }
@@ -147,20 +179,31 @@ export function promoteMasterZ(node, graph = getGraph(node)) {
     if (!set.length) return false;
 
     const promoteIds = new Set(set.map((item) => item.id));
-    const before = graph._nodes.map((item) => item.id).join("|");
     const remaining = graph._nodes.filter((item) => !promoteIds.has(item.id));
     const promoted = graph._nodes.filter((item) => promoteIds.has(item.id));
-    graph._nodes.length = 0;
-    graph._nodes.push(...remaining, ...promoted);
-    const after = graph._nodes.map((item) => item.id).join("|");
-    syncMasterZ(graph);
 
-    if (before !== after) {
-        graph.change?.();
-        app?.canvas?.setDirty?.(true, true);
-        return true;
+    // No-op fast path: promoting an already-top set leaves graph._nodes
+    // elementwise identical. Ref compare with early exit replaces the old
+    // before/after full id-string joins (two O(graph) string builds per click);
+    // the common click-on-already-top-node case exits at the tail comparison.
+    // Z values depend only on this order, so an unchanged order means
+    // syncMasterZ has nothing new to write — skip it and let the per-frame
+    // onDrawForeground sync own steady state.
+    const next = remaining.concat(promoted);
+    if (next.length === graph._nodes.length) {
+        let unchanged = true;
+        for (let i = 0; i < next.length; i++) {
+            if (graph._nodes[i] !== next[i]) { unchanged = false; break; }
+        }
+        if (unchanged) return false;
     }
-    return false;
+
+    graph._nodes.length = 0;
+    graph._nodes.push(...next);
+    syncMasterZ(graph);
+    graph.change?.();
+    app?.canvas?.setDirty?.(true, true);
+    return true;
 }
 
 export function getMasterZDebugSnapshot(graph = app?.graph || null, limit = 6) {

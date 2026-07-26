@@ -22,9 +22,9 @@ import {
     handleDerpCollapseImpl,
     handleHorizontalDeckTitleToggleImpl,
 } from "./dockResize.js";
-import { masterDockEngine, getDeckMembers, getDeckCornerOverride, getNodeOnDeckEdge, isDeckPressureSideHorizontalBranchMember, isLinearDeckGroup, normalizeDockedLayout, setDeckNodePos, syncDeckNodeSize, isDeckPressureHub, getDeckPressureHubForNode, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureBranchAxis, applyDeckPressureLayout, getDeckPressureSideHorizontalExplicitWidthLock, drawSharedResizeSeamGhosts } from "./masterDockEngine.js";
+import { masterDockEngine, getDeckMembers, getDeckCornerOverride, getNodeOnDeckEdge, isDeckPressureSideHorizontalBranchMember, isLinearDeckGroup, normalizeDockedLayout, setDeckNodePos, syncDeckNodeSize, isDeckPressureHub, getDeckPressureHubForNode, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureBranchAxis, applyDeckPressureLayout, getDeckGraphIndexStamp, getDeckPressureSideHorizontalExplicitWidthLock, drawSharedResizeSeamGhosts } from "./masterDockEngine.js";
 import { getActiveVerticalDeckWidthLock, getDockGroupAxisFromMembers, getDockNodeHeight, getDockNodeMinWidth, getDockNodeWidth, getDerpLayoutCacheHash, getSharedDockMinWidth, getSharedDockWidth, shouldPreserveDockHeight, shouldPreserveDockWidth } from "./dockDimensions.js";
-import { getLinearResizeMembers } from "./dockResizeSharedEdges.js";
+import { getHorizontalDeckMembersByX, getLinearResizeMembers } from "./dockResizeSharedEdges.js";
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
 import {
     getNodeHeaderPaletteFingerprint,
@@ -88,8 +88,19 @@ let derpDefaultTitleRegistryPromise = null;
 const deckFrameCache = new Map();
 const deckNodeFrameCache = new Map();
 let deckCacheFrame = null;
+let deckCacheIndexStamp = null;
 const deckPressureFrameCache = new Map();
 const deckPressureStableCache = new Map();
+// Per-frame shared "current geometry" signature for one pressure hub. Every
+// deck member's draw calls normalizeDerpDockedLayout, and each call used to
+// rebuild the full deck-wide members list + signature string just to compare
+// against the applied-signature caches — O(N) string work × N members per
+// frame. The signature is a pure read of member geometry, so compute it once
+// per frame per hub, refresh it after each applyDeckPressureLayout, and let
+// later members in the same frame reuse it. A member drifting mid-frame
+// (its own animate step) is picked up on the next frame's fresh signature —
+// the same one-frame settle the frame cache already allows.
+const deckPressureCurrentSigCache = new Map();
 
 function normalizeDerpLocaleKey(key) {
     return String(key || "").replace(/^\$/, "");
@@ -415,20 +426,6 @@ export function drawDeckResizeOptimizedNode(node, ctx) {
     return true;
 }
 
-function getHorizontalDeckMembersByX(node, graph) {
-    const members = getLinearResizeMembers(node, graph, "horizontal");
-    if (members.length === 0) return [];
-    const pressureHub = getDeckPressureHubForNode(node, graph);
-    const branchSide = pressureHub && pressureHub.id !== node.id ? getDeckPressureBranchSideForNode(pressureHub, graph, node) : null;
-    if (getDeckPressureBranchAxis(pressureHub, graph, branchSide) === "horizontal") return members;
-    return members.slice().sort((a, b) => {
-        const ax = Number(a?.pos?.[0]) || 0;
-        const bx = Number(b?.pos?.[0]) || 0;
-        if (ax !== bx) return ax - bx;
-        return (Number(a?.id) || 0) - (Number(b?.id) || 0);
-    });
-}
-
 function distributeHorizontalWidthDelta(members, delta, snap) {
     const unit = Math.max(1, Number(snap) || 10);
     let remaining = Math.round(Math.abs(Number(delta) || 0) / unit) * unit;
@@ -479,6 +476,20 @@ function hasActiveHorizontalResize(members = []) {
 
 export function balanceHorizontalDeckWidthChange(node, previousWidth = 0) {
     const graph = app.graph || node?.graph || null;
+    if (!graph || !node) return false;
+    // Cheap bail before any deck walk: balancing only acts on horizontal
+    // decks (left/right adjacency) or horizontal Deck Pressure branches.
+    // Standalone nodes, vertical stacks, hubs, and vertical pressure branches
+    // all resolve to <= 1 member and return false after the full member
+    // resolution — skip that O(deck) BFS/sort for them since this runs for
+    // every node every frame. getNodeOnDeckEdge/getDeckPressureHubForNode are
+    // per-frame index-backed/memoized, so the gate stays O(degree).
+    if (!getNodeOnDeckEdge(node, graph, "left") && !getNodeOnDeckEdge(node, graph, "right")) {
+        const pressureHub = getDeckPressureHubForNode(node, graph);
+        if (!pressureHub || pressureHub.id === node.id) return false;
+        const branchSide = getDeckPressureBranchSideForNode(pressureHub, graph, node);
+        if (getDeckPressureBranchAxis(pressureHub, graph, branchSide) !== "horizontal") return false;
+    }
     const members = getHorizontalDeckMembersByX(node, graph);
     if (members.length <= 1) return false;
 
@@ -571,16 +582,33 @@ function getDeckFrameState(node) {
     if (!graph || !node) return null;
 
     const frame = Number(app.canvas?.frame) || 0;
-    if (deckCacheFrame !== frame) {
+    // Deck topology can change WITHIN a frame: dock/undock commits go through
+    // setPeerDeckNeighbor → invalidateDeckGraphIndex, and tests/tools may swap
+    // the graph object outright. Both bump the deck graph index stamp, so fold
+    // it into the cache generation — otherwise the fast path below would serve
+    // the pre-commit member list for the rest of the frame (a late third-node
+    // attach would never be synced).
+    const indexStamp = getDeckGraphIndexStamp(graph);
+    if (deckCacheFrame !== frame || deckCacheIndexStamp !== indexStamp) {
         deckFrameCache.clear();
         deckNodeFrameCache.clear();
+        deckPressureCurrentSigCache.clear();
         deckCacheFrame = frame;
+        deckCacheIndexStamp = indexStamp;
     }
     const nodeFrameKey = `${frame}:${node.id}`;
     if (isDeckPressureHub(node)) {
         deckNodeFrameCache.set(nodeFrameKey, null);
         return null;
     }
+
+    // Fast path: this node's deck state was already resolved this frame (own
+    // call or a deck sibling's). Deck membership is stable within one index
+    // generation — dock/undock commits bump the stamp and cleared the caches
+    // above — so the cached entry cannot be stale here. Trusting it skips the
+    // getDeckMembers/getLinearResizeMembers walks that made every deck
+    // member pay O(deck) per frame (O(N²) per deck per frame).
+    if (deckNodeFrameCache.has(nodeFrameKey)) return deckNodeFrameCache.get(nodeFrameKey);
 
     let members = getDeckMembers(node, graph);
     if (!Array.isArray(members) || members.length <= 1) {
@@ -600,10 +628,6 @@ function getDeckFrameState(node) {
     const preserveHeight = shouldPreserveDockHeight(axis);
     const preserveWidth = shouldPreserveDockWidth(axis);
     const cacheKey = getDeckFrameKey(node, members);
-    const cachedNodeState = deckNodeFrameCache.get(nodeFrameKey);
-    if (cachedNodeState && getDeckFrameKey(node, cachedNodeState.members) === cacheKey && cachedNodeState.axis === axis) {
-        return cachedNodeState;
-    }
     let state = deckFrameCache.get(cacheKey);
     if (!state) {
         state = {
@@ -1152,9 +1176,20 @@ export function normalizeDerpDockedLayout(node) {
     const pressureHub = isDeckPressureHub(node) ? node : getDeckPressureHubForNode(node, graph);
     if (pressureHub) {
         const frame = Number(app.canvas?.frame ?? app.canvas?.drawCount) || 0;
-        const members = getDeckMembers(pressureHub, graph);
-        const signature = getDeckGeometrySignature(members, pressureHub.id, "deck-pressure");
         const cacheKey = `${frame}:${pressureHub.id}`;
+        let current = deckPressureCurrentSigCache.get(cacheKey);
+        if (!current || current.graph !== graph) {
+            const members = getDeckMembers(pressureHub, graph);
+            current = {
+                graph,
+                members,
+                signature: getDeckGeometrySignature(members, pressureHub.id, "deck-pressure"),
+            };
+            if (deckPressureCurrentSigCache.size > 64) deckPressureCurrentSigCache.clear();
+            deckPressureCurrentSigCache.set(cacheKey, current);
+        }
+        const members = current.members;
+        const signature = current.signature;
         const cached = deckPressureFrameCache.get(cacheKey);
         if (cached?.signature === signature) return [];
         const stableCacheKey = String(pressureHub.id);
@@ -1162,6 +1197,7 @@ export function normalizeDerpDockedLayout(node) {
         if (stable && deckPressureStableCache.get(stableCacheKey)?.signature === signature) return [];
         const moved = applyDeckPressureLayout(pressureHub, graph, getDerpVars(pressureHub).SNAP);
         const nextSignature = getDeckGeometrySignature(members, pressureHub.id, "deck-pressure");
+        current.signature = nextSignature;
         deckPressureFrameCache.set(cacheKey, { signature: nextSignature });
         if (stable) deckPressureStableCache.set(stableCacheKey, { signature: nextSignature });
         else deckPressureStableCache.delete(stableCacheKey);

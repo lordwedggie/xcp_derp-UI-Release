@@ -27,6 +27,15 @@ const DECK_ARRANGEMENT_HORIZONTAL = "horizontal_sandwich";
 let deckGraphIndexFrame = null;
 let deckGraphIndexGraph = null;
 let deckGraphIndex = null;
+// Monotonic generation counter for the deck graph index; incremented on every
+// build so per-group frame caches (shield group signature) can key by
+// stamp-qualified component ids without aliasing stale topology.
+let deckGraphIndexStamp = 0;
+// Per-frame memo for getDeckPressureHubForNode: the hub BFS result is a pure
+// function of the deck graph index, so it shares the index's lifetime. Cleared
+// whenever the index is rebuilt (frame change, graph switch) or invalidated
+// (edge mutation via setPeerDeckNeighbor).
+const deckPressureHubMemo = new Map();
 // Monotonic stamp + newest-session node set guarding the 250ms
 // _horizontalDeckWidthResizeLock release timers: a stale timer must not clear
 // a lock re-acquired by a newer session, but must still release nodes the
@@ -51,6 +60,7 @@ function invalidateDeckGraphIndex() {
     deckGraphIndexFrame = null;
     deckGraphIndexGraph = null;
     deckGraphIndex = null;
+    deckPressureHubMemo.clear();
 }
 
 function dockDebugLog(label, payload = {}) {
@@ -103,10 +113,65 @@ function getDeckGraphIndex(graph) {
         });
     });
 
-    deckGraphIndex = { byId, reverseEdges, children };
+    // Connected components over the exact getAdjacentDeckNodes adjacency
+    // (forward deckEdges + parent + children + reverseEdges), built from the
+    // local maps above — O(nodes + edges) once per index build. Consumers such
+    // as the shield structure-hash group signature key per-group frame caches
+    // by component instead of re-walking the group per member. The stamp
+    // changes on every rebuild (frame change, graph switch, edge-mutation
+    // invalidation), so stamp-qualified cache keys can never alias a group
+    // from a previous topology.
+    deckGraphIndexStamp += 1;
+    const componentOf = new Map();
+    let componentCount = 0;
+    byId.forEach((start) => {
+        if (componentOf.has(start.id)) return;
+        componentCount += 1;
+        componentOf.set(start.id, componentCount);
+        const queue = [start];
+        while (queue.length > 0) {
+            const node = queue.shift();
+            const pushIfNew = (neighbor) => {
+                if (!neighbor || componentOf.has(neighbor.id)) return;
+                componentOf.set(neighbor.id, componentCount);
+                queue.push(neighbor);
+            };
+            const edges = node?.properties?.deckEdges || {};
+            ["left", "right", "top", "bottom"].forEach((side) => {
+                const neighborId = edges[side];
+                if (neighborId === null || neighborId === undefined) return;
+                pushIfNew(byId.get(neighborId));
+            });
+            const parentId = node?.properties?.deckParentId;
+            if (parentId !== null && parentId !== undefined) pushIfNew(byId.get(parentId));
+            (children.get(node.id) || []).forEach(pushIfNew);
+            (reverseEdges.get(node.id) || []).forEach(({ node: candidate }) => pushIfNew(candidate));
+        }
+    });
+
+    deckGraphIndex = { byId, reverseEdges, children, componentOf, stamp: deckGraphIndexStamp };
     deckGraphIndexGraph = graph;
     deckGraphIndexFrame = frame;
+    deckPressureHubMemo.clear();
     return deckGraphIndex;
+}
+
+// Stamp-qualified component key for a node, or null when the node is not in the
+// deck graph index. Unique per (topology generation, connected component).
+export function getDeckComponentKey(node, graph) {
+    if (!node || !graph) return null;
+    const index = getDeckGraphIndex(graph);
+    const componentId = index?.componentOf.get(node.id);
+    return componentId === undefined ? null : `${index.stamp}:${componentId}`;
+}
+
+// Current deck graph index generation. Changes on every index rebuild (frame
+// change, graph switch, edge-mutation invalidation), so same-frame caches keyed
+// by frame alone can use it to detect mid-frame topology commits (dock/undock
+// via setPeerDeckNeighbor, or graph swaps) that would otherwise serve stale
+// deck membership.
+export function getDeckGraphIndexStamp(graph) {
+    return getDeckGraphIndex(graph)?.stamp ?? 0;
 }
 
 export function setDeckNodePos(node, x, y) {
@@ -361,8 +426,12 @@ export function getDeckPressureHubForNode(node, graph) {
     if (!node || !graph) return null;
     if (isDeckPressureHub(node)) return node;
     const index = getDeckGraphIndex(graph);
+    if (deckPressureHubMemo.has(node.id)) return deckPressureHubMemo.get(node.id);
     const parent = index?.byId.get(node.properties?.deckParentId) || null;
-    if (isDeckPressureHub(parent)) return parent;
+    if (isDeckPressureHub(parent)) {
+        deckPressureHubMemo.set(node.id, parent);
+        return parent;
+    }
 
     const visited = new Set();
     const queue = [node];
@@ -372,7 +441,10 @@ export function getDeckPressureHubForNode(node, graph) {
         visited.add(current.id);
 
         const currentParent = index?.byId.get(current.properties?.deckParentId) || null;
-        if (isDeckPressureHub(currentParent)) return currentParent;
+        if (isDeckPressureHub(currentParent)) {
+            deckPressureHubMemo.set(node.id, currentParent);
+            return currentParent;
+        }
 
         const edges = current.properties?.deckEdges || {};
         ["left", "right", "top", "bottom"].forEach((side) => {
@@ -384,6 +456,7 @@ export function getDeckPressureHubForNode(node, graph) {
         });
     }
 
+    deckPressureHubMemo.set(node.id, null);
     return null;
 }
 
@@ -3535,8 +3608,13 @@ function getNodeBounds(node) {
 
 function getNodeById(graph, id) {
     if (!graph || id === null || id === undefined) return null;
-    if (typeof graph.getNodeById === "function") return graph.getNodeById(id) || null;
-    return graph._nodes?.find?.((node) => node?.id === id) || null;
+    // Prefer the per-frame deck graph index (O(1)); session ids are derp deck
+    // nodes, so the index covers them. Fall back for anything it does not hold
+    // (mid-frame additions before the next index rebuild).
+    return getDeckGraphIndex(graph)?.byId.get(id)
+        || (typeof graph.getNodeById === "function" ? graph.getNodeById(id) : null)
+        || graph._nodes?.find?.((node) => node?.id === id)
+        || null;
 }
 
 function getBoundsForNodes(nodes = []) {
@@ -3684,6 +3762,16 @@ function drawSeamGhostPair(ctx, pair, paint) {
 
 export function drawSharedResizeSeamGhosts(ctx, graph = globalThis?.app?.graph || null) {
     if (!ctx || !graph?._nodes?.length) return;
+    // Idle gate: scan for session-bearing nodes with bare property reads and
+    // bail before any theme-paint/pulse work. Seam sessions only exist while
+    // hovering or dragging a resize seam, so almost every frame skips here.
+    const sessionNodes = [];
+    graph._nodes.forEach((node) => {
+        if ((node?._isDerpResizing === true && node?._dockResizeSession) || node?._dockResizeHoverSession) {
+            sessionNodes.push(node);
+        }
+    });
+    if (sessionNodes.length === 0) return;
     const useAnim = window.DERP_GLOBAL_SETTINGS?.useAnimation !== false;
     const bodyPaint = resolveSystemThemePaint("ghost_seam_valid", "OFF") || { fill: "rgba(56, 202, 90, 0.95)", corners: 0 };
     const fill = useAnim
@@ -3696,7 +3784,7 @@ export function drawSharedResizeSeamGhosts(ctx, graph = globalThis?.app?.graph |
     const paint = { ...bodyPaint, fill, corners: 0 };
     let drew = false;
     const seen = new Set();
-    graph._nodes.forEach((node) => {
+    sessionNodes.forEach((node) => {
         const sessions = [];
         if (node?._isDerpResizing === true && node._dockResizeSession) sessions.push(node._dockResizeSession);
         if (node?._dockResizeHoverSession) sessions.push(node._dockResizeHoverSession);
