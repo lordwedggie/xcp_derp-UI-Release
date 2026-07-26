@@ -91,6 +91,37 @@ function getDeckPressureFrameHeightEdgeTarget(entity, graph, resizeAnchor) {
     return { hub, side: resizeAnchor, bounds };
 }
 
+// Left/right drags on a deck frame outer edge belonging to a TOP/BOTTOM branch
+// member (a horizontal stack decked above/below the hub, spanning the full
+// frame width) resize the deck frame width — never the dragged stack alone.
+// Detection only: the resize itself is retargeted to the hub's own side-edge
+// drag handling (see handleNodeResize), whose pressure min-width floor and
+// pressure-layout refit already handle every branch configuration correctly,
+// including rows already at min width. Width twin of
+// getDeckPressureFrameHeightEdgeTarget.
+function getDeckPressureFrameWidthEdgeTarget(entity, graph, resizeAnchor) {
+    if (resizeAnchor !== "left" && resizeAnchor !== "right") return null;
+    if (!entity || !graph) return null;
+    if (isDeckPressureHub(entity)) return null;
+    const hub = getDeckPressureHubForNode(entity, graph);
+    if (!hub || hub.id === entity.id) return null;
+    // Only top/bottom branch members take this path; left/right branch members
+    // already have their own outer-frame-edge handling via
+    // applyDeckPressureSideWidthResize's isOuterFrameEdge session path.
+    const branchSide = getDeckPressureBranchSideForNode(hub, graph, entity);
+    if (branchSide !== "top" && branchSide !== "bottom") return null;
+    if (getDeckPressureBranchAxis(hub, graph, branchSide) !== "horizontal") return null;
+    const bounds = getDeckPressureLiveFrameBounds(hub, graph);
+    if (!bounds) return null;
+    const x = Number(entity.pos?.[0]) || 0;
+    const w = Number(entity.size?.[0] ?? entity.properties?.nodeSize?.[0]) || 0;
+    const edge = resizeAnchor === "left" ? x : x + w;
+    const frameEdge = resizeAnchor === "left" ? bounds.left : bounds.right;
+    if (Math.abs(edge - frameEdge) > 1) return null;
+    return { hub, side: resizeAnchor };
+}
+
+
 function applyDeckPressureFrameHeightResize(target, graph, data, scale, snap) {
     const { hub, side, bounds } = target;
     const unit = Math.max(1, Number(snap) || 10);
@@ -302,6 +333,34 @@ export function handleNodeResize(entity, data, scale) {
     const frameHeightEdgeTarget = getDeckPressureFrameHeightEdgeTarget(entity, graph, resizeAnchor);
     if (frameHeightEdgeTarget) {
         applyDeckPressureFrameHeightResize(frameHeightEdgeTarget, graph, data, scale, SNAP);
+        return;
+    }
+
+    // Deck frame width edge: left/right drags on the deck frame's outer edge
+    // belonging to a TOP/BOTTOM branch row (a horizontal stack decked above
+    // or below the hub, spanning the full frame width) resize the deck frame
+    // width — never the dragged stack alone. Retargets the drag to the hub's
+    // own side edge so the pressure min-width floor and pressure-layout refit
+    // behave exactly like a direct derpImageDeck edge drag in every branch
+    // configuration (a stack already at min width clamps instead of eating
+    // into the hub). Runs before the axis gates fall through to
+    // syncDockResizePair, which would otherwise treat the drag as an ordinary
+    // horizontal stack width resize. Width twin of the path above.
+    const frameWidthEdgeTarget = getDeckPressureFrameWidthEdgeTarget(entity, graph, resizeAnchor);
+    if (frameWidthEdgeTarget) {
+        const hub = frameWidthEdgeTarget.hub;
+        // The hub's resize math is driven by _startPos/_startSize plus the
+        // cumulative pointer delta. Snapshot them once per drag session
+        // (keyed by dragged member + side) so repeated moves stay relative
+        // to the drag-start hub rect.
+        const retarget = hub._deckPressureFrameWidthRetarget;
+        if (!retarget || retarget.entityId !== entity.id || retarget.side !== frameWidthEdgeTarget.side
+            || !hub._startPos || !hub._startSize) {
+            hub._deckPressureFrameWidthRetarget = { entityId: entity.id, side: frameWidthEdgeTarget.side };
+            hub._startPos = [Number(hub.pos?.[0]) || 0, Number(hub.pos?.[1]) || 0];
+            hub._startSize = [Number(hub.size?.[0]) || 0, Number(hub.size?.[1]) || 0];
+        }
+        handleNodeResize(hub, { ...data, resizeAnchor: frameWidthEdgeTarget.side }, scale);
         return;
     }
 

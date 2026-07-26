@@ -18,7 +18,7 @@
  */
 import { app } from "../../../../scripts/app.js";
 import { renderHitboxDebug } from "../helpers/debugPainter.js";
-import { computeDeckPressureGeometryPlan, getDeckMembers, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureBranchAxis, getDeckPressureHubForNode, getNodeOnDeckEdge, isDeckPressureHub, isDeckPressureSideHorizontalBranchMember, isDeckPressureSideHorizontalHubEdge, isDeckPressureSideWidthResizeEdge, isDeckPressureTopBottomHeightResizeEdge, isLinearDeckGroup, syncDeckNodeSize } from "./masterDockEngine.js";
+import { computeDeckPressureGeometryPlan, getDeckComponentKey, getDeckMembers, getDeckPressureBranchMembers, getDeckPressureBranchSideForNode, getDeckPressureBranchAxis, getDeckPressureHubForNode, getNodeOnDeckEdge, isDeckPressureHub, isDeckPressureSideHorizontalBranchMember, isDeckPressureSideHorizontalHubEdge, isDeckPressureSideWidthResizeEdge, isDeckPressureTopBottomHeightResizeEdge, isLinearDeckGroup, syncDeckNodeSize } from "./masterDockEngine.js";
 import { canResizeDeckPressureSideWidthMember, canResizeDeckPressureTopBottomHeightBranch, canResizeHorizontalSharedEdgeWidth as canResizeHorizontalSharedEdge, canResizeHorizontalStackHeight, canResizeHorizontalStackWidth, canResizeVerticalSharedEdgeHeight as canResizeVerticalSharedEdge, canResizeVerticalStackHeight, getHorizontalSameRowNeighbor, getLinearResizeMembers } from "./dockResizeSharedEdges.js";
 import { beginDeckResizeOptimization, clearEntityTooltip, endDeckResizeOptimization, isSystemButtonHit } from "./fathaHandler.js";
 import { SOUND_INDEX } from "../../herbina/masterSoundEffects.js";
@@ -34,6 +34,12 @@ const SHIELD_CORNER_RESIZE_OUTWARD_PAD = 5;
 const SHIELD_HITBOX_DEBUG_FLAG = "xcpDerpDebugShieldHitboxes";
 const SHARED_VERTICAL_SEAM_HITBOX_PX = 2;
 const SHARED_HORIZONTAL_SEAM_HITBOX_PX = 2;
+// Per-(deck-graph generation, connected component) cache of the shield
+// structure-hash group signature. Keys come from getDeckComponentKey and are
+// stamp-qualified, so edge mutations (which invalidate the deck graph index
+// and bump the stamp) can never serve a signature from stale topology.
+// Entries die by the 64-entry clear; a generation lives at most one frame.
+const derpShieldGroupSigCache = new Map();
 
 function isCornerResizeAnchor(anchor) {
     return CORNER_RESIZE_ANCHORS.has(anchor);
@@ -81,7 +87,7 @@ function isDeckPressureFrameCorner(node, graph, anchor) {
     return false;
 }
 
-function isDeckPressureFrameEdge(node, graph, side) {
+export function isDeckPressureFrameEdge(node, graph, side) {
     if (side !== "left" && side !== "right" && side !== "top" && side !== "bottom") return false;
     const pressureHub = graph ? getDeckPressureHubForNode(node, graph) : null;
     if (!pressureHub) return false;
@@ -472,6 +478,7 @@ export function createDerpShield(node) {
                 delete pressureHub._deckPressureFrameHeightResizeActive;
                 delete pressureHub._deckPressurePreserveFrameBounds;
                 delete pressureHub._deckPressureFrameEdgeResizeStartBounds;
+                delete pressureHub._deckPressureFrameWidthRetarget;
                 delete pressureHub._deckPressureSideWidthOverrides;
                 delete pressureHub._deckPressureTopBottomHeightOverrides;
                 delete pressureHub._deckPressureTopBottomWidthOverrides;
@@ -1643,38 +1650,60 @@ export function syncDerpShield(node) {
     // pan/zoom invalidation). Fold the whole dock group into the structure
     // hash: all fields are graph-space and stay stable during pan/zoom, so
     // transform-only frames still skip the predicate battery exactly as
-    // before. The walk is O(group) over the per-frame deck graph index.
+    // before.
+    //
+    // Frame-share: every member of a group used to rebuild this identical
+    // string (sort + 17 fields per member, incl. preferred-auto resolves)
+    // once per sync — O(group²) string work per deck per frame. The string
+    // is a pure function of group state, so it is built once per deck-graph
+    // generation per connected component (stamp-qualified key; edge mutations
+    // invalidate the index and bump the stamp) and reused by later members.
+    // A sibling drifting mid-build-generation (e.g. pressure layout settling
+    // after the first member synced) is caught by that sibling's own
+    // node-local hash fields above and heals this signature on the next
+    // frame's fresh generation — the same one-frame settle the other
+    // per-frame deck caches already allow.
     let groupSigForHash = "";
     {
-        const groupMembersForHash = graphForHash ? getDeckMembers(node, graphForHash) : [node];
-        if (groupMembersForHash.length > 1) {
-            groupSigForHash = groupMembersForHash
-                .slice()
-                .sort((a, b) => (Number(a?.id) || 0) - (Number(b?.id) || 0))
-                .map((member) => {
-                    const memberEdges = member?.properties?.deckEdges || {};
-                    return [
-                        member?.id,
-                        Math.round(Number(member?.pos?.[0]) || 0),
-                        Math.round(Number(member?.pos?.[1]) || 0),
-                        Math.round(Number(member?.size?.[0] ?? member?.properties?.nodeSize?.[0]) || 0),
-                        Math.round(Number(member?.size?.[1] ?? member?.properties?.nodeSize?.[1]) || 0),
-                        member?.flags?.collapsed === true ? 1 : 0,
-                        member?.properties?.contentCollapsed === true ? 1 : 0,
-                        member?.properties?.autoWidth === true ? 1 : 0,
-                        member?.properties?.deckSavedAutoWidth === true ? 1 : 0,
-                        resolveDerpPreferredAutoWidth(member) ? 1 : 0,
-                        resolveDerpPreferredAutoHeight(member) ? 1 : 0,
-                        member?.properties?.deckParentId ?? "n",
-                        member?.properties?.deckDockSide || "n",
-                        member?.properties?.deckArrangement || "n",
-                        memberEdges.left ?? "n",
-                        memberEdges.right ?? "n",
-                        memberEdges.top ?? "n",
-                        memberEdges.bottom ?? "n",
-                    ].join(",");
-                })
-                .join("|");
+        const componentKey = graphForHash ? getDeckComponentKey(node, graphForHash) : null;
+        const cachedGroupSig = componentKey !== null ? derpShieldGroupSigCache.get(componentKey) : undefined;
+        if (cachedGroupSig !== undefined) {
+            groupSigForHash = cachedGroupSig;
+        } else {
+            const groupMembersForHash = graphForHash ? getDeckMembers(node, graphForHash) : [node];
+            if (groupMembersForHash.length > 1) {
+                groupSigForHash = groupMembersForHash
+                    .slice()
+                    .sort((a, b) => (Number(a?.id) || 0) - (Number(b?.id) || 0))
+                    .map((member) => {
+                        const memberEdges = member?.properties?.deckEdges || {};
+                        return [
+                            member?.id,
+                            Math.round(Number(member?.pos?.[0]) || 0),
+                            Math.round(Number(member?.pos?.[1]) || 0),
+                            Math.round(Number(member?.size?.[0] ?? member?.properties?.nodeSize?.[0]) || 0),
+                            Math.round(Number(member?.size?.[1] ?? member?.properties?.nodeSize?.[1]) || 0),
+                            member?.flags?.collapsed === true ? 1 : 0,
+                            member?.properties?.contentCollapsed === true ? 1 : 0,
+                            member?.properties?.autoWidth === true ? 1 : 0,
+                            member?.properties?.deckSavedAutoWidth === true ? 1 : 0,
+                            resolveDerpPreferredAutoWidth(member) ? 1 : 0,
+                            resolveDerpPreferredAutoHeight(member) ? 1 : 0,
+                            member?.properties?.deckParentId ?? "n",
+                            member?.properties?.deckDockSide || "n",
+                            member?.properties?.deckArrangement || "n",
+                            memberEdges.left ?? "n",
+                            memberEdges.right ?? "n",
+                            memberEdges.top ?? "n",
+                            memberEdges.bottom ?? "n",
+                        ].join(",");
+                    })
+                    .join("|");
+                if (componentKey !== null) {
+                    if (derpShieldGroupSigCache.size > 64) derpShieldGroupSigCache.clear();
+                    derpShieldGroupSigCache.set(componentKey, groupSigForHash);
+                }
+            }
         }
     }
     // Split hash: everything the resize-eligibility predicates read is
