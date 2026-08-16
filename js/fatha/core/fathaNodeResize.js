@@ -252,7 +252,10 @@ export function handleNodeResize(entity, data, scale) {
     const allowHorizontalSharedEdgeWidthResize = !!horizontalStackResizeSide
         && !resizeAxes.allowWidth
         && canResizeHorizontalSharedEdgeWidth(entity, graph, horizontalStackResizeSide);
-    const allowHorizontalStackHeightResize = isVerticalCorner
+    // Pure top/bottom edge anchors count too: un-decked horizontal stacks
+    // expose top/bottom edge strips that resize the shared row height, so the
+    // gate must match the corner path (stack-level, not just dragged-node).
+    const allowHorizontalStackHeightResize = (isVerticalCorner || isPureVerticalSharedEdgeResize)
         && axis === "horizontal"
         && canResizeHorizontalStackHeight(entity, graph);
     const verticalStackResizeSide = (resizeAnchor === "top" || isTopCorner)

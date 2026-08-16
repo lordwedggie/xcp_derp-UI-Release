@@ -1806,6 +1806,8 @@ export function syncDerpShield(node) {
             const isHorizontalDockStack = getLinearResizeMembers(node, graph, "horizontal").length > 1;
             const nodeAbove = isVerticalDockStack ? getNodeOnDeckEdge(node, graph, "top") : null;
             const nodeBelow = isVerticalDockStack ? getNodeOnDeckEdge(node, graph, "bottom") : null;
+            const hasHorizontalLeftNeighbor = isHorizontalDockStack && !!getHorizontalSameRowNeighbor(node, graph, "left");
+            const hasHorizontalRightNeighbor = isHorizontalDockStack && !!getHorizontalSameRowNeighbor(node, graph, "right");
             // Frame edge detection: outer edges of the deck frame that can be
             // dragged to resize the deck (or the stack if the deck is docked).
             // No neighbor gate — if there's a stack neighbor, the existing
@@ -1830,10 +1832,26 @@ export function syncDerpShield(node) {
                 canResizeStackH: isHorizontalDockStack && canResizeHorizontalStackHeight(node, graph),
                 canResizeStackTopH: !isHorizontalDockStack && isVerticalDockStack ? canResizeVerticalStackHeight(node, graph, "top") : false,
                 canResizeStackBottomH: !isHorizontalDockStack && isVerticalDockStack ? canResizeVerticalStackHeight(node, graph, "bottom") : false,
+                // Un-decked stack OUTER edge strips (pure left/right/top/bottom
+                // anchors). Horizontal stacks: top/bottom strips resize the
+                // shared row height (any manual-height member); left/right
+                // strips resize stack width from the boundary member. Vertical
+                // stacks: left/right strips resize the shared stack width
+                // (per-node manual width, mirroring the corner gates);
+                // top/bottom strips resize stack height from the boundary
+                // member. Deck Pressure members keep their own frame/seam
+                // paths, so all of these are gated on !isPressureMember, and
+                // each strip also requires a true outer edge (no docked
+                // neighbor on that side) so internal seams keep their own
+                // hitboxes.
+                canResizeStackEdgeLeftW: !isPressureMember && ((isHorizontalDockStack && canResizeHorizontalStackWidth(node, graph, "left")) || (isVerticalDockStack && !hasHorizontalLeftNeighbor && canW)),
+                canResizeStackEdgeRightW: !isPressureMember && ((isHorizontalDockStack && canResizeHorizontalStackWidth(node, graph, "right")) || (isVerticalDockStack && !hasHorizontalRightNeighbor && canW)),
+                canResizeStackEdgeTopH: !isPressureMember && ((isHorizontalDockStack && !nodeAbove && canResizeHorizontalStackHeight(node, graph)) || (isVerticalDockStack && canResizeVerticalStackHeight(node, graph, "top"))),
+                canResizeStackEdgeBottomH: !isPressureMember && ((isHorizontalDockStack && !nodeBelow && canResizeHorizontalStackHeight(node, graph)) || (isVerticalDockStack && canResizeVerticalStackHeight(node, graph, "bottom"))),
                 canResizeSharedLeftW: canResizeHorizontalSharedEdge(node, graph, "left"),
                 canResizeSharedRightW: canResizeHorizontalSharedEdge(node, graph, "right"),
-                hasHorizontalLeftNeighbor: isHorizontalDockStack && !!getHorizontalSameRowNeighbor(node, graph, "left"),
-                hasHorizontalRightNeighbor: isHorizontalDockStack && !!getHorizontalSameRowNeighbor(node, graph, "right"),
+                hasHorizontalLeftNeighbor,
+                hasHorizontalRightNeighbor,
                 hasInternalTopResizeEdge: hasSharedTopEdge && !!nodeAbove && !isCollapsed && nodeAbove?.properties?.contentCollapsed !== true && canResizeVerticalSharedEdge(node, graph, "top"),
                 hasInternalBottomResizeEdge: hasSharedBottomEdge && !!nodeBelow && !isCollapsed && nodeBelow?.properties?.contentCollapsed !== true && canResizeVerticalSharedEdge(node, graph, "bottom"),
                 isTopBoundary: !!isVerticalDockStack && !nodeAbove,
@@ -1864,6 +1882,10 @@ export function syncDerpShield(node) {
             canResizeStackH,
             canResizeStackTopH,
             canResizeStackBottomH,
+            canResizeStackEdgeLeftW,
+            canResizeStackEdgeRightW,
+            canResizeStackEdgeTopH,
+            canResizeStackEdgeBottomH,
             canResizeSharedLeftW,
             canResizeSharedRightW,
             hasHorizontalLeftNeighbor,
@@ -1916,7 +1938,7 @@ export function syncDerpShield(node) {
             sharedLeftStyle.left = `-${padL * scale}px`;
             sharedLeftStyle.top = "0px";
             sharedLeftStyle.cursor = "ew-resize";
-            const showSharedLeft = canResizeSharedLeftW || canResizePressureSeamLeftW || canResizePressureSideHorizontalLeftW || deckFrameEdgeLeft;
+            const showSharedLeft = canResizeSharedLeftW || canResizePressureSeamLeftW || canResizePressureSideHorizontalLeftW || deckFrameEdgeLeft || canResizeStackEdgeLeftW;
             sharedLeftStyle.display = showSharedLeft ? "block" : "none";
             sharedLeftStyle.pointerEvents = showSharedLeft ? "auto" : "none";
             node.interactionShield._resizeHandleSharedLeft._resizeAnchorOverride = showSharedLeft ? "left" : null;
@@ -1928,7 +1950,7 @@ export function syncDerpShield(node) {
             sharedRightStyle.right = `-${padR * scale}px`;
             sharedRightStyle.top = "0px";
             sharedRightStyle.cursor = "ew-resize";
-            const showSharedRight = canResizeSharedRightW || canResizePressureSeamRightW || canResizePressureSideHorizontalRightW || deckFrameEdgeRight;
+            const showSharedRight = canResizeSharedRightW || canResizePressureSeamRightW || canResizePressureSideHorizontalRightW || deckFrameEdgeRight || canResizeStackEdgeRightW;
             sharedRightStyle.display = showSharedRight ? "block" : "none";
             sharedRightStyle.pointerEvents = showSharedRight ? "auto" : "none";
             node.interactionShield._resizeHandleSharedRight._resizeAnchorOverride = showSharedRight ? "right" : null;
@@ -1944,7 +1966,7 @@ export function syncDerpShield(node) {
             sharedTopStyle.left = `${padL * scale}px`;
             sharedTopStyle.top = `-${cornerOutwardPad}px`;
             sharedTopStyle.cursor = "ns-resize";
-            const showSharedTop = deckFrameEdgeTop || canResizePressureSeamTopH;
+            const showSharedTop = deckFrameEdgeTop || canResizePressureSeamTopH || canResizeStackEdgeTopH;
             sharedTopStyle.display = showSharedTop ? "block" : "none";
             sharedTopStyle.pointerEvents = showSharedTop ? "auto" : "none";
             node.interactionShield._resizeHandleSharedTop._resizeAnchorOverride = showSharedTop ? "top" : null;
@@ -1956,7 +1978,7 @@ export function syncDerpShield(node) {
             sharedBottomStyle.left = `${padL * scale}px`;
             sharedBottomStyle.bottom = `-${cornerOutwardPad}px`;
             sharedBottomStyle.cursor = "ns-resize";
-            const showSharedBottom = deckFrameEdgeBottom || canResizePressureSeamBottomH;
+            const showSharedBottom = deckFrameEdgeBottom || canResizePressureSeamBottomH || canResizeStackEdgeBottomH;
             sharedBottomStyle.display = showSharedBottom ? "block" : "none";
             sharedBottomStyle.pointerEvents = showSharedBottom ? "auto" : "none";
             node.interactionShield._resizeHandleSharedBottom._resizeAnchorOverride = showSharedBottom ? "bottom" : null;

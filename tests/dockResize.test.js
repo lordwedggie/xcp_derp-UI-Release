@@ -523,4 +523,133 @@ describe('dock resize live shield sync', () => {
 
     expect(sharedHeight).toBe(140);
   });
+
+  // Un-decked stack OUTER edge strips (pure left/right/top/bottom anchors).
+  // These mirror the corner paths but use the pure-edge hitboxes added for
+  // un-decked horizontal/vertical stacks.
+  it('resizes un-decked horizontal stack height via pure top edge', () => {
+    const { left, right } = makeHorizontalPair();
+    markFixedHeight(left);
+    markFitHeight(right, 70);
+    right._startPos = [100, 0];
+    right._startSize = [100, 100];
+
+    handleNodeResize(right, { dx: 0, dy: -30, resizeAnchor: 'top' }, 1);
+
+    expect(left.size[1]).toBe(130);
+    expect(right.size[1]).toBe(130);
+    expect(left.pos[1]).toBe(-30);
+    expect(right.pos[1]).toBe(-30);
+    expect(left.size[0]).toBe(100);
+    expect(right.size[0]).toBe(100);
+  });
+
+  it('resizes un-decked horizontal stack height via pure bottom edge', () => {
+    const { left, right } = makeHorizontalPair();
+    markFixedHeight(left);
+    markFitHeight(right, 70);
+    right._startPos = [100, 0];
+    right._startSize = [100, 100];
+
+    handleNodeResize(right, { dx: 0, dy: 40, resizeAnchor: 'bottom' }, 1);
+
+    expect(left.size[1]).toBe(140);
+    expect(right.size[1]).toBe(140);
+    expect(left.pos[1]).toBe(0);
+    expect(right.pos[1]).toBe(0);
+    expect(left.size[0]).toBe(100);
+    expect(right.size[0]).toBe(100);
+  });
+
+  it('blocks un-decked horizontal stack pure top edge when every member is fixed-height', () => {
+    const { left, right } = makeHorizontalPair();
+    markFixedHeight(left);
+    markFixedHeight(right);
+    right._startPos = [100, 0];
+    right._startSize = [100, 100];
+
+    handleNodeResize(right, { dx: 0, dy: -30, resizeAnchor: 'top' }, 1);
+
+    expect(left.size[1]).toBe(100);
+    expect(right.size[1]).toBe(100);
+  });
+
+  it('resizes un-decked horizontal stack width via pure right edge', () => {
+    const { left, right } = makeHorizontalPair();
+    right._startPos = [100, 0];
+    right._startSize = [100, 100];
+
+    handleNodeResize(right, { dx: 40, dy: 0, resizeAnchor: 'right' }, 1);
+
+    expect(getHorizontalSpan([left, right])).toBe(240);
+    expect(left.size[1]).toBe(100);
+    expect(right.size[1]).toBe(100);
+  });
+
+  it('resizes un-decked horizontal stack width via pure left edge', () => {
+    const { left, right } = makeHorizontalPair();
+    left._startPos = [0, 0];
+    left._startSize = [100, 100];
+
+    handleNodeResize(left, { dx: -40, dy: 0, resizeAnchor: 'left' }, 1);
+
+    expect(getHorizontalSpan([left, right])).toBe(240);
+    expect(left.pos[0]).toBe(-40);
+    expect(left.size[1]).toBe(100);
+    expect(right.size[1]).toBe(100);
+  });
+
+  it('resizes un-decked vertical stack width via pure right edge', () => {
+    const { top, bottom } = makeVerticalPair();
+    bottom._startPos = [0, 100];
+    bottom._startSize = [100, 100];
+
+    handleNodeResize(bottom, { dx: 40, dy: 0, resizeAnchor: 'right' }, 1);
+
+    expect(top.size[0]).toBe(140);
+    expect(bottom.size[0]).toBe(140);
+    expect(top.size[1]).toBe(100);
+    expect(bottom.size[1]).toBe(100);
+  });
+
+  it('resizes un-decked vertical stack width via pure left edge', () => {
+    const { top, bottom } = makeVerticalPair();
+    bottom._startPos = [0, 100];
+    bottom._startSize = [100, 100];
+
+    handleNodeResize(bottom, { dx: -40, dy: 0, resizeAnchor: 'left' }, 1);
+
+    expect(top.size[0]).toBe(140);
+    expect(bottom.size[0]).toBe(140);
+    expect(top.pos[0]).toBe(-40);
+    expect(bottom.pos[0]).toBe(-40);
+    expect(top.size[1]).toBe(100);
+    expect(bottom.size[1]).toBe(100);
+  });
+
+  it('resizes un-decked vertical stack height via pure top edge', () => {
+    const { top, bottom } = makeVerticalPair();
+    top._startPos = [0, 0];
+    top._startSize = [100, 100];
+
+    handleNodeResize(top, { dx: 0, dy: -30, resizeAnchor: 'top' }, 1);
+
+    expect(top.size[1] + bottom.size[1]).toBe(230);
+    expect(top.pos[1]).toBe(-30);
+    expect(top.size[0]).toBe(100);
+    expect(bottom.size[0]).toBe(100);
+  });
+
+  it('resizes un-decked vertical stack height via pure bottom edge', () => {
+    const { top, bottom } = makeVerticalPair();
+    bottom._startPos = [0, 100];
+    bottom._startSize = [100, 100];
+
+    handleNodeResize(bottom, { dx: 0, dy: 30, resizeAnchor: 'bottom' }, 1);
+
+    expect(top.size[1] + bottom.size[1]).toBe(230);
+    expect(bottom.pos[1]).toBe(top.size[1]);
+    expect(top.size[0]).toBe(100);
+    expect(bottom.size[0]).toBe(100);
+  });
 });
