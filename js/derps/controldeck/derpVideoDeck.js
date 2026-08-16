@@ -509,6 +509,7 @@ app.registerExtension({
             if (duration <= 0) return;
             const nextTime = Math.max(0, Math.min(duration, frac * duration));
             this._videoDeckCurrentTime = nextTime;
+            this._layoutMapHash = null;
             if (vidObj) {
                 try { vidObj.currentTime = nextTime; } catch (e) {}
             }
@@ -520,22 +521,25 @@ app.registerExtension({
             const seekComp = this._compDataCache?.sliderSeek;
             if (seekComp) seekComp.value = frac;
             const timeReg = this.layout?.regions?.lblTime;
-            if (timeReg) { timeReg.text = timeText; timeReg.value = timeText; }
+            if (timeReg) { timeReg.text = timeText; timeReg.value = timeText; timeReg._resolvedDisplayText = timeText; }
             const timeComp = this._compDataCache?.lblTime;
-            if (timeComp) { timeComp.text = timeText; timeComp.value = timeText; }
-            if (this.setDirtyCanvas) this.setDirtyCanvas(true, false);
+            if (timeComp) { timeComp.text = timeText; timeComp.value = timeText; timeComp._resolvedDisplayText = timeText; }
+            // Rebuild the layout map so seeked → _forceSync → layout.compute()
+            // picks up the correct slider value instead of the stale cached one.
+            if (typeof this.refreshNodeLayoutMap === "function") this.refreshNodeLayoutMap(false);
         };
 
         nodeType.prototype.applyVideoDeckVolumeFraction = function(frac) {
             if (frac == null || !Number.isFinite(frac)) return;
             this._videoDeckVolume = frac;
+            this._layoutMapHash = null;
             const vidObj = getDerpVideoDeckVideoEl(this);
             if (vidObj) vidObj.volume = frac;
             const volReg = this.layout?.regions?.sliderVolume;
             if (volReg) volReg.value = frac;
             const volComp = this._compDataCache?.sliderVolume;
             if (volComp) volComp.value = frac;
-            if (this.setDirtyCanvas) this.setDirtyCanvas(true, false);
+            if (typeof this.refreshNodeLayoutMap === "function") this.refreshNodeLayoutMap(false);
         };
 
         nodeType.prototype.applyPalette = function() {
@@ -954,6 +958,7 @@ app.registerExtension({
                         },
                         onPlayState: (vidObj) => {
                             this._videoDeckIsPlaying = !!vidObj && !vidObj.paused && !vidObj.ended;
+                            if (vidObj) this._videoDeckCurrentTime = vidObj.currentTime || 0;
                             this._layoutMapHash = null;
                             if (typeof this.refreshNodeLayoutMap === "function") this.refreshNodeLayoutMap(false);
                         },
@@ -961,6 +966,23 @@ app.registerExtension({
                             if (!vidObj) return;
                             this._videoDeckCurrentTime = vidObj.currentTime || 0;
                             if (Number.isFinite(vidObj.duration)) this._videoDeckDuration = vidObj.duration;
+                            const now = performance.now();
+                            if (now - (this._lastVideoFrameUpdate || 0) < 200) return;
+                            this._lastVideoFrameUpdate = now;
+                            const cur = this._videoDeckCurrentTime;
+                            const dur = this._videoDeckDuration || 0;
+                            if (dur <= 0) return;
+                            const frac = Math.max(0, Math.min(1, cur / dur));
+                            const timeText = `${formatVideoDeckTime(cur)} / ${formatVideoDeckTime(dur)}`;
+                            const seekReg = this.layout?.regions?.sliderSeek;
+                            if (seekReg) seekReg.value = frac;
+                            const seekComp = this._compDataCache?.sliderSeek;
+                            if (seekComp) seekComp.value = frac;
+                            const timeReg = this.layout?.regions?.lblTime;
+                            if (timeReg) { timeReg.text = timeText; timeReg.value = timeText; timeReg._resolvedDisplayText = timeText; }
+                            const timeComp = this._compDataCache?.lblTime;
+                            if (timeComp) { timeComp.text = timeText; timeComp.value = timeText; timeComp._resolvedDisplayText = timeText; }
+                            if (this.setDirtyCanvas) this.setDirtyCanvas(true, false);
                         }
                     },
                     regionVideoControls: {
@@ -1025,11 +1047,7 @@ app.registerExtension({
                             onPress: (_e, data) => this.applyVideoDeckSeekFraction(this.resolveVideoDeckSliderFraction("sliderSeek", data)),
                             onDragStart: (_e, data) => this.applyVideoDeckSeekFraction(this.resolveVideoDeckSliderFraction("sliderSeek", data)),
                             onDrag: (_e, data) => this.applyVideoDeckSeekFraction(this.resolveVideoDeckSliderFraction("sliderSeek", data)),
-                            onChange: (v) => {
-                                const vidObj = getDerpVideoDeckVideoEl(this);
-                                if (!vidObj || !(vidObj.duration > 0)) return;
-                                vidObj.currentTime = Math.max(0, Math.min(1, Number(v) || 0)) * vidObj.duration;
-                            }
+                            onChange: (v) => this.applyVideoDeckSeekFraction(Math.max(0, Math.min(1, Number(v) || 0)))
                         },
                         lblTime: {
                             type: this.UI_TYPES.TEXT,
@@ -1075,12 +1093,7 @@ app.registerExtension({
                             onPress: (_e, data) => this.applyVideoDeckVolumeFraction(this.resolveVideoDeckSliderFraction("sliderVolume", data)),
                             onDragStart: (_e, data) => this.applyVideoDeckVolumeFraction(this.resolveVideoDeckSliderFraction("sliderVolume", data)),
                             onDrag: (_e, data) => this.applyVideoDeckVolumeFraction(this.resolveVideoDeckSliderFraction("sliderVolume", data)),
-                            onChange: (v) => {
-                                const nextVol = Math.max(0, Math.min(1, Number(v) || 0));
-                                this._videoDeckVolume = nextVol;
-                                const vidObj = getDerpVideoDeckVideoEl(this);
-                                if (vidObj) vidObj.volume = nextVol;
-                            }
+                            onChange: (v) => this.applyVideoDeckVolumeFraction(Math.max(0, Math.min(1, Number(v) || 0)))
                         }
                     },
                     regionVideoHandling1: {
