@@ -302,6 +302,63 @@ class DerpImageDeckNode:
 
         return {"ui": {"images": results}}
 
+class DerpVideoDeckNode:
+    @classmethod
+    def INPUT_TYPES(s):
+        return {"required": {}, "optional": {"video": ("VIDEO",)}}
+
+    RETURN_TYPES = ()
+    FUNCTION = "preview_video"
+    OUTPUT_NODE = True
+    CATEGORY = "🔞 derpNodes/ControlDeck"
+
+    def __init__(self):
+        import uuid
+        self._video_deck_prefix = f"derp_video_deck_{uuid.uuid4().hex[:8]}"
+        self._video_deck_counter = 0
+
+    def preview_video(self, video=None):
+        import os
+        import folder_paths
+
+        if video is None:
+            return {"ui": {"images": [], "animated": (True,)}}
+
+        output_dir = folder_paths.get_temp_directory()
+        filename = f"{self._video_deck_prefix}_{self._video_deck_counter:05}.mp4"
+        self._video_deck_counter += 1
+        full_path = os.path.join(output_dir, filename)
+
+        # Save video to temp dir — VideoInput.save_to handles codec/container
+        video.save_to(full_path)
+
+        # Extract first frame as poster thumbnail
+        poster_filename = None
+        try:
+            import torch
+            from PIL import Image
+            import numpy as np
+            components = video.get_components()
+            first_frame = components.images[0]  # shape: (H, W, C), float 0-1
+            arr = (first_frame * 255).clamp(0, 255).byte().cpu().numpy()
+            if arr.shape[-1] == 4:
+                arr = arr[..., :3]  # drop alpha for poster
+            poster_filename = f"{self._video_deck_prefix}_{self._video_deck_counter - 1:05}_poster.png"
+            poster_path = os.path.join(output_dir, poster_filename)
+            Image.fromarray(arr).save(poster_path, compress_level=4)
+        except Exception:
+            pass  # poster is best-effort
+
+        result = {
+            "filename": filename,
+            "subfolder": "",
+            "type": "temp"
+        }
+        if poster_filename:
+            result["poster"] = poster_filename
+
+        return {"ui": {"images": [result], "animated": (True,)}}
+
 # --- MAPPINGS ---
 NODE_CLASS_MAPPINGS = {
     "DerpTemplateV2Node": DerpTemplateV2Node,
@@ -319,7 +376,8 @@ NODE_CLASS_MAPPINGS = {
     "derpSamplerLoader": derpSamplerLoader,
     "derpSchedulerLoader": derpSchedulerLoader,
     "DerpTriggerWallNode": DerpTriggerWallNode,
-    "DerpImageDeckNode": DerpImageDeckNode
+    "DerpImageDeckNode": DerpImageDeckNode,
+    "DerpVideoDeckNode": DerpVideoDeckNode
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -338,5 +396,6 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "derpSamplerLoader": "Derp Sampler Loader",
     "derpSchedulerLoader": "Derp Scheduler Loader",
     "DerpTriggerWallNode": "Derp Trigger Wall",
-    "DerpImageDeckNode": "Derp Image Deck"
+    "DerpImageDeckNode": "Derp Image Deck",
+    "DerpVideoDeckNode": "Derp Video Deck"
 }

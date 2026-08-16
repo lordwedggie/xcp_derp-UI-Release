@@ -341,6 +341,63 @@
       "folder_selector": "Selects {{t_toolTip_highlight::Folder Path}} where the image will be saved to disk"
     }
   },
+  "derp_video_deck": {
+    "title": "Derp Video Deck",
+    "prefix": {
+      "placeholder": "Video Prefix"
+    },
+    "placeholder": {
+      "no_video": "No Video"
+    },
+    "buttons": {
+      "save_video": "SAVE VIDEO"
+    },
+    "signals": {
+      "video_required": "Select VIDEO signal (required):",
+      "optional_for_filename": "Select optional signals for parsing the filename:"
+    },
+    "system": {
+      "settings": "Video Deck settings",
+      "node_size": "Node size:",
+      "parse_filename": "Parse filename:",
+      "playback": "Playback:",
+      "get_model_name": "Get model name",
+      "get_sampler_name": "Get sampler name",
+      "get_scheduler_name": "Get scheduler name",
+      "auto_adjust_height": "Auto adjust node height",
+      "auto_save_new": "Auto save new videos",
+      "video_format": "Video format:",
+      "loop_playback": "Loop playback",
+      "mute_audio": "Mute audio"
+    },
+    "dialogs": {
+      "select_folder": {
+        "title": "Select folder",
+        "confirm": "Select",
+        "placeholder": "Click to select folder path"
+      }
+    },
+    "messages": {
+      "no_video_to_save": "No video to save",
+      "video_load_failed": "Video failed to load",
+      "save_failed": "Save failed",
+      "saved_prefix": "Saved: ",
+      "auto_saved_prefix": "Auto-saved: ",
+      "folder_list_failed_prefix": "Folder list failed: ",
+      "folder_list_failed_status_prefix": "Folder list failed (",
+      "no_output_subfolders": "No output subfolders found",
+      "folder_list_request_failed": "Folder list request failed"
+    },
+    "tooltips": {
+      "folder_selector": "Selects {{t_toolTip_highlight::Folder Path}} where the video will be saved to disk",
+      "play": "Play video",
+      "pause": "Pause playback",
+      "seek": "Seek through the video",
+      "mute": "Mute audio",
+      "unmute": "Unmute audio",
+      "volume": "Playback volume"
+    }
+  },
   "derp_lora_stack": {
     "title": "Derp Lora Stack",
     "drop_here": "Drop here",

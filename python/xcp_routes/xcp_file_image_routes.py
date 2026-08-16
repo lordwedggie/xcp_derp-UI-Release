@@ -70,6 +70,18 @@ def _extension_for_image_format(image_format):
     }.get(image_format, ".png")
 
 
+def _normalize_video_save_format(raw_format):
+    fmt = str(raw_format or "MP4").strip().upper()
+    return fmt if fmt in {"MP4", "WEBM"} else "MP4"
+
+
+def _extension_for_video_format(video_format):
+    return {
+        "MP4": ".mp4",
+        "WEBM": ".webm",
+    }.get(video_format, ".mp4")
+
+
 def _resolve_search_path(search_dirs, file_name):
     used_fallback = False
     target_path = None
@@ -181,6 +193,70 @@ async def save_current_image_from_deck(request):
         return web.json_response({"success": False, "error": str(e)}, status=500)
 
 
+async def save_current_video_from_deck(request):
+    try:
+        body = await request.json()
+        filename = str(body.get("filename") or "").strip()
+        video_type = str(body.get("type") or "output").strip().lower()
+        subfolder = _sanitize_subfolder_path(body.get("subfolder") or "")
+        target_subfolder = _sanitize_subfolder_path(body.get("target_subfolder") or body.get("subfolder") or "")
+        save_name = body.get("save_name")
+        save_format = _normalize_video_save_format(body.get("save_format"))
+        if not filename:
+            return web.json_response({"success": False, "error": "Missing filename"}, status=400)
+
+        src_root = _resolve_image_source_directory(video_type)
+        src_dir = os.path.normpath(os.path.join(src_root, subfolder)) if subfolder else src_root
+        src_path = os.path.normpath(os.path.join(src_dir, filename))
+        if not src_path.startswith(os.path.normpath(src_root)):
+            return web.json_response({"success": False, "error": "Invalid source path"}, status=400)
+        if not os.path.exists(src_path):
+            return web.json_response({"success": False, "error": "Source video not found"}, status=404)
+
+        output_dir = folder_paths.get_output_directory()
+        target_dir = os.path.normpath(os.path.join(output_dir, target_subfolder)) if target_subfolder else output_dir
+        if not target_dir.startswith(os.path.normpath(output_dir)):
+            return web.json_response({"success": False, "error": "Invalid target path"}, status=400)
+        os.makedirs(target_dir, exist_ok=True)
+
+        sanitized_name = _sanitize_save_name(save_name, os.path.splitext(filename)[0])
+        forced_ext = _extension_for_video_format(save_format)
+        sanitized_name = f"{os.path.splitext(sanitized_name)[0]}{forced_ext}"
+        base_name, ext = os.path.splitext(sanitized_name)
+        target_name = f"{base_name}{ext}"
+        target_path = os.path.join(target_dir, target_name)
+
+        index = 1
+        while os.path.exists(target_path):
+            target_name = f"{base_name}_{index:03d}{ext}"
+            target_path = os.path.join(target_dir, target_name)
+            index += 1
+
+        # For video: copy if same format, otherwise transcode via PyAV
+        src_ext = os.path.splitext(filename)[1].lower()
+        if src_ext == forced_ext:
+            shutil.copy2(src_path, target_path)
+        else:
+            # Transcode: re-mux or re-encode via VideoFromFile
+            from comfy_api.latest._input_impl.video_types import VideoFromFile
+            from comfy_api.latest._util.video_types import VideoContainer, VideoCodec
+            container_format = VideoContainer.MP4 if save_format == "MP4" else VideoContainer.WEBM
+            video = VideoFromFile(src_path)
+            metadata = {}
+            if body.get("prompt"):
+                metadata["prompt"] = json.dumps(body["prompt"])
+            if body.get("extra_pnginfo"):
+                for k, v in body["extra_pnginfo"].items():
+                    metadata[k] = json.dumps(v) if not isinstance(v, str) else v
+            video.save_to(target_path, format=container_format, codec=VideoCodec.AUTO, metadata=metadata or None)
+
+        result_name = f"{target_subfolder}/{target_name}" if target_subfolder else target_name
+        return web.json_response({"success": True, "filename": result_name})
+    except Exception as e:
+        return web.json_response({"success": False, "error": str(e)}, status=500)
+
+
 def register_routes(safe_get, safe_post):
     safe_get("/xcp/get_background", get_background_file)
     safe_post("/xcp/derp_image_deck/save_current_image", save_current_image_from_deck)
+    safe_post("/xcp/derp_video_deck/save_current_video", save_current_video_from_deck)

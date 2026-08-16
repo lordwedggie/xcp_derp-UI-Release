@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Specialist: ./herbina/widgets/btnIcon.js
  * PURPOSE: Emoji-based icons for high-visibility IDE aesthetics.
  * STATUS: PROTOCOL COMPLIANT
@@ -67,6 +67,9 @@ const ICON_MAP = {
     power: "⏻",
     pin: "⚲",
     play: "▶",
+    pause: "⏸",
+    volume: "🔊",
+    mute: "🔇",
     uparrow: "▲",
     downarrow: "▼",
     leftarrow: "❮",

@@ -49,7 +49,7 @@ export function syncImageHTML(ctx, node, app, config, overlayPass = false) {
     );
     const drawBackground = !(config.hideBackgroundWhenImage && hasDisplayedImage);
 
-    const stateHash = `${node.mode}_${window._xcpDerpSession}_${config.imageUrl}_${config.state}_${w}_${h}_${config.btnColor}_${node._xcpTrueSelected}_${config.alpha}`;
+    const stateHash = `${node.mode}_${window._xcpDerpSession}_${config.imageUrl}_${config.videoUrl || ""}_${config.state}_${w}_${h}_${config.btnColor}_${node._xcpTrueSelected}_${config.alpha}`;
     const cache = node._imageHTMLCache || (node._imageHTMLCache = {});
     const itemCache = cache[config.key] || (cache[config.key] = {});
 
@@ -126,6 +126,132 @@ export function syncImageHTML(ctx, node, app, config, overlayPass = false) {
         ctx.restore();
     };
 
+    const ensureVideo = (cacheKey, url) => {
+        if (!url) return null;
+        if (!node._videoInstanceCache) node._videoInstanceCache = {};
+        let vidObj = node._videoInstanceCache[cacheKey];
+        if (vidObj && vidObj._lastUrl === url) return vidObj;
+        if (vidObj) {
+            try { vidObj.pause(); } catch (e) {}
+            vidObj.removeAttribute("src");
+            try { vidObj.load(); } catch (e) {}
+            try { vidObj.remove(); } catch (e) {}
+        }
+        vidObj = document.createElement("video");
+        vidObj._lastUrl = url;
+        vidObj._isLoaded = false;
+        vidObj._loadFailed = false;
+        vidObj._frameWakerPending = false;
+        vidObj.preload = "auto";
+        vidObj.playsInline = true;
+        vidObj.autoplay = false;
+        // THE ATTACHMENT FIX: A detached <video> may never fetch data, fire
+        // requestVideoFrameCallback, or honor play() reliably. Attach it to the
+        // DOM as an invisible-but-rendered 2px element so the normal media
+        // pipeline drives loading, playback, and per-frame callbacks while the
+        // canvas path keeps drawing frames from it.
+        vidObj.style.position = "fixed";
+        vidObj.style.left = "0px";
+        vidObj.style.top = "0px";
+        vidObj.style.width = "2px";
+        vidObj.style.height = "2px";
+        vidObj.style.opacity = "0.001";
+        vidObj.style.pointerEvents = "none";
+        vidObj.style.zIndex = "-1";
+        vidObj.setAttribute("disablepictureinpicture", "");
+        document.body.appendChild(vidObj);
+        const wakeDirty = () => {
+            if (!node.setDirtyCanvas) return;
+            node._derpAwakeFrames = 2;
+            node._forceSync = true;
+            node.setDirtyCanvas(true, true);
+        };
+        vidObj.addEventListener("loadedmetadata", () => {
+            if (typeof vidObj._onMetadata === "function") vidObj._onMetadata(vidObj);
+            wakeDirty();
+        });
+        vidObj.addEventListener("loadeddata", () => {
+            vidObj._isLoaded = true;
+            vidObj._loadFailed = false;
+            wakeDirty();
+        });
+        vidObj.addEventListener("error", () => {
+            vidObj._isLoaded = false;
+            vidObj._loadFailed = true;
+            wakeDirty();
+        });
+        const notifyPlayState = () => {
+            if (typeof vidObj._onPlayState === "function") vidObj._onPlayState(vidObj);
+            wakeDirty();
+        };
+        vidObj.addEventListener("play", notifyPlayState);
+        vidObj.addEventListener("pause", notifyPlayState);
+        vidObj.addEventListener("ended", notifyPlayState);
+        vidObj.addEventListener("seeked", wakeDirty);
+        vidObj.src = url;
+        node._videoInstanceCache[cacheKey] = vidObj;
+        return vidObj;
+    };
+
+    // THE FRAME WAKER: Dirties the canvas only when the video actually presents a new
+    // frame. requestVideoFrameCallback fires per presented frame; the rAF fallback polls
+    // currentTime. Scheduled from the draw path, so it self-suspends when the node is
+    // culled/hidden, and stops entirely while paused.
+    const scheduleVideoFrameWaker = (vidObj) => {
+        if (!vidObj || vidObj._frameWakerPending) return;
+        vidObj._frameWakerPending = true;
+        const fire = () => {
+            vidObj._frameWakerPending = false;
+            if (vidObj.paused || vidObj.ended) return;
+            if (vidObj._lastWakeTime === vidObj.currentTime) {
+                scheduleVideoFrameWaker(vidObj);
+                return;
+            }
+            vidObj._lastWakeTime = vidObj.currentTime;
+            if (node.setDirtyCanvas) node.setDirtyCanvas(true, false);
+        };
+        if (typeof vidObj.requestVideoFrameCallback === "function") {
+            vidObj.requestVideoFrameCallback(() => fire());
+        } else {
+            requestAnimationFrame(fire);
+        }
+    };
+
+    const drawVideoFrame = (vidObj, videoAlpha = 1) => {
+        if (!vidObj || !vidObj._isLoaded || !(vidObj.videoWidth > 0) || !(vidObj.videoHeight > 0) || videoAlpha <= 0) return false;
+        const imgRatio = vidObj.videoWidth / vidObj.videoHeight;
+        ctx.save();
+        if (videoAlpha < 1) ctx.globalAlpha *= videoAlpha;
+        ctx.beginPath();
+        if (ctx.roundRect && cornerRadius > 0) ctx.roundRect(x, y, w, h, cornerRadius);
+        else ctx.rect(x, y, w, h);
+        ctx.clip();
+        const boxRatio = w / h;
+        let drawW = w, drawH = h, drawX = x, drawY = y;
+        if (config.aspectFit === "contain") {
+            if (imgRatio > boxRatio) { drawW = w; drawH = w / imgRatio; drawY = y + (h - drawH) / 2; }
+            else { drawH = h; drawW = h * imgRatio; drawX = x + (w - drawW) / 2; }
+        } else {
+            if (imgRatio > boxRatio) { drawW = h * imgRatio; drawX = x - (drawW - w) / 2; }
+            else { drawH = w / imgRatio; drawY = y - (drawH - h) / 2; }
+        }
+        ctx.imageSmoothingQuality = config.imageSmoothingQuality || "high";
+        if (config.grayscale === true) ctx.filter = `grayscale(100%) brightness(${BYPASS_BRIGHTNESS})`;
+        ctx.drawImage(vidObj, Math.floor(drawX), Math.floor(drawY), Math.floor(drawW), Math.floor(drawH));
+        ctx.restore();
+        return true;
+    };
+
+    const teardownVideo = (cacheKey) => {
+        const staleVideo = node._videoInstanceCache?.[cacheKey];
+        if (!staleVideo) return;
+        try { staleVideo.pause(); } catch (e) {}
+        staleVideo.removeAttribute("src");
+        try { staleVideo.load(); } catch (e) {}
+        try { staleVideo.remove(); } catch (e) {}
+        delete node._videoInstanceCache[cacheKey];
+    };
+
     ctx.save();
     if (alpha < 1) ctx.globalAlpha *= alpha;
 
@@ -161,8 +287,36 @@ export function syncImageHTML(ctx, node, app, config, overlayPass = false) {
             ctx.restore();
         }
 
-        // 2. Load and Draw Image Natively
-        if (config.imageUrl || config.previousImageUrl) {
+        // 2. Load and Draw Image/Video Natively
+        // THE VIDEO PATH: When config.videoUrl is set, a hidden <video> element owned by
+        // node._videoInstanceCache supplies frames via drawImage. config.imageUrl then acts
+        // as the poster shown until the first frame is available. Callback refs are
+        // refreshed every sync so rebuilt layout maps never leave stale closures.
+        let drewVideoFrame = false;
+        const videoObj = config.videoUrl ? ensureVideo(config.key, config.videoUrl) : null;
+        if (videoObj) {
+            videoObj.muted = config.videoMuted === true;
+            videoObj.loop = config.videoLoop === true;
+            videoObj._onMetadata = typeof config.onVideoMetadata === "function" ? config.onVideoMetadata : null;
+            videoObj._onPlayState = typeof config.onPlayState === "function" ? config.onPlayState : null;
+            videoObj._onFrame = typeof config.onVideoFrame === "function" ? config.onVideoFrame : null;
+            if (videoObj._isLoaded && videoObj.videoWidth > 0 && videoObj.videoHeight > 0) {
+                drewVideoFrame = drawVideoFrame(videoObj);
+                if (drewVideoFrame) {
+                    if (videoObj._lastFrameNotifyTime !== videoObj.currentTime) {
+                        videoObj._lastFrameNotifyTime = videoObj.currentTime;
+                        if (videoObj._onFrame) videoObj._onFrame(videoObj);
+                    }
+                    if (!videoObj.paused && !videoObj.ended) scheduleVideoFrameWaker(videoObj);
+                }
+            } else if (videoObj._loadFailed && !config.imageUrl && !config.previousImageUrl) {
+                if (!config.suppressPlaceholder && !config.isSelected) {
+                    drawPlaceholderText(config.placeholderFailedText || "No video found");
+                }
+            }
+        }
+
+        if (!drewVideoFrame && (config.imageUrl || config.previousImageUrl)) {
             if (!node._imageInstanceCache) node._imageInstanceCache = {};
 
             const ensureImage = (cacheKey, url) => {
@@ -303,13 +457,14 @@ export function syncImageHTML(ctx, node, app, config, overlayPass = false) {
                 // Only display the missing-image fallback after a confirmed load failure.
                 drawPlaceholderText("No image found");
             }
-        } else {
+        } else if (!drewVideoFrame) {
             // THE SUPPRESSION FIX: Do not draw the missing image text when the preview is selected (to keep the paste overlay clean)
-            if (!config.suppressPlaceholder && !config.isSelected) {
-                drawPlaceholderText("No Image");
+            if (!config.suppressPlaceholder && !config.isSelected && !(videoObj && videoObj._loadFailed)) {
+                drawPlaceholderText(config.placeholderEmptyText || (config.videoUrl ? "No Video" : "No Image"));
             }
             // THE CACHE CLEANUP: If no image URL is present, purge any existing image state for this key
             // so stale previous/current URLs cannot keep triggering failed image requests.
+            if (!config.videoUrl) teardownVideo(config.key);
             if (node._imageInstanceCache) {
                 delete node._imageInstanceCache[config.key];
                 delete node._imageInstanceCache[config.key + "_previous"];

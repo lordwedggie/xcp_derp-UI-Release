@@ -23,6 +23,7 @@
 - <span style="color: #666">老登色板</span> — 颜色选择器，支持无线输出
 - <span style="color: #666">老登触发器墙</span> — 多触发器面板，用于提示词注入
 - <span style="color: #666">老登提示词本</span> — 多页提示词本编辑器，支持图片嵌入
+- <span style="color: #666">老登视频面板</span> — 视频预览面板，带播放控制与保存到磁盘功能
 - [老登教程](ControlDeck%20Nodes/Derp%20Tutorial_ZH.md) — 首次启动引导，带教程工作流按钮
 - [老登种子 V2](ControlDeck%20Nodes/Derp%20SeedV2_ZH.md) — 高级种子控制，带历史记录与多种模式
 

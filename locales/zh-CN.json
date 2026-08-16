@@ -341,6 +341,63 @@
       "folder_selector": "选择 {{t_toolTip_highlight::文件夹路径}} 图像将保存到磁盘的位置"
     }
   },
+  "derp_video_deck": {
+    "title": "老登视频牌组",
+    "prefix": {
+      "placeholder": "视频前缀"
+    },
+    "placeholder": {
+      "no_video": "无视频"
+    },
+    "buttons": {
+      "save_video": "保存视频"
+    },
+    "signals": {
+      "video_required": "选择 VIDEO 信号（必需）：",
+      "optional_for_filename": "选择用于文件名解析的可选信号："
+    },
+    "system": {
+      "settings": "视频牌组设置",
+      "node_size": "节点尺寸：",
+      "parse_filename": "解析文件名：",
+      "playback": "播放：",
+      "get_model_name": "获取模型名称",
+      "get_sampler_name": "获取采样器名称",
+      "get_scheduler_name": "获取调度器名称",
+      "auto_adjust_height": "自动调整节点高度",
+      "auto_save_new": "自动保存新视频",
+      "video_format": "视频格式：",
+      "loop_playback": "循环播放",
+      "mute_audio": "静音"
+    },
+    "dialogs": {
+      "select_folder": {
+        "title": "选择文件夹",
+        "confirm": "选择",
+        "placeholder": "点击选择文件夹路径"
+      }
+    },
+    "messages": {
+      "no_video_to_save": "没有可保存的视频",
+      "video_load_failed": "视频加载失败",
+      "save_failed": "保存失败",
+      "saved_prefix": "已保存：",
+      "auto_saved_prefix": "已自动保存：",
+      "folder_list_failed_prefix": "文件夹列表加载失败：",
+      "folder_list_failed_status_prefix": "文件夹列表加载失败（",
+      "no_output_subfolders": "未找到输出子文件夹",
+      "folder_list_request_failed": "文件夹列表请求失败"
+    },
+    "tooltips": {
+      "folder_selector": "选择 {{t_toolTip_highlight::文件夹路径}} 视频将保存到磁盘的位置",
+      "play": "播放视频",
+      "pause": "暂停播放",
+      "seek": "拖动以跳转播放位置",
+      "mute": "静音",
+      "unmute": "取消静音",
+      "volume": "播放音量"
+    }
+  },
   "derp_lora_stack": {
     "title": "老登 LoRA 堆栈",
     "drop_here": "拖到这里",
