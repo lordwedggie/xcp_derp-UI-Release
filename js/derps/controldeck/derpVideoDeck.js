@@ -1036,7 +1036,8 @@ app.registerExtension({
                         sliderSeek: {
                             type: this.UI_TYPES.SLIDER_V2,
                             themeKey: "slider, t_textSmall",
-                            width: "full", height: "auto",
+                            width: "full", height: "fill",
+                            renderPath: "canvas",
                             padding: [pW, pH],
                             spacing: [sW, 0],
                             value: seekFrac,
@@ -1083,7 +1084,8 @@ app.registerExtension({
                         sliderVolume: {
                             type: this.UI_TYPES.SLIDER_V2,
                             themeKey: "slider, t_textSmall",
-                            width: 60, height: "auto",
+                            width: 60, height: "fill",
+                            renderPath: "canvas",
                             padding: [pW, pH],
                             value: volume,
                             min: 0, max: 1, step: 0.05, decimals: 2,

@@ -602,7 +602,8 @@ function syncSliderV2CanvasVisuals(ctx, node, config) {
 
 export function syncDerpSliderV2Canvas(ctx, node, app, config) {
     const safeConfig = prepareSliderV2Config(config);
-    if (getSliderV2RenderPath() === "html") {
+    const renderPath = safeConfig.renderPath || getSliderV2RenderPath();
+    if (renderPath === "html") {
         const el = ensureSliderV2HTMLElement(node, safeConfig);
         if (!el) return;
         return syncDerpSliderV2HTML(el, node, app, safeConfig);
