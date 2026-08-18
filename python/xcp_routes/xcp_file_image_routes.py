@@ -256,7 +256,59 @@ async def save_current_video_from_deck(request):
         return web.json_response({"success": False, "error": str(e)}, status=500)
 
 
+async def export_frames_from_deck(request):
+    try:
+        body = await request.json()
+        filename = str(body.get("filename") or "").strip()
+        video_type = str(body.get("type") or "output").strip().lower()
+        subfolder = _sanitize_subfolder_path(body.get("subfolder") or "")
+        target_subfolder = _sanitize_subfolder_path(body.get("target_subfolder") or body.get("subfolder") or "")
+        save_name = str(body.get("save_name") or "").strip()
+        if not filename:
+            return web.json_response({"success": False, "error": "Missing filename"}, status=400)
+
+        src_root = _resolve_image_source_directory(video_type)
+        src_dir = os.path.normpath(os.path.join(src_root, subfolder)) if subfolder else src_root
+        src_path = os.path.normpath(os.path.join(src_dir, filename))
+        if not src_path.startswith(os.path.normpath(src_root)):
+            return web.json_response({"success": False, "error": "Invalid source path"}, status=400)
+        if not os.path.exists(src_path):
+            return web.json_response({"success": False, "error": "Source video not found"}, status=404)
+
+        output_dir = folder_paths.get_output_directory()
+        target_dir = os.path.normpath(os.path.join(output_dir, target_subfolder)) if target_subfolder else output_dir
+        if not target_dir.startswith(os.path.normpath(output_dir)):
+            return web.json_response({"success": False, "error": "Invalid target path"}, status=400)
+
+        sanitized_name = _sanitize_save_name(save_name, os.path.splitext(filename)[0])
+        base_name = os.path.splitext(sanitized_name)[0]
+        frames_dir = os.path.join(target_dir, base_name)
+        index = 1
+        while os.path.exists(frames_dir):
+            frames_dir = os.path.join(target_dir, f"{base_name}_{index:03d}")
+            index += 1
+        os.makedirs(frames_dir, exist_ok=True)
+
+        import av
+        container = av.open(src_path)
+        stream = container.streams.video[0]
+        stream.thread_type = "AUTO"
+        frame_count = 0
+        for frame in container.decode(stream):
+            img = frame.to_image()
+            frame_path = os.path.join(frames_dir, f"{base_name}_{frame_count:05d}.png")
+            img.save(frame_path, "PNG")
+            frame_count += 1
+        container.close()
+
+        result_folder = f"{target_subfolder}/{os.path.basename(frames_dir)}" if target_subfolder else os.path.basename(frames_dir)
+        return web.json_response({"success": True, "frame_count": frame_count, "folder": result_folder})
+    except Exception as e:
+        return web.json_response({"success": False, "error": str(e)}, status=500)
+
+
 def register_routes(safe_get, safe_post):
     safe_get("/xcp/get_background", get_background_file)
     safe_post("/xcp/derp_image_deck/save_current_image", save_current_image_from_deck)
     safe_post("/xcp/derp_video_deck/save_current_video", save_current_video_from_deck)
+    safe_post("/xcp/derp_video_deck/export_frames", export_frames_from_deck)

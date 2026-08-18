@@ -350,7 +350,8 @@
       "no_video": "No Video"
     },
     "buttons": {
-      "save_video": "SAVE VIDEO"
+      "save_video": "SAVE VIDEO",
+      "export_frames": "EXPORT FRAMES"
     },
     "signals": {
       "video_required": "Select VIDEO signal (required):",
@@ -386,7 +387,10 @@
       "folder_list_failed_prefix": "Folder list failed: ",
       "folder_list_failed_status_prefix": "Folder list failed (",
       "no_output_subfolders": "No output subfolders found",
-      "folder_list_request_failed": "Folder list request failed"
+      "folder_list_request_failed": "Folder list request failed",
+      "no_video_to_export": "No video to export frames from",
+      "export_frames_failed": "Frame export failed",
+      "exported_prefix": "Exported "
     },
     "tooltips": {
       "folder_selector": "Selects {{t_toolTip_highlight::Folder Path}} where the video will be saved to disk",
@@ -395,7 +399,8 @@
       "seek": "Seek through the video",
       "mute": "Mute audio",
       "unmute": "Unmute audio",
-      "volume": "Playback volume"
+      "volume": "Playback volume",
+      "replay": "Auto-replay when video ends"
     }
   },
   "derp_lora_stack": {
@@ -637,7 +642,8 @@
     "system": {
       "properties": "Prompt Book Settings",
       "cover_page": "Cover Page",
-      "show_total": "Show Total"
+      "show_total": "Show Total",
+      "spell_check": "Spell Check"
     },
     "page": {
       "cover": "Cover",

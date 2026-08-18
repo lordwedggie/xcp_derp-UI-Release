@@ -108,7 +108,7 @@ app.registerExtension({
             // so hashing content would force a full map rebuild on every keystroke.
             const pageTitlesFp = book.map(p => p.title || "").join("|");
             // _availableBooks content (not length): same-count list refreshes (e.g. book renames) change dropdown items.
-            const structureHash = `${book.length}_${safeIndex}_${this.properties.bookName}_${this.properties.coverPage}_${this.properties.showTotalPage}_${this.properties.drawHeader}_${(this._availableBooks || []).join("|")}_${editorPaddingHash}_${pageTitlesFp}_${window._xcpDerpSession}`;
+            const structureHash = `${book.length}_${safeIndex}_${this.properties.bookName}_${this.properties.coverPage}_${this.properties.showTotalPage}_${this.properties.spellCheck}_${this.properties.drawHeader}_${(this._availableBooks || []).join("|")}_${editorPaddingHash}_${pageTitlesFp}_${window._xcpDerpSession}`;
             this._layoutMapHash = structureHash;
 
             const activePage = book[safeIndex] || { title: tLocale("$derp_prompt_book.page.empty", "Empty"), content: "" };
@@ -223,6 +223,7 @@ app.registerExtension({
                         minHeight: 100,
                         editorMain: {
                         type: this.UI_TYPES.EDITOR, multiline: true, noHover: true, canvasShield: true, switchOnEditing: true,
+                        spellCheck: this.properties.spellCheck !== false,
                         richImageContent: true,
                         themeKey: "dialog, t_textNormal", mouseOver: false, 
                         labelAlign: ["left", "top"], measureText: "MEASURE_RESERVE_FLOOR",
@@ -362,6 +363,16 @@ app.registerExtension({
                                 this.refreshDerpPromptBookSysMap();
                             }
                         },
+                        btnSpellCheck: {
+                            type: this.UI_TYPES.BUTTON, text: tLocale("$derp_prompt_book.system.spell_check", "Spell Check"), themeKey: "systemButton, t_textSystem",
+                            state: this.properties.spellCheck !== false,
+                            width: "auto", height: "auto", padding: [pW, pH], spacing: [mW, 0],
+                            onPress: () => {
+                                this.properties.spellCheck = this.properties.spellCheck === false;
+                                this.refreshNodeLayoutMap();
+                                this.refreshDerpPromptBookSysMap();
+                            }
+                        },
                         lblEditorPadding: {
                             type: this.UI_TYPES.TEXT, themeKey: "t_textSystem", mouseOver: false,
                             text: "Editor padding:", width: "auto", height: "auto",
@@ -414,6 +425,7 @@ app.registerExtension({
                 autoHeight: false,
                 coverPage: true,
                 showTotalPage: true,
+                spellCheck: true,
                 editorPadding: formatEditorPaddingValue(this.properties.editorPadding, [0, 0])
             });
             this.size = [400, 400];

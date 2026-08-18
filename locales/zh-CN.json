@@ -350,7 +350,8 @@
       "no_video": "无视频"
     },
     "buttons": {
-      "save_video": "保存视频"
+      "save_video": "保存视频",
+      "export_frames": "导出帧"
     },
     "signals": {
       "video_required": "选择 VIDEO 信号（必需）：",
@@ -386,7 +387,10 @@
       "folder_list_failed_prefix": "文件夹列表加载失败：",
       "folder_list_failed_status_prefix": "文件夹列表加载失败（",
       "no_output_subfolders": "未找到输出子文件夹",
-      "folder_list_request_failed": "文件夹列表请求失败"
+      "folder_list_request_failed": "文件夹列表请求失败",
+      "no_video_to_export": "没有可导出帧的视频",
+      "export_frames_failed": "帧导出失败",
+      "exported_prefix": "已导出 "
     },
     "tooltips": {
       "folder_selector": "选择 {{t_toolTip_highlight::文件夹路径}} 视频将保存到磁盘的位置",
@@ -395,7 +399,8 @@
       "seek": "拖动以跳转播放位置",
       "mute": "静音",
       "unmute": "取消静音",
-      "volume": "播放音量"
+      "volume": "播放音量",
+      "replay": "视频结束后自动重播"
     }
   },
   "derp_lora_stack": {
@@ -637,7 +642,8 @@
     "system": {
       "properties": "提示书设置",
       "cover_page": "封面页",
-      "show_total": "显示总页数"
+      "show_total": "显示总页数",
+      "spell_check": "拼写检查"
     },
     "page": {
       "cover": "封面",

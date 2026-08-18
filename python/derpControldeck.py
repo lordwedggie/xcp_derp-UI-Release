@@ -283,6 +283,7 @@ class DerpImageDeckNode:
             return {"ui": {"images": []}}
 
         output_dir = folder_paths.get_temp_directory()
+        os.makedirs(output_dir, exist_ok=True)
         results = []
 
         for image in images:

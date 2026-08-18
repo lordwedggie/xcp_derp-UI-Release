@@ -211,6 +211,40 @@ async function saveVideoDeckCurrentVideo(node, isAutoSave = false) {
     showBastaSystemMessage(node, isAutoSave ? tLocale("$derp_video_deck.messages.auto_saved_prefix", "Auto-saved: ") : tLocale("$derp_video_deck.messages.saved_prefix", "Saved: "), 2200, { fade: true, grow: true }, "btnSaveVideo", "success", null, savedName);
 }
 
+async function exportFramesFromCurrentVideo(node) {
+    const video = getVideoDeckCurrentVideo(node);
+    if (!video || !video.filename) {
+        showBastaMessage(node, tLocale("$derp_video_deck.messages.no_video_to_export", "No video to export frames from"), 1800, { fade: true }, "btnExportFrames", false, "error");
+        return;
+    }
+
+    const fileNameOnly = String(video.filename || "").split(/[\\/]/).pop();
+    const saveBaseName = buildVideoDeckBaseName(node, fileNameOnly);
+    const stampedSaveName = `${saveBaseName}_${formatVideoDeckTimestamp()}`;
+    const payload = {
+        filename: video.filename,
+        type: video.type || "output",
+        subfolder: video.subfolder || "",
+        target_subfolder: node.properties.videoDeckCustomFolder || "",
+        save_name: String(stampedSaveName || "").trim()
+    };
+
+    const res = await fetch("/xcp/derp_video_deck/export_frames", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!res.ok || !data?.success) {
+        const msg = data?.error || tLocale("$derp_video_deck.messages.export_frames_failed", "Frame export failed");
+        showBastaMessage(node, msg, 2200, { fade: true }, "btnExportFrames", false, "error");
+        return;
+    }
+
+    const folderName = String(data.folder || "").split(/[\\/]/).pop() || String(data.folder || "");
+    showBastaSystemMessage(node, tLocale("$derp_video_deck.messages.exported_prefix", "Exported "), 2200, { fade: true, grow: true }, "btnExportFrames", "success", null, `${data.frame_count} frames to ${folderName}`);
+}
+
 function openVideoDeckFolderSelector(node, items = []) {
     showBastaFileHandler(node, "output", "btnFolderSelector", {
         title: tLocale("$derp_video_deck.dialogs.select_folder.title", "Select Folder"),
@@ -899,6 +933,7 @@ app.registerExtension({
             const filenameText = this.getVideoDeckFilenameText ? this.getVideoDeckFilenameText() : "";
 
             const hasVideo = !!videoUrl;
+            if (!this._hasVideoDiagDone) { this._hasVideoDiagDone = true; console.log("[VD-DIAG] hasVideo=", hasVideo, "videoUrl=", videoUrl, "count=", count); }
             const vid = getDerpVideoDeckVideoEl(this);
             const isPlaying = this._videoDeckIsPlaying === true && !!vid && !vid.paused && !vid.ended;
             const curTime = Math.max(0, Number(this._videoDeckCurrentTime || 0));
@@ -909,7 +944,8 @@ app.registerExtension({
             const volume = Number.isFinite(this._videoDeckVolume) ? this._videoDeckVolume : 1;
             const timeBucket = this._videoDeckTimeBucket || 0;
 
-            const structureHash = `${count}_${videoUrl || "none"}_${posterUrl || "none"}_${prevPosterUrl || "none"}_${fadeAlpha.toFixed(3)}_${this.size[0].toFixed(2)}_${(this.size[1] || 0).toFixed(2)}_${mW}_${mH}_${sW}_${sH}_${pW}_${pH}_${this.titleLabel}_${filenameText}_${isPlaying}_${timeBucket}_${duration.toFixed(1)}_${isMuted}_${volume.toFixed(2)}_${hasVideo}`;
+            const isLooping = this.properties.toggleLoop === true;
+            const structureHash = `${count}_${videoUrl || "none"}_${posterUrl || "none"}_${prevPosterUrl || "none"}_${fadeAlpha.toFixed(3)}_${this.size[0].toFixed(2)}_${(this.size[1] || 0).toFixed(2)}_${mW}_${mH}_${sW}_${sH}_${pW}_${pH}_${this.titleLabel}_${filenameText}_${isPlaying}_${timeBucket}_${duration.toFixed(1)}_${isMuted}_${volume.toFixed(2)}_${hasVideo}_${isLooping}`;
             if (this._layoutMapHash === structureHash && this.layoutMap) return;
             this._layoutMapHash = structureHash;
 
@@ -1050,6 +1086,25 @@ app.registerExtension({
                             onDragStart: (_e, data) => this.applyVideoDeckSeekFraction(this.resolveVideoDeckSliderFraction("sliderSeek", data)),
                             onDrag: (_e, data) => this.applyVideoDeckSeekFraction(this.resolveVideoDeckSliderFraction("sliderSeek", data)),
                             onChange: (v) => this.applyVideoDeckSeekFraction(Math.max(0, Math.min(1, Number(v) || 0)))
+                        },
+                        btnReplay: {
+                            type: this.UI_TYPES.ICONBUTTON,
+                            icon: "revert",
+                            themeKey: "button, t_textNormal",
+                            width: "match", height: "fill", iconScale: 0.6,
+                            spacing: [sW, 0],
+                            padding: [pW, pH],
+                            mouseOver: true,
+                            state: hasVideo ? (isLooping ? "ON" : "OFF") : "DIS",
+                            toolTip: tLocale("$derp_video_deck.tooltips.replay", "Auto-replay when video ends"),
+                            onPress: () => {
+                                this.properties.toggleLoop = this.properties.toggleLoop !== true;
+                                const vidObj = getDerpVideoDeckVideoEl(this);
+                                if (vidObj) vidObj.loop = this.properties.toggleLoop === true;
+                                this._layoutMapHash = null;
+                                if (this.refreshNodeLayoutMap) this.refreshNodeLayoutMap(false);
+                                if (this.requestDerpSync) this.requestDerpSync();
+                            }
                         },
                         lblTime: {
                             type: this.UI_TYPES.TEXT,
@@ -1218,14 +1273,34 @@ app.registerExtension({
                             text: tLocale("$derp_video_deck.buttons.save_video", "SAVE VIDEO"),
                             themeKey: "button, t_textSmall",
                             width: "auto", height: "fill",
+                            spacing: [sW, 0],
                             padding: [4, pH],
                             mouseOver: true,
-                            state: "OFF",
+                            state: hasVideo ? "OFF" : "DIS",
                             onPress: async () => {
+                                if (!hasVideo) return;
                                 try {
                                     await saveVideoDeckCurrentVideo(this);
                                 } catch (e) {
                                     showBastaMessage(this, tLocale("$derp_video_deck.messages.save_failed", "Save failed"), 2200, { fade: true }, "btnSaveVideo", false, "error");
+                                }
+                            }
+                        },
+                        btnExportFrames: {
+                            type: this.UI_TYPES.BUTTON,
+                            text: tLocale("$derp_video_deck.buttons.export_frames", "EXPORT FRAMES"),
+                            themeKey: "button, t_textSmall",
+                            width: "auto", height: "fill",
+                            spacing: [sW, 0],
+                            padding: [4, pH],
+                            mouseOver: true,
+                            state: hasVideo ? "OFF" : "DIS",
+                            onPress: async () => {
+                                if (!hasVideo) return;
+                                try {
+                                    await exportFramesFromCurrentVideo(this);
+                                } catch (e) {
+                                    showBastaMessage(this, tLocale("$derp_video_deck.messages.export_frames_failed", "Frame export failed"), 2200, { fade: true }, "btnExportFrames", false, "error");
                                 }
                             }
                         }
