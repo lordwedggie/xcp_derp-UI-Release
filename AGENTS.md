@@ -212,6 +212,7 @@ Lessons here are agent-facing reminders and sharp-edge indexes. Keep them short,
 - For Inter or other variable fonts, editor DOM/canvas parity requires disabling automatic optical sizing and pinning `opsz` to the unscaled layout font size.
 - Do not solve zoom drift with per-zoom nudges.
 - Focused EDITOR outside-click blur consumes clicks outside the host node, but same-node clicks on another interactive region should blur first and then pass through to that region.
+- Native browser spellcheck (red squiggles) dies under per-keystroke CSSOM churn: Chromium's spelling-decoration painter is low priority, so a burst of `applyHTMLTheme` + 30 style writes per keystroke drops markers without rescanning. Two levers (verified live 2026-08-18): (1) `syncDerpEditor` syncKey must exclude `valToSync` when `spellCheck === true` — value changes never require style re-application; (2) `syncDerpPromptBookEditorDisplay` must skip the `el._lastSyncKey`/`_lastStateHash`/etc. cache clears while `document.activeElement === el`. Diagnostic shortcut: toggling `el.spellcheck` false→true forces a synchronous rescan and paints squiggles instantly when everything else is healthy.
 - Title editing uses the in-place header editor; do not add Basta wrappers for node title editing.
 - PromptBook rich-image EDITOR parity depends on the shared derpEditor parser matching the DOM image renderer: count `[[IMG:...]]` markers even when adjacent to text, use the scrollbar-reserved content width for image height, and reclamp after image load.
 

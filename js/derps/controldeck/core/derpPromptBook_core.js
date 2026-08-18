@@ -124,12 +124,18 @@ export function syncDerpPromptBookEditorDisplay(node, content, options = {}) {
             el._config.text = displayValue;
             if (options.padding) el._config.padding = options.padding;
         }
-        el._lastStateHash = null;
-        el._lastSyncKey = null;
-        el._lastProps = null;
-        el._lastMetrics = null;
-        el._lastDerpValue = null;
-        if (document.activeElement !== el) el.innerText = displayValue;
+        // SPELL-CHECK STABLE SYNC: while focused (live typing), skip the sync-cache clears —
+        // nulling _lastSyncKey etc. re-runs applyHTMLTheme + 30 style writes per keystroke,
+        // starving Chromium's spelling decoration painter so red squiggles never commit.
+        // Caches still clear on blur/page-sync when the element is no longer focused.
+        if (document.activeElement !== el) {
+            el._lastStateHash = null;
+            el._lastSyncKey = null;
+            el._lastProps = null;
+            el._lastMetrics = null;
+            el._lastDerpValue = null;
+            el.innerText = displayValue;
+        }
     }
 
     if (node._editorLineCache?.editorMain) delete node._editorLineCache.editorMain;

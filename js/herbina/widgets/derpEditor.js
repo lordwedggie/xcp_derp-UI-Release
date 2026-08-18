@@ -1188,7 +1188,12 @@ export function syncDerpEditor(context, node, app, config) {
     const htmlPadRight = htmlPadX + (cutoffRightPad * htmlScale);
     const htmlLayoutMode = useSingleLineFlex ? "flex" : (useSingleLineFullLineBox ? "singleLineBox" : "block");
     const domTextColor = animatedTextColor;
-    const syncKey = `${ds.scale}-${effectiveState}-${rawIc}-${rawBg}_${prefixGlyphText}_${prefixGlyphScale}_${prefixGlyphMargin}_${prefixGlyphSpacing}-${valToSync}-${finalPadY}-${htmlPadTop}-${htmlPadX}-${htmlPadRight}-${scaledFS}-${font}-${fontWeight}-${isMultiline}-${isAwake}-${safeConfig.btnColor}-${htmlLayoutMode}`;
+    // SPELL-CHECK STABLE SYNC: value changes require no style re-application. With spellCheck
+    // on, valToSync stays out of syncKey so typing does not re-run applyHTMLTheme + 30 style
+    // writes per keystroke — that layout churn starves Chromium's low-priority spelling
+    // decoration painter and red squiggles never commit. (Verified live 2026-08-18.)
+    const spellStableValueFragment = safeConfig.spellCheck === true ? "" : `${valToSync}-`;
+    const syncKey = `${ds.scale}-${effectiveState}-${rawIc}-${rawBg}_${prefixGlyphText}_${prefixGlyphScale}_${prefixGlyphMargin}_${prefixGlyphSpacing}-${spellStableValueFragment}${finalPadY}-${htmlPadTop}-${htmlPadX}-${htmlPadRight}-${scaledFS}-${font}-${fontWeight}-${isMultiline}-${isAwake}-${safeConfig.btnColor}-${htmlLayoutMode}`;
 
     if (el._lastSyncKey !== syncKey) {
         el._lastSyncKey = syncKey;
