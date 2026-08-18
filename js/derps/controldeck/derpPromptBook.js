@@ -108,7 +108,7 @@ app.registerExtension({
             // so hashing content would force a full map rebuild on every keystroke.
             const pageTitlesFp = book.map(p => p.title || "").join("|");
             // _availableBooks content (not length): same-count list refreshes (e.g. book renames) change dropdown items.
-            const structureHash = `${book.length}_${safeIndex}_${this.properties.bookName}_${this.properties.coverPage}_${this.properties.showTotalPage}_${this.properties.spellCheck}_${this.properties.drawHeader}_${(this._availableBooks || []).join("|")}_${editorPaddingHash}_${pageTitlesFp}_${window._xcpDerpSession}`;
+            const structureHash = `${book.length}_${safeIndex}_${this.properties.bookName}_${this.properties.showTotalPage}_${this.properties.spellCheck}_${this.properties.drawHeader}_${(this._availableBooks || []).join("|")}_${editorPaddingHash}_${pageTitlesFp}_${window._xcpDerpSession}`;
             this._layoutMapHash = structureHash;
 
             const activePage = book[safeIndex] || { title: tLocale("$derp_prompt_book.page.empty", "Empty"), content: "" };
@@ -343,32 +343,24 @@ app.registerExtension({
                     },
                     togglesRow: {
                         dir: "row", width: "full", height: "auto", spacing: [sW, 0],
-                        btnCover: {
-                            type: this.UI_TYPES.BUTTON, text: tLocale("$derp_prompt_book.system.cover_page", "Cover Page"), themeKey: "systemButton, t_textSystem",
-                            state: this.properties.coverPage !== false,
+                        toggleShowTotal: {
+                            type: this.UI_TYPES.TOGGLE_V2, isTextOnly: true, themeKey: "dialog, button, t_textSystem",
+                            text: tLocale("$derp_prompt_book.system.show_total", "Show Total"),
                             width: "auto", height: "auto", padding: [pW, pH], spacing: [sW, 0],
-                            onPress: () => {
-                                this.properties.coverPage = this.properties.coverPage === false;
+                            value: this.properties.showTotalPage !== false,
+                            onChange: (v) => {
+                                this.properties.showTotalPage = v;
                                 this.refreshNodeLayoutMap();
                                 this.refreshDerpPromptBookSysMap();
                             }
                         },
-                        btnTotal: {
-                            type: this.UI_TYPES.BUTTON, text: tLocale("$derp_prompt_book.system.show_total", "Show Total"), themeKey: "systemButton, t_textSystem",
-                            state: this.properties.showTotalPage !== false,
-                            width: "auto", height: "auto", padding: [pW, pH],
-                            onPress: () => {
-                                this.properties.showTotalPage = this.properties.showTotalPage === false;
-                                this.refreshNodeLayoutMap();
-                                this.refreshDerpPromptBookSysMap();
-                            }
-                        },
-                        btnSpellCheck: {
-                            type: this.UI_TYPES.BUTTON, text: tLocale("$derp_prompt_book.system.spell_check", "Spell Check"), themeKey: "systemButton, t_textSystem",
-                            state: this.properties.spellCheck !== false,
+                        toggleSpellCheck: {
+                            type: this.UI_TYPES.TOGGLE_V2, isTextOnly: true, themeKey: "dialog, button, t_textSystem",
+                            text: tLocale("$derp_prompt_book.system.spell_check", "Spell Check"),
                             width: "auto", height: "auto", padding: [pW, pH], spacing: [mW, 0],
-                            onPress: () => {
-                                this.properties.spellCheck = this.properties.spellCheck === false;
+                            value: this.properties.spellCheck !== false,
+                            onChange: (v) => {
+                                this.properties.spellCheck = v;
                                 this.refreshNodeLayoutMap();
                                 this.refreshDerpPromptBookSysMap();
                             }
@@ -418,12 +410,11 @@ app.registerExtension({
             Object.assign(this.properties, {
                 minWidth: 200,
                 nodeSize: [400, 400],
-                derpBook: typeof createDefaultDerpBook === "function" ? createDefaultDerpBook() : [{title: tLocale("$derp_prompt_book.page.cover", "Cover"), content: ""}],
+                derpBook: typeof createDefaultDerpBook === "function" ? createDefaultDerpBook() : [{title: tLocale("$derp_prompt_book.page.untitled_title", "untitled"), content: ""}],
                 currentPageIndex: 0,
                 bookName: tLocale("$derp_prompt_book.book.untitled_name", "Untitled Book"),
                 autoWidth: false,
                 autoHeight: false,
-                coverPage: true,
                 showTotalPage: true,
                 spellCheck: true,
                 editorPadding: formatEditorPaddingValue(this.properties.editorPadding, [0, 0])

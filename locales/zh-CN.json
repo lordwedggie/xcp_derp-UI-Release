@@ -641,12 +641,10 @@
     },
     "system": {
       "properties": "提示书设置",
-      "cover_page": "封面页",
       "show_total": "显示总页数",
       "spell_check": "拼写检查"
     },
     "page": {
-      "cover": "封面",
       "prefix": "第",
       "empty": "空白",
       "untitled_title": "未命名",

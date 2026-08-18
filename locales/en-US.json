@@ -641,12 +641,10 @@
     },
     "system": {
       "properties": "Prompt Book Settings",
-      "cover_page": "Cover Page",
       "show_total": "Show Total",
       "spell_check": "Spell Check"
     },
     "page": {
-      "cover": "Cover",
       "prefix": "Page",
       "empty": "Empty",
       "untitled_title": "untitled",

@@ -950,11 +950,9 @@ export function handleDeleteBook(node) {
 }
 
 export function getPageLabel(node, idx, title) {
-    const isCover = idx === 0 && node.properties.coverPage !== false;
-    if (isCover) return `${tLocale("$derp_prompt_book.page.cover", "Cover")}: ${title}`;
-    const pageNumber = node.properties.coverPage !== false ? idx : idx + 1;
+    const pageNumber = idx + 1;
     if (node.properties.showTotalPage !== false) {
-        const totalPages = (node.properties.derpBook || []).length - (node.properties.coverPage !== false ? 1 : 0);
+        const totalPages = (node.properties.derpBook || []).length;
         return `${tLocale("$derp_prompt_book.page.prefix", "Page")} ${pageNumber}/${Math.max(totalPages, 1)}: ${title}`;
     }
     return `${tLocale("$derp_prompt_book.page.prefix", "Page")} ${pageNumber}: ${title}`;
