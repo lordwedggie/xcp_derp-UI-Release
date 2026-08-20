@@ -1039,9 +1039,35 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                 icon: "dropdown",
                 themeKey: "button, t_textSmall",
                 canvasShield: true, width: "auto", height: "auto", padding: [pW, pH], mouseOver: false,
+                spacing: [sW, 0],
                 mode: "file",
                 rootName: "rating",
                 ...ratingProps
+            },
+            toggleFuseQKV: {
+                // THE MOVE: Fuse QKV toggle relocated from derpLoraStack's per-row UI into the
+                // detail footer. Same function: flips stackData[slot][6], which syncDerpOutputs
+                // serializes as fuse_qkv for Joint-Attention (ZIT) loading.
+                type: UI_TYPES.TOGGLE_V2, themeKey: "panel, button, t_textSmall", isTextOnly: true,
+                text: tLocale("$derp_lora_stack.fuse_qkv", "Fuse QKV"), icon: "ring",
+                width: "auto", height: "match", padding: [pW, pH], mouseOver: false,
+                hidden: host.properties?.attentionMode !== "Joint-Attention",
+                state: liveLoraEntry?.[5] ? "DIS" : "OFF",
+                value: !!liveLoraEntry?.[6],
+                toolTip: tLocale("$derp_lora_stack.tooltips.fuse_qkv", "{{t_toolTip_highlight::ZIT}} lora patch, may (or may not) fix undesired results or improve the output. Made by {{t_toolTip_Accent::Capitan01R@civitai.com}}"),
+                onPress: () => {
+                    const liveStack = host.properties?.stackData || [];
+                    const liveEntry = liveStack[loraData.slotIndex];
+                    if (!liveEntry) return;
+                    liveEntry[6] = !liveEntry[6];
+                    if (host.syncDerpOutputs) host.syncDerpOutputs();
+                    basta._forceSync = true;
+                    if (typeof basta.requestDerpSync === "function") basta.requestDerpSync();
+                    else if (typeof basta.setDirtyCanvas === "function") basta.setDirtyCanvas(true, true);
+                    host._forceSync = true;
+                    if (host.refreshNodeLayoutMap) host.refreshNodeLayoutMap();
+                    if (typeof host.setDirtyCanvas === "function") host.setDirtyCanvas(true, true);
+                }
             },
             btnCloseFooter: {
                 type: UI_TYPES.BUTTON,
