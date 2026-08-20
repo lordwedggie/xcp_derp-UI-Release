@@ -292,8 +292,11 @@ export async function manageLoraTrigger(node, basta, action, params) {
             const nextName = newName || tagName || nextKey;
 
             keysToUpdate.forEach(k => {
-                if (!node._loraTriggerArrayCache[k]) node._loraTriggerArrayCache[k] = [];
-                if (!node._loraTriggerCache[k]) node._loraTriggerCache[k] = {};
+                // THE PLACEHOLDER TRAP FIX: Never create bare empty cache entries for path-format
+                // variants that were never fetched. getTriggerItemsForPath treats an empty array as
+                // a hit (truthy), so a bare [] placeholder under the normalized key hides every
+                // trigger button after save/rename/link_image until the delayed refetch lands.
+                if (!node._loraTriggerArrayCache[k] || !node._loraTriggerCache[k]) return;
 
                 const arr = node._loraTriggerArrayCache[k];
                 const dict = node._loraTriggerCache[k];
@@ -323,6 +326,16 @@ export async function manageLoraTrigger(node, basta, action, params) {
                         });
                     }
                     dict[nextKey] = { name: nextName, tag: newTagContent || "", image: image || null };
+                } else if (action === "save") {
+                    // THE POST-SAVE STATE FIX: Keep the local caches in sync with the saved content so the
+                    // immediate layout rebuild (isSaveEnabled) does not re-enable the save icon against the
+                    // stale pre-save tag while the delayed verification refetch is still in flight.
+                    const item = arr.find(t => t.key === tagKey);
+                    if (item) item.tag = newTagContent || "";
+                    if (tagKey in dict) {
+                        if (typeof dict[tagKey] === "object" && dict[tagKey] !== null) dict[tagKey].tag = newTagContent || "";
+                        else dict[tagKey] = newTagContent || "";
+                    }
                 } else if (action === "link_image") {
                     const item = arr.find(t => t.key === tagKey);
                     if (item) {
@@ -337,7 +350,8 @@ export async function manageLoraTrigger(node, basta, action, params) {
                 basta._activeTagName = (action === "delete") ? null : nextName.replace(/\.txt$/i, "");
 
                 // THE DOM UPDATE FIX: Manually force the editor to visually update instantly
-                const editorEl = basta.dynamicElements?.loraTriggersEditor;
+                // (hybrid EDITOR DOM lives under _derpDomElements — check both registries)
+                const editorEl = basta._derpDomElements?.loraTriggersEditor || basta.dynamicElements?.loraTriggersEditor;
                 if (editorEl && stack[slotIndex] && action !== "delete") {
                     editorEl.value = stack[slotIndex][4] || "";
                     editorEl.text = stack[slotIndex][4] || "";

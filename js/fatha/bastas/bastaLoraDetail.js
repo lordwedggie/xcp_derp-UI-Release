@@ -254,7 +254,9 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
         if (!active) return false;
 
         const liveStack = host.properties?.stackData || [];
-        const editorEl = basta.dynamicElements?.loraTriggersEditor;
+        // THE EDITOR LOOKUP FIX: Hybrid canvas-shield EDITOR widgets register their DOM under
+        // _derpDomElements, not dynamicElements — check both so the focused-editor live read works.
+        const editorEl = basta._derpDomElements?.loraTriggersEditor || basta.dynamicElements?.loraTriggersEditor;
         const currentContent = (editorEl && document.activeElement === editorEl) ?
             editorEl.value : (liveStack[loraData.slotIndex]?.[4] ?? "");
 
@@ -886,7 +888,7 @@ export const createLoraDetailLayoutMap = (host, targetRegion, loraData, id) => (
                     state: isSaveEnabled ? "OFF" : "DIS",
                     btnColor: initialPulseColor,
                     onPress: () => {
-                        const editorEl = basta.dynamicElements?.loraTriggersEditor;
+                        const editorEl = basta._derpDomElements?.loraTriggersEditor || basta.dynamicElements?.loraTriggersEditor;
                         const content = editorEl ? editorEl.value : (host.properties.stackData[loraData.slotIndex]?.[4] || "");
 
                         // THE OPTIMISTIC FEEDBACK FIX: Manually disable state and clear pulse to provide instant visual feedback

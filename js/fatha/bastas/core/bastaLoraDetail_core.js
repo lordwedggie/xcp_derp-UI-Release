@@ -7,6 +7,10 @@ import { spawnBasta } from "../../basta.js";
 import { animateAlpha, getPulsedColor } from "../../../herbina/masterAnimator.js";
 
 const IMAGE_NAV_ALPHA_SPEED = 0.15;
+// THE RATING BADGE FIX: The fetch handlers below reference ratingGlyphs, which only existed
+// as a local in loraComponents.js — every rated LoRA threw a silent ReferenceError here and
+// fell into the catch path ("Failed to fetch metadata."). Mirror the shared glyph table.
+const ratingGlyphs = ["", "🆂 ", "🅰 ", "🅱 ", "🅲 ", "🅳 ", "🅴 ", "🅵 "];
 import { showBastaMessage } from "../bastaMessage.js";
 import { resolvePaintData, measureTextHeight } from "../../../herbina/utils/widgetsUtils.js";
 import { initLoraImageHandlers, calculatePreviewAspectRatio, refreshLoraImageList } from "../../../derps/controldeck/helpers/loraImages.js";
@@ -522,9 +526,12 @@ export const getEditorProps = (host, basta, loraData, initialTr, vars) => {
                 const entryData = liveTr[basta._activeTagKey];
                 const originalContent = (typeof entryData === 'object' ? entryData.tag : entryData) ?? "";
 
-                if (basta.layout?.regions?.btnSaveTrigger) {
-                    basta.layout.regions.btnSaveTrigger.state = (val.trim() !== originalContent.trim()) ? "OFF" : "DIS";
-                }
+                // THE VISUAL STATE FIX: compData is a snapshot reused until the next layout
+                // compute (basta.js), so the state must be written to BOTH the live region
+                // and the cache or the painted icon keeps the stale DIS state.
+                const nextSaveState = (val.trim() !== originalContent.trim()) ? "OFF" : "DIS";
+                if (basta.layout?.regions?.btnSaveTrigger) basta.layout.regions.btnSaveTrigger.state = nextSaveState;
+                if (basta._compDataCache?.btnSaveTrigger) basta._compDataCache.btnSaveTrigger.state = nextSaveState;
 
                 if (typeof host.requestDerpSync === "function") host.requestDerpSync();
                 else host.setDirtyCanvas(true);
@@ -617,9 +624,11 @@ export const getLoraTriggerEditorProps = (host, basta, loraData, currentPath, va
             const entryData = liveTr[basta._activeTagKey];
             const originalContent = (typeof entryData === 'object' ? entryData.tag : entryData) ?? "";
 
-            if (basta.layout?.regions?.btnSaveTrigger) {
-                basta.layout.regions.btnSaveTrigger.state = (val.trim() !== originalContent.trim()) ? "OFF" : "DIS";
-            }
+            // THE VISUAL STATE FIX: mirror the save state into the compData snapshot too
+            // (see getEditorProps onInput) or the painted icon keeps the stale DIS state.
+            const nextSaveState = (val.trim() !== originalContent.trim()) ? "OFF" : "DIS";
+            if (basta.layout?.regions?.btnSaveTrigger) basta.layout.regions.btnSaveTrigger.state = nextSaveState;
+            if (basta._compDataCache?.btnSaveTrigger) basta._compDataCache.btnSaveTrigger.state = nextSaveState;
             markBLDDirty(basta, false);
             if (typeof host.requestDerpSync === "function") host.requestDerpSync();
             else host.setDirtyCanvas(true);
@@ -686,7 +695,8 @@ export const getLoraTriggerDropdownProps = (host, basta, loraData, triggerItems,
                     stack[idx][4] = tagContent || "";
 
                     // THE DOM SYNC FIX: Force editor to show new content immediately on dropdown change
-                    const editorEl = basta.dynamicElements?.loraTriggersEditor;
+                    // (hybrid EDITOR DOM lives under _derpDomElements — check both registries)
+                    const editorEl = basta._derpDomElements?.loraTriggersEditor || basta.dynamicElements?.loraTriggersEditor;
                     if (editorEl) editorEl.value = tagContent || "";
 
                     // Keep cover image by default on trigger dropdown changes.
@@ -810,8 +820,13 @@ export function handleBastaLoraDetail(host, targetRegion, loraData, layoutMapFac
                 const rawR = data.rating !== undefined ? data.rating : (rawMeta.rating !== undefined ? rawMeta.rating : null);
                 loraData.rating = rawR !== null ? parseInt(rawR, 10) : 0;
 
-                // THE NOTES SYNC: Check rawMeta (the _info.json sidecar object) as well for the notes entry
-                loraData.notes = data.notes || rawMeta.notes || "";
+                // THE TRAINER-NOTES FIX: Only the user's own notes (from the _info.json sidecar,
+                // returned as data.notes) belong in the notes editor. rawMeta is the safetensors
+                // header metadata — trainers like Civitai embed a "notes" key there ("Epoch 1
+                // training via Civitai Spine Controller"), and falling back to it displayed trainer
+                // chatter as user notes that reappeared after every delete (empty data.notes is
+                // falsy, so the metadata note always won on reopen).
+                loraData.notes = data.notes || "";
 
                 const b = window.xcpActiveBastas?.get(id);
                 if (b) {
