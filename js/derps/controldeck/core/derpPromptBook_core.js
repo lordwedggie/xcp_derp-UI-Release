@@ -701,28 +701,6 @@ export function handlePageAdd(node) {
     });
 }
 
-export function handlePageRename(node) {
-    const book = node.properties.derpBook || [];
-    const currentIdx = node.properties.currentPageIndex || 0;
-    const page = book[currentIdx];
-    if (!page) return;
-
-    showBastaFileHandler(node, "derpPromptBook", "btnPageRename", {
-        title: tLocale("$derp_prompt_book.dialogs.rename_page.title", "Rename Page"),
-        message: tLocale("$derp_prompt_book.dialogs.rename_page.message", "Enter new name for this page:"),
-        confirm: tLocale("$derp_prompt_book.dialogs.rename_page.confirm", "Rename"),
-        mode: "rename",
-        originalName: page.title,
-        initialSize: [250, 130],
-        onConfirm: (newName) => {
-            if (newName) {
-                page.title = newName;
-                if (node.refreshNodeLayoutMap) node.refreshNodeLayoutMap();
-            }
-        }
-    });
-}
-
 export function handlePageClean(node) {
     const book = node.properties.derpBook || [];
     const currentIdx = node.properties.currentPageIndex || 0;

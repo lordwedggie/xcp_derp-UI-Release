@@ -644,6 +644,9 @@
       "show_total": "Show Total",
       "spell_check": "Spell Check"
     },
+    "tooltips": {
+      "manage_pages": "{{t_toolTip_highlight::Manage pages}}: rearrange and rename pages"
+    },
     "page": {
       "prefix": "Page",
       "empty": "Empty",
@@ -679,10 +682,9 @@
       "delete_book": {
         "message_prefix": "Delete book file"
       },
-      "rename_page": {
-        "title": "Rename Page",
-        "message": "Enter new name for this page:",
-        "confirm": "Rename"
+      "manage_pages": {
+        "title": "Manage Pages",
+        "hint": "Drag to reorder - Double-click to rename"
       },
       "delete_page": {
         "title": "Delete Page",

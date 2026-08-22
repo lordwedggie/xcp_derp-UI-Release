@@ -16,13 +16,13 @@ import {
     handlePageAdd,
     handlePageDelete,
     handlePageClean,
-    handlePageRename,
     handleSaveBook,
     handleNewBook,
     handleRenameBook,
     handleCopyBook,
     handleDeleteBook
 } from "./core/derpPromptBook_core.js";
+import { showBastaPagesBook } from "../../fatha/bastas/bastaPagesBook.js";
 
 function tLocale(key, fallback = key) {
     if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
@@ -283,10 +283,11 @@ app.registerExtension({
                         width: "match", height: "fill", spacing: [sW, 0], objectAlign: ["left", "middle"],
                         onPress: () => handlePageAdd(this)
                     },
-                    btnPageRename: {
-                        type: this.UI_TYPES.ICONBUTTON, icon: "rename", themeKey: "button, t_textNormal",
+                    btnPageManage: {
+                        type: this.UI_TYPES.ICONBUTTON, icon: "settings", themeKey: "button, t_textNormal",
                         width: "match", height: "fill", spacing: [sW, 0], objectAlign: ["left", "middle"],
-                        onPress: () => handlePageRename(this)
+                        toolTip: tLocale("$derp_prompt_book.tooltips.manage_pages", "{{t_toolTip_highlight::Manage pages}}: rearrange and rename pages"),
+                        onPress: () => showBastaPagesBook(this, "btnPageManage")
                     },
                     dropdownPages: {
                         type: this.UI_TYPES.FILEBROWSER, searchTab: true,

@@ -644,6 +644,9 @@
       "show_total": "显示总页数",
       "spell_check": "拼写检查"
     },
+    "tooltips": {
+      "manage_pages": "{{t_toolTip_highlight::管理页面}}：重新排列和重命名页面"
+    },
     "page": {
       "prefix": "第",
       "empty": "空白",
@@ -679,10 +682,9 @@
       "delete_book": {
         "message_prefix": "删除书籍文件"
       },
-      "rename_page": {
-        "title": "重命名页面",
-        "message": "输入此页面的新名称：",
-        "confirm": "重命名"
+      "manage_pages": {
+        "title": "管理页面",
+        "hint": "拖动重新排序 - 双击重命名"
       },
       "delete_page": {
         "title": "删除页面",
