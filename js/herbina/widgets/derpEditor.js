@@ -760,7 +760,9 @@ export function syncDerpEditor(context, node, app, config) {
         }
 
         if (!liveReg.onPress && !liveReg.onClick) {
-            liveReg.onPress = (e, data) => {
+            // THE DBLCLICK ACTIVATION OPTION: Row-list editors (e.g. bastaPagesBook) share this
+            // opt-in so single clicks stay free for hold-to-drag while double-click activates.
+            const activateDerpEditor = (e, data) => {
                 if (e && e.stopPropagation) e.stopPropagation();
                 if (liveReg.state === "DIS") return;
 
@@ -837,6 +839,8 @@ export function syncDerpEditor(context, node, app, config) {
 
                 return true;
             };
+            if (safeConfig.activateOnDblClick === true) liveReg.onDblClick = activateDerpEditor;
+            else liveReg.onPress = activateDerpEditor;
         }
     }
 
