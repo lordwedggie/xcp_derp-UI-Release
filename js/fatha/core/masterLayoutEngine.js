@@ -831,42 +831,52 @@ export class masterLayoutEngine {
             const isLastItem = (key === mapKeys[mapKeys.length - 1]);
 
             if (isParentRow) {
-                const itemEndPlusMargin = currentRegion.x + currentRegion.w;
+                // THE FLOATER-FLOW FIX: ignoreLayout regions (drag-preview floaters with absolute
+                // x/y) must not advance the flow cursor — their config x/y override flow position,
+                // so advancing past them pushes every later sibling to the drag position. In
+                // auto-height containers that fed contentMinHeight and made bottom-anchored
+                // Bastas grow without bound while dragging to the tail.
+                if (!currentRegion.ignoreLayout) {
+                    const itemEndPlusMargin = currentRegion.x + currentRegion.w;
 
-                currentLevelMaxX = itemEndPlusMargin + margin[2];
-                currentLevelMaxY = Math.max(currentLevelMaxY, currentRegion.y + currentRegion.h);
+                    currentLevelMaxX = itemEndPlusMargin + margin[2];
+                    currentLevelMaxY = Math.max(currentLevelMaxY, currentRegion.y + currentRegion.h);
 
-                // DEBUG VISUALIZER & GAP LOGIC: Only apply spacing if NOT the last item
-                if (spacing[0] > 0 && !isLastItem) {
-                    this.regions[`_spacing_x_${key}`] = {
-                        x: currentLevelMaxX,
-                        y: currentRegion.y,
-                        w: spacing[0],
-                        h: currentRegion.h,
-                        isSpacing: true,
-                        isChild: true,
-                        ignoreLayout: true,
-                        parentKey: currentRegion.parentKey
-                    };
-                    currentLevelMaxX += spacing[0]; // Only advance cursor for the actual gap
+                    // DEBUG VISUALIZER & GAP LOGIC: Only apply spacing if NOT the last item
+                    if (spacing[0] > 0 && !isLastItem) {
+                        this.regions[`_spacing_x_${key}`] = {
+                            x: currentLevelMaxX,
+                            y: currentRegion.y,
+                            w: spacing[0],
+                            h: currentRegion.h,
+                            isSpacing: true,
+                            isChild: true,
+                            ignoreLayout: true,
+                            parentKey: currentRegion.parentKey
+                        };
+                        currentLevelMaxX += spacing[0]; // Only advance cursor for the actual gap
+                    }
                 }
             }else {
-                const itemEndPlusMarginY = currentRegion.y + currentRegion.h + margin[3];
-                currentLevelMaxY = itemEndPlusMarginY;
-                currentLevelMaxX = Math.max(currentLevelMaxX, currentRegion.x + currentRegion.w + margin[2]);
+                // THE FLOATER-FLOW FIX (column variant): see the row branch above.
+                if (!currentRegion.ignoreLayout) {
+                    const itemEndPlusMarginY = currentRegion.y + currentRegion.h + margin[3];
+                    currentLevelMaxY = itemEndPlusMarginY;
+                    currentLevelMaxX = Math.max(currentLevelMaxX, currentRegion.x + currentRegion.w + margin[2]);
 
-                if ((spacing[1] || 0) > 0 && !isLastItem) {
-                    this.regions[`_spacing_y_${key}`] = {
-                        x: currentRegion.x,
-                        y: itemEndPlusMarginY,
-                        w: currentRegion.w,
-                        h: spacing[1],
-                        isSpacing: true,
-                        isChild: true,
-                        ignoreLayout: true,
-                        parentKey: currentRegion.parentKey
-                    };
-                    currentLevelMaxY += spacing[1];
+                    if ((spacing[1] || 0) > 0 && !isLastItem) {
+                        this.regions[`_spacing_y_${key}`] = {
+                            x: currentRegion.x,
+                            y: itemEndPlusMarginY,
+                            w: currentRegion.w,
+                            h: spacing[1],
+                            isSpacing: true,
+                            isChild: true,
+                            ignoreLayout: true,
+                            parentKey: currentRegion.parentKey
+                        };
+                        currentLevelMaxY += spacing[1];
+                    }
                 }
             }
 
