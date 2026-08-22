@@ -566,6 +566,166 @@ function patchRemoteBypassMenus() {
     patchContextMenuFallback();
 }
 
+// ===== Vue/Node 2.0 GROUP MENU AUGMENTER =====
+// In Vue mode ComfyUI renders the group context menu via its Vue component and never
+// calls the legacy LGraphGroup.getMenuOptions / processContextMenu / ContextMenu paths
+// that patchGroupMenu / patchCanvasGroupContextMenu / patchContextMenuFallback hook. So
+// we add a passive capture-phase contextmenu listener that detects group right-clicks,
+// a MutationObserver that finds ComfyUI's rendered Vue menu DOM, and we append the
+// bypass row by cloning an existing menu item (style parity regardless of menu lib).
+let _pendingGroupRightClick = null;
+let _groupMenuObserver = null;
+let _xcpVueGroupAugmenterInstalled = false;
+
+function isPointInBounds(bounds, point) {
+    if (!bounds || !point) return false;
+    const [x, y, w, h] = bounds;
+    return point[0] >= x && point[0] <= x + w && point[1] >= y && point[1] <= y + h;
+}
+
+function onCanvasContext(event) {
+    const canvas = window.app?.canvas;
+    const graphPoint = getGraphPointFromEvent(canvas, event);
+    if (!graphPoint) return;
+
+    const graph = getActiveGraph();
+
+    // Node-target short-circuit: if a node is under the cursor, ComfyUI shows the node
+    // menu which already carries the bypass entry via getExtraMenuOptions (patched in
+    // beforeRegisterNodeDef). Skipping here prevents a duplicate row on node right-clicks
+    // that happen to fall inside a group.
+    let nodeUnder = null;
+    if (graph && typeof graph.getNodeOnPos === "function") {
+        nodeUnder = graph.getNodeOnPos(graphPoint[0], graphPoint[1]);
+    }
+    if (!nodeUnder && Array.isArray(graph?._nodes)) {
+        for (const n of graph._nodes) {
+            if (isLiteGraphNode(n) && isPointInBounds(getNodeBounds(n), graphPoint)) { nodeUnder = n; break; }
+        }
+    }
+    if (nodeUnder) return;
+
+    const group = getContextMenuGroup({ canvas, event });
+    if (!isGraphGroup(group)) return;
+
+    _pendingGroupRightClick = {
+        group,
+        ts: Date.now(),
+        clientX: event.clientX,
+        clientY: event.clientY,
+    };
+    ensureGroupMenuObserver();
+}
+
+function findVueContextMenu(clientX, clientY) {
+    const candidates = document.querySelectorAll(".comfy-context-menu, .p-contextmenu, [class*='context-menu']");
+    if (!candidates || candidates.length === 0) return null;
+    // Prefer the menu whose rect contains the right-click coordinates; fall back to the
+    // first match (a menu that just opened at the cursor is usually the first candidate).
+    for (const el of candidates) {
+        const rect = el.getBoundingClientRect();
+        if (clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom) {
+            return el;
+        }
+    }
+    return candidates[0];
+}
+
+function stopGroupMenuObserver() {
+    if (_groupMenuObserver) {
+        _groupMenuObserver.disconnect();
+        _groupMenuObserver = null;
+    }
+}
+
+function ensureGroupMenuObserver() {
+    if (_groupMenuObserver) return;
+    _groupMenuObserver = new MutationObserver(() => {
+        if (!_pendingGroupRightClick) return;
+        if (Date.now() - _pendingGroupRightClick.ts > 1200) {
+            _pendingGroupRightClick = null;
+            stopGroupMenuObserver();
+            return;
+        }
+        const menu = findVueContextMenu(_pendingGroupRightClick.clientX, _pendingGroupRightClick.clientY);
+        if (!menu) return;
+        injectBypassRow(menu, _pendingGroupRightClick.group);
+        _pendingGroupRightClick = null;
+        stopGroupMenuObserver();
+    });
+    _groupMenuObserver.observe(document.body, { childList: true, subtree: true });
+}
+
+function injectBypassRow(menu, group) {
+    if (!menu || !group) return;
+    if (menu.querySelector("[data-xcp-bypass-group]")) return;
+
+    // Reuse the existing Vue-mode entry builder: returns [{content, callback}] in Vue
+    // mode, where callback opens showBypassSignalPicker with onSelect/onClear already
+    // wired to setRemoteBypassState + applyRemoteBypass + markEntityDirty.
+    const entries = appendRemoteBypassMenuOptions(group, []) || [];
+    const entry = entries.find((item) => item && item.content === REMOTE_BYPASS_MENU);
+    if (!entry || typeof entry.callback !== "function") return;
+
+    // Clone an existing menu item for style parity. Preserve the INNER clickable
+    // structure (PrimeVue puts pointer-events on the <a class="p-menuitem-link">, not
+    // the <li> — stripping the inner element left the row visible but non-clickable,
+    // so the entry showed but "could not be selected"). Replace only the text and
+    // wire our callback on every clickable level.
+    const sample = menu.querySelector("li, .p-menuitem, [class*='menu-item'], .comfy-menu-item") || menu.lastElementChild;
+    if (!sample) return;
+    const row = sample.cloneNode(true);
+    row.dataset.xcpBypassGroup = "1";
+    if (row.removeAttribute) row.removeAttribute("id");
+    else row.id = "";
+
+    // Drop any icon children (we have no glyph to show) but keep the link wrapper.
+    row.querySelectorAll(".p-menuitem-icon, [class*='menu-icon'], [class*='icon']").forEach((el) => el.remove());
+
+    // Find the text-bearing element. Try common PrimeVue/comfy classes first, then
+    // fall back to the innermost link/span, then the row itself.
+    const textEl =
+        row.querySelector(".p-menuitem-text") ||
+        row.querySelector("[class*='menuitem-text']") ||
+        row.querySelector("[class*='menu-item-text']") ||
+        row.querySelector(".p-menuitem-link, [class*='menuitem-link']") ||
+        row.querySelector("a, span, div") ||
+        row;
+    while (textEl.firstChild) textEl.removeChild(textEl.firstChild);
+    textEl.textContent = entry.content;
+
+    // Strip href/role that could trigger navigation or focus stealing on the cloned link.
+    row.querySelectorAll("a[href]").forEach((a) => a.removeAttribute("href"));
+
+    // Wire the click on EVERY clickable level (the inner link AND the row) so
+    // regardless of which element receives the pointerdown, our callback fires.
+    const handler = (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        try { entry.callback(); } catch (_err) { /* keep menu stable on error */ }
+    };
+    row.addEventListener("click", handler);
+    row.querySelectorAll("a, .p-menuitem-link, [class*='menuitem-link'], [role='menuitem']").forEach((el) => {
+        el.addEventListener("click", handler);
+        el.addEventListener("mouseup", (e) => { e.stopPropagation(); });
+    });
+
+    // Defeat any CSS that disables pointer events on dynamically-added children.
+    row.style.pointerEvents = "auto";
+    row.style.cursor = "pointer";
+    row.querySelectorAll("*").forEach((el) => { el.style.pointerEvents = "auto"; });
+
+    const parent = sample.parentNode || menu;
+    parent.appendChild(row);
+}
+
+function installVueGroupMenuAugmenter() {
+    if (_xcpVueGroupAugmenterInstalled) return;
+    if (typeof document === "undefined") return;
+    _xcpVueGroupAugmenterInstalled = true;
+    document.addEventListener("contextmenu", onCanvasContext, true);
+}
+
 window.xcpApplyRemoteBypassGroups = applyRemoteBypassGroups;
 
 app.registerExtension({
@@ -573,6 +733,13 @@ app.registerExtension({
     async setup() {
         patchRemoteBypassMenus();
         [0, 250, 1000].forEach((delay) => setTimeout(patchRemoteBypassMenus, delay));
+        // Vue/Node 2.0 group menu augmenter: the legacy LiteGraph patches above don't
+        // fire for groups in Vue mode. Install a DOM-level contextmenu listener that
+        // appends the bypass row to ComfyUI's rendered Vue menu. Retry once at 1500ms
+        // to cover late Vue boot (LiteGraph.vueNodesMode may not be set yet at setup).
+        const tryInstallVueGroupAugmenter = () => { if (isVueNodesMode()) installVueGroupMenuAugmenter(); };
+        tryInstallVueGroupAugmenter();
+        setTimeout(tryInstallVueGroupAugmenter, 1500);
         if (!app?.graph) return;
 
         const originalOnNodeAdded = app.graph.onNodeAdded;
