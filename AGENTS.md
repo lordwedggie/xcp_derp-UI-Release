@@ -135,6 +135,7 @@ Reusable task workflows live in `.agents/skills/` as `SKILL.md` files. Each skil
 - **syncthing-debug** — diagnoses and recovers MonkeyCode Syncthing connection issues, stale relay sessions, device identity drift, and workspace sync confusion.
 - **update-palette** — updates many palette JSON entries from one or a few hand-crafted exemplar entries while preserving category-specific behavior and palette structure.
 - **update-theme** — updates many theme JSON keys from one or a few hand-crafted exemplar keys, starting from `canvas` and the main `_ON/_OFF/_DIS` colors before deriving effects.
+- **derp-promptbook-json** — reads/creates/edits/reorganizes `user/derpNodes/derpPromptBook/*.json` prompt-book files directly: JSON schema, page/content conventions, `[[IMG:...]]` markers, `images` arrays, `_IMG` companion folders, rename/duplicate/delete pairing, and a validation checklist. Self-contained so agents in other workspaces can manage book files without framework source access.
 - **video-editor** — automates video editing with FFmpeg: trim, cut, concatenate, text overlays, intro/outro cards, speed ramps, and MP4 rendering for tutorial videos.
 - **run-tests** — runs the Vitest test suite (`npm test`). Write or update tests when fixing layout/measurement bugs in pure functions. Covers `interpretLayoutProps`, width/height math, and theme resolution.
 
