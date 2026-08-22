@@ -536,6 +536,52 @@ app.registerExtension({
             return Math.max(0, Math.min(1, (localX - Number(reg.x || 0)) / Number(reg.w)));
         };
 
+        // THE SCRUB SMOOTHER (rAF coalescer): pointermove seek bursts collapse into one
+        // currentTime set per animation frame — latest target wins, and an in-flight
+        // seek is chased on the next frame instead of piling up. The browser
+        // cancel-replaces pending seeks, but coalescing keeps the seek pipeline
+        // tracking the pointer at display rate with zero per-event main-thread cost.
+        nodeType.prototype.scheduleVideoDeckSeekApply = function() {
+            if (this._videoDeckSeekRafPending) return;
+            this._videoDeckSeekRafPending = true;
+            const step = () => {
+                // THE STALE-CHASER FIX: the target is only valid while the user is
+                // actually driving the seek slider. If the drag ended (or never really
+                // started, e.g. a click that fired onChange but released off the shield),
+                // a queued chaser must NOT fire — otherwise a stale target snaps
+                // currentTime back after the user pressed play, making the video jump
+                // or appear to ignore the press.
+                if (this._pressedRegionKey !== "sliderSeek") {
+                    this._videoDeckSeekRafPending = false;
+                    this._videoDeckSeekTarget = null;
+                    return;
+                }
+                const vidObj = getDerpVideoDeckVideoEl(this);
+                const target = this._videoDeckSeekTarget;
+                if (!vidObj || target == null || !Number.isFinite(target)) {
+                    // THE MISSING-ELEMENT FIX: bail cleanly and clear the stale target —
+                    // a missing/detached element would otherwise requeue forever and
+                    // pin _videoDeckSeekRafPending, deadlocking every later seek.
+                    this._videoDeckSeekRafPending = false;
+                    this._videoDeckSeekTarget = null;
+                    return;
+                }
+                if (vidObj.seeking) {
+                    this._videoDeckSeekRafPending = true;
+                    requestAnimationFrame(step);
+                    return;
+                }
+                if (Math.abs((vidObj.currentTime || 0) - target) > 0.011) {
+                    try { vidObj.currentTime = target; } catch (e) {}
+                }
+                // Applied (or already within tolerance): consume the target so a late
+                // frame can't re-fire it after the drag ends.
+                this._videoDeckSeekRafPending = false;
+                this._videoDeckSeekTarget = null;
+            };
+            requestAnimationFrame(step);
+        };
+
         nodeType.prototype.applyVideoDeckSeekFraction = function(frac) {
             if (frac == null || !Number.isFinite(frac)) return;
             const vidObj = getDerpVideoDeckVideoEl(this);
@@ -543,24 +589,54 @@ app.registerExtension({
             if (duration <= 0) return;
             const nextTime = Math.max(0, Math.min(duration, frac * duration));
             this._videoDeckCurrentTime = nextTime;
-            this._layoutMapHash = null;
-            if (vidObj) {
-                try { vidObj.currentTime = nextTime; } catch (e) {}
-            }
-            // In-place cache mutation (whole-wall pattern): slider fill + time label
-            // update without a layout rebuild, so scrubbing stays responsive.
+            this._videoDeckSeekTarget = nextTime;
+            this.scheduleVideoDeckSeekApply();
+
+            // THE SCRUB SMOOTHER (no per-move rebuild): the old path nulled
+            // _layoutMapHash + called refreshNodeLayoutMap() on EVERY pointermove,
+            // forcing a full map rebuild AND layout.compute each event. Video
+            // frames are painted by drawImage on the MAIN thread, so that churn
+            // starved frame presentation — the "stuck then jumps" scrub feel.
+            // Instead, update every cached layer in place (live regions, comp-data
+            // cache, and the layoutMap object the engine copies regions from) and
+            // just dirty the canvas; the one clean rebuild happens on dragEnd
+            // (finalizeVideoDeckSeekDrag).
             const timeText = `${formatVideoDeckTime(nextTime)} / ${formatVideoDeckTime(duration)}`;
             const seekReg = this.layout?.regions?.sliderSeek;
             if (seekReg) seekReg.value = frac;
             const seekComp = this._compDataCache?.sliderSeek;
             if (seekComp) seekComp.value = frac;
+            const mapSlider = this.layoutMap?.contentRegion?.regionVideoControls?.sliderSeek;
+            if (mapSlider) mapSlider.value = frac;
             const timeReg = this.layout?.regions?.lblTime;
             if (timeReg) { timeReg.text = timeText; timeReg.value = timeText; timeReg._resolvedDisplayText = timeText; }
             const timeComp = this._compDataCache?.lblTime;
             if (timeComp) { timeComp.text = timeText; timeComp.value = timeText; timeComp._resolvedDisplayText = timeText; }
-            // Rebuild the layout map so seeked → _forceSync → layout.compute()
-            // picks up the correct slider value instead of the stale cached one.
+            const mapTime = this.layoutMap?.contentRegion?.regionVideoControls?.lblTime;
+            if (mapTime) mapTime.text = timeText;
+            if (typeof this.setDirtyCanvas === "function") this.setDirtyCanvas(true, false);
+        };
+
+        // THE SCRUB SMOOTHER (drag finalize): one clean rebuild after the drag so the
+        // cached map/hash state resyncs from _videoDeckCurrentTime — cheap, once.
+        nodeType.prototype.finalizeVideoDeckSeekDrag = function() {
+            // THE SUB-FRAME FIX: a click-drag-release that lands within a single JS task
+            // leaves a queued chaser whose guard then skips it (pressed key already
+            // cleared) — dropping the final position. Apply any pending target here
+            // before consuming it, so the release point is never lost.
+            const pendingTarget = this._videoDeckSeekTarget;
+            if (pendingTarget != null && Number.isFinite(pendingTarget)) {
+                const vidObj = getDerpVideoDeckVideoEl(this);
+                if (vidObj && !vidObj.seeking && Math.abs((vidObj.currentTime || 0) - pendingTarget) > 0.011) {
+                    try { vidObj.currentTime = pendingTarget; this._videoDeckCurrentTime = pendingTarget; } catch (e) {}
+                }
+            }
+            // Consume the target so a queued chaser can't re-fire it after the drag
+            // has ended (playback handoff).
+            this._videoDeckSeekTarget = null;
+            this._layoutMapHash = null;
             if (typeof this.refreshNodeLayoutMap === "function") this.refreshNodeLayoutMap(false);
+            if (typeof this.requestDerpSync === "function") this.requestDerpSync();
         };
 
         nodeType.prototype.applyVideoDeckVolumeFraction = function(frac) {
@@ -1000,6 +1076,11 @@ app.registerExtension({
                         },
                         onVideoFrame: (vidObj) => {
                             if (!vidObj) return;
+                            // THE SCRUB SMOOTHER: while the seek slider is being dragged, the
+                            // pointer owns the slider/time display — the landed-frame
+                            // self-correction (throttled at 200ms) would fight it and make
+                            // the fill stutter backwards mid-scrub.
+                            if (this._pressedRegionKey === "sliderSeek") return;
                             this._videoDeckCurrentTime = vidObj.currentTime || 0;
                             if (Number.isFinite(vidObj.duration)) this._videoDeckDuration = vidObj.duration;
                             const now = performance.now();
@@ -1054,6 +1135,12 @@ app.registerExtension({
                                     return;
                                 }
                                 if (vidObj.paused || vidObj.ended) {
+                                    // THE PLAY-vs-CHASER FIX: a seek slider chaser queued while the video
+                                    // was paused/seeking must not fire once the user presses play — its
+                                    // stale target would snap currentTime back and look like play did
+                                    // nothing. Drop the pending target before starting playback.
+                                    this._videoDeckSeekRafPending = false;
+                                    this._videoDeckSeekTarget = null;
                                     if (vidObj.ended) {
                                         try { vidObj.currentTime = 0; } catch (e) {}
                                     }
@@ -1085,6 +1172,9 @@ app.registerExtension({
                             onPress: (_e, data) => this.applyVideoDeckSeekFraction(this.resolveVideoDeckSliderFraction("sliderSeek", data)),
                             onDragStart: (_e, data) => this.applyVideoDeckSeekFraction(this.resolveVideoDeckSliderFraction("sliderSeek", data)),
                             onDrag: (_e, data) => this.applyVideoDeckSeekFraction(this.resolveVideoDeckSliderFraction("sliderSeek", data)),
+                            // THE SCRUB SMOOTHER: the drag itself stays rebuild-free; the
+                            // one full map/hash resync happens here, when the drag ends.
+                            onDragEnd: () => this.finalizeVideoDeckSeekDrag(),
                             onChange: (v) => this.applyVideoDeckSeekFraction(Math.max(0, Math.min(1, Number(v) || 0)))
                         },
                         btnReplay: {
