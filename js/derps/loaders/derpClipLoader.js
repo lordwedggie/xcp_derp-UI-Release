@@ -33,6 +33,7 @@ function getClipTypeItems() {
         "stable_diffusion", "stable_cascade", "sd3", "stable_audio", "mochi", "ltxv", "pixart", "cosmos",
         "lumina2", "wan", "hidream", "chroma", "ace", "omnigen2", "qwen_image", "hunyuan_image",
         "flux2", "ovis", "longcat_image", "cogvideox", "lens", "pixeldit", "ideogram4",
+        "boogu", "krea2", "joyimage", "mage", "minimax",
         { value: "z_image", display: "Z-Image (ZIT)" }
     ];
 }

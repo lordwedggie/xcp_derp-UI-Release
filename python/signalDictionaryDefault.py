@@ -118,6 +118,10 @@ def normalize_clip_type(clip_type):
         "ZIT": ["Z_IMAGE", "ZIMAGE", "ZIT"],
         "Z_IMAGE": ["Z_IMAGE", "ZIMAGE", "ZIT"],
         "ZIMAGE": ["Z_IMAGE", "ZIMAGE", "ZIT"],
+        # Krea2 ships Qwen3-VL text encoders whose filenames may carry
+        # "qwen3vl" or "krea_qwen" prefixes; alias them so any typo still
+        # lands on CLIPType.KREA2 when available.
+        "KREA2": ["KREA2", "KREA_2", "KREA_V2", "KREAV2", "KREA_QWEN3VL", "QWEN3VL_KREA2"],
     }
     for candidate in clip_type_aliases.get(clip_key, [clip_key]):
         resolved = getattr(comfy.sd.CLIPType, candidate, None)
@@ -134,6 +138,9 @@ def resolve_clip_type(text_encoder_name=None, clip_type=None):
         return "stable_diffusion"
     if isinstance(clip_type, str) and clip_type not in ["", "default", "auto", "stable_diffusion"]:
         return clip_type
+    krea_tokens = ["krea2", "krea_2", "krea-v2", "kreav2", "kreamania", "qwen3vl", "qwen3_vl"]
+    if any(token in lower_name for token in krea_tokens) or any(token in lower_type for token in krea_tokens):
+        return "krea2"
     if any(token in lower_name for token in ["z_image", "z-image", "zimage", "zit"]):
         return "z_image"
     if any(token in lower_type for token in ["z_image", "z-image", "zimage", "zit"]):
