@@ -65,13 +65,17 @@
       "portrait": "纵向"
     },
     "system": {
-      "configuration": "潜空间配置："
+      "configuration": "潜空间配置：",
+      "output_resolution": "输出分辨率",
+      "output_latent": "输出潜空间"
     },
     "tooltips": {
       "mode": "点击切换纵向和横向模式",
       "selector": "点击选择当前配置文件中的可用分辨率",
       "batch": "点击修改批次数量",
-      "mp": "点击修改百万像素倍率（1.0-4.0）"
+      "mp": "点击修改百万像素倍率（1.0-4.0）",
+      "output_resolution": "开启后，额外以无线 INT 信号输出 Width 与 Height（已应用 MP 倍率）。",
+      "output_latent": "关闭后，不再广播无线潜空间信号。"
     }
   },
   "derp_slider": {

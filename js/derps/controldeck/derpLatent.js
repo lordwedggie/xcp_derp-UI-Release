@@ -88,7 +88,13 @@ app.registerExtension({
 
         nodeType.prototype.hydrateDerpLatentProfileData = function(profileName = null) {
             if (!this._sysProfileData) return false;
-            const selectedName = profileName || this._currentProfileName || Object.keys(this._sysProfileData).sort()[0];
+            const allNames = Object.keys(this._sysProfileData);
+            const pickDefault = (names) => {
+                if (names.includes("Krea2")) return "Krea2";
+                const sorted = [...names].sort();
+                return sorted[0];
+            };
+            const selectedName = profileName || this._currentProfileName || pickDefault(allNames);
             const profile = this._sysProfileData[selectedName];
             if (!profile || selectedName === "(No Profiles Found)") return false;
 
@@ -111,12 +117,17 @@ app.registerExtension({
                 if (!res.ok) return;
                 const result = await res.json();
                 const profiles = result.data || {};
-                const profileNames = Object.keys(profiles).sort();
+                const profileNames = Object.keys(profiles);
                 if (profileNames.length === 0) return;
-                const firstName = profileNames[0];
+                // Prefer Krea2 as the shipped default on fresh node spawns
+                // (alphabetical sort is the fallback so any future profile pack
+                // still gets a stable first-selection when Krea2 is absent).
+                const defaultName = profileNames.includes("Krea2")
+                    ? "Krea2"
+                    : [...profileNames].sort()[0];
                 this._sysProfileData = profiles;
-                this._sysProfileCache = profileNames;
-                this._currentProfileName = this._currentProfileName || firstName;
+                this._sysProfileCache = [...profileNames].sort();
+                this._currentProfileName = this._currentProfileName || defaultName;
                 this.hydrateDerpLatentProfileData(this._currentProfileName);
             } catch (e) {
                 console.warn("[DerpLatent] Failed to load profiles:", e);
@@ -157,7 +168,9 @@ app.registerExtension({
             // same-length profile swaps change dropdown items, and pW/pH are
             // baked into the map but not otherwise represented.
             const presetLabels = presets.map(p => getLabel(p, mode));
-            const structureHash = `${mode}_${this.properties.selectedLatent}_${this.properties.batchSize}_${this.properties.editorMP}_${presetLabels.join("|")}_${mW}_${mH}_${sW}_${sH}_${pW}_${pH}_${window._xcpDerpSession}_${this.properties.drawHeader}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}`;
+            const outputResolution = this.properties.outputResolution === true;
+            const outputLatent = this.properties.outputLatent !== false;
+            const structureHash = `${mode}_${this.properties.selectedLatent}_${this.properties.batchSize}_${this.properties.editorMP}_${outputResolution}_${outputLatent}_${presetLabels.join("|")}_${mW}_${mH}_${sW}_${sH}_${pW}_${pH}_${window._xcpDerpSession}_${this.properties.drawHeader}_${this.titleLabel}_${(this.size?.[0] || 0).toFixed(2)}`;
 
             if (this._lastMapStructure === structureHash && this.layoutMap) {
                 this.requestDerpSync();
@@ -334,54 +347,160 @@ app.registerExtension({
                         labelAlign: ["left", "middle"],
                         text: tLocale("$derp_latent.system.configuration", "Latent Configuration:"),
                         width: "full", padding: [pW, pH],
+                    },
+                    outputResolution: {
+                        type: this.UI_TYPES.TOGGLE_V2, isTextOnly: true,
+                        themeKey: "dialog, button, t_textSystem",
+                        text: tLocale("$derp_latent.system.output_resolution", "Output Resolution"),
+                        width: "full", height: "auto", padding: [pW, pH],
+                        value: this.properties.outputResolution === true,
+                        toolTip: tLocale("$derp_latent.tooltips.output_resolution", "When enabled, also output Width and Height as wireless INT signals (MP-multiplied)."),
+                        onChange: (v) => {
+                            this.properties.outputResolution = !!v;
+                            this.refreshNodeLayoutMap();
+                            this.refreshDerpLatentSysMap();
+                            this.broadcastLatentState();
+                            this.requestDerpSync();
+                        }
+                    },
+                    outputLatent: {
+                        type: this.UI_TYPES.TOGGLE_V2, isTextOnly: true,
+                        themeKey: "dialog, button, t_textSystem",
+                        text: tLocale("$derp_latent.system.output_latent", "Output Latent"),
+                        width: "full", height: "auto", padding: [pW, pH],
+                        value: this.properties.outputLatent !== false,
+                        toolTip: tLocale("$derp_latent.tooltips.output_latent", "When disabled, the wireless Latent signal is not broadcast."),
+                        onChange: (v) => {
+                            this.properties.outputLatent = !!v;
+                            this.refreshNodeLayoutMap();
+                            this.refreshDerpLatentSysMap();
+                            this.broadcastLatentState();
+                            this.requestDerpSync();
+                        }
                     }
                 }
             };
+            if (this._derpPanel && typeof this._derpPanel.setLayoutMap === "function") {
+                this._derpPanel.setLayoutMap(this.sysLayoutMap);
+            }
         };
 
         // --- WIRELESS BROADCAST ---
+        nodeType.prototype.purgeDerpSignal = function() {
+            const baseId = String(this.id);
+            // Slots: 0=LATENT, 1=Width INT, 2=Height INT. Clear all so stale
+            // resolutions don't linger after toggle-off or node removal.
+            for (let i = 0; i < 3; i++) {
+                delete window.xcpDerpSignals?.[`${baseId}:${i}`];
+            }
+            this._lastSignalFingerprint = null;
+        };
+
         nodeType.prototype.broadcastLatentState = function() {
-            if (this.id === -1 || this.mode === 4 || this.mode === 2) return;
+            if (Number(this.id) === -1 || this.mode === 4 || this.mode === 2) return;
 
             const mp = this.properties.editorMP ?? 1;
             const scaleFactor = Math.sqrt(mp);
             const baseW = this.properties.width || 512;
             const baseH = this.properties.height || 512;
 
+            const scaledW = Math.round(baseW * scaleFactor);
+            const scaledH = Math.round(baseH * scaleFactor);
             const state = {
-                width: Math.round(baseW * scaleFactor),
-                height: Math.round(baseH * scaleFactor),
+                width: scaledW,
+                height: scaledH,
                 batch_size: this.properties.batchSize || 1,
                 editor_mp: mp
             };
 
-            const fingerprint = `${state.width}_${state.height}_${state.batch_size}_${state.editor_mp}_${this.titleLabel}_${this.id}`;
+            const outputLatent = this.properties.outputLatent !== false;
+            const outputResolution = this.properties.outputResolution === true;
+
+            const fingerprint = `${scaledW}_${scaledH}_${state.batch_size}_${state.editor_mp}_${outputLatent}_${outputResolution}_${this.titleLabel}_${this.id}`;
             if (this._lastSignalFingerprint === fingerprint) return;
             this._lastSignalFingerprint = fingerprint;
 
             this.properties.isWirelessTransmitter = true;
             this.properties.skipGenericWirelessHeartbeat = true;
 
-            // THE VIRTUAL BROADCASTpattern: Uses indexed signal IDs to ensure detection by SignalOut
             const baseId = String(this.id);
-            const signalId = `${baseId}:0`;
             const nodeName = this.titleLabel || this.title || tLocale("$derp_latent.title", "Derp Latent");
+            const isBypassed = this.mode === 4 || this.mode === 2 || this._derpSpoofedBypass;
 
-            window.xcpDerpSignals[signalId] = {
-                nodeId: signalId,
-                nodeName: `${nodeName} [Latent]`,
-                nodeType: this.type || "Node",
-                type: "LATENT",
-                value: state,
-                upstreamIds: [],
-                timestamp: Date.now()
-            };
+            if (!window.xcpDerpSignals) window.xcpDerpSignals = {};
 
-            fetch("/xcp/update_signal", {
-                method: "POST",
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ node_id: signalId, value: state })
-            });
+            // Slot 0: Latent wireless signal (gated by outputLatent).
+            const latentId = `${baseId}:0`;
+            if (outputLatent && !isBypassed) {
+                window.xcpDerpSignals[latentId] = {
+                    nodeId: latentId,
+                    nodeName: `${nodeName} [Latent]`,
+                    nodeType: this.type || "Node",
+                    type: "LATENT",
+                    value: state,
+                    upstreamIds: [],
+                    timestamp: Date.now()
+                };
+                fetch("/xcp/update_signal", {
+                    method: "POST",
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ node_id: latentId, value: state })
+                }).catch(() => {});
+            } else {
+                delete window.xcpDerpSignals[latentId];
+                fetch("/xcp/update_signal", {
+                    method: "POST",
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ node_id: latentId, value: null })
+                }).catch(() => {});
+            }
+
+            // Slot 1: Width INT, Slot 2: Height INT (gated by outputResolution).
+            const wId = `${baseId}:1`;
+            const hId = `${baseId}:2`;
+            if (outputResolution && !isBypassed) {
+                window.xcpDerpSignals[wId] = {
+                    nodeId: wId,
+                    nodeName: `${nodeName} [Width]`,
+                    nodeType: this.type || "Node",
+                    type: "INT",
+                    value: scaledW,
+                    upstreamIds: [],
+                    timestamp: Date.now()
+                };
+                window.xcpDerpSignals[hId] = {
+                    nodeId: hId,
+                    nodeName: `${nodeName} [Height]`,
+                    nodeType: this.type || "Node",
+                    type: "INT",
+                    value: scaledH,
+                    upstreamIds: [],
+                    timestamp: Date.now()
+                };
+                fetch("/xcp/update_signal", {
+                    method: "POST",
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ node_id: wId, value: scaledW })
+                }).catch(() => {});
+                fetch("/xcp/update_signal", {
+                    method: "POST",
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ node_id: hId, value: scaledH })
+                }).catch(() => {});
+            } else {
+                delete window.xcpDerpSignals[wId];
+                delete window.xcpDerpSignals[hId];
+                fetch("/xcp/update_signal", {
+                    method: "POST",
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ node_id: wId, value: null })
+                }).catch(() => {});
+                fetch("/xcp/update_signal", {
+                    method: "POST",
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ node_id: hId, value: null })
+                }).catch(() => {});
+            }
 
             if (window.app?.graph?._nodes) {
                 window.app.graph._nodes.forEach(n => {
@@ -391,6 +510,8 @@ app.registerExtension({
         };
 
         nodeType.prototype.syncDerpOutputs = function() {
+            if (this.purgeDerpSignal) this.purgeDerpSignal();
+            this._lastSignalFingerprint = null;
             this.broadcastLatentState();
         };
 
@@ -417,12 +538,21 @@ app.registerExtension({
             this.properties.mode = "Landscape";
             this.properties.autoWidth = false;
             this.properties.latentPresets = [];
+            // Toggle defaults: outputResolution off (opt-in extra INT signals),
+            // outputLatent on (preserves existing wireless Latent behavior).
+            if (!(this.properties.outputResolution in this.properties)) {
+                this.properties.outputResolution = false;
+            }
+            if (!(this.properties.outputLatent in this.properties)) {
+                this.properties.outputLatent = true;
+            }
             syncDerpLatentLocaleLabels(this);
 
             this.refreshNodeLayoutMap();
             this.refreshDerpLatentSysMap();
 
-            if (window.purgeDerpSignal) window.purgeDerpSignal(this.id);
+            if (this.purgeDerpSignal) this.purgeDerpSignal();
+            else if (window.purgeDerpSignal) window.purgeDerpSignal(this.id);
             this._lastSignalFingerprint = null;
 
             setTimeout(() => {
@@ -440,6 +570,14 @@ app.registerExtension({
             this.properties.skipGenericWirelessHeartbeat = true;
             this.properties.latentPresets = Array.isArray(this.properties.latentPresets) ? this.properties.latentPresets : [];
             this.properties.mode = normalizeLatentMode(this.properties.mode);
+            // Loaded workflows from before the toggle was added inherit opt-in defaults.
+            // Use !== true / !== false so explicitly-saved values survive round-trips.
+            if (!(this.properties.outputResolution in this.properties)) {
+                this.properties.outputResolution = false;
+            }
+            if (!(this.properties.outputLatent in this.properties)) {
+                this.properties.outputLatent = true;
+            }
             syncDerpLatentLocaleLabels(this);
             if (!this.properties.selectedLatent && this.properties.width && this.properties.height) {
                 const mode = normalizeLatentMode(this.properties.mode);

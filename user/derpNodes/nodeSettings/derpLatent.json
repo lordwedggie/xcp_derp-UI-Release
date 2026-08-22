@@ -1,4 +1,60 @@
-﻿{
+{
+    "Krea2":  {
+                  "batch":  1,
+                  "mode":  "Landscape",
+                  "presets":  [
+                                  {
+                                      "aspectRatio":  "1 : 1",
+                                      "width":  1024,
+                                      "height":  1024
+                                  },
+                                  {
+                                      "aspectRatio":  "4 : 3",
+                                      "width":  1152,
+                                      "height":  864
+                                  },
+                                  {
+                                      "aspectRatio":  "5 : 4",
+                                      "width":  1120,
+                                      "height":  896
+                                  },
+                                  {
+                                      "aspectRatio":  "9 : 7",
+                                      "width":  1152,
+                                      "height":  896
+                                  },
+                                  {
+                                      "aspectRatio":  "19 : 13",
+                                      "width":  1216,
+                                      "height":  832
+                                  },
+                                  {
+                                      "aspectRatio":  "3 : 2",
+                                      "width":  1248,
+                                      "height":  832
+                                  },
+                                  {
+                                      "aspectRatio":  "7 : 4",
+                                      "width":  1344,
+                                      "height":  768
+                                  },
+                                  {
+                                      "aspectRatio":  "16 : 9",
+                                      "width":  1280,
+                                      "height":  720
+                                  },
+                                  {
+                                      "aspectRatio":  "21 : 9",
+                                      "width":  1568,
+                                      "height":  672
+                                  },
+                                  {
+                                      "aspectRatio":  "12 : 5",
+                                      "width":  1536,
+                                      "height":  640
+                                  }
+                              ]
+              },
     "SDXL latents":  {
                          "batch":  1,
                          "mode":  "Landscape",
@@ -9,18 +65,8 @@
                                              "height":  1024
                                          },
                                          {
-                                             "aspectRatio":  "2 : 1",
-                                             "width":  2048,
-                                             "height":  1024
-                                         },
-                                         {
                                              "aspectRatio":  "4 : 3",
                                              "width":  1152,
-                                             "height":  896
-                                         },
-                                         {
-                                             "aspectRatio":  "7 : 4",
-                                             "width":  1568,
                                              "height":  896
                                          },
                                          {
@@ -34,14 +80,24 @@
                                              "height":  800
                                          },
                                          {
+                                             "aspectRatio":  "5 : 3",
+                                             "width":  1280,
+                                             "height":  768
+                                         },
+                                         {
+                                             "aspectRatio":  "7 : 4",
+                                             "width":  1568,
+                                             "height":  896
+                                         },
+                                         {
                                              "aspectRatio":  "16 : 9",
                                              "width":  1344,
                                              "height":  768
                                          },
                                          {
-                                             "aspectRatio":  "5 : 3",
-                                             "width":  1280,
-                                             "height":  768
+                                             "aspectRatio":  "2 : 1",
+                                             "width":  2048,
+                                             "height":  1024
                                          },
                                          {
                                              "aspectRatio":  "23 : 11",
@@ -75,18 +131,8 @@
                                                    "height":  1024
                                                },
                                                {
-                                                   "aspectRatio":  "2 : 1",
-                                                   "width":  2048,
-                                                   "height":  1024
-                                               },
-                                               {
                                                    "aspectRatio":  "4 : 3",
                                                    "width":  1152,
-                                                   "height":  896
-                                               },
-                                               {
-                                                   "aspectRatio":  "7 : 4",
-                                                   "width":  1568,
                                                    "height":  896
                                                },
                                                {
@@ -100,14 +146,24 @@
                                                    "height":  800
                                                },
                                                {
+                                                   "aspectRatio":  "5 : 3",
+                                                   "width":  1280,
+                                                   "height":  768
+                                               },
+                                               {
+                                                   "aspectRatio":  "7 : 4",
+                                                   "width":  1568,
+                                                   "height":  896
+                                               },
+                                               {
                                                    "aspectRatio":  "16 : 9",
                                                    "width":  1344,
                                                    "height":  768
                                                },
                                                {
-                                                   "aspectRatio":  "5 : 3",
-                                                   "width":  1280,
-                                                   "height":  768
+                                                   "aspectRatio":  "2 : 1",
+                                                   "width":  2048,
+                                                   "height":  1024
                                                },
                                                {
                                                    "aspectRatio":  "23 : 11",
@@ -136,54 +192,19 @@
                           "mode":  "Landscape",
                           "presets":  [
                                           {
-                                              "width":  2048,
-                                              "aspectRatio":  "32 : 9",
-                                              "height":  576
+                                              "aspectRatio":  "1 : 1",
+                                              "width":  1024,
+                                              "height":  1024
                                           },
                                           {
-                                              "aspectRatio":  "4 : 1",
-                                              "width":  2048,
-                                              "height":  512
-                                          },
-                                          {
-                                              "width":  1920,
-                                              "aspectRatio":  "2 : 1",
-                                              "height":  960
-                                          },
-                                          {
-                                              "aspectRatio":  "26 : 9",
-                                              "width":  1664,
-                                              "height":  576
-                                          },
-                                          {
-                                              "width":  1600,
-                                              "aspectRatio":  "5 : 2",
-                                              "height":  640
-                                          },
-                                          {
-                                              "aspectRatio":  "7 : 4",
-                                              "width":  1568,
+                                              "aspectRatio":  "4 : 3",
+                                              "width":  1152,
                                               "height":  896
                                           },
                                           {
-                                              "aspectRatio":  "21 : 9",
-                                              "width":  1536,
-                                              "height":  640
-                                          },
-                                          {
-                                              "width":  1536,
-                                              "aspectRatio":  "3 : 1",
-                                              "height":  512
-                                          },
-                                          {
-                                              "aspectRatio":  "23 : 11",
-                                              "width":  1472,
-                                              "height":  704
-                                          },
-                                          {
-                                              "aspectRatio":  "16 : 9",
-                                              "width":  1344,
-                                              "height":  768
+                                              "aspectRatio":  "3 : 2",
+                                              "width":  1216,
+                                              "height":  832
                                           },
                                           {
                                               "aspectRatio":  "16 : 10",
@@ -196,19 +217,54 @@
                                               "height":  768
                                           },
                                           {
-                                              "aspectRatio":  "3 : 2",
-                                              "width":  1216,
-                                              "height":  832
-                                          },
-                                          {
-                                              "aspectRatio":  "4 : 3",
-                                              "width":  1152,
+                                              "aspectRatio":  "7 : 4",
+                                              "width":  1568,
                                               "height":  896
                                           },
                                           {
-                                              "aspectRatio":  "1 : 1",
-                                              "width":  1024,
-                                              "height":  1024
+                                              "aspectRatio":  "16 : 9",
+                                              "width":  1344,
+                                              "height":  768
+                                          },
+                                          {
+                                              "aspectRatio":  "2 : 1",
+                                              "width":  1920,
+                                              "height":  960
+                                          },
+                                          {
+                                              "aspectRatio":  "23 : 11",
+                                              "width":  1472,
+                                              "height":  704
+                                          },
+                                          {
+                                              "aspectRatio":  "21 : 9",
+                                              "width":  1536,
+                                              "height":  640
+                                          },
+                                          {
+                                              "aspectRatio":  "5 : 2",
+                                              "width":  1600,
+                                              "height":  640
+                                          },
+                                          {
+                                              "aspectRatio":  "26 : 9",
+                                              "width":  1664,
+                                              "height":  576
+                                          },
+                                          {
+                                              "aspectRatio":  "3 : 1",
+                                              "width":  1536,
+                                              "height":  512
+                                          },
+                                          {
+                                              "aspectRatio":  "32 : 9",
+                                              "width":  2048,
+                                              "height":  576
+                                          },
+                                          {
+                                              "aspectRatio":  "4 : 1",
+                                              "width":  2048,
+                                              "height":  512
                                           }
                                       ]
                       }

@@ -65,13 +65,17 @@
       "portrait": "Portrait"
     },
     "system": {
-      "configuration": "Latent configuration:"
+      "configuration": "Latent Configuration:",
+      "output_resolution": "Output Resolution",
+      "output_latent": "Output Latent"
     },
     "tooltips": {
       "mode": "Click to switch between portrait and landscape mode",
       "selector": "Click to choose available resolutions from the profile",
       "batch": "Click to change batch size",
-      "mp": "Click to change megapixel multiplier (1.0-4.0)"
+      "mp": "Click to change megapixel multiplier (1.0-4.0)",
+      "output_resolution": "When enabled, also output Width and Height as wireless INT signals (MP-multiplied).",
+      "output_latent": "When disabled, the wireless Latent signal is not broadcast."
     }
   },
   "derp_slider": {
