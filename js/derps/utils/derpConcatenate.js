@@ -164,6 +164,15 @@ function formatConcatSignalLabel(name, slotOrId) {
     return `{{t_text_accent::${raw}}}${suffix}`;
 }
 
+// THE STRING-ID GUARD: this ComfyUI frontend assigns node ids as STRINGS, so a freshly
+// created (not yet added) node reports id === "-1" — strict `=== -1` comparisons are
+// type-defeated and let creation-time theme updates write a ghost signal under "-1:0".
+// Every concat node then overwrites that shared ghost entry, and the picker's self-filter
+// ("-1" vs the node's real id) can never match — the node lists its own signal.
+function isUnassignedConcatNodeId(node) {
+    return Number(node?.id) === -1;
+}
+
 function getConcatSignalItems(node) {
     const ownId = node ? String(node.id) : null;
     const alreadySelected = new Set();
@@ -204,6 +213,11 @@ function getConcatSignalItems(node) {
             if (!sig || !sig.nodeId) return false;
             if (!String(sig.type || "").toUpperCase().includes("STRING")) return false;
             const sid = String(sig.nodeId).split(":")[0];
+            // THE GHOST FILTER: "-1" base ids are creation-time ghosts — the owning node
+            // was never added to the graph under that id (or has since been added under
+            // its real id), so it can never be a valid source. Also covers ghosts written
+            // by OTHER node types that share the same string-id guard defeat.
+            if (sid === "-1") return false;
             if (ownId && sid === ownId) return false;
             if (alreadySelected.has(sid)) return false;
             // Block signals that would create a loop
@@ -442,7 +456,7 @@ app.registerExtension({
             this._layoutMapHash = null;
             suppressConcatNativeWidgets(this);
             syncDerpConcatenateLocaleLabels(this);
-            if (this.id !== -1) this.syncDerpOutputs();
+            if (!isUnassignedConcatNodeId(this)) this.syncDerpOutputs();
             this.refreshNodeLayoutMap();
         };
 
@@ -920,13 +934,17 @@ app.registerExtension({
                 this.properties.skipGenericWirelessHeartbeat = true;
                 this.properties.textValue = outContent;
             }
-            if (this.id === -1) return;
+            if (isUnassignedConcatNodeId(this)) return;
 
             if (!window.xcpDerpSignals) window.xcpDerpSignals = {};
             const baseId = String(this.id);
             const signalId = `${baseId}:0`;
             const nodeName = this.titleLabel || this.title || tLocale("$derp_concatenate.title", "Derp Concatenate");
-            const syncFingerprint = `${isBypassed ? "bypass" : "live"}__${nodeName}__${outContent}`;
+            // THE SELF-HEALING FINGERPRINT: includes signalId so a sync that ran under a
+            // pre-add ghost id (older builds / other code paths) never blocks the first
+            // real-id registration after graph.add — otherwise the signal stays parked
+            // under "-1:0" forever and pickers treat it as a foreign source.
+            const syncFingerprint = `${signalId}__${isBypassed ? "bypass" : "live"}__${nodeName}__${outContent}`;
 
             if (this._lastSyncedContent === syncFingerprint) return;
             this._lastSyncedContent = syncFingerprint;
@@ -1060,7 +1078,7 @@ app.registerExtension({
             this.refreshNodeLayoutMap();
 
             setTimeout(() => {
-                if (typeof this.syncDerpOutputs === "function" && this.id !== -1) {
+                if (typeof this.syncDerpOutputs === "function" && !isUnassignedConcatNodeId(this)) {
                     this.syncDerpOutputs();
                 }
             }, 1);
