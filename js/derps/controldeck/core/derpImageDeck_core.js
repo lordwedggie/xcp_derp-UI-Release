@@ -257,6 +257,12 @@ function initDerpImageDeckCore(nodeType) {
             }
             this._derpImageDeckDisplayUrl = url;
             this._derpImageDeckPendingLoadId = null;
+            // Title suffix info: capture the loaded image's native resolution.
+            // The existing _layoutMapHash reset + refresh below re-renders the
+            // header title so "Res:" fills in once dimensions are known.
+            this._imageDeckImageResolution = (img.naturalWidth > 0 && img.naturalHeight > 0)
+                ? `${img.naturalWidth}x${img.naturalHeight}`
+                : null;
             const preserveTop = this._derpImageDeckRestoringState === true;
             this._derpImageDeckRestoringState = false;
             resizeNodeToImageAspect(this, img, { preserveTop });
@@ -281,6 +287,7 @@ function initDerpImageDeckCore(nodeType) {
             this._derpImageDeckPrevDisplayUrl = null;
             this._derpImageDeckCrossfading = false;
             this._derpImageDeckCrossfadeFrom = 1;
+            this._imageDeckImageResolution = null;
             this._layoutMapHash = null;
             if (typeof this.refreshNodeLayoutMap === "function") this.refreshNodeLayoutMap();
             if (typeof this.requestDerpSync === "function") this.requestDerpSync();
@@ -318,6 +325,13 @@ function initDerpImageDeckCore(nodeType) {
         if (this._lastWirelessImageHash === nextHash) return;
 
         this._lastWirelessImageHash = nextHash;
+        // Title suffix info: a genuinely new image list arrived. Record the
+        // reception time and, when a prompt is running, its elapsed duration
+        // (finalized later by the execution_success listener in derpImageDeck).
+        this._imageDeckReceivedAt = new Date();
+        if (Number.isFinite(this._imageDeckExecStartAt)) {
+            this._imageDeckExecDurationMs = Math.max(0, Date.now() - this._imageDeckExecStartAt);
+        }
         if (this.properties) this.properties.imageDeckFilenameOverride = "";
         this._derpImageDeckFailedUrl = null;
         this._derpImageDeckList = list;

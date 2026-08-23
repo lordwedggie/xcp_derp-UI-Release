@@ -197,6 +197,8 @@ Lessons here are agent-facing reminders and sharp-edge indexes. Keep them short,
 
 ### Widget Patterns
 
+- EDITOR `displaySuffix` (string or function): a display-only string appended to the canvas display text (`valToSync`, line cache, wrap/shrink measurement) but excluded from `domVal` — so the DOM edit surface, blur, and cancel-restore never see it. The shared header title (`fathaLayoutMaps.js`) feeds it from `node.getDerpTitleDisplaySuffix?.()` and folds it into `_headerInsetLayoutHash` so suffix-only updates invalidate the engine cache; suffix-bearing titles also set `noShrink` so the combined string honors `displayMode: "cutoff"` instead of shrinking the font. derpImageDeck's signal info (" - Image received at HH:MM:SS, Res: WxH, Generated in HH:MM:SS") is the canonical user. When only the suffix changes, nodes must still null `_layoutMapHash` (or otherwise change their structure hash) and call `refreshNodeLayoutMap()` — the header map only rebuilds inside a compute pass.
+
 - Start widget sync paths with `resolveWidgetEnv(...)`. It handles theme resolution, i18n, state suffixes, color segments, animation gating, alpha, and visible display text.
 - Widgets should use `_hoveredRegionKey` and `_pressedRegionKey`; do not invent parallel hover/press state unless necessary.
 - Canvas segmented text should pass `segments` to `masterPainterText`; HTML segmented text should use `colorSegmentsToHTML(...)`.
@@ -308,7 +310,7 @@ For docking, stack resize, Deck Pressure, and Node 2.0 compatibility work, read 
 ### Node-Specific Notes
 
 - Derp-owned frontend `beforeRegisterNodeDef` guards must use exact backend class names. Fuzzy checks like `includes("modelloader")` or `includes("imagedeck")` can hijack third-party nodes with similar class names.
-- `derpSignalOut` refresh can be throttled; force refresh for one-shot source title changes.
+- `derpSignalOut` refresh can be throttled; force refresh for one-shot source title changes. **A throttled refresh is DROPPED, never retried** — the Router's queued `signal_data` widget (what Python reads at execution) then freezes at the last successful write while the live `window.xcpDerpSignals` registry and node displays look fresh. Every deliberate one-shot source broadcast (title AND value changes: MP, aspect, seed, selection) must call `n.updateReceivedSignals(true)` — the derpConcatenate/derpLoraStack pattern. derpLatent's Width/Height INT freeze was the canonical victim (2026-08-23). Transmitters still on the throttled call: SeedV2/V3, PromptBook, Slider, TriggerWall, VAE/Sampler/Scheduler loaders.
 - Indexed wireless transmitter IDs use `${baseId}:${index}` and should write complete signal records into `window.xcpDerpSignals`.
 - Bypassed indexed wireless outputs should emit empty strings.
 - LoRA stack signal descriptors can reference upstream `model_id` / `clip_id` entries in `DERP_LIVE_REGISTRY`; backend fallback resolution must guard against descriptor cycles instead of relying on Python recursion depth.

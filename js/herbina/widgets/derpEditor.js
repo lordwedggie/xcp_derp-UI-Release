@@ -682,10 +682,18 @@ export function syncDerpEditor(context, node, app, config) {
     const isHovered = (safeConfig.mouseOver !== false && node._hoveredRegionKey === safeConfig.key);
     const valStr = (safeConfig.value !== undefined ? safeConfig.value : (node.properties?.[safeConfig.key] ?? "")).toString();
 
+    // Display-only suffix (e.g. ImageDeck signal info appended after the node
+    // title). It feeds the canvas display text and all width/line measurement,
+    // but NEVER domVal — the editable DOM surface, blur, and cancel-restore all
+    // operate on the clean value, so editing cannot corrupt it.
+    const displaySuffix = typeof safeConfig.displaySuffix === "function"
+        ? String(safeConfig.displaySuffix(node) || "")
+        : String(safeConfig.displaySuffix || "");
+
     // THE OPTIMIZATION FIX: Move skipBg initialization above the stateHash to prevent ReferenceError.
     const skipBg = safeConfig.skipBackground || false;
     const hashScale = app?.canvas?.ds?.scale || 1;
-    const stateHash = `${isAwake}_${isHovered}_${node.mode}_${window._xcpDerpSession}_${valStr}_${safeConfig.text ?? ""}_${currentScroll}_${w}_${h}_${skipBg}_${safeConfig.labelAlign}_${safeConfig.padding}_${safeConfig.themeKey}_${safeConfig.state ?? ""}_${safeConfig.fontSize}_${safeConfig.fontWeight}_${safeConfig.numberOnly}_${safeConfig.labelColor ?? ""}_${safeConfig.btnColor ?? ""}_${hashScale}`;
+    const stateHash = `${isAwake}_${isHovered}_${node.mode}_${window._xcpDerpSession}_${valStr}_${safeConfig.text ?? ""}_${displaySuffix}_${currentScroll}_${w}_${h}_${skipBg}_${safeConfig.labelAlign}_${safeConfig.padding}_${safeConfig.themeKey}_${safeConfig.state ?? ""}_${safeConfig.fontSize}_${safeConfig.fontWeight}_${safeConfig.numberOnly}_${safeConfig.labelColor ?? ""}_${safeConfig.btnColor ?? ""}_${hashScale}`;
     const needsFullSync = node._shouldSync || el._lastStateHash !== stateHash || (el._isAnimating && (window.xcpDerpSettings?.useAnimations !== false));
 
     if (!needsFullSync && el._lastProps) {
@@ -747,9 +755,12 @@ export function syncDerpEditor(context, node, app, config) {
     if (safeConfig.propertyName && (safeConfig.text === undefined && safeConfig.value === undefined)) {
         displayVal = node.properties?.[safeConfig.propertyName] ?? "";
     }
-    const valToSync = (displayVal !== undefined ? displayVal : "").toString().replace(/\r/g, "");
-    // Strip {{}} color-key syntax for DOM display (canvas handles colors via segments)
-    const domVal = valToSync.replace(/\{\{[^}]+\}\}/g, "");
+    const rawVal = (displayVal !== undefined ? displayVal : "").toString().replace(/\r/g, "");
+    const valToSync = displaySuffix ? `${rawVal}${displaySuffix}` : rawVal;
+    // Strip {{}} color-key syntax for DOM display (canvas handles colors via segments).
+    // The suffix stays OUT of domVal: the DOM is the hit/focus/editing surface
+    // and must only ever contain the editable value.
+    const domVal = rawVal.replace(/\{\{[^}]+\}\}/g, "");
     if (isCanvas && node.layout?.regions?.[safeConfig.key]) {
         const liveReg = node.layout.regions[safeConfig.key];
 

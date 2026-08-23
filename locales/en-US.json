@@ -302,6 +302,11 @@
   },
   "derp_image_deck": {
     "title": "Derp Image Deck",
+    "title_info": {
+      "image_received_at": "Image received at",
+      "res": "Res:",
+      "generated_in": "Generated in"
+    },
     "prefix": {
       "placeholder": "Image Prefix"
     },

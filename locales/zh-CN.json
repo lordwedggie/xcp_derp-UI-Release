@@ -302,6 +302,11 @@
   },
   "derp_image_deck": {
     "title": "老登图片牌组",
+    "title_info": {
+      "image_received_at": "图片接收于",
+      "res": "分辨率:",
+      "generated_in": "生成耗时"
+    },
     "prefix": {
       "placeholder": "图片前缀"
     },

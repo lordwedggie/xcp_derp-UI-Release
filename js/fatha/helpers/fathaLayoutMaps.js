@@ -192,7 +192,7 @@ async function applyThemeWeightSelection(hostNode, sysState, themeName, weightNa
     else if (typeof hostNode.setDirtyCanvas === "function") hostNode.setDirtyCanvas(true, true);
 }
 
-function getHeaderInsetLayoutHash(node, insetBoost) {
+function getHeaderInsetLayoutHash(node, insetBoost, titleSuffix = "") {
     const { cornerOverride, isSelected } = resolveHeaderInsetLayoutState(node);
 
     return [
@@ -204,6 +204,10 @@ function getHeaderInsetLayoutHash(node, insetBoost) {
         isSelected ? 1 : 0,
         cornerOverride ? cornerOverride.map(v => (v ?? "n")).join("_") : "nocorners",
         `${insetBoost.left},${insetBoost.right}`,
+        // Title display suffix (e.g. ImageDeck signal info) changes the header
+        // title text without touching node._layoutMapHash — fold it in here so
+        // the engine cache key picks up suffix-only updates.
+        titleSuffix || "",
     ].join("|");
 }
 
@@ -363,7 +367,13 @@ export const getVirtualNodeLayoutMap = (node) => {
     // Writing it to node._layoutMapHash would clobber the node's own structure
     // hash (set by refreshNodeLayoutMap) on every compute, killing node-level
     // map caching and the engine's _hashMap fallback (bypassHashOptimization).
-    node._headerInsetLayoutHash = getHeaderInsetLayoutHash(node, headerSideInsetBoost);
+    // Optional per-node title suffix (framework-owned plumbing): nodes implement
+    // getDerpTitleDisplaySuffix() and return a plain display-only string that is
+    // appended after the title in the header. Never part of the editable value.
+    const titleSuffix = typeof node.getDerpTitleDisplaySuffix === "function"
+        ? String(node.getDerpTitleDisplaySuffix() || "")
+        : "";
+    node._headerInsetLayoutHash = getHeaderInsetLayoutHash(node, headerSideInsetBoost, titleSuffix);
 
     const isVerticalDocked = isVerticalDockedGroup(node);
     const isHorizontalDocked = isHorizontalDockedGroup(node);
@@ -451,8 +461,14 @@ export const getVirtualNodeLayoutMap = (node) => {
                     width: "full", height: "auto", padding: [pW, 0],
                     displayMode: "cutoff",
                     hitTest: isTitleTextHit, deferAsleepDomHitTest: true,
-                    
+
                     text: node.titleLabel || "Virtual Node",
+                    // Display-only suffix appended after the title. With a
+                    // suffix present, shrink-to-fit is disabled so the combined
+                    // string honors cutoff (clip) instead of shrinking the
+                    // theme font to unreadable sizes.
+                    displaySuffix: titleSuffix || undefined,
+                    noShrink: !!titleSuffix,
                     noDragLock: true, spacing: [sW, 0],
                     onPress: (e, data) => {
                         if (e?.originalEvent?.button === 2) return;

@@ -132,6 +132,21 @@ function formatImageDeckTimestamp(date = new Date()) {
     return `${yy}${mm}${dd}-${hh}${min}${sec}`;
 }
 
+function formatImageDeckClockTime(date = new Date()) {
+    const hh = String(date.getHours()).padStart(2, "0");
+    const min = String(date.getMinutes()).padStart(2, "0");
+    const sec = String(date.getSeconds()).padStart(2, "0");
+    return `${hh}:${min}:${sec}`;
+}
+
+function formatImageDeckDurationClock(ms) {
+    const totalSeconds = Math.max(0, Math.floor(Number(ms) / 1000));
+    const hh = String(Math.floor(totalSeconds / 3600)).padStart(2, "0");
+    const min = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, "0");
+    const sec = String(totalSeconds % 60).padStart(2, "0");
+    return `${hh}:${min}:${sec}`;
+}
+
 function getImageDeckBottomY(node) {
     const y = Number(node?.pos?.[1]) || 0;
     const h = Number(node?.size?.[1] ?? node?.properties?.nodeSize?.[1]) || 0;
@@ -297,6 +312,21 @@ app.registerExtension({
         };
 
         nodeType.prototype._isDerpImageDeckNode = true;
+
+        // Framework hook (fathaLayoutMaps header title): display-only info
+        // appended after the node title. Rendered by the canvas editor pass,
+        // never part of the editable title value. Populated by the core module
+        // when a new image list arrives (see applyDerpImageDeckList).
+        nodeType.prototype.getDerpTitleDisplaySuffix = function() {
+            const receivedAt = this._imageDeckReceivedAt instanceof Date ? this._imageDeckReceivedAt : null;
+            if (!receivedAt) return "";
+            const res = String(this._imageDeckImageResolution || "...");
+            const durationMs = Number(this._imageDeckExecDurationMs);
+            const duration = Number.isFinite(durationMs) && durationMs >= 0
+                ? formatImageDeckDurationClock(durationMs)
+                : "--:--:--";
+            return ` - ${tLocale("$derp_image_deck.title_info.image_received_at", "Image received at")} ${formatImageDeckClockTime(receivedAt)}, ${tLocale("$derp_image_deck.title_info.res", "Res:")} ${res}, ${tLocale("$derp_image_deck.title_info.generated_in", "Generated in")} ${duration}`;
+        };
 
         nodeType.prototype.onThemeUpdate = function(config) {
             this.handleThemeUpdate(config);
@@ -680,6 +710,24 @@ app.registerExtension({
                 app.api.addEventListener("execution_success", syncFromSignal);
                 app.api.addEventListener("execution_error", syncFromSignal);
                 app.api.addEventListener("execution_interrupted", syncFromSignal);
+
+                // Title info: track the prompt execution window so the title
+                // suffix can report the full prompt duration ("Generated in").
+                app.api.addEventListener("execution_start", () => {
+                    this._imageDeckExecStartAt = Date.now();
+                    this._imageDeckExecDurationMs = null;
+                });
+                app.api.addEventListener("execution_success", () => {
+                    if (!Number.isFinite(this._imageDeckExecStartAt)) return;
+                    // Finalize duration at prompt completion — more accurate than
+                    // the arrival-time snapshot. Only the suffix changed, so force
+                    // the header map refresh past the node's structure-hash gate.
+                    this._imageDeckExecDurationMs = Math.max(0, Date.now() - this._imageDeckExecStartAt);
+                    this._imageDeckExecStartAt = null;
+                    this._layoutMapHash = null;
+                    if (typeof this.refreshNodeLayoutMap === "function") this.refreshNodeLayoutMap();
+                    if (typeof this.requestDerpSync === "function") this.requestDerpSync();
+                });
             }
 
             this.refreshNodeLayoutMap();
