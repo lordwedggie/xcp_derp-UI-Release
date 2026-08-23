@@ -26,6 +26,15 @@ function normalizeLatentMode(mode) {
     return "Landscape";
 }
 
+// MP scaling convention (matches ComfyUI core ResolutionSelector, the node used
+// by the official Krea-2 workflow): megapixels = TOTAL pixel area, so linear
+// dimensions scale by sqrt(MP). Krea-2 requires dimensions divisible by 16
+// (Qwen VAE 8x spatial factor + DiT patch size 2), so snap the scaled result
+// to the nearest multiple of 16. 1024 @ MP 2.0 -> 1448 -> 1456; MP 4.0 -> 2048.
+function snapDerpLatentTo16(value) {
+    return Math.max(16, Math.round(Number(value) / 16) * 16);
+}
+
 function syncDerpLatentLocaleLabels(node) {
     if (!node?.properties) return;
     const localizedTitle = tLocale("$derp_latent.title", "Derp Latent");
@@ -203,8 +212,8 @@ app.registerExtension({
             let displayValue = currentFull;
             if (currentFull.includes(" - ") && currentFull.includes(" x ")) {
                 const resParts = currentFull.split(" - ")[1].split(" x ");
-                const sw = Math.round(parseInt(resParts[0]) * scaleFactor);
-                const sh = Math.round(parseInt(resParts[1]) * scaleFactor);
+                const sw = snapDerpLatentTo16(parseInt(resParts[0]) * scaleFactor);
+                const sh = snapDerpLatentTo16(parseInt(resParts[1]) * scaleFactor);
                 displayValue = `${currentAr} - ${sw} x ${sh}`;
             }
 
@@ -404,8 +413,8 @@ app.registerExtension({
             const baseW = this.properties.width || 512;
             const baseH = this.properties.height || 512;
 
-            const scaledW = Math.round(baseW * scaleFactor);
-            const scaledH = Math.round(baseH * scaleFactor);
+            const scaledW = snapDerpLatentTo16(baseW * scaleFactor);
+            const scaledH = snapDerpLatentTo16(baseH * scaleFactor);
             const state = {
                 width: scaledW,
                 height: scaledH,
@@ -504,7 +513,14 @@ app.registerExtension({
 
             if (window.app?.graph?._nodes) {
                 window.app.graph._nodes.forEach(n => {
-                    if (n.type === "xcpDerpSignalOut" && n.updateReceivedSignals) n.updateReceivedSignals();
+                    // FORCED refresh (derpConcatenate/derpLoraStack pattern): the
+                    // Router's 200ms throttle silently drops unforced updates, and
+                    // a dropped update is never retried — the Router's queued
+                    // signal_data widget then freezes at the last successful write,
+                    // so Width/Height INT (and Latent) values stop tracking MP and
+                    // aspect changes at execution time even though the live
+                    // window.xcpDerpSignals registry is fresh.
+                    if (n.type === "xcpDerpSignalOut" && n.updateReceivedSignals) n.updateReceivedSignals(true);
                 });
             }
         };
