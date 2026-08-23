@@ -4,6 +4,7 @@
  */
 import { app } from "../../../../scripts/app.js";
 import { fatha, initDerpGlobalListener } from "../../fatha/fatha.js";
+import { resolveDerpRuntimeAutoHeight } from "../../fatha/core/derpHeightPolicy.js";
 import {
     createDefaultDerpBook,
     bindPromptBookHooks,
@@ -23,6 +24,66 @@ import {
     handleDeleteBook
 } from "./core/derpPromptBook_core.js";
 import { showBastaPagesBook } from "../../fatha/bastas/bastaPagesBook.js";
+
+// --- scrollViewport clip resolvers (manual-height mode only) ---
+// Deck Pressure side-band height floors key off layout.contentMinHeight. Without
+// a viewport, the editor's full textual content becomes the node's content-
+// min height, which grows on every keystroke even for a Manual-height node.
+// Idle side-band fitting then treats Concat (viewport-locked at its min) as
+// fixed and PromptBook (plain, non-viewport, no content min bound) as the
+// sole spare-height sponge, so PromptBook grows while Concat is compressed
+// below its declared minimum. A content viewport bounds PromptBook's
+// contribution to the node's content-min floor to the visible clip, not the
+// full text, while descendant text still scrolls internally.
+
+function resolvePromptBookContentClipHeight(node, region, regions = {}) {
+    if (resolveDerpRuntimeAutoHeight(node)) return 0;
+    const fullHeight = Number(region?.h) || 0;
+    const regionY = Number(region?.y) || 0;
+    const vars = typeof node?.getDerpVars === "function" ? node.getDerpVars(node) : {};
+    const viewportGap = Math.max(0, Number(vars?.mH || 0));
+    const minClip = Math.max(1, Number(node?._promptBookMinClipHeight) || 100);
+    // Two-sibling fill + flow-auto pattern (mainRegion=fill, pageFooterRegion=auto):
+    // clamp to the flow footer's y so the page navigation bar stays fully
+    // visible. Also guard against the base system footer (footerRegion /
+    // systemBtn) so the node-level system button never overlaps content.
+    const pageFooterTop = Number(regions?.pageFooterRegion?.y) || 0;
+    const footer = regions?.footerRegion || regions?.systemBtn;
+    const footerBottom = footer ? (Number(footer?.y) || 0) + (Number(footer?.h) || 0) : 0;
+    const footerReserve = Number(node?.properties?.footerHeight) || 0;
+    const nodeH = Number(node?.size?.[1] || node?.properties?.nodeSize?.[1] || 0);
+    const physicalAvailable = nodeH > 0
+        ? nodeH - regionY - footerReserve - viewportGap
+        : 0;
+    let available = pageFooterTop > regionY
+        ? pageFooterTop - regionY - viewportGap
+        : 0;
+    if (physicalAvailable > 0) {
+        available = available > 0 ? Math.min(available, physicalAvailable) : physicalAvailable;
+    }
+    if (footerBottom > regionY) {
+        // The system footer (if positioned) is the hard lower bound.
+        const sysClamp = footerBottom - regionY - viewportGap;
+        available = available > 0 ? Math.min(available, sysClamp) : sysClamp;
+    }
+    if (!(available > 0)) {
+        // PASS 1 (flow footer not positioned yet) / no valid clamp:
+        // report the compact min, NEVER a physical-node-height measurement —
+        // otherwise contentMinHeight inflates to the node's current height
+        // and standalone manual resize becomes expand-only (per
+        // FRAMEWORK-Clipping.md two-sibling rule).
+        return Math.max(1, fullHeight > 0 ? Math.min(fullHeight, minClip) : minClip);
+    }
+    const clip = fullHeight > 0 ? Math.min(fullHeight, available) : available;
+    return Math.max(1, clip);
+}
+
+function resolvePromptBookContentMinClipHeight(node, region, regions = {}) {
+    // Compact floor: one usable editor line plus a small buffer so manual
+    // resize corner and Deck Pressure min-span never collapse the viewport to
+    // unusable dimensions. 100 matches the original contentRegion.minHeight.
+    return Math.max(1, Number(node?._promptBookMinClipHeight) || 100);
+}
 
 function tLocale(key, fallback = key) {
     if (!key || typeof key !== "string" || !key.startsWith("$")) return key;
@@ -221,6 +282,9 @@ app.registerExtension({
                         width: "full", height: "fill", dir: "col",
                         padding: [0, 0],
                         minHeight: 100,
+                        scrollViewport: true,
+                        clipHeight: resolvePromptBookContentClipHeight,
+                        minClipHeight: resolvePromptBookContentMinClipHeight,
                         editorMain: {
                         type: this.UI_TYPES.EDITOR, multiline: true, noHover: true, canvasShield: true, switchOnEditing: true,
                         spellCheck: this.properties.spellCheck !== false,
@@ -421,6 +485,7 @@ app.registerExtension({
                 editorPadding: formatEditorPaddingValue(this.properties.editorPadding, [0, 0])
             });
             this.size = [400, 400];
+            this._promptBookMinClipHeight = 100;
             this._lastSavedBookName = tLocale("$derp_prompt_book.book.untitled_name", "Untitled Book");
 
             if (typeof syncDerpPromptBookLocaleLabels === "function") syncDerpPromptBookLocaleLabels(this);
