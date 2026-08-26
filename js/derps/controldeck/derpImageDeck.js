@@ -67,6 +67,22 @@ function getImageDeckCurrentImage(node) {
     return list[idx] || null;
 }
 
+// Save-state indicator: the SAVE IMAGE button stays _ON while the current
+// image has never been saved this session and flips to _OFF once that image
+// has been saved at least once (manual or auto-save). Tracked per image
+// identity so gallery navigation reflects each image's own saved state.
+// Runtime-only (never serialized): restored workflow images read as unsaved.
+function getImageDeckSavedKey(image) {
+    if (!image || !image.filename) return null;
+    return `${image.type || "output"}|${image.subfolder || ""}|${image.filename}`;
+}
+
+function getImageDeckSaveButtonState(node) {
+    const key = getImageDeckSavedKey(getImageDeckCurrentImage(node));
+    if (!key) return "OFF";
+    return node?._imageDeckSavedKeys?.has(key) ? "OFF" : "ON";
+}
+
 function normalizeImageDeckToken(raw) {
     return String(raw || "").trim();
 }
@@ -225,6 +241,14 @@ async function saveImageDeckCurrentImage(node, isAutoSave = false) {
 
     const savedName = String(data.filename || "").split(/[\\/]/).pop() || String(data.filename || "");
     showBastaSystemMessage(node, isAutoSave ? tLocale("$derp_image_deck.messages.auto_saved_prefix", "Auto-saved: ") : tLocale("$derp_image_deck.messages.saved_prefix", "Saved: "), 2200, { fade: true, grow: true }, "btnSaveImage", "success", null, savedName);
+
+    // Saved at least once -> the save-state indicator drops to _OFF.
+    const savedKey = getImageDeckSavedKey(image);
+    if (savedKey) {
+        if (!node._imageDeckSavedKeys) node._imageDeckSavedKeys = new Set();
+        node._imageDeckSavedKeys.add(savedKey);
+        if (typeof node.refreshNodeLayoutMap === "function") node.refreshNodeLayoutMap();
+    }
 }
 
 function openImageDeckFolderSelector(node, items = []) {
@@ -880,7 +904,10 @@ app.registerExtension({
                     ? Math.max(0, Math.min(1, Number(this._derpImageDeckCrossfadeFrom || 0)))
                     : 1);
             const filenameText = this.getImageDeckFilenameText ? this.getImageDeckFilenameText() : "";
-            const structureHash = `${count}_${imageUrl || "none"}_${prevImageUrl || "none"}_${fadeAlpha.toFixed(3)}_${this.size[0].toFixed(2)}_${(this.size[1] || 0).toFixed(2)}_${mW}_${mH}_${sW}_${sH}_${pW}_${pH}_${this.titleLabel}_${filenameText}`;
+            // Save indicator state is visual output: it must live in the hash
+            // so a successful save rebuilds the map (button drops to _OFF).
+            const saveBtnState = getImageDeckSaveButtonState(this);
+            const structureHash = `${count}_${imageUrl || "none"}_${prevImageUrl || "none"}_${fadeAlpha.toFixed(3)}_${this.size[0].toFixed(2)}_${(this.size[1] || 0).toFixed(2)}_${mW}_${mH}_${sW}_${sH}_${pW}_${pH}_${this.titleLabel}_${filenameText}_${saveBtnState}`;
             if (this._layoutMapHash === structureHash && this.layoutMap) return;
             this._layoutMapHash = structureHash;
 
@@ -1043,7 +1070,7 @@ app.registerExtension({
                             width: "auto", height: "fill",
                             padding: [4, pH],
                             mouseOver: true,
-                            state: "OFF",
+                            state: saveBtnState,
                             onPress: async () => {
                                 try {
                                     await saveImageDeckCurrentImage(this);
