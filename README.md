@@ -8,8 +8,7 @@ xcp_derp-UI gives ComfyUI workflows cleaner, more intentional control surfaces w
  **Wireless signals:** All Derp nodes uses wireless signals for data transfer, you can tuck the real workhorse of your default ComfyUI nodes a mile away and not worry about spaghetti wires disrupting the wires view.
  **Wireless extenders:** You can also allow default ComfyUI nodes to emit wireless signals that derp-UI nodes receives, by using the default right-click context menu and assign a derp Wireless Extender to it.
  
-
-
+ 
 ---
 
 xcp_derp-UI currently includes **25 nodes**: 7 Loader nodes (Model, Diffusion, CLIP, VAE, Sampler, Scheduler, LoRA Stack), 5 ControlDeck interactive nodes (Slider, Toggle, Swatch, Trigger Wall, Prompt Book), 3 Generator nodes (Latent, Seed V2, Image Deck), 5 Utility nodes (Concatenate, String V3, Skunk Works, Notes, Theme Manager V2), 2 Template nodes (Fatha + Uncle), 1 Management node (Router), and 2 Extenders (Bypass Extender, Wireless Extender).
