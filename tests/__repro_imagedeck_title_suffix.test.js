@@ -48,7 +48,8 @@ function buildSuffix(node) {
   const pad = (n) => String(n).padStart(2, "0");
   const clock = `${pad(receivedAt.getHours())}:${pad(receivedAt.getMinutes())}:${pad(receivedAt.getSeconds())}`;
   const res = String(node._imageDeckImageResolution || "...");
-  const durationMs = Number(node._imageDeckExecDurationMs);
+  // Gate on the raw value: Number(null) === 0 would fake a "00:00:00" duration.
+  const durationMs = node._imageDeckExecDurationMs;
   const totalSeconds = Number.isFinite(durationMs) && durationMs >= 0 ? Math.floor(durationMs / 1000) : null;
   const duration = totalSeconds !== null
     ? `${pad(Math.floor(totalSeconds / 3600))}:${pad(Math.floor((totalSeconds % 3600) / 60))}:${pad(totalSeconds % 60)}`
@@ -102,6 +103,25 @@ describe('derpImageDeck title signal info suffix', () => {
     const suffix = buildSuffix(node);
     expect(suffix).toContain("Generated in --:--:--");
     expect(suffix).toContain("Res: ...");
+  });
+
+  it('a null duration never paints a fake 00:00:00 (Number(null) === 0 defeat)', async () => {
+    const node = await makeImageDeckNode();
+    node.applyDerpImageDeckList([{ filename: 'img.png', type: 'output', subfolder: '' }]);
+    node._imageDeckExecDurationMs = null; // unknown, e.g. no execution window seen
+
+    const suffix = buildSuffix(node);
+    expect(suffix).toContain("Generated in --:--:--");
+    expect(suffix).not.toContain("00:00:00");
+  });
+
+  it('over-60-second durations keep the real elapsed value', async () => {
+    const node = await makeImageDeckNode();
+    node._imageDeckExecStartAt = Date.now() - 95000; // 1m 35s generation
+    node.applyDerpImageDeckList([{ filename: 'img.png', type: 'output', subfolder: '' }]);
+
+    const suffix = buildSuffix(node);
+    expect(suffix).toMatch(/Generated in 00:01:3[456]/);
   });
 
   it('resolution from the preloaded image fills Res and duration formats as HH:MM:SS', async () => {

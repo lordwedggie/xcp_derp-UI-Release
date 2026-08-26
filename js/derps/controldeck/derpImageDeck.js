@@ -321,7 +321,10 @@ app.registerExtension({
             const receivedAt = this._imageDeckReceivedAt instanceof Date ? this._imageDeckReceivedAt : null;
             if (!receivedAt) return "";
             const res = String(this._imageDeckImageResolution || "...");
-            const durationMs = Number(this._imageDeckExecDurationMs);
+            // Gate on the RAW value: Number(null) === 0 would paint a fake
+            // "00:00:00" for an unknown duration; "--:--:--" is the honest
+            // fallback.
+            const durationMs = this._imageDeckExecDurationMs;
             const duration = Number.isFinite(durationMs) && durationMs >= 0
                 ? formatImageDeckDurationClock(durationMs)
                 : "--:--:--";
@@ -715,7 +718,10 @@ app.registerExtension({
                 // suffix can report the full prompt duration ("Generated in").
                 app.api.addEventListener("execution_start", () => {
                     this._imageDeckExecStartAt = Date.now();
-                    this._imageDeckExecDurationMs = null;
+                    // Do NOT null _imageDeckExecDurationMs here: the suffix
+                    // describes the currently displayed image, which stays up
+                    // until the new image arrives. Nulling it painted a fake
+                    // "00:00:00" for the entire run on long generations.
                 });
                 app.api.addEventListener("execution_success", () => {
                     if (!Number.isFinite(this._imageDeckExecStartAt)) return;
