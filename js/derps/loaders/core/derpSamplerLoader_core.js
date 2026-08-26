@@ -86,7 +86,7 @@ export function initDerpSamplerLoaderCore(nodeType) {
     };
 
     proto.fetchSamplerData = function(showNotification = false, options = {}) {
-        if (this.id === -1) return;
+        if (Number(this.id) === -1) return;
 
         const suppressSignal = options?.suppressSignal === true;
         const session = window._xcpDerpSession || Date.now();
@@ -157,7 +157,7 @@ export function initDerpSamplerLoaderCore(nodeType) {
     };
 
     proto.broadcastWirelessSignal = function() {
-        if (this.id === -1) return;
+        if (Number(this.id) === -1) return;
 
         const isBypassed = this.mode === 4 || this.mode === 2 || this._derpSpoofedBypass;
         const deck = this.properties.samplerDeck || [];
@@ -277,7 +277,7 @@ export function initDerpSamplerLoaderCore(nodeType) {
         setTimeout(() => {
             if (this._restoreSamplerDeckPending) return;
             this.fetchSamplerData();
-            if (!this._restoreSamplerDeckPending && typeof this.syncDerpOutputs === "function" && this.id !== -1) {
+            if (!this._restoreSamplerDeckPending && typeof this.syncDerpOutputs === "function" && Number(this.id) !== -1) {
                 this.syncDerpOutputs();
             }
         }, 32);

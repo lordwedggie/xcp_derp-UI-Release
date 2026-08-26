@@ -53,7 +53,8 @@ function installDerpModelLoaderPromptHook() {
 }
 
 function publishIndexedModelSignals(node, modelName) {
-    if (!node || node.id === undefined || !modelName) return;
+    // String node ids defeat `=== -1` — never publish under the unassigned "-1" id.
+    if (!node || node.id === undefined || Number(node.id) === -1 || !modelName) return;
     window.xcpDerpSignals = window.xcpDerpSignals || {};
     const payload = { model_name_prefix: modelName, ckpt_name: modelName };
     const nodeName = node.titleLabel || node.title || "Derp Model Loader";
@@ -170,7 +171,7 @@ export function initDerpModelLoaderCore(nodeType) {
     };
 
     proto.fetchModelData = function(showNotification = false, options = {}) {
-        if (this.id === -1) return;
+        if (Number(this.id) === -1) return;
         const suppressSignal = options?.suppressSignal === true;
         const session = window._xcpDerpSession || Date.now();
         fetch(`/xcp/list/models?v=${session}`)
@@ -271,7 +272,7 @@ export function initDerpModelLoaderCore(nodeType) {
     };
 
     proto.broadcastWirelessSignal = function() {
-        if (this.id === -1 || this.mode === 4 || this.mode === 2) return;
+        if (Number(this.id) === -1 || this.mode === 4 || this.mode === 2) return;
 
         const activeModel = (this.properties.modelDeck || []).find(m => m.active);
         const val = activeModel ? activeModel.name : null;
@@ -454,7 +455,7 @@ export function initDerpModelLoaderCore(nodeType) {
         setTimeout(() => {
             if (this._restoreModelDeckPending) return;
             this.fetchModelData();
-            if (!this._restoreModelDeckPending && typeof this.syncDerpOutputs === "function" && this.id !== -1) {
+            if (!this._restoreModelDeckPending && typeof this.syncDerpOutputs === "function" && Number(this.id) !== -1) {
                 this.syncDerpOutputs();
             }
         }, 32);

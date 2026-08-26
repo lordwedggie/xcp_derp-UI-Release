@@ -89,7 +89,7 @@ export function initDerpVaeLoaderCore(nodeType) {
     };
 
     proto.fetchVaeData = function(showNotification = false, options = {}) {
-        if (this.id === -1) return;
+        if (Number(this.id) === -1) return;
         const suppressSignal = options?.suppressSignal === true;
         const session = window._xcpDerpSession || Date.now();
         const category = this.properties.extractFromModel ? "models" : "vaes";
@@ -167,7 +167,7 @@ export function initDerpVaeLoaderCore(nodeType) {
     };
 
     proto.broadcastWirelessSignal = function() {
-        if (this.id === -1) return;
+        if (Number(this.id) === -1) return;
 
         const isBypassed = this.mode === 4 || this.mode === 2 || this._derpSpoofedBypass;
 
@@ -309,7 +309,7 @@ export function initDerpVaeLoaderCore(nodeType) {
         setTimeout(() => {
             if (this._restoreVaeDeckPending) return;
             this.fetchVaeData();
-            if (!this._restoreVaeDeckPending && typeof this.syncDerpOutputs === "function" && this.id !== -1) {
+            if (!this._restoreVaeDeckPending && typeof this.syncDerpOutputs === "function" && Number(this.id) !== -1) {
                 this.syncDerpOutputs();
             }
         }, 32);

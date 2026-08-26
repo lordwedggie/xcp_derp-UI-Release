@@ -7,6 +7,8 @@ import { app } from "../../../../../scripts/app.js";
 let derpDiffusionLoaderPromptHookInstalled = false;
 
 function pushDiffusionSignalToRegistry(node, signalId, nodeName, portLabel, signalType, payload) {
+    // String node ids defeat `=== -1` — never park a ghost under the unassigned "-1" id.
+    if (Number(node?.id) === -1) return;
     if (!window.xcpDerpSignals) window.xcpDerpSignals = {};
     window.xcpDerpSignals[signalId] = {
         nodeId: signalId,
@@ -147,7 +149,7 @@ export function initDerpDiffusionLoaderCore(nodeType) {
     };
 
     proto.fetchDiffusionData = async function(showNotification = false, options = {}) {
-        if (this.id === -1) return;
+        if (Number(this.id) === -1) return;
         const suppressSignal = options?.suppressSignal === true;
         const session = window._xcpDerpSession || Date.now();
 
@@ -204,7 +206,7 @@ export function initDerpDiffusionLoaderCore(nodeType) {
     };
 
     proto.broadcastWirelessSignal = function() {
-        if (this.id === -1) return;
+        if (Number(this.id) === -1) return;
         const isBypassed = this.mode === 4 || this.mode === 2 || this._derpSpoofedBypass;
         const activeDiffusion = (this.properties.diffusionDeck || []).find(m => m.active);
 
@@ -355,7 +357,7 @@ export function initDerpDiffusionLoaderCore(nodeType) {
         setTimeout(() => {
             if (this._restoreDiffusionDeckPending) return;
             this.fetchDiffusionData();
-            if (!this._restoreDiffusionDeckPending && typeof this.syncDerpOutputs === "function" && this.id !== -1) this.syncDerpOutputs();
+            if (!this._restoreDiffusionDeckPending && typeof this.syncDerpOutputs === "function" && Number(this.id) !== -1) this.syncDerpOutputs();
         }, 32);
     };
 

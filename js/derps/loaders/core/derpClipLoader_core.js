@@ -53,6 +53,8 @@ function resolvePathMatch(list, savedName) {
 }
 
 function pushClipSignalToRegistry(node, signalId, nodeName, portLabel, payload) {
+    // String node ids defeat `=== -1` — never park a ghost under the unassigned "-1" id.
+    if (Number(node?.id) === -1) return;
     if (!window.xcpDerpSignals) window.xcpDerpSignals = {};
     window.xcpDerpSignals[signalId] = {
         nodeId: signalId,
@@ -94,7 +96,7 @@ export function initDerpClipLoaderCore(nodeType) {
     };
 
     proto.fetchClipData = async function(showNotification = false, options = {}) {
-        if (this.id === -1) return;
+        if (Number(this.id) === -1) return;
         const suppressSignal = options?.suppressSignal === true;
         const session = window._xcpDerpSession || Date.now();
         const textEncoderRes = await fetch(`/xcp/list/text_encoders?v=${session}`).then(r => r.json());
@@ -139,7 +141,7 @@ export function initDerpClipLoaderCore(nodeType) {
     };
 
     proto.broadcastWirelessSignal = function() {
-        if (this.id === -1) return;
+        if (Number(this.id) === -1) return;
         const isBypassed = this.mode === 4 || this.mode === 2 || this._derpSpoofedBypass;
         const activeClip = (this.properties.clipDeck || []).find(m => m.active);
 
@@ -230,7 +232,7 @@ export function initDerpClipLoaderCore(nodeType) {
         setTimeout(() => {
             if (this._restoreClipDeckPending) return;
             this.fetchClipData();
-            if (!this._restoreClipDeckPending && typeof this.syncDerpOutputs === "function" && this.id !== -1) this.syncDerpOutputs();
+            if (!this._restoreClipDeckPending && typeof this.syncDerpOutputs === "function" && Number(this.id) !== -1) this.syncDerpOutputs();
         }, 32);
     };
 

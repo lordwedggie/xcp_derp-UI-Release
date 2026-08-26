@@ -86,7 +86,7 @@ export function initDerpSchedulerLoaderCore(nodeType) {
     };
 
     proto.fetchSchedulerData = function(showNotification = false, options = {}) {
-        if (this.id === -1) return;
+        if (Number(this.id) === -1) return;
 
         const suppressSignal = options?.suppressSignal === true;
         const session = window._xcpDerpSession || Date.now();
@@ -154,7 +154,7 @@ export function initDerpSchedulerLoaderCore(nodeType) {
     };
 
     proto.broadcastWirelessSignal = function() {
-        if (this.id === -1) return;
+        if (Number(this.id) === -1) return;
 
         const isBypassed = this.mode === 4 || this.mode === 2 || this._derpSpoofedBypass;
         const deck = this.properties.schedulerDeck || [];
@@ -274,7 +274,7 @@ export function initDerpSchedulerLoaderCore(nodeType) {
         setTimeout(() => {
             if (this._restoreSchedulerDeckPending) return;
             this.fetchSchedulerData();
-            if (!this._restoreSchedulerDeckPending && typeof this.syncDerpOutputs === "function" && this.id !== -1) {
+            if (!this._restoreSchedulerDeckPending && typeof this.syncDerpOutputs === "function" && Number(this.id) !== -1) {
                 this.syncDerpOutputs();
             }
         }, 32);

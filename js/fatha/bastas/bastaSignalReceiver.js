@@ -76,9 +76,17 @@ export function showBastaSignalReceiver(host, targetRegion = null, params = {}) 
                 const targetType = type.toUpperCase();
                 let items = Object.values(globalSignals)
                     .filter(sig => {
+                        // THE GHOST FILTER: string node ids defeat `=== -1`
+                        // writer guards, so creation-time syncs can park
+                        // signals under unassigned negative ids ("-1",
+                        // "-1:0"). They can never be valid sources — hide them
+                        // in every consumer of this shared picker (same
+                        // string-id lesson as the concat picker).
+                        if (!sig || sig.nodeId == null) return false;
                         const callerId = String(basta.hostNode?.id);
                         const sigIdStr = String(sig.nodeId);
                         const sigBaseId = sigIdStr.split(":")[0];
+                        if (Number(sigBaseId) < 0) return false;
                         const isOwnSignal = sigBaseId === callerId;
                         const isWrapperSignal = isPlainWrapperSignalId(sigIdStr) && hasIndexedSignalForBase(globalSignals, sigBaseId);
                         const isDownstream = Array.isArray(sig.upstreamIds) && sig.upstreamIds.some(id => String(id) === callerId);
