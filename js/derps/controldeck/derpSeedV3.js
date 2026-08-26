@@ -56,6 +56,8 @@ function buildSeedV3LayoutHash(node, vars, history) {
         node._comfyIsBusy ? 1 : 0,
         node.properties?.seedMode || "Random",
         node.properties?.toggleColorKey !== false ? 1 : 0,
+        // autoLogs changes the history row count (padded to fit) — must rebuild.
+        node.properties?.autoLogs !== false ? 1 : 0,
         // drawHeader changes topControlsRegion margins — must rebuild on toggle.
         node.properties?.drawHeader === true ? 1 : 0,
         getSeedV3DigitCount(node),
@@ -126,16 +128,20 @@ function getRegionBottom(reg) {
     return (Number(reg.y) || 0) + (Number(reg.h) || 0) + marginB;
 }
 
-function getSeedV3FitNodeClipHeight(node, region, regions, minClipHeight, fullContentHeight = 0) {
+function getSeedV3FitAvailableHeight(node, region, regions) {
     const nodeH = Number(node?.size?.[1] || node?.properties?.nodeSize?.[1] || 0);
     const regionY = Number(region?.y) || 0;
-    if (nodeH <= 0 || regionY <= 0) return minClipHeight;
+    if (nodeH <= 0 || regionY <= 0) return 0;
 
     const vars = typeof node?.getDerpVars === "function" ? node.getDerpVars(node) : null;
     const viewportGap = Math.max(0, Number(vars?.mH || 0));
     const footer = regions.footerRegion || regions.systemBtn;
     const footerH = footer ? Math.max(0, getRegionBottom(footer) - (Number(footer.y) || 0)) : 0;
-    const available = nodeH - regionY - viewportGap - footerH;
+    return nodeH - regionY - viewportGap - footerH;
+}
+
+function getSeedV3FitNodeClipHeight(node, region, regions, minClipHeight, fullContentHeight = 0) {
+    const available = getSeedV3FitAvailableHeight(node, region, regions);
     if (!Number.isFinite(available) || available <= 0) return minClipHeight;
     const clipped = fullContentHeight > 0 ? Math.min(available, fullContentHeight) : available;
     return Math.max(minClipHeight, clipped);
@@ -147,6 +153,22 @@ function resolveSeedV3HistoryClipHeight(node, region, regions = {}) {
     const firstRowHeight = getSeedV3HistoryRowsSpan(rows, 1);
     const numericLimit = getSeedV3NumericVisibleHistory(node);
     if (numericLimit !== null) return getSeedV3HistoryRowsSpan(rows, Math.min(rows.length, numericLimit)) || firstRowHeight;
+
+    if (node?.properties?.autoLogs !== false) {
+        // AUTO LOGS: the visible entry count follows the available empty
+        // space — floor the fit-node clip to whole rows so the bottom row
+        // never renders as a partial slice. The engine reruns this resolver
+        // on every live resize pass (standalone, stacked, or decked) and
+        // skips it entirely when no layout pass occurs.
+        const available = getSeedV3FitAvailableHeight(node, region, regions);
+        if (!Number.isFinite(available) || available <= 0) return firstRowHeight;
+        let fitRows = 1;
+        for (let k = 1; k <= rows.length; k++) {
+            if (getSeedV3HistoryRowsSpan(rows, k) <= available) fitRows = k;
+            else break;
+        }
+        return getSeedV3HistoryRowsSpan(rows, fitRows) || firstRowHeight;
+    }
 
     const fullContentHeight = getSeedV3HistoryRowsSpan(rows) || firstRowHeight;
     return getSeedV3FitNodeClipHeight(node, region, regions, firstRowHeight, fullContentHeight);
@@ -169,6 +191,8 @@ function defaultSeedV3Properties(node) {
     if (!node.properties.favoriteNum) node.properties.favoriteNum = 8;
     if (!node.properties.historyVisibleBeforeClip) node.properties.historyVisibleBeforeClip = "Auto";
     if (node.properties.toggleColorKey === undefined) node.properties.toggleColorKey = true;
+    // Auto Logs: visible history rows follow the available space (default ON).
+    if (node.properties.autoLogs === undefined) node.properties.autoLogs = true;
     node.properties.isWirelessTransmitter = true;
     node.properties.skipGenericWirelessHeartbeat = true;
     node.properties.isPureVirtual = true;
@@ -295,6 +319,16 @@ app.registerExtension({
             const measurementStr = "9".repeat(digits);
             const rowMeasure = Math.max(18, (pH * 2) + 16);
             const useColorKeys = this.properties.toggleColorKey !== false;
+            const autoLogs = this.properties.autoLogs !== false;
+            // AUTO LOGS: pad the display list to the 20-row cap with inert
+            // placeholders so the viewport clip alone decides how many
+            // entries fit the available space — visible count then follows
+            // live resize with zero structural map rebuilds. Storage
+            // retention stays governed by seedHistoryLimit.
+            const AUTO_LOGS_ROW_CAP = 20;
+            const displayHistory = autoLogs
+                ? [...history, ...Array(Math.max(0, AUTO_LOGS_ROW_CAP - history.length)).fill("-".repeat(digits))]
+                : history;
             const structureHash = buildSeedV3LayoutHash(this, { mW, mH, oY }, history);
 
             if (this._layoutMapHash === structureHash && this.layoutMap) {
@@ -305,7 +339,7 @@ app.registerExtension({
             this._layoutMapHash = structureHash;
 
             const historyRows = {};
-            history.forEach((seed, index) => {
+            displayHistory.forEach((seed, index) => {
                 const isPlaceholder = typeof seed === "string" && seed.includes("-");
                 historyRows[`historySeed_${index}`] = {
                     type: UI_TYPES.BUTTON,
@@ -446,6 +480,7 @@ app.registerExtension({
                 getSeedV3DigitCount(this),
                 getSeedV3VisibleHistory(this),
                 this.properties?.toggleColorKey !== false ? 1 : 0,
+                this.properties?.autoLogs !== false ? 1 : 0,
                 Number(mW || 0).toFixed(2),
                 Number(mH || 0).toFixed(2),
                 Number(sW || 0).toFixed(2),
@@ -482,10 +517,32 @@ app.registerExtension({
                         width: "full",
                         height: "auto",
                         spacing: [sW, 0],
+                        toggleAutoLogs: {
+                            type: UI_TYPES.TOGGLE_V2,
+                            isTextOnly: true,
+                            themeKey: "dialog, button, t_textSystem",
+                            text: tLocale("$derp_seed_v3.system.auto_logs", "Auto Logs"),
+                            toolTip: tLocale("$derp_seed_v3.tooltips.auto_logs", "Automatically display seed history based on available space"),
+                            width: "auto",
+                            height: "auto",
+                            padding: [pW, pH],
+                            value: this.properties.autoLogs !== false,
+                            onChange: (value) => {
+                                if ((this.properties.autoLogs !== false) === value) return;
+                                this.properties.autoLogs = value;
+                                // Affects BOTH maps: the main face row count/clip
+                                // and the panel's own label/editor visibility.
+                                this._layoutMapHash = null;
+                                this._seedV3SysLayoutHash = null;
+                                this.refreshNodeLayoutMap();
+                                this.refreshDerpSeedV3SysMap();
+                            },
+                        },
                         historyLabel: {
                             type: UI_TYPES.TEXT,
                             themeKey: "t_textsystem",
                             text: tLocale("$derp_seed_v3.system.history_logs", "History logs:"),
+                            hidden: this.properties.autoLogs !== false,
                             width: "auto",
                             height: "auto",
                             padding: [pW, pH],
@@ -496,6 +553,7 @@ app.registerExtension({
                             themeKey: "dialog, t_textsystem",
                             canvasShield: true,
                             numberOnly: true,
+                            hidden: this.properties.autoLogs !== false,
                             measureText: "99",
                             text: String(getSeedV3HistoryLimit(this)),
                             value: String(getSeedV3HistoryLimit(this)),

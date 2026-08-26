@@ -131,7 +131,11 @@
       "history_logs": "历史记录：",
       "decimals": "位数：",
       "color_overlay": "颜色标记",
-      "clip_visible_limit": "裁切可见："
+      "clip_visible_limit": "裁切可见：",
+      "auto_logs": "自动日志"
+    },
+    "tooltips": {
+      "auto_logs": "根据可用空间自动显示种子历史记录"
     },
     "messages": {
       "workflow_unchanged": "工作流未变。已跳过重复队列。"

@@ -131,7 +131,11 @@
       "history_logs": "History logs:",
       "decimals": "Decimals:",
       "color_overlay": "Color overlay",
-      "clip_visible_limit": "Clip visible:"
+      "clip_visible_limit": "Clip visible:",
+      "auto_logs": "Auto Logs"
+    },
+    "tooltips": {
+      "auto_logs": "Automatically display seed history based on available space"
     },
     "messages": {
       "workflow_unchanged": "Workflow unchanged. Skipping redundant queue."
